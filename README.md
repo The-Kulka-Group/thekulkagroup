@@ -1,0 +1,34 @@
+# Kulka AI
+
+Business development for The Kulka Group. Next.js App Router, TypeScript, and
+the Daylight design language.
+
+## Running it
+
+```bash
+npm install
+npm run dev
+```
+
+## How it is put together
+
+| Path | What it is |
+|---|---|
+| `daylight.css` | The whole design system: tokens, then component classes. The token authority for DESIGN.md. |
+| `DESIGN.md` | The design language and the dated record of every owner decision behind it. |
+| `app/(app)/` | The framed routes: Home, Pursuits, a client record, a brief. |
+| `app/login/` | The login cover, deliberately outside the app frame so it has no rail. |
+| `components/` | Rail, Sheet, and the status marks. |
+| `lib/data.ts` | Example data. Invented names and dates only, no fabricated dollar figures. |
+| `public/glyphs/` | The Phosphor state glyphs, vendored so nothing depends on a CDN at runtime. |
+| `reference/` | The original static shells and the decision choosers. Design source of truth, not part of the build. |
+
+## Two rules worth knowing before you edit
+
+**No Tailwind, on purpose.** `daylight.css` carries the palette, the type scale,
+and the component decisions that came out of two blind design reviews. Utility
+classes would reintroduce the borrowed defaults the system exists to avoid. Add
+to the stylesheet, and keep new values on the type and space scales.
+
+**Icons live in two places only:** the rail, and state marks. Never on actions,
+table rows, or body content. An icon always sits beside its word.

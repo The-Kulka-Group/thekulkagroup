@@ -67,20 +67,19 @@
 
   /* State glyphs (owner pick 2026-08-25): Phosphor regular, replacing the
      colored dot everywhere it marked state or severity. Icons now live in
-     the rail and as state marks, never on actions or content. The shells
-     hotlink; the app bundles @phosphor-icons/react. */
-  --gl-base:    "https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/";
-  --gl-working: url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-half.svg");
-  --gl-stuck:   url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/warning-diamond.svg");
-  --gl-done:    url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/check.svg");
-  --gl-open:    url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-dashed.svg");
-  --gl-waiting: url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/clock.svg");
-  --gl-draft:   url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/pencil-simple.svg");
+     the rail and as state marks, never on actions or content. Glyphs are vendored in
+     /public/glyphs; rail icons come from @phosphor-icons/react. */
+  --gl-working: url("/glyphs/circle-half.svg");
+  --gl-stuck:   url("/glyphs/warning-diamond.svg");
+  --gl-done:    url("/glyphs/check.svg");
+  --gl-open:    url("/glyphs/circle-dashed.svg");
+  --gl-waiting: url("/glyphs/clock.svg");
+  --gl-draft:   url("/glyphs/pencil-simple.svg");
 
   /* Type: Open Sans, strategically.
      400 reads, 600 acts (buttons, labels, chips), 700 heads sections,
      800 is the Kulka voice: wordmark and sheet titles only. */
-  --family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif;
+  --family: var(--font-open-sans), "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif;
 
   /* One scale, seven steps, each with its own line-height and tracking.
      Set 2026-08-26 after a gauntlet critic counted thirteen ad-hoc sizes
@@ -1093,6 +1092,31 @@ em, .em { font-style: normal; font-weight: 600; }
   box-shadow: var(--shadow-card);
   padding: var(--s8);
 }
+
+/* The login cover. The one screen without the app frame, so the wordmark
+   carries the page and the lockup is the single brand moment. */
+.login-mark {
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--s6);
+  font-size: 24px; line-height: 32px; font-weight: 800;
+  color: var(--brand); letter-spacing: var(--sheet-title-track);
+}
+.login-mark .logo-ai {
+  margin-left: var(--s2);
+  background: var(--primary); color: #FFFFFF;
+  font-size: 13px; line-height: 1; font-weight: 800; letter-spacing: 0.04em;
+  padding: 6px var(--s2); border-radius: 6px;
+}
+.login-column h1 {
+  font-size: var(--t2-size); line-height: var(--t2-line);
+  letter-spacing: var(--t2-track);
+  font-weight: 700; text-align: center; margin-bottom: var(--s1);
+}
+.login-column .sub { text-align: center; margin-bottom: var(--s6); }
+.login-field { margin-bottom: var(--s4); }
+.login-actions { margin-top: var(--s6); }
+.login-actions .btn { width: 100%; justify-content: center; }
+.login-foot { margin-top: var(--s4); text-align: center; }
 
 /* --- 20. Narrow widths --------------------------------------------------- */
 

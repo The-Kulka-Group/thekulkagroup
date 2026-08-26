@@ -1,0 +1,267 @@
+<!doctype html>
+<!-- Daylight icon chooser. Two groups: the icon style, and where icons live.
+     Icons load from the real libraries (lucide-static and phosphor) via CSS
+     masks so they take our colors. Click one option per group; picks persist
+     and collect in the bar. Example data throughout. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Icon Choices, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-d3">
+<style>
+  html, body { height: auto; }
+  body { padding: 40px 28px 200px; }
+  .pick-wrap { max-width: 1080px; margin: 0 auto; }
+  .pick-wrap > h1 { font-size: 26px; font-weight: 800; color: var(--brand); letter-spacing: -0.02em; }
+  .pick-wrap > p.lede { margin-top: 6px; color: var(--ink-2); max-width: 64ch; font-size: 14.5px; }
+
+  .group { margin-top: 36px; }
+  .group > h2 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .group > p { font-size: 13px; color: var(--ink-2); margin-bottom: 14px; }
+  .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .opt {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-card);
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
+  }
+  .opt:hover { border-color: var(--border); box-shadow: var(--shadow-raised); }
+  .opt:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .opt.sel { border: 2px solid var(--primary); padding: 17px; }
+  .opt.sel::after {
+    content: "Selected";
+    position: absolute; top: 10px; right: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: #fff; background: var(--primary);
+    padding: 3px 8px; border-radius: var(--r-pill);
+  }
+  .opt h3 { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .opt .cap { font-size: 12px; color: var(--ink-2); margin-bottom: 14px; }
+
+  /* icon via mask so it takes text color */
+  .ic {
+    display: inline-block; width: 16px; height: 16px; flex: none;
+    background: currentColor;
+    -webkit-mask: var(--u) center / contain no-repeat;
+    mask: var(--u) center / contain no-repeat;
+  }
+
+  .railmock { width: 210px; background: var(--canvas); border: 1px solid var(--border-light); border-radius: 10px; padding: 8px; }
+  .rm {
+    display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px;
+    border-radius: 8px; font-size: 13.5px; color: var(--ink);
+  }
+  .rm .c { margin-left: auto; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .rm.on { background: var(--brand); color: #fff; font-weight: 600; }
+  .rm.on .c { color: rgba(255,255,255,.75); }
+
+  .barmock { display: flex; gap: 8px; align-items: center; }
+  .bbtn {
+    display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px;
+    border-radius: var(--r-md); font-size: 13.5px; font-weight: 600;
+  }
+  .bbtn--pri { background: var(--primary); color: #fff; }
+  .bbtn--sec { background: var(--surface); border: 1px solid var(--border); color: var(--ink); }
+  .rowmock {
+    margin-top: 10px; display: flex; align-items: center; gap: 10px;
+    border-top: 1px solid var(--border-light); padding-top: 10px;
+    font-size: 13.5px;
+  }
+  .rowmock .meta { color: var(--ink-2); display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--border-light);
+    box-shadow: 0 -4px 16px rgba(29,29,31,.06);
+    padding: 12px 28px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .bar .picks { flex: 1; font-size: 12.5px; color: var(--ink-2); }
+  .bar .picks b { color: var(--ink); font-weight: 700; }
+  .bar button {
+    height: 32px; padding: 0 16px; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--primary); color: #fff; font: 600 13.5px "Open Sans", sans-serif;
+  }
+  .bar button.ghost { background: var(--surface); border: 1px solid var(--border); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="pick-wrap">
+  <h1>Icon choices</h1>
+  <p class="lede">Two decisions. The gauntlet's buyer judge called iconography the biggest
+  remaining lever; both Monday and Attio anchor their nav and actions with icons. Words stay
+  next to every icon in all options, per the standing rule. Icons below load from the real
+  libraries, so what you see is what ships.</p>
+
+  <div class="group" data-g="Icon style">
+    <h2>1 · The set</h2>
+    <p>The same four nav items in each candidate style, with the active row.</p>
+    <div class="opts">
+
+      <div class="opt" data-o="A · No icons (current)" tabindex="0" role="button">
+        <h3>A · No icons (current)</h3><p class="cap">Words carry everything. The quietest rail in the category.</p>
+        <div class="railmock">
+          <div class="rm">Home <span class="c">H-100</span></div>
+          <div class="rm on">Pursuits <span class="c">9</span></div>
+          <div class="rm">Clients <span class="c">31</span></div>
+          <div class="rm">Briefs <span class="c">6</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="B · Lucide outline" tabindex="0" role="button">
+        <h3>B · Lucide outline</h3><p class="cap">Even 1.75px strokes, enterprise-neutral. Linear and shadcn territory.</p>
+        <div class="railmock">
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/house.svg')"></span>Home <span class="c">H-100</span></div>
+          <div class="rm on"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/target.svg')"></span>Pursuits <span class="c">9</span></div>
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/users.svg')"></span>Clients <span class="c">31</span></div>
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/file-text.svg')"></span>Briefs <span class="c">6</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="C · Phosphor regular" tabindex="0" role="button">
+        <h3>C · Phosphor regular</h3><p class="cap">Rounder shapes, a touch friendlier, still an outline.</p>
+        <div class="railmock">
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/house.svg')"></span>Home <span class="c">H-100</span></div>
+          <div class="rm on"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/target.svg')"></span>Pursuits <span class="c">9</span></div>
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/users.svg')"></span>Clients <span class="c">31</span></div>
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/file-text.svg')"></span>Briefs <span class="c">6</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="D · Phosphor filled" tabindex="0" role="button">
+        <h3>D · Phosphor filled</h3><p class="cap">Solid glyphs, the most Monday-like energy and the boldest rail.</p>
+        <div class="railmock">
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/fill/house-fill.svg')"></span>Home <span class="c">H-100</span></div>
+          <div class="rm on"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/fill/target-fill.svg')"></span>Pursuits <span class="c">9</span></div>
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/fill/users-fill.svg')"></span>Clients <span class="c">31</span></div>
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/fill/file-text-fill.svg')"></span>Briefs <span class="c">6</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="group" data-g="Icon placement">
+    <h2>2 · Where icons live</h2>
+    <p>Shown with Lucide as the stand-in; the placement decision holds for any set.</p>
+    <div class="opts">
+
+      <div class="opt" data-o="A · Rail only" tabindex="0" role="button">
+        <h3>A · Rail only</h3><p class="cap">Wayfinding gets icons; actions and content stay words.</p>
+        <div class="railmock" style="width:190px">
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/house.svg')"></span>Home</div>
+          <div class="rm on"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/target.svg')"></span>Pursuits</div>
+        </div>
+        <div class="barmock" style="margin-top:10px">
+          <span class="bbtn bbtn--sec">Export</span>
+          <span class="bbtn bbtn--pri">New pursuit</span>
+        </div>
+      </div>
+
+      <div class="opt" data-o="B · Rail + header actions" tabindex="0" role="button">
+        <h3>B · Rail + header actions</h3><p class="cap">The references' pattern: nav anchored, primary actions signed.</p>
+        <div class="railmock" style="width:190px">
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/house.svg')"></span>Home</div>
+          <div class="rm on"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/target.svg')"></span>Pursuits</div>
+        </div>
+        <div class="barmock" style="margin-top:10px">
+          <span class="bbtn bbtn--sec"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/download.svg')"></span>Export</span>
+          <span class="bbtn bbtn--pri"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/plus.svg')"></span>New pursuit</span>
+        </div>
+      </div>
+
+      <div class="opt" data-o="C · Everywhere" tabindex="0" role="button">
+        <h3>C · Everywhere</h3><p class="cap">Rail, actions, and row-level metadata. Richest, and the busiest.</p>
+        <div class="railmock" style="width:190px">
+          <div class="rm"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/house.svg')"></span>Home</div>
+          <div class="rm on"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/target.svg')"></span>Pursuits</div>
+        </div>
+        <div class="barmock" style="margin-top:10px">
+          <span class="bbtn bbtn--sec"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/download.svg')"></span>Export</span>
+          <span class="bbtn bbtn--pri"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/plus.svg')"></span>New pursuit</span>
+        </div>
+        <div class="rowmock">
+          <span>Site walk at Fulton Street</span>
+          <span class="meta"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/calendar.svg'); width:13px; height:13px"></span>2026-06-25</span>
+          <span class="meta"><span class="ic" style="--u:url('https://unpkg.com/lucide-static@0.462.0/icons/phone.svg'); width:13px; height:13px"></span>Call</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="bar">
+  <div class="picks" id="picks">No picks yet.</div>
+  <button class="ghost" id="reset" type="button">Reset</button>
+  <button id="copy" type="button">Copy picks</button>
+</div>
+
+<script>
+(function () {
+  var KEY = 'kulka-icon-picks';
+  var picks = {};
+  try { picks = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { picks = {}; }
+  var groups = document.querySelectorAll('.group');
+
+  function renderBar() {
+    var names = [];
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      if (picks[gn]) names.push('<b>' + gn + ':</b> ' + picks[gn]);
+    });
+    document.getElementById('picks').innerHTML = names.length ? names.join(' &nbsp;·&nbsp; ') : 'No picks yet.';
+  }
+  function renderSel() {
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      g.querySelectorAll('.opt').forEach(function (o) {
+        o.classList.toggle('sel', picks[gn] === o.getAttribute('data-o'));
+      });
+    });
+  }
+  function choose(g, o) {
+    picks[g.getAttribute('data-g')] = o.getAttribute('data-o');
+    localStorage.setItem(KEY, JSON.stringify(picks));
+    renderSel(); renderBar();
+  }
+  groups.forEach(function (g) {
+    g.querySelectorAll('.opt').forEach(function (o) {
+      o.addEventListener('click', function () { choose(g, o); });
+      o.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(g, o); }
+      });
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    picks = {}; localStorage.removeItem(KEY); renderSel(); renderBar();
+  });
+  document.getElementById('copy').addEventListener('click', function () {
+    var lines = [];
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      lines.push(gn + ': ' + (picks[gn] || 'no pick'));
+    });
+    var text = lines.join('\n');
+    var btn = document.getElementById('copy');
+    function done() { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy picks'; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy your picks:', text); });
+    } else { window.prompt('Copy your picks:', text); }
+  });
+  renderSel(); renderBar();
+})();
+</script>
+</body>
+</html>

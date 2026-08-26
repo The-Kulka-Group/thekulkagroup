@@ -1,0 +1,345 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kulka Component Sourcing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap">
+<style>
+  :root {
+    --bg: #FFFFFF; --ink: #1D1D1F; --mut: #676879; --faint: #9699A6;
+    --line: #E6E9EF; --card: #F6F7FB; --blue: #0073EA; --blue-tint: #EAF3FE;
+    --orange: #FF9500; --orange-tint: #FFE8CC;
+    --red: #CE3350; --red-dot: #E2445C; --red-tint: #FFDEE3;
+    --green: #00854D; --green-dot: #00C875; --green-tint: #D5F6E5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161618; --ink: #F2F2F4; --mut: #A5A5AC; --faint: #7B7B83;
+      --line: #2E2E33; --card: #1F1F23; --blue: #6CA9F5; --blue-tint: #1C2B40;
+      --red: #F08A9B; --red-tint: #3A2228; --green: #6FCFA0; --green-tint: #1E3229;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161618; --ink: #F2F2F4; --mut: #A5A5AC; --faint: #7B7B83;
+    --line: #2E2E33; --card: #1F1F23; --blue: #6CA9F5; --blue-tint: #1C2B40;
+    --red: #F08A9B; --red-tint: #3A2228; --green: #6FCFA0; --green-tint: #1E3229;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 400 15.5px/1.6 "Open Sans", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 28px; }
+  h1, h2, h3 { text-wrap: balance; }
+
+  header.hero { padding: 72px 0 40px; }
+  .kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--mut); margin-bottom: 16px;
+  }
+  h1 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.08; }
+  p.lede { margin-top: 18px; max-width: 64ch; font-size: 16.5px; }
+  p.sub { margin-top: 10px; max-width: 64ch; font-size: 14px; color: var(--mut); }
+
+  section { padding: 28px 0; }
+  h2 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  p.intro { color: var(--mut); font-size: 14.5px; max-width: 64ch; margin-bottom: 20px; }
+
+  .tablewrap { overflow-x: auto; }
+  table.stack { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.stack th {
+    text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--mut);
+    padding: 8px 12px; border-bottom: 2px solid var(--ink);
+  }
+  table.stack td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.stack td:first-child { font-weight: 700; white-space: nowrap; }
+  table.stack td:nth-child(2) { font-weight: 600; color: var(--blue); white-space: nowrap; }
+
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .rule {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 18px; font-size: 13.5px;
+  }
+  .rule b { display: block; margin-bottom: 2px; font-size: 13.5px; }
+  .rule span { color: var(--mut); }
+
+  .el {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 22px 24px; margin-bottom: 16px;
+  }
+  .el-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .el-head h3 { font-size: 17px; font-weight: 800; }
+  .pick {
+    font-size: 12px; font-weight: 700; color: var(--blue);
+    background: var(--blue-tint); border-radius: 999px; padding: 3px 12px;
+  }
+  .el p.need { color: var(--mut); font-size: 13.5px; margin-bottom: 14px; }
+  .facts { display: grid; grid-template-columns: 96px 1fr; gap: 6px 14px; font-size: 14px; }
+  .facts dt {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--faint); padding-top: 3px;
+  }
+  .facts dd { margin: 0; }
+  .facts dd b { font-weight: 700; }
+
+  .verdict {
+    margin-top: 40px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 24px 28px;
+  }
+  .verdict h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+  .verdict p { font-size: 14.5px; max-width: 70ch; margin-bottom: 10px; }
+  .verdict p:last-child { margin-bottom: 0; }
+
+  footer { padding: 40px 0 64px; }
+  footer p { font-size: 12.5px; color: var(--mut); max-width: 70ch; }
+  footer a { color: var(--blue); text-decoration: none; }
+
+  @media (max-width: 760px) {
+    h1 { font-size: 32px; }
+    .rules { grid-template-columns: 1fr; }
+    .facts { grid-template-columns: 1fr; gap: 2px; }
+    .facts dt { padding-top: 10px; }
+  }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Kulka AI · Daylight build · Issued 2026-08-25</div>
+    <h1>Component sourcing</h1>
+    <p class="lede">Every interactive element the CRM needs, with the best available source for
+    each, a runner-up, and what we steal or refuse. Picks favor headless libraries because they
+    take the Daylight palette cleanly, but good library defaults are welcome as they come.</p>
+    <p class="sub">Verified against the ecosystem as of August 2026. Licenses are MIT or
+    equivalent unless noted.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>The stack in one view</h2>
+    <p class="intro">Ten layers, ten picks. Detail and reasoning follow below.</p>
+    <div class="tablewrap">
+      <table class="stack">
+        <thead><tr><th>Layer</th><th>Pick</th><th>Runner-up</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Primitives</td><td>Base UI</td><td>Radix UI</td><td>Consumed through the shadcn/ui structure, tuned to Daylight</td></tr>
+          <tr><td>Board grid</td><td>TanStack Table</td><td>react-data-grid</td><td>Headless; our rows, our margin, our chips</td></tr>
+          <tr><td>Long lists</td><td>TanStack Virtual</td><td>&nbsp;</td><td>Boards and client lists past a few hundred rows</td></tr>
+          <tr><td>Command search</td><td>cmdk</td><td>modern-cmdk</td><td>"Open P-101" as a first-class command</td></tr>
+          <tr><td>Dates</td><td>react-day-picker</td><td>React Aria DatePicker</td><td>Skinned as the shadcn Calendar pattern</td></tr>
+          <tr><td>Document editor</td><td>Tiptap (ProseMirror)</td><td>Lexical</td><td>Briefs now; scopes with clause apparatus later</td></tr>
+          <tr><td>Forms</td><td>react-hook-form + zod</td><td>&nbsp;</td><td>Errors render as redlines under the field</td></tr>
+          <tr><td>Confirmations</td><td>sonner</td><td>&nbsp;</td><td>Restyled to one quiet sentence, bottom-left</td></tr>
+          <tr><td>Drag and reorder</td><td>pragmatic-drag-and-drop</td><td>dnd-kit</td><td>Held until a feature truly needs dragging</td></tr>
+          <tr><td>Icons</td><td>Phosphor (regular)</td><td>Lucide</td><td>Owner pick 2026-08-25; rail only, always beside a word</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How we adopt</h2>
+    <p class="intro">The owner retired the old rebuild-everything rule (2026-08-25). The
+    working stance:</p>
+    <div class="rules">
+      <div class="rule"><b>Library defaults are welcome.</b>
+        <span>A well-made component ships as it comes. We tune it to Daylight where the change
+        is cheap and skip vanity rebuilds.</span></div>
+      <div class="rule"><b>One palette.</b>
+        <span>Daylight's colors are the product's colors, so vendor focus rings, selection
+        blues, and status rainbows get mapped to daylight.css tokens.</span></div>
+      <div class="rule"><b>Buy behavior.</b>
+        <span>Focus handling, keyboard support, ARIA, and positioning come from the library.
+        We never rebuild solved problems.</span></div>
+      <div class="rule"><b>Motion stays quiet.</b>
+        <span>Quick, interruptible, and respectful of reduced motion, matching the shipped
+        150/200/250ms tokens.</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Element by element</h2>
+    <p class="intro">Each card names what the CRM needs, the pick, the alternative, and the
+    interaction references worth studying before we build.</p>
+
+    <div class="el">
+      <div class="el-head"><h3>Primitive layer</h3><span class="pick">Base UI</span></div>
+      <p class="need">Popovers, dialogs, menus, selects, tooltips, focus management. The
+      invisible machinery under everything else.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>Base UI shipped stable 1.0 in December 2025, is staffed full time by
+        MUI, and several engineers who built Radix now work on it. Radix slowed after the
+        WorkOS acquisition. shadcn/ui now targets either library with a one-line switch, so we
+        keep the shadcn component structure and point it at Base UI.</dd>
+        <dt>Runner-up</dt><dd>Radix UI. Still solid, still everywhere; the risk is maintenance
+        pace, not quality.</dd>
+        <dt>Steal</dt><dd>The shadcn component anatomy and file layout; our components stay
+        copy-owned source, not a dependency.</dd>
+        <dt>Refuse</dt><dd>The shadcn zinc palette; it swaps for Daylight tokens. The
+        structural defaults (radii, spacing, focus rings) stay unless they clash on sight.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>The board</h3><span class="pick">TanStack Table + TanStack Virtual</span></div>
+      <p class="need">The P-101 pursuits board: grouped rows, the apparatus margin, status
+      chips, inline editing, a sticky header, and the load strip. The flagship surface.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>Headless and MIT. It handles the table logic (grouping, sorting,
+        selection, column state) and renders nothing, which is the point: the sheet, the
+        margin, and the group bands are our markup. Virtualization comes from the same family
+        when boards grow past a few hundred rows.</dd>
+        <dt>Runner-up</dt><dd>react-data-grid, if a future surface ever needs true
+        spreadsheet behavior across fifty-plus columns. <b>AG Grid is refused outright:</b>
+        its chrome, theming system, and enterprise licensing all fight the sheet.</dd>
+        <dt>Steal</dt><dd>Monday's cell interaction: click a cell, edit in place, change
+        status from the chip itself. Attio's record-table editing has the best feel shipping
+        today. Linear's keyboard row navigation (j/k, enter to open).</dd>
+        <dt>Refuse</dt><dd>Toolbar farms, filter chips above the table, column menus with
+        twenty options. The board is a drafted sheet, not a data IDE.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Inline cell editing</h3><span class="pick">Custom cells on Base UI popovers</span></div>
+      <p class="need">Status changes from the chip, dates from a small calendar, owners from a
+      searchable list, text in place. Editing never leaves the row.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>No library owns this pattern well; it is composition. TanStack cell
+        renderers plus Base UI popover and select primitives, with optimistic state so the
+        cell updates on pointer down.</dd>
+        <dt>Steal</dt><dd>Attio for the popover feel and keyboard flow. Notion for
+        enter-to-commit, esc-to-revert semantics that users already know.</dd>
+        <dt>Refuse</dt><dd>Modal editing of any kind. A dialog to change a status is a defect.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Command search</h3><span class="pick">cmdk</span></div>
+      <p class="need">The rail search becomes the product's front door: type "P-101" and go,
+      type a client name and land on the record, type "new pursuit" and act.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>Battle-tested, tiny, accessible, and the engine behind the palettes
+        users already love. Spoken sheet numbers make Kulka unusually well suited to a
+        command-first search: every sheet already has a short, sayable address.</dd>
+        <dt>Runner-up</dt><dd>modern-cmdk benchmarks faster but is young; hold until it has a
+        year of production miles.</dd>
+        <dt>Steal</dt><dd>Linear's cmd-K: recents first, verbs and nouns in one list, no tabs.</dd>
+        <dt>Refuse</dt><dd>Full-screen search pages and category tabs inside the palette.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Dates</h3><span class="pick">react-day-picker</span></div>
+      <p class="need">Bid due dates on the board, meeting dates on briefs. Short dates ("Sep
+      04") on boards, ISO in document metadata, per the gauntlet law.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>The engine under the shadcn Calendar, small and unstyled enough to take
+        Daylight cleanly. Date logic is a solved problem; we only need it skinned.</dd>
+        <dt>Runner-up</dt><dd>React Aria's DatePicker, stronger on keyboard entry of typed
+        dates; adopt it later if estimators ask to type rather than pick.</dd>
+        <dt>Refuse</dt><dd>Range-picker flourishes and preset sidebars until a real feature
+        needs them.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Document editor</h3><span class="pick">Tiptap on ProseMirror</span></div>
+      <p class="need">The B-series brief today; the S-series scope later. Numbered clause
+      margins, TBD redlines inside text, AI drafts held in pencil until a person accepts,
+      revision deltas. The hardest sourcing call on this page.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>Tiptap wraps ProseMirror, whose strict document schema is what our
+        apparatus needs: clauses as typed nodes, margin numbers derived from structure,
+        draft blocks as node attributes with accept and discard as real operations.
+        It is the consensus pick for docs-shaped products, with the largest extension
+        ecosystem. Core is MIT; we build on that and skip the paid cloud tier, since
+        drafts-in-pencil is our own flow, not their comments product.</dd>
+        <dt>Runner-up</dt><dd>Lexical (Meta). Better for chat-scale and mobile surfaces,
+        thinner ecosystem for structured documents. ProseMirror raw is the expert path if
+        Tiptap's abstraction ever binds.</dd>
+        <dt>Steal</dt><dd>Notion's block hover affordances, kept far quieter. Google Docs
+        suggestion mode as the mental model for AI pencil drafts.</dd>
+        <dt>Refuse</dt><dd>Floating formatting bubbles, slash-command menus with forty
+        blocks, and any collaboration presence chrome. A brief has one author and one
+        reviewer.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Forms and validation</h3><span class="pick">react-hook-form + zod</span></div>
+      <p class="need">New pursuit, log contact, client profile edits. Small forms, fast, with
+      errors that behave like redlines.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>The stable pair: uncontrolled inputs for speed, one schema shared
+        between the form and the API. Error rendering is ours: border turns redline, one
+        12px sentence under the field says what to fix.</dd>
+        <dt>Refuse</dt><dd>Toast-based form errors and summary banners at the top of forms.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Quiet confirmations</h3><span class="pick">sonner</span></div>
+      <p class="need">"Saved." "Brief accepted." One sentence, bottom-left, gone in four
+      seconds. DESIGN.md 7.10 already wrote the spec.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>The best toast primitive going; we use its timing, stacking, and
+        accessibility and strip the rest to ink on white with a hairline border.</dd>
+        <dt>Refuse</dt><dd>Icons, colors, progress rings, celebration variants, and any toast
+        that asks the user to act. Redlines wait in the strip; toasts only confirm.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Drag and reorder</h3><span class="pick">pragmatic-drag-and-drop</span></div>
+      <p class="need">Not needed at launch. The board pivots by data, not by dragging cards.
+      Sourced now so a future need does not trigger a rushed pick.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>Atlassian's library: framework-agnostic, tiny core, serious
+        accessibility, proven under Trello and Jira load. Better bones than dnd-kit for a
+        product that must stay quiet while dragging.</dd>
+        <dt>Refuse</dt><dd>Kanban as a default view. The Session View grid stays the pivot.</dd>
+      </dl>
+    </div>
+
+    <div class="el">
+      <div class="el-head"><h3>Icons</h3><span class="pick">Phosphor (regular)</span></div>
+      <p class="need">Rail items only, per the owner's placement pick. Always beside a word,
+      never instead of one.</p>
+      <dl class="facts">
+        <dt>Why</dt><dd>Owner pick, 2026-08-25, from a rendered comparison against Lucide and
+        Phosphor filled. The rounder shapes sit warmly with Open Sans, and the regular weight
+        keeps the rail from going heavy. Ships as @phosphor-icons/react at 16px.</dd>
+        <dt>Runner-up</dt><dd>Lucide, the enterprise-neutral default, if Phosphor's warmth
+        ever reads as soft at smaller sizes.</dd>
+        <dt>Refuse</dt><dd>Filled, duotone, and two-color icon styles; emoji in UI; icons in
+        header actions, rows, or content.</dd>
+      </dl>
+    </div>
+
+    <div class="verdict">
+      <h3>Where the craft budget goes</h3>
+      <p>Nothing above is exotic on purpose. Behavior is a commodity now, so we buy it MIT and
+      spend the craft where no library can help: the board's cell-editing feel, the pencil
+      draft flow in the editor, and the command search that understands sheet numbers. Those
+      three interactions are the product's signature moves and they get built, not sourced.</p>
+      <p>Adoption order matches the build: primitives and forms first, the board second, cmdk
+      third, the editor fourth. Sonner, dates, and icons ride along with whichever surface
+      needs them first.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Prepared for Kulka AI · Ecosystem picks verified August 2026 against current comparisons
+    of headless primitive libraries, React data grids, and rich text editors · Licenses MIT
+    unless noted; AG Grid refused partly on enterprise licensing, Tiptap adopted on its MIT
+    core only.</p>
+  </div>
+</footer>

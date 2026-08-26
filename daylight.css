@@ -1,0 +1,1129 @@
+/* ============================================================================
+   Daylight: the Kulka AI design language. Token authority for DESIGN.md.
+   Enterprise light: Apple and Monday palettes, Open Sans at four weights,
+   rounded corners, soft elevation, vibrant status color.
+
+   A status is a bright tint, a vivid dot, and an ink label; labels never
+   darken to pass contrast. The sheet header is two tiers: badge, 24/800
+   title, and actions, then a hairline meta row with context and the counter
+   pill. Owner decisions and the short banned list live in DESIGN.md.
+
+   Some identifiers below (--redline, .redline-row, .band-redlines) are
+   legacy names from the Blackline era; they rename when the app scaffolds.
+   ========================================================================= */
+
+/* --- 1. Tokens ----------------------------------------------------------- */
+
+:root {
+  /* Surfaces and lines. Monday's light workspace values. */
+  --canvas:       #F6F7FB;
+  --canvas-deep:  #ECEEF4;   /* hover on canvas surfaces (the rail) */
+  --surface:      #FFFFFF;
+  --border:       #D0D4E4;
+  --border-light: #E6E9EF;
+  --hover:        #F6F7FB;
+  --selected:     #E5F0FA;
+
+  /* Text. Monday's ink ramp; Apple's near-black for brand moments. */
+  --ink:      #323338;
+  --ink-2:    #676879;
+  /* Tertiary ink, darkened 2026-08-26: the old #9699A6 measured 2.84:1 and
+     was carrying column headers, rail counts, and row numbers. Every ink in
+     this ramp now passes AA on paper. */
+  --ink-3:    #6F7382;
+  --brand:    #1D1D1F;   /* Kulka black: logo, sheet badges, page titles */
+
+  /* Action. Monday's working blue; Apple's systemBlue is its cousin. */
+  --primary:        #0073EA;
+  --primary-hover:  #0060B9;
+  --primary-tint:   #EAF3FE;
+
+  /* Status. Monday's own hues at full strength (Rev C). Each status is a
+     vivid dot anchor plus a bright tint; labels set in ink, so the color
+     stays loud and contrast passes without darkening the hue. The dark
+     text-safe value in each family exists for text-only uses (errors, TBD,
+     stuck counts), picked vivid rather than muddy. */
+  --done:          #00854D;  --done-bright:    #00C875;  --done-tint:    #D5F6E5;
+  --working:       #FF9500;                              --working-tint: #FFE8CC;
+  --stuck:         #CE3350;  --stuck-bright:   #E2445C;  --stuck-tint:   #FFDEE3;
+  --neutral-fill:  #EDEEF2;
+
+  /* Redlines keep their name and run Monday-red at full strength. */
+  --redline:        #CE3350;
+  --redline-bright: #E2445C;
+  --redline-tint:   #FFDEE3;
+
+  /* Avatar palette (owner pick 2026-08-25, hues rotated in the craft pass):
+     bright spectrum, purple skipped, and zero overlap with the status and
+     action hues so color never does two jobs in one glance. One color per
+     person, stable for life; the app assigns by hashing the user id. Red is
+     excluded so no person ever wears the alert color (critic round,
+     2026-08-25). Gold (--av-3) takes ink initials; the rest take white. */
+  /* Gauntlet round two: magenta retired from the people set because it read
+     as alert red at a glance. No red-family hue may identify a person. */
+  --av-1: #2E5BFF; --av-2: #7C4DFF; --av-3: #FFCB00; --av-4: #00C7BE;
+  --av-5: #00A8E8; --av-6: #1F3A8F;   /* violet: purple welcomed when used
+                                         deliberately, owner note 2026-08-25 */
+
+  /* State glyphs (owner pick 2026-08-25): Phosphor regular, replacing the
+     colored dot everywhere it marked state or severity. Icons now live in
+     the rail and as state marks, never on actions or content. The shells
+     hotlink; the app bundles @phosphor-icons/react. */
+  --gl-base:    "https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/";
+  --gl-working: url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-half.svg");
+  --gl-stuck:   url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/warning-diamond.svg");
+  --gl-done:    url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/check.svg");
+  --gl-open:    url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-dashed.svg");
+  --gl-waiting: url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/clock.svg");
+  --gl-draft:   url("https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/pencil-simple.svg");
+
+  /* Type: Open Sans, strategically.
+     400 reads, 600 acts (buttons, labels, chips), 700 heads sections,
+     800 is the Kulka voice: wordmark and sheet titles only. */
+  --family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif;
+
+  /* One scale, seven steps, each with its own line-height and tracking.
+     Set 2026-08-26 after a gauntlet critic counted thirteen ad-hoc sizes
+     including half-pixel steps. Nothing off this scale ships. */
+  --label-size: 11px;   --label-line: 16px;   --label-track:  0.07em;
+  --chip-size:  12px;   --chip-line:  16px;   /* pills and chips only */
+  --meta-size:  13px;   --meta-line:  18px;
+  --ui-size:    14px;   --ui-line:    20px;
+  --value-size: 14px;   --value-line: 20px;
+  --body-size:  15px;   --body-line:  24px;
+  --t3-size:    16px;   --t3-line:    22px;   --t3-track:   -0.005em;
+  --t2-size:    20px;   --t2-line:    28px;   --t2-track:   -0.012em;
+  --t1-size:    22px;   --t1-line:    30px;   --t1-track:   -0.015em;
+  /* The sheet title is its own step so a page title can never be mistaken
+     for the headline inside it. */
+  --sheet-title-size: 26px; --sheet-title-line: 34px; --sheet-title-track: -0.02em;
+
+  /* Space. Unit 4, scale 4/8/12/16/24/32/48/64. */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s6: 24px; --s8: 32px; --s12: 48px; --s16: 64px;
+
+  --sheet-pad:   24px;   /* one inset for band, body, and table alike */
+  --margin-col:  56px;   /* apparatus margin: checkbox + row number */
+  --gutter:      24px;
+  --row-h:       40px;   /* owner pick 2026-08-25: Standard 40 */
+  --control-h:   32px;
+  --control-h-lg: 36px;
+  --cell-pad-x:  12px;
+  --header-h:    56px;
+  --strip-h:     36px;
+
+  --rail-w:      232px;
+  --measure-doc: 720px;
+  --measure-rec: 960px;
+
+  /* Radius. Small controls 4, controls 8, containers 12, pills 999. */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  /* Elevation. Soft and low, from the reference card recipe. */
+  --shadow-card:    0 1px 2px rgba(29, 29, 31, 0.04), 0 8px 16px rgba(29, 29, 31, 0.03);
+  --shadow-raised:  0 2px 4px rgba(29, 29, 31, 0.06), 0 12px 24px rgba(29, 29, 31, 0.06);
+  --shadow-popover: 0 4px 8px rgba(29, 29, 31, 0.08), 0 16px 32px rgba(29, 29, 31, 0.10);
+  --scrim:          rgba(29, 29, 31, 0.32);
+
+  /* Z */
+  --z-sheet: 0; --z-sticky: 10; --z-popover: 20; --z-dialog: 30; --z-confirm: 40;
+
+  /* Motion. Quick, purposeful, interruptible. */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/* --- 2. Base ------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--family);
+  font-size: var(--ui-size);
+  line-height: var(--ui-line);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Numerals in tables, counters, and margins align to the digit. */
+table, .count, .margin, .num, .chip, input[type="number"] {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4 { margin: 0; }
+p { margin: 0; }
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* --- 3. Type utilities --------------------------------------------------- */
+
+.t-label {
+  font-size: var(--label-size); line-height: var(--label-line);
+  font-weight: 600; text-transform: uppercase; letter-spacing: var(--label-track);
+  color: var(--ink-2);
+}
+.t-meta  { font-size: var(--meta-size);  line-height: var(--meta-line);  color: var(--ink-2); }
+.t-ui    { font-size: var(--ui-size);    line-height: var(--ui-line); }
+.t-value { font-size: var(--value-size); line-height: var(--value-line); }
+.t-body  { font-size: var(--body-size);  line-height: var(--body-line); }
+.t-3     { font-size: var(--t3-size);    line-height: var(--t3-line);  font-weight: 700; letter-spacing: var(--t3-track); }
+.t-2     { font-size: var(--t2-size);    line-height: var(--t2-line);  font-weight: 700; letter-spacing: var(--t2-track); }
+.t-1     { font-size: var(--t1-size);    line-height: var(--t1-line);  font-weight: 700; color: var(--brand); letter-spacing: var(--t1-track); }
+
+em, .em { font-style: normal; font-weight: 600; }
+
+.num { font-variant-numeric: tabular-nums; }
+.right { text-align: right; }
+
+/* Record lists share one leading column width so every section's second
+   column starts on the same edge as you scroll the page. */
+.w-rev   { width: 48px; }
+.w-sheet { width: 120px; }
+.w-date  { width: 120px; }
+.w-lead  { width: 120px; }
+.w-type  { width: 128px; }   /* fits the longest status label plus its glyph */
+
+.sheet-head { margin-bottom: var(--s6); }
+.sheet-head > h2 { margin-bottom: var(--s1); }
+
+/* --- 4. Frame: rail + field ---------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.rail {
+  background: var(--canvas);
+  border-right: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  padding: var(--s4) var(--s3);
+  overflow: hidden;
+}
+
+/* The wordmark is brand artwork, not UI type, so it is the one thing in the
+   product allowed off the type scale. Its two sizes are fixed for life. */
+.rail-logo {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s2) var(--s4);
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 800;             /* the Kulka voice */
+  color: var(--brand);
+  letter-spacing: -0.02em;
+}
+.rail-logo .logo-ai {
+  margin-left: 6px;
+  background: var(--primary);
+  color: #FFFFFF;
+  font-size: 10.5px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+
+.rail-search { padding: 0 0 var(--s4); }
+
+.rail-nav { flex: 1; }
+
+.rail-section { padding: var(--s4) var(--s2) var(--s1); }
+
+/* Icons (owner pick 2026-08-25): Phosphor regular, rail only. An icon always
+   sits beside its word, never instead of it. The shells hotlink the SVGs via
+   CSS mask so they take text color; the app bundles @phosphor-icons/react
+   per sourcing.html. */
+.ic {
+  display: inline-block;
+  width: 16px; height: 16px;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: var(--u) center / contain no-repeat;
+  mask: var(--u) center / contain no-repeat;
+}
+
+/* Nav items: the reference sidebar pattern, kept enterprise.
+   Hover fills, active fills Kulka black. No translate tricks. */
+.rail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: var(--ui-size);
+  transition: background var(--motion-fast) var(--ease),
+              color var(--motion-fast) var(--ease);
+}
+.rail-item:hover { background: var(--canvas-deep); }
+/* Owner pick 2026-08-25: the active page fills Kulka black. */
+.rail-item[aria-current="page"] {
+  background: var(--brand);
+  color: #FFFFFF;
+  font-weight: 600;
+}
+.rail-item .count {
+  margin-left: auto;
+  font-size: var(--meta-size);
+  color: var(--ink-3);
+}
+.rail-item[aria-current="page"] .count { color: rgba(255, 255, 255, 0.75); }
+
+.rail-user {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s3) var(--s2) 0;
+  margin-top: var(--s4);
+  border-top: 1px solid var(--border-light);
+}
+
+.field {
+  background: var(--canvas);
+  padding: var(--s4);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;  /* the card hugs its content (critic: a summary
+                               strip 200px below its rows is a caption with
+                               no picture); long sheets cap and scroll */
+}
+
+/* --- 5. The sheet -------------------------------------------------------- */
+/* A rounded white card on the canvas, resting on the reference shadow. */
+
+.sheet {
+  flex: 1;
+  min-width: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* --- 6. The sheet header (the title block, Rev C) ------------------------ */
+/* Two tiers. The top row spends the sheet's typographic allowance: the dark
+   badge, the title in the Kulka voice, and the sheet's actions. Below it, a
+   hairline meta row carries the context and the redline pill. */
+
+.band {
+  flex: none;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  /* A soft standing shadow so scrolled rows read as passing under the header
+     rather than being sliced by it (critic round, 2026-08-25). */
+  box-shadow: 0 4px 10px rgba(29, 29, 31, 0.035);
+  padding: 18px var(--sheet-pad) 0;
+  z-index: var(--z-sticky);
+}
+
+.band-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+/* The sheet badge: spoken aloud in meetings ("open P-101"). */
+.band-number {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: #FFFFFF;
+  font-size: var(--label-size);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.band-name {
+  font-size: var(--sheet-title-size);
+  line-height: var(--sheet-title-line);
+  font-weight: 800;             /* the Kulka voice */
+  color: var(--brand);
+  letter-spacing: var(--sheet-title-track);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.band-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.band-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: var(--s2) 0 var(--s3);
+  border-top: 1px solid var(--border-light);
+  color: var(--ink-2);
+  font-size: var(--meta-size);
+  white-space: nowrap;
+}
+.band-meta .sep { color: var(--border); }
+
+/* The redline pill: says what it counts. Absent when the count is zero. */
+.band-redlines {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 var(--s3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--redline-tint);
+  /* Ink on tint, the same rule the status pills use. Red text on red tint
+     measured 3.99:1 and this chip is the product's alarm, so it cannot be
+     the least legible thing on the sheet. The glyph carries the color. */
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--label-size);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease);
+}
+.band-redlines:hover { background: #FFCFD8; }
+.band-redlines .dot {
+  width: 13px; height: 13px;
+  background: var(--redline);
+  -webkit-mask: var(--gl-stuck) center / contain no-repeat;
+  mask: var(--gl-stuck) center / contain no-repeat;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sheet-pad);
+}
+.sheet-body--board { padding: 0; }
+
+.doc, .record {
+  display: grid;
+  grid-template-columns: var(--margin-col) 1fr;
+  column-gap: var(--gutter);
+}
+.doc { max-width: calc(var(--margin-col) + var(--gutter) + var(--measure-doc)); }
+.record { max-width: calc(var(--margin-col) + var(--gutter) + var(--measure-rec)); }
+.doc > .doc-clause { grid-column: 1 / -1; }
+
+.margin {
+  grid-column: 1;
+  font-size: var(--meta-size);
+  line-height: var(--body-line);
+  color: var(--ink-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.margin .rev-mark { display: flex; justify-content: flex-end; }
+.col-field { grid-column: 2; min-width: 0; }
+
+/* --- 7. Load strip ------------------------------------------------------- */
+
+.strip {
+  flex: none;
+  height: var(--strip-h);
+  border-top: 1px solid var(--border-light);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: var(--gutter);
+  /* Aligns the first group label with the Pursuit column above it. */
+  padding: 0 var(--sheet-pad) 0 calc(var(--margin-col) + var(--cell-pad-x));
+  font-size: var(--meta-size);
+  color: var(--ink-2);
+  overflow-x: auto;
+  z-index: var(--z-sticky);
+}
+.strip-group { display: flex; align-items: center; gap: var(--s2); white-space: nowrap; }
+.strip-group::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--group-color, var(--primary));
+}
+.strip-group .t-label { color: var(--ink); }
+/* A zero stuck count reads as data; a live one takes the redline text color
+   so the strip says where the trouble is without reading every row. */
+.strip-group .risk {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: var(--label-size);
+  background: var(--neutral-fill);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+/* One emphasis system in the strip (gauntlet round two): a live stuck count
+   is a small tinted pill, not bold red text beside tracked labels. */
+.strip-group .risk--live {
+  color: var(--redline);
+  font-weight: 600;
+  font-size: var(--label-size);
+  background: var(--stuck-tint);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+}
+
+/* --- 8. Status ----------------------------------------------------------- */
+/* Two forms, both Monday-native:
+   .status-block: the solid label for board status columns.
+   .chip: the tinted pill for headers, documents, and counts. */
+
+.status-block {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 112px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  font-size: var(--chip-size);
+  font-weight: 600;
+  color: var(--ink);
+}
+/* One treatment for every state: a bright tint, a state glyph, and an ink
+   label. The glyph replaced the dot on 2026-08-25; hue still carries
+   severity, and now the shape does too, so status survives greyscale. */
+.status-block::before {
+  content: "";
+  width: 14px; height: 14px;
+  background: var(--dot, var(--ink-3));
+  -webkit-mask: var(--gl) center / contain no-repeat;
+  mask: var(--gl) center / contain no-repeat;
+}
+.status-block--stuck   { background: var(--stuck-tint);   --dot: var(--stuck-bright); --gl: var(--gl-stuck); }
+.status-block--working { background: var(--working-tint); --dot: #C06A00;             --gl: var(--gl-working); }
+.status-block--done    { background: var(--done-tint);    --dot: var(--done);         --gl: var(--gl-done); }
+.status-block--open    { background: var(--neutral-fill); --dot: var(--ink-3);        --gl: var(--gl-open); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-pill);
+  font-size: var(--chip-size);
+  font-weight: 600;
+  color: var(--ink);
+  /* A chip is one line, always. Without this the label wrapped out of the
+     pill in narrow columns once the glyph replaced the dot. */
+  white-space: nowrap;
+  flex: none;
+}
+.chip .dot {
+  width: 14px; height: 14px; flex: none;
+  -webkit-mask: var(--gl) center / contain no-repeat;
+  mask: var(--gl) center / contain no-repeat;
+}
+.chip--done    { background: var(--done-tint);    --gl: var(--gl-done); }
+.chip--done .dot    { background: var(--done); }
+.chip--working { background: var(--working-tint); --gl: var(--gl-working); }
+.chip--working .dot { background: #C06A00; }
+.chip--stuck   { background: var(--stuck-tint);   --gl: var(--gl-stuck); }
+.chip--stuck .dot   { background: var(--stuck-bright); }
+.chip--neutral { background: var(--neutral-fill); --gl: var(--gl-open); }
+.chip--neutral .dot { background: var(--ink-3); }
+
+/* --- 9. Buttons ---------------------------------------------------------- */
+
+.btn {
+  height: var(--control-h);
+  padding: 0 var(--s4);
+  border-radius: var(--r-md);   /* owner final pick 2026-08-25: rounded 8;
+                                   a same-day pill trial was reverted */
+  border: 1px solid transparent;
+  background: none;
+  font-family: inherit;
+  font-size: var(--ui-size);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  transition: background var(--motion-fast) var(--ease),
+              border-color var(--motion-fast) var(--ease),
+              box-shadow var(--motion-fast) var(--ease);
+}
+
+.btn--primary { background: var(--primary); color: #FFFFFF; }
+.btn--primary:hover { background: var(--primary-hover); }
+
+.btn--secondary { background: var(--surface); border-color: var(--border); }
+.btn--secondary:hover { border-color: var(--primary); color: var(--primary); }
+
+.btn--quiet { color: var(--primary); padding: 0 var(--s2); }
+.btn--quiet:hover { background: var(--primary-tint); }
+
+.btn--redline { color: var(--redline); padding: 0 var(--s2); }
+.btn--redline:hover { background: var(--redline-tint); }
+
+.btn--lg { height: var(--control-h-lg); }
+
+.btn:disabled {
+  color: var(--ink-3);
+  border-color: var(--border-light);
+  background: none;
+  cursor: default;
+}
+
+/* --- 10. Inputs ---------------------------------------------------------- */
+
+.field-label { display: block; margin-bottom: var(--s1); }
+
+/* Owner pick 2026-08-25: soft inputs. 36px tall, 10px radius, light border. */
+.input {
+  width: 100%;
+  height: var(--control-h-lg);
+  padding: 0 var(--cell-pad-x);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  font-family: inherit;
+  font-size: var(--value-size);
+  color: var(--ink);
+  transition: border-color var(--motion-fast) var(--ease),
+              box-shadow var(--motion-fast) var(--ease);
+}
+.input::placeholder { color: var(--ink-3); }
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-tint);
+}
+.input[aria-invalid="true"] { border-color: var(--stuck); }
+
+.input-error {
+  margin-top: var(--s1);
+  font-size: var(--meta-size);
+  color: var(--stuck);
+}
+
+/* --- 11. Checkbox -------------------------------------------------------- */
+/* The reference micro-interaction, de-slopped: the checkmark draws itself in
+   with a stroke-dashoffset transition. The splash particles did not survive. */
+
+.cbx {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  cursor: pointer;
+  /* Zero the line box so the control centers on the row rather than on the
+     text baseline it inherited. */
+  line-height: 0;
+  vertical-align: middle;
+}
+.cbx input {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease),
+              border-color var(--motion-fast) var(--ease);
+}
+.cbx input:hover { border-color: var(--primary); }
+.cbx input:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.cbx svg {
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  width: 12px;
+  height: 10px;
+  pointer-events: none;
+}
+.cbx svg path {
+  fill: none;
+  stroke: #FFFFFF;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  transition: stroke-dashoffset var(--motion-base) var(--ease);
+}
+.cbx input:checked + svg path { stroke-dashoffset: 0; }
+
+/* --- 12. The board ------------------------------------------------------- */
+
+/* Separate borders, not collapsed: the group header's 16px white border was
+   merging into the row above it and shifting that row's checkbox 3.75px.
+   Fixed layout so a long pursuit name truncates instead of pushing the
+   table past the card edge. */
+.board {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.board th, .board td {
+  height: var(--row-h);
+  padding: 0 var(--cell-pad-x);
+  vertical-align: middle;
+  text-align: left;
+  font-size: var(--ui-size);
+  font-weight: 400;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board thead th {
+  font-size: var(--label-size);
+  line-height: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+  color: var(--ink-2);
+  height: var(--row-h);
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* The apparatus margin: checkbox and row number. 56px, first column. */
+.board .cell-margin {
+  width: var(--margin-col);
+  min-width: var(--margin-col);
+  padding: 0 var(--s2);
+  color: var(--ink-3);
+  font-size: var(--label-size);
+  font-variant-numeric: tabular-nums;
+}
+.board .cell-margin .cell-margin-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Column discipline (craft pass 2026-08-25). The pursuits board's columns get
+   fixed widths and roles so the rhythm holds at every viewport: name anchors
+   at 600, Source demotes to meta gray, Owner centers, dates set right against
+   the status column. nth-child is acceptable while the board is one table. */
+.board tbody td:nth-child(2) { font-weight: 600; }
+.board th:nth-child(3), .board tbody td:nth-child(3) { width: 165px; }
+.board th:nth-child(4), .board tbody td:nth-child(4) { width: 135px; }
+.board tbody td:nth-child(4) { color: var(--ink-2); }
+/* 76px, not 64: the OWNER label itself needs the room at label tracking. */
+.board th:nth-child(5), .board tbody td:nth-child(5) { width: 76px; text-align: center; }
+.board th:nth-child(6), .board tbody td:nth-child(6) { width: 88px; }
+/* 112px pill + 12px left pad + the 24px sheet inset. Anything narrower
+   overflows the card and clips against overflow:hidden. */
+.board th:nth-child(7), .board tbody td:nth-child(7) { width: 148px; }
+/* The last cell ends on the sheet inset, so the board's right edge lines up
+   with the header actions above it. */
+.board th:last-child, .board td:last-child { padding-right: var(--sheet-pad); }
+
+.board tbody tr { transition: background var(--motion-fast) var(--ease); }
+/* A stuck row escalates at row level, the way Home's urgent rows do, so the
+   board's problems outrank its toolbar. Kept faint: this is a wash behind
+   forty rows, not an alarm. */
+.board tbody tr.row--stuck { background: #FFF7F8; }
+.board tbody tr:hover { background: var(--hover); }
+.board tbody tr[aria-selected="true"] { background: var(--selected); }
+
+/* Groups: a 700 title and a count. */
+/* A faint canvas band behind each group header (round-3 judge): groups
+   separate by surface as well as air, without a second color system. The
+   white border-top is the air above the band; no gradients. */
+.board .group th {
+  border-top: 16px solid var(--surface);
+  border-bottom: 1px solid var(--border-light);
+  padding-top: 0;
+  height: 40px;
+  background: var(--canvas);
+}
+.board .group .group-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 700;
+  font-size: var(--ui-size);
+  color: var(--ink);
+}
+/* Monday gives every group a color. The restrained version: a small bar
+   beside the title, the same hue echoed in the load strip. */
+.board .group .group-title::before {
+  content: "";
+  width: 4px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: var(--group-color, var(--primary));
+}
+/* Group color identity retired (round-2 judge): a three-blue ramp was
+   indistinguishable at tick size and read as a mismatch against the legend.
+   Groups mark with one product-blue tick and separate by air and labels;
+   color on this board now means status and nothing else. */
+/* The count shares the title's line box so their baselines agree. */
+.board .group .group-count {
+  color: var(--ink-3);
+  font-weight: 400;
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+}
+
+/* Owners: solid vivid circles, one bright color per person from the --av
+   spectrum (owner final pick 2026-08-25). The bare class is the fallback for
+   an unassigned person. */
+.owner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--neutral-fill);
+  box-shadow: 0 0 0 2px var(--surface);
+  font-size: var(--label-size);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+/* The hue stays bright; the initials take whichever ink clears 4.5:1 on it.
+   Dark hues take white, light hues take their own deep tone. */
+.owner--1 { background: var(--av-1); color: #FFFFFF; }
+.owner--2 { background: var(--av-2); color: #FFFFFF; }
+.owner--3 { background: var(--av-3); color: #4A3B00; }
+.owner--4 { background: var(--av-4); color: #003D3A; }
+.owner--5 { background: var(--av-5); color: #00344B; }
+.owner--6 { background: var(--av-6); color: #FFFFFF; }
+
+/* Gauntlet round two: urgency is encoded once, in the status pill. Late
+   dates set like every other date; the earlier bold treatment was a second
+   emphasis system competing with the pill. */
+.board td.due--late { color: var(--ink); }
+
+/* --- 13. Documents ------------------------------------------------------- */
+
+.doc-title { margin-bottom: var(--s2); }
+.doc-meta  { margin-bottom: var(--s8); }
+
+.doc-section { margin-bottom: var(--s6); }
+.doc-section h3 { margin-bottom: var(--s2); }
+
+.doc-clause {
+  display: grid;
+  grid-template-columns: var(--margin-col) 1fr;
+  column-gap: var(--gutter);
+  margin-bottom: var(--s6);
+}
+.doc-clause p {
+  font-size: var(--body-size);
+  line-height: var(--body-line);
+  max-width: 62ch;   /* a reading measure; tables stay full width */
+}
+.doc-clause h3 { margin-bottom: var(--s2); }
+
+.tbd { color: var(--stuck); font-weight: 600; }
+
+/* AI drafts wait in a working-orange chip until a person accepts them. */
+.draft-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--s2);
+  height: 24px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-pill);
+  background: var(--working-tint);
+  color: var(--ink);
+  font-size: var(--chip-size);
+  font-weight: 600;
+}
+.draft-flag .dot {
+  width: 13px; height: 13px;
+  background: #C06A00;
+  -webkit-mask: var(--gl-draft) center / contain no-repeat;
+  mask: var(--gl-draft) center / contain no-repeat;
+}
+
+.draft-actions { margin-top: var(--s3); display: flex; gap: var(--s2); }
+
+.rev-mark { display: inline-flex; align-items: center; gap: 2px; color: var(--ink-3); }
+
+.revision-block {
+  margin-top: var(--s12);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border-light);
+}
+.revision-block > h3 { margin-bottom: var(--s2); }
+.revision-block table { width: 100%; border-collapse: collapse; }
+.revision-block td {
+  padding: var(--s2) var(--s3) var(--s2) 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: var(--meta-size);
+  vertical-align: top;
+}
+
+/* --- 14. Records --------------------------------------------------------- */
+
+.record-section { margin-bottom: var(--s8); }
+/* Craft pass 2026-08-25: record sections get real headings; the caps-label
+   style is demoted back to labeling fields and columns. */
+.record-section > h3 {
+  padding-bottom: var(--s2);
+  margin-bottom: var(--s2);
+  border-bottom: 1px solid var(--border-light);
+  font-size: var(--t3-size);
+  line-height: var(--t3-line);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: var(--t3-track);
+  color: var(--ink);
+}
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--gutter);
+}
+.record-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: var(--s3);
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.record-row dd { margin: 0; font-size: var(--value-size); line-height: var(--value-line); font-weight: 600; }
+
+/* A flagged field is where a sheet's "needs review" count actually lands, so
+   the header alarm always has a visible destination on its own page. */
+.record-row--flagged dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.record-row--flagged dd::before {
+  content: "";
+  width: 15px; height: 15px; flex: none;
+  background: var(--stuck-bright);
+  -webkit-mask: var(--gl-stuck) center / contain no-repeat;
+  mask: var(--gl-stuck) center / contain no-repeat;
+}
+.record-row--flagged .flag-why {
+  font-weight: 400;
+  font-size: var(--meta-size);
+  color: var(--ink-2);
+}
+/* Values sit directly after their labels; right-aligning numbers here broke
+   the label-to-value scan line (critic round, 2026-08-25). Columns of numbers
+   in tables still set right. */
+.record-row dd.num { text-align: left; }
+
+/* Fixed row height so record lists sit on the same grid the board does,
+   instead of landing on half pixels wherever meta and ui type mix. */
+.doc-list { width: 100%; border-collapse: collapse; }
+.doc-list td {
+  height: var(--row-h);
+  padding: 0 var(--s3) 0 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: var(--ui-size);
+}
+
+/* --- 15. Redlines -------------------------------------------------------- */
+
+.redlines { margin-bottom: var(--s8); display: flex; flex-direction: column; gap: var(--s2); }
+
+
+/* Owner pick 2026-08-25: tinted rows. A faint wash of the severity color,
+   red for blown, amber for waiting, no card border and no shadow. */
+/* One grid, so the sheet codes and actions hold a single left edge the way
+   the list below them does (gauntlet round two). */
+.redline-row {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr) 56px 76px;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  background: #FFF2F4;
+  border-radius: var(--r-md);
+  font-size: var(--ui-size);
+}
+.redline-row .source { text-align: right; }
+/* The action on a tinted row takes the deeper blue: the standard blue
+   measured 4.15:1 on the red wash, and this is the row's whole point. */
+.redline-row .btn { justify-self: end; color: var(--primary-hover); }
+/* Severity carries mass (gauntlet round two): only red items take the tinted
+   band; amber items sit on white with a hairline, so fill itself says which
+   problems are urgent before anyone reads a dot. */
+.redline-row:has(.dot--amber) {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border-light);
+}
+/* Severity as a glyph: a warning diamond for a blown deadline, a clock for a
+   decision that is waiting. The shape says which before the color does. */
+.redline-row .dot {
+  width: 17px; height: 17px; flex: none;
+  background: var(--stuck-bright);
+  -webkit-mask: var(--gl-stuck) center / contain no-repeat;
+  mask: var(--gl-stuck) center / contain no-repeat;
+}
+.redline-row .dot--amber {
+  background: #C06A00;
+  -webkit-mask: var(--gl-waiting) center / contain no-repeat;
+  mask: var(--gl-waiting) center / contain no-repeat;
+}
+.redline-row .sentence { flex: 1; min-width: 0; }
+.redline-row .source {
+  color: var(--ink-3);
+  font-size: var(--meta-size);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* One red element per redline row: the dot. The key datum is bold ink and the
+   action is the normal blue, so a four-item list is not a wall of alarm. */
+.redline-key { color: var(--ink); font-weight: 700; }
+
+.redlines-clear {
+  padding: var(--s3) var(--s4);
+  background: var(--done-tint);
+  border-radius: var(--r-md);
+  color: var(--done);
+  font-size: var(--ui-size);
+  font-weight: 600;
+}
+
+/* --- 16. Empty states ---------------------------------------------------- */
+
+.empty {
+  padding: var(--s8) var(--s3);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.empty p { font-size: var(--ui-size); color: var(--ink-2); }
+.empty--inline { padding: var(--s6) 0; }
+
+/* --- 17. Confirmations and progress -------------------------------------- */
+
+.confirm {
+  position: fixed;
+  left: var(--s4);
+  bottom: var(--s4);
+  z-index: var(--z-confirm);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  padding: var(--s3) var(--s4);
+  font-size: var(--ui-size);
+  box-shadow: var(--shadow-raised);
+}
+
+.progress { display: flex; flex-direction: column; gap: var(--s2); }
+.progress-bar { height: 4px; border-radius: var(--r-pill); background: var(--border-light); overflow: hidden; }
+.progress-bar > i { display: block; height: 4px; border-radius: var(--r-pill); background: var(--primary); }
+
+/* --- 18. Floating layers ------------------------------------------------- */
+
+.popover {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-popover);
+  z-index: var(--z-popover);
+}
+.dialog {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-popover);
+  z-index: var(--z-dialog);
+}
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-dialog); }
+
+/* --- 19. Login ----------------------------------------------------------- */
+
+.login { min-height: 100vh; display: grid; place-items: center; background: var(--canvas); }
+.login-column {
+  width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--s8);
+}
+
+/* --- 20. Narrow widths --------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .record-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 960px) {
+  .sheet-body { padding: var(--s4); }
+  .record-row { grid-template-columns: minmax(0, 1fr); }
+  .record-row dd.num { text-align: left; }
+}
+
+/* --- 21. Motion accessibility -------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* --- 22. Print ----------------------------------------------------------- */
+
+@media print {
+  .rail, .strip, .btn, .cbx { display: none; }
+  .app { display: block; height: auto; }
+  .field { padding: 0; overflow: visible; }
+  .sheet { border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+  .sheet-body { overflow: visible; }
+  .band-number, .status-block {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+}

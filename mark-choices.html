@@ -1,0 +1,352 @@
+<!doctype html>
+<!-- Daylight mark chooser: alternatives to the dot, in the two places dots
+     appear. Click one per group; picks persist and collect in the bar.
+     Example data throughout. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mark Choices, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-d4">
+<style>
+  html, body { height: auto; }
+  body { padding: 40px 28px 200px; }
+  .pick-wrap { max-width: 1120px; margin: 0 auto; }
+  .pick-wrap > h1 { font-size: 26px; font-weight: 800; color: var(--brand); letter-spacing: -0.02em; }
+  .pick-wrap > p.lede { margin-top: 6px; color: var(--ink-2); max-width: 66ch; font-size: 14.5px; }
+
+  .group { margin-top: 36px; }
+  .group > h2 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .group > p { font-size: 13px; color: var(--ink-2); margin-bottom: 14px; max-width: 66ch; }
+  .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+
+  .opt {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-card);
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
+  }
+  .opt:hover { border-color: var(--border); box-shadow: var(--shadow-raised); }
+  .opt:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .opt.sel { border: 2px solid var(--primary); padding: 17px; }
+  .opt.sel::after {
+    content: "Selected";
+    position: absolute; top: 10px; right: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: #fff; background: var(--primary);
+    padding: 3px 8px; border-radius: var(--r-pill);
+  }
+  .opt h3 { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .opt .cap { font-size: 12px; color: var(--ink-2); margin-bottom: 14px; }
+
+  /* ---------- attention row mockups ---------- */
+  .arow {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: var(--r-md);
+    font-size: 13.5px; margin-bottom: 8px;
+    position: relative; overflow: hidden;
+  }
+  .arow:last-child { margin-bottom: 0; }
+  .arow.red { background: #FFF2F4; }
+  .arow.amb { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-light); }
+  .arow .txt { flex: 1; min-width: 0; }
+  .arow .txt b { font-weight: 700; }
+  .arow .src { color: var(--ink-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .arow .act { color: var(--primary); font-weight: 600; font-size: 12.5px; }
+
+  .m-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .red .m-dot { background: var(--stuck-bright); }
+  .amb .m-dot { background: var(--working); }
+
+  .m-ic { width: 17px; height: 17px; flex: none; background: currentColor;
+          -webkit-mask: var(--u) center / contain no-repeat; mask: var(--u) center / contain no-repeat; }
+  .red .m-ic { color: var(--stuck-bright); }
+  .amb .m-ic { color: var(--working); }
+
+  .m-age {
+    flex: none; min-width: 34px; text-align: center;
+    font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+    padding: 3px 7px; border-radius: var(--r-sm);
+  }
+  .red .m-age { background: var(--stuck-tint); color: var(--redline); }
+  .amb .m-age { background: var(--working-tint); color: #7A4A00; }
+
+  .arow.stripe { padding-left: 18px; }
+  .arow.stripe::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  }
+  .arow.red.stripe::before { background: var(--stuck-bright); }
+  .arow.amb.stripe::before { background: var(--working); }
+
+  .m-shape { flex: none; width: 12px; height: 12px; }
+  .red .m-shape {
+    width: 0; height: 0;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-bottom: 11px solid var(--stuck-bright);
+  }
+  .amb .m-shape {
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2.5px var(--working);
+  }
+
+  /* ---------- status chip mockups ---------- */
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ch {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    width: 118px; height: 26px; border-radius: var(--r-pill);
+    font-size: 12px; font-weight: 600; color: var(--ink);
+  }
+  .ch.w { background: var(--working-tint); }
+  .ch.s { background: var(--stuck-tint); }
+  .ch.d { background: var(--done-tint); }
+  .ch.n { background: var(--neutral-fill); }
+
+  .c-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .w .c-dot { background: var(--working); }
+  .s .c-dot { background: var(--stuck-bright); }
+  .d .c-dot { background: var(--done-bright); }
+  .n .c-dot { background: var(--ink-3); }
+
+  .c-ic { width: 14px; height: 14px; background: currentColor;
+          -webkit-mask: var(--u) center / contain no-repeat; mask: var(--u) center / contain no-repeat; }
+  .w .c-ic { color: #C06A00; }
+  .s .c-ic { color: var(--redline); }
+  .d .c-ic { color: var(--done); }
+  .n .c-ic { color: var(--ink-3); }
+
+  .c-ring { width: 11px; height: 11px; border-radius: 50%; }
+  .w .c-ring { background: conic-gradient(var(--working) 0 55%, #FFD9A8 55% 100%); }
+  .s .c-ring { background: conic-gradient(var(--stuck-bright) 0 40%, #F7C3CC 40% 100%); }
+  .d .c-ring { background: var(--done-bright); }
+  .n .c-ring { box-shadow: inset 0 0 0 2px var(--ink-3); }
+
+  .c-shape { width: 11px; height: 11px; }
+  .w .c-shape { background: linear-gradient(90deg, var(--working) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--working); border-radius: 2px; }
+  .s .c-shape { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid var(--stuck-bright); }
+  .d .c-shape { background: var(--done-bright); border-radius: 2px; }
+  .n .c-shape { box-shadow: inset 0 0 0 1.5px var(--ink-3); border-radius: 2px; }
+
+  .ch.bare { font-weight: 700; }
+  .w.bare { color: #8A4B00; } .s.bare { color: var(--redline); }
+  .d.bare { color: var(--done); } .n.bare { color: var(--ink-2); }
+
+  /* rows for chips in context */
+  .brow { display: flex; align-items: center; gap: 12px; font-size: 13.5px; padding: 9px 0; border-top: 1px solid var(--border-light); }
+  .brow:first-of-type { border-top: 0; }
+  .brow .nm { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brow .dt { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--border-light);
+    box-shadow: 0 -4px 16px rgba(29,29,31,.06);
+    padding: 12px 28px; display: flex; align-items: center; gap: 16px;
+  }
+  .bar .picks { flex: 1; font-size: 12.5px; color: var(--ink-2); }
+  .bar .picks b { color: var(--ink); font-weight: 700; }
+  .bar button {
+    height: 32px; padding: 0 16px; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--primary); color: #fff; font: 600 13.5px "Open Sans", sans-serif;
+  }
+  .bar button.ghost { background: var(--surface); border: 1px solid var(--border); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="pick-wrap">
+  <h1>Beyond the dot</h1>
+  <p class="lede">Dots appear in two places: on Home's attention rows, where they rank severity,
+  and inside status chips, where they carry state. Both are shown in context below. The
+  interesting question is whether a mark can carry information instead of just color, which is
+  what options C and E do in the first group.</p>
+
+  <div class="group" data-g="Attention mark">
+    <h2>1 · The mark on attention rows</h2>
+    <p>Red means a deadline is blown, amber means a decision is waiting. The row tint already
+    says which is which, so the mark is free to do a second job.</p>
+    <div class="opts">
+
+      <div class="opt" data-o="A · Dot (current)" tabindex="0" role="button">
+        <h3>A · Dot (current)</h3><p class="cap">A colored circle. Quiet, conventional, says nothing the tint does not.</p>
+        <div class="arow red"><span class="m-dot"></span><span class="txt">Foxglove follow-up is <b>5 days past due</b>.</span><span class="src">P-101</span><span class="act">Open</span></div>
+        <div class="arow amb"><span class="m-dot"></span><span class="txt">The Calder brief is waiting for review.</span><span class="src">B-217</span><span class="act">Review</span></div>
+      </div>
+
+      <div class="opt" data-o="B · Phosphor glyph" tabindex="0" role="button">
+        <h3>B · Phosphor glyph</h3><p class="cap">A warning diamond and a clock, matching the rail's icon set.</p>
+        <div class="arow red"><span class="m-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/warning-diamond.svg')"></span><span class="txt">Foxglove follow-up is <b>5 days past due</b>.</span><span class="src">P-101</span><span class="act">Open</span></div>
+        <div class="arow amb"><span class="m-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/clock.svg')"></span><span class="txt">The Calder brief is waiting for review.</span><span class="src">B-217</span><span class="act">Review</span></div>
+      </div>
+
+      <div class="opt" data-o="C · Aging numeral" tabindex="0" role="button">
+        <h3>C · Aging numeral</h3><p class="cap">The mark becomes the number: how long it has been rotting. Data, not decoration.</p>
+        <div class="arow red"><span class="m-age">5d</span><span class="txt">Foxglove follow-up is past due.</span><span class="src">P-101</span><span class="act">Open</span></div>
+        <div class="arow amb"><span class="m-age">2d</span><span class="txt">The Calder brief is waiting for review.</span><span class="src">B-217</span><span class="act">Review</span></div>
+      </div>
+
+      <div class="opt" data-o="D · Edge stripe" tabindex="0" role="button">
+        <h3>D · Edge stripe</h3><p class="cap">No mark at all. A 4px bar on the row's edge carries severity.</p>
+        <div class="arow red stripe"><span class="txt">Foxglove follow-up is <b>5 days past due</b>.</span><span class="src">P-101</span><span class="act">Open</span></div>
+        <div class="arow amb stripe"><span class="txt">The Calder brief is waiting for review.</span><span class="src">B-217</span><span class="act">Review</span></div>
+      </div>
+
+      <div class="opt" data-o="E · Aging numeral on a stripe" tabindex="0" role="button">
+        <h3>E · Aging numeral on a stripe</h3><p class="cap">C and D together: the edge ranks it, the number quantifies it, no circles anywhere.</p>
+        <div class="arow red stripe"><span class="m-age">5d</span><span class="txt">Foxglove follow-up is past due.</span><span class="src">P-101</span><span class="act">Open</span></div>
+        <div class="arow amb stripe"><span class="m-age">2d</span><span class="txt">The Calder brief is waiting for review.</span><span class="src">B-217</span><span class="act">Review</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="group" data-g="Status mark">
+    <h2>2 · The mark inside status chips</h2>
+    <p>Shown as the chip set and then on board rows. Every option keeps the tint and the ink
+    label; only the mark changes.</p>
+    <div class="opts">
+
+      <div class="opt" data-o="A · Dot (current)" tabindex="0" role="button">
+        <h3>A · Dot (current)</h3><p class="cap">One circle per state, color only.</p>
+        <div class="chips">
+          <span class="ch w"><span class="c-dot"></span>Working on it</span>
+          <span class="ch s"><span class="c-dot"></span>Stuck</span>
+          <span class="ch d"><span class="c-dot"></span>Done</span>
+          <span class="ch n"><span class="c-dot"></span>Not started</span>
+        </div>
+        <div style="margin-top:14px">
+          <div class="brow"><span class="nm">Palisades Retail Build-Out</span><span class="dt">Aug 19</span><span class="ch s"><span class="c-dot"></span>Stuck</span></div>
+          <div class="brow"><span class="nm">Harrison Street Interiors</span><span class="dt">Sep 29</span><span class="ch w"><span class="c-dot"></span>Working on it</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="B · Phosphor glyph" tabindex="0" role="button">
+        <h3>B · Phosphor glyph</h3><p class="cap">A glyph per state, same family as the rail.</p>
+        <div class="chips">
+          <span class="ch w"><span class="c-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-half.svg')"></span>Working on it</span>
+          <span class="ch s"><span class="c-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/warning-diamond.svg')"></span>Stuck</span>
+          <span class="ch d"><span class="c-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/check.svg')"></span>Done</span>
+          <span class="ch n"><span class="c-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-dashed.svg')"></span>Not started</span>
+        </div>
+        <div style="margin-top:14px">
+          <div class="brow"><span class="nm">Palisades Retail Build-Out</span><span class="dt">Aug 19</span><span class="ch s"><span class="c-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/warning-diamond.svg')"></span>Stuck</span></div>
+          <div class="brow"><span class="nm">Harrison Street Interiors</span><span class="dt">Sep 29</span><span class="ch w"><span class="c-ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/circle-half.svg')"></span>Working on it</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="C · Progress ring" tabindex="0" role="button">
+        <h3>C · Progress ring</h3><p class="cap">The circle fills as the pursuit advances through its stage. Still round, but it means something.</p>
+        <div class="chips">
+          <span class="ch w"><span class="c-ring"></span>Working on it</span>
+          <span class="ch s"><span class="c-ring"></span>Stuck</span>
+          <span class="ch d"><span class="c-ring"></span>Done</span>
+          <span class="ch n"><span class="c-ring"></span>Not started</span>
+        </div>
+        <div style="margin-top:14px">
+          <div class="brow"><span class="nm">Palisades Retail Build-Out</span><span class="dt">Aug 19</span><span class="ch s"><span class="c-ring"></span>Stuck</span></div>
+          <div class="brow"><span class="nm">Harrison Street Interiors</span><span class="dt">Sep 29</span><span class="ch w"><span class="c-ring"></span>Working on it</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="D · Shape per state" tabindex="0" role="button">
+        <h3>D · Shape per state</h3><p class="cap">Geometry carries state, so it survives greyscale printing and colorblindness.</p>
+        <div class="chips">
+          <span class="ch w"><span class="c-shape"></span>Working on it</span>
+          <span class="ch s"><span class="c-shape"></span>Stuck</span>
+          <span class="ch d"><span class="c-shape"></span>Done</span>
+          <span class="ch n"><span class="c-shape"></span>Not started</span>
+        </div>
+        <div style="margin-top:14px">
+          <div class="brow"><span class="nm">Palisades Retail Build-Out</span><span class="dt">Aug 19</span><span class="ch s"><span class="c-shape"></span>Stuck</span></div>
+          <div class="brow"><span class="nm">Harrison Street Interiors</span><span class="dt">Sep 29</span><span class="ch w"><span class="c-shape"></span>Working on it</span></div>
+        </div>
+      </div>
+
+      <div class="opt" data-o="E · No mark, colored label" tabindex="0" role="button">
+        <h3>E · No mark, colored label</h3><p class="cap">The chip drops the mark entirely and sets its word in the state color.</p>
+        <div class="chips">
+          <span class="ch w bare">Working on it</span>
+          <span class="ch s bare">Stuck</span>
+          <span class="ch d bare">Done</span>
+          <span class="ch n bare">Not started</span>
+        </div>
+        <div style="margin-top:14px">
+          <div class="brow"><span class="nm">Palisades Retail Build-Out</span><span class="dt">Aug 19</span><span class="ch s bare">Stuck</span></div>
+          <div class="brow"><span class="nm">Harrison Street Interiors</span><span class="dt">Sep 29</span><span class="ch w bare">Working on it</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="bar">
+  <div class="picks" id="picks">No picks yet.</div>
+  <button class="ghost" id="reset" type="button">Reset</button>
+  <button id="copy" type="button">Copy picks</button>
+</div>
+
+<script>
+(function () {
+  var KEY = 'kulka-mark-picks';
+  var picks = {};
+  try { picks = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { picks = {}; }
+  var groups = document.querySelectorAll('.group');
+
+  function renderBar() {
+    var names = [];
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      if (picks[gn]) names.push('<b>' + gn + ':</b> ' + picks[gn]);
+    });
+    document.getElementById('picks').innerHTML = names.length ? names.join(' &nbsp;·&nbsp; ') : 'No picks yet.';
+  }
+  function renderSel() {
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      g.querySelectorAll('.opt').forEach(function (o) {
+        o.classList.toggle('sel', picks[gn] === o.getAttribute('data-o'));
+      });
+    });
+  }
+  function choose(g, o) {
+    picks[g.getAttribute('data-g')] = o.getAttribute('data-o');
+    localStorage.setItem(KEY, JSON.stringify(picks));
+    renderSel(); renderBar();
+  }
+  groups.forEach(function (g) {
+    g.querySelectorAll('.opt').forEach(function (o) {
+      o.addEventListener('click', function () { choose(g, o); });
+      o.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(g, o); }
+      });
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    picks = {}; localStorage.removeItem(KEY); renderSel(); renderBar();
+  });
+  document.getElementById('copy').addEventListener('click', function () {
+    var lines = [];
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      lines.push(gn + ': ' + (picks[gn] || 'no pick'));
+    });
+    var text = lines.join('\n');
+    var btn = document.getElementById('copy');
+    function done() { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy picks'; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy your picks:', text); });
+    } else { window.prompt('Copy your picks:', text); }
+  });
+  renderSel(); renderBar();
+})();
+</script>
+</body>
+</html>

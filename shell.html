@@ -1,0 +1,206 @@
+<!doctype html>
+<!-- Daylight shell, pursuits board (P-101).
+     All client, project, and people names below are invented example data. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P-101 Pursuits, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-e2">
+</head>
+<body>
+
+<div class="app">
+
+  <nav class="rail">
+    <div class="rail-logo">Kulka<span class="logo-ai">AI</span></div>
+    <div class="rail-search">
+      <input class="input" type="search" placeholder="Search sheets">
+    </div>
+
+    <!-- Flat rail (owner decision 2026-08-25): four items need no taxonomy.
+         Section headers return when a second module ships. -->
+    <div class="rail-nav">
+      <a class="rail-item" href="shell-home.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/house.svg')"></span><span>Home</span><span class="count">H-100</span></a>
+      <a class="rail-item" href="shell.html" aria-current="page"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/target.svg')"></span><span>Pursuits</span><span class="count">9</span></a>
+      <a class="rail-item" href="shell-client.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/users.svg')"></span><span>Clients</span><span class="count">31</span></a>
+      <a class="rail-item" href="shell-brief.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/file-text.svg')"></span><span>Briefs</span><span class="count">6</span></a>
+    </div>
+
+    <div class="rail-user">
+      <span class="owner owner--4">RK</span>
+      <span class="t-ui">Rob K. (example)</span>
+    </div>
+  </nav>
+
+  <main class="field">
+    <section class="sheet">
+
+      <header class="band">
+        <div class="band-top">
+          <span class="band-number">P-101</span>
+          <h1 class="band-name">Pursuits</h1>
+          <div class="band-actions">
+            <button class="btn btn--secondary" type="button">Export</button>
+            <button class="btn btn--primary" type="button">New pursuit</button>
+          </div>
+        </div>
+        <div class="band-meta">
+          <span>All open pursuits</span>
+          <span class="sep">&middot;</span>
+          <span class="num">9 pursuits</span>
+          <span class="sep">&middot;</span>
+          <span>example data</span>
+          <button class="band-redlines" type="button">
+            <span class="dot"></span><span class="num">3</span>&nbsp;need review
+          </button>
+        </div>
+      </header>
+
+      <div class="sheet-body sheet-body--board">
+        <table class="board">
+          <thead>
+            <tr>
+              <th class="cell-margin"></th>
+              <th>Pursuit</th>
+              <th>Client</th>
+              <th>Source</th>
+              <th>Owner</th>
+              <th class="right">Bid due</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="group">
+              <th class="cell-margin"></th>
+              <th colspan="6">
+                <span class="group-title">Qualifying</span>
+                <span class="group-count t-meta">&nbsp;&nbsp;4 pursuits</span>
+              </th>
+            </tr>
+            <tr class="row">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>01</span></div></td>
+              <td>Riverside Fit-Out, Level 3</td>
+              <td>Hartwell Partners</td>
+              <td>Architect referral</td>
+              <td><span class="owner owner--1">DM</span></td>
+              <td class="num right">Sep 04</td>
+              <td><span class="status-block status-block--working">Working on it</span></td>
+            </tr>
+            <tr class="row">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>02</span></div></td>
+              <td>Kearny Warehouse Shell</td>
+              <td>Meridian Industrial</td>
+              <td>Repeat client</td>
+              <td><span class="owner owner--1">DM</span></td>
+              <td class="num right">Sep 18</td>
+              <td><span class="status-block status-block--open">Not started</span></td>
+            </tr>
+            <tr class="row">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>03</span></div></td>
+              <td>Tremont Avenue Facade</td>
+              <td>Bergen Holdings</td>
+              <td>Broker intro</td>
+              <td><span class="owner owner--2">AL</span></td>
+              <td class="num right">Sep 25</td>
+              <td><span class="status-block status-block--open">Not started</span></td>
+            </tr>
+            <tr class="row">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>04</span></div></td>
+              <td>Ridgewood Medical Suite</td>
+              <td>Calder Health</td>
+              <td>Architect referral</td>
+              <td><span class="owner owner--3">JP</span></td>
+              <td class="num right">Sep 11</td>
+              <td><span class="status-block status-block--working">Working on it</span></td>
+            </tr>
+            <tr class="group">
+              <th class="cell-margin"></th>
+              <th colspan="6">
+                <span class="group-title">Proposal out</span>
+                <span class="group-count t-meta">&nbsp;&nbsp;3 pursuits</span>
+              </th>
+            </tr>
+            <tr class="row">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>05</span></div></td>
+              <td>Ninth Avenue Core &amp; Shell</td>
+              <td>Ardmore Development</td>
+              <td>Owner rep referral</td>
+              <td><span class="owner owner--2">AL</span></td>
+              <td class="num right">Oct 02</td>
+              <td><span class="status-block status-block--working">Working on it</span></td>
+            </tr>
+            <tr class="row row--stuck">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>06</span></div></td>
+              <td>Palisades Retail Build-Out</td>
+              <td>Foxglove Group</td>
+              <td>Repeat client</td>
+              <td><span class="owner owner--3">JP</span></td>
+              <td class="num right due--late">Aug 19</td>
+              <td><span class="status-block status-block--stuck">Stuck</span></td>
+            </tr>
+            <tr class="row">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>07</span></div></td>
+              <td>Harrison Street Interiors</td>
+              <td>Calder Health</td>
+              <td>Architect referral</td>
+              <td><span class="owner owner--2">AL</span></td>
+              <td class="num right">Sep 29</td>
+              <td><span class="status-block status-block--working">Working on it</span></td>
+            </tr>
+            <tr class="group">
+              <th class="cell-margin"></th>
+              <th colspan="6">
+                <span class="group-title">Award pending</span>
+                <span class="group-count t-meta">&nbsp;&nbsp;2 pursuits</span>
+              </th>
+            </tr>
+            <tr class="row row--stuck">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>08</span></div></td>
+              <td>Fulton Street Lobby</td>
+              <td>Bergen Holdings</td>
+              <td>Broker intro</td>
+              <td><span class="owner owner--2">AL</span></td>
+              <td class="num right due--late">Aug 22</td>
+              <td><span class="status-block status-block--stuck">Stuck</span></td>
+            </tr>
+            <tr class="row row--stuck">
+              <td class="cell-margin"><div class="cell-margin-inner"><label class="cbx"><input type="checkbox" aria-label="Select row"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label><span>09</span></div></td>
+              <td>Grand Concourse Roof Replacement</td>
+              <td>Ardmore Development</td>
+              <td>Owner rep referral</td>
+              <td><span class="owner owner--3">JP</span></td>
+              <td class="num right due--late">Aug 21</td>
+              <td><span class="status-block status-block--stuck">Stuck</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="strip">
+        <span class="strip-group">
+          <span class="t-label">Qualifying</span>
+          <span>4 active</span>
+          <span class="risk">0 stuck</span>
+        </span>
+        <span class="strip-group">
+          <span class="t-label">Proposal out</span>
+          <span>3 active</span>
+          <span class="risk risk--live">1 stuck</span>
+        </span>
+        <span class="strip-group">
+          <span class="t-label">Award pending</span>
+          <span>2 active</span>
+          <span class="risk risk--live">2 stuck</span>
+        </span>
+      </footer>
+
+    </section>
+  </main>
+</div>
+
+</body>
+</html>

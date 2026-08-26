@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Daylight shell, login cover. The door to the building. Example data. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-e2">
+<style>
+  .login-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 800;
+    color: var(--brand);
+    letter-spacing: -0.02em;
+  }
+  .login-mark .logo-ai {
+    margin-left: 8px;
+    background: var(--primary);
+    color: #FFFFFF;
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+  .login-column h1 {
+    font-size: var(--t2-size);
+    line-height: var(--t2-line);
+    letter-spacing: var(--t2-track);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .login-column .sub {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .login-field { margin-bottom: 16px; }
+  .login-actions { margin-top: 24px; }
+  .login-actions .btn { width: 100%; justify-content: center; }
+  .login-foot {
+    margin-top: 20px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<main class="login">
+  <div class="login-column">
+    <div class="login-mark">Kulka<span class="logo-ai">AI</span></div>
+    <h1>Sign in</h1>
+    <p class="t-meta sub">The Kulka Group workspace</p>
+
+    <div class="login-field">
+      <label class="t-label field-label" for="email">Email</label>
+      <input class="input" id="email" type="email" autocomplete="email" placeholder="you@kulkagroup.com">
+    </div>
+    <div class="login-field">
+      <label class="t-label field-label" for="password">Password</label>
+      <input class="input" id="password" type="password" autocomplete="current-password">
+    </div>
+
+    <div class="login-actions">
+      <button class="btn btn--primary btn--lg" type="button">Sign in</button>
+    </div>
+
+    <p class="t-meta login-foot">
+      <button class="btn btn--quiet" type="button">Forgot password?</button>
+    </p>
+  </div>
+</main>
+
+</body>
+</html>

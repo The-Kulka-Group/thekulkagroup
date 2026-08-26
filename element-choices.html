@@ -1,0 +1,529 @@
+<!doctype html>
+<!-- Daylight element chooser. Click a variant in each group; picks persist in
+     localStorage and collect in the bottom bar. Option A is always the current
+     shipped treatment. Example data throughout. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Element Choices, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css">
+<style>
+  html, body { height: auto; }
+  body { padding: 40px 28px 240px; }
+  .pick-wrap { max-width: 1080px; margin: 0 auto; }
+  .pick-wrap > h1 { font-size: 26px; font-weight: 800; color: var(--brand); letter-spacing: -0.015em; }
+  .pick-wrap > p.lede { margin-top: 6px; color: var(--ink-2); max-width: 64ch; font-size: 14.5px; }
+
+  .group { margin-top: 36px; }
+  .group > h2 { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+  .group > p { font-size: 13px; color: var(--ink-2); margin-bottom: 14px; }
+  .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .opt {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-card);
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
+  }
+  .opt:hover { border-color: var(--border); box-shadow: var(--shadow-raised); }
+  .opt:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .opt.sel { border: 2px solid var(--primary); padding: 17px; }
+  .opt.sel::after {
+    content: "Selected";
+    position: absolute; top: 10px; right: 10px;
+    font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: #fff; background: var(--primary);
+    padding: 3px 8px; border-radius: var(--r-pill);
+  }
+  .opt h3 { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .opt .cap { font-size: 12px; color: var(--ink-2); margin-bottom: 14px; }
+  .opt .stage { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .opt .stage-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ---- 1. Buttons ---- */
+  .b { height: 32px; padding: 0 16px; font: 600 14px "Open Sans", sans-serif; border: 1px solid transparent; display: inline-flex; align-items: center; cursor: default; }
+  .b-pri { background: var(--primary); color: #fff; }
+  .b-sec { background: var(--surface); border-color: var(--border); color: var(--ink); }
+  .r8 { border-radius: 8px; } .rpill { border-radius: 999px; } .r4 { border-radius: 4px; } .r10 { border-radius: 10px; }
+  .tall { height: 36px; }
+  .b-tint { background: var(--primary-tint); color: var(--primary); }
+
+  /* ---- 2. Status ---- */
+  .st { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 112px; height: 26px; font-size: 12px; font-weight: 600; }
+  .st .d { width: 8px; height: 8px; border-radius: 50%; }
+  /* A: current */
+  .stA { border-radius: 999px; color: var(--ink); }
+  .stA.w { background: var(--working-tint); } .stA.w .d { background: var(--working); }
+  .stA.s { background: var(--stuck-tint); } .stA.s .d { background: var(--stuck-bright); }
+  .stA.dn { background: var(--done-tint); } .stA.dn .d { background: var(--done-bright); }
+  /* B: solid blocks */
+  .stB { border-radius: 4px; color: #fff; }
+  .stB.w { background: var(--working); color: #4A3200; }
+  .stB.s { background: var(--stuck-bright); }
+  .stB.dn { background: var(--done-bright); color: #06392266; color: #0B4A2E; }
+  /* C: dot + word, no fill */
+  .stC { width: auto; color: var(--ink); justify-content: flex-start; }
+  .stC.w .d { background: var(--working); } .stC.s .d { background: var(--stuck-bright); } .stC.dn .d { background: var(--done-bright); }
+  /* D: tint + colored bold text, no dot */
+  .stD { border-radius: 999px; font-weight: 700; }
+  .stD.w { background: var(--working-tint); color: #A15E00; }
+  .stD.s { background: var(--stuck-tint); color: var(--stuck); }
+  .stD.dn { background: var(--done-tint); color: var(--done); }
+  /* E: outlined */
+  .stE { border-radius: 999px; color: var(--ink); background: var(--surface); border: 1px solid var(--border); }
+  .stE.w { border-color: #FFD9A3; } .stE.w .d { background: var(--working); }
+  .stE.s { border-color: #F5BFCA; } .stE.s .d { background: var(--stuck-bright); }
+  .stE.dn { border-color: #A9E8C9; } .stE.dn .d { background: var(--done-bright); }
+
+  /* ---- 3. Row density ---- */
+  .mini { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .mini td { border-bottom: 1px solid var(--border-light); padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini td.n { color: var(--ink-3); font-size: 11.5px; width: 24px; font-variant-numeric: tabular-nums; }
+  .mini td.dt { color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; width: 64px; }
+  .h44 td { height: 44px; } .h40 td { height: 40px; } .h36 td { height: 36px; } .h32 td { height: 32px; font-size: 13px; }
+
+  /* ---- 4. Sheet header ---- */
+  .hd { width: 100%; border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; background: var(--surface); }
+  .hd .top { display: flex; align-items: center; gap: 10px; padding: 14px 16px 0; }
+  .hd .badge { background: var(--brand); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+  .hd .ttl { font-weight: 800; color: var(--brand); letter-spacing: -0.015em; }
+  .hd .acts { margin-left: auto; display: flex; gap: 6px; }
+  .hd .bx { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .hd .bx1 { background: var(--primary); color: #fff; }
+  .hd .bx2 { border: 1px solid var(--border); color: var(--ink); }
+  .hd .meta { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-2); padding: 8px 16px 12px; margin-top: 10px; border-top: 1px solid var(--border-light); }
+  .hd .pill { margin-left: auto; background: var(--redline-tint); color: var(--redline); font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .hdA .ttl { font-size: 19px; }
+  .hdB .top { padding: 10px 16px; align-items: center; }
+  .hdB .ttl { font-size: 16px; }
+  .hdB .meta { display: none; }
+  .hdB .pill { margin-left: 0; }
+  .hdC .ttl { font-size: 22px; }
+  .hdC .top { padding: 18px 18px 0; }
+  .hdC .meta { border-top: 0; padding: 6px 18px 16px; }
+
+  /* ---- 5. Inputs ---- */
+  .inp { width: 100%; max-width: 240px; height: 32px; padding: 0 12px; font: 400 14px "Open Sans", sans-serif; color: var(--ink); }
+  .inpA { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .inpB { background: var(--canvas); border: 1px solid transparent; border-radius: 8px; }
+  .inpC { background: var(--surface); border: 1px solid var(--border-light); border-radius: 10px; height: 36px; }
+  .inpD { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
+  .lbl { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 4px; }
+
+  /* ---- 6. Rail active ---- */
+  .railmock { width: 200px; background: var(--canvas); border: 1px solid var(--border-light); border-radius: 10px; padding: 8px; }
+  .rm { display: flex; justify-content: space-between; align-items: center; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13.5px; color: var(--ink); position: relative; }
+  .rm .c { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .rmA.on { background: var(--primary-tint); color: var(--primary); font-weight: 600; } .rmA.on .c { color: var(--primary); }
+  .rmB.on { font-weight: 700; } .rmB.on::before { content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: var(--primary); }
+  .rmC.on { background: var(--brand); color: #fff; font-weight: 600; } .rmC.on .c { color: #fff; }
+  .rmD.on { color: var(--primary); font-weight: 700; } .rmD.on .c { color: var(--primary); }
+
+  /* ---- 7. Attention rows ---- */
+  .at { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .atr { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .atr .d { width: 8px; height: 8px; border-radius: 50%; background: var(--stuck-bright); flex: none; }
+  .atr .d.am { background: var(--working); }
+  .atr .src { margin-left: auto; color: var(--ink-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .atr .act { color: var(--primary); font-weight: 600; font-size: 12.5px; }
+  .atA .atr { background: var(--surface); border: 1px solid var(--border-light); border-radius: 8px; box-shadow: var(--shadow-card); padding: 10px 14px; }
+  .atB { gap: 0; }
+  .atB .atr { border-bottom: 1px solid var(--border-light); padding: 11px 2px; }
+  .atC .atr { border-radius: 8px; padding: 10px 14px; }
+  .atC .atr.red { background: #FFF2F4; }
+  .atC .atr.amb { background: #FFF6E8; }
+
+  /* ---- 8. Avatars ---- */
+  .av { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
+  .avA { border-radius: 50%; background: var(--neutral-fill); color: var(--ink); }
+  .avB { border-radius: 50%; background: var(--primary-tint); color: var(--primary); }
+  .avC { border-radius: 7px; background: var(--neutral-fill); color: var(--ink); }
+  .avD1 { border-radius: 50%; background: #DCE9FB; color: #1D5FAE; }
+  .avD2 { border-radius: 50%; background: #E2F3E8; color: #1F7A4D; }
+  .avD3 { border-radius: 50%; background: #F6E8D8; color: #9A5B1F; }
+  .avD4 { border-radius: 50%; background: #EDE6F5; color: #6B4E9B; }
+  .avE1 { border-radius: 50%; background: #C7DFFF; color: #0B57C2; }
+  .avE2 { border-radius: 50%; background: #BFF0D6; color: #0E6E43; }
+  .avE3 { border-radius: 50%; background: #FFE0AD; color: #8A5500; }
+  .avE4 { border-radius: 50%; background: #BFEAE8; color: #0B6E6A; }
+  .avF1 { border-radius: 50%; background: #0073EA; color: #fff; }
+  .avF2 { border-radius: 50%; background: #00C875; color: #063D25; }
+  .avF3 { border-radius: 50%; background: #FF9500; color: #4A3200; }
+  .avF4 { border-radius: 50%; background: #00B3AD; color: #063B39; }
+  .avG1 { border-radius: 50%; background: #0B57C2; color: #fff; }
+  .avG2 { border-radius: 50%; background: #0E7A4B; color: #fff; }
+  .avG3 { border-radius: 50%; background: #C46A00; color: #fff; }
+  .avG4 { border-radius: 50%; background: #0B6E6A; color: #fff; }
+  .avP { border-radius: 50%; color: #fff; }
+
+  /* ---- picks bar ---- */
+  .bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--border-light);
+    box-shadow: 0 -4px 16px rgba(29,29,31,.06);
+    padding: 12px 28px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .bar .picks { flex: 1; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+  .bar .picks b { color: var(--ink); font-weight: 700; }
+  .bar button {
+    height: 32px; padding: 0 16px; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--primary); color: #fff; font: 600 13.5px "Open Sans", sans-serif;
+  }
+  .bar button.ghost { background: var(--surface); border: 1px solid var(--border); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="pick-wrap">
+  <h1>Element choices</h1>
+  <p class="lede">Click one option in each group. Option A is always what ships today. Your
+  picks collect in the bar below and survive a reload; hit Copy picks and paste them back to
+  me, or just read them off.</p>
+
+  <div class="group" data-g="Primary button">
+    <h2>1 · Buttons</h2>
+    <p>Shown as a primary and secondary pair. Color stays Daylight blue in all of them.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Rounded 8 (current)" tabindex="0" role="button">
+        <h3>A · Rounded 8 (current)</h3><p class="cap">32px tall, 8px corners.</p>
+        <div class="stage"><div class="stage-row"><span class="b b-pri r8">New pursuit</span><span class="b b-sec r8">Export</span></div></div>
+      </div>
+      <div class="opt" data-o="B · Pill" tabindex="0" role="button">
+        <h3>B · Pill</h3><p class="cap">The Apple convention. Softest read.</p>
+        <div class="stage"><div class="stage-row"><span class="b b-pri rpill">New pursuit</span><span class="b b-sec rpill">Export</span></div></div>
+      </div>
+      <div class="opt" data-o="C · Square 4" tabindex="0" role="button">
+        <h3>C · Square 4</h3><p class="cap">Monday's own geometry. Most tool-like.</p>
+        <div class="stage"><div class="stage-row"><span class="b b-pri r4">New pursuit</span><span class="b b-sec r4">Export</span></div></div>
+      </div>
+      <div class="opt" data-o="D · Tall 36, rounded 10" tabindex="0" role="button">
+        <h3>D · Tall 36, rounded 10</h3><p class="cap">More presence, fewer per screen.</p>
+        <div class="stage"><div class="stage-row"><span class="b b-pri r10 tall">New pursuit</span><span class="b b-sec r10 tall">Export</span></div></div>
+      </div>
+      <div class="opt" data-o="E · Tinted primary" tabindex="0" role="button">
+        <h3>E · Tinted primary</h3><p class="cap">Blue tint instead of blue fill. Quietest.</p>
+        <div class="stage"><div class="stage-row"><span class="b b-tint r8">New pursuit</span><span class="b b-sec r8">Export</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Status">
+    <h2>2 · Status on boards</h2>
+    <p>Working, Stuck, and Done in each treatment. Same hues throughout.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Tint + dot + ink (current)" tabindex="0" role="button">
+        <h3>A · Tint + dot + ink (current)</h3><p class="cap">Bright tint, vivid dot, ink label.</p>
+        <div class="stage"><div class="stage-row"><span class="st stA w"><span class="d"></span>Working on it</span><span class="st stA s"><span class="d"></span>Stuck</span><span class="st stA dn"><span class="d"></span>Done</span></div></div>
+      </div>
+      <div class="opt" data-o="B · Solid blocks" tabindex="0" role="button">
+        <h3>B · Solid blocks</h3><p class="cap">Monday's own look. Loudest.</p>
+        <div class="stage"><div class="stage-row"><span class="st stB w">Working on it</span><span class="st stB s">Stuck</span><span class="st stB dn">Done</span></div></div>
+      </div>
+      <div class="opt" data-o="C · Dot + word only" tabindex="0" role="button">
+        <h3>C · Dot + word only</h3><p class="cap">No fill at all. Quietest board.</p>
+        <div class="stage"><div class="stage-row"><span class="st stC w"><span class="d"></span>Working on it</span><span class="st stC s"><span class="d"></span>Stuck</span><span class="st stC dn"><span class="d"></span>Done</span></div></div>
+      </div>
+      <div class="opt" data-o="D · Tint + colored text" tabindex="0" role="button">
+        <h3>D · Tint + colored text</h3><p class="cap">No dot; the words carry the color.</p>
+        <div class="stage"><div class="stage-row"><span class="st stD w">Working on it</span><span class="st stD s">Stuck</span><span class="st stD dn">Done</span></div></div>
+      </div>
+      <div class="opt" data-o="E · Outlined" tabindex="0" role="button">
+        <h3>E · Outlined</h3><p class="cap">White chip, colored border and dot.</p>
+        <div class="stage"><div class="stage-row"><span class="st stE w"><span class="d"></span>Working on it</span><span class="st stE s"><span class="d"></span>Stuck</span><span class="st stE dn"><span class="d"></span>Done</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Row density">
+    <h2>3 · Board row density</h2>
+    <p>How many pursuits fit on one screen.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Comfortable 44 (current)" tabindex="0" role="button">
+        <h3>A · Comfortable 44 (current)</h3><p class="cap">Most air per row.</p>
+        <table class="mini h44"><tr><td class="n">05</td><td>Ninth Avenue Core &amp; Shell</td><td class="dt">Oct 02</td></tr><tr><td class="n">06</td><td>Palisades Retail Build-Out</td><td class="dt">Aug 19</td></tr><tr><td class="n">07</td><td>Harrison Street Interiors</td><td class="dt">Sep 29</td></tr></table>
+      </div>
+      <div class="opt" data-o="B · Standard 40" tabindex="0" role="button">
+        <h3>B · Standard 40</h3><p class="cap">A row more per screen, still calm.</p>
+        <table class="mini h40"><tr><td class="n">05</td><td>Ninth Avenue Core &amp; Shell</td><td class="dt">Oct 02</td></tr><tr><td class="n">06</td><td>Palisades Retail Build-Out</td><td class="dt">Aug 19</td></tr><tr><td class="n">07</td><td>Harrison Street Interiors</td><td class="dt">Sep 29</td></tr></table>
+      </div>
+      <div class="opt" data-o="C · Compact 36" tabindex="0" role="button">
+        <h3>C · Compact 36</h3><p class="cap">The estimator's density.</p>
+        <table class="mini h36"><tr><td class="n">05</td><td>Ninth Avenue Core &amp; Shell</td><td class="dt">Oct 02</td></tr><tr><td class="n">06</td><td>Palisades Retail Build-Out</td><td class="dt">Aug 19</td></tr><tr><td class="n">07</td><td>Harrison Street Interiors</td><td class="dt">Sep 29</td></tr></table>
+      </div>
+      <div class="opt" data-o="D · Dense 32" tabindex="0" role="button">
+        <h3>D · Dense 32</h3><p class="cap">Ledger mode. Chips shrink to fit.</p>
+        <table class="mini h32"><tr><td class="n">05</td><td>Ninth Avenue Core &amp; Shell</td><td class="dt">Oct 02</td></tr><tr><td class="n">06</td><td>Palisades Retail Build-Out</td><td class="dt">Aug 19</td></tr><tr><td class="n">07</td><td>Harrison Street Interiors</td><td class="dt">Sep 29</td></tr></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Sheet header">
+    <h2>4 · Sheet header</h2>
+    <p>The title block on every sheet.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Two tiers (current)" tabindex="0" role="button">
+        <h3>A · Two tiers (current)</h3><p class="cap">Big title row, hairline meta row.</p>
+        <div class="hd hdA"><div class="top"><span class="badge">P-101</span><span class="ttl">Pursuits</span><span class="acts"><span class="bx bx2">Export</span><span class="bx bx1">New pursuit</span></span></div><div class="meta"><span>All open pursuits · 9 pursuits</span><span class="pill">3 need review</span></div></div>
+      </div>
+      <div class="opt" data-o="B · One row compact" tabindex="0" role="button">
+        <h3>B · One row compact</h3><p class="cap">Everything on one line. Max content room.</p>
+        <div class="hd hdB"><div class="top"><span class="badge">P-101</span><span class="ttl">Pursuits</span><span class="pill">3 need review</span><span class="acts"><span class="bx bx2">Export</span><span class="bx bx1">New pursuit</span></span></div></div>
+      </div>
+      <div class="opt" data-o="C · Airy, bigger title" tabindex="0" role="button">
+        <h3>C · Airy, bigger title</h3><p class="cap">Larger title, meta floats without a rule.</p>
+        <div class="hd hdC"><div class="top"><span class="badge">P-101</span><span class="ttl">Pursuits</span><span class="acts"><span class="bx bx2">Export</span><span class="bx bx1">New pursuit</span></span></div><div class="meta"><span>All open pursuits · 9 pursuits</span><span class="pill">3 need review</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Inputs">
+    <h2>5 · Inputs</h2>
+    <p>The text field every form uses.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Bordered 8 (current)" tabindex="0" role="button">
+        <h3>A · Bordered 8 (current)</h3><p class="cap">White field, visible border.</p>
+        <div class="stage"><div><div class="lbl">Client</div><input class="inp inpA" value="Hartwell Partners" readonly></div></div>
+      </div>
+      <div class="opt" data-o="B · Filled" tabindex="0" role="button">
+        <h3>B · Filled</h3><p class="cap">Canvas fill, border appears on focus.</p>
+        <div class="stage"><div><div class="lbl">Client</div><input class="inp inpB" value="Hartwell Partners" readonly></div></div>
+      </div>
+      <div class="opt" data-o="C · Soft 10, taller" tabindex="0" role="button">
+        <h3>C · Soft 10, taller</h3><p class="cap">36px tall, lighter border, rounder.</p>
+        <div class="stage"><div><div class="lbl">Client</div><input class="inp inpC" value="Hartwell Partners" readonly></div></div>
+      </div>
+      <div class="opt" data-o="D · Square 4" tabindex="0" role="button">
+        <h3>D · Square 4</h3><p class="cap">Crisper corners, same anatomy.</p>
+        <div class="stage"><div><div class="lbl">Client</div><input class="inp inpD" value="Hartwell Partners" readonly></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Rail active state">
+    <h2>6 · Rail active state</h2>
+    <p>How the current page shows in the nav.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Blue tint fill (current)" tabindex="0" role="button">
+        <h3>A · Blue tint fill (current)</h3><p class="cap">Filled row, blue text.</p>
+        <div class="railmock"><div class="rm rmA">Home <span class="c">H-100</span></div><div class="rm rmA on">Pursuits <span class="c">9</span></div><div class="rm rmA">Clients <span class="c">31</span></div></div>
+      </div>
+      <div class="opt" data-o="B · Left bar + ink" tabindex="0" role="button">
+        <h3>B · Left bar + ink</h3><p class="cap">A 3px blue bar, bold ink text.</p>
+        <div class="railmock"><div class="rm rmB">Home <span class="c">H-100</span></div><div class="rm rmB on">Pursuits <span class="c">9</span></div><div class="rm rmB">Clients <span class="c">31</span></div></div>
+      </div>
+      <div class="opt" data-o="C · Dark fill" tabindex="0" role="button">
+        <h3>C · Dark fill</h3><p class="cap">Kulka black row, white text.</p>
+        <div class="railmock"><div class="rm rmC">Home <span class="c">H-100</span></div><div class="rm rmC on">Pursuits <span class="c">9</span></div><div class="rm rmC">Clients <span class="c">31</span></div></div>
+      </div>
+      <div class="opt" data-o="D · Blue text only" tabindex="0" role="button">
+        <h3>D · Blue text only</h3><p class="cap">No fill anywhere. Lightest rail.</p>
+        <div class="railmock"><div class="rm rmD">Home <span class="c">H-100</span></div><div class="rm rmD on">Pursuits <span class="c">9</span></div><div class="rm rmD">Clients <span class="c">31</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Attention rows">
+    <h2>7 · Attention rows on Home</h2>
+    <p>Red means blown, amber means waiting, in every option.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Soft cards (current)" tabindex="0" role="button">
+        <h3>A · Soft cards (current)</h3><p class="cap">Each item is its own card.</p>
+        <div class="at atA">
+          <div class="atr"><span class="d"></span>Foxglove follow-up is 5 days past due.<span class="src">P-101</span><span class="act">Open</span></div>
+          <div class="atr"><span class="d am"></span>The Calder brief waits for review.<span class="src">B-217</span><span class="act">Review</span></div>
+        </div>
+      </div>
+      <div class="opt" data-o="B · Flat hairline list" tabindex="0" role="button">
+        <h3>B · Flat hairline list</h3><p class="cap">A quiet list, no cards.</p>
+        <div class="at atB">
+          <div class="atr"><span class="d"></span>Foxglove follow-up is 5 days past due.<span class="src">P-101</span><span class="act">Open</span></div>
+          <div class="atr"><span class="d am"></span>The Calder brief waits for review.<span class="src">B-217</span><span class="act">Review</span></div>
+        </div>
+      </div>
+      <div class="opt" data-o="C · Tinted rows" tabindex="0" role="button">
+        <h3>C · Tinted rows</h3><p class="cap">A faint wash of the severity color.</p>
+        <div class="at atC">
+          <div class="atr red"><span class="d"></span>Foxglove follow-up is 5 days past due.<span class="src">P-101</span><span class="act">Open</span></div>
+          <div class="atr amb"><span class="d am"></span>The Calder brief waits for review.<span class="src">B-217</span><span class="act">Review</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Avatars">
+    <h2>8 · People</h2>
+    <p>Owner initials at table density.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Grey circles (current)" tabindex="0" role="button">
+        <h3>A · Grey circles (current)</h3><p class="cap">Neutral, uniform.</p>
+        <div class="stage"><div class="stage-row"><span class="av avA">DM</span><span class="av avA">AL</span><span class="av avA">JP</span><span class="av avA">RK</span></div></div>
+      </div>
+      <div class="opt" data-o="B · Blue tint circles" tabindex="0" role="button">
+        <h3>B · Blue tint circles</h3><p class="cap">On brand, still uniform.</p>
+        <div class="stage"><div class="stage-row"><span class="av avB">DM</span><span class="av avB">AL</span><span class="av avB">JP</span><span class="av avB">RK</span></div></div>
+      </div>
+      <div class="opt" data-o="C · Rounded squares" tabindex="0" role="button">
+        <h3>C · Rounded squares</h3><p class="cap">Reads as an app chip, not a photo slot.</p>
+        <div class="stage"><div class="stage-row"><span class="av avC">DM</span><span class="av avC">AL</span><span class="av avC">JP</span><span class="av avC">RK</span></div></div>
+      </div>
+      <div class="opt" data-o="D · Muted color per person" tabindex="0" role="button">
+        <h3>D · Muted color per person</h3><p class="cap">Tells owners apart at a glance.</p>
+        <div class="stage"><div class="stage-row"><span class="av avD1">DM</span><span class="av avD2">AL</span><span class="av avD3">JP</span><span class="av avD4">RK</span></div></div>
+      </div>
+      <div class="opt" data-o="E · Stronger tints" tabindex="0" role="button">
+        <h3>E · Stronger tints</h3><p class="cap">Same idea as D, one notch louder.</p>
+        <div class="stage"><div class="stage-row"><span class="av avE1">DM</span><span class="av avE2">AL</span><span class="av avE3">JP</span><span class="av avE4">RK</span></div></div>
+      </div>
+      <div class="opt" data-o="F · Solid vivid" tabindex="0" role="button">
+        <h3>F · Solid vivid</h3><p class="cap">Full-strength fills, Monday energy.</p>
+        <div class="stage"><div class="stage-row"><span class="av avF1">DM</span><span class="av avF2">AL</span><span class="av avF3">JP</span><span class="av avF4">RK</span></div></div>
+      </div>
+      <div class="opt" data-o="G · Deep solid" tabindex="0" role="button">
+        <h3>G · Deep solid</h3><p class="cap">Saturated but grounded, white initials.</p>
+        <div class="stage"><div class="stage-row"><span class="av avG1">DM</span><span class="av avG2">AL</span><span class="av avG3">JP</span><span class="av avG4">RK</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group" data-g="Avatar palette">
+    <h2>9 · Avatar palette, bright</h2>
+    <p>Full-saturation color sets for the solid avatar treatment, shown across a bigger
+    team. Light fills switch to ink initials so every chip stays readable.</p>
+    <div class="opts">
+      <div class="opt" data-o="A · Monday set" tabindex="0" role="button">
+        <h3>A · Monday set</h3><p class="cap">Monday's own board colors, straight up.</p>
+        <div class="stage"><div class="stage-row">
+          <span class="av avP" style="background:#0073EA">DM</span>
+          <span class="av avP" style="background:#00C875">AL</span>
+          <span class="av avP" style="background:#FF642E">JP</span>
+          <span class="av avP" style="background:#00D2D2">RK</span>
+          <span class="av avP" style="background:#FFCB00; color:#4A3B00">SW</span>
+          <span class="av avP" style="background:#FF158A">DR</span>
+        </div></div>
+      </div>
+      <div class="opt" data-o="B · Apple bright" tabindex="0" role="button">
+        <h3>B · Apple bright</h3><p class="cap">The iOS system palette at full strength.</p>
+        <div class="stage"><div class="stage-row">
+          <span class="av avP" style="background:#007AFF">DM</span>
+          <span class="av avP" style="background:#34C759">AL</span>
+          <span class="av avP" style="background:#FF9500">JP</span>
+          <span class="av avP" style="background:#FF2D55">RK</span>
+          <span class="av avP" style="background:#00C7BE">SW</span>
+          <span class="av avP" style="background:#FFCC00; color:#4A3B00">DR</span>
+        </div></div>
+      </div>
+      <div class="opt" data-o="C · Electric" tabindex="0" role="button">
+        <h3>C · Electric</h3><p class="cap">The loudest set that still prints initials.</p>
+        <div class="stage"><div class="stage-row">
+          <span class="av avP" style="background:#2979FF">DM</span>
+          <span class="av avP" style="background:#00E676; color:#00391D">AL</span>
+          <span class="av avP" style="background:#FF1744">JP</span>
+          <span class="av avP" style="background:#FF9100">RK</span>
+          <span class="av avP" style="background:#00B0FF">SW</span>
+          <span class="av avP" style="background:#FF4081">DR</span>
+        </div></div>
+      </div>
+      <div class="opt" data-o="D · Bright spectrum" tabindex="0" role="button">
+        <h3>D · Bright spectrum</h3><p class="cap">Eight vivid hues around the wheel, purple skipped.</p>
+        <div class="stage"><div class="stage-row">
+          <span class="av avP" style="background:#FF3B30">DM</span>
+          <span class="av avP" style="background:#FF642E">AL</span>
+          <span class="av avP" style="background:#FFB300; color:#4A3300">JP</span>
+          <span class="av avP" style="background:#00C875">RK</span>
+          <span class="av avP" style="background:#00D2D2">SW</span>
+          <span class="av avP" style="background:#0073EA">DR</span>
+          <span class="av avP" style="background:#2E5BFF">MB</span>
+          <span class="av avP" style="background:#FF158A">TC</span>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bar">
+  <div class="picks" id="picks">No picks yet. Option A is the current build in every group.</div>
+  <button class="ghost" id="reset" type="button">Reset</button>
+  <button id="copy" type="button">Copy picks</button>
+</div>
+
+<script>
+(function () {
+  var KEY = 'kulka-element-picks';
+  var picks = {};
+  try { picks = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { picks = {}; }
+
+  var groups = document.querySelectorAll('.group');
+
+  function renderBar() {
+    var names = [];
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      if (picks[gn]) names.push('<b>' + gn + ':</b> ' + picks[gn].split(' ·')[0]);
+    });
+    var el = document.getElementById('picks');
+    el.innerHTML = names.length
+      ? names.join(' &nbsp;·&nbsp; ')
+      : 'No picks yet. Option A is the current build in every group.';
+  }
+
+  function renderSel() {
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      g.querySelectorAll('.opt').forEach(function (o) {
+        o.classList.toggle('sel', picks[gn] === o.getAttribute('data-o'));
+      });
+    });
+  }
+
+  function choose(g, o) {
+    picks[g.getAttribute('data-g')] = o.getAttribute('data-o');
+    localStorage.setItem(KEY, JSON.stringify(picks));
+    renderSel(); renderBar();
+  }
+
+  groups.forEach(function (g) {
+    g.querySelectorAll('.opt').forEach(function (o) {
+      o.addEventListener('click', function () { choose(g, o); });
+      o.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(g, o); }
+      });
+    });
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    picks = {};
+    localStorage.removeItem(KEY);
+    renderSel(); renderBar();
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var lines = [];
+    groups.forEach(function (g) {
+      var gn = g.getAttribute('data-g');
+      lines.push(gn + ': ' + (picks[gn] || 'A (default, current build)'));
+    });
+    var text = lines.join('\n');
+    var btn = document.getElementById('copy');
+    function done() { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy picks'; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy your picks:', text); });
+    } else {
+      window.prompt('Copy your picks:', text);
+    }
+  });
+
+  renderSel(); renderBar();
+})();
+</script>
+</body>
+</html>

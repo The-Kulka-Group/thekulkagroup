@@ -1,0 +1,149 @@
+<!doctype html>
+<!-- Daylight shell, brief document tempo (B-217).
+     All client, project, and people names below are invented example data. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B-217 Brief, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-e2">
+</head>
+<body>
+
+<div class="app">
+
+  <nav class="rail">
+    <div class="rail-logo">Kulka<span class="logo-ai">AI</span></div>
+    <div class="rail-search">
+      <input class="input" type="search" placeholder="Search sheets">
+    </div>
+
+    <!-- Flat rail (owner decision 2026-08-25): four items need no taxonomy.
+         Section headers return when a second module ships. -->
+    <div class="rail-nav">
+      <a class="rail-item" href="shell-home.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/house.svg')"></span><span>Home</span><span class="count">H-100</span></a>
+      <a class="rail-item" href="shell.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/target.svg')"></span><span>Pursuits</span><span class="count">9</span></a>
+      <a class="rail-item" href="shell-client.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/users.svg')"></span><span>Clients</span><span class="count">31</span></a>
+      <a class="rail-item" href="shell-brief.html" aria-current="page"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/file-text.svg')"></span><span>Briefs</span><span class="count">6</span></a>
+    </div>
+
+    <div class="rail-user">
+      <span class="owner owner--4">RK</span>
+      <span class="t-ui">Rob K. (example)</span>
+    </div>
+  </nav>
+
+  <main class="field">
+    <section class="sheet">
+
+      <header class="band">
+        <div class="band-top">
+          <span class="band-number">B-217</span>
+          <h1 class="band-name">Meeting Brief</h1>
+          <div class="band-actions">
+            <button class="btn btn--secondary" type="button">Export PDF</button>
+          </div>
+        </div>
+        <div class="band-meta">
+          <span>Calder Health (example)</span>
+          <span class="sep">&middot;</span>
+          <span>Rev A</span>
+          <span class="sep">&middot;</span>
+          <span class="num">Issued 2026-08-24</span>
+          <button class="band-redlines" type="button">
+            <span class="dot"></span><span class="num">1</span>&nbsp;needs review
+          </button>
+        </div>
+      </header>
+
+      <div class="sheet-body sheet-body--doc">
+        <article class="doc">
+
+          <div class="margin"></div>
+          <div class="col-field">
+            <h2 class="t-2 doc-title">Calder Health, Thursday 2026-08-27 (example)</h2>
+            <p class="t-meta doc-meta">
+              Pre-meeting brief &nbsp;&middot;&nbsp; Prepared for R. K. and J. Park
+            </p>
+          </div>
+
+          <div class="doc-clause">
+            <div class="margin">01</div>
+            <div class="col-field">
+              <h3 class="t-3">Relationship snapshot</h3>
+              <p>
+                Calder Health has been a client since 2023 with three completed projects,
+                all architect referrals through Wren &amp; Ostrow. Last contact was the
+                Harrison Street walkthrough on 2026-08-06. Two pursuits are open:
+                Ridgewood Medical Suite (qualifying) and Harrison Street Interiors
+                (proposal out).
+              </p>
+            </div>
+          </div>
+
+          <div class="doc-clause">
+            <div class="margin">02</div>
+            <div class="col-field">
+              <h3 class="t-3">What changed since last contact</h3>
+              <p>
+                The Harrison Street proposal went out 2026-08-14 and has had no response.
+                Ridgewood's equipment schedule arrived 2026-08-20 and shifts the fit-out
+                start earlier.
+              </p>
+              <div class="redline-row" style="margin-top: 12px;">
+                <span class="dot dot--amber"></span>
+                <span class="sentence"><span class="redline-key">TBD:</span> confirm who
+                attends for Calder. The invite lists two names without titles.</span>
+                <button class="btn btn--quiet" type="button">Resolve</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="doc-clause">
+            <div class="margin">03</div>
+            <div class="col-field">
+              <h3 class="t-3" style="display: flex; align-items: center; gap: 10px;">
+                Suggested talking points
+                <span class="draft-flag" style="margin-bottom: 0;"><span class="dot"></span> Draft, not accepted</span>
+              </h3>
+              <p>
+                Open with the Harrison Street proposal: ask directly whether the number
+                or the schedule is the holdup, and offer the phased alternative already
+                priced. On Ridgewood, the earlier equipment delivery is a reason to lock
+                the fit-out window this month. Close by asking about the two Rockland
+                sites mentioned during the August walkthrough.
+              </p>
+              <p class="draft-actions">
+                <button class="btn btn--primary" type="button">Accept</button>
+                <button class="btn btn--secondary" type="button">Edit</button>
+                <button class="btn btn--redline" type="button">Discard</button>
+              </p>
+            </div>
+          </div>
+
+          <div class="margin"></div>
+          <div class="col-field revision-block">
+            <h3 class="t-label">Revisions</h3>
+            <table>
+              <tbody>
+                <tr>
+                  <td class="num w-rev">A</td>
+                  <td class="num w-date">2026-08-24</td>
+                  <td>Drafted ahead of the 2026-08-27 meeting.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </article>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,372 @@
+<!doctype html>
+<!-- Daylight shell, elements reference (E-100). Every element on one sheet.
+     Off the product nav; open directly. Demo-only helpers live in the local
+     style block so daylight.css stays clean. Example data throughout. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-100 Elements, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-e2">
+<style>
+  /* Demo-only helpers. Nothing here ships to the app. */
+  .demo-section { margin-bottom: 40px; }
+  .demo-section > h3 { margin-bottom: 12px; }
+  .demo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .demo-note { font-size: 13px; color: var(--ink-2); margin-top: 8px; max-width: 62ch; }
+  .demo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; max-width: 640px; }
+  .demo-field label { display: block; margin-bottom: 4px; }
+
+  /* Static stand-ins for floating layers so they render in flow. */
+  .demo-float { position: static; display: inline-block; }
+  .demo-popover { width: 220px; padding: 6px; }
+  .demo-menu-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 10px; border-radius: var(--r-sm); font-size: var(--ui-size);
+  }
+  .demo-menu-item:hover { background: var(--hover); }
+  .demo-menu-item .kbd { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .demo-dialog { width: 380px; padding: var(--s6); }
+  .demo-dialog h4 { font-size: var(--t3-size); font-weight: 700; margin-bottom: var(--s2); }
+  .demo-dialog p { font-size: var(--ui-size); color: var(--ink-2); margin-bottom: var(--s4); }
+  .demo-dialog .actions { display: flex; justify-content: flex-end; gap: var(--s2); }
+  .demo-confirm { width: fit-content; }
+
+  /* Command palette mock. */
+  .demo-cmdk { width: 420px; }
+  .demo-cmdk .cmdk-input {
+    display: flex; align-items: center; height: 44px; padding: 0 var(--s4);
+    border-bottom: 1px solid var(--border-light);
+    font-size: var(--value-size); color: var(--ink-3);
+  }
+  .demo-cmdk .cmdk-label { padding: 10px var(--s4) 4px; }
+  .demo-cmdk .cmdk-row {
+    display: flex; align-items: center; gap: var(--s3);
+    padding: 8px var(--s4); font-size: var(--ui-size);
+  }
+  .demo-cmdk .cmdk-row.active { background: var(--primary-tint); color: var(--primary); font-weight: 600; }
+  .demo-cmdk .cmdk-row .num { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+  .demo-cmdk .cmdk-row.active .num { color: var(--primary); }
+
+  /* Date picker mock. */
+  .demo-cal { width: 252px; padding: var(--s4); }
+  .demo-cal .cal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: var(--s2); font-size: var(--ui-size); font-weight: 700;
+  }
+  .demo-cal .cal-head .nav { color: var(--ink-3); }
+  .demo-cal table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+  .demo-cal th { font-weight: 600; color: var(--ink-3); padding: 4px 0; font-size: 11px; }
+  .demo-cal td { padding: 0; }
+  .demo-cal td span {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: var(--r-pill);
+    font-variant-numeric: tabular-nums;
+  }
+  .demo-cal td span:hover { background: var(--hover); }
+  .demo-cal td.muted span { color: var(--ink-3); }
+  .demo-cal td.sel span { background: var(--primary); color: #fff; font-weight: 600; }
+  .demo-cal td.today span { box-shadow: inset 0 0 0 1px var(--border); }
+
+  /* Type and color specimens. */
+  .demo-type > div { display: flex; align-items: baseline; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border-light); }
+  .demo-type .spec { min-width: 96px; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .demo-sw { display: flex; gap: 10px; flex-wrap: wrap; }
+  .demo-sw .s { width: 120px; }
+  .demo-sw .s i { display: block; height: 44px; border-radius: var(--r-md); border: 1px solid var(--border-light); }
+  .demo-sw .s b { display: block; font-size: 12px; margin-top: 6px; }
+  .demo-sw .s span { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  .demo-progress { max-width: 360px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <nav class="rail">
+    <div class="rail-logo">Kulka<span class="logo-ai">AI</span></div>
+    <div class="rail-search">
+      <input class="input" type="search" placeholder="Search sheets">
+    </div>
+
+    <div class="rail-nav">
+      <a class="rail-item" href="shell-home.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/house.svg')"></span><span>Home</span><span class="count">H-100</span></a>
+      <a class="rail-item" href="shell.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/target.svg')"></span><span>Pursuits</span><span class="count">9</span></a>
+      <a class="rail-item" href="shell-client.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/users.svg')"></span><span>Clients</span><span class="count">31</span></a>
+      <a class="rail-item" href="shell-brief.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/file-text.svg')"></span><span>Briefs</span><span class="count">6</span></a>
+      <a class="rail-item" href="shell-elements.html" aria-current="page"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/squares-four.svg')"></span><span>Elements</span><span class="count">E-100</span></a>
+    </div>
+
+    <div class="rail-user">
+      <span class="owner owner--4">RK</span>
+      <span class="t-ui">Rob K. (example)</span>
+    </div>
+  </nav>
+
+  <main class="field">
+    <section class="sheet">
+
+      <header class="band">
+        <div class="band-top">
+          <span class="band-number">E-100</span>
+          <h1 class="band-name">Elements</h1>
+          <div class="band-actions">
+            <button class="btn btn--secondary" type="button">Secondary</button>
+            <button class="btn btn--primary" type="button">Primary action</button>
+          </div>
+        </div>
+        <div class="band-meta">
+          <span>Every Daylight element on one sheet</span>
+          <span class="sep">&middot;</span>
+          <span>reference, not product</span>
+          <span class="sep">&middot;</span>
+          <span>example data</span>
+          <button class="band-redlines" type="button">
+            <span class="dot"></span><span class="num">3</span>&nbsp;need review
+          </button>
+        </div>
+      </header>
+
+      <div class="sheet-body">
+
+        <div class="demo-section">
+          <h3 class="t-label">Color</h3>
+          <div class="demo-sw">
+            <div class="s"><i style="background:var(--primary)"></i><b>Primary</b><span>#0073EA</span></div>
+            <div class="s"><i style="background:var(--done-bright)"></i><b>Done</b><span>#00C875</span></div>
+            <div class="s"><i style="background:var(--working)"></i><b>Working</b><span>#FF9500</span></div>
+            <div class="s"><i style="background:var(--stuck-bright)"></i><b>Stuck</b><span>#E2445C</span></div>
+            <div class="s"><i style="background:var(--ink)"></i><b>Ink</b><span>#323338</span></div>
+            <div class="s"><i style="background:var(--brand)"></i><b>Brand</b><span>#1D1D1F</span></div>
+            <div class="s"><i style="background:var(--canvas)"></i><b>Canvas</b><span>#F6F7FB</span></div>
+          </div>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Type</h3>
+          <div class="demo-type">
+            <div><span class="spec">22 / 700</span><span class="t-1">Content headline</span></div>
+            <div><span class="spec">20 / 700</span><span class="t-2">Document title</span></div>
+            <div><span class="spec">16 / 700</span><span class="t-3">Section head</span></div>
+            <div><span class="spec">15 / 400</span><span class="t-body">Body text for documents and briefs.</span></div>
+            <div><span class="spec">14 / 400</span><span class="t-ui">UI text: table cells, controls, nav items.</span></div>
+            <div><span class="spec">13 / 400</span><span class="t-meta">Meta text: timestamps, counts, helper lines.</span></div>
+            <div><span class="spec">11 / 600</span><span class="t-label">Column head label</span></div>
+          </div>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Buttons</h3>
+          <div class="demo-row">
+            <button class="btn btn--primary" type="button">New pursuit</button>
+            <button class="btn btn--secondary" type="button">Export</button>
+            <button class="btn btn--quiet" type="button">Open</button>
+            <button class="btn btn--redline" type="button">Delete pursuit</button>
+            <button class="btn btn--secondary" type="button" disabled>Disabled</button>
+            <button class="btn btn--primary btn--lg" type="button">Large primary</button>
+          </div>
+          <p class="demo-note">One primary per view. Destructive actions borrow the stuck red
+          and never the action blue.</p>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Status</h3>
+          <div class="demo-row">
+            <span class="status-block status-block--working">Working on it</span>
+            <span class="status-block status-block--stuck">Stuck</span>
+            <span class="status-block status-block--done">Done</span>
+            <span class="status-block status-block--open">Not started</span>
+          </div>
+          <div class="demo-row">
+            <span class="chip chip--working"><span class="dot"></span>Working on it</span>
+            <span class="chip chip--stuck"><span class="dot"></span>Stuck</span>
+            <span class="chip chip--done"><span class="dot"></span>Done</span>
+            <span class="chip chip--neutral"><span class="dot"></span>Not started</span>
+          </div>
+          <p class="demo-note">Fixed-width pills on boards, hugging chips everywhere else. Same
+          anatomy both ways: bright tint, a Phosphor state glyph, ink label. Because the glyph
+          differs per state, status still reads in greyscale.</p>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Inputs</h3>
+          <div class="demo-grid">
+            <div class="demo-field">
+              <label class="t-label field-label">Client</label>
+              <input class="input" type="text" value="Hartwell Partners">
+            </div>
+            <div class="demo-field">
+              <label class="t-label field-label">Source</label>
+              <input class="input" type="text" placeholder="Choose a source">
+            </div>
+            <div class="demo-field">
+              <label class="t-label field-label">Bid due</label>
+              <input class="input" type="text" value="Sep 04, 2026" style="border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint);">
+              <p class="demo-note">Focus state.</p>
+            </div>
+            <div class="demo-field">
+              <label class="t-label field-label">Contract value</label>
+              <input class="input" type="text" aria-invalid="true" value="TBD">
+              <p class="input-error">Enter a value or mark it not set.</p>
+            </div>
+          </div>
+          <div class="demo-row" style="margin-top:16px">
+            <label class="cbx"><input type="checkbox" aria-label="Unchecked example"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label>
+            <span class="t-ui">Unchecked</span>
+            <label class="cbx"><input type="checkbox" checked aria-label="Checked example"><svg viewBox="0 0 12 10"><path d="M1.5 5.5 L4.5 8.5 L10.5 1.5"/></svg></label>
+            <span class="t-ui">Checked (the mark draws itself in)</span>
+          </div>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">People</h3>
+          <div class="demo-row">
+            <span class="owner owner--1">DM</span>
+            <span class="owner owner--2">AL</span>
+            <span class="owner owner--3">JP</span>
+            <span class="owner owner--4">RK</span>
+            <span class="t-meta">One bright color per person, stable for life. Gold takes ink
+            initials; no red-family hue identifies a person.</span>
+          </div>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Attention</h3>
+          <div class="redlines" style="max-width:720px">
+            <div class="redline-row">
+              <span class="dot"></span>
+              <span class="sentence">Foxglove Group proposal follow-up is <span class="redline-key">5 days past due</span>.</span>
+              <span class="source">P-101</span>
+              <button class="btn btn--quiet" type="button">Open</button>
+            </div>
+            <div class="redline-row">
+              <span class="dot dot--amber"></span>
+              <span class="sentence">The Calder Health brief is drafted and waiting for your review.</span>
+              <span class="source">B-217</span>
+              <button class="btn btn--quiet" type="button">Review</button>
+            </div>
+          </div>
+          <p class="demo-note">A red warning diamond means a deadline is blown; an amber clock
+          means a decision is waiting. One sentence, one action, never a modal.</p>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Floating layers</h3>
+          <div class="demo-row" style="align-items: flex-start; gap: 24px;">
+            <div class="popover demo-float demo-popover">
+              <div class="demo-menu-item"><span>Open sheet</span><span class="kbd">&#8629;</span></div>
+              <div class="demo-menu-item"><span>Change status</span><span class="kbd">S</span></div>
+              <div class="demo-menu-item"><span>Set bid due</span><span class="kbd">D</span></div>
+              <div class="demo-menu-item" style="color: var(--stuck)"><span>Delete pursuit</span></div>
+            </div>
+            <div class="dialog demo-float demo-dialog">
+              <h4>Delete this pursuit?</h4>
+              <p>Fulton Street Lobby and its activity move to the archive. This does not
+              touch the client record.</p>
+              <div class="actions">
+                <button class="btn btn--secondary" type="button">Cancel</button>
+                <button class="btn btn--redline" type="button">Delete pursuit</button>
+              </div>
+            </div>
+            <div class="confirm demo-float demo-confirm">Brief accepted.</div>
+          </div>
+          <p class="demo-note">Popover, dialog, and the quiet confirmation. The confirmation
+          sits bottom-left in the app and leaves after four seconds.</p>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Pickers</h3>
+          <div class="demo-row" style="align-items: flex-start; gap: 24px;">
+            <div class="popover demo-float demo-cal">
+              <div class="cal-head"><span class="nav">&#8249;</span><span>September 2026</span><span class="nav">&#8250;</span></div>
+              <table>
+                <thead><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr></thead>
+                <tbody>
+                  <tr><td class="muted"><span>31</span></td><td><span>1</span></td><td><span>2</span></td><td><span>3</span></td><td class="sel"><span>4</span></td><td><span>5</span></td><td><span>6</span></td></tr>
+                  <tr><td><span>7</span></td><td><span>8</span></td><td><span>9</span></td><td><span>10</span></td><td><span>11</span></td><td><span>12</span></td><td><span>13</span></td></tr>
+                  <tr><td><span>14</span></td><td><span>15</span></td><td><span>16</span></td><td><span>17</span></td><td><span>18</span></td><td><span>19</span></td><td><span>20</span></td></tr>
+                  <tr><td><span>21</span></td><td><span>22</span></td><td><span>23</span></td><td class="today"><span>24</span></td><td><span>25</span></td><td><span>26</span></td><td><span>27</span></td></tr>
+                  <tr><td><span>28</span></td><td><span>29</span></td><td><span>30</span></td><td class="muted"><span>1</span></td><td class="muted"><span>2</span></td><td class="muted"><span>3</span></td><td class="muted"><span>4</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="popover demo-float demo-cmdk">
+              <div class="cmdk-input">Type a sheet number, a name, or an action&hellip;</div>
+              <div class="cmdk-label t-label">Sheets</div>
+              <div class="cmdk-row active"><span>P-101</span><span>Pursuits</span><span class="num">board</span></div>
+              <div class="cmdk-row"><span>C-042</span><span>Bergen Holdings (example)</span><span class="num">client</span></div>
+              <div class="cmdk-label t-label">Actions</div>
+              <div class="cmdk-row"><span>New pursuit</span><span class="num">N</span></div>
+              <div class="cmdk-row"><span>Log contact</span><span class="num">L</span></div>
+            </div>
+          </div>
+          <p class="demo-note">The date picker and the command search, both drawn to the shipped
+          tokens. In the app these come from react-day-picker and cmdk per sourcing.html.</p>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Interaction states</h3>
+          <table class="doc-list" style="max-width:720px">
+            <tbody>
+              <tr>
+                <td>A resting row</td>
+                <td class="t-meta right w-type">default</td>
+              </tr>
+              <tr style="background: var(--hover)">
+                <td>A row under the pointer</td>
+                <td class="t-meta right w-type">hover</td>
+              </tr>
+              <tr style="background: var(--selected)">
+                <td style="font-weight:600">A selected row</td>
+                <td class="t-meta right w-type">selected</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="demo-row" style="margin-top:16px">
+            <button class="btn btn--primary" type="button">Default</button>
+            <button class="btn btn--primary" type="button" style="background: var(--primary-hover)">Hover</button>
+            <button class="btn btn--primary" type="button" style="outline: 2px solid var(--primary); outline-offset: 2px">Keyboard focus</button>
+            <button class="btn btn--secondary" type="button" disabled>Disabled</button>
+          </div>
+          <p class="demo-note">Controls respond on pointer down within the 150ms token. Focus is
+          a 2px ring with 2px offset, never a glow. Nothing animates while a person reads.</p>
+        </div>
+
+        <div class="demo-section">
+          <h3 class="t-label">Progress and empty states</h3>
+          <div class="progress demo-progress">
+            <span class="t-meta">Writing the Calder Health brief, section 2 of 3.</span>
+            <div class="progress-bar"><i style="width: 66%"></i></div>
+          </div>
+          <div class="empty empty--inline">
+            <p>No briefs for this client yet.</p>
+            <button class="btn btn--quiet" type="button">Draft one</button>
+          </div>
+          <div class="redlines-clear" style="max-width:720px">Nothing needs you.</div>
+        </div>
+
+      </div>
+
+      <footer class="strip">
+        <span class="strip-group">
+          <span class="t-label">Load strip</span>
+          <span>4 active</span>
+          <span class="risk">0 stuck</span>
+        </span>
+        <span class="strip-group">
+          <span class="t-label">With trouble</span>
+          <span>3 active</span>
+          <span class="risk risk--live">1 stuck</span>
+        </span>
+      </footer>
+
+    </section>
+  </main>
+</div>
+
+</body>
+</html>

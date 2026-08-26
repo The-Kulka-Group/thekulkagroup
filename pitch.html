@@ -1,0 +1,906 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four Directions for Kulka</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap">
+<style>
+  :root {
+    --pg-bg: #FFFFFF;
+    --pg-ink: #1D1D1F;
+    --pg-mut: #6E6E73;
+    --pg-line: #E6E4E0;
+    --pg-card: #FAF9F7;
+    --pg-accent: #0B57D0;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --pg-bg: #161618;
+      --pg-ink: #F2F2F4;
+      --pg-mut: #A5A5AC;
+      --pg-line: #2E2E33;
+      --pg-card: #1F1F23;
+      --pg-accent: #7CACF8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --pg-bg: #161618;
+    --pg-ink: #F2F2F4;
+    --pg-mut: #A5A5AC;
+    --pg-line: #2E2E33;
+    --pg-card: #1F1F23;
+    --pg-accent: #7CACF8;
+  }
+
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--pg-bg);
+    color: var(--pg-ink);
+    font: 400 16px/1.6 "Open Sans", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 32px; }
+  h1, h2, h3 { text-wrap: balance; }
+
+  /* ---------- page chrome ---------- */
+  .hero { padding: 88px 0 56px; }
+  .kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--pg-mut); margin-bottom: 20px;
+  }
+  .hero h1 { font-size: 54px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
+  .hero p.lede {
+    margin-top: 24px; max-width: 62ch; font-size: 17.5px; color: var(--pg-ink);
+  }
+  .hero p.sub { margin-top: 12px; max-width: 62ch; font-size: 15px; color: var(--pg-mut); }
+
+  .fixedlaws { padding: 40px 0 72px; }
+  .fixedlaws h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  .fixedlaws p.intro { color: var(--pg-mut); font-size: 15px; max-width: 62ch; margin-bottom: 24px; }
+  .lawgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .law {
+    background: var(--pg-card); border: 1px solid var(--pg-line);
+    border-radius: 10px; padding: 18px 20px;
+  }
+  .law b { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .law span { font-size: 13.5px; color: var(--pg-mut); line-height: 1.5; }
+
+  /* ---------- direction sections ---------- */
+  .dir { padding: 72px 0 80px; background: var(--dc); color: var(--di); }
+  .dir + .dirgap { height: 0; }
+  .dir .wrap > * + * { margin-top: 28px; }
+
+  .dir-head { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
+  .dir-eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--di2);
+  }
+  .dir-name { font-size: 40px; font-weight: 800; letter-spacing: -0.015em; color: var(--di); }
+  .dir-tags { display: flex; gap: 8px; margin-left: auto; }
+  .dir-tag {
+    font-size: 12px; font-weight: 600; color: var(--di2);
+    border: 1px solid var(--dr); border-radius: 999px; padding: 4px 12px; background: var(--dp);
+  }
+  .dir-thesis { max-width: 68ch; font-size: 16px; line-height: 1.65; color: var(--di); }
+
+  .panelrow { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+  .panel {
+    background: var(--dp); border: 1px solid var(--dh);
+    border-radius: var(--rad-card); padding: 24px; box-shadow: var(--dshadow);
+  }
+  .panel h4 {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--di2); margin-bottom: 18px;
+  }
+
+  /* swatches */
+  .swrow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+  .sw .block { height: 56px; border-radius: 8px; border: 1px solid var(--dh); }
+  .sw b { display: block; font-size: 12px; font-weight: 700; margin-top: 8px; color: var(--di); }
+  .sw span { display: block; font-size: 11px; color: var(--di2); font-variant-numeric: tabular-nums; }
+
+  /* type ramp */
+  .ramp > div { display: flex; align-items: baseline; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--dh); }
+  .ramp > div:last-child { border-bottom: 0; }
+  .ramp .spec { font-size: 10.5px; color: var(--di3); min-width: 88px; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+  .t-title { font-size: var(--title-size); font-weight: var(--title-wt); letter-spacing: -0.01em; color: var(--di); line-height: 1.15; }
+  .t-sect { font-size: 16px; font-weight: 700; color: var(--di); }
+  .t-ui { font-size: var(--ui-size); color: var(--di); }
+  .t-label { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--di2); }
+  .t-meta { font-size: 12.5px; color: var(--di2); font-variant-numeric: tabular-nums; }
+
+  /* buttons */
+  .btnrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; height: 34px; padding: 0 16px;
+    font: 600 13.5px "Open Sans", sans-serif; border-radius: var(--rad-ctl);
+    border: 1px solid transparent; cursor: default; white-space: nowrap;
+  }
+  .btn-pri { background: var(--da); color: #fff; }
+  .btn-sec { background: var(--dp); color: var(--di); border-color: var(--dr); }
+  .btn-qt  { background: transparent; color: var(--da); padding: 0 6px; }
+  .btn-dgr { background: var(--dp); color: var(--st-s-tx); border-color: var(--st-s-bd); }
+  .btnnote { font-size: 12px; color: var(--di2); margin-top: 12px; line-height: 1.5; }
+
+  /* inputs */
+  .fieldrow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field label {
+    display: block; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--di2); margin-bottom: 6px;
+  }
+  .field .box {
+    height: 36px; display: flex; align-items: center; padding: 0 12px;
+    background: var(--dp); border: 1px solid var(--dr); border-radius: var(--rad-ctl);
+    font-size: 14px; color: var(--di);
+  }
+  .field .box.focus { border-color: var(--da); box-shadow: 0 0 0 3px var(--da-ring); }
+  .field .box .ph { color: var(--di3); }
+
+  /* chips */
+  .chiprow { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    min-width: 108px; height: 24px; padding: 0 12px;
+    font-size: 12px; font-weight: 600; border-radius: var(--rad-chip); color: var(--di);
+  }
+  .chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--dot); flex: none; }
+  .ch-w { background: var(--st-w-bg); --dot: var(--st-w-dot); }
+  .ch-s { background: var(--st-s-bg); --dot: var(--st-s-dot); }
+  .ch-d { background: var(--st-d-bg); --dot: var(--st-d-dot); }
+  .ch-n { background: var(--st-n-bg); --dot: var(--st-n-dot); }
+
+  /* nav specimen */
+  .navspec { width: 100%; max-width: 240px; }
+  .navspec .sect {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--di3); padding: 6px 12px;
+  }
+  .navspec .item {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 32px; padding: 0 12px; border-radius: var(--rad-ctl);
+    font-size: 13.5px; color: var(--di); position: relative;
+  }
+  .navspec .item .n { font-size: 12px; color: var(--di3); font-variant-numeric: tabular-nums; }
+  .navspec .item.active { font-weight: 700; color: var(--da); background: var(--da-tint); }
+  .navspec .item.active .n { color: var(--da); }
+
+  /* mini board */
+  .board {
+    background: var(--dp); border: 1px solid var(--dh); border-radius: var(--rad-card);
+    box-shadow: var(--dshadow); overflow: hidden;
+  }
+  .bd-head { padding: 20px 24px 0; }
+  .bd-toprow { display: flex; align-items: center; gap: 14px; }
+  .bd-badge {
+    background: var(--di); color: var(--dp); font-size: 11.5px; font-weight: 700;
+    padding: 3px 8px; border-radius: 5px; font-variant-numeric: tabular-nums; letter-spacing: .03em;
+  }
+  .bd-title { font-size: var(--title-size); font-weight: var(--title-wt); letter-spacing: -0.015em; }
+  .bd-actions { margin-left: auto; display: flex; gap: 8px; }
+  .bd-metarow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 0 14px; margin-top: 10px; border-top: 1px solid var(--dh);
+    font-size: 12.5px; color: var(--di2); font-variant-numeric: tabular-nums;
+  }
+  .bd-red {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    background: var(--st-s-bg); color: var(--st-s-tx); font-size: 12px; font-weight: 700;
+    border-radius: 999px; padding: 2px 10px;
+  }
+  .bd-red i { width: 7px; height: 7px; border-radius: 50%; background: var(--st-s-tx); }
+  .bd-cols, .bd-row {
+    display: grid; grid-template-columns: 44px 1.35fr 1fr 96px 132px;
+    align-items: center; padding: 0 24px;
+  }
+  .bd-cols {
+    height: 34px; font-size: 10.5px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--di2); background: var(--dc2);
+  }
+  .bd-group {
+    display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 24px;
+    background: var(--dc2); border-top: 1px solid var(--dh);
+    font-size: 12.5px; font-weight: 700;
+  }
+  .bd-group i { width: 3px; height: 14px; border-radius: 2px; background: var(--da); }
+  .bd-group span { font-weight: 400; color: var(--di2); font-size: 12px; }
+  .bd-row { height: var(--row-h); border-top: 1px solid var(--dh); font-size: var(--ui-size); }
+  .bd-row .num { font-size: 11px; color: var(--di3); font-variant-numeric: tabular-nums; }
+  .bd-row .cl { color: var(--di2); }
+  .bd-row .due { font-variant-numeric: tabular-nums; color: var(--di2); }
+  .bd-row .due.late { color: var(--di); font-weight: 700; }
+  .bd-strip {
+    display: flex; align-items: center; gap: 22px; height: 38px; padding: 0 24px;
+    border-top: 1px solid var(--dh); background: var(--dc2);
+    font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--di2);
+  }
+  .bd-strip b { color: var(--di); font-weight: 700; letter-spacing: .07em; font-size: 10.5px; }
+  .bd-strip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--da); margin-right: -14px; }
+  .bd-strip .stuck { color: var(--st-s-tx); font-weight: 700; }
+
+  /* notes */
+  .noterow { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .note h5 { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--di); }
+  .note ul { padding-left: 18px; font-size: 14px; color: var(--di); }
+  .note li { margin-bottom: 6px; line-height: 1.55; }
+  .note.trade p { font-size: 14px; line-height: 1.6; color: var(--di2); }
+
+  /* ---------- decision ---------- */
+  .decide { padding: 80px 0 96px; }
+  .decide h2 { font-size: 30px; font-weight: 800; margin-bottom: 10px; }
+  .decide p.intro { color: var(--pg-mut); max-width: 62ch; margin-bottom: 28px; }
+  .cmp { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .cmp th {
+    text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--pg-mut); padding: 10px 14px;
+    border-bottom: 2px solid var(--pg-ink);
+  }
+  .cmp td { padding: 12px 14px; border-bottom: 1px solid var(--pg-line); vertical-align: top; }
+  .cmp td:first-child { font-weight: 700; white-space: nowrap; }
+  .rec {
+    margin-top: 36px; background: var(--pg-card); border: 1px solid var(--pg-line);
+    border-radius: 12px; padding: 28px 32px;
+  }
+  .rec h3 { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
+  .rec p { font-size: 15px; max-width: 70ch; margin-bottom: 12px; }
+  .rec p:last-child { margin-bottom: 0; }
+
+  footer { padding: 0 0 64px; }
+  footer p { font-size: 12.5px; color: var(--pg-mut); }
+
+  @media (max-width: 860px) {
+    .hero h1 { font-size: 38px; }
+    .lawgrid, .panelrow, .noterow, .fieldrow { grid-template-columns: 1fr; }
+    .swrow { grid-template-columns: repeat(4, 1fr); }
+    .dir-name { font-size: 30px; }
+    .bd-cols, .bd-row { grid-template-columns: 36px 1.2fr 1fr 84px 118px; padding: 0 14px; }
+    .bd-head, .bd-group, .bd-strip { padding-left: 14px; padding-right: 14px; }
+    .cmpwrap { overflow-x: auto; }
+  }
+
+  /* ================= DIRECTION TOKENS ================= */
+  .dir-a {
+    --dc: #F6F7FB; --dc2: #F1F3F9; --dp: #FFFFFF;
+    --di: #323338; --di2: #676879; --di3: #9699A6;
+    --dh: #E6E9EF; --dr: #C3C6D4;
+    --da: #0073EA; --da-ring: rgba(0,115,234,.18); --da-tint: #E5F0FD;
+    --st-w-bg: #FFE8CC; --st-w-dot: #FF9500;
+    --st-s-bg: #FFDEE3; --st-s-dot: #E2445C; --st-s-tx: #CE3350; --st-s-bd: #F6BCC7;
+    --st-d-bg: #D5F6E5; --st-d-dot: #00C875;
+    --st-n-bg: #EDEEF2; --st-n-dot: #9699A6;
+    --rad-card: 12px; --rad-ctl: 6px; --rad-chip: 999px;
+    --dshadow: 0 1px 2px rgba(29,29,31,.05), 0 8px 16px rgba(29,29,31,.04);
+    --title-size: 23px; --title-wt: 800; --ui-size: 13.5px; --row-h: 38px;
+  }
+  .dir-b {
+    --dc: #F5F5F7; --dc2: #F0F0F3; --dp: #FFFFFF;
+    --di: #1D1D1F; --di2: #6E6E73; --di3: #9E9EA3;
+    --dh: #E8E8ED; --dr: #C9C9CE;
+    --da: #0071E3; --da-ring: rgba(0,113,227,.16); --da-tint: #EAF3FD;
+    --st-w-bg: #FFE9CF; --st-w-dot: #FF9500;
+    --st-s-bg: #FFDEDC; --st-s-dot: #FF3B30; --st-s-tx: #D93025; --st-s-bd: #F8C1BD;
+    --st-d-bg: #DCF5E1; --st-d-dot: #34C759;
+    --st-n-bg: #F0F0F2; --st-n-dot: #9E9EA3;
+    --rad-card: 14px; --rad-ctl: 980px; --rad-chip: 999px;
+    --dshadow: 0 2px 4px rgba(0,0,0,.04), 0 12px 28px rgba(0,0,0,.05);
+    --title-size: 27px; --title-wt: 700; --ui-size: 14px; --row-h: 44px;
+  }
+  .dir-c {
+    --dc: #F3F4F6; --dc2: #EEF0F3; --dp: #FFFFFF;
+    --di: #1C2128; --di2: #57606C; --di3: #8B94A1;
+    --dh: #E4E7EC; --dr: #B9C0CC;
+    --da: #1E4FD8; --da-ring: rgba(30,79,216,.16); --da-tint: #E7EDFC;
+    --st-w-bg: #FFEBC7; --st-w-dot: #FFB224;
+    --st-s-bg: #FFE0E1; --st-s-dot: #E5484D; --st-s-tx: #D4373E; --st-s-bd: #F3BFC1;
+    --st-d-bg: #D9F1E4; --st-d-dot: #30A46C;
+    --st-n-bg: #EEF0F3; --st-n-dot: #8B94A1;
+    --rad-card: 8px; --rad-ctl: 4px; --rad-chip: 4px;
+    --dshadow: 0 1px 2px rgba(28,33,40,.06);
+    --title-size: 20px; --title-wt: 700; --ui-size: 13px; --row-h: 32px;
+  }
+  .dir-d {
+    --dc: #F7F5F1; --dc2: #F2EFE9; --dp: #FFFFFF;
+    --di: #23211C; --di2: #6B675E; --di3: #9B968A;
+    --dh: #E9E5DD; --dr: #CCC6B8;
+    --da: #15714B; --da-ring: rgba(21,113,75,.16); --da-tint: #E7F1EC;
+    --st-w-bg: #FBEBCB; --st-w-dot: #EEA23E;
+    --st-s-bg: #FBE0DA; --st-s-dot: #E2584B; --st-s-tx: #C64534; --st-s-bd: #EFC3BB;
+    --st-d-bg: #DCF2E4; --st-d-dot: #22A06B;
+    --st-n-bg: #EDEBE4; --st-n-dot: #9B968A;
+    --rad-card: 12px; --rad-ctl: 8px; --rad-chip: 999px;
+    --dshadow: 0 1px 2px rgba(35,33,28,.05), 0 8px 18px rgba(35,33,28,.05);
+    --title-size: 25px; --title-wt: 800; --ui-size: 13.5px; --row-h: 38px;
+  }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Kulka AI · Design pitch · Issued 2026-08-25</div>
+    <h1>Four directions</h1>
+    <p class="lede">The current build scores 68. The structure is right and the skin is borrowed.
+    This pitch holds the information architecture still and varies everything the eye judges:
+    palette, type scale, shape, density, and finish. Each direction is complete enough to decide
+    on: tokens, buttons, inputs, status chips, navigation, and the same Pursuits board rendered
+    in that direction's hand.</p>
+    <p class="sub">All names, clients, and dates below are example data. Status chips set their
+    labels in ink on bright tints with a vivid dot, so the color stays loud and every label
+    passes AA contrast.</p>
+  </div>
+</header>
+
+<section class="fixedlaws">
+  <div class="wrap">
+    <h2>What stays fixed in every direction</h2>
+    <p class="intro">These are owner decisions and gauntlet laws. The directions compete on top of
+    them, never against them.</p>
+    <div class="lawgrid">
+      <div class="law"><b>Open Sans, four weights</b><span>The client's brand family. 400 reads,
+        600 acts, 700 heads, 800 speaks. The directions differ in scale and use, never in
+        family.</span></div>
+      <div class="law"><b>The IA holds</b><span>Home, Pursuits, Clients, Briefs, with spoken sheet
+        numbers. A user who says "open P-101" is using the product correctly.</span></div>
+      <div class="law"><b>One pill treatment</b><span>Status is a bright tinted pill with a vivid
+        dot and an ink label, at a fixed width. Hue carries state and marks nothing else on a
+        board.</span></div>
+      <div class="law"><b>Red is tiered</b><span>Red means a deadline is blown. Amber means a
+        decision is waiting. Late dates read as bold ink because the pill already carries the
+        color.</span></div>
+      <div class="law"><b>Attention in sentences</b><span>Home leads with what needs you, one line
+        per item, one action each. When nothing does, the screen says so plainly.</span></div>
+      <div class="law"><b>No costume</b><span>The trade vocabulary lives in the words, where your
+        users speak it. Nothing below dresses up as a blueprint, a drawing set, or a job
+        site.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DIRECTION A ================= -->
+<section class="dir dir-a">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-eyebrow">Direction A</span>
+      <span class="dir-name">Daylight</span>
+      <span class="dir-tags"><span class="dir-tag">Monday native</span><span class="dir-tag">Lowest risk</span><span class="dir-tag">Ships fastest</span></span>
+    </div>
+    <p class="dir-thesis">Revision B finished to its own standard. The workspace palette your
+    users already trust from Monday, set on a cool white field, completed with the type scale and
+    the structured header the current build is missing. It changes nothing the owner approved.
+    It finishes it.</p>
+
+    <div class="panel">
+      <h4>Palette</h4>
+      <div class="swrow">
+        <div class="sw"><div class="block" style="background:#F6F7FB"></div><b>Canvas</b><span>#F6F7FB</span></div>
+        <div class="sw"><div class="block" style="background:#FFFFFF"></div><b>Paper</b><span>#FFFFFF</span></div>
+        <div class="sw"><div class="block" style="background:#323338"></div><b>Ink</b><span>#323338</span></div>
+        <div class="sw"><div class="block" style="background:#0073EA"></div><b>Action</b><span>#0073EA</span></div>
+        <div class="sw"><div class="block" style="background:#00C875"></div><b>Done</b><span>#00C875</span></div>
+        <div class="sw"><div class="block" style="background:#FF9500"></div><b>Working</b><span>#FF9500</span></div>
+        <div class="sw"><div class="block" style="background:#E2445C"></div><b>Stuck</b><span>#E2445C</span></div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Type ramp</h4>
+        <div class="ramp">
+          <div><span class="spec">23 / 800</span><span class="t-title">Pursuits</span></div>
+          <div><span class="spec">16 / 700</span><span class="t-sect">Key contacts</span></div>
+          <div><span class="spec">13.5 / 400</span><span class="t-ui">Riverside Fit-Out, Level 3</span></div>
+          <div><span class="spec">11 / 700</span><span class="t-label">Bid due</span></div>
+          <div><span class="spec">12.5 / 400</span><span class="t-meta">Sep 04 · updated 2h ago</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Navigation</h4>
+        <div class="navspec">
+          <div class="sect">Work</div>
+          <div class="item">Home <span class="n">H-100</span></div>
+          <div class="item active">Pursuits <span class="n">9</span></div>
+          <div class="sect">CRM</div>
+          <div class="item">Clients <span class="n">31</span></div>
+          <div class="item">Briefs <span class="n">6</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Buttons</h4>
+        <div class="btnrow">
+          <span class="btn btn-pri">New pursuit</span>
+          <span class="btn btn-sec">Export</span>
+          <span class="btn btn-qt">Open</span>
+          <span class="btn btn-dgr">Delete pursuit</span>
+        </div>
+        <p class="btnnote">One primary per view. Secondary borders darken on hover. Destructive
+        actions borrow the stuck red and never the action blue.</p>
+        <h4 style="margin-top:22px">Status</h4>
+        <div class="chiprow">
+          <span class="chip ch-w">Working on it</span>
+          <span class="chip ch-s">Stuck</span>
+          <span class="chip ch-d">Done</span>
+          <span class="chip ch-n">Not started</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Inputs</h4>
+        <div class="fieldrow">
+          <div class="field"><label>Client</label><div class="box">Hartwell Partners</div></div>
+          <div class="field"><label>Bid due</label><div class="box focus">Sep 04, 2026</div></div>
+          <div class="field"><label>Source</label><div class="box"><span class="ph">Choose a source</span></div></div>
+          <div class="field"><label>Owner</label><div class="box">D. Marino</div></div>
+        </div>
+        <p class="btnnote">Focus is a colored border and a soft ring. Placeholders never carry
+        required information.</p>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="bd-head">
+        <div class="bd-toprow">
+          <span class="bd-badge">P-101</span>
+          <span class="bd-title">Pursuits</span>
+          <span class="bd-actions"><span class="btn btn-sec">Export</span><span class="btn btn-pri">New pursuit</span></span>
+        </div>
+        <div class="bd-metarow">
+          <span>All open pursuits</span><span>·</span><span>9 rows</span><span>·</span><span>example data</span>
+          <span class="bd-red"><i></i>3 need review</span>
+        </div>
+      </div>
+      <div class="bd-cols"><span></span><span>Pursuit</span><span>Client</span><span>Bid due</span><span>Status</span></div>
+      <div class="bd-group"><i></i>Proposal out&nbsp;<span>3 pursuits</span></div>
+      <div class="bd-row"><span class="num">05</span><span>Ninth Avenue Core &amp; Shell</span><span class="cl">Ardmore Development</span><span class="due">Oct 02</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-row"><span class="num">06</span><span>Palisades Retail Build-Out</span><span class="cl">Foxglove Group</span><span class="due late">Aug 19</span><span><span class="chip ch-s">Stuck</span></span></div>
+      <div class="bd-row"><span class="num">07</span><span>Harrison Street Interiors</span><span class="cl">Calder Health</span><span class="due">Sep 29</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-strip">
+        <span class="dot"></span><b>QUALIFYING</b><span>4 active</span>
+        <span class="dot"></span><b>PROPOSAL OUT</b><span>3 active · <span class="stuck">1 stuck</span></span>
+        <span class="dot"></span><b>AWARD PENDING</b><span>2 active · <span class="stuck">2 stuck</span></span>
+      </div>
+    </div>
+
+    <div class="noterow">
+      <div class="panel note">
+        <h5>Why it works</h5>
+        <ul>
+          <li>Your users spend eight hours a day in Monday. This palette costs them zero learning
+            and reads as an upgrade, not a move.</li>
+          <li>The rebuilt header gives every sheet a large typographic moment and a place for the
+            primary action, which is what the current build lacks.</li>
+          <li>Density stays high: 38px rows keep a full pipeline on one screen.</li>
+        </ul>
+      </div>
+      <div class="panel note trade">
+        <h5>The tradeoff</h5>
+        <p>It will always share a family resemblance with Monday. The header, the load strip, and
+        the sheet numbers are the only parts a competitor could not wear. If you want a look that
+        is yours alone, this is not the direction that buys it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DIRECTION B ================= -->
+<section class="dir dir-b">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-eyebrow">Direction B</span>
+      <span class="dir-name">Porcelain</span>
+      <span class="dir-tags"><span class="dir-tag">Premium</span><span class="dir-tag">Calm</span><span class="dir-tag">Demo ready</span></span>
+    </div>
+    <p class="dir-thesis">The Apple read. A quieter field, one blue kept only for action, pill
+    controls, and air used as the mark of quality. Fewer rows on screen and more certainty about
+    each one. This is the direction a client shows their own clients.</p>
+
+    <div class="panel">
+      <h4>Palette</h4>
+      <div class="swrow">
+        <div class="sw"><div class="block" style="background:#F5F5F7"></div><b>Canvas</b><span>#F5F5F7</span></div>
+        <div class="sw"><div class="block" style="background:#FFFFFF"></div><b>Paper</b><span>#FFFFFF</span></div>
+        <div class="sw"><div class="block" style="background:#1D1D1F"></div><b>Ink</b><span>#1D1D1F</span></div>
+        <div class="sw"><div class="block" style="background:#0071E3"></div><b>Action</b><span>#0071E3</span></div>
+        <div class="sw"><div class="block" style="background:#34C759"></div><b>Done</b><span>#34C759</span></div>
+        <div class="sw"><div class="block" style="background:#FF9500"></div><b>Working</b><span>#FF9500</span></div>
+        <div class="sw"><div class="block" style="background:#FF3B30"></div><b>Stuck</b><span>#FF3B30</span></div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Type ramp</h4>
+        <div class="ramp">
+          <div><span class="spec">27 / 700</span><span class="t-title">Pursuits</span></div>
+          <div><span class="spec">16 / 700</span><span class="t-sect">Key contacts</span></div>
+          <div><span class="spec">14 / 400</span><span class="t-ui">Riverside Fit-Out, Level 3</span></div>
+          <div><span class="spec">11 / 700</span><span class="t-label">Bid due</span></div>
+          <div><span class="spec">12.5 / 400</span><span class="t-meta">Sep 04 · updated 2h ago</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Navigation</h4>
+        <div class="navspec">
+          <div class="sect">Work</div>
+          <div class="item">Home <span class="n">H-100</span></div>
+          <div class="item active">Pursuits <span class="n">9</span></div>
+          <div class="sect">CRM</div>
+          <div class="item">Clients <span class="n">31</span></div>
+          <div class="item">Briefs <span class="n">6</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Buttons</h4>
+        <div class="btnrow">
+          <span class="btn btn-pri">New pursuit</span>
+          <span class="btn btn-sec">Export</span>
+          <span class="btn btn-qt">Open</span>
+          <span class="btn btn-dgr">Delete pursuit</span>
+        </div>
+        <p class="btnnote">Pill controls throughout, the Apple convention. The blue exists only on
+        actions and links, so every use of it means "this does something."</p>
+        <h4 style="margin-top:22px">Status</h4>
+        <div class="chiprow">
+          <span class="chip ch-w">Working on it</span>
+          <span class="chip ch-s">Stuck</span>
+          <span class="chip ch-d">Done</span>
+          <span class="chip ch-n">Not started</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Inputs</h4>
+        <div class="fieldrow">
+          <div class="field"><label>Client</label><div class="box">Hartwell Partners</div></div>
+          <div class="field"><label>Bid due</label><div class="box focus">Sep 04, 2026</div></div>
+          <div class="field"><label>Source</label><div class="box"><span class="ph">Choose a source</span></div></div>
+          <div class="field"><label>Owner</label><div class="box">D. Marino</div></div>
+        </div>
+        <p class="btnnote">Rounded fields with generous height. The focus ring is soft and wide,
+        matching the pill geometry.</p>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="bd-head">
+        <div class="bd-toprow">
+          <span class="bd-badge">P-101</span>
+          <span class="bd-title">Pursuits</span>
+          <span class="bd-actions"><span class="btn btn-sec">Export</span><span class="btn btn-pri">New pursuit</span></span>
+        </div>
+        <div class="bd-metarow">
+          <span>All open pursuits</span><span>·</span><span>9 rows</span><span>·</span><span>example data</span>
+          <span class="bd-red"><i></i>3 need review</span>
+        </div>
+      </div>
+      <div class="bd-cols"><span></span><span>Pursuit</span><span>Client</span><span>Bid due</span><span>Status</span></div>
+      <div class="bd-group"><i></i>Proposal out&nbsp;<span>3 pursuits</span></div>
+      <div class="bd-row"><span class="num">05</span><span>Ninth Avenue Core &amp; Shell</span><span class="cl">Ardmore Development</span><span class="due">Oct 02</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-row"><span class="num">06</span><span>Palisades Retail Build-Out</span><span class="cl">Foxglove Group</span><span class="due late">Aug 19</span><span><span class="chip ch-s">Stuck</span></span></div>
+      <div class="bd-row"><span class="num">07</span><span>Harrison Street Interiors</span><span class="cl">Calder Health</span><span class="due">Sep 29</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-strip">
+        <span class="dot"></span><b>QUALIFYING</b><span>4 active</span>
+        <span class="dot"></span><b>PROPOSAL OUT</b><span>3 active · <span class="stuck">1 stuck</span></span>
+        <span class="dot"></span><b>AWARD PENDING</b><span>2 active · <span class="stuck">2 stuck</span></span>
+      </div>
+    </div>
+
+    <div class="noterow">
+      <div class="panel note">
+        <h5>Why it works</h5>
+        <ul>
+          <li>It reads as the most finished and the most expensive of the four. Air, 44px rows,
+            and large titles signal confidence without a single decoration.</li>
+          <li>The neutral set is Apple's own, so it sits comfortably next to the devices your
+            users already hold.</li>
+          <li>Pill geometry makes interactive elements unmistakable at a glance.</li>
+        </ul>
+      </div>
+      <div class="panel note trade">
+        <h5>The tradeoff</h5>
+        <p>Air costs rows. An estimator who lives in the board all day sees roughly a third less
+        of it per screen. This direction favors the buyer touring the product over the operator
+        working in it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DIRECTION C ================= -->
+<section class="dir dir-c">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-eyebrow">Direction C</span>
+      <span class="dir-name">Slate</span>
+      <span class="dir-tags"><span class="dir-tag">Densest</span><span class="dir-tag">Ledger discipline</span><span class="dir-tag">Power users</span></span>
+    </div>
+    <p class="dir-thesis">The operator's tool. Cooler greys, a deep cobalt kept for action, tight
+    32px rows, square chips, and columns that behave like a ledger. Built for the person who reads
+    forty pursuits before lunch and judges software by how little of her time it wastes.</p>
+
+    <div class="panel">
+      <h4>Palette</h4>
+      <div class="swrow">
+        <div class="sw"><div class="block" style="background:#F3F4F6"></div><b>Canvas</b><span>#F3F4F6</span></div>
+        <div class="sw"><div class="block" style="background:#FFFFFF"></div><b>Paper</b><span>#FFFFFF</span></div>
+        <div class="sw"><div class="block" style="background:#1C2128"></div><b>Ink</b><span>#1C2128</span></div>
+        <div class="sw"><div class="block" style="background:#1E4FD8"></div><b>Action</b><span>#1E4FD8</span></div>
+        <div class="sw"><div class="block" style="background:#30A46C"></div><b>Done</b><span>#30A46C</span></div>
+        <div class="sw"><div class="block" style="background:#FFB224"></div><b>Working</b><span>#FFB224</span></div>
+        <div class="sw"><div class="block" style="background:#E5484D"></div><b>Stuck</b><span>#E5484D</span></div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Type ramp</h4>
+        <div class="ramp">
+          <div><span class="spec">20 / 700</span><span class="t-title">Pursuits</span></div>
+          <div><span class="spec">16 / 700</span><span class="t-sect">Key contacts</span></div>
+          <div><span class="spec">13 / 400</span><span class="t-ui">Riverside Fit-Out, Level 3</span></div>
+          <div><span class="spec">11 / 700</span><span class="t-label">Bid due</span></div>
+          <div><span class="spec">12.5 / 400</span><span class="t-meta">Sep 04 · updated 2h ago</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Navigation</h4>
+        <div class="navspec">
+          <div class="sect">Work</div>
+          <div class="item">Home <span class="n">H-100</span></div>
+          <div class="item active">Pursuits <span class="n">9</span></div>
+          <div class="sect">CRM</div>
+          <div class="item">Clients <span class="n">31</span></div>
+          <div class="item">Briefs <span class="n">6</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Buttons</h4>
+        <div class="btnrow">
+          <span class="btn btn-pri">New pursuit</span>
+          <span class="btn btn-sec">Export</span>
+          <span class="btn btn-qt">Open</span>
+          <span class="btn btn-dgr">Delete pursuit</span>
+        </div>
+        <p class="btnnote">Square 4px corners, firm borders, no shadows on controls. Everything
+        looks machined rather than molded.</p>
+        <h4 style="margin-top:22px">Status</h4>
+        <div class="chiprow">
+          <span class="chip ch-w">Working on it</span>
+          <span class="chip ch-s">Stuck</span>
+          <span class="chip ch-d">Done</span>
+          <span class="chip ch-n">Not started</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Inputs</h4>
+        <div class="fieldrow">
+          <div class="field"><label>Client</label><div class="box">Hartwell Partners</div></div>
+          <div class="field"><label>Bid due</label><div class="box focus">Sep 04, 2026</div></div>
+          <div class="field"><label>Source</label><div class="box"><span class="ph">Choose a source</span></div></div>
+          <div class="field"><label>Owner</label><div class="box">D. Marino</div></div>
+        </div>
+        <p class="btnnote">Compact fields with strong borders. Labels track wide and stay
+        uppercase, ledger style.</p>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="bd-head">
+        <div class="bd-toprow">
+          <span class="bd-badge">P-101</span>
+          <span class="bd-title">Pursuits</span>
+          <span class="bd-actions"><span class="btn btn-sec">Export</span><span class="btn btn-pri">New pursuit</span></span>
+        </div>
+        <div class="bd-metarow">
+          <span>All open pursuits</span><span>·</span><span>9 rows</span><span>·</span><span>example data</span>
+          <span class="bd-red"><i></i>3 need review</span>
+        </div>
+      </div>
+      <div class="bd-cols"><span></span><span>Pursuit</span><span>Client</span><span>Bid due</span><span>Status</span></div>
+      <div class="bd-group"><i></i>Proposal out&nbsp;<span>3 pursuits</span></div>
+      <div class="bd-row"><span class="num">05</span><span>Ninth Avenue Core &amp; Shell</span><span class="cl">Ardmore Development</span><span class="due">Oct 02</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-row"><span class="num">06</span><span>Palisades Retail Build-Out</span><span class="cl">Foxglove Group</span><span class="due late">Aug 19</span><span><span class="chip ch-s">Stuck</span></span></div>
+      <div class="bd-row"><span class="num">07</span><span>Harrison Street Interiors</span><span class="cl">Calder Health</span><span class="due">Sep 29</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-strip">
+        <span class="dot"></span><b>QUALIFYING</b><span>4 active</span>
+        <span class="dot"></span><b>PROPOSAL OUT</b><span>3 active · <span class="stuck">1 stuck</span></span>
+        <span class="dot"></span><b>AWARD PENDING</b><span>2 active · <span class="stuck">2 stuck</span></span>
+      </div>
+    </div>
+
+    <div class="noterow">
+      <div class="panel note">
+        <h5>Why it works</h5>
+        <ul>
+          <li>Highest information density of the four: 32px rows put an entire pipeline plus its
+            load strip on one laptop screen.</li>
+          <li>Square chips and firm borders read as precision, which is the compliment this
+            audience pays software.</li>
+          <li>The cool neutral set keeps long sessions comfortable and makes the cobalt action
+            color unmistakable.</li>
+        </ul>
+      </div>
+      <div class="panel note trade">
+        <h5>The tradeoff</h5>
+        <p>It is the least warm of the four. A buyer touring the product may read it as plain
+        before they read it as fast. It sells to the daily operator and undersells to everyone
+        else.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DIRECTION D ================= -->
+<section class="dir dir-d">
+  <div class="wrap">
+    <div class="dir-head">
+      <span class="dir-eyebrow">Direction D</span>
+      <span class="dir-name">Linen</span>
+      <span class="dir-tags"><span class="dir-tag">Distinctive</span><span class="dir-tag">Warm</span><span class="dir-tag">Highest upside</span></span>
+    </div>
+    <p class="dir-thesis">The ownable one. A warm paper field, near-black ink, and a deep green
+    reserved for action. No CRM in this market looks like this, and none of it is costume: the
+    warmth comes from the neutrals themselves, not from texture, ornament, or theme. Done and the
+    action color share the green deliberately, so the brand color always means "moved
+    forward."</p>
+
+    <div class="panel">
+      <h4>Palette</h4>
+      <div class="swrow">
+        <div class="sw"><div class="block" style="background:#F7F5F1"></div><b>Canvas</b><span>#F7F5F1</span></div>
+        <div class="sw"><div class="block" style="background:#FFFFFF"></div><b>Paper</b><span>#FFFFFF</span></div>
+        <div class="sw"><div class="block" style="background:#23211C"></div><b>Ink</b><span>#23211C</span></div>
+        <div class="sw"><div class="block" style="background:#15714B"></div><b>Action</b><span>#15714B</span></div>
+        <div class="sw"><div class="block" style="background:#22A06B"></div><b>Done</b><span>#22A06B</span></div>
+        <div class="sw"><div class="block" style="background:#EEA23E"></div><b>Working</b><span>#EEA23E</span></div>
+        <div class="sw"><div class="block" style="background:#E2584B"></div><b>Stuck</b><span>#E2584B</span></div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Type ramp</h4>
+        <div class="ramp">
+          <div><span class="spec">25 / 800</span><span class="t-title">Pursuits</span></div>
+          <div><span class="spec">16 / 700</span><span class="t-sect">Key contacts</span></div>
+          <div><span class="spec">13.5 / 400</span><span class="t-ui">Riverside Fit-Out, Level 3</span></div>
+          <div><span class="spec">11 / 700</span><span class="t-label">Bid due</span></div>
+          <div><span class="spec">12.5 / 400</span><span class="t-meta">Sep 04 · updated 2h ago</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Navigation</h4>
+        <div class="navspec">
+          <div class="sect">Work</div>
+          <div class="item">Home <span class="n">H-100</span></div>
+          <div class="item active">Pursuits <span class="n">9</span></div>
+          <div class="sect">CRM</div>
+          <div class="item">Clients <span class="n">31</span></div>
+          <div class="item">Briefs <span class="n">6</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panelrow">
+      <div class="panel">
+        <h4>Buttons</h4>
+        <div class="btnrow">
+          <span class="btn btn-pri">New pursuit</span>
+          <span class="btn btn-sec">Export</span>
+          <span class="btn btn-qt">Open</span>
+          <span class="btn btn-dgr">Delete pursuit</span>
+        </div>
+        <p class="btnnote">The green carries every action, which makes it the brand. Blue leaves
+        the product entirely, so nothing here can be mistaken for Monday or a template.</p>
+        <h4 style="margin-top:22px">Status</h4>
+        <div class="chiprow">
+          <span class="chip ch-w">Working on it</span>
+          <span class="chip ch-s">Stuck</span>
+          <span class="chip ch-d">Done</span>
+          <span class="chip ch-n">Not started</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h4>Inputs</h4>
+        <div class="fieldrow">
+          <div class="field"><label>Client</label><div class="box">Hartwell Partners</div></div>
+          <div class="field"><label>Bid due</label><div class="box focus">Sep 04, 2026</div></div>
+          <div class="field"><label>Source</label><div class="box"><span class="ph">Choose a source</span></div></div>
+          <div class="field"><label>Owner</label><div class="box">D. Marino</div></div>
+        </div>
+        <p class="btnnote">Warm borders on white fields. The focus ring is the green at low
+        opacity, quiet but certain.</p>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="bd-head">
+        <div class="bd-toprow">
+          <span class="bd-badge">P-101</span>
+          <span class="bd-title">Pursuits</span>
+          <span class="bd-actions"><span class="btn btn-sec">Export</span><span class="btn btn-pri">New pursuit</span></span>
+        </div>
+        <div class="bd-metarow">
+          <span>All open pursuits</span><span>·</span><span>9 rows</span><span>·</span><span>example data</span>
+          <span class="bd-red"><i></i>3 need review</span>
+        </div>
+      </div>
+      <div class="bd-cols"><span></span><span>Pursuit</span><span>Client</span><span>Bid due</span><span>Status</span></div>
+      <div class="bd-group"><i></i>Proposal out&nbsp;<span>3 pursuits</span></div>
+      <div class="bd-row"><span class="num">05</span><span>Ninth Avenue Core &amp; Shell</span><span class="cl">Ardmore Development</span><span class="due">Oct 02</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-row"><span class="num">06</span><span>Palisades Retail Build-Out</span><span class="cl">Foxglove Group</span><span class="due late">Aug 19</span><span><span class="chip ch-s">Stuck</span></span></div>
+      <div class="bd-row"><span class="num">07</span><span>Harrison Street Interiors</span><span class="cl">Calder Health</span><span class="due">Sep 29</span><span><span class="chip ch-w">Working on it</span></span></div>
+      <div class="bd-strip">
+        <span class="dot"></span><b>QUALIFYING</b><span>4 active</span>
+        <span class="dot"></span><b>PROPOSAL OUT</b><span>3 active · <span class="stuck">1 stuck</span></span>
+        <span class="dot"></span><b>AWARD PENDING</b><span>2 active · <span class="stuck">2 stuck</span></span>
+      </div>
+    </div>
+
+    <div class="noterow">
+      <div class="panel note">
+        <h5>Why it works</h5>
+        <ul>
+          <li>It is the only direction a competitor could not put their logo on. Warm neutrals
+            plus a green action color is an unclaimed position in this market.</li>
+          <li>Warmth reads as service and relationship, which is what a CRM for a relationship
+            business should feel like.</li>
+          <li>The full density of Daylight is kept: 38px rows, nothing softened for show.</li>
+        </ul>
+      </div>
+      <div class="panel note trade">
+        <h5>The tradeoff</h5>
+        <p>It carries real fashion risk. Green as the action color must survive a blind test
+        against the blue directions or it reads as a brand exercise. It also asks users to unlearn
+        "blue means click," which costs a day of familiarity.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DECISION ================= -->
+<section class="decide">
+  <div class="wrap">
+    <h2>How to decide</h2>
+    <p class="intro">Same board, same rows, same laws. What differs is the read each direction
+    buys you and what each one costs.</p>
+    <div class="cmpwrap">
+      <table class="cmp">
+        <thead>
+          <tr><th>Direction</th><th>Read</th><th>Density</th><th>Familiar to your users</th><th>Ownable</th><th>Risk</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>A · Daylight</td><td>A finished Monday-class workspace</td><td>High</td><td>Highest</td><td>Low</td><td>Lowest</td></tr>
+          <tr><td>B · Porcelain</td><td>Premium, calm, demo-grade</td><td>Medium</td><td>Medium</td><td>Medium</td><td>Low</td></tr>
+          <tr><td>C · Slate</td><td>A dense operator's ledger</td><td>Highest</td><td>Medium</td><td>Medium</td><td>Medium</td></tr>
+          <tr><td>D · Linen</td><td>Warm, signed, unmistakable</td><td>High</td><td>Low</td><td>Highest</td><td>Highest</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="rec">
+      <h3>The recommendation</h3>
+      <p>Ship Daylight and prototype Linen. Daylight is Revision B completed, needs no owner
+      re-approval, and can be in the product this week. Linen is the only direction with an
+      identity nobody else can wear, so it earns one fully built screen and a blind gauntlet
+      against Daylight before the CRM's public debut.</p>
+      <p>The other two donate their best parts. Porcelain's header scale and pill focus rings fold
+      into whichever direction wins. Slate becomes a compact density toggle rather than a
+      direction of its own, which serves the heavy operator without betting the brand on her.</p>
+      <p>The test protocol stays the one your design doc already trusts: build the Pursuits board
+      for both finalists on real data shapes, place each beside the Monday board, and judge blind
+      with three people who were not in this room. The winner ships, and the rules it proves get
+      written into DESIGN.md as Revision C.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Prepared for Kulka AI · All project names, clients, and dates are example data · Chip
+    labels set in ink so every status passes AA contrast at its used size</p>
+  </div>
+</footer>

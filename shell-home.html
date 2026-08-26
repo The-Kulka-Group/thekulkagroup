@@ -1,0 +1,142 @@
+<!doctype html>
+<!-- Daylight shell, home (H-100), leading with the redline strip.
+     All client, project, and people names below are invented example data. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H-100 Home, Kulka AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daylight.css?v=rev-e2">
+</head>
+<body>
+
+<div class="app">
+
+  <nav class="rail">
+    <div class="rail-logo">Kulka<span class="logo-ai">AI</span></div>
+    <div class="rail-search">
+      <input class="input" type="search" placeholder="Search sheets">
+    </div>
+
+    <!-- Flat rail (owner decision 2026-08-25): four items need no taxonomy.
+         Section headers return when a second module ships. -->
+    <div class="rail-nav">
+      <a class="rail-item" href="shell-home.html" aria-current="page"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/house.svg')"></span><span>Home</span><span class="count">H-100</span></a>
+      <a class="rail-item" href="shell.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/target.svg')"></span><span>Pursuits</span><span class="count">9</span></a>
+      <a class="rail-item" href="shell-client.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/users.svg')"></span><span>Clients</span><span class="count">31</span></a>
+      <a class="rail-item" href="shell-brief.html"><span class="ic" style="--u:url('https://unpkg.com/@phosphor-icons/core@2.1.1/assets/regular/file-text.svg')"></span><span>Briefs</span><span class="count">6</span></a>
+    </div>
+
+    <div class="rail-user">
+      <span class="owner owner--4">RK</span>
+      <span class="t-ui">Rob K. (example)</span>
+    </div>
+  </nav>
+
+  <main class="field">
+    <section class="sheet">
+
+      <header class="band">
+        <div class="band-top">
+          <span class="band-number">H-100</span>
+          <h1 class="band-name">Home</h1>
+        </div>
+        <div class="band-meta">
+          <span class="num">Monday 2026-08-24</span>
+          <span class="sep">&middot;</span>
+          <span>example data</span>
+          <button class="band-redlines" type="button">
+            <span class="dot"></span><span class="num">4</span>&nbsp;need you
+          </button>
+        </div>
+      </header>
+
+      <div class="sheet-body sheet-body--record">
+        <div class="record">
+
+        <div class="margin"></div>
+        <div class="col-field sheet-head">
+          <h2 class="t-1">Four things need you.</h2>
+          <p class="t-meta">Newest first.</p>
+        </div>
+
+        <div class="margin"></div>
+        <div class="col-field">
+
+        <div class="redlines">
+          <div class="redline-row">
+            <span class="dot"></span>
+            <span class="sentence">
+              Foxglove Group proposal follow-up is <span class="redline-key">5 days past due</span>.
+            </span>
+            <span class="source">P-101</span>
+            <button class="btn btn--quiet" type="button">Open</button>
+          </div>
+          <div class="redline-row">
+            <span class="dot"></span>
+            <span class="sentence">
+              No contact with Bergen Holdings in <span class="redline-key">60 days</span>, past the 45-day mark.
+            </span>
+            <span class="source">C-042</span>
+            <button class="btn btn--quiet" type="button">Open</button>
+          </div>
+          <div class="redline-row">
+            <span class="dot dot--amber"></span>
+            <span class="sentence">
+              The brief for Thursday's Calder Health meeting is drafted and waiting for your review.
+            </span>
+            <span class="source">B-217</span>
+            <button class="btn btn--quiet" type="button">Review</button>
+          </div>
+          <div class="redline-row">
+            <span class="dot dot--amber"></span>
+            <span class="sentence">
+              Kearny Warehouse Shell has no next step set.
+            </span>
+            <span class="source">P-101</span>
+            <button class="btn btn--quiet" type="button">Set one</button>
+          </div>
+        </div>
+
+        <div class="record-section">
+          <h3>This week</h3>
+          <table class="doc-list">
+            <tbody>
+              <tr>
+                <td class="num t-meta w-date">Thu Aug 27</td>
+                <td>Calder Health, quarterly check-in. The brief is drafted and waiting.</td>
+                <td class="num t-meta right w-sheet">B-217</td>
+                <td class="right w-rev"><button class="btn btn--quiet" type="button">Open</button></td>
+              </tr>
+              <tr>
+                <td class="num t-meta w-date">Fri Aug 28</td>
+                <td>Fulton Street Lobby, award decision expected from Bergen Holdings.</td>
+                <td class="num t-meta right w-sheet">P-101</td>
+                <td class="right w-rev"><button class="btn btn--quiet" type="button">Open</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="record-section">
+          <h3>Pipeline</h3>
+          <p class="t-ui" style="padding: 10px 0 4px;">
+            <span class="em">9 open pursuits</span>: 4 qualifying, 3 proposals out,
+            2 awards pending. 3 are stuck.
+            <button class="btn btn--quiet" type="button">Open the board</button>
+          </p>
+        </div>
+
+        </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+</body>
+</html>

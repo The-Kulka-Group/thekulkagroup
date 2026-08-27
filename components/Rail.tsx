@@ -1,17 +1,43 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Target, Users, FileText } from "@phosphor-icons/react";
+import { House, Target, Users, FileText, Calculator, type Icon } from "@phosphor-icons/react";
 import { OWNER_COLOR } from "@/lib/data";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
 // sits beside its word (DESIGN.md, Navigation).
-const NAV = [
-  { href: "/", label: "Home", count: "H-100", Icon: House },
-  { href: "/pursuits", label: "Pursuits", count: "9", Icon: Target },
-  { href: "/clients/c-042", label: "Clients", count: "31", Icon: Users },
-  { href: "/briefs/b-217", label: "Briefs", count: "6", Icon: FileText },
+//
+// Sections arrived with the second module, as the flat rail said they would.
+// One section per department, which is the shape Rob described. Labels are
+// sentence case, following the shells in reference/.
+type NavItem = {
+  href: string;
+  label: string;
+  count?: string;
+  Icon: Icon;
+};
+
+const NAV: { section: string; items: NavItem[] }[] = [
+  {
+    section: "Work",
+    items: [{ href: "/", label: "Home", count: "H-100", Icon: House }],
+  },
+  {
+    section: "Business development",
+    items: [
+      { href: "/pursuits", label: "Pursuits", count: "9", Icon: Target },
+      { href: "/clients/c-042", label: "Clients", count: "31", Icon: Users },
+      { href: "/briefs/b-217", label: "Briefs", count: "6", Icon: FileText },
+    ],
+  },
+  {
+    section: "Pre-construction",
+    // No count: the page has nothing to tally yet, and the sheet number is on
+    // the page's own band.
+    items: [{ href: "/rom", label: "Conceptual budget", Icon: Calculator }],
+  },
 ];
 
 export function Rail() {
@@ -25,24 +51,31 @@ export function Rail() {
         <input className="input" type="search" placeholder="Search sheets" />
       </div>
 
-      {/* Flat rail: four items need no taxonomy. Section headers return when a
-          second module ships. */}
       <div className="rail-nav">
-        {NAV.map(({ href, label, count, Icon }) => {
-          const active = href === "/" ? path === "/" : path.startsWith(href.split("/").slice(0, 2).join("/"));
-          return (
-            <Link
-              key={href}
-              className="rail-item"
-              href={href}
-              aria-current={active ? "page" : undefined}
-            >
-              <Icon size={16} />
-              <span>{label}</span>
-              <span className="count">{count}</span>
-            </Link>
-          );
-        })}
+        {/* Flat, like the shells: labels and items are siblings. Below 860px the
+            rail lies down and the labels step out, and the items have to be the
+            flex children for that to work. A wrapper per section broke it. */}
+        {NAV.map(({ section, items }) => (
+          <Fragment key={section}>
+            <div className="rail-section t-label">{section}</div>
+            {items.map(({ href, label, count, Icon }: NavItem) => {
+              const active =
+                href === "/" ? path === "/" : path.startsWith(href.split("/").slice(0, 2).join("/"));
+              return (
+                <Link
+                  key={href}
+                  className="rail-item"
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon size={16} />
+                  <span>{label}</span>
+                  {count ? <span className="count">{count}</span> : null}
+                </Link>
+              );
+            })}
+          </Fragment>
+        ))}
       </div>
 
       <div className="rail-user">

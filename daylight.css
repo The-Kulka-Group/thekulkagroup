@@ -270,6 +270,8 @@ em, .em { font-style: normal; font-weight: 600; }
   align-items: center;
   gap: 10px;
   height: 34px;
+  /* The row is a fixed height, so a label that wrapped would spill out of it. */
+  white-space: nowrap;
   padding: 0 var(--s3);
   border-radius: var(--r-md);
   color: var(--ink);

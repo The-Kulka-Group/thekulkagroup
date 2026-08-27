@@ -27,10 +27,11 @@ type State =
   | { phase: "done"; rom: Rom; runId: string }
   | { phase: "failed"; error: string };
 
-export function RomRunner({ projectId }: { projectId: string }) {
+export function RomRunner({ projectId }: { projectId?: string }) {
   const [state, setState] = useState<State>({ phase: "idle" });
 
   async function run() {
+    if (!projectId) return;
     setState({ phase: "running" });
     try {
       const response = await fetch("/api/rom", {
@@ -61,18 +62,16 @@ export function RomRunner({ projectId }: { projectId: string }) {
           className="btn btn--primary"
           type="button"
           onClick={run}
-          disabled={state.phase === "running"}
+          disabled={!projectId || state.phase === "running"}
         >
-          {state.phase === "running" ? "Running" : "Run ROM"}
+          {!projectId ? "Project required" : state.phase === "running" ? "Running" : "Run ROM"}
         </button>
       }
       meta={
         <>
-          <span>Fixture multifamily project</span>
+          <span>{projectId ? "Approved project" : "No project configured"}</span>
           <Sep />
           <span>tier 1</span>
-          <Sep />
-          <span>example data</span>
           {state.phase === "done" ? (
             <>
               <Sep />
@@ -85,7 +84,11 @@ export function RomRunner({ projectId }: { projectId: string }) {
       reviewLabel="held for review"
     >
       {state.phase === "idle" ? (
-        <p className="empty">No ROM yet. Run one to see a ranged budget.</p>
+        <p className="empty">
+          {projectId
+            ? "No ROM yet. Run one to see a ranged budget."
+            : "Set ROM_PROJECT_ID to an approved project before running a ROM."}
+        </p>
       ) : null}
 
       {state.phase === "running" ? <p className="empty">Reading data and computing lines.</p> : null}

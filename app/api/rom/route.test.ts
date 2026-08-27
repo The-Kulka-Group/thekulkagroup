@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
-import { FIXTURE_PROJECT_ID, seededDatabase } from "@/test/database";
+import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
 // The integration seam LA-9 names: the site's API route against a seeded test
 // database, asserting the run lifecycle. The database is a real Postgres built
@@ -60,8 +60,8 @@ afterEach(async () => {
 });
 
 describe("POST /api/rom", () => {
-  it("returns a ranged line with a confidence flag for the fixture project", async () => {
-    const response = await post({ projectId: FIXTURE_PROJECT_ID });
+  it("returns a ranged line with a confidence flag for the test project", async () => {
+    const response = await post({ projectId: TEST_PROJECT_ID });
     expect(response.status).toBe(200);
 
     const { rom } = await response.json();
@@ -70,28 +70,23 @@ describe("POST /api/rom", () => {
     const [line] = rom.lines;
     expect(line.low).toBeLessThan(line.high);
     expect(["high", "medium", "low"]).toContain(line.confidence);
-    expect(line.provenance.kind).toBe("fixture");
-  });
-
-  it("says in its assumptions that the ROM rests on fixture data", async () => {
-    const { rom } = await (await post({ projectId: FIXTURE_PROJECT_ID })).json();
-
-    expect(rom.assumptions.join(" ")).toContain("fixture");
+    expect(line.provenance.kind).toBe("reviewed_judgment");
+    expect(line.provenance.sourceProjectIds).toEqual([TEST_PROJECT_ID]);
   });
 
   it("writes a finished run record holding the ROM and the answers it used", async () => {
-    const { runId } = await (await post({ projectId: FIXTURE_PROJECT_ID })).json();
+    const { runId } = await (await post({ projectId: TEST_PROJECT_ID })).json();
 
     const [run] = await runs();
     expect(run).toMatchObject({ status: "succeeded", skill: "rom_tier1", error: null });
     expect(run.rom?.lines).toHaveLength(1);
-    expect(run.answers.grossSquareFeet).toBe(120000);
+    expect(run.answers.grossSquareFeet).toBe(1000);
     expect(run.finished_at).not.toBeNull();
     expect(runId).toBeTruthy();
   });
 
   it("records every step in order, each one succeeded", async () => {
-    await post({ projectId: FIXTURE_PROJECT_ID });
+    await post({ projectId: TEST_PROJECT_ID });
 
     expect(await steps()).toEqual([
       { seq: 1, name: "read_answers", status: "succeeded" },
@@ -149,5 +144,44 @@ describe("POST /api/rom", () => {
 
     expect(response.status).toBe(400);
     expect(await runs()).toEqual([]);
+  });
+});
+
+describe("benchmark provenance schema", () => {
+  it("rejects imported cost data with no export named", async () => {
+    await expect(
+      db.query(
+        `insert into benchmarks
+           (cost_code, label, unit, value, project_type, construction_kind,
+            comparable_count, provenance_kind, provenance_recorded_by,
+            provenance_recorded_at)
+         values
+           ('TEST-B', 'Synthetic test line', 'usd_per_gsf', 1,
+            'multifamily', 'new', 1, 'actuals', 'automated test',
+            date '2026-08-27')`,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("rejects a benchmark source that names a project that does not exist", async () => {
+    const { rows } = await db.query<{ id: string }>(
+      `insert into benchmarks
+         (cost_code, label, unit, value, project_type, construction_kind,
+          comparable_count, provenance_kind, provenance_recorded_by,
+          provenance_recorded_at)
+       values
+         ('TEST-B', 'Synthetic test line', 'usd_per_gsf', 1,
+          'multifamily', 'new', 1, 'reviewed_judgment', 'automated test',
+          date '2026-08-27')
+       returning id`,
+    );
+
+    await expect(
+      db.query(
+        `insert into benchmark_source_projects (benchmark_id, project_id)
+         values ($1, '00000000-0000-4000-8000-0000000000ff')`,
+        [rows[0].id],
+      ),
+    ).rejects.toThrow();
   });
 });

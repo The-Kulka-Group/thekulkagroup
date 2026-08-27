@@ -1,4 +1,4 @@
-# Kulka pre-con: direction and decisions
+# Kulka conceptual budgeting: direction and decisions
 
 Recorded 2026-08-26 from a working call with Rob, Devin, and Matthew.
 Transcript: https://notes.granola.ai/t/0b7664cc-c539-403c-8567-fbc793faed28
@@ -6,7 +6,7 @@ Transcript: https://notes.granola.ai/t/0b7664cc-c539-403c-8567-fbc793faed28
 ## What changed
 
 Kulka's pipeline is full, so business development is off the list for now. The first
-build is conceptual budgeting, also called pre-con. It frees estimator time that is
+build is conceptual budgeting for the estimating department. It frees estimator time that is
 currently spent on work that rarely converts.
 
 This moves ahead of the CRM work recorded in earlier notes. See
@@ -30,7 +30,7 @@ give the model anything it can reason across.
 ## System shape
 
 Rob wants a modular system with a homepage dashboard, one world per department.
-Pre-con is the first module and the conceptual budget is its first button. Project
+Conceptual budgeting is the first estimating module. Project
 management follows later.
 
 Matthew drew the distinction between a dashboard, which pulls data in so you can
@@ -74,7 +74,7 @@ Two sources to combine:
 | Autodesk Cost | actual job costs after buyout | accountant exports |
 | ProEst | conceptual budgets | estimating team |
 
-Actual job costs carry far more weight than ProEst estimates. Devin put the gap at
+Actual job costs carry far more weight than ProEst conceptual budgets. Devin put the gap at
 five to one. The LLM is a supporting signal only and is weighted low against Kulka's
 own numbers.
 
@@ -95,7 +95,7 @@ dividing line to set is new construction against renovation.
 
 Matthew suggested putting the ROM tool on the Kulka website as a funnel for
 developer leads. Devin raised three objections: liability if the output is wrong on a
-job over $100M, competitors using it for free, and clients questioning pre-con fees
+job over $100M, competitors using it for free, and clients questioning conceptual-budgeting fees
 once they see AI doing the work. Rob's call is to build the tool first and decide on
 outside use later. Devin's preferred framing is to market AI as part of the process
 without exposing the tool itself.

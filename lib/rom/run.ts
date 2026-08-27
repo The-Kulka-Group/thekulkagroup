@@ -93,12 +93,19 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
 
     const benchmarks = await step(db, runId, ++seq, "read_benchmarks", async () => {
       const { rows } = await db.query<BenchmarkRow>(
-        `select cost_code, label, unit, value, project_type, construction_kind,
-                comparable_count, provenance_kind, provenance_source_project_ids,
-                provenance_export_label, provenance_recorded_by, provenance_recorded_at
-           from benchmarks
-          where project_type = $1 and construction_kind = $2
-          order by cost_code`,
+        `select b.cost_code, b.label, b.unit, b.value, b.project_type,
+                b.construction_kind, b.comparable_count, b.provenance_kind,
+                coalesce(
+                  (select array_agg(bsp.project_id order by bsp.project_id)
+                     from benchmark_source_projects bsp
+                    where bsp.benchmark_id = b.id),
+                  '{}'::uuid[]
+                ) as provenance_source_project_ids,
+                b.provenance_export_label, b.provenance_recorded_by,
+                b.provenance_recorded_at
+           from benchmarks b
+          where b.project_type = $1 and b.construction_kind = $2
+          order by b.cost_code`,
         [answers.projectType, answers.constructionKind],
       );
       return rows.map(toBenchmark);

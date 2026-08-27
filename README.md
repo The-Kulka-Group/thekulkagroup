@@ -14,6 +14,10 @@ The ROM module needs a database. `DATABASE_URL` points the app at Kulka's
 Supabase, and `.env.example` shows the shape of it. Without it the site runs but
 `/rom` cannot.
 
+`ROM_PROJECT_ID` names an approved project already in that database. The page
+stays disabled when it is absent. Production migrations contain no example
+projects or cost values.
+
 Schema changes are migrations in `supabase/migrations/`. Run `supabase link`
 once against Kulka's project, then `supabase db push` applies them. Nothing
 changes the schema by hand.
@@ -61,8 +65,10 @@ and nothing in between reads a network or a clock. That is what makes the same
 inputs give the same ROM and a backtest repeatable.
 
 The API seam runs the real route against a real Postgres built in process from
-`supabase/migrations/`, so a passing test is testing the schema that ships. It
-wants neither Docker nor a network.
+`supabase/migrations/`, then adds synthetic inputs inside that throwaway test
+process. A passing test covers the schema that ships without putting invented
+cost values in the production migration chain. It wants neither Docker nor a
+network.
 
 ## Rules worth knowing before you edit
 
@@ -71,11 +77,10 @@ and the component decisions that came out of two blind design reviews. Utility
 classes would reintroduce the borrowed defaults the system exists to avoid. Add
 to the stylesheet, and keep new values on the type and space scales.
 
-**A fabricated figure never passes as a real one.** DESIGN.md bans invented
-dollar figures in fixtures. The walking skeleton still needs a number, so
-`fixture` is one of the provenance kinds a benchmark can carry, and any ROM that
-reads one says so in its assumptions. Delete the fixture rows once the ingestion
-gate loads real actuals.
+**Production starts empty.** DESIGN.md bans invented dollar figures in demos and
+fixtures. Migrations create schema only. Tests add synthetic numeric inputs after
+the migrations run, inside an in-process database that is discarded after each
+test.
 
 **Icons live in two places only:** the rail, and state marks. Never on actions,
 table rows, or body content. An icon always sits beside its word.

@@ -8,18 +8,18 @@ import { computeRom, type Answers, type Benchmark, type DataSnapshot } from "./r
 
 function benchmark(over: Partial<Benchmark> = {}): Benchmark {
   return {
-    costCode: "03-CONC",
-    label: "Concrete",
+    costCode: "TEST-A",
+    label: "Synthetic test line",
     unit: "usd_per_gsf",
-    value: 40,
+    value: 1,
     projectType: "multifamily",
     constructionKind: "new",
     comparableCount: 5,
     provenance: {
-      kind: "actuals",
+      kind: "reviewed_judgment",
       sourceProjectIds: ["11111111-1111-4111-8111-111111111111"],
-      exportLabel: "Autodesk Cost export 2026-08",
-      recordedBy: "Devin M.",
+      exportLabel: null,
+      recordedBy: "automated test",
       recordedAt: "2026-08-27",
     },
     ...over,
@@ -29,7 +29,7 @@ function benchmark(over: Partial<Benchmark> = {}): Benchmark {
 const ANSWERS: Answers = {
   projectType: "multifamily",
   constructionKind: "new",
-  grossSquareFeet: 1000,
+  grossSquareFeet: 10,
 };
 
 function snapshot(...benchmarks: Benchmark[]): DataSnapshot {
@@ -42,7 +42,7 @@ describe("computeRom", () => {
 
     expect(rom.lines).toHaveLength(1);
     const [line] = rom.lines;
-    expect(line.costCode).toBe("03-CONC");
+    expect(line.costCode).toBe("TEST-A");
     expect(line.low).toBeLessThan(line.high);
   });
 
@@ -87,7 +87,7 @@ describe("computeRom", () => {
   it("scales the line by gross square feet", () => {
     const [small] = computeRom(ANSWERS, snapshot(benchmark())).lines;
     const [large] = computeRom(
-      { ...ANSWERS, grossSquareFeet: 2000 },
+      { ...ANSWERS, grossSquareFeet: 20 },
       snapshot(benchmark()),
     ).lines;
 
@@ -97,8 +97,8 @@ describe("computeRom", () => {
 
   it("rounds every figure to whole dollars", () => {
     const rom = computeRom(
-      { ...ANSWERS, grossSquareFeet: 1337 },
-      snapshot(benchmark({ value: 40.37 })),
+      { ...ANSWERS, grossSquareFeet: 13 },
+      snapshot(benchmark({ value: 1.37 })),
     );
 
     for (const line of rom.lines) {
@@ -112,16 +112,16 @@ describe("computeRom", () => {
   it("never blends renovation data into a new-construction ROM", () => {
     const rom = computeRom(
       ANSWERS,
-      snapshot(benchmark(), benchmark({ costCode: "03-RENO", constructionKind: "renovation" })),
+      snapshot(benchmark(), benchmark({ costCode: "TEST-R", constructionKind: "renovation" })),
     );
 
-    expect(rom.lines.map((l) => l.costCode)).toEqual(["03-CONC"]);
+    expect(rom.lines.map((l) => l.costCode)).toEqual(["TEST-A"]);
   });
 
   it("ignores benchmarks for another project type", () => {
     const rom = computeRom(
       ANSWERS,
-      snapshot(benchmark({ costCode: "03-SS", projectType: "self_storage" })),
+      snapshot(benchmark({ costCode: "TEST-S", projectType: "self_storage" })),
     );
 
     expect(rom.lines).toEqual([]);
@@ -136,7 +136,7 @@ describe("computeRom", () => {
   it("totals the lines it produced", () => {
     const rom = computeRom(
       ANSWERS,
-      snapshot(benchmark(), benchmark({ costCode: "04-MAS", label: "Masonry", value: 10 })),
+      snapshot(benchmark(), benchmark({ costCode: "TEST-B", value: 2 })),
     );
 
     expect(rom.total.low).toBe(rom.lines[0].low + rom.lines[1].low);
@@ -146,22 +146,22 @@ describe("computeRom", () => {
   it("orders lines by cost code whatever order the snapshot arrived in", () => {
     const forwards = computeRom(
       ANSWERS,
-      snapshot(benchmark(), benchmark({ costCode: "04-MAS" })),
+      snapshot(benchmark(), benchmark({ costCode: "TEST-B" })),
     );
     const backwards = computeRom(
       ANSWERS,
-      snapshot(benchmark({ costCode: "04-MAS" }), benchmark()),
+      snapshot(benchmark({ costCode: "TEST-B" }), benchmark()),
     );
 
     expect(forwards).toEqual(backwards);
-    expect(forwards.lines.map((l) => l.costCode)).toEqual(["03-CONC", "04-MAS"]);
+    expect(forwards.lines.map((l) => l.costCode)).toEqual(["TEST-A", "TEST-B"]);
   });
 
   it("states the assumptions it worked from", () => {
     const rom = computeRom(ANSWERS, snapshot(benchmark()));
 
     expect(rom.assumptions.length).toBeGreaterThan(0);
-    expect(rom.assumptions.join(" ")).toContain("1,000");
+    expect(rom.assumptions.join(" ")).toContain("10");
   });
 
   it("says so plainly when no benchmark matched", () => {
@@ -180,32 +180,5 @@ describe("computeRom", () => {
   it("refuses a negative floor area", () => {
     expect(() => computeRom({ ...ANSWERS, grossSquareFeet: -1 }, snapshot(benchmark())))
       .toThrow(/gross square feet/i);
-  });
-});
-
-// DESIGN.md bans fabricated dollar figures in fixtures. The walking skeleton
-// still needs a number to compute, so the fixture carries its own provenance
-// kind and the ROM says out loud that it rests on one.
-describe("fixture data", () => {
-  const fixture = benchmark({
-    provenance: {
-      kind: "fixture",
-      sourceProjectIds: [],
-      exportLabel: null,
-      recordedBy: "walking skeleton fixture",
-      recordedAt: "2026-08-27",
-    },
-  });
-
-  it("says the ROM rests on fixture data", () => {
-    const rom = computeRom(ANSWERS, snapshot(fixture));
-
-    expect(rom.assumptions.join(" ")).toContain("fixture");
-  });
-
-  it("says nothing about fixtures when none is involved", () => {
-    const rom = computeRom(ANSWERS, snapshot(benchmark()));
-
-    expect(rom.assumptions.join(" ")).not.toContain("fixture");
   });
 });

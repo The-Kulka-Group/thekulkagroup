@@ -13,16 +13,9 @@ export type ConfidenceFlag = "high" | "medium" | "low";
 /**
  * Where a benchmark's number came from. Required on every benchmark.
  *
- * `fixture` exists so an invented number can never pass as a real one.
- * DESIGN.md bans fabricated dollar figures in fixtures, and the walking
- * skeleton still needs something to compute, so the fixture declares itself and
- * every ROM built on one says so.
+ * Test-only values never enter the production schema or the product surface.
  */
-export type ProvenanceKind =
-  | "actuals"
-  | "proest_budget"
-  | "reviewed_judgment"
-  | "fixture";
+export type ProvenanceKind = "actuals" | "proest_budget" | "reviewed_judgment";
 
 export type Provenance = {
   kind: ProvenanceKind;
@@ -167,12 +160,6 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
       "No benchmark in the database matches this project type and construction kind, so this ROM has no lines.",
     );
     return assumptions;
-  }
-
-  if (lines.some((l) => l.provenance.kind === "fixture")) {
-    assumptions.push(
-      "At least one line reads a fixture benchmark, which is invented data standing in until Kulka's own costs are loaded. Treat this ROM as an example, not a number.",
-    );
   }
 
   const held = lines.filter((l) => l.heldForReview);

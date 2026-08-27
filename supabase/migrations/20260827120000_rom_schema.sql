@@ -32,19 +32,34 @@ create table benchmarks (
   comparable_count integer not null default 0 check (comparable_count >= 0),
 
   -- Provenance. LA-9 makes this a schema-level hard requirement: every number
-  -- traces to the projects, the export, or the named judgment behind it, with a
-  -- date. Nothing here is nullable except the export label, because a value read
-  -- from projects rather than a file has no export to name.
+  -- traces to an export or a named reviewed judgment, with a date. Source
+  -- projects live in the foreign-keyed join table below.
   provenance_kind text not null check (
-    provenance_kind in ('actuals', 'proest_budget', 'reviewed_judgment', 'fixture')
+    provenance_kind in ('actuals', 'proest_budget', 'reviewed_judgment')
   ),
-  provenance_source_project_ids uuid[] not null default '{}',
   provenance_export_label text,
-  provenance_recorded_by text not null,
+  provenance_recorded_by text not null check (btrim(provenance_recorded_by) <> ''),
   provenance_recorded_at date not null,
+
+  check (
+    provenance_kind = 'reviewed_judgment'
+    or nullif(btrim(provenance_export_label), '') is not null
+  ),
 
   created_at timestamptz not null default now()
 );
+
+-- A benchmark can blend more than one past project. Keeping the links as rows,
+-- rather than an unchecked UUID array, prevents provenance from naming a
+-- project that does not exist.
+create table benchmark_source_projects (
+  benchmark_id uuid not null references benchmarks (id) on delete cascade,
+  project_id uuid not null references projects (id) on delete restrict,
+  primary key (benchmark_id, project_id)
+);
+
+create index benchmark_source_projects_project_idx
+  on benchmark_source_projects (project_id, benchmark_id);
 
 create index benchmarks_selection_idx
   on benchmarks (project_type, construction_kind, cost_code);
@@ -96,5 +111,6 @@ create index run_steps_run_idx on run_steps (run_id, seq);
 -- the owner, which bypasses row level security, so the app keeps working.
 alter table projects   enable row level security;
 alter table benchmarks enable row level security;
+alter table benchmark_source_projects enable row level security;
 alter table runs       enable row level security;
 alter table run_steps  enable row level security;

@@ -93,7 +93,7 @@ one job against another and so any number can be traced back.
 
 ## 2. The database as it stands
 
-Four tables exist today. They were built to prove one ROM can run from question to answer,
+Five tables exist today. They were built to prove one ROM can run from question to answer,
 not to hold Kulka's data.
 
 **Projects.** One row per job. Today it holds a name, whether it is multifamily or
@@ -107,11 +107,14 @@ behind it. That count drives the confidence flag, so a value backed by one job i
 differently from one backed by six.
 
 Every benchmark row also has to say where its number came from. It records whether the
-number is an actual cost, a ProEst budget, an estimator's reviewed judgment, or a
-placeholder; which past projects produced it; who recorded it; and on what date. The only
-part the database will accept as blank is the name of the export file, because a number
-worked out from project records was never read out of a file. This is deliberate. The
-reason the earlier attempt in a chat window failed is that no number could be traced.
+number is an actual cost, a ProEst budget, or an estimator's reviewed judgment; who
+recorded it; and on what date. An actual or ProEst value must also name its export. This
+is deliberate. The reason the earlier attempt in a chat window failed is that no number
+could be traced.
+
+**Benchmark sources.** One row links one benchmark to one past project. The database
+checks that both records exist. A benchmark built from three completed jobs has three
+source rows, so none of its provenance can point at a made-up project identifier.
 
 **Runs.** One row every time somebody asks for a ROM. It records the answers given, the
 ROM produced, and whether the run finished or failed. A ROM from three months ago can be
@@ -120,17 +123,35 @@ pulled up and questioned.
 **Steps.** The runs table's detail, one row per step, so the screen can show progress
 while a ROM is being built and so a failure says which step failed.
 
+### Proposed home for the fields after the session
+
+This is the draft target, not a migration ready to run. The room decides the field list
+first. Engineering then writes the named columns and tables.
+
+| Information | Proposed home | Shape |
+| --- | --- | --- |
+| Location | Projects | Address and ZIP fields |
+| Unit count and mix | Projects | Unit count plus a bedroom-count breakdown |
+| Stories and levels below grade | Projects | Two whole-number fields |
+| Site conditions | Projects | A short controlled list plus a note |
+| Structure type | Projects | A controlled list agreed in the session |
+| Parking | Projects | Type and stall count |
+| Finish level and labor basis | Projects | Two controlled lists |
+| Buyout date | Projects | Date |
+| Tier-1 answers | Project answers, new table | Project, question-set version, answers, and who answered |
+| Judgment approval | Rule approvals, new table | Rule, proposer, approver, decision, and date |
+| Benchmark source jobs | Benchmark sources | Foreign keys to the benchmark and each past project |
+
 ### What is deliberately not there yet
 
 - **Cost codes are loose text.** There is no table of cost codes and no mapping between
   ProEst codes and Autodesk Cost codes. The notes already flag that these two do not line
   up cleanly. Building the mapping before seeing Devin's export would be guessing.
 - **The questions and answers have no home.** The engine reads the project record directly
-  right now. Once section 1 is agreed, tier-1 answers get their own table.
-- **There is no real data in it.** The database holds one invented placeholder value so
-  the machinery has something to chew on. That value is marked as a placeholder, and any
-  ROM built on it says so on its face. No values came across from the older engine. Real
-  data starts with Kulka's own numbers or it does not start.
+  right now. Once section 1 is agreed, tier-1 answers get their proposed table.
+- **There is no data in it.** Production starts empty. No values came across from the older
+  engine, and no invented cost value ships in a migration. Real data starts with Kulka's
+  own numbers or it does not start.
 - **Nothing enters except through an approval gate.** Nobody types a cost into a chat and
   has it land in the database. That gate is not built yet.
 
@@ -243,6 +264,18 @@ Each rule claims a cost goes up by a percentage for every level below grade.
 | Concrete | Up 10 percent per level |
 | Waterproofing | Up 8 percent per level |
 | Earthwork | Up 20 percent per level |
+
+### Site conditions
+
+The older engine asked only about slope. These are its claimed effects. It had no rules
+for rock, poor soils, groundwater, existing-building tie-ins, or support of excavation.
+That gap is part of the question for the room.
+
+| Answer | Existing conditions | Concrete | Earthwork |
+| --- | --- | --- | --- |
+| Flat | No change | No change | No change |
+| Moderate slope | Up 8 percent | Up 6 percent | Up 10 percent |
+| Steep or complex | Up 18 percent | Up 12 percent | Up 25 percent |
 
 ### Unit and room counts
 

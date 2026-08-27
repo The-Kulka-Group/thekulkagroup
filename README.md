@@ -10,8 +10,18 @@ npm install
 npm run dev
 ```
 
-Types and lint run from the repo root over the whole repo. Tests run from the
-root over the workspace packages:
+The ROM module needs a database. `DATABASE_URL` points the app at Kulka's
+Supabase, and `.env.example` shows the shape of it. Without it the site runs but
+`/rom` cannot.
+
+Schema changes are migrations in `supabase/migrations/`. Run `supabase link`
+once against Kulka's project, then `supabase db push` applies them. Nothing
+changes the schema by hand.
+
+Every table has row level security on with no policies, which denies everyone
+holding a browser key. Server-side code connects as the owner and is unaffected.
+
+Types, lint, and tests all run from the repo root over the whole repo:
 
 ```bash
 npm test
@@ -28,7 +38,12 @@ npm run lint
 | `app/(app)/` | The framed routes: Home, Pursuits, a client record, a brief. |
 | `app/login/` | The login cover, deliberately outside the app frame so it has no rail. |
 | `components/` | Rail, Sheet, and the status marks. |
-| `packages/engine/` | The deterministic ROM engine, `@kulka/engine`. Empty until the first ROM slice. |
+| `packages/engine/` | The deterministic ROM engine, `@kulka/engine`. Answers plus a data snapshot in, ROM out, reading nothing else. |
+| `supabase/migrations/` | The schema. Projects, benchmarks with provenance, and the run record every execution writes. |
+| `app/api/rom/` | The one API the surfaces call. The site calls it today; the Claude wrapper calls the same route later. |
+| `app/(app)/rom/` | The conceptual budget page. Runs a ROM and shows the ranged lines it came back with. |
+| `lib/rom/` | The run: loads a snapshot, calls the engine, writes down what happened. |
+| `test/database.ts` | An in-process Postgres built from the migrations, for the API tests. |
 | `lib/data.ts` | Example data. Invented names and dates only, no fabricated dollar figures. |
 | `public/glyphs/` | The Phosphor state glyphs, vendored so nothing depends on a CDN at runtime. |
 | `reference/` | The original static shells and the decision choosers. Design source of truth, not part of the build. |
@@ -37,12 +52,30 @@ The repo is an npm workspace. The Next app is the root package; everything under
 `packages/` is a workspace beside it. Packages ship TypeScript source and Next
 compiles them, so a package never needs its own build step.
 
-## Two rules worth knowing before you edit
+## Testing
+
+The tests sit at the two seams LA-9 named.
+
+The engine seam is pure. Answers and a data snapshot go in and a ROM comes out,
+and nothing in between reads a network or a clock. That is what makes the same
+inputs give the same ROM and a backtest repeatable.
+
+The API seam runs the real route against a real Postgres built in process from
+`supabase/migrations/`, so a passing test is testing the schema that ships. It
+wants neither Docker nor a network.
+
+## Rules worth knowing before you edit
 
 **No Tailwind, on purpose.** `daylight.css` carries the palette, the type scale,
 and the component decisions that came out of two blind design reviews. Utility
 classes would reintroduce the borrowed defaults the system exists to avoid. Add
 to the stylesheet, and keep new values on the type and space scales.
+
+**A fabricated figure never passes as a real one.** DESIGN.md bans invented
+dollar figures in fixtures. The walking skeleton still needs a number, so
+`fixture` is one of the provenance kinds a benchmark can carry, and any ROM that
+reads one says so in its assumptions. Delete the fixture rows once the ingestion
+gate loads real actuals.
 
 **Icons live in two places only:** the rail, and state marks. Never on actions,
 table rows, or body content. An icon always sits beside its word.

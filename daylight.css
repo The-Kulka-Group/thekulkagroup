@@ -554,12 +554,20 @@ em, .em { font-style: normal; font-weight: 600; }
   -webkit-mask: var(--gl) center / contain no-repeat;
   mask: var(--gl) center / contain no-repeat;
 }
-.chip--done    { background: var(--done-tint);    --gl: var(--gl-done); }
-.chip--done .dot    { background: var(--done); }
-.chip--working { background: var(--working-tint); --gl: var(--gl-working); }
-.chip--working .dot { background: #C06A00; }
-.chip--stuck   { background: var(--stuck-tint);   --gl: var(--gl-stuck); }
-.chip--stuck .dot   { background: var(--stuck-bright); }
+/* A confidence flag on a ROM line reads as one of the same three states, so it
+   shares their treatment rather than opening a second palette. */
+.chip--done,
+.chip--high    { background: var(--done-tint);    --gl: var(--gl-done); }
+.chip--done .dot,
+.chip--high .dot    { background: var(--done); }
+.chip--working,
+.chip--medium  { background: var(--working-tint); --gl: var(--gl-working); }
+.chip--working .dot,
+.chip--medium .dot  { background: #C06A00; }
+.chip--stuck,
+.chip--low     { background: var(--stuck-tint);   --gl: var(--gl-stuck); }
+.chip--stuck .dot,
+.chip--low .dot     { background: var(--stuck-bright); }
 .chip--neutral { background: var(--neutral-fill); --gl: var(--gl-open); }
 .chip--neutral .dot { background: var(--ink-3); }
 
@@ -851,6 +859,16 @@ em, .em { font-style: normal; font-weight: 600; }
 .doc-meta  { margin-bottom: var(--s8); }
 
 .doc-section { margin-bottom: var(--s6); }
+/* Assumptions sit clear of the ROM line table above them. */
+.rom-assumptions { margin-top: var(--s8); }
+
+/* The board lays out fixed, so a ROM's columns are declared rather than
+   guessed. Without these the confidence chip was clipped. */
+.board--rom col:nth-child(1) { width: 12%; }
+.board--rom col:nth-child(2) { width: 40%; }
+.board--rom col:nth-child(3),
+.board--rom col:nth-child(4),
+.board--rom col:nth-child(5) { width: 16%; }
 .doc-section h3 { margin-bottom: var(--s2); }
 
 .doc-clause {

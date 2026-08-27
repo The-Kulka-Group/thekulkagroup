@@ -72,7 +72,7 @@ takes what it wants later by copy or fork. The tool stays off the public website
    or reject them.
 
 Deliverable into the session: the fields framework plus a draft database schema. No
-demo.
+demo. The packet itself is `docs/precon/working-session-packet.md` (LA-17).
 
 ## Blocked on facts
 

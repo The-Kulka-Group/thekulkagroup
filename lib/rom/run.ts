@@ -75,7 +75,9 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
   try {
     const answers = await step(db, runId, ++seq, "read_answers", async () => {
       // Tier-1 questions are blocked on the working session, so the project
-      // record answers them for now. LA-17 brings the real question flow.
+      // record answers them for now. The packet that decides what those
+      // questions are is `docs/precon/working-session-packet.md` (LA-17);
+      // the question flow follows the session.
       if (!project.gross_square_feet) {
         throw new Error(
           `Project ${projectId} has no gross square feet, so it cannot be budgeted.`,

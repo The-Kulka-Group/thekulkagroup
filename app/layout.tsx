@@ -14,6 +14,9 @@ const openSans = Open_Sans({
 export const metadata: Metadata = {
   title: "Kulka AI",
   description: "Business development for The Kulka Group.",
+  // robots.txt asks crawlers not to fetch the site. This is the backstop for
+  // any crawler that fetches anyway but honours the tag.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

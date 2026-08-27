@@ -10,6 +10,15 @@ npm install
 npm run dev
 ```
 
+Types and lint run from the repo root over the whole repo. Tests run from the
+root over the workspace packages:
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+```
+
 ## How it is put together
 
 | Path | What it is |
@@ -19,9 +28,14 @@ npm run dev
 | `app/(app)/` | The framed routes: Home, Pursuits, a client record, a brief. |
 | `app/login/` | The login cover, deliberately outside the app frame so it has no rail. |
 | `components/` | Rail, Sheet, and the status marks. |
+| `packages/engine/` | The deterministic ROM engine, `@kulka/engine`. Empty until the first ROM slice. |
 | `lib/data.ts` | Example data. Invented names and dates only, no fabricated dollar figures. |
 | `public/glyphs/` | The Phosphor state glyphs, vendored so nothing depends on a CDN at runtime. |
 | `reference/` | The original static shells and the decision choosers. Design source of truth, not part of the build. |
+
+The repo is an npm workspace. The Next app is the root package; everything under
+`packages/` is a workspace beside it. Packages ship TypeScript source and Next
+compiles them, so a package never needs its own build step.
 
 ## Two rules worth knowing before you edit
 

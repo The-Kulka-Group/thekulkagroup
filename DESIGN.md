@@ -70,6 +70,15 @@ use judgment and match the shipped screens.
     the board's problems outrank its toolbar; a flagged record field now gives the
     header's "needs review" count a visible destination.
   - Reading: document prose caps at 62ch; the login heading joined the scale.
+- 2026-08-26 (narrow widths): the frame assumed a desktop and clipped at every
+  level, so at 375px the rail took 232px, the sheet was left 109px, its title
+  collapsed to zero width, and the brief's prose ran one word per line. Below
+  860px the rail now lies down as a scrolling top bar, the page scrolls
+  vertically, the record and clause grids collapse to one column with clause
+  numbers moving above their clause, attention rows put the sentence on its own
+  full-width line, and the board keeps its column widths and scrolls sideways
+  inside the sheet body. Desktop is unchanged. Checked on all five routes.
+
 - 2026-08-25 (critic round one): record values left-align after their labels; the
   sheet header carries a soft standing shadow so rows read as passing under it;
   documents use one attention language, so a TBD is an amber callout row with a

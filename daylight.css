@@ -365,6 +365,8 @@ em, .em { font-style: normal; font-weight: 600; }
 }
 
 .band-name {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--sheet-title-size);
   line-height: var(--sheet-title-line);
   font-weight: 800;             /* the Kulka voice */
@@ -1127,6 +1129,92 @@ em, .em { font-style: normal; font-weight: 600; }
   .sheet-body { padding: var(--s4); }
   .record-row { grid-template-columns: minmax(0, 1fr); }
   .record-row dd.num { text-align: left; }
+}
+
+/* Phones and small tablets. The frame is a fixed two-column grid that clips at
+   every level, so below 860px the rail lies down as a top bar, the page scrolls
+   vertically, and the board keeps its column widths and scrolls sideways inside
+   the sheet body rather than crushing to nothing. Added 2026-08-26 after a
+   375px check showed the rail taking 232px and leaving the sheet 109px wide
+   with its title collapsed to zero. */
+@media (max-width: 860px) {
+  html, body { height: auto; }
+
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  /* The rail lies down: wordmark, then the four items on one scrolling line.
+     Search and the user block are desktop affordances and step out here. */
+  .rail {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s3);
+    padding: var(--s2) var(--s3);
+    border-right: 0;
+    border-bottom: 1px solid var(--border-light);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .rail-logo { flex: none; }
+  .rail-search, .rail-section, .rail-user { display: none; }
+  .rail-nav { flex: none; display: flex; gap: var(--s1); }
+  .rail-item { flex: none; height: 32px; }
+  .rail-item .count { margin-left: 6px; }
+
+  .field {
+    padding: var(--s3);
+    height: auto;
+    overflow: visible;
+  }
+
+  .sheet { max-height: none; }
+
+  /* Actions wrap under the title instead of squeezing it out, and the title
+     wraps rather than truncating, since a record title is the client's name
+     and half a name is worse than two lines. */
+  .band-top { flex-wrap: wrap; }
+  .band-actions { margin-left: auto; }
+  .band-name { white-space: normal; overflow: visible; }
+
+  /* The margin column is a desktop reading affordance. On a phone it burns
+     80px of a 351px sheet and squeezed the brief's prose to 56px, so the
+     grids collapse to one column. The clause numbers are not dropped: they
+     sit above their clause instead of beside it, so a brief still reads as a
+     numbered document. */
+  .doc, .record, .doc-clause {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+  .margin { text-align: left; }
+  .col-field { grid-column: 1; }
+  .doc, .record { max-width: none; }
+
+  /* Four fixed columns left the attention sentence about 90px, which wrapped
+     it to one word per line. The sentence now takes the full width and the
+     sheet number and action drop to a second line under it. */
+  .redline-row {
+    grid-template-columns: 17px minmax(0, 1fr) auto;
+    row-gap: var(--s2);
+  }
+  .redline-row > .dot { grid-area: 1 / 1 / 2 / 2; }
+  .redline-row > .sentence { grid-area: 1 / 2 / 2 / 4; }
+  .redline-row > .source { grid-area: 2 / 2 / 3 / 3; }
+  .redline-row > .btn { grid-area: 2 / 3 / 3 / 4; }
+
+  /* The meta row is nowrap on desktop, which pushed the review pill off the
+     right edge here, so it wraps and the pill drops to its own line. */
+  .band-meta { flex-wrap: wrap; white-space: normal; }
+
+  /* Six of the seven columns are fixed and sum to 668px, so a 720px table left
+     the pursuit name 52px and truncated it to two characters. 880px keeps the
+     name column readable and the table scrolls sideways instead. */
+  .board { min-width: 880px; }
+  .strip { overflow-x: auto; }
 }
 
 /* --- 21. Motion accessibility -------------------------------------------- */

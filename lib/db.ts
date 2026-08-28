@@ -12,10 +12,26 @@ export type Db = {
 
 let pool: Pool | undefined;
 
+/**
+ * Match PostgreSQL's sslmode=require rules for the URL Vercel gets from
+ * Supabase. The connection stays encrypted, while node-postgres accepts the
+ * certificate chain used by Supabase's shared pooler.
+ */
+export function vercelPostgresConnectionString(connectionString?: string) {
+  if (!connectionString) return undefined;
+
+  const url = new URL(connectionString);
+  url.searchParams.set("sslmode", "require");
+  url.searchParams.set("uselibpqcompat", "true");
+  return url.toString();
+}
+
 /** The app's database. Vercel's Supabase integration provides POSTGRES_URL. */
 export function getDb(): Db {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+    const connectionString =
+      process.env.DATABASE_URL ??
+      vercelPostgresConnectionString(process.env.POSTGRES_URL);
     if (!connectionString) {
       throw new Error(
         "DATABASE_URL or POSTGRES_URL must point at Kulka's Supabase database.",

@@ -12,12 +12,14 @@ export type Db = {
 
 let pool: Pool | undefined;
 
-/** The app's database. Reads DATABASE_URL, which points at Kulka's Supabase. */
+/** The app's database. Vercel's Supabase integration provides POSTGRES_URL. */
 export function getDb(): Db {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
     if (!connectionString) {
-      throw new Error("DATABASE_URL is not set, so there is no database to read.");
+      throw new Error(
+        "DATABASE_URL or POSTGRES_URL must point at Kulka's Supabase database.",
+      );
     }
     pool = new Pool({ connectionString });
   }

@@ -11,8 +11,9 @@ npm run dev
 ```
 
 The ROM module needs a database. `DATABASE_URL` points the app at Kulka's
-Supabase, and `.env.example` shows the shape of it. Without it the site runs but
-`/rom` cannot.
+Supabase during local work. Vercel's Supabase integration provides the same
+connection as `POSTGRES_URL`. Without either variable the site runs but `/rom`
+cannot.
 
 `ROM_PROJECT_ID` names an approved project already in that database. The page
 stays disabled when it is absent. Production migrations contain no example

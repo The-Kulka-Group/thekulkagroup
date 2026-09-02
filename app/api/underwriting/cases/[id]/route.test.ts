@@ -61,4 +61,35 @@ describe("/api/underwriting/cases/:id", () => {
       ).status,
     ).toBe(404);
   });
+
+  it("returns field-level errors without changing the saved case", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Preserved route case",
+      address: "402 Test Avenue",
+      proposedUnits: 40,
+      assumptions: {},
+    });
+    const response = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: "Unsaved route case",
+          address: "402 Test Avenue",
+          proposedUnits: 40.5,
+          assumptions: {},
+        }),
+      }),
+      context(savedCase!.id),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      fieldErrors: { proposedUnits: "Proposed units must be a whole number." },
+    });
+    const reopened = await GET(new Request("http://localhost"), context(savedCase!.id));
+    expect((await reopened.json()).case).toMatchObject({
+      name: "Preserved route case",
+      proposedUnits: 40,
+    });
+  });
 });

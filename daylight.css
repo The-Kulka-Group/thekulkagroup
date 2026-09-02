@@ -1392,6 +1392,53 @@ em, .em { font-style: normal; font-weight: 600; }
   -webkit-mask: var(--gl-waiting) center / contain no-repeat;
   mask: var(--gl-waiting) center / contain no-repeat;
 }
+.underwriting-edit { margin-bottom: var(--s8); }
+.underwriting-edit-table-wrap { overflow-x: auto; }
+.underwriting-edit-table,
+.underwriting-history {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.underwriting-edit-table { min-width: 1040px; }
+.underwriting-history { min-width: 860px; }
+.underwriting-edit-table th,
+.underwriting-edit-table td,
+.underwriting-history th,
+.underwriting-history td {
+  padding: var(--s2) var(--cell-pad-x);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  vertical-align: top;
+}
+.underwriting-edit-table thead th,
+.underwriting-history thead th {
+  color: var(--ink-2);
+  font-size: var(--label-size);
+  line-height: var(--label-line);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+}
+.underwriting-edit-table tbody th {
+  padding-top: 17px;
+  color: var(--ink);
+  font-size: var(--ui-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.underwriting-edit-table th:first-child { width: 220px; }
+.underwriting-edit-table td:nth-child(2) { width: 160px; }
+.underwriting-edit-table td:nth-child(3) { width: 220px; }
+.underwriting-edit-table td:nth-child(4) { width: 170px; }
+.underwriting-edit-table td:nth-child(5) { width: 180px; }
+.underwriting-edit-table .input { min-width: 0; }
+.underwriting-edit-table .input-error { display: block; max-width: 220px; }
+.underwriting-save-error { margin-top: var(--s4); }
+.underwriting-history-note { margin: var(--s2) 0 var(--s4); }
+.underwriting-history th.right,
+.underwriting-history td.right { text-align: right; }
+.underwriting-history td { padding-top: var(--s3); padding-bottom: var(--s3); }
 
 @media (max-width: 1180px) {
   .underwriting-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

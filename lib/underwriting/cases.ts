@@ -32,6 +32,13 @@ export type CaseDraft = {
   averageUnitSquareFeet?: number;
   grossBuildingSquareFeet?: number;
   assumptions: Partial<Record<AssumptionName, number>>;
+  assumptionMetadata?: Partial<Record<AssumptionName, AssumptionMetadata>>;
+};
+
+export type AssumptionMetadata = {
+  sourceLabel: string;
+  sourceDate: string;
+  reviewState: "working" | "done";
 };
 
 export type UnderwritingAssumption = {
@@ -143,7 +150,15 @@ function assumptionRows(draft: CaseDraft) {
   return Object.entries(draft.assumptions).flatMap(([name, value]) => {
     if (value === undefined) return [];
     const definition = ASSUMPTION_DEFINITIONS[name as AssumptionName];
-    return [{ key: definition.key, value, unit: definition.unit }];
+    const metadata = draft.assumptionMetadata?.[name as AssumptionName];
+    return [{
+      key: definition.key,
+      value,
+      unit: definition.unit,
+      source_label: metadata?.sourceLabel ?? "User entered",
+      source_date: metadata?.sourceDate ?? new Date().toISOString().slice(0, 10),
+      review_state: metadata?.reviewState ?? "working",
+    }];
   });
 }
 
@@ -156,11 +171,19 @@ export async function createUnderwritingCase(db: Db, draft: CaseDraft) {
        returning *
      ), inserted_assumptions as (
        insert into underwriting_case_assumptions
-         (case_id, assumption_key, value, unit)
-       select new_case.id, supplied.key, supplied.value, supplied.unit
+         (case_id, assumption_key, value, unit, source_label, source_date, review_state)
+       select new_case.id, supplied.key, supplied.value, supplied.unit,
+              supplied.source_label, supplied.source_date, supplied.review_state
        from new_case
        cross join jsonb_to_recordset($6::jsonb)
-         as supplied(key text, value numeric, unit text)
+         as supplied(
+           key text,
+           value numeric,
+           unit text,
+           source_label text,
+           source_date date,
+           review_state text
+         )
      )
      select * from new_case`,
     [
@@ -205,16 +228,33 @@ export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraf
            updated_at = now()
        where id = $1
        returning id
+     ), supplied_assumptions as (
+       select * from jsonb_to_recordset($7::jsonb) as supplied(
+         key text,
+         value numeric,
+         unit text,
+         source_label text,
+         source_date date,
+         review_state text
+       )
      ), removed_assumptions as (
        delete from underwriting_case_assumptions
        where case_id in (select id from updated_case)
+         and assumption_key not in (select key from supplied_assumptions)
      ), inserted_assumptions as (
        insert into underwriting_case_assumptions
-         (case_id, assumption_key, value, unit)
-       select updated_case.id, supplied.key, supplied.value, supplied.unit
+         (case_id, assumption_key, value, unit, source_label, source_date, review_state)
+       select updated_case.id, supplied.key, supplied.value, supplied.unit,
+              supplied.source_label, supplied.source_date, supplied.review_state
        from updated_case
-       cross join jsonb_to_recordset($7::jsonb)
-         as supplied(key text, value numeric, unit text)
+       cross join supplied_assumptions supplied
+       on conflict (case_id, assumption_key) do update
+       set value = excluded.value,
+           unit = excluded.unit,
+           source_label = excluded.source_label,
+           source_date = excluded.source_date,
+           review_state = excluded.review_state,
+           updated_at = now()
      )
      select id from updated_case`,
     [

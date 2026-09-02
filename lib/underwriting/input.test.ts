@@ -43,6 +43,29 @@ describe("parseCaseDraft", () => {
     });
   });
 
+  it("validates and keeps source details for supplied assumptions", () => {
+    expect(
+      parseCaseDraft({
+        name: "Saved case",
+        address: "100 Test Avenue",
+        assumptions: { exitCapRatePercent: 5.375 },
+        assumptionMetadata: {
+          exitCapRatePercent: {
+            sourceLabel: "Owner model",
+            sourceDate: "2026-08-19",
+            reviewState: "done",
+          },
+        },
+      }).assumptionMetadata,
+    ).toEqual({
+      exitCapRatePercent: {
+        sourceLabel: "Owner model",
+        sourceDate: "2026-08-19",
+        reviewState: "done",
+      },
+    });
+  });
+
   it.each([
     [{ address: "100 Test Avenue" }, "Case name is required."],
     [{ name: "Saved case" }, "Property address is required."],
@@ -54,7 +77,33 @@ describe("parseCaseDraft", () => {
       { name: "Saved case", address: "100 Test Avenue", assumptions: { debtPercent: 101 } },
       "Debt cannot exceed 100 percent.",
     ],
+    [
+      {
+        name: "Saved case",
+        address: "100 Test Avenue",
+        assumptions: { purchasePrice: 100 },
+        assumptionMetadata: {
+          purchasePrice: {
+            sourceLabel: "Owner model",
+            sourceDate: "2026-99-19",
+            reviewState: "done",
+          },
+        },
+      },
+      "Source date is required.",
+    ],
   ])("rejects an invalid draft", (body, message) => {
-    expect(() => parseCaseDraft(body)).toThrow(new InvalidCaseDraft(message));
+    expect(() => parseCaseDraft(body)).toThrow(message);
+  });
+
+  it("returns the field that failed validation", () => {
+    try {
+      parseCaseDraft({ name: "Saved case", address: "100 Test Avenue", proposedUnits: 1.5 });
+    } catch (cause) {
+      expect(cause).toBeInstanceOf(InvalidCaseDraft);
+      expect((cause as InvalidCaseDraft).fieldErrors).toEqual({
+        proposedUnits: "Proposed units must be a whole number.",
+      });
+    }
   });
 });

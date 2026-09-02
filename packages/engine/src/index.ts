@@ -14,3 +14,14 @@ export {
   type Rom,
   type RomLine,
 } from "./rom";
+
+export {
+  computePreliminaryUnderwriting,
+  UNDERWRITING_FORMULA_VERSION,
+  type PreliminaryUnderwritingInputs,
+  type PreliminaryUnderwritingRun,
+  type UnderwritingInputKey,
+  type UnderwritingIssue,
+  type UnderwritingResult,
+  type UnderwritingResultKey,
+} from "./underwriting";

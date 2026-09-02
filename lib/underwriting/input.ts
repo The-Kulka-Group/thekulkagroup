@@ -14,10 +14,16 @@ function requiredText(value: unknown, label: string) {
   return value.trim();
 }
 
-function optionalPositive(value: unknown, label: string, integer = false) {
+function optionalNumber(
+  value: unknown,
+  label: string,
+  { integer = false, allowZero = false }: { integer?: boolean; allowZero?: boolean } = {},
+) {
   if (value === undefined || value === null || value === "") return undefined;
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    throw new InvalidCaseDraft(`${label} must be greater than zero.`);
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || (!allowZero && value === 0)) {
+    throw new InvalidCaseDraft(
+      allowZero ? `${label} cannot be negative.` : `${label} must be greater than zero.`,
+    );
   }
   if (integer && !Number.isInteger(value)) {
     throw new InvalidCaseDraft(`${label} must be a whole number.`);
@@ -37,14 +43,30 @@ export function parseCaseDraft(body: unknown): CaseDraft {
 
   const assumptions: CaseDraft["assumptions"] = {};
   for (const name of Object.keys(ASSUMPTION_DEFINITIONS) as AssumptionName[]) {
-    const value = optionalPositive(
+    const value = optionalNumber(
       (supplied as Record<string, unknown> | undefined)?.[name],
       ASSUMPTION_DEFINITIONS[name].label,
-      name === "constructionMonths" || name === "holdYears",
+      {
+        integer: name === "constructionMonths" || name === "holdYears",
+        allowZero: name === "purchasePrice" || [
+          "softCostPercent",
+          "contingencyPercent",
+          "vacancyPercent",
+          "operatingExpensePercent",
+        ].includes(name),
+      },
     );
     if (value !== undefined) assumptions[name] = value;
   }
-  for (const name of ["debtPercent", "interestRatePercent", "exitCapRatePercent"] as const) {
+  for (const name of [
+    "softCostPercent",
+    "contingencyPercent",
+    "vacancyPercent",
+    "operatingExpensePercent",
+    "debtPercent",
+    "interestRatePercent",
+    "exitCapRatePercent",
+  ] as const) {
     if (assumptions[name] !== undefined && assumptions[name]! > 100) {
       throw new InvalidCaseDraft(`${ASSUMPTION_DEFINITIONS[name].label} cannot exceed 100 percent.`);
     }
@@ -53,9 +75,9 @@ export function parseCaseDraft(body: unknown): CaseDraft {
   return {
     name: requiredText(candidate.name, "Case name"),
     address: requiredText(candidate.address, "Property address"),
-    proposedUnits: optionalPositive(candidate.proposedUnits, "Proposed units", true),
-    averageUnitSquareFeet: optionalPositive(candidate.averageUnitSquareFeet, "Average unit size"),
-    grossBuildingSquareFeet: optionalPositive(candidate.grossBuildingSquareFeet, "Gross building area"),
+    proposedUnits: optionalNumber(candidate.proposedUnits, "Proposed units", { integer: true }),
+    averageUnitSquareFeet: optionalNumber(candidate.averageUnitSquareFeet, "Average unit size"),
+    grossBuildingSquareFeet: optionalNumber(candidate.grossBuildingSquareFeet, "Gross building area"),
     assumptions,
   };
 }

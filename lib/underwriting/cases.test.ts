@@ -46,6 +46,11 @@ describe("underwriting case repository", () => {
       developmentType: "ground_up_multifamily",
       status: "working",
       caseRevision: 1,
+      factMetadata: {
+        proposedUnits: expect.objectContaining({ reviewState: "working", caseRevision: 1 }),
+        averageUnitSquareFeet: expect.objectContaining({ reviewState: "working", caseRevision: 1 }),
+        grossBuildingSquareFeet: expect.objectContaining({ reviewState: "working", caseRevision: 1 }),
+      },
     });
     expect(reopened!.assumptions).toEqual(
       expect.arrayContaining([
@@ -113,11 +118,7 @@ describe("underwriting case repository", () => {
   });
 
   it("keeps done review when the saved value does not change", async () => {
-    const created = await createUnderwritingCase(db, firstDraft);
-    const originalChangedAt = created!.assumptions.find(
-      ({ name }) => name === "purchasePrice",
-    )!.lastChangedAt;
-    const updated = await updateUnderwritingCase(db, created!.id, {
+    const draftWithEvidence: CaseDraft = {
       ...firstDraft,
       assumptionMetadata: {
         purchasePrice: {
@@ -126,6 +127,13 @@ describe("underwriting case repository", () => {
           reviewState: "done",
         },
       },
+    };
+    const created = await createUnderwritingCase(db, draftWithEvidence);
+    const originalChangedAt = created!.assumptions.find(
+      ({ name }) => name === "purchasePrice",
+    )!.lastChangedAt;
+    const updated = await updateUnderwritingCase(db, created!.id, {
+      ...draftWithEvidence,
     }, created!.caseRevision);
 
     expect(updated!.assumptions.find(({ name }) => name === "purchasePrice")).toMatchObject({
@@ -134,6 +142,122 @@ describe("underwriting case repository", () => {
       sourceDate: "2026-08-14",
       reviewState: "done",
       lastChangedAt: originalChangedAt,
+    });
+  });
+
+  it.each([
+    ["source label", { sourceLabel: "Revised memo", sourceDate: "2026-08-14" }],
+    ["source date", { sourceLabel: "Acquisition memo", sourceDate: "2026-08-15" }],
+  ])("resets assumption review when the %s changes", async (_change, source) => {
+    const created = await createUnderwritingCase(db, {
+      ...firstDraft,
+      assumptionMetadata: {
+        purchasePrice: {
+          sourceLabel: "Acquisition memo",
+          sourceDate: "2026-08-14",
+          reviewState: "done",
+        },
+      },
+    });
+    const updated = await updateUnderwritingCase(db, created!.id, {
+      ...firstDraft,
+      assumptionMetadata: {
+        purchasePrice: { ...source, reviewState: "done" },
+      },
+    }, created!.caseRevision);
+
+    expect(updated!.assumptions.find(({ name }) => name === "purchasePrice")).toMatchObject({
+      ...source,
+      reviewState: "working",
+    });
+  });
+
+  it("keeps missing assumption evidence missing", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    expect(created!.assumptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "purchasePrice", sourceLabel: undefined, sourceDate: undefined }),
+    ]));
+  });
+
+  it("resets project fact review when its value or evidence changes", async () => {
+    const created = await createUnderwritingCase(db, {
+      ...firstDraft,
+      factMetadata: {
+        proposedUnits: {
+          sourceLabel: "Program memo",
+          sourceDate: "2026-08-10",
+          reviewState: "done",
+        },
+      },
+    });
+    const reviewed = await updateUnderwritingCase(db, created!.id, {
+      ...firstDraft,
+      factMetadata: {
+        proposedUnits: {
+          sourceLabel: "Program memo",
+          sourceDate: "2026-08-10",
+          reviewState: "done",
+        },
+      },
+    }, created!.caseRevision);
+    expect(reviewed!.factMetadata.proposedUnits?.reviewState).toBe("done");
+
+    const sourceEdit = await updateUnderwritingCase(db, reviewed!.id, {
+      ...firstDraft,
+      factMetadata: {
+        proposedUnits: {
+          sourceLabel: "Revised program memo",
+          sourceDate: "2026-08-10",
+          reviewState: "done",
+        },
+      },
+    }, reviewed!.caseRevision);
+    expect(sourceEdit!.factMetadata.proposedUnits).toMatchObject({
+      sourceLabel: "Revised program memo",
+      reviewState: "working",
+      caseRevision: 3,
+    });
+
+    const valueEdit = await updateUnderwritingCase(db, sourceEdit!.id, {
+      ...firstDraft,
+      proposedUnits: 50,
+      factMetadata: {
+        proposedUnits: {
+          sourceLabel: "Revised program memo",
+          sourceDate: "2026-08-10",
+          reviewState: "done",
+        },
+      },
+    }, sourceEdit!.caseRevision);
+    expect(valueEdit!.factMetadata.proposedUnits).toMatchObject({
+      reviewState: "working",
+      caseRevision: 4,
+    });
+  });
+
+  it("resets project fact review when its source date changes", async () => {
+    const created = await createUnderwritingCase(db, {
+      ...firstDraft,
+      factMetadata: {
+        proposedUnits: { sourceLabel: "Program memo", sourceDate: "2026-08-10", reviewState: "working" },
+      },
+    });
+    const reviewed = await updateUnderwritingCase(db, created!.id, {
+      ...firstDraft,
+      factMetadata: {
+        proposedUnits: { sourceLabel: "Program memo", sourceDate: "2026-08-10", reviewState: "done" },
+      },
+    }, created!.caseRevision);
+    const changed = await updateUnderwritingCase(db, reviewed!.id, {
+      ...firstDraft,
+      factMetadata: {
+        proposedUnits: { sourceLabel: "Program memo", sourceDate: "2026-08-11", reviewState: "done" },
+      },
+    }, reviewed!.caseRevision);
+    expect(changed!.factMetadata.proposedUnits).toMatchObject({
+      sourceDate: "2026-08-11",
+      reviewState: "working",
+      caseRevision: 3,
     });
   });
 
@@ -163,6 +287,27 @@ describe("underwriting case repository", () => {
       "debt_percent",
       "purchase_price",
     ]);
+  });
+
+  it("returns the snapshot from the revision-controlled update without a follow-up read", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    let queryCount = 0;
+    const countedDb = {
+      query: async <Row>(text: string, params: unknown[] = []) => {
+        queryCount += 1;
+        return db.query<Row>(text, params);
+      },
+    };
+
+    const updated = await updateUnderwritingCase(
+      countedDb,
+      created!.id,
+      { ...firstDraft, name: "Controlled update" },
+      created!.caseRevision,
+    );
+
+    expect(queryCount).toBe(1);
+    expect(updated).toMatchObject({ name: "Controlled update", caseRevision: 2 });
   });
 
   it("returns null when a case does not exist", async () => {
@@ -223,5 +368,20 @@ describe("underwriting migration", () => {
         [savedCase!.id],
       ),
     ).rejects.toThrow();
+  });
+
+  it("rejects unrecognized project fact evidence fields", async () => {
+    await expect(db.query(
+      `insert into underwriting_cases (name, address, fact_metadata)
+       values ('Invalid fact evidence', '100 Test Avenue', $1::jsonb)`,
+      [JSON.stringify({
+        proposedUnits: {
+          reviewState: "working",
+          lastChangedAt: "2026-09-02T00:00:00.000Z",
+          caseRevision: 1,
+          inventedField: "not allowed",
+        },
+      })],
+    )).rejects.toThrow();
   });
 });

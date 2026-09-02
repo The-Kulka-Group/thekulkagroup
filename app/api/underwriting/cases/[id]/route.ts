@@ -7,14 +7,13 @@ import {
   updateUnderwritingCase,
 } from "@/lib/underwriting/cases";
 import { InvalidCaseDraft, parseCaseDraft } from "@/lib/underwriting/input";
+import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 async function caseId(context: Context) {
   const { id } = await context.params;
-  return UUID.test(id) ? id : null;
+  return isUuid(id) ? id : null;
 }
 
 export async function GET(_request: Request, context: Context) {

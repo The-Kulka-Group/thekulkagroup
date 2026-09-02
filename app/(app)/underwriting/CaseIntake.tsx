@@ -18,39 +18,50 @@ export function CaseIntake() {
     setSaving(true);
     setError(undefined);
     const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/underwriting/cases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.get("name"),
-        address: form.get("address"),
-        proposedUnits: numberValue(form, "proposedUnits"),
-        averageUnitSquareFeet: numberValue(form, "averageUnitSquareFeet"),
-        grossBuildingSquareFeet: numberValue(form, "grossBuildingSquareFeet"),
-        assumptions: {
-          purchasePrice: numberValue(form, "purchasePrice"),
-          monthlyRent: numberValue(form, "monthlyRent"),
-          hardCostPerGrossSquareFoot: numberValue(form, "hardCostPerGrossSquareFoot"),
-          softCostPercent: numberValue(form, "softCostPercent"),
-          contingencyPercent: numberValue(form, "contingencyPercent"),
-          vacancyPercent: numberValue(form, "vacancyPercent"),
-          operatingExpensePercent: numberValue(form, "operatingExpensePercent"),
-          constructionMonths: numberValue(form, "constructionMonths"),
-          debtPercent: numberValue(form, "debtPercent"),
-          interestRatePercent: numberValue(form, "interestRatePercent"),
-          exitCapRatePercent: numberValue(form, "exitCapRatePercent"),
-          holdYears: numberValue(form, "holdYears"),
-        },
-      }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(body.error ?? "The case could not be saved.");
+    try {
+      const response = await fetch("/api/underwriting/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.get("name"),
+          address: form.get("address"),
+          proposedUnits: numberValue(form, "proposedUnits"),
+          averageUnitSquareFeet: numberValue(form, "averageUnitSquareFeet"),
+          grossBuildingSquareFeet: numberValue(form, "grossBuildingSquareFeet"),
+          commonSourceLabel: form.get("commonSourceLabel"),
+          commonSourceDate: form.get("commonSourceDate"),
+          assumptions: {
+            purchasePrice: numberValue(form, "purchasePrice"),
+            monthlyRent: numberValue(form, "monthlyRent"),
+            hardCostPerGrossSquareFoot: numberValue(form, "hardCostPerGrossSquareFoot"),
+            softCostPercent: numberValue(form, "softCostPercent"),
+            contingencyPercent: numberValue(form, "contingencyPercent"),
+            vacancyPercent: numberValue(form, "vacancyPercent"),
+            operatingExpensePercent: numberValue(form, "operatingExpensePercent"),
+            constructionMonths: numberValue(form, "constructionMonths"),
+            debtPercent: numberValue(form, "debtPercent"),
+            interestRatePercent: numberValue(form, "interestRatePercent"),
+            exitCapRatePercent: numberValue(form, "exitCapRatePercent"),
+            holdYears: numberValue(form, "holdYears"),
+          },
+        }),
+      });
+      const body = await responseBody(response);
+      if (!response.ok) {
+        setError(body?.error ?? "The case could not be saved.");
+        return;
+      }
+      if (!body?.case?.id) {
+        setError("The case was saved, but the server returned an unreadable response. Reload the case list.");
+        return;
+      }
+      router.push(`/underwriting/${body.case.id}`);
+      router.refresh();
+    } catch {
+      setError("The case could not be saved. Check the connection and try again.");
+    } finally {
       setSaving(false);
-      return;
     }
-    router.push(`/underwriting/${body.case.id}`);
-    router.refresh();
   }
 
   return (
@@ -68,6 +79,8 @@ export function CaseIntake() {
         <Field name="proposedUnits" label="Proposed units" type="number" min="1" step="1" />
         <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0" step="any" />
         <Field name="grossBuildingSquareFeet" label="Gross building area" unit="GSF" type="number" min="0" step="any" />
+        <Field name="commonSourceLabel" label="Common source label" note="Optional. This source applies to each value entered on this screen." />
+        <Field name="commonSourceDate" label="Common source date" note="Optional. Leave both source fields blank when evidence is not available." type="date" />
         <Field name="purchasePrice" label="Purchase price" unit="USD" type="number" min="0" step="any" />
         <Field name="monthlyRent" label="Average monthly rent" unit="USD/month" type="number" min="0" step="any" />
         <Field name="hardCostPerGrossSquareFoot" label="Hard cost" unit="USD/GSF" type="number" min="0" step="any" />
@@ -90,6 +103,14 @@ export function CaseIntake() {
       </div>
     </form>
   );
+}
+
+async function responseBody(response: Response): Promise<{ error?: string; case?: { id?: string } } | null> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function Field({

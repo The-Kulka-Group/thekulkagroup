@@ -61,6 +61,10 @@ describe("underwriting calculation repository", () => {
         name: completeDraft.name,
         address: completeDraft.address,
         grossBuildingSquareFeet: 60000.125,
+        factMetadata: {
+          proposedUnits: expect.objectContaining({ reviewState: "working", caseRevision: 1 }),
+          grossBuildingSquareFeet: expect.objectContaining({ reviewState: "working", caseRevision: 1 }),
+        },
       },
     });
     expect(run!.results).toHaveLength(14);
@@ -69,19 +73,18 @@ describe("underwriting calculation repository", () => {
       formula: "gross building area × hard cost per GSF",
       inputKeys: ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot"],
     });
-    expect(run!.evidenceSnapshot.assumptions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: "monthlyRent",
-          value: 2200.125,
-          unit: "usd_per_month",
-          sourceLabel: "User entered",
-          sourceDate: expect.any(String),
-          reviewState: "working",
-          lastChangedAt: expect.any(String),
-        }),
-      ]),
+    const rentEvidence = run!.evidenceSnapshot.assumptions.find(
+      ({ name }) => name === "monthlyRent",
     );
+    expect(rentEvidence).toMatchObject({
+      name: "monthlyRent",
+      value: 2200.125,
+      unit: "usd_per_month",
+      reviewState: "working",
+      lastChangedAt: expect.any(String),
+    });
+    expect(rentEvidence).not.toHaveProperty("sourceLabel");
+    expect(rentEvidence).not.toHaveProperty("sourceDate");
 
     await db.query(
       `update underwriting_cases set gross_building_square_feet = 70000 where id = $1`,
@@ -106,6 +109,22 @@ describe("underwriting calculation repository", () => {
       inputKey: "grossBuildingSquareFeet",
       code: "missing",
     }));
+  });
+
+  it("stores a complete all-equity run with zero debt and interest", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      ...completeDraft,
+      assumptions: {
+        ...completeDraft.assumptions,
+        debtPercent: 0,
+        interestRatePercent: undefined,
+      },
+    });
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+
+    expect(run!.status).toBe("complete");
+    expect(run!.results.find(({ key }) => key === "loanAmount")?.value).toBe(0);
+    expect(run!.results.find(({ key }) => key === "annualDebtInterestEstimate")?.value).toBe(0);
   });
 
   it("rejects updates and deletes to saved runs and results", async () => {

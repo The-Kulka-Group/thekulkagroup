@@ -15,6 +15,20 @@ const savedCase: UnderwritingCase = {
   caseRevision: 2,
   proposedUnits: 10,
   grossBuildingSquareFeet: 10_000,
+  factMetadata: {
+    proposedUnits: {
+      reviewState: "done",
+      lastChangedAt: "2026-09-02T00:00:00.000Z",
+      caseRevision: 2,
+    },
+    grossBuildingSquareFeet: {
+      sourceLabel: "Program memo",
+      sourceDate: "2026-09-01",
+      reviewState: "working",
+      lastChangedAt: "2026-09-02T00:00:00.000Z",
+      caseRevision: 2,
+    },
+  },
   createdAt: "2026-09-01T00:00:00.000Z",
   updatedAt: "2026-09-02T00:00:00.000Z",
   assumptions: [{
@@ -35,7 +49,10 @@ describe("buildUnderwritingReviewItems", () => {
   it("combines missing facts, stale calculations, source gaps, and working assumptions", () => {
     const items = buildUnderwritingReviewItems(savedCase, undefined, true);
     expect(items.map((item) => item.id)).toEqual([
-      "fact-average-unit-size",
+      "fact-source-label-proposedUnits",
+      "fact-source-date-proposedUnits",
+      "fact-averageUnitSquareFeet",
+      "fact-review-state-grossBuildingSquareFeet",
       "calculation-current-revision",
       "source-label-purchasePrice",
       "source-date-purchasePrice",

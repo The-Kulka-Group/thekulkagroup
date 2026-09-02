@@ -1,4 +1,5 @@
 import type { Db } from "@/lib/db";
+import type { MonthlyCostLine, MonthlyCostScheduleInputs } from "@kulka/engine";
 
 export const ASSUMPTION_DEFINITIONS = {
   purchasePrice: { key: "purchase_price", unit: "usd", label: "Purchase price" },
@@ -86,6 +87,13 @@ export type UnderwritingCase = {
   createdAt: string;
   updatedAt: string;
   assumptions: UnderwritingAssumption[];
+  costSchedule?: UnderwritingCostSchedule;
+};
+
+export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
+
+export type UnderwritingCostSchedule = Omit<MonthlyCostScheduleInputs, "costLines"> & {
+  costLines: SavedCostLine[];
 };
 
 export class UnderwritingCaseRevisionConflict extends Error {
@@ -108,6 +116,8 @@ type CaseRow = {
   fact_metadata: Partial<Record<FactName, FactMetadata>>;
   created_at: Date | string;
   updated_at: Date | string;
+  analysis_start_month: Date | string | null;
+  sale_month: Date | string | null;
 };
 
 type AssumptionRow = {
@@ -123,6 +133,24 @@ type AssumptionRow = {
 };
 
 type CaseWithAssumptionsRow = CaseRow & { assumptions: AssumptionRow[] };
+type CostLineRow = {
+  id: string;
+  case_id: string;
+  line_order: number;
+  name: string;
+  category: MonthlyCostLine["category"];
+  amount: string | number;
+  unit: MonthlyCostLine["unit"];
+  start_month: Date | string;
+  end_month: Date | string;
+  distribution_method: MonthlyCostLine["distributionMethod"];
+  distribution_version: MonthlyCostLine["distributionVersion"];
+  source_label: string | null;
+  source_date: Date | string | null;
+  review_state: MonthlyCostLine["reviewState"];
+  value_changed_at: Date | string;
+};
+type CaseDetailRow = CaseWithAssumptionsRow & { cost_lines: CostLineRow[] };
 
 const byStoredKey = new Map(
   Object.entries(ASSUMPTION_DEFINITIONS).map(([name, definition]) => [
@@ -141,11 +169,15 @@ function dateOnly(value: Date | string | null) {
   return value.slice(0, 10);
 }
 
+function monthOnly(value: Date | string) {
+  return dateOnly(value)!.slice(0, 7);
+}
+
 function optionalNumber(value: string | number | null) {
   return value === null ? undefined : Number(value);
 }
 
-function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingCase {
+function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: CostLineRow[] = []): UnderwritingCase {
   return {
     id: row.id,
     caseNumber: Number(row.case_number),
@@ -177,6 +209,27 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingC
         lastChangedAt: iso(assumption.value_changed_at),
       };
     }),
+    ...(row.analysis_start_month && row.sale_month ? {
+      costSchedule: {
+        analysisStartMonth: monthOnly(row.analysis_start_month),
+        saleMonth: monthOnly(row.sale_month),
+        costLines: costLines.map((line) => ({
+          id: line.id,
+          name: line.name,
+          category: line.category,
+          amount: Number(line.amount),
+          unit: line.unit,
+          startMonth: monthOnly(line.start_month),
+          endMonth: monthOnly(line.end_month),
+          distributionMethod: line.distribution_method,
+          distributionVersion: line.distribution_version,
+          sourceLabel: line.source_label ?? undefined,
+          sourceDate: dateOnly(line.source_date),
+          reviewState: line.review_state,
+          lastChangedAt: iso(line.value_changed_at),
+        })),
+      },
+    } : {}),
   };
 }
 
@@ -248,7 +301,7 @@ export async function listUnderwritingCases(db: Db): Promise<UnderwritingCase[]>
 }
 
 export async function getUnderwritingCase(db: Db, id: string): Promise<UnderwritingCase | null> {
-  const { rows } = await db.query<CaseWithAssumptionsRow>(
+  const { rows } = await db.query<CaseDetailRow>(
     `select c.*,
             coalesce(
               jsonb_agg(
@@ -265,14 +318,138 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
                 ) order by a.assumption_key
               ) filter (where a.id is not null),
               '[]'::jsonb
-            ) as assumptions
+            ) as assumptions,
+            coalesce(
+              (
+                select jsonb_agg(
+                  jsonb_build_object(
+                    'id', line.id,
+                    'case_id', line.case_id,
+                    'line_order', line.line_order,
+                    'name', line.name,
+                    'category', line.category,
+                    'amount', line.amount,
+                    'unit', line.unit,
+                    'start_month', line.start_month,
+                    'end_month', line.end_month,
+                    'distribution_method', line.distribution_method,
+                    'distribution_version', line.distribution_version,
+                    'source_label', line.source_label,
+                    'source_date', line.source_date,
+                    'review_state', line.review_state,
+                    'value_changed_at', line.value_changed_at
+                  ) order by line.line_order
+                )
+                from underwriting_case_cost_lines line
+                where line.case_id = c.id
+              ),
+              '[]'::jsonb
+            ) as cost_lines
      from underwriting_cases c
      left join underwriting_case_assumptions a on a.case_id = c.id
      where c.id = $1
      group by c.id`,
     [id],
   );
-  return rows[0] ? mapCase(rows[0], rows[0].assumptions) : null;
+  return rows[0] ? mapCase(rows[0], rows[0].assumptions, rows[0].cost_lines) : null;
+}
+
+export async function saveUnderwritingCostSchedule(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  schedule: MonthlyCostScheduleInputs,
+) {
+  const supplied = schedule.costLines.map((line, lineOrder) => ({
+    ...line,
+    lineOrder,
+    sourceLabel: line.sourceLabel ?? null,
+    sourceDate: line.sourceDate ?? null,
+  }));
+  const { rows } = await db.query<{ id: string }>(
+    `with updated_case as (
+       update underwriting_cases
+       set analysis_start_month = ($2::text || '-01')::date,
+           sale_month = ($3::text || '-01')::date,
+           case_revision = case_revision + 1,
+           updated_at = now()
+       where id = $1 and case_revision = $5
+       returning id
+     ), supplied_lines as (
+       select * from jsonb_to_recordset($4::jsonb) as supplied(
+         id text, name text, category text, amount numeric, unit text,
+         "startMonth" text, "endMonth" text, "distributionMethod" text,
+         "distributionVersion" text, "sourceLabel" text, "sourceDate" date,
+         "reviewState" text, "lineOrder" integer
+       )
+     ), removed_lines as (
+       delete from underwriting_case_cost_lines
+       where case_id in (select id from updated_case)
+         and id not in (select id from supplied_lines)
+     ), saved_lines as (
+       insert into underwriting_case_cost_lines
+         (case_id, id, line_order, name, category, amount, unit, start_month,
+          end_month, distribution_method, distribution_version, source_label,
+          source_date, review_state)
+       select updated_case.id, supplied.id, supplied."lineOrder", supplied.name,
+              supplied.category, supplied.amount, supplied.unit,
+              (supplied."startMonth" || '-01')::date,
+              (supplied."endMonth" || '-01')::date,
+              supplied."distributionMethod", supplied."distributionVersion",
+              supplied."sourceLabel", supplied."sourceDate", supplied."reviewState"
+       from updated_case cross join supplied_lines supplied
+       on conflict (case_id, id) do update
+       set line_order = excluded.line_order,
+           name = excluded.name,
+           category = excluded.category,
+           amount = excluded.amount,
+           unit = excluded.unit,
+           start_month = excluded.start_month,
+           end_month = excluded.end_month,
+           distribution_method = excluded.distribution_method,
+           distribution_version = excluded.distribution_version,
+           source_label = excluded.source_label,
+           source_date = excluded.source_date,
+           review_state = case
+             when underwriting_case_cost_lines.name is distinct from excluded.name
+               or underwriting_case_cost_lines.category is distinct from excluded.category
+               or underwriting_case_cost_lines.amount is distinct from excluded.amount
+               or underwriting_case_cost_lines.unit is distinct from excluded.unit
+               or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
+               or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
+               or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
+               or underwriting_case_cost_lines.distribution_version is distinct from excluded.distribution_version
+               or underwriting_case_cost_lines.source_label is distinct from excluded.source_label
+               or underwriting_case_cost_lines.source_date is distinct from excluded.source_date
+             then 'working'
+             else excluded.review_state
+           end,
+           value_changed_at = case
+             when underwriting_case_cost_lines.name is distinct from excluded.name
+               or underwriting_case_cost_lines.category is distinct from excluded.category
+               or underwriting_case_cost_lines.amount is distinct from excluded.amount
+               or underwriting_case_cost_lines.unit is distinct from excluded.unit
+               or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
+               or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
+               or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
+               or underwriting_case_cost_lines.distribution_version is distinct from excluded.distribution_version
+               or underwriting_case_cost_lines.source_label is distinct from excluded.source_label
+               or underwriting_case_cost_lines.source_date is distinct from excluded.source_date
+             then now()
+             else underwriting_case_cost_lines.value_changed_at
+           end,
+           updated_at = now()
+       returning case_id
+     )
+     select id from updated_case`,
+    [id, schedule.analysisStartMonth, schedule.saleMonth, JSON.stringify(supplied), expectedRevision],
+  );
+  if (!rows[0]) {
+    const existing = await getUnderwritingCase(db, id);
+    if (existing) throw new UnderwritingCaseRevisionConflict();
+    return null;
+  }
+  return getUnderwritingCase(db, id);
 }
 
 export async function updateUnderwritingCase(

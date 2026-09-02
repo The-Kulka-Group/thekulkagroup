@@ -1,6 +1,12 @@
 import {
+  computeMonthlyCostSchedule,
   computePreliminaryUnderwriting,
+  MONTHLY_COST_FORMULA_VERSION,
+  type MonthlyCostIssue,
+  type MonthlyCostScheduleInputs,
+  type MonthlyCostScheduleResult,
   type PreliminaryUnderwritingInputs,
+  type ReconciliationCheck,
   type UnderwritingIssue,
   type UnderwritingResult,
 } from "@kulka/engine";
@@ -24,7 +30,10 @@ export type UnderwritingEvidenceSnapshot = {
   createdAt: string;
   updatedAt: string;
   assumptions: UnderwritingCase["assumptions"];
+  costSchedule?: UnderwritingCase["costSchedule"];
 };
+
+export type SavedUnderwritingInputSnapshot = PreliminaryUnderwritingInputs & Partial<MonthlyCostScheduleInputs>;
 
 export type SavedUnderwritingRun = {
   id: string;
@@ -32,10 +41,12 @@ export type SavedUnderwritingRun = {
   caseRevision: number;
   formulaVersion: string;
   status: "complete" | "failed";
-  inputSnapshot: PreliminaryUnderwritingInputs;
+  inputSnapshot: SavedUnderwritingInputSnapshot;
   evidenceSnapshot: UnderwritingEvidenceSnapshot;
-  issues: UnderwritingIssue[];
+  issues: Array<UnderwritingIssue | MonthlyCostIssue>;
   results: UnderwritingResult[];
+  monthlyCostResult?: MonthlyCostScheduleResult;
+  reconciliations: ReconciliationCheck[];
   createdAt: string;
 };
 
@@ -45,10 +56,11 @@ type RunRow = {
   case_revision: string | number;
   formula_version: string;
   status: SavedUnderwritingRun["status"];
-  input_snapshot: PreliminaryUnderwritingInputs;
+  input_snapshot: SavedUnderwritingInputSnapshot;
   evidence_snapshot: UnderwritingEvidenceSnapshot;
-  result_snapshot: UnderwritingResult[];
-  issues: UnderwritingIssue[];
+  result_snapshot: UnderwritingResult[] | MonthlyCostScheduleResult | Record<string, never>;
+  issues: Array<UnderwritingIssue | MonthlyCostIssue>;
+  reconciliation_checks: ReconciliationCheck[];
   created_at: Date | string;
 };
 
@@ -67,8 +79,16 @@ export async function runUnderwritingCase(
   if (!savedCase) return null;
   if (savedCase.caseRevision !== expectedRevision) throw new UnderwritingRevisionConflict();
 
-  const calculated = computePreliminaryUnderwriting(inputsFor(savedCase));
+  const calculated = savedCase.costSchedule
+    ? computeMonthlyCostSchedule(monthlyInputsFor(savedCase.costSchedule))
+    : computePreliminaryUnderwriting(inputsFor(savedCase));
   const evidenceSnapshot = evidenceFor(savedCase);
+  const resultSnapshot = calculated.formulaVersion === MONTHLY_COST_FORMULA_VERSION
+    ? calculated.result ?? {}
+    : calculated.results;
+  const reconciliations = calculated.formulaVersion === MONTHLY_COST_FORMULA_VERSION
+    ? calculated.reconciliations
+    : [];
   const { rows } = await db.query<RunRow>(
     `with matching_case as (
        select case_revision
@@ -78,9 +98,9 @@ export async function runUnderwritingCase(
      ), new_run as (
        insert into underwriting_calculation_runs
          (case_id, case_revision, formula_version, status, input_snapshot,
-          evidence_snapshot, result_snapshot, issues)
+          evidence_snapshot, result_snapshot, issues, reconciliation_checks)
        select $1, matching_case.case_revision, $3, $4, $5::jsonb,
-              $6::jsonb, $7::jsonb, $8::jsonb
+              $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb
        from matching_case
        returning *
      )
@@ -92,8 +112,9 @@ export async function runUnderwritingCase(
       calculated.status,
       JSON.stringify(calculated.inputSnapshot),
       JSON.stringify(evidenceSnapshot),
-      JSON.stringify(calculated.results),
+      JSON.stringify(resultSnapshot),
       JSON.stringify(calculated.issues),
+      JSON.stringify(reconciliations),
     ],
   );
   if (!rows[0]) throw new UnderwritingRevisionConflict();
@@ -141,6 +162,11 @@ export async function getUnderwritingRun(db: Db, runId: string) {
 }
 
 function mapRun(row: RunRow): SavedUnderwritingRun {
+  const monthly = row.formula_version === MONTHLY_COST_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "months" in row.result_snapshot
+    ? row.result_snapshot as MonthlyCostScheduleResult
+    : undefined;
   return {
     id: row.id,
     caseId: row.case_id,
@@ -150,7 +176,9 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     inputSnapshot: row.input_snapshot,
     evidenceSnapshot: row.evidence_snapshot,
     issues: row.issues,
-    results: row.result_snapshot,
+    results: Array.isArray(row.result_snapshot) ? row.result_snapshot : [],
+    ...(monthly ? { monthlyCostResult: monthly } : {}),
+    reconciliations: row.reconciliation_checks ?? [],
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -172,6 +200,19 @@ function evidenceFor(savedCase: UnderwritingCase): UnderwritingEvidenceSnapshot 
     createdAt: savedCase.createdAt,
     updatedAt: savedCase.updatedAt,
     assumptions: savedCase.assumptions.map((assumption) => ({ ...assumption })),
+    ...(savedCase.costSchedule ? { costSchedule: structuredClone(savedCase.costSchedule) } : {}),
+  };
+}
+
+function monthlyInputsFor(schedule: NonNullable<UnderwritingCase["costSchedule"]>): MonthlyCostScheduleInputs {
+  return {
+    analysisStartMonth: schedule.analysisStartMonth,
+    saleMonth: schedule.saleMonth,
+    costLines: schedule.costLines.map((savedLine) => {
+      const { lastChangedAt, ...line } = savedLine;
+      void lastChangedAt;
+      return line;
+    }),
   };
 }
 

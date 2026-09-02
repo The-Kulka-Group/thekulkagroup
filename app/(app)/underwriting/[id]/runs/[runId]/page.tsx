@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { MonthlyCostScheduleInputs } from "@kulka/engine";
 
 import { Sheet, Sep } from "@/components/Sheet";
 import { Chip } from "@/components/Status";
@@ -87,7 +88,32 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-results-heading">
           <h3 id="run-results-heading">Saved results and formulas</h3>
-          {run.results.length > 0 ? (
+          {run.monthlyCostResult ? (
+            <>
+              <div className="underwriting-summary-band">
+                {Object.entries(run.monthlyCostResult.totalsByCategory).map(([category, amount]) => <div key={category}><span className="t-label">{categoryLabel(category)}</span><strong className="num">{MONEY.format(amount)}</strong></div>)}
+                <div><span className="t-label">Total Uses</span><strong className="num">{MONEY.format(run.monthlyCostResult.totalUses)}</strong></div>
+              </div>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-monthly-table">
+                  <thead><tr><th>Month</th>{run.monthlyCostResult.costLineSchedules.map((line) => <th className="right" key={line.lineId}>{line.name}</th>)}<th className="right">Total Uses</th></tr></thead>
+                  <tbody>{run.monthlyCostResult.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th>{run.monthlyCostResult!.costLineSchedules.map((line) => <td className="num right" key={line.lineId}>{MONEY.format(month.lineAmounts[line.lineId])}</td>)}<td className="num right">{MONEY.format(month.totalUses)}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Cost Line</th><th>Formula Trace</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{run.monthlyCostResult.costLineSchedules.map((line) => <tr key={line.lineId}><th scope="row">{line.name}</th><td>{line.formulaTrace}</td><td className="t-meta">{line.inputPaths.join(", ")}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
+                  <tbody>{run.reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{MONEY.format(check.expected)}</td><td className="num right">{MONEY.format(check.actual)}</td><td className="num right">{MONEY.format(check.difference)}</td></tr>)}</tbody>
+                </table>
+              </div>
+            </>
+          ) : run.results.length > 0 ? (
             <div className="underwriting-results-wrap">
               <table className="underwriting-results">
                 <thead>
@@ -108,14 +134,29 @@ export default async function UnderwritingRunPage({
           ) : <p className="t-meta underwriting-history-note">This run saved no financial results.</p>}
           <div className="underwriting-limitations" aria-labelledby="run-limitations-heading">
             <h4 id="run-limitations-heading">Model limits</h4>
-            <ul>{UNDERWRITING_LIMITATIONS.map((item) => <li key={item}>{item}</li>)}</ul>
+            <ul>{(run.monthlyCostResult ? [
+              "This formula version schedules development costs only.",
+              "Lease-up, funding, sale proceeds, and property returns follow in later formula versions.",
+              "This run does not record a finance approval.",
+            ] : UNDERWRITING_LIMITATIONS).map((item) => <li key={item}>{item}</li>)}</ul>
           </div>
         </section>
 
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-inputs-heading">
           <h3 id="run-inputs-heading">Full calculation input snapshot</h3>
-          <div className="underwriting-results-wrap">
+          {isMonthlySnapshot(run.inputSnapshot) ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-snapshot">
+                <thead><tr><th>Analysis Start</th><th>Sale Month</th><th className="right">Cost Lines</th></tr></thead>
+                <tbody><tr><td className="num">{run.inputSnapshot.analysisStartMonth}</td><td className="num">{run.inputSnapshot.saleMonth}</td><td className="num right">{run.inputSnapshot.costLines.length}</td></tr></tbody>
+              </table>
+              <table className="underwriting-cost-lines">
+                <thead><tr><th>Cost Line</th><th>Category</th><th className="right">Amount</th><th>Start</th><th>End</th><th>Distribution</th><th>Version</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead>
+                <tbody>{run.inputSnapshot.costLines.map((line) => <tr key={line.id}><th scope="row">{line.name}</th><td>{categoryLabel(line.category)}</td><td className="num right">{MONEY.format(line.amount)}</td><td className="num">{line.startMonth}</td><td className="num">{line.endMonth}</td><td>{line.distributionMethod === "straight_line" ? "Straight-line" : "S-curve"}</td><td className="num">{line.distributionVersion}</td><td>{line.sourceLabel || "Missing"}</td><td className="num">{line.sourceDate || "Missing"}</td><td><Chip status={line.reviewState} /></td></tr>)}</tbody>
+              </table>
+            </div>
+          ) : <div className="underwriting-results-wrap">
             <table className="underwriting-snapshot">
               <thead><tr><th>Input</th><th className="right">Saved value</th><th>Unit</th></tr></thead>
               <tbody>
@@ -128,7 +169,7 @@ export default async function UnderwritingRunPage({
                 ))}
               </tbody>
             </table>
-          </div>
+          </div>}
         </section>
 
         <div className="margin" />
@@ -171,6 +212,14 @@ export default async function UnderwritingRunPage({
               </tbody>
             </table>
           </div>
+          {run.evidenceSnapshot.costSchedule ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Cost Line</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{run.evidenceSnapshot.costSchedule.costLines.map((line) => <tr key={line.id}><th scope="row">{line.name}</th><td>{line.sourceLabel || "Missing"}</td><td className="num">{line.sourceDate || "Missing"}</td><td><Chip status={line.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(line.lastChangedAt))}</td></tr>)}</tbody>
+              </table>
+            </div>
+          ) : null}
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>
@@ -199,9 +248,9 @@ export default async function UnderwritingRunPage({
           {run.issues.length > 0 ? (
             <div className="underwriting-issues">
               {run.issues.map((issue) => (
-                <div className="underwriting-issue underwriting-issue--stuck" key={`${issue.inputKey}-${issue.code}`}>
+                <div className="underwriting-issue underwriting-issue--stuck" key={`${issuePath(issue)}-${issue.code}`}>
                   <span className="dot" aria-hidden="true" />
-                  <span><span className="em">{UNDERWRITING_INPUT_LABELS[issue.inputKey as keyof typeof UNDERWRITING_INPUT_LABELS] ?? issue.inputKey}:</span> {issue.message}</span>
+                  <span><span className="em">{issueLabel(issue)}:</span> {issue.message}</span>
                 </div>
               ))}
             </div>
@@ -218,4 +267,23 @@ function formatResult(value: number, unit: "usd" | "decimal") {
 
 function formatOptional(value: number | undefined, suffix = "") {
   return value === undefined ? "Missing" : `${NUMBER.format(value)}${suffix}`;
+}
+
+function isMonthlySnapshot(snapshot: unknown): snapshot is MonthlyCostScheduleInputs {
+  return Boolean(snapshot && typeof snapshot === "object" && "costLines" in snapshot);
+}
+
+function issuePath(issue: { inputKey?: string; path?: string }) {
+  return issue.inputKey ?? issue.path ?? "calculation";
+}
+
+function issueLabel(issue: { inputKey?: string; path?: string }) {
+  if (issue.inputKey) {
+    return UNDERWRITING_INPUT_LABELS[issue.inputKey as keyof typeof UNDERWRITING_INPUT_LABELS] ?? issue.inputKey;
+  }
+  return issue.path ?? "Calculation";
+}
+
+function categoryLabel(category: string) {
+  return ({ land: "Land", hard_cost: "Hard Cost", soft_cost: "Soft Cost", development_fee: "Development Fee", financing_fee: "Financing Fee" } as Record<string, string>)[category] ?? category;
 }

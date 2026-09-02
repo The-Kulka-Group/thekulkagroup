@@ -5,6 +5,7 @@ import {
   createUnderwritingCase,
   getUnderwritingCase,
   listUnderwritingCases,
+  saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
 } from "./cases";
@@ -339,6 +340,99 @@ describe("underwriting case repository", () => {
       caseRevision: firstEdit!.caseRevision,
     });
   });
+
+  it("stores a versioned monthly cost schedule with source and review fields", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const saved = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2027-12",
+      costLines: [{
+        id: "hard-cost",
+        name: "Hard cost",
+        category: "hard_cost",
+        amount: 42_630_000,
+        unit: "usd",
+        startMonth: "2026-02",
+        endMonth: "2027-06",
+        distributionMethod: "s_curve",
+        distributionVersion: "s_curve.smoothstep.v1",
+        sourceLabel: "Workbook fixture",
+        sourceDate: "2026-09-02",
+        reviewState: "done",
+      }],
+    });
+
+    expect(saved).toMatchObject({
+      caseRevision: 2,
+      costSchedule: {
+        analysisStartMonth: "2026-01",
+        saleMonth: "2027-12",
+        costLines: [expect.objectContaining({
+          id: "hard-cost",
+          amount: 42_630_000,
+          distributionVersion: "s_curve.smoothstep.v1",
+          sourceLabel: "Workbook fixture",
+          sourceDate: "2026-09-02",
+          reviewState: "done",
+          lastChangedAt: expect.any(String),
+        })],
+      },
+    });
+    expect((await getUnderwritingCase(db, created!.id))?.costSchedule).toEqual(saved!.costSchedule);
+  });
+
+  it("replaces removed cost lines and resets review when a line value changes", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const initial = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [
+        {
+          id: "land",
+          name: "Land",
+          category: "land",
+          amount: 1_000_000,
+          unit: "usd",
+          startMonth: "2026-01",
+          endMonth: "2026-01",
+          distributionMethod: "straight_line",
+          distributionVersion: "straight_line.v1",
+          reviewState: "done",
+        },
+        {
+          id: "soft",
+          name: "Soft cost",
+          category: "soft_cost",
+          amount: 100_000,
+          unit: "usd",
+          startMonth: "2026-01",
+          endMonth: "2026-06",
+          distributionMethod: "straight_line",
+          distributionVersion: "straight_line.v1",
+          reviewState: "working",
+        },
+      ],
+    });
+    const changed = await saveUnderwritingCostSchedule(db, created!.id, initial!.caseRevision, {
+      ...initial!.costSchedule!,
+      costLines: [{ ...initial!.costSchedule!.costLines[0], amount: 1_100_000, reviewState: "done" }],
+    });
+
+    expect(changed!.costSchedule!.costLines).toHaveLength(1);
+    expect(changed!.costSchedule!.costLines[0]).toMatchObject({
+      id: "land",
+      amount: 1_100_000,
+      reviewState: "working",
+    });
+  });
+
+  it("rejects a stale cost schedule save", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const schedule = { analysisStartMonth: "2026-01", saleMonth: "2026-02", costLines: [] };
+    await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule);
+    await expect(saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule))
+      .rejects.toThrow("case changed before your edits were saved");
+  });
 });
 
 describe("underwriting migration", () => {
@@ -383,5 +477,14 @@ describe("underwriting migration", () => {
         },
       })],
     )).rejects.toThrow();
+  });
+
+  it("protects monthly cost lines from browser access", async () => {
+    const { rows } = await db.query<{ relname: string; relrowsecurity: boolean }>(
+      `select relname, relrowsecurity from pg_class where relname = 'underwriting_case_cost_lines'`,
+    );
+    expect(rows).toEqual([{ relname: "underwriting_case_cost_lines", relrowsecurity: true }]);
+    const policies = await db.query(`select * from pg_policies where tablename = 'underwriting_case_cost_lines'`);
+    expect(policies.rows).toEqual([]);
   });
 });

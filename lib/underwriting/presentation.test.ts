@@ -71,6 +71,35 @@ describe("buildUnderwritingReviewItems", () => {
     const items = buildUnderwritingReviewItems({ ...savedCase, averageUnitSquareFeet: 800 }, run, true);
     expect(items.filter((item) => item.severity === "stuck")).toHaveLength(2);
   });
+
+  it("shows source and review gaps for saved monthly cost lines", () => {
+    const items = buildUnderwritingReviewItems({
+      ...savedCase,
+      costSchedule: {
+        analysisStartMonth: "2026-01",
+        saleMonth: "2026-12",
+        costLines: [{
+          id: "hard",
+          name: "Hard cost",
+          category: "hard_cost",
+          amount: 1_000_000,
+          unit: "usd",
+          startMonth: "2026-02",
+          endMonth: "2026-10",
+          distributionMethod: "s_curve",
+          distributionVersion: "s_curve.smoothstep.v1",
+          reviewState: "working",
+          lastChangedAt: "2026-09-02T00:00:00.000Z",
+        }],
+      },
+    }, undefined, false);
+
+    expect(items.map(({ id }) => id)).toEqual(expect.arrayContaining([
+      "cost-source-label-hard",
+      "cost-source-date-hard",
+      "cost-review-state-hard",
+    ]));
+  });
 });
 
 describe("underwriting limitations", () => {

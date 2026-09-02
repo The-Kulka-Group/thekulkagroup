@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { seededDatabase } from "@/test/database";
-import { createUnderwritingCase, updateUnderwritingCase, type CaseDraft } from "./cases";
+import {
+  createUnderwritingCase,
+  saveUnderwritingCostSchedule,
+  updateUnderwritingCase,
+  type CaseDraft,
+} from "./cases";
 import {
   countUnderwritingRuns,
   getLatestUnderwritingRun,
@@ -223,6 +228,93 @@ describe("underwriting calculation repository", () => {
       results: [],
       issues: [{ inputKey: "derivedResults", code: "not_finite" }],
     });
+  });
+
+  it("stores the full monthly cost input, result, issues, and reconciliations under a new formula version", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const annualRun = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const scheduledCase = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2027-12",
+      costLines: [
+        {
+          id: "land",
+          name: "Land",
+          category: "land",
+          amount: 8_230_000,
+          unit: "usd",
+          startMonth: "2026-01",
+          endMonth: "2026-01",
+          distributionMethod: "straight_line",
+          distributionVersion: "straight_line.v1",
+          sourceLabel: "Workbook fixture",
+          sourceDate: "2026-09-02",
+          reviewState: "done",
+        },
+        {
+          id: "hard",
+          name: "Hard cost",
+          category: "hard_cost",
+          amount: 42_630_000,
+          unit: "usd",
+          startMonth: "2026-02",
+          endMonth: "2027-06",
+          distributionMethod: "s_curve",
+          distributionVersion: "s_curve.smoothstep.v1",
+          reviewState: "working",
+        },
+        {
+          id: "soft",
+          name: "Soft cost",
+          category: "soft_cost",
+          amount: 5_115_762,
+          unit: "usd",
+          startMonth: "2026-01",
+          endMonth: "2027-06",
+          distributionMethod: "straight_line",
+          distributionVersion: "straight_line.v1",
+          reviewState: "working",
+        },
+      ],
+    });
+    const run = await runUnderwritingCase(db, savedCase!.id, scheduledCase!.caseRevision);
+    const reopenedAnnual = await getUnderwritingRun(db, annualRun!.id);
+    const reopenedMonthly = await getUnderwritingRun(db, run!.id);
+
+    expect(run).toMatchObject({
+      formulaVersion: "underwriting.monthly_cost_schedule.v1",
+      status: "complete",
+      inputSnapshot: {
+        analysisStartMonth: "2026-01",
+        saleMonth: "2027-12",
+        costLines: expect.arrayContaining([expect.objectContaining({ id: "land", amount: 8_230_000 })]),
+      },
+      results: [],
+      issues: [],
+      evidenceSnapshot: { costSchedule: {
+        analysisStartMonth: "2026-01",
+        saleMonth: "2027-12",
+        costLines: expect.arrayContaining([expect.objectContaining({
+          id: "land",
+          sourceLabel: "Workbook fixture",
+          lastChangedAt: expect.any(String),
+        })]),
+      } },
+      monthlyCostResult: {
+        totalsByCategory: {
+          land: 8_230_000,
+          hard_cost: 42_630_000,
+          soft_cost: 5_115_762,
+        },
+        totalUses: 55_975_762,
+      },
+    });
+    expect(run!.monthlyCostResult!.costLineSchedules.find(({ lineId }) => lineId === "hard")!
+      .monthlyAmounts.reduce((sum, amount) => sum + amount, 0)).toBe(42_630_000);
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(reopenedMonthly).toEqual(run);
+    expect(reopenedAnnual).toEqual(annualRun);
+    expect(reopenedAnnual!.formulaVersion).toBe("underwriting.preliminary_annual.v1");
   });
 });
 

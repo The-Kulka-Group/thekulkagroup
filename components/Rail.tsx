@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Target, Users, FileText, Calculator } from "@phosphor-icons/react";
+import { House, Target, Users, FileText, Calculator, ChartLineUp } from "@phosphor-icons/react";
 import { OWNER_COLOR } from "@/lib/data";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/clients/c-042", label: "Clients", count: "31", Icon: Users },
   { href: "/briefs/b-217", label: "Briefs", count: "6", Icon: FileText },
   { href: "/rom", label: "Conceptual budget", Icon: Calculator },
+  { href: "/underwriting", label: "Underwriting", Icon: ChartLineUp },
 ];
 
 export function Rail() {

@@ -31,8 +31,8 @@ publish a budget, or send material to a lender or investor.
 ## App structure
 
 The underwriting area fits inside the existing app frame. Place `Underwriting`
-under the `Development` rail section. Place `Conceptual budget` under
-`Pre-construction`.
+under the `Development` rail section. Place `Conceptual Budget` under
+`Pre-Construction`. Keep the `Homepage` under `Operations`.
 
 Suggested records and screens:
 

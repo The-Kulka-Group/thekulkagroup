@@ -10,11 +10,11 @@ import { OWNER_COLOR } from "@/lib/data";
 //
 const NAV_GROUPS = [
   {
-    label: "Sales and marketing",
+    label: "Sales and Marketing",
     items: [{ href: "/clients/c-042", label: "Clients", count: "31", Icon: Users }],
   },
   {
-    label: "Business development",
+    label: "Business Development",
     items: [
       { href: "/pursuits", label: "Pursuits", count: "9", Icon: Target },
       { href: "/briefs/b-217", label: "Briefs", count: "6", Icon: FileText },
@@ -22,11 +22,11 @@ const NAV_GROUPS = [
   },
   {
     label: "Operations",
-    items: [{ href: "/", label: "Home", count: "H-100", Icon: House }],
+    items: [{ href: "/", label: "Homepage", count: "H-100", Icon: House }],
   },
   {
-    label: "Pre-construction",
-    items: [{ href: "/rom", label: "Conceptual budget", count: undefined, Icon: Calculator }],
+    label: "Pre-Construction",
+    items: [{ href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator }],
   },
   {
     label: "Development",

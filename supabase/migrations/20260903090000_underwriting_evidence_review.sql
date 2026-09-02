@@ -6,13 +6,22 @@ alter table underwriting_case_assumptions
   alter column source_date drop not null,
   alter column source_date drop default;
 
-update underwriting_case_assumptions
-set source_label = null,
-    source_date = null,
-    review_state = 'working',
-    value_changed_at = now(),
+with changed_cases as (
+  update underwriting_case_assumptions
+  set source_label = null,
+      source_date = null,
+      review_state = 'working',
+      value_changed_at = now(),
+      updated_at = now()
+  where source_label = 'User entered'
+  returning case_id
+)
+update underwriting_cases cases
+set case_revision = cases.case_revision + 1,
     updated_at = now()
-where source_label = 'User entered';
+where exists (
+  select 1 from changed_cases changed where changed.case_id = cases.id
+);
 
 create function valid_underwriting_fact_metadata(metadata jsonb)
 returns boolean

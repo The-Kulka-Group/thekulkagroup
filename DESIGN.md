@@ -150,8 +150,9 @@ the visuals never dress up as drawings, blueprints, or job sites.
 
 ## Navigation
 
-The rail is flat: Home, Pursuits, Clients, Briefs. Section headers return when a
-second module ships and there are genuinely two things to separate.
+The rail uses five business sections: Sales and marketing, Business development,
+Operations, Pre-construction, and Development. Underwriting belongs under
+Development. Conceptual budget belongs under Pre-construction.
 
 Icons (owner picks 2026-08-25): Phosphor regular. They live in two places, the rail
 and state marks, and nowhere else. An icon always sits beside its word, never

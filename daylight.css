@@ -248,7 +248,12 @@ em, .em { font-style: normal; font-weight: 600; }
 
 .rail-nav { flex: 1; }
 
-.rail-section { padding: var(--s4) var(--s2) var(--s1); }
+.rail-group + .rail-group { margin-top: var(--s2); }
+
+.rail-section {
+  padding: var(--s3) var(--s3) var(--s1);
+  color: var(--ink-3);
+}
 
 /* Icons (owner pick 2026-08-25): Phosphor regular, rail only. An icon always
    sits beside its word, never instead of it. The shells hotlink the SVGs via
@@ -263,8 +268,8 @@ em, .em { font-style: normal; font-weight: 600; }
   mask: var(--u) center / contain no-repeat;
 }
 
-/* Nav items: the reference sidebar pattern, kept enterprise.
-   Hover fills, active fills Kulka black. No translate tricks. */
+/* Nav items stay flat. The active rule marks location without turning the
+   item into a pill. */
 .rail-item {
   display: flex;
   align-items: center;
@@ -272,19 +277,19 @@ em, .em { font-style: normal; font-weight: 600; }
   height: 34px;
   /* The row is a fixed height, so a label that wrapped would spill out of it. */
   white-space: nowrap;
-  padding: 0 var(--s3);
-  border-radius: var(--r-md);
+  padding: 0 var(--s3) 0 calc(var(--s3) - 2px);
+  border-left: 2px solid transparent;
+  border-radius: 0;
   color: var(--ink);
   text-decoration: none;
   font-size: var(--ui-size);
   transition: background var(--motion-fast) var(--ease),
               color var(--motion-fast) var(--ease);
 }
-.rail-item:hover { background: var(--canvas-deep); }
-/* Owner pick 2026-08-25: the active page fills Kulka black. */
+.rail-item:hover { color: var(--primary); }
 .rail-item[aria-current="page"] {
-  background: var(--brand);
-  color: #FFFFFF;
+  border-left-color: var(--brand);
+  color: var(--brand);
   font-weight: 600;
 }
 .rail-item .count {
@@ -292,7 +297,7 @@ em, .em { font-style: normal; font-weight: 600; }
   font-size: var(--meta-size);
   color: var(--ink-3);
 }
-.rail-item[aria-current="page"] .count { color: rgba(255, 255, 255, 0.75); }
+.rail-item[aria-current="page"] .count { color: var(--brand); }
 
 .rail-user {
   display: flex;
@@ -578,8 +583,7 @@ em, .em { font-style: normal; font-weight: 600; }
 .btn {
   height: var(--control-h);
   padding: 0 var(--s4);
-  border-radius: var(--r-md);   /* owner final pick 2026-08-25: rounded 8;
-                                   a same-day pill trial was reverted */
+  border-radius: var(--r-sm);
   border: 1px solid transparent;
   background: none;
   font-family: inherit;
@@ -587,6 +591,7 @@ em, .em { font-style: normal; font-weight: 600; }
   font-weight: 600;
   line-height: 1;
   color: var(--ink);
+  text-decoration: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1183,6 +1188,8 @@ em, .em { font-style: normal; font-weight: 600; }
   .rail-logo { flex: none; }
   .rail-search, .rail-section, .rail-user { display: none; }
   .rail-nav { flex: none; display: flex; gap: var(--s1); }
+  .rail-group { display: flex; gap: var(--s1); }
+  .rail-group + .rail-group { margin-top: 0; }
   .rail-item { flex: none; height: 32px; }
   .rail-item .count { margin-left: 6px; }
 

@@ -30,9 +30,9 @@ publish a budget, or send material to a lender or investor.
 
 ## App structure
 
-The underwriting area fits inside the existing app frame. Add a real
-`Underwriting` rail item only when the route exists. Do not add a section
-header unless there are at least two modules to separate.
+The underwriting area fits inside the existing app frame. Place `Underwriting`
+under the `Development` rail section. Place `Conceptual budget` under
+`Pre-construction`.
 
 Suggested records and screens:
 
@@ -105,7 +105,8 @@ motion from `daylight.css`. In particular:
 - Canvas is light. Sheets are white with low, soft elevation.
 - Titles use the Kulka 800 weight. Section headings use 700.
 - Blue is for actions and links. Status color has one meaning at a time.
-- Buttons use words and an 8px radius. Inputs are 36px high with a 10px radius.
+- Buttons use words, a small corner radius, and no underline. Inputs are 36px
+  high with a 10px radius.
 - Icons appear only in the rail and as state marks. Every icon sits beside its
   word.
 - Keep the interface free of construction imagery, gradients as decoration,

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { seededDatabase } from "@/test/database";
-import { createUnderwritingCase, type CaseDraft } from "./cases";
-import { getLatestUnderwritingRun, runUnderwritingCase } from "./runs";
+import { createUnderwritingCase, updateUnderwritingCase, type CaseDraft } from "./cases";
+import { getLatestUnderwritingRun, getUnderwritingRun, listUnderwritingRuns, runUnderwritingCase } from "./runs";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 
@@ -91,6 +91,31 @@ describe("underwriting calculation repository", () => {
     await expect(
       db.query(`delete from underwriting_calculation_results where run_id = $1`, [run!.id]),
     ).rejects.toThrow("Underwriting calculation runs are immutable");
+  });
+
+  it("keeps the first snapshot and results unchanged after an edit and rerun", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const firstRun = await runUnderwritingCase(db, savedCase!.id);
+    const firstSnapshot = structuredClone(firstRun);
+
+    await updateUnderwritingCase(db, savedCase!.id, {
+      ...completeDraft,
+      grossBuildingSquareFeet: 64000.5,
+      assumptions: {
+        ...completeDraft.assumptions,
+        purchasePrice: 4500000.75,
+      },
+    });
+    const secondRun = await runUnderwritingCase(db, savedCase!.id);
+    const history = await listUnderwritingRuns(db, savedCase!.id, 2);
+    const reopenedFirst = await getUnderwritingRun(db, firstRun!.id);
+
+    expect(secondRun!.id).not.toBe(firstRun!.id);
+    expect(history.map((run) => run.id)).toEqual([secondRun!.id, firstRun!.id]);
+    expect(history[0].inputSnapshot.grossBuildingSquareFeet).toBe(64000.5);
+    expect(reopenedFirst).toEqual(firstSnapshot);
+    expect(reopenedFirst!.inputSnapshot.purchasePrice).toBe(4000000.25);
+    expect(reopenedFirst!.results).toEqual(firstRun!.results);
   });
 
   it("returns null when the case does not exist", async () => {

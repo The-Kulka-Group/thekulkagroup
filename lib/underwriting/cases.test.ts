@@ -83,6 +83,32 @@ describe("underwriting case repository", () => {
     ]);
   });
 
+  it("updates source details without resetting the supplied date or review state", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const updated = await updateUnderwritingCase(db, created!.id, {
+      ...firstDraft,
+      assumptions: { purchasePrice: 4300000 },
+      assumptionMetadata: {
+        purchasePrice: {
+          sourceLabel: "Acquisition memo",
+          sourceDate: "2026-08-14",
+          reviewState: "done",
+        },
+      },
+    });
+
+    expect(updated!.assumptions).toEqual([
+      expect.objectContaining({
+        name: "purchasePrice",
+        value: 4300000,
+        sourceKind: "user_supplied",
+        sourceLabel: "Acquisition memo",
+        sourceDate: "2026-08-14",
+        reviewState: "done",
+      }),
+    ]);
+  });
+
   it("returns null when a case does not exist", async () => {
     expect(await getUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff")).toBeNull();
     expect(

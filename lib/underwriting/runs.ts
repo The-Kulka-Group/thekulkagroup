@@ -98,6 +98,19 @@ export async function getLatestUnderwritingRun(db: Db, caseId: string) {
   return rows[0] ? getUnderwritingRun(db, rows[0].id) : null;
 }
 
+export async function listUnderwritingRuns(db: Db, caseId: string, limit = 2) {
+  const boundedLimit = Math.max(1, Math.min(limit, 20));
+  const { rows } = await db.query<{ id: string }>(
+    `select id from underwriting_calculation_runs
+     where case_id = $1
+     order by created_at desc, id desc
+     limit $2`,
+    [caseId, boundedLimit],
+  );
+  return Promise.all(rows.map((row) => getUnderwritingRun(db, row.id)))
+    .then((runs) => runs.filter((run): run is SavedUnderwritingRun => run !== null));
+}
+
 export async function getUnderwritingRun(db: Db, runId: string) {
   const [{ rows: runs }, { rows: results }] = await Promise.all([
     db.query<RunRow>(`select * from underwriting_calculation_runs where id = $1`, [runId]),

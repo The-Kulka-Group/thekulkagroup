@@ -41,7 +41,10 @@ export async function PATCH(request: Request, context: Context) {
       : NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
   } catch (cause) {
     if (cause instanceof InvalidCaseDraft) {
-      return NextResponse.json({ error: cause.message }, { status: 400 });
+      return NextResponse.json(
+        { error: cause.message, fieldErrors: cause.fieldErrors },
+        { status: 400 },
+      );
     }
     throw cause;
   }

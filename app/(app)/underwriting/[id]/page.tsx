@@ -5,8 +5,9 @@ import { Sheet, Sep } from "@/components/Sheet";
 import { Chip } from "@/components/Status";
 import { getDb } from "@/lib/db";
 import { getUnderwritingCase } from "@/lib/underwriting/cases";
-import { getLatestUnderwritingRun } from "@/lib/underwriting/runs";
+import { listUnderwritingRuns } from "@/lib/underwriting/runs";
 
+import { EditUnderwritingCase } from "./EditUnderwritingCase";
 import { RunUnderwriting } from "./RunUnderwriting";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,8 @@ export default async function UnderwritingCasePage({ params }: { params: Promise
   const { id } = await params;
   const savedCase = await getUnderwritingCase(getDb(), id);
   if (!savedCase) notFound();
-  const latestRun = await getLatestUnderwritingRun(getDb(), id);
+  const runs = await listUnderwritingRuns(getDb(), id, 2);
+  const latestRun = runs[0];
 
   const missingFacts = [
     savedCase.proposedUnits,
@@ -60,39 +62,11 @@ export default async function UnderwritingCasePage({ params }: { params: Promise
         </div>
 
         <div className="margin" />
-        <div className="col-field record-section">
-          <h3>Project facts</h3>
-          <dl className="record-grid">
-            <Fact label="Property address" value={savedCase.address} />
-            <Fact label="Development type" value="Ground-up multifamily" />
-            <Fact label="Proposed units" value={format(savedCase.proposedUnits)} number />
-            <Fact label="Average unit size" value={format(savedCase.averageUnitSquareFeet, " SF")} number />
-            <Fact label="Gross building area" value={format(savedCase.grossBuildingSquareFeet, " GSF")} number />
-          </dl>
-        </div>
-
-        <div className="margin" />
-        <div className="col-field record-section">
-          <h3>Supplied assumptions</h3>
-          {savedCase.assumptions.length === 0 ? (
-            <div className="empty empty--inline"><p>No financial assumptions were supplied.</p></div>
-          ) : (
-            <table className="underwriting-assumptions">
-              <thead>
-                <tr><th>Assumption</th><th className="right">Value</th><th>Source</th><th>Date</th></tr>
-              </thead>
-              <tbody>
-                {savedCase.assumptions.map((assumption) => (
-                  <tr key={assumption.key}>
-                    <td>{assumption.label}</td>
-                    <td className="num right">{formatAssumption(assumption.value, assumption.unit)}</td>
-                    <td>{assumption.sourceLabel}</td>
-                    <td className="num">{assumption.sourceDate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <div className="col-field">
+          <EditUnderwritingCase
+            savedCase={savedCase}
+            defaultSourceDate={new Date().toISOString().slice(0, 10)}
+          />
         </div>
 
         <div className="margin" />
@@ -141,6 +115,39 @@ export default async function UnderwritingCasePage({ params }: { params: Promise
             </div>
           )}
         </div>
+
+        {runs.length > 0 ? (
+          <>
+            <div className="margin" />
+            <div className="col-field record-section">
+              <h3>Calculation history</h3>
+              <p className="t-meta underwriting-history-note">
+                Each row is a saved run. Editing the case creates a new row and leaves prior snapshots unchanged.
+              </p>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-history">
+                  <thead>
+                    <tr><th>Run</th><th>Date</th><th>Status</th><th>Input snapshot</th><th className="right">Captured result</th></tr>
+                  </thead>
+                  <tbody>
+                    {runs.map((run, index) => {
+                      const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
+                      return (
+                        <tr key={run.id}>
+                          <td><span className="em">{index === 0 ? "Current" : "Prior"}</span><br /><span className="t-meta num">{run.id.slice(0, 8)}</span></td>
+                          <td className="num">{DATE.format(new Date(run.createdAt))}</td>
+                          <td><Chip status={run.status === "complete" ? "done" : "stuck"} /></td>
+                          <td className="t-meta">{snapshotSummary(run.inputSnapshot)}</td>
+                          <td className="num right">{totalDevelopmentCost ? formatResult(totalDevelopmentCost.value, totalDevelopmentCost.unit) : `${run.issues.length} inputs need review`}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
     </Sheet>
   );
@@ -158,24 +165,23 @@ function decisionDetail(status?: "complete" | "failed") {
   return "No financial result exists until the deterministic calculation runs.";
 }
 
-function Fact({ label, value, number = false }: { label: string; value: string; number?: boolean }) {
-  return <div className="record-row"><dt className="t-label">{label}</dt><dd className={number ? "num" : undefined}>{value}</dd></div>;
-}
-
-function format(value?: number, suffix = "") {
-  return value === undefined ? "Needs input" : `${NUMBER.format(value)}${suffix}`;
-}
-
-function formatAssumption(value: number, unit: string) {
-  if (unit === "usd") return MONEY.format(value);
-  if (unit === "usd_per_month") return `${MONEY.format(value)}/month`;
-  if (unit === "usd_per_gross_square_foot") return `${MONEY.format(value)}/GSF`;
-  if (unit === "percent") return `${NUMBER.format(value)}%`;
-  return `${NUMBER.format(value)} ${unit}`;
-}
-
 function formatResult(value: number, unit: "usd" | "decimal") {
   return unit === "usd" ? MONEY.format(value) : `${NUMBER.format(value * 100)}%`;
+}
+
+function snapshotSummary(snapshot: {
+  grossBuildingSquareFeet?: number;
+  proposedUnits?: number;
+  purchasePrice?: number;
+  monthlyRent?: number;
+}) {
+  const parts = [
+    snapshot.grossBuildingSquareFeet === undefined ? null : `${NUMBER.format(snapshot.grossBuildingSquareFeet)} GSF`,
+    snapshot.proposedUnits === undefined ? null : `${NUMBER.format(snapshot.proposedUnits)} units`,
+    snapshot.purchasePrice === undefined ? null : `${MONEY.format(snapshot.purchasePrice)} purchase`,
+    snapshot.monthlyRent === undefined ? null : `${MONEY.format(snapshot.monthlyRent)}/month rent`,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : "No calculation inputs were supplied.";
 }
 
 const INPUT_LABELS: Record<string, string> = {

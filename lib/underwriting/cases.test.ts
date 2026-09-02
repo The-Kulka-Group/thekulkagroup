@@ -45,6 +45,7 @@ describe("underwriting case repository", () => {
       proposedUnits: 48,
       developmentType: "ground_up_multifamily",
       status: "working",
+      caseRevision: 1,
     });
     expect(reopened!.assumptions).toEqual(
       expect.arrayContaining([
@@ -77,13 +78,14 @@ describe("underwriting case repository", () => {
     });
 
     expect(updated).toMatchObject({ name: "Revised saved case", proposedUnits: 52 });
+    expect(updated!.caseRevision).toBe(2);
     expect(updated!.assumptions.map((assumption) => assumption.name).sort()).toEqual([
       "exitCapRatePercent",
       "holdYears",
     ]);
   });
 
-  it("updates source details without resetting the supplied date or review state", async () => {
+  it("resets review to working when a value changes and keeps its submitted source", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     const updated = await updateUnderwritingCase(db, created!.id, {
       ...firstDraft,
@@ -104,8 +106,62 @@ describe("underwriting case repository", () => {
         sourceKind: "user_supplied",
         sourceLabel: "Acquisition memo",
         sourceDate: "2026-08-14",
-        reviewState: "done",
+        reviewState: "working",
+        lastChangedAt: expect.any(String),
       }),
+    ]);
+  });
+
+  it("keeps done review when the saved value does not change", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const originalChangedAt = created!.assumptions.find(
+      ({ name }) => name === "purchasePrice",
+    )!.lastChangedAt;
+    const updated = await updateUnderwritingCase(db, created!.id, {
+      ...firstDraft,
+      assumptionMetadata: {
+        purchasePrice: {
+          sourceLabel: "Acquisition memo",
+          sourceDate: "2026-08-14",
+          reviewState: "done",
+        },
+      },
+    });
+
+    expect(updated!.assumptions.find(({ name }) => name === "purchasePrice")).toMatchObject({
+      value: 4200000,
+      sourceLabel: "Acquisition memo",
+      sourceDate: "2026-08-14",
+      reviewState: "done",
+      lastChangedAt: originalChangedAt,
+    });
+  });
+
+  it("increments the case revision on every saved edit", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const firstEdit = await updateUnderwritingCase(db, created!.id, firstDraft);
+    const secondEdit = await updateUnderwritingCase(db, created!.id, firstDraft);
+
+    expect([created!.caseRevision, firstEdit!.caseRevision, secondEdit!.caseRevision]).toEqual([1, 2, 3]);
+  });
+
+  it("reads the case and ordered assumptions with one database statement", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    let queryCount = 0;
+    const countedDb = {
+      query: <Row>(text: string, params: unknown[] = []) => {
+        queryCount += 1;
+        return db.query<Row>(text, params);
+      },
+    };
+
+    const reopened = await getUnderwritingCase(countedDb, created!.id);
+
+    expect(queryCount).toBe(1);
+    expect(reopened!.assumptions.map(({ key }) => key)).toEqual([
+      "construction_months",
+      "debt_percent",
+      "purchase_price",
     ]);
   });
 

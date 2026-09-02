@@ -8,12 +8,31 @@ import {
 import type { Db } from "@/lib/db";
 import { getUnderwritingCase, type UnderwritingCase } from "@/lib/underwriting/cases";
 
+export type UnderwritingEvidenceSnapshot = {
+  caseId: string;
+  caseRevision: number;
+  caseNumber: number;
+  sheetNumber: string;
+  name: string;
+  address: string;
+  developmentType: UnderwritingCase["developmentType"];
+  status: UnderwritingCase["status"];
+  proposedUnits?: number;
+  averageUnitSquareFeet?: number;
+  grossBuildingSquareFeet?: number;
+  createdAt: string;
+  updatedAt: string;
+  assumptions: UnderwritingCase["assumptions"];
+};
+
 export type SavedUnderwritingRun = {
   id: string;
   caseId: string;
+  caseRevision: number;
   formulaVersion: string;
   status: "complete" | "failed";
   inputSnapshot: PreliminaryUnderwritingInputs;
+  evidenceSnapshot: UnderwritingEvidenceSnapshot;
   issues: UnderwritingIssue[];
   results: UnderwritingResult[];
   createdAt: string;
@@ -22,125 +41,127 @@ export type SavedUnderwritingRun = {
 type RunRow = {
   id: string;
   case_id: string;
+  case_revision: string | number;
   formula_version: string;
   status: SavedUnderwritingRun["status"];
   input_snapshot: PreliminaryUnderwritingInputs;
+  evidence_snapshot: UnderwritingEvidenceSnapshot;
+  result_snapshot: UnderwritingResult[];
   issues: UnderwritingIssue[];
   created_at: Date | string;
 };
 
-type ResultRow = {
-  result_key: UnderwritingResult["key"];
-  label: string;
-  value: string | number;
-  unit: UnderwritingResult["unit"];
-  formula: string;
-  input_keys: UnderwritingResult["inputKeys"];
-};
+export class UnderwritingRevisionConflict extends Error {
+  constructor() {
+    super("The case changed before the calculation ran. Reload it and try again.");
+  }
+}
 
-export async function runUnderwritingCase(db: Db, caseId: string) {
+export async function runUnderwritingCase(
+  db: Db,
+  caseId: string,
+  expectedRevision: number,
+) {
   const savedCase = await getUnderwritingCase(db, caseId);
   if (!savedCase) return null;
+  if (savedCase.caseRevision !== expectedRevision) throw new UnderwritingRevisionConflict();
 
   const calculated = computePreliminaryUnderwriting(inputsFor(savedCase));
-  const resultRows = calculated.results.map((result, resultOrder) => ({
-    resultOrder,
-    ...result,
-  }));
+  const evidenceSnapshot = evidenceFor(savedCase);
   const { rows } = await db.query<RunRow>(
-    `with new_run as (
+    `with matching_case as (
+       select case_revision
+       from underwriting_cases
+       where id = $1 and case_revision = $2
+       for key share
+     ), new_run as (
        insert into underwriting_calculation_runs
-         (case_id, formula_version, status, input_snapshot, issues)
-       values ($1, $2, $3, $4::jsonb, $5::jsonb)
+         (case_id, case_revision, formula_version, status, input_snapshot,
+          evidence_snapshot, result_snapshot, issues)
+       select $1, matching_case.case_revision, $3, $4, $5::jsonb,
+              $6::jsonb, $7::jsonb, $8::jsonb
+       from matching_case
        returning *
-     ), inserted_results as (
-       insert into underwriting_calculation_results
-         (run_id, result_order, result_key, label, value, unit, formula, input_keys)
-       select new_run.id, supplied.result_order, supplied.result_key, supplied.label,
-              supplied.value, supplied.unit, supplied.formula, supplied.input_keys
-       from new_run
-       cross join jsonb_to_recordset($6::jsonb) as supplied(
-         result_order integer,
-         result_key text,
-         label text,
-         value numeric,
-         unit text,
-         formula text,
-         input_keys jsonb
-       )
      )
      select * from new_run`,
     [
       caseId,
+      expectedRevision,
       calculated.formulaVersion,
       calculated.status,
       JSON.stringify(calculated.inputSnapshot),
+      JSON.stringify(evidenceSnapshot),
+      JSON.stringify(calculated.results),
       JSON.stringify(calculated.issues),
-      JSON.stringify(resultRows.map(({ resultOrder, key, ...result }) => ({
-        result_order: resultOrder,
-        result_key: key,
-        ...result,
-        input_keys: result.inputKeys,
-      }))),
     ],
   );
-  return getUnderwritingRun(db, rows[0].id);
+  if (!rows[0]) throw new UnderwritingRevisionConflict();
+  return mapRun(rows[0]);
 }
 
 export async function getLatestUnderwritingRun(db: Db, caseId: string) {
-  const { rows } = await db.query<{ id: string }>(
-    `select id from underwriting_calculation_runs
+  const { rows } = await db.query<RunRow>(
+    `select * from underwriting_calculation_runs
      where case_id = $1
      order by created_at desc, id desc
      limit 1`,
     [caseId],
   );
-  return rows[0] ? getUnderwritingRun(db, rows[0].id) : null;
+  return rows[0] ? mapRun(rows[0]) : null;
 }
 
 export async function listUnderwritingRuns(db: Db, caseId: string, limit = 2) {
   const boundedLimit = Math.max(1, Math.min(limit, 20));
-  const { rows } = await db.query<{ id: string }>(
-    `select id from underwriting_calculation_runs
+  const { rows } = await db.query<RunRow>(
+    `select * from underwriting_calculation_runs
      where case_id = $1
      order by created_at desc, id desc
      limit $2`,
     [caseId, boundedLimit],
   );
-  return Promise.all(rows.map((row) => getUnderwritingRun(db, row.id)))
-    .then((runs) => runs.filter((run): run is SavedUnderwritingRun => run !== null));
+  return rows.map(mapRun);
 }
 
 export async function getUnderwritingRun(db: Db, runId: string) {
-  const [{ rows: runs }, { rows: results }] = await Promise.all([
-    db.query<RunRow>(`select * from underwriting_calculation_runs where id = $1`, [runId]),
-    db.query<ResultRow>(
-      `select result_key, label, value, unit, formula, input_keys
-       from underwriting_calculation_results
-       where run_id = $1
-       order by result_order`,
-      [runId],
-    ),
-  ]);
-  const row = runs[0];
-  if (!row) return null;
+  const { rows } = await db.query<RunRow>(
+    `select * from underwriting_calculation_runs where id = $1`,
+    [runId],
+  );
+  return rows[0] ? mapRun(rows[0]) : null;
+}
+
+function mapRun(row: RunRow): SavedUnderwritingRun {
   return {
     id: row.id,
     caseId: row.case_id,
+    caseRevision: Number(row.case_revision),
     formulaVersion: row.formula_version,
     status: row.status,
     inputSnapshot: row.input_snapshot,
+    evidenceSnapshot: row.evidence_snapshot,
     issues: row.issues,
-    results: results.map((result) => ({
-      key: result.result_key,
-      label: result.label,
-      value: Number(result.value),
-      unit: result.unit,
-      formula: result.formula,
-      inputKeys: result.input_keys,
-    })),
+    results: row.result_snapshot,
     createdAt: new Date(row.created_at).toISOString(),
-  } satisfies SavedUnderwritingRun;
+  };
+}
+
+function evidenceFor(savedCase: UnderwritingCase): UnderwritingEvidenceSnapshot {
+  return {
+    caseId: savedCase.id,
+    caseRevision: savedCase.caseRevision,
+    caseNumber: savedCase.caseNumber,
+    sheetNumber: savedCase.sheetNumber,
+    name: savedCase.name,
+    address: savedCase.address,
+    developmentType: savedCase.developmentType,
+    status: savedCase.status,
+    proposedUnits: savedCase.proposedUnits,
+    averageUnitSquareFeet: savedCase.averageUnitSquareFeet,
+    grossBuildingSquareFeet: savedCase.grossBuildingSquareFeet,
+    createdAt: savedCase.createdAt,
+    updatedAt: savedCase.updatedAt,
+    assumptions: savedCase.assumptions.map((assumption) => ({ ...assumption })),
+  };
 }
 
 function inputsFor(savedCase: UnderwritingCase): PreliminaryUnderwritingInputs {

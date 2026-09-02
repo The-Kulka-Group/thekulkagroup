@@ -51,6 +51,7 @@ export type UnderwritingAssumption = {
   sourceLabel: string;
   sourceDate: string;
   reviewState: "working" | "done";
+  lastChangedAt: string;
 };
 
 export type UnderwritingCase = {
@@ -61,6 +62,7 @@ export type UnderwritingCase = {
   address: string;
   developmentType: "ground_up_multifamily";
   status: "open" | "working" | "stuck" | "done";
+  caseRevision: number;
   proposedUnits?: number;
   averageUnitSquareFeet?: number;
   grossBuildingSquareFeet?: number;
@@ -76,6 +78,7 @@ type CaseRow = {
   address: string;
   development_type: UnderwritingCase["developmentType"];
   status: UnderwritingCase["status"];
+  case_revision: string | number;
   proposed_units: number | null;
   average_unit_square_feet: string | number | null;
   gross_building_square_feet: string | number | null;
@@ -92,7 +95,10 @@ type AssumptionRow = {
   source_label: string;
   source_date: Date | string;
   review_state: "working" | "done";
+  value_changed_at: Date | string;
 };
+
+type CaseWithAssumptionsRow = CaseRow & { assumptions: AssumptionRow[] };
 
 const byStoredKey = new Map(
   Object.entries(ASSUMPTION_DEFINITIONS).map(([name, definition]) => [
@@ -123,6 +129,7 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingC
     address: row.address,
     developmentType: row.development_type,
     status: row.status,
+    caseRevision: Number(row.case_revision),
     proposedUnits: optionalNumber(row.proposed_units),
     averageUnitSquareFeet: optionalNumber(row.average_unit_square_feet),
     grossBuildingSquareFeet: optionalNumber(row.gross_building_square_feet),
@@ -141,6 +148,7 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingC
         sourceLabel: assumption.source_label,
         sourceDate: dateOnly(assumption.source_date),
         reviewState: assumption.review_state,
+        lastChangedAt: iso(assumption.value_changed_at),
       };
     }),
   };
@@ -206,14 +214,31 @@ export async function listUnderwritingCases(db: Db): Promise<UnderwritingCase[]>
 }
 
 export async function getUnderwritingCase(db: Db, id: string): Promise<UnderwritingCase | null> {
-  const [{ rows: cases }, { rows: assumptions }] = await Promise.all([
-    db.query<CaseRow>(`select * from underwriting_cases where id = $1`, [id]),
-    db.query<AssumptionRow>(
-      `select * from underwriting_case_assumptions where case_id = $1 order by assumption_key`,
-      [id],
-    ),
-  ]);
-  return cases[0] ? mapCase(cases[0], assumptions) : null;
+  const { rows } = await db.query<CaseWithAssumptionsRow>(
+    `select c.*,
+            coalesce(
+              jsonb_agg(
+                jsonb_build_object(
+                  'case_id', a.case_id,
+                  'assumption_key', a.assumption_key,
+                  'value', a.value,
+                  'unit', a.unit,
+                  'source_kind', a.source_kind,
+                  'source_label', a.source_label,
+                  'source_date', a.source_date,
+                  'review_state', a.review_state,
+                  'value_changed_at', a.value_changed_at
+                ) order by a.assumption_key
+              ) filter (where a.id is not null),
+              '[]'::jsonb
+            ) as assumptions
+     from underwriting_cases c
+     left join underwriting_case_assumptions a on a.case_id = c.id
+     where c.id = $1
+     group by c.id`,
+    [id],
+  );
+  return rows[0] ? mapCase(rows[0], rows[0].assumptions) : null;
 }
 
 export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraft) {
@@ -225,6 +250,7 @@ export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraf
            proposed_units = $4,
            average_unit_square_feet = $5,
            gross_building_square_feet = $6,
+           case_revision = case_revision + 1,
            updated_at = now()
        where id = $1
        returning id
@@ -253,7 +279,14 @@ export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraf
            unit = excluded.unit,
            source_label = excluded.source_label,
            source_date = excluded.source_date,
-           review_state = excluded.review_state,
+           review_state = case
+             when underwriting_case_assumptions.value is distinct from excluded.value then 'working'
+             else excluded.review_state
+           end,
+           value_changed_at = case
+             when underwriting_case_assumptions.value is distinct from excluded.value then now()
+             else underwriting_case_assumptions.value_changed_at
+           end,
            updated_at = now()
      )
      select id from updated_case`,

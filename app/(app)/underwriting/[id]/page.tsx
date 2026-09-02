@@ -25,7 +25,7 @@ export default async function UnderwritingCasePage({ params }: { params: Promise
   const savedCase = await getUnderwritingCase(getDb(), id);
   if (!savedCase) notFound();
   const runs = await listUnderwritingRuns(getDb(), id, 2);
-  const latestRun = runs[0];
+  const latestRun = runs.find((run) => run.caseRevision === savedCase.caseRevision);
 
   const missingFacts = [
     savedCase.proposedUnits,
@@ -80,7 +80,11 @@ export default async function UnderwritingCasePage({ params }: { params: Promise
                   : "The deterministic model has not run for this case."}
               </p>
             </div>
-            <RunUnderwriting caseId={savedCase.id} hasRun={Boolean(latestRun)} />
+            <RunUnderwriting
+              caseId={savedCase.id}
+              caseRevision={savedCase.caseRevision}
+              hasRun={Boolean(latestRun)}
+            />
           </div>
 
           {!latestRun ? (
@@ -130,11 +134,11 @@ export default async function UnderwritingCasePage({ params }: { params: Promise
                     <tr><th>Run</th><th>Date</th><th>Status</th><th>Input snapshot</th><th className="right">Captured result</th></tr>
                   </thead>
                   <tbody>
-                    {runs.map((run, index) => {
+                    {runs.map((run) => {
                       const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
                       return (
                         <tr key={run.id}>
-                          <td><span className="em">{index === 0 ? "Current" : "Prior"}</span><br /><span className="t-meta num">{run.id.slice(0, 8)}</span></td>
+                          <td><span className="em">{run.caseRevision === savedCase.caseRevision ? "Current" : "Prior"}</span><br /><span className="t-meta num">{run.id.slice(0, 8)}</span></td>
                           <td className="num">{DATE.format(new Date(run.createdAt))}</td>
                           <td><Chip status={run.status === "complete" ? "done" : "stuck"} /></td>
                           <td className="t-meta">{snapshotSummary(run.inputSnapshot)}</td>

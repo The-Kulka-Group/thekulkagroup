@@ -26,7 +26,10 @@ describe("/api/underwriting/cases/:id/runs", () => {
       address: "600 Test Avenue",
       assumptions: {},
     });
-    const created = await POST(new Request("http://localhost", { method: "POST" }), context(savedCase!.id));
+    const created = await POST(new Request("http://localhost", {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision: savedCase!.caseRevision }),
+    }), context(savedCase!.id));
     expect(created.status).toBe(201);
     const createdBody = await created.json();
     expect(createdBody.run.status).toBe("failed");
@@ -39,9 +42,13 @@ describe("/api/underwriting/cases/:id/runs", () => {
   });
 
   it("returns clear errors for invalid, missing, and uncalculated cases", async () => {
-    expect((await POST(new Request("http://localhost"), context("bad"))).status).toBe(400);
+    expect((await POST(new Request("http://localhost"), context("bad"))).status).toBe(404);
+    expect((await GET(new Request("http://localhost"), context("bad"))).status).toBe(404);
     const missingId = "00000000-0000-4000-8000-0000000000ff";
-    expect((await POST(new Request("http://localhost"), context(missingId))).status).toBe(404);
+    expect((await POST(new Request("http://localhost", {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision: 1 }),
+    }), context(missingId))).status).toBe(404);
 
     const savedCase = await createUnderwritingCase(db, {
       name: "No run case",
@@ -49,5 +56,25 @@ describe("/api/underwriting/cases/:id/runs", () => {
       assumptions: {},
     });
     expect((await GET(new Request("http://localhost"), context(savedCase!.id))).status).toBe(404);
+  });
+
+  it("returns 409 when the case revision changed", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Changed route case",
+      address: "602 Test Avenue",
+      assumptions: {},
+    });
+    await db.query(
+      `update underwriting_cases set case_revision = case_revision + 1 where id = $1`,
+      [savedCase!.id],
+    );
+
+    const response = await POST(new Request("http://localhost", {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision: savedCase!.caseRevision }),
+    }), context(savedCase!.id));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining("case changed") });
   });
 });

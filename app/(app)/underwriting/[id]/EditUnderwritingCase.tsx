@@ -93,6 +93,8 @@ export function EditUnderwritingCase({
 
       const runResponse = await fetch(`/api/underwriting/cases/${savedCase.id}/runs`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision: body.case.caseRevision }),
       });
       if (!runResponse.ok) {
         const runBody = await runResponse.json();

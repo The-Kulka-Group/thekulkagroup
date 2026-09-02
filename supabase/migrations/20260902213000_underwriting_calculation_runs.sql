@@ -1,5 +1,11 @@
--- Immutable preliminary underwriting runs for LA-161. A run keeps the input
--- snapshot, formula version, issues, and result trace used at that moment.
+-- Immutable preliminary underwriting runs for LA-161. A run keeps the case,
+-- evidence, input, issue, and result snapshots used at that moment.
+
+alter table underwriting_cases
+  add column case_revision bigint not null default 1 check (case_revision > 0);
+
+alter table underwriting_case_assumptions
+  add column value_changed_at timestamptz not null default now();
 
 alter table underwriting_case_assumptions
   drop constraint underwriting_case_assumptions_assumption_key_check;
@@ -53,33 +59,28 @@ alter table underwriting_case_assumptions
 create table underwriting_calculation_runs (
   id uuid primary key default gen_random_uuid(),
   case_id uuid not null references underwriting_cases (id) on delete restrict,
+  case_revision bigint not null check (case_revision > 0),
   formula_version text not null
     check (formula_version = 'underwriting.preliminary_annual.v1'),
   status text not null check (status in ('complete', 'failed')),
   input_snapshot jsonb not null check (jsonb_typeof(input_snapshot) = 'object'),
+  evidence_snapshot jsonb not null check (jsonb_typeof(evidence_snapshot) = 'object'),
+  result_snapshot jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(result_snapshot) = 'array'),
   issues jsonb not null default '[]'::jsonb check (jsonb_typeof(issues) = 'array'),
   created_at timestamptz not null default now(),
   check (
-    (status = 'complete' and jsonb_array_length(issues) = 0)
-    or (status = 'failed' and jsonb_array_length(issues) > 0)
+    (
+      status = 'complete'
+      and jsonb_array_length(issues) = 0
+      and jsonb_array_length(result_snapshot) > 0
+    )
+    or (
+      status = 'failed'
+      and jsonb_array_length(issues) > 0
+      and jsonb_array_length(result_snapshot) = 0
+    )
   )
-);
-
-create table underwriting_calculation_results (
-  id uuid primary key default gen_random_uuid(),
-  run_id uuid not null references underwriting_calculation_runs (id) on delete restrict,
-  result_order integer not null check (result_order >= 0),
-  result_key text not null,
-  label text not null check (btrim(label) <> ''),
-  value numeric not null,
-  unit text not null check (unit in ('usd', 'decimal')),
-  formula text not null check (btrim(formula) <> ''),
-  input_keys jsonb not null check (
-    jsonb_typeof(input_keys) = 'array'
-    and jsonb_array_length(input_keys) > 0
-  ),
-  unique (run_id, result_key),
-  unique (run_id, result_order)
 );
 
 create index underwriting_calculation_runs_case_idx
@@ -98,9 +99,4 @@ create trigger underwriting_runs_are_immutable
 before update or delete on underwriting_calculation_runs
 for each row execute function reject_underwriting_run_mutation();
 
-create trigger underwriting_results_are_immutable
-before update or delete on underwriting_calculation_results
-for each row execute function reject_underwriting_run_mutation();
-
 alter table underwriting_calculation_runs enable row level security;
-alter table underwriting_calculation_results enable row level security;

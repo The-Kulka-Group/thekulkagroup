@@ -1,0 +1,103 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+
+function numberValue(form: FormData, name: string) {
+  const value = form.get(name);
+  return typeof value === "string" && value !== "" ? Number(value) : undefined;
+}
+
+export function CaseIntake() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError(undefined);
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/underwriting/cases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.get("name"),
+        address: form.get("address"),
+        proposedUnits: numberValue(form, "proposedUnits"),
+        averageUnitSquareFeet: numberValue(form, "averageUnitSquareFeet"),
+        grossBuildingSquareFeet: numberValue(form, "grossBuildingSquareFeet"),
+        assumptions: {
+          purchasePrice: numberValue(form, "purchasePrice"),
+          monthlyRent: numberValue(form, "monthlyRent"),
+          hardCostPerGrossSquareFoot: numberValue(form, "hardCostPerGrossSquareFoot"),
+          constructionMonths: numberValue(form, "constructionMonths"),
+          debtPercent: numberValue(form, "debtPercent"),
+          interestRatePercent: numberValue(form, "interestRatePercent"),
+          exitCapRatePercent: numberValue(form, "exitCapRatePercent"),
+          holdYears: numberValue(form, "holdYears"),
+        },
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setError(body.error ?? "The case could not be saved.");
+      setSaving(false);
+      return;
+    }
+    router.push(`/underwriting/${body.case.id}`);
+    router.refresh();
+  }
+
+  return (
+    <form className="underwriting-intake" onSubmit={submit}>
+      <div className="underwriting-intake-head">
+        <div>
+          <h2 className="t-2">Start a ground-up multifamily case</h2>
+          <p className="t-meta">Enter what is known. Blank financial inputs stay missing.</p>
+        </div>
+      </div>
+
+      <div className="underwriting-form-grid">
+        <Field name="name" label="Case name" required />
+        <Field name="address" label="Property address" required />
+        <Field name="proposedUnits" label="Proposed units" type="number" min="1" step="1" />
+        <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0.01" step="0.01" />
+        <Field name="grossBuildingSquareFeet" label="Gross building area" unit="GSF" type="number" min="0.01" step="0.01" />
+        <Field name="purchasePrice" label="Purchase price" unit="USD" type="number" min="0.01" step="0.01" />
+        <Field name="monthlyRent" label="Average monthly rent" unit="USD/month" type="number" min="0.01" step="0.01" />
+        <Field name="hardCostPerGrossSquareFoot" label="Hard cost" unit="USD/GSF" type="number" min="0.01" step="0.01" />
+        <Field name="constructionMonths" label="Construction duration" unit="months" type="number" min="1" step="1" />
+        <Field name="debtPercent" label="Expected debt" unit="percent" type="number" min="0.01" max="100" step="0.01" />
+        <Field name="interestRatePercent" label="Expected interest rate" unit="percent" type="number" min="0.01" max="100" step="0.01" />
+        <Field name="exitCapRatePercent" label="Exit cap rate" unit="percent" type="number" min="0.01" max="100" step="0.01" />
+        <Field name="holdYears" label="Hold period" unit="years" type="number" min="1" step="1" />
+      </div>
+
+      {error ? <p className="input-error" role="alert">{error}</p> : null}
+      <div className="underwriting-form-actions">
+        <button className="btn btn--primary btn--lg" type="submit" disabled={saving}>
+          {saving ? "Saving" : "Save case"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Field({
+  label,
+  unit,
+  ...input
+}: {
+  label: string;
+  unit?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <label>
+      <span className="field-label t-label">
+        {label}{unit ? <span className="underwriting-unit">{unit}</span> : null}
+      </span>
+      <input className="input" {...input} />
+    </label>
+  );
+}

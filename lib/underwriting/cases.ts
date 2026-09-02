@@ -71,6 +71,12 @@ export type UnderwritingCase = {
   assumptions: UnderwritingAssumption[];
 };
 
+export class UnderwritingCaseRevisionConflict extends Error {
+  constructor() {
+    super("The case changed before your edits were saved. Refresh the page, review the latest case, and try again.");
+  }
+}
+
 type CaseRow = {
   id: string;
   case_number: string | number;
@@ -241,7 +247,12 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
   return rows[0] ? mapCase(rows[0], rows[0].assumptions) : null;
 }
 
-export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraft) {
+export async function updateUnderwritingCase(
+  db: Db,
+  id: string,
+  draft: CaseDraft,
+  expectedRevision: number,
+) {
   const { rows } = await db.query<{ id: string }>(
     `with updated_case as (
        update underwriting_cases
@@ -252,7 +263,7 @@ export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraf
            gross_building_square_feet = $6,
            case_revision = case_revision + 1,
            updated_at = now()
-       where id = $1
+       where id = $1 and case_revision = $8
        returning id
      ), supplied_assumptions as (
        select * from jsonb_to_recordset($7::jsonb) as supplied(
@@ -298,7 +309,11 @@ export async function updateUnderwritingCase(db: Db, id: string, draft: CaseDraf
       draft.averageUnitSquareFeet ?? null,
       draft.grossBuildingSquareFeet ?? null,
       JSON.stringify(assumptionRows(draft)),
+      expectedRevision,
     ],
   );
-  return rows[0] ? getUnderwritingCase(db, rows[0].id) : null;
+  if (rows[0]) return getUnderwritingCase(db, rows[0].id);
+  const existing = await getUnderwritingCase(db, id);
+  if (existing) throw new UnderwritingCaseRevisionConflict();
+  return null;
 }

@@ -34,6 +34,7 @@ describe("/api/underwriting/cases/:id", () => {
       new Request("http://localhost", {
         method: "PATCH",
         body: JSON.stringify({
+          expectedRevision: savedCase!.caseRevision,
           name: "Updated route case",
           address: "400 Test Avenue",
           proposedUnits: 44,
@@ -81,6 +82,7 @@ describe("/api/underwriting/cases/:id", () => {
       new Request("http://localhost", {
         method: "PATCH",
         body: JSON.stringify({
+          expectedRevision: savedCase!.caseRevision,
           name: "Unsaved route case",
           address: "402 Test Avenue",
           proposedUnits: 40.5,
@@ -99,5 +101,33 @@ describe("/api/underwriting/cases/:id", () => {
       name: "Preserved route case",
       proposedUnits: 40,
     });
+  });
+
+  it("returns 409 when an edit uses a stale case revision", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Concurrent route case",
+      address: "403 Test Avenue",
+      assumptions: {},
+    });
+    const draft = {
+      expectedRevision: savedCase!.caseRevision,
+      name: "First route edit",
+      address: savedCase!.address,
+      assumptions: {},
+    };
+    expect((await PATCH(
+      new Request("http://localhost", { method: "PATCH", body: JSON.stringify(draft) }),
+      context(savedCase!.id),
+    )).status).toBe(200);
+
+    const conflict = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ ...draft, name: "Stale route edit" }),
+      }),
+      context(savedCase!.id),
+    );
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toMatchObject({ error: expect.stringMatching(/changed/i) });
   });
 });

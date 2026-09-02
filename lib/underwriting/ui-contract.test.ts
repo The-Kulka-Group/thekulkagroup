@@ -44,4 +44,18 @@ describe("underwriting form accessibility contract", () => {
     expect(edit).toContain("finally {");
     expect(run).toContain("finally {");
   });
+
+  it("offers a dated cost editor and a readable monthly uses table", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/CostScheduleEditor.tsx");
+    const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
+    expect(editor).toContain("Analysis start month");
+    expect(editor).toContain("Sale month");
+    expect(editor).toContain("Straight-line");
+    expect(editor).toContain("S-curve");
+    expect(editor).toContain("Source label");
+    expect(editor).toContain("finally {");
+    expect(casePage).toContain("Monthly uses");
+    expect(casePage).toContain("Reconciliation checks");
+    expect(casePage).toContain("monthlyCostResult.months");
+  });
 });

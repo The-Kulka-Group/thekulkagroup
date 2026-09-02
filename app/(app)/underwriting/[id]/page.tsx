@@ -18,6 +18,7 @@ import {
 import { isUuid } from "@/lib/uuid";
 
 import { EditUnderwritingCase } from "./EditUnderwritingCase";
+import { CostScheduleEditor } from "./CostScheduleEditor";
 import { RunUnderwriting } from "./RunUnderwriting";
 
 export const dynamic = "force-dynamic";
@@ -111,10 +112,15 @@ export default async function UnderwritingCasePage({
         </div>
 
         <div className="margin" />
+        <section className="col-field record-section">
+          <CostScheduleEditor savedCase={savedCase} />
+        </section>
+
+        <div className="margin" />
         <div className="col-field record-section underwriting-results-section">
           <div className="underwriting-section-head">
             <div>
-              <h3>Preliminary annual results</h3>
+              <h3>{savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
               <p className="t-meta">
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
@@ -139,12 +145,46 @@ export default async function UnderwritingCasePage({
           ) : currentRun.status === "failed" ? (
             <div className="underwriting-issues" role="status">
               {currentRun.issues.map((issue) => (
-                <div className="underwriting-issue underwriting-issue--stuck" key={`${issue.inputKey}-${issue.code}`}>
+                <div className="underwriting-issue underwriting-issue--stuck" key={`${issuePath(issue)}-${issue.code}`}>
                   <span className="dot" aria-hidden="true" />
                   <span>{issue.message}</span>
                 </div>
               ))}
               <p className="t-meta">This run has no financial results. Its issues and input snapshot remain in the review record.</p>
+            </div>
+          ) : currentRun.monthlyCostResult ? (
+            <div className="underwriting-monthly-results">
+              <div className="underwriting-summary-band">
+                {Object.entries(currentRun.monthlyCostResult.totalsByCategory).map(([category, amount]) => (
+                  <div key={category}><span className="t-label">{costCategoryLabel(category)}</span><strong className="num">{MONEY.format(amount)}</strong></div>
+                ))}
+                <div><span className="t-label">Total Uses</span><strong className="num">{MONEY.format(currentRun.monthlyCostResult.totalUses)}</strong></div>
+              </div>
+              <h4>Monthly uses</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-monthly-table">
+                  <thead><tr><th>Month</th>{currentRun.monthlyCostResult.costLineSchedules.map((line) => <th className="right" key={line.lineId}>{line.name}</th>)}<th className="right">Total Uses</th></tr></thead>
+                  <tbody>
+                    {currentRun.monthlyCostResult.months.map((month) => (
+                      <tr key={month.month}><th scope="row" className="num">{month.month}</th>{currentRun.monthlyCostResult!.costLineSchedules.map((line) => <td className="num right" key={line.lineId}>{MONEY.format(month.lineAmounts[line.lineId])}</td>)}<td className="num right">{MONEY.format(month.totalUses)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <h4>Formula traces</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Cost Line</th><th>Distribution</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{currentRun.monthlyCostResult.costLineSchedules.map((line) => <tr key={line.lineId}><th scope="row">{line.name}</th><td>{line.formulaTrace}</td><td className="t-meta">{line.inputPaths.join(", ")}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <h4>Reconciliation checks</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
+                  <tbody>{currentRun.reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{MONEY.format(check.expected)}</td><td className="num right">{MONEY.format(check.actual)}</td><td className="num right">{MONEY.format(check.difference)}</td></tr>)}</tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div className="underwriting-results-wrap">
@@ -169,7 +209,11 @@ export default async function UnderwritingCasePage({
           <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
             <h4 id="underwriting-limitations-heading">Model limits</h4>
             <ul>
-              {UNDERWRITING_LIMITATIONS.map((limitation) => <li key={limitation}>{limitation}</li>)}
+              {(savedCase.costSchedule ? [
+                "This formula version schedules development costs only.",
+                "Lease-up, operating cash flow, debt funding, sale proceeds, and property returns follow in later formula versions.",
+                "These results do not record a finance approval.",
+              ] : UNDERWRITING_LIMITATIONS).map((limitation) => <li key={limitation}>{limitation}</li>)}
             </ul>
           </div>
         </div>
@@ -190,6 +234,7 @@ export default async function UnderwritingCasePage({
                   <tbody>
                     {runs.map((run) => {
                       const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
+                      const capturedResult = totalDevelopmentCost?.value ?? run.monthlyCostResult?.totalUses;
                       const matchesCurrentRevision = run.caseRevision === savedCase.caseRevision;
                       return (
                         <tr key={run.id}>
@@ -202,7 +247,7 @@ export default async function UnderwritingCasePage({
                           <td className="num">{DATE.format(new Date(run.createdAt))}</td>
                           <td><Chip status={run.status === "complete" ? "done" : "stuck"} /></td>
                           <td className="t-meta">{snapshotSummary(run.inputSnapshot)}</td>
-                          <td className="num right">{totalDevelopmentCost ? formatResult(totalDevelopmentCost.value, totalDevelopmentCost.unit) : `${run.issues.length} inputs need review`}</td>
+                          <td className="num right">{capturedResult !== undefined ? MONEY.format(capturedResult) : `${run.issues.length} inputs need review`}</td>
                         </tr>
                       );
                     })}
@@ -225,7 +270,7 @@ export default async function UnderwritingCasePage({
 }
 
 function decisionTitle(status: "complete" | "failed" | undefined, hasRunHistory: boolean) {
-  if (status === "complete") return "Preliminary annual results are ready for review.";
+  if (status === "complete") return "The saved results are ready for review.";
   if (status === "failed") return "The calculation needs more input.";
   if (hasRunHistory) return "The case changed and needs recalculation.";
   return "The case has not been calculated.";
@@ -247,7 +292,13 @@ function snapshotSummary(snapshot: {
   proposedUnits?: number;
   purchasePrice?: number;
   monthlyRent?: number;
+  analysisStartMonth?: string;
+  saleMonth?: string;
+  costLines?: unknown[];
 }) {
+  if (snapshot.analysisStartMonth && snapshot.saleMonth) {
+    return `${snapshot.costLines?.length ?? 0} cost lines · ${snapshot.analysisStartMonth} to ${snapshot.saleMonth}`;
+  }
   const parts = [
     snapshot.grossBuildingSquareFeet === undefined ? null : `${NUMBER.format(snapshot.grossBuildingSquareFeet)} GSF`,
     snapshot.proposedUnits === undefined ? null : `${NUMBER.format(snapshot.proposedUnits)} units`,
@@ -255,6 +306,20 @@ function snapshotSummary(snapshot: {
     snapshot.monthlyRent === undefined ? null : `${MONEY.format(snapshot.monthlyRent)}/month rent`,
   ].filter((part): part is string => part !== null);
   return parts.length > 0 ? parts.join(" · ") : "No calculation inputs were supplied.";
+}
+
+function issuePath(issue: { inputKey?: string; path?: string }) {
+  return issue.inputKey ?? issue.path ?? "calculation";
+}
+
+function costCategoryLabel(category: string) {
+  return ({
+    land: "Land",
+    hard_cost: "Hard Cost",
+    soft_cost: "Soft Cost",
+    development_fee: "Development Fee",
+    financing_fee: "Financing Fee",
+  } as Record<string, string>)[category] ?? category;
 }
 
 function inputLabel(key: keyof typeof UNDERWRITING_INPUT_LABELS) {

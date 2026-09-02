@@ -75,7 +75,7 @@ export function buildUnderwritingReviewItems(
   } else {
     for (const issue of currentRun.issues) {
       items.push({
-        id: `calculation-${issue.inputKey}-${issue.code}`,
+        id: `calculation-${"inputKey" in issue ? issue.inputKey : issue.path}-${issue.code}`,
         message: issue.message,
         severity: "stuck",
       });
@@ -101,6 +101,30 @@ export function buildUnderwritingReviewItems(
       items.push({
         id: `review-state-${assumption.name}`,
         message: `${assumption.label} is still Working on it.`,
+        severity: "waiting",
+      });
+    }
+  }
+
+  for (const line of savedCase.costSchedule?.costLines ?? []) {
+    if (!line.sourceLabel?.trim()) {
+      items.push({
+        id: `cost-source-label-${line.id}`,
+        message: `${line.name} needs a source label.`,
+        severity: "waiting",
+      });
+    }
+    if (!line.sourceDate?.trim()) {
+      items.push({
+        id: `cost-source-date-${line.id}`,
+        message: `${line.name} needs a source date.`,
+        severity: "waiting",
+      });
+    }
+    if (line.reviewState === "working") {
+      items.push({
+        id: `cost-review-state-${line.id}`,
+        message: `${line.name} is still Working on it.`,
         severity: "waiting",
       });
     }

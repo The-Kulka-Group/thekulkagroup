@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
-import { createUnderwritingCase } from "@/lib/underwriting/cases";
+import { createUnderwritingCase, saveUnderwritingCostSchedule } from "@/lib/underwriting/cases";
 import { seededDatabase } from "@/test/database";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
@@ -76,5 +76,46 @@ describe("/api/underwriting/cases/:id/runs", () => {
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ error: expect.stringContaining("case changed") });
+  });
+
+  it("runs and returns the saved monthly cost formula for a scheduled case", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Monthly route case",
+      address: "603 Test Avenue",
+      assumptions: {},
+    });
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-03",
+      costLines: [{
+        id: "land",
+        name: "Land",
+        category: "land",
+        amount: 1_000_000,
+        unit: "usd",
+        startMonth: "2026-01",
+        endMonth: "2026-01",
+        distributionMethod: "straight_line",
+        distributionVersion: "straight_line.v1",
+        reviewState: "working",
+      }],
+    });
+
+    const response = await POST(new Request("http://localhost", {
+      method: "POST",
+      body: JSON.stringify({ expectedRevision: scheduled!.caseRevision }),
+    }), context(savedCase!.id));
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.run).toMatchObject({
+      formulaVersion: "underwriting.monthly_cost_schedule.v1",
+      status: "complete",
+      inputSnapshot: { analysisStartMonth: "2026-01", saleMonth: "2026-03" },
+      monthlyCostResult: { totalUses: 1_000_000 },
+      reconciliations: expect.arrayContaining([
+        expect.objectContaining({ id: "cost-line:land", status: "pass" }),
+      ]),
+    });
   });
 });

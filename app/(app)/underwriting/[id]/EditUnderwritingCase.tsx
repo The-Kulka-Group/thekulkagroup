@@ -15,6 +15,7 @@ const ASSUMPTION_FIELDS: Array<{
   min: number;
   max?: number;
   step: string;
+  recordOnly?: boolean;
 }> = [
   { name: "purchasePrice", label: "Purchase price", unit: "USD", min: 0, step: "any" },
   { name: "monthlyRent", label: "Average monthly rent", unit: "USD/month", min: 0, step: "any" },
@@ -23,11 +24,11 @@ const ASSUMPTION_FIELDS: Array<{
   { name: "contingencyPercent", label: "Contingency", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "vacancyPercent", label: "Vacancy", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "operatingExpensePercent", label: "Operating expenses", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "constructionMonths", label: "Construction duration", unit: "months", min: 1, step: "1" },
+  { name: "constructionMonths", label: "Construction duration", unit: "months", min: 1, step: "1", recordOnly: true },
   { name: "debtPercent", label: "Expected debt", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "interestRatePercent", label: "Expected interest rate", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "exitCapRatePercent", label: "Exit cap rate", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "holdYears", label: "Hold period", unit: "years", min: 1, step: "1" },
+  { name: "holdYears", label: "Hold period", unit: "years", min: 1, step: "1", recordOnly: true },
 ];
 
 function numberValue(form: FormData, name: string) {
@@ -74,6 +75,7 @@ export function EditUnderwritingCase({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          expectedRevision: savedCase.caseRevision,
           name: form.get("name"),
           address: form.get("address"),
           proposedUnits: numberValue(form, "proposedUnits"),
@@ -85,7 +87,9 @@ export function EditUnderwritingCase({
       });
       const body = await response.json();
       if (!response.ok) {
-        setError(body.error ?? "The case could not be saved.");
+        setError(response.status === 409
+          ? "The case changed in another session. Refresh the page, review the latest values, then retry your edits. Your entries remain in this form."
+          : body.error ?? "The case could not be saved.");
         setFieldErrors(body.fieldErrors ?? {});
         setSaving(false);
         return;
@@ -98,7 +102,9 @@ export function EditUnderwritingCase({
       });
       if (!runResponse.ok) {
         const runBody = await runResponse.json();
-        setError(`The changes were saved. ${runBody.error ?? "The calculation could not run."}`);
+        setError(runResponse.status === 409
+          ? "The changes were saved, but the case changed again before calculation. Refresh the page and retry the calculation."
+          : `The changes were saved. ${runBody.error ?? "The calculation could not run."}`);
         setSaving(false);
         return;
       }
@@ -151,6 +157,7 @@ export function EditUnderwritingCase({
                     <th scope="row">
                       {field.label}
                       <span className="underwriting-unit">{field.unit}</span>
+                      {field.recordOnly ? <span className="underwriting-record-only">Record only. The current model does not use this value.</span> : null}
                     </th>
                     <td>
                       <InlineInput
@@ -160,6 +167,7 @@ export function EditUnderwritingCase({
                         max={field.max}
                         step={field.step}
                         defaultValue={assumption?.value}
+                        label={`${field.label} value`}
                         error={fieldErrors[`assumptions.${field.name}`]}
                       />
                     </td>
@@ -167,6 +175,7 @@ export function EditUnderwritingCase({
                       <InlineInput
                         name={`assumptionMetadata.${field.name}.sourceLabel`}
                         defaultValue={assumption?.sourceLabel ?? "User entered"}
+                        label={`${field.label} source label`}
                         error={fieldErrors[`assumptionMetadata.${field.name}.sourceLabel`]}
                       />
                     </td>
@@ -175,20 +184,29 @@ export function EditUnderwritingCase({
                         name={`assumptionMetadata.${field.name}.sourceDate`}
                         type="date"
                         defaultValue={assumption?.sourceDate ?? defaultSourceDate}
+                        label={`${field.label} source date`}
                         error={fieldErrors[`assumptionMetadata.${field.name}.sourceDate`]}
                       />
                     </td>
                     <td>
                       <select
+                        id={controlId(`assumptionMetadata.${field.name}.reviewState`)}
                         className="input"
                         name={`assumptionMetadata.${field.name}.reviewState`}
                         defaultValue={assumption?.reviewState ?? "working"}
+                        aria-label={`${field.label} review state`}
                         aria-invalid={Boolean(fieldErrors[`assumptionMetadata.${field.name}.reviewState`])}
+                        aria-describedby={fieldErrors[`assumptionMetadata.${field.name}.reviewState`]
+                          ? `${controlId(`assumptionMetadata.${field.name}.reviewState`)}-error`
+                          : undefined}
                       >
                         <option value="working">Working on it</option>
                         <option value="done">Done</option>
                       </select>
-                      <FieldError error={fieldErrors[`assumptionMetadata.${field.name}.reviewState`]} />
+                      <FieldError
+                        id={`${controlId(`assumptionMetadata.${field.name}.reviewState`)}-error`}
+                        error={fieldErrors[`assumptionMetadata.${field.name}.reviewState`]}
+                      />
                     </td>
                   </tr>
                 );
@@ -213,26 +231,50 @@ function Field({ label, unit, error, ...input }: {
   unit?: string;
   error?: string;
 } & InputHTMLAttributes<HTMLInputElement>) {
+  const id = input.id ?? controlId(String(input.name));
+  const errorId = `${id}-error`;
   return (
-    <label>
+    <div>
       <span className="field-label t-label">
-        {label}{unit ? <span className="underwriting-unit">{unit}</span> : null}
+        <label htmlFor={id}>{label}</label>{unit ? <span className="underwriting-unit">{unit}</span> : null}
       </span>
-      <input className="input" aria-invalid={Boolean(error)} {...input} />
-      <FieldError error={error} />
-    </label>
+      <input
+        id={id}
+        className="input"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        {...input}
+      />
+      <FieldError id={errorId} error={error} />
+    </div>
   );
 }
 
-function InlineInput({ error, ...input }: { error?: string } & InputHTMLAttributes<HTMLInputElement>) {
+function InlineInput({ error, label, ...input }: {
+  error?: string;
+  label: string;
+} & InputHTMLAttributes<HTMLInputElement>) {
+  const id = input.id ?? controlId(String(input.name));
+  const errorId = `${id}-error`;
   return (
     <>
-      <input className="input" aria-invalid={Boolean(error)} {...input} />
-      <FieldError error={error} />
+      <input
+        id={id}
+        className="input"
+        aria-label={label}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        {...input}
+      />
+      <FieldError id={errorId} error={error} />
     </>
   );
 }
 
-function FieldError({ error }: { error?: string }) {
-  return error ? <span className="input-error" role="alert">{error}</span> : null;
+function FieldError({ id, error }: { id: string; error?: string }) {
+  return error ? <span id={id} className="input-error" role="alert">{error}</span> : null;
+}
+
+function controlId(name: string) {
+  return `underwriting-${name.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }

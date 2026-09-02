@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
-import { getUnderwritingCase, updateUnderwritingCase } from "@/lib/underwriting/cases";
+import {
+  getUnderwritingCase,
+  UnderwritingCaseRevisionConflict,
+  updateUnderwritingCase,
+} from "@/lib/underwriting/cases";
 import { InvalidCaseDraft, parseCaseDraft } from "@/lib/underwriting/input";
 
 type Context = { params: Promise<{ id: string }> };
@@ -35,7 +39,18 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   try {
-    const savedCase = await updateUnderwritingCase(getDb(), id, parseCaseDraft(body));
+    const expectedRevision = body && typeof body === "object" && !Array.isArray(body)
+      ? (body as Record<string, unknown>).expectedRevision
+      : undefined;
+    if (!Number.isSafeInteger(expectedRevision) || Number(expectedRevision) < 1) {
+      return NextResponse.json({ error: "Send a valid expected case revision." }, { status: 400 });
+    }
+    const savedCase = await updateUnderwritingCase(
+      getDb(),
+      id,
+      parseCaseDraft(body),
+      Number(expectedRevision),
+    );
     return savedCase
       ? NextResponse.json({ case: savedCase })
       : NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
@@ -45,6 +60,9 @@ export async function PATCH(request: Request, context: Context) {
         { error: cause.message, fieldErrors: cause.fieldErrors },
         { status: 400 },
       );
+    }
+    if (cause instanceof UnderwritingCaseRevisionConflict) {
+      return NextResponse.json({ error: cause.message }, { status: 409 });
     }
     throw cause;
   }

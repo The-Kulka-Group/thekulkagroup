@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { seededDatabase } from "@/test/database";
 import { createUnderwritingCase, updateUnderwritingCase, type CaseDraft } from "./cases";
-import { getLatestUnderwritingRun, getUnderwritingRun, listUnderwritingRuns, runUnderwritingCase } from "./runs";
+import {
+  countUnderwritingRuns,
+  getLatestUnderwritingRun,
+  getUnderwritingRun,
+  listUnderwritingRuns,
+  runUnderwritingCase,
+} from "./runs";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 
@@ -129,7 +135,7 @@ describe("underwriting calculation repository", () => {
         ...completeDraft.assumptions,
         purchasePrice: 4500000.75,
       },
-    });
+    }, savedCase!.caseRevision);
     const secondRun = await runUnderwritingCase(db, savedCase!.id, updatedCase!.caseRevision);
     const history = await listUnderwritingRuns(db, savedCase!.id, 2);
     const reopenedFirst = await getUnderwritingRun(db, firstRun!.id);
@@ -144,13 +150,34 @@ describe("underwriting calculation repository", () => {
     expect(reopenedFirst!.results).toEqual(firstRun!.results);
   });
 
+  it("pages run history without making older runs unreachable", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const first = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const second = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const third = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+
+    expect(await countUnderwritingRuns(db, savedCase!.id)).toBe(3);
+    expect((await listUnderwritingRuns(db, savedCase!.id, 2, 0)).map((run) => run.id)).toEqual([
+      third!.id,
+      second!.id,
+    ]);
+    expect((await listUnderwritingRuns(db, savedCase!.id, 2, 2)).map((run) => run.id)).toEqual([
+      first!.id,
+    ]);
+  });
+
   it("returns null when the case does not exist", async () => {
     expect(await runUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff", 1)).toBeNull();
   });
 
   it("rejects a stale expected revision without saving a run", async () => {
     const savedCase = await createUnderwritingCase(db, completeDraft);
-    const updatedCase = await updateUnderwritingCase(db, savedCase!.id, completeDraft);
+    const updatedCase = await updateUnderwritingCase(
+      db,
+      savedCase!.id,
+      completeDraft,
+      savedCase!.caseRevision,
+    );
 
     await expect(
       runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision),

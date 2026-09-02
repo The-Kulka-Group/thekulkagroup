@@ -75,7 +75,7 @@ describe("underwriting case repository", () => {
       name: "Revised saved case",
       proposedUnits: 52,
       assumptions: { exitCapRatePercent: 5.4, holdYears: 10 },
-    });
+    }, created!.caseRevision);
 
     expect(updated).toMatchObject({ name: "Revised saved case", proposedUnits: 52 });
     expect(updated!.caseRevision).toBe(2);
@@ -97,7 +97,7 @@ describe("underwriting case repository", () => {
           reviewState: "done",
         },
       },
-    });
+    }, created!.caseRevision);
 
     expect(updated!.assumptions).toEqual([
       expect.objectContaining({
@@ -126,7 +126,7 @@ describe("underwriting case repository", () => {
           reviewState: "done",
         },
       },
-    });
+    }, created!.caseRevision);
 
     expect(updated!.assumptions.find(({ name }) => name === "purchasePrice")).toMatchObject({
       value: 4200000,
@@ -139,8 +139,8 @@ describe("underwriting case repository", () => {
 
   it("increments the case revision on every saved edit", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
-    const firstEdit = await updateUnderwritingCase(db, created!.id, firstDraft);
-    const secondEdit = await updateUnderwritingCase(db, created!.id, firstDraft);
+    const firstEdit = await updateUnderwritingCase(db, created!.id, firstDraft, created!.caseRevision);
+    const secondEdit = await updateUnderwritingCase(db, created!.id, firstDraft, firstEdit!.caseRevision);
 
     expect([created!.caseRevision, firstEdit!.caseRevision, secondEdit!.caseRevision]).toEqual([1, 2, 3]);
   });
@@ -168,8 +168,31 @@ describe("underwriting case repository", () => {
   it("returns null when a case does not exist", async () => {
     expect(await getUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff")).toBeNull();
     expect(
-      await updateUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff", firstDraft),
+      await updateUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff", firstDraft, 1),
     ).toBeNull();
+  });
+
+  it("rejects a stale edit without overwriting the current revision", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const firstEdit = await updateUnderwritingCase(
+      db,
+      created!.id,
+      { ...firstDraft, name: "Current case name" },
+      created!.caseRevision,
+    );
+
+    await expect(
+      updateUnderwritingCase(
+        db,
+        created!.id,
+        { ...firstDraft, name: "Stale case name" },
+        created!.caseRevision,
+      ),
+    ).rejects.toThrow("The case changed before your edits were saved");
+    expect(await getUnderwritingCase(db, created!.id)).toMatchObject({
+      name: "Current case name",
+      caseRevision: firstEdit!.caseRevision,
+    });
   });
 });
 

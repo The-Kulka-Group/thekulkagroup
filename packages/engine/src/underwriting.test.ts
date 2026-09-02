@@ -54,6 +54,14 @@ describe("computePreliminaryUnderwriting", () => {
     expect(value("equityRequired")).toBe(totalCost - loan);
     expect(value("annualDebtInterestEstimate")).toBe(loan * (complete.interestRatePercent / 100));
     expect(run.results.every((result) => result.formula && result.inputKeys.length > 0)).toBe(true);
+    expect(run.results.find((result) => result.key === "exitValue")).toMatchObject({
+      label: "Stabilized value estimate",
+      formula: "same-period annual net operating income ÷ exit cap rate",
+    });
+    expect(run.results.find((result) => result.key === "annualDebtInterestEstimate")).toMatchObject({
+      label: "Full-balance annual interest estimate",
+      formula: "full loan amount × annual interest rate percent",
+    });
     expect(run.results.find((result) => result.key === "developmentMargin")!.inputKeys).not.toContain(
       "interestRatePercent",
     );

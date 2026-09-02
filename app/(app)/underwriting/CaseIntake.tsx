@@ -75,11 +75,11 @@ export function CaseIntake() {
         <Field name="contingencyPercent" label="Contingency" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="vacancyPercent" label="Vacancy" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="operatingExpensePercent" label="Operating expenses" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="constructionMonths" label="Construction duration" unit="months" type="number" min="1" step="1" />
+        <Field name="constructionMonths" label="Construction duration" unit="months" note="Record only. The current model does not use this value." type="number" min="1" step="1" />
         <Field name="debtPercent" label="Expected debt" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="interestRatePercent" label="Expected interest rate" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="exitCapRatePercent" label="Exit cap rate" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="holdYears" label="Hold period" unit="years" type="number" min="1" step="1" />
+        <Field name="holdYears" label="Hold period" unit="years" note="Record only. The current model does not use this value." type="number" min="1" step="1" />
       </div>
 
       {error ? <p className="input-error" role="alert">{error}</p> : null}
@@ -95,10 +95,12 @@ export function CaseIntake() {
 function Field({
   label,
   unit,
+  note,
   ...input
 }: {
   label: string;
   unit?: string;
+  note?: string;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label>
@@ -106,6 +108,7 @@ function Field({
         {label}{unit ? <span className="underwriting-unit">{unit}</span> : null}
       </span>
       <input className="input" {...input} />
+      {note ? <span className="t-meta underwriting-field-note">{note}</span> : null}
     </label>
   );
 }

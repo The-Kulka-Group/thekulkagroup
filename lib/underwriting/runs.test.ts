@@ -36,18 +36,26 @@ afterEach(async () => {
 describe("underwriting calculation repository", () => {
   it("stores a complete immutable input and result snapshot", async () => {
     const savedCase = await createUnderwritingCase(db, completeDraft);
-    const run = await runUnderwritingCase(db, savedCase!.id);
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
 
     expect(run).toMatchObject({
       caseId: savedCase!.id,
       formulaVersion: "underwriting.preliminary_annual.v1",
       status: "complete",
+      caseRevision: 1,
       inputSnapshot: {
         grossBuildingSquareFeet: 60000.125,
         monthlyRent: 2200.125,
         softCostPercent: 12.25,
       },
       issues: [],
+      evidenceSnapshot: {
+        caseId: savedCase!.id,
+        caseRevision: 1,
+        name: completeDraft.name,
+        address: completeDraft.address,
+        grossBuildingSquareFeet: 60000.125,
+      },
     });
     expect(run!.results).toHaveLength(14);
     expect(run!.results[0]).toMatchObject({
@@ -55,6 +63,19 @@ describe("underwriting calculation repository", () => {
       formula: "gross building area × hard cost per GSF",
       inputKeys: ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot"],
     });
+    expect(run!.evidenceSnapshot.assumptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "monthlyRent",
+          value: 2200.125,
+          unit: "usd_per_month",
+          sourceLabel: "User entered",
+          sourceDate: expect.any(String),
+          reviewState: "working",
+          lastChangedAt: expect.any(String),
+        }),
+      ]),
+    );
 
     await db.query(
       `update underwriting_cases set gross_building_square_feet = 70000 where id = $1`,
@@ -71,7 +92,7 @@ describe("underwriting calculation repository", () => {
       address: "501 Test Avenue",
       assumptions: {},
     });
-    const run = await runUnderwritingCase(db, savedCase!.id);
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
 
     expect(run!.status).toBe("failed");
     expect(run!.results).toEqual([]);
@@ -83,22 +104,25 @@ describe("underwriting calculation repository", () => {
 
   it("rejects updates and deletes to saved runs and results", async () => {
     const savedCase = await createUnderwritingCase(db, completeDraft);
-    const run = await runUnderwritingCase(db, savedCase!.id);
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
 
     await expect(
       db.query(`update underwriting_calculation_runs set status = 'failed' where id = $1`, [run!.id]),
     ).rejects.toThrow("Underwriting calculation runs are immutable");
     await expect(
-      db.query(`delete from underwriting_calculation_results where run_id = $1`, [run!.id]),
+      db.query(`update underwriting_calculation_runs set result_snapshot = '[]' where id = $1`, [run!.id]),
+    ).rejects.toThrow("Underwriting calculation runs are immutable");
+    await expect(
+      db.query(`delete from underwriting_calculation_runs where id = $1`, [run!.id]),
     ).rejects.toThrow("Underwriting calculation runs are immutable");
   });
 
   it("keeps the first snapshot and results unchanged after an edit and rerun", async () => {
     const savedCase = await createUnderwritingCase(db, completeDraft);
-    const firstRun = await runUnderwritingCase(db, savedCase!.id);
+    const firstRun = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
     const firstSnapshot = structuredClone(firstRun);
 
-    await updateUnderwritingCase(db, savedCase!.id, {
+    const updatedCase = await updateUnderwritingCase(db, savedCase!.id, {
       ...completeDraft,
       grossBuildingSquareFeet: 64000.5,
       assumptions: {
@@ -106,20 +130,53 @@ describe("underwriting calculation repository", () => {
         purchasePrice: 4500000.75,
       },
     });
-    const secondRun = await runUnderwritingCase(db, savedCase!.id);
+    const secondRun = await runUnderwritingCase(db, savedCase!.id, updatedCase!.caseRevision);
     const history = await listUnderwritingRuns(db, savedCase!.id, 2);
     const reopenedFirst = await getUnderwritingRun(db, firstRun!.id);
 
     expect(secondRun!.id).not.toBe(firstRun!.id);
     expect(history.map((run) => run.id)).toEqual([secondRun!.id, firstRun!.id]);
     expect(history[0].inputSnapshot.grossBuildingSquareFeet).toBe(64000.5);
+    expect(history[0].caseRevision).toBe(2);
+    expect(history[1].caseRevision).toBe(1);
     expect(reopenedFirst).toEqual(firstSnapshot);
     expect(reopenedFirst!.inputSnapshot.purchasePrice).toBe(4000000.25);
     expect(reopenedFirst!.results).toEqual(firstRun!.results);
   });
 
   it("returns null when the case does not exist", async () => {
-    expect(await runUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff")).toBeNull();
+    expect(await runUnderwritingCase(db, "00000000-0000-4000-8000-0000000000ff", 1)).toBeNull();
+  });
+
+  it("rejects a stale expected revision without saving a run", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const updatedCase = await updateUnderwritingCase(db, savedCase!.id, completeDraft);
+
+    await expect(
+      runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision),
+    ).rejects.toThrow("The case changed before the calculation ran");
+    expect(await getLatestUnderwritingRun(db, updatedCase!.id)).toBeNull();
+  });
+
+  it("persists an overflow as an immutable failed run", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      ...completeDraft,
+      grossBuildingSquareFeet: Number.MAX_VALUE,
+      assumptions: {
+        ...completeDraft.assumptions,
+        hardCostPerGrossSquareFoot: 2,
+      },
+    });
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    expect(reopened).toEqual(run);
+    expect(reopened).toMatchObject({
+      status: "failed",
+      caseRevision: 1,
+      results: [],
+      issues: [{ inputKey: "derivedResults", code: "not_finite" }],
+    });
   });
 });
 
@@ -128,15 +185,12 @@ describe("underwriting calculation migration", () => {
     const { rows } = await db.query<{ relname: string; relrowsecurity: boolean }>(
       `select relname, relrowsecurity
        from pg_class
-       where relname in ('underwriting_calculation_runs', 'underwriting_calculation_results')
+       where relname = 'underwriting_calculation_runs'
        order by relname`,
     );
-    expect(rows).toEqual([
-      { relname: "underwriting_calculation_results", relrowsecurity: true },
-      { relname: "underwriting_calculation_runs", relrowsecurity: true },
-    ]);
+    expect(rows).toEqual([{ relname: "underwriting_calculation_runs", relrowsecurity: true }]);
     const policies = await db.query(
-      `select * from pg_policies where tablename in ('underwriting_calculation_runs', 'underwriting_calculation_results')`,
+      `select * from pg_policies where tablename = 'underwriting_calculation_runs'`,
     );
     expect(policies.rows).toEqual([]);
   });

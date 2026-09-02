@@ -51,7 +51,15 @@ describe("/api/underwriting/cases/:id", () => {
   });
 
   it("rejects malformed ids and returns 404 for missing cases", async () => {
-    expect((await GET(new Request("http://localhost"), context("bad"))).status).toBe(400);
+    expect((await GET(new Request("http://localhost"), context("bad"))).status).toBe(404);
+    expect(
+      (
+        await PATCH(
+          new Request("http://localhost", { method: "PATCH", body: JSON.stringify({}) }),
+          context("bad"),
+        )
+      ).status,
+    ).toBe(404);
     expect(
       (
         await GET(

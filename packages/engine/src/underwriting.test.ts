@@ -106,4 +106,20 @@ describe("computePreliminaryUnderwriting", () => {
     expect(run.results).toEqual([]);
     expect(run.issues).toContainEqual(expect.objectContaining({ inputKey: "totalDevelopmentCost" }));
   });
+
+  it("fails when a derived value overflows", () => {
+    const run = computePreliminaryUnderwriting({
+      ...complete,
+      grossBuildingSquareFeet: Number.MAX_VALUE,
+      hardCostPerGrossSquareFoot: 2,
+    });
+
+    expect(run.status).toBe("failed");
+    expect(run.results).toEqual([]);
+    expect(run.issues).toContainEqual({
+      inputKey: "derivedResults",
+      code: "not_finite",
+      message: "A derived result is outside the supported numeric range.",
+    });
+  });
 });

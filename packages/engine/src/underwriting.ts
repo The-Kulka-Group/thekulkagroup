@@ -17,7 +17,7 @@ export type UnderwritingInputKey =
 export type PreliminaryUnderwritingInputs = Partial<Record<UnderwritingInputKey, number>>;
 
 export type UnderwritingIssue = {
-  inputKey: UnderwritingInputKey | "totalDevelopmentCost";
+  inputKey: UnderwritingInputKey | "totalDevelopmentCost" | "derivedResults";
   code: "missing" | "not_finite" | "negative" | "must_be_positive" | "percent_out_of_range";
   message: string;
 };
@@ -102,6 +102,9 @@ export function computePreliminaryUnderwriting(
   const softCost = hardCost * decimal(values.softCostPercent);
   const contingency = hardCost * decimal(values.contingencyPercent);
   const totalDevelopmentCost = values.purchasePrice + hardCost + softCost + contingency;
+  if (![hardCost, softCost, contingency, totalDevelopmentCost].every(Number.isFinite)) {
+    return failed(inputSnapshot, [derivedRangeIssue()]);
+  }
   if (!(totalDevelopmentCost > 0)) {
     return failed(inputSnapshot, [{
       inputKey: "totalDevelopmentCost",
@@ -121,27 +124,32 @@ export function computePreliminaryUnderwriting(
   const equityRequired = totalDevelopmentCost - loanAmount;
   const annualDebtInterestEstimate = loanAmount * decimal(values.interestRatePercent);
 
+  const results = [
+    result("hardCost", "Hard cost", hardCost, "usd", "gross building area × hard cost per GSF", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot"]),
+    result("softCost", "Soft cost", softCost, "usd", "hard cost × soft cost percent", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent"]),
+    result("contingency", "Contingency", contingency, "usd", "hard cost × contingency percent", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "contingencyPercent"]),
+    result("totalDevelopmentCost", "Total development cost", totalDevelopmentCost, "usd", "purchase price + hard cost + soft cost + contingency", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent"]),
+    result("grossRevenue", "Gross annual revenue", grossRevenue, "usd", "proposed units × average monthly rent × 12", ["proposedUnits", "monthlyRent"]),
+    result("effectiveGrossRevenue", "Effective gross revenue", effectiveGrossRevenue, "usd", "gross annual revenue × (1 - vacancy percent)", ["proposedUnits", "monthlyRent", "vacancyPercent"]),
+    result("operatingExpenses", "Operating expenses", operatingExpenses, "usd", "effective gross revenue × operating expense percent", ["proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent"]),
+    result("netOperatingIncome", "Net operating income", netOperatingIncome, "usd", "effective gross revenue - operating expenses", ["proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent"]),
+    result("exitValue", "Exit value", exitValue, "usd", "net operating income ÷ exit cap rate", ["proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent", "exitCapRatePercent"]),
+    result("developmentMargin", "Development margin", developmentMargin, "decimal", "(exit value - total development cost) ÷ total development cost", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent", "exitCapRatePercent"]),
+    result("yieldOnCost", "Yield on cost", yieldOnCost, "decimal", "net operating income ÷ total development cost", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent"]),
+    result("loanAmount", "Loan amount", loanAmount, "usd", "total development cost × debt percent", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "debtPercent"]),
+    result("equityRequired", "Equity required", equityRequired, "usd", "total development cost - loan amount", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "debtPercent"]),
+    result("annualDebtInterestEstimate", "Annual debt interest estimate", annualDebtInterestEstimate, "usd", "loan amount × interest rate percent", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "debtPercent", "interestRatePercent"]),
+  ];
+  if (results.some(({ value }) => !Number.isFinite(value))) {
+    return failed(inputSnapshot, [derivedRangeIssue()]);
+  }
+
   return {
     formulaVersion: UNDERWRITING_FORMULA_VERSION,
     inputSnapshot,
     status: "complete",
     issues: [],
-    results: [
-      result("hardCost", "Hard cost", hardCost, "usd", "gross building area × hard cost per GSF", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot"]),
-      result("softCost", "Soft cost", softCost, "usd", "hard cost × soft cost percent", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent"]),
-      result("contingency", "Contingency", contingency, "usd", "hard cost × contingency percent", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "contingencyPercent"]),
-      result("totalDevelopmentCost", "Total development cost", totalDevelopmentCost, "usd", "purchase price + hard cost + soft cost + contingency", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent"]),
-      result("grossRevenue", "Gross annual revenue", grossRevenue, "usd", "proposed units × average monthly rent × 12", ["proposedUnits", "monthlyRent"]),
-      result("effectiveGrossRevenue", "Effective gross revenue", effectiveGrossRevenue, "usd", "gross annual revenue × (1 - vacancy percent)", ["proposedUnits", "monthlyRent", "vacancyPercent"]),
-      result("operatingExpenses", "Operating expenses", operatingExpenses, "usd", "effective gross revenue × operating expense percent", ["proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent"]),
-      result("netOperatingIncome", "Net operating income", netOperatingIncome, "usd", "effective gross revenue - operating expenses", ["proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent"]),
-      result("exitValue", "Exit value", exitValue, "usd", "net operating income ÷ exit cap rate", ["proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent", "exitCapRatePercent"]),
-      result("developmentMargin", "Development margin", developmentMargin, "decimal", "(exit value - total development cost) ÷ total development cost", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent", "exitCapRatePercent"]),
-      result("yieldOnCost", "Yield on cost", yieldOnCost, "decimal", "net operating income ÷ total development cost", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "proposedUnits", "monthlyRent", "vacancyPercent", "operatingExpensePercent"]),
-      result("loanAmount", "Loan amount", loanAmount, "usd", "total development cost × debt percent", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "debtPercent"]),
-      result("equityRequired", "Equity required", equityRequired, "usd", "total development cost - loan amount", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "debtPercent"]),
-      result("annualDebtInterestEstimate", "Annual debt interest estimate", annualDebtInterestEstimate, "usd", "loan amount × interest rate percent", ["purchasePrice", "grossBuildingSquareFeet", "hardCostPerGrossSquareFoot", "softCostPercent", "contingencyPercent", "debtPercent", "interestRatePercent"]),
-    ],
+    results,
   };
 }
 
@@ -174,6 +182,14 @@ function validate(input: PreliminaryUnderwritingInputs) {
 
 function decimal(percent: number) {
   return percent / 100;
+}
+
+function derivedRangeIssue(): UnderwritingIssue {
+  return {
+    inputKey: "derivedResults",
+    code: "not_finite",
+    message: "A derived result is outside the supported numeric range.",
+  };
 }
 
 function result(

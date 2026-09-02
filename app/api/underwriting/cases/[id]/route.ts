@@ -15,7 +15,7 @@ async function caseId(context: Context) {
 
 export async function GET(_request: Request, context: Context) {
   const id = await caseId(context);
-  if (!id) return NextResponse.json({ error: "Send a valid case id." }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
 
   const savedCase = await getUnderwritingCase(getDb(), id);
   return savedCase
@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: Context) {
 
 export async function PATCH(request: Request, context: Context) {
   const id = await caseId(context);
-  if (!id) return NextResponse.json({ error: "Send a valid case id." }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
 
   let body: unknown;
   try {

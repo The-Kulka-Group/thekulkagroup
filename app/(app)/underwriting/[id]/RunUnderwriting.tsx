@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function RunUnderwriting({ caseId, hasRun }: { caseId: string; hasRun: boolean }) {
+export function RunUnderwriting({
+  caseId,
+  caseRevision,
+  hasRun,
+}: {
+  caseId: string;
+  caseRevision: number;
+  hasRun: boolean;
+}) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string>();
@@ -11,7 +19,11 @@ export function RunUnderwriting({ caseId, hasRun }: { caseId: string; hasRun: bo
   async function run() {
     setRunning(true);
     setError(undefined);
-    const response = await fetch(`/api/underwriting/cases/${caseId}/runs`, { method: "POST" });
+    const response = await fetch(`/api/underwriting/cases/${caseId}/runs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: caseRevision }),
+    });
     const body = await response.json();
     if (!response.ok) {
       setError(body.error ?? "The calculation could not run.");

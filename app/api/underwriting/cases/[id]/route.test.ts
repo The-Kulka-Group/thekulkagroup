@@ -1,0 +1,133 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { Db } from "@/lib/db";
+import { createUnderwritingCase } from "@/lib/underwriting/cases";
+import { seededDatabase } from "@/test/database";
+
+let db: Awaited<ReturnType<typeof seededDatabase>>;
+
+vi.mock("@/lib/db", () => ({ getDb: () => db as Db }));
+
+const { GET, PATCH } = await import("./route");
+const context = (id: string) => ({ params: Promise.resolve({ id }) });
+
+beforeEach(async () => {
+  db = await seededDatabase();
+});
+
+afterEach(async () => {
+  await db.close();
+});
+
+describe("/api/underwriting/cases/:id", () => {
+  it("reopens and updates a saved case", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Saved route case",
+      address: "400 Test Avenue",
+      assumptions: {},
+    });
+    const reopened = await GET(new Request("http://localhost"), context(savedCase!.id));
+    expect(reopened.status).toBe(200);
+    expect((await reopened.json()).case.id).toBe(savedCase!.id);
+
+    const updated = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({
+          expectedRevision: savedCase!.caseRevision,
+          name: "Updated route case",
+          address: "400 Test Avenue",
+          proposedUnits: 44,
+          assumptions: { exitCapRatePercent: 5.25 },
+        }),
+      }),
+      context(savedCase!.id),
+    );
+    expect(updated.status).toBe(200);
+    expect((await updated.json()).case).toMatchObject({
+      name: "Updated route case",
+      proposedUnits: 44,
+      assumptions: [expect.objectContaining({ name: "exitCapRatePercent", value: 5.25 })],
+    });
+  });
+
+  it("rejects malformed ids and returns 404 for missing cases", async () => {
+    expect((await GET(new Request("http://localhost"), context("bad"))).status).toBe(404);
+    expect(
+      (
+        await PATCH(
+          new Request("http://localhost", { method: "PATCH", body: JSON.stringify({}) }),
+          context("bad"),
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await GET(
+          new Request("http://localhost"),
+          context("00000000-0000-4000-8000-0000000000ff"),
+        )
+      ).status,
+    ).toBe(404);
+  });
+
+  it("returns field-level errors without changing the saved case", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Preserved route case",
+      address: "402 Test Avenue",
+      proposedUnits: 40,
+      assumptions: {},
+    });
+    const response = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({
+          expectedRevision: savedCase!.caseRevision,
+          name: "Unsaved route case",
+          address: "402 Test Avenue",
+          proposedUnits: 40.5,
+          assumptions: {},
+        }),
+      }),
+      context(savedCase!.id),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      fieldErrors: { proposedUnits: "Proposed units must be a whole number." },
+    });
+    const reopened = await GET(new Request("http://localhost"), context(savedCase!.id));
+    expect((await reopened.json()).case).toMatchObject({
+      name: "Preserved route case",
+      proposedUnits: 40,
+    });
+  });
+
+  it("returns 409 when an edit uses a stale case revision", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Concurrent route case",
+      address: "403 Test Avenue",
+      assumptions: {},
+    });
+    const draft = {
+      expectedRevision: savedCase!.caseRevision,
+      name: "First route edit",
+      address: savedCase!.address,
+      assumptions: {},
+    };
+    expect((await PATCH(
+      new Request("http://localhost", { method: "PATCH", body: JSON.stringify(draft) }),
+      context(savedCase!.id),
+    )).status).toBe(200);
+
+    const conflict = await PATCH(
+      new Request("http://localhost", {
+        method: "PATCH",
+        body: JSON.stringify({ ...draft, name: "Stale route edit" }),
+      }),
+      context(savedCase!.id),
+    );
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toMatchObject({ error: expect.stringMatching(/changed/i) });
+  });
+});

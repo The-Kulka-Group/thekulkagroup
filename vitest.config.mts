@@ -11,6 +11,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Each database-backed file starts an in-process Postgres instance. Run
+    // files one at a time so concurrent startup cannot exhaust the test host.
+    fileParallelism: false,
     include: [
       "packages/*/**/*.test.{ts,tsx}",
       "{app,lib,test}/**/*.test.{ts,tsx}",

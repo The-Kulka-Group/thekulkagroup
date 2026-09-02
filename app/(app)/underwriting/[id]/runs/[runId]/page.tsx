@@ -4,13 +4,14 @@ import { notFound } from "next/navigation";
 import { Sheet, Sep } from "@/components/Sheet";
 import { Chip } from "@/components/Status";
 import { getDb } from "@/lib/db";
-import { getUnderwritingCase } from "@/lib/underwriting/cases";
+import { FACT_DEFINITIONS, getUnderwritingCase } from "@/lib/underwriting/cases";
 import {
   UNDERWRITING_INPUT_KEYS,
   UNDERWRITING_INPUT_LABELS,
   UNDERWRITING_LIMITATIONS,
 } from "@/lib/underwriting/presentation";
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function UnderwritingRunPage({
   params: Promise<{ id: string; runId: string }>;
 }) {
   const { id, runId } = await params;
+  if (!isUuid(id) || !isUuid(runId)) notFound();
   const [savedCase, run] = await Promise.all([
     getUnderwritingCase(getDb(), id),
     getUnderwritingRun(getDb(), runId),
@@ -147,6 +149,28 @@ export default async function UnderwritingRunPage({
             <div><dt>Case created</dt><dd className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.createdAt))}</dd></div>
             <div><dt>Case updated</dt><dd className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.updatedAt))}</dd></div>
           </dl>
+          <div className="underwriting-results-wrap">
+            <table className="underwriting-evidence">
+              <thead>
+                <tr><th>Project fact</th><th>Source label</th><th>Source date</th><th>Review state</th><th>Evidence changed</th><th>Case revision</th></tr>
+              </thead>
+              <tbody>
+                {Object.entries(FACT_DEFINITIONS).map(([name, definition]) => {
+                  const evidence = run.evidenceSnapshot.factMetadata[name as keyof typeof FACT_DEFINITIONS];
+                  return (
+                    <tr key={name}>
+                      <th scope="row">{definition.label}</th>
+                      <td>{evidence?.sourceLabel || "Missing"}</td>
+                      <td className="num">{evidence?.sourceDate ? DATE.format(new Date(`${evidence.sourceDate}T00:00:00.000Z`)) : "Missing"}</td>
+                      <td>{evidence ? <Chip status={evidence.reviewState} /> : "Missing"}</td>
+                      <td className="num">{evidence ? DATE_TIME.format(new Date(evidence.lastChangedAt)) : "Missing"}</td>
+                      <td className="num">{evidence?.caseRevision ?? "Missing"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>

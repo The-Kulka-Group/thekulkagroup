@@ -70,14 +70,13 @@ const LABELS: Record<UnderwritingInputKey, string> = {
   exitCapRatePercent: "Exit cap rate",
 };
 
-const REQUIRED: UnderwritingInputKey[] = Object.keys(LABELS) as UnderwritingInputKey[];
+const REQUIRED: UnderwritingInputKey[] = (Object.keys(LABELS) as UnderwritingInputKey[])
+  .filter((key) => key !== "interestRatePercent");
 const POSITIVE: UnderwritingInputKey[] = [
   "grossBuildingSquareFeet",
   "proposedUnits",
   "monthlyRent",
   "hardCostPerGrossSquareFoot",
-  "debtPercent",
-  "interestRatePercent",
   "exitCapRatePercent",
 ];
 const PERCENTS: UnderwritingInputKey[] = [
@@ -98,6 +97,7 @@ export function computePreliminaryUnderwriting(
   if (issues.length > 0) return failed(inputSnapshot, issues);
 
   const values = inputSnapshot as Required<PreliminaryUnderwritingInputs>;
+  const interestRatePercent = inputSnapshot.interestRatePercent ?? 0;
   const hardCost = values.grossBuildingSquareFeet * values.hardCostPerGrossSquareFoot;
   const softCost = hardCost * decimal(values.softCostPercent);
   const contingency = hardCost * decimal(values.contingencyPercent);
@@ -122,7 +122,7 @@ export function computePreliminaryUnderwriting(
   const yieldOnCost = netOperatingIncome / totalDevelopmentCost;
   const loanAmount = totalDevelopmentCost * decimal(values.debtPercent);
   const equityRequired = totalDevelopmentCost - loanAmount;
-  const annualDebtInterestEstimate = loanAmount * decimal(values.interestRatePercent);
+  const annualDebtInterestEstimate = loanAmount * decimal(interestRatePercent);
 
   const results = [
     result("hardCost", "Hard cost", hardCost, "usd", "gross building area × hard cost per GSF", ["grossBuildingSquareFeet", "hardCostPerGrossSquareFoot"]),
@@ -176,6 +176,25 @@ function validate(input: PreliminaryUnderwritingInputs) {
     if (PERCENTS.includes(key) && value > 100) {
       issues.push({ inputKey: key, code: "percent_out_of_range", message: `${LABELS[key]} must be between 0 and 100 percent.` });
     }
+  }
+  const interestRate = input.interestRatePercent;
+  if (interestRate !== undefined) {
+    if (!Number.isFinite(interestRate)) {
+      issues.push({ inputKey: "interestRatePercent", code: "not_finite", message: "Interest rate percent must be a finite number." });
+    } else if (interestRate < 0) {
+      issues.push({ inputKey: "interestRatePercent", code: "negative", message: "Interest rate percent cannot be negative." });
+    } else if (interestRate > 100) {
+      issues.push({ inputKey: "interestRatePercent", code: "percent_out_of_range", message: "Interest rate percent must be between 0 and 100 percent." });
+    }
+  }
+  if ((input.debtPercent ?? 0) > 0 && !(interestRate !== undefined && interestRate > 0)) {
+    issues.push({
+      inputKey: "interestRatePercent",
+      code: interestRate === undefined ? "missing" : "must_be_positive",
+      message: interestRate === undefined
+        ? "Interest rate percent is required when debt percent is greater than zero."
+        : "Interest rate percent must be greater than zero when debt percent is greater than zero.",
+    });
   }
   return issues;
 }

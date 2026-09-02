@@ -24,4 +24,24 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("Full calculation input snapshot");
     expect(runPage).toContain("Saved evidence snapshot");
   });
+
+  it("validates page identifiers before any repository read", async () => {
+    const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(casePage.indexOf("if (!isUuid(id)) notFound()"))
+      .toBeLessThan(casePage.indexOf("getUnderwritingCase(getDb(), id)"));
+    expect(runPage.indexOf("if (!isUuid(id) || !isUuid(runId)) notFound()"))
+      .toBeLessThan(runPage.indexOf("getUnderwritingCase(getDb(), id)"));
+  });
+
+  it("leaves missing evidence blank and restores request buttons in finally blocks", async () => {
+    const intake = await source("app/(app)/underwriting/CaseIntake.tsx");
+    const edit = await source("app/(app)/underwriting/[id]/EditUnderwritingCase.tsx");
+    const run = await source("app/(app)/underwriting/[id]/RunUnderwriting.tsx");
+    expect(edit).not.toContain('?? "User entered"');
+    expect(edit).not.toContain("defaultSourceDate");
+    expect(intake).toContain("finally {");
+    expect(edit).toContain("finally {");
+    expect(run).toContain("finally {");
+  });
 });

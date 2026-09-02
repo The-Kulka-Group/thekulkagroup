@@ -19,21 +19,25 @@ export function RunUnderwriting({
   async function run() {
     setRunning(true);
     setError(undefined);
-    const response = await fetch(`/api/underwriting/cases/${caseId}/runs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expectedRevision: caseRevision }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setError(response.status === 409
-        ? "The case changed before the calculation ran. Refresh the page, review the latest values, and try again."
-        : body.error ?? "The calculation could not run.");
+    try {
+      const response = await fetch(`/api/underwriting/cases/${caseId}/runs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedRevision: caseRevision }),
+      });
+      const body = await responseBody(response);
+      if (!response.ok) {
+        setError(response.status === 409
+          ? "The case changed before the calculation ran. Refresh the page, review the latest values, and try again."
+          : body?.error ?? "The calculation could not run.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("The calculation request failed. Check the connection and try again.");
+    } finally {
       setRunning(false);
-      return;
     }
-    router.refresh();
-    setRunning(false);
   }
 
   return (
@@ -44,4 +48,12 @@ export function RunUnderwriting({
       {error ? <p className="input-error" role="alert">{error}</p> : null}
     </div>
   );
+}
+
+async function responseBody(response: Response): Promise<{ error?: string } | null> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }

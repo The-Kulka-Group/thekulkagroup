@@ -20,6 +20,7 @@ export type UnderwritingEvidenceSnapshot = {
   proposedUnits?: number;
   averageUnitSquareFeet?: number;
   grossBuildingSquareFeet?: number;
+  factMetadata: UnderwritingCase["factMetadata"];
   createdAt: string;
   updatedAt: string;
   assumptions: UnderwritingCase["assumptions"];
@@ -167,6 +168,7 @@ function evidenceFor(savedCase: UnderwritingCase): UnderwritingEvidenceSnapshot 
     proposedUnits: savedCase.proposedUnits,
     averageUnitSquareFeet: savedCase.averageUnitSquareFeet,
     grossBuildingSquareFeet: savedCase.grossBuildingSquareFeet,
+    factMetadata: structuredClone(savedCase.factMetadata),
     createdAt: savedCase.createdAt,
     updatedAt: savedCase.updatedAt,
     assumptions: savedCase.assumptions.map((assumption) => ({ ...assumption })),

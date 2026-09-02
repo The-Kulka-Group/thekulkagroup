@@ -15,6 +15,7 @@ import {
   getLatestUnderwritingRun,
   listUnderwritingRuns,
 } from "@/lib/underwriting/runs";
+import { isUuid } from "@/lib/uuid";
 
 import { EditUnderwritingCase } from "./EditUnderwritingCase";
 import { RunUnderwriting } from "./RunUnderwriting";
@@ -38,6 +39,7 @@ export default async function UnderwritingCasePage({
   searchParams: Promise<{ runPage?: string | string[] }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const savedCase = await getUnderwritingCase(getDb(), id);
   if (!savedCase) notFound();
 
@@ -105,10 +107,7 @@ export default async function UnderwritingCasePage({
 
         <div className="margin" />
         <div className="col-field">
-          <EditUnderwritingCase
-            savedCase={savedCase}
-            defaultSourceDate={new Date().toISOString().slice(0, 10)}
-          />
+          <EditUnderwritingCase savedCase={savedCase} />
         </div>
 
         <div className="margin" />

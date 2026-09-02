@@ -92,6 +92,26 @@ describe("computePreliminaryUnderwriting", () => {
     expect(run.status).toBe("complete");
   });
 
+  it("calculates an all-equity case without an interest rate", () => {
+    const { interestRatePercent: _interestRatePercent, ...allEquity } = complete;
+    void _interestRatePercent;
+    const run = computePreliminaryUnderwriting({ ...allEquity, debtPercent: 0 });
+
+    expect(run.status).toBe("complete");
+    expect(run.inputSnapshot.interestRatePercent).toBeUndefined();
+    expect(run.results.find(({ key }) => key === "loanAmount")?.value).toBe(0);
+    expect(run.results.find(({ key }) => key === "annualDebtInterestEstimate")?.value).toBe(0);
+    expect(run.results.find(({ key }) => key === "equityRequired")?.value).toBe(
+      run.results.find(({ key }) => key === "totalDevelopmentCost")?.value,
+    );
+  });
+
+  it.each([undefined, 0])("requires a positive interest rate for positive debt: %s", (interestRatePercent) => {
+    const run = computePreliminaryUnderwriting({ ...complete, interestRatePercent });
+    expect(run.status).toBe("failed");
+    expect(run.issues).toContainEqual(expect.objectContaining({ inputKey: "interestRatePercent" }));
+  });
+
   it.each(["softCostPercent", "contingencyPercent", "vacancyPercent", "operatingExpensePercent", "debtPercent", "interestRatePercent", "exitCapRatePercent"] as const)(
     "rejects a percent above 100 for %s",
     (key) => {

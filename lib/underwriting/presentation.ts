@@ -42,14 +42,25 @@ export function buildUnderwritingReviewItems(
 ): UnderwritingReviewItem[] {
   const items: UnderwritingReviewItem[] = [];
   const facts = [
-    ["proposed-units", "Proposed units", savedCase.proposedUnits],
-    ["average-unit-size", "Average unit size", savedCase.averageUnitSquareFeet],
-    ["gross-building-area", "Gross building area", savedCase.grossBuildingSquareFeet],
+    ["proposedUnits", "Proposed units", savedCase.proposedUnits],
+    ["averageUnitSquareFeet", "Average unit size", savedCase.averageUnitSquareFeet],
+    ["grossBuildingSquareFeet", "Gross building area", savedCase.grossBuildingSquareFeet],
   ] as const;
 
   for (const [id, label, value] of facts) {
     if (value === undefined) {
       items.push({ id: `fact-${id}`, message: `${label} is missing.`, severity: "waiting" });
+      continue;
+    }
+    const metadata = savedCase.factMetadata[id];
+    if (!metadata?.sourceLabel?.trim()) {
+      items.push({ id: `fact-source-label-${id}`, message: `${label} needs a source label.`, severity: "waiting" });
+    }
+    if (!metadata?.sourceDate?.trim()) {
+      items.push({ id: `fact-source-date-${id}`, message: `${label} needs a source date.`, severity: "waiting" });
+    }
+    if (!metadata || metadata.reviewState === "working") {
+      items.push({ id: `fact-review-state-${id}`, message: `${label} is still Working on it.`, severity: "waiting" });
     }
   }
 

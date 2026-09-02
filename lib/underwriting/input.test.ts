@@ -9,7 +9,7 @@ describe("parseCaseDraft", () => {
         name: "  Saved case  ",
         address: " 100 Test Avenue ",
         proposedUnits: 24,
-        assumptions: { debtPercent: 64.125, monthlyRent: undefined },
+        assumptions: { debtPercent: 64.125, interestRatePercent: 7.25, monthlyRent: undefined },
       }),
     ).toEqual({
       name: "Saved case",
@@ -17,7 +17,7 @@ describe("parseCaseDraft", () => {
       proposedUnits: 24,
       averageUnitSquareFeet: undefined,
       grossBuildingSquareFeet: undefined,
-      assumptions: { debtPercent: 64.125 },
+      assumptions: { debtPercent: 64.125, interestRatePercent: 7.25 },
     });
   });
 
@@ -32,6 +32,8 @@ describe("parseCaseDraft", () => {
           contingencyPercent: 0,
           vacancyPercent: 0,
           operatingExpensePercent: 0,
+          debtPercent: 0,
+          interestRatePercent: 0,
         },
       }).assumptions,
     ).toEqual({
@@ -40,7 +42,25 @@ describe("parseCaseDraft", () => {
       contingencyPercent: 0,
       vacancyPercent: 0,
       operatingExpensePercent: 0,
+      debtPercent: 0,
+      interestRatePercent: 0,
     });
+  });
+
+  it("allows all-equity debt with a missing interest rate", () => {
+    expect(parseCaseDraft({
+      name: "All-equity case",
+      address: "100 Test Avenue",
+      assumptions: { debtPercent: 0 },
+    }).assumptions).toEqual({ debtPercent: 0 });
+  });
+
+  it("requires a positive interest rate when debt is positive", () => {
+    expect(() => parseCaseDraft({
+      name: "Debt case",
+      address: "100 Test Avenue",
+      assumptions: { debtPercent: 65, interestRatePercent: 0 },
+    })).toThrow("Interest rate must be greater than zero when debt is greater than zero.");
   });
 
   it("validates and keeps source details for supplied assumptions", () => {
@@ -62,6 +82,39 @@ describe("parseCaseDraft", () => {
         sourceLabel: "Owner model",
         sourceDate: "2026-08-19",
         reviewState: "done",
+      },
+    });
+  });
+
+  it("keeps missing source evidence missing and applies optional common evidence", () => {
+    expect(parseCaseDraft({
+      name: "Saved case",
+      address: "100 Test Avenue",
+      proposedUnits: 24,
+      assumptions: { purchasePrice: 100 },
+    })).not.toHaveProperty("assumptionMetadata");
+
+    expect(parseCaseDraft({
+      name: "Saved case",
+      address: "100 Test Avenue",
+      proposedUnits: 24,
+      assumptions: { purchasePrice: 100 },
+      commonSourceLabel: "Program memo",
+      commonSourceDate: "2026-08-19",
+    })).toMatchObject({
+      factMetadata: {
+        proposedUnits: {
+          sourceLabel: "Program memo",
+          sourceDate: "2026-08-19",
+          reviewState: "working",
+        },
+      },
+      assumptionMetadata: {
+        purchasePrice: {
+          sourceLabel: "Program memo",
+          sourceDate: "2026-08-19",
+          reviewState: "working",
+        },
       },
     });
   });
@@ -90,7 +143,7 @@ describe("parseCaseDraft", () => {
           },
         },
       },
-      "Source date is required.",
+      "Source date must be a valid date.",
     ],
   ])("rejects an invalid draft", (body, message) => {
     expect(() => parseCaseDraft(body)).toThrow(message);

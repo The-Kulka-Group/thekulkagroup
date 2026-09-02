@@ -25,6 +25,14 @@ export const ASSUMPTION_DEFINITIONS = {
 
 export type AssumptionName = keyof typeof ASSUMPTION_DEFINITIONS;
 
+export const FACT_DEFINITIONS = {
+  proposedUnits: { label: "Proposed units", unit: "units" },
+  averageUnitSquareFeet: { label: "Average unit size", unit: "square_feet" },
+  grossBuildingSquareFeet: { label: "Gross building area", unit: "gross_square_feet" },
+} as const;
+
+export type FactName = keyof typeof FACT_DEFINITIONS;
+
 export type CaseDraft = {
   name: string;
   address: string;
@@ -33,12 +41,20 @@ export type CaseDraft = {
   grossBuildingSquareFeet?: number;
   assumptions: Partial<Record<AssumptionName, number>>;
   assumptionMetadata?: Partial<Record<AssumptionName, AssumptionMetadata>>;
+  factMetadata?: Partial<Record<FactName, EvidenceMetadata>>;
 };
 
-export type AssumptionMetadata = {
-  sourceLabel: string;
-  sourceDate: string;
+export type EvidenceMetadata = {
+  sourceLabel?: string;
+  sourceDate?: string;
   reviewState: "working" | "done";
+};
+
+export type AssumptionMetadata = EvidenceMetadata;
+
+export type FactMetadata = EvidenceMetadata & {
+  lastChangedAt: string;
+  caseRevision: number;
 };
 
 export type UnderwritingAssumption = {
@@ -48,8 +64,8 @@ export type UnderwritingAssumption = {
   value: number;
   unit: string;
   sourceKind: "user_supplied";
-  sourceLabel: string;
-  sourceDate: string;
+  sourceLabel?: string;
+  sourceDate?: string;
   reviewState: "working" | "done";
   lastChangedAt: string;
 };
@@ -66,6 +82,7 @@ export type UnderwritingCase = {
   proposedUnits?: number;
   averageUnitSquareFeet?: number;
   grossBuildingSquareFeet?: number;
+  factMetadata: Partial<Record<FactName, FactMetadata>>;
   createdAt: string;
   updatedAt: string;
   assumptions: UnderwritingAssumption[];
@@ -88,6 +105,7 @@ type CaseRow = {
   proposed_units: number | null;
   average_unit_square_feet: string | number | null;
   gross_building_square_feet: string | number | null;
+  fact_metadata: Partial<Record<FactName, FactMetadata>>;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -98,8 +116,8 @@ type AssumptionRow = {
   value: string | number;
   unit: string;
   source_kind: "user_supplied";
-  source_label: string;
-  source_date: Date | string;
+  source_label: string | null;
+  source_date: Date | string | null;
   review_state: "working" | "done";
   value_changed_at: Date | string;
 };
@@ -117,7 +135,8 @@ function iso(value: Date | string) {
   return new Date(value).toISOString();
 }
 
-function dateOnly(value: Date | string) {
+function dateOnly(value: Date | string | null) {
+  if (value === null) return undefined;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return value.slice(0, 10);
 }
@@ -139,6 +158,7 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingC
     proposedUnits: optionalNumber(row.proposed_units),
     averageUnitSquareFeet: optionalNumber(row.average_unit_square_feet),
     grossBuildingSquareFeet: optionalNumber(row.gross_building_square_feet),
+    factMetadata: row.fact_metadata ?? {},
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
     assumptions: assumptions.map((assumption) => {
@@ -151,7 +171,7 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingC
         value: Number(assumption.value),
         unit: assumption.unit,
         sourceKind: assumption.source_kind,
-        sourceLabel: assumption.source_label,
+        sourceLabel: assumption.source_label ?? undefined,
         sourceDate: dateOnly(assumption.source_date),
         reviewState: assumption.review_state,
         lastChangedAt: iso(assumption.value_changed_at),
@@ -169,8 +189,8 @@ function assumptionRows(draft: CaseDraft) {
       key: definition.key,
       value,
       unit: definition.unit,
-      source_label: metadata?.sourceLabel ?? "User entered",
-      source_date: metadata?.sourceDate ?? new Date().toISOString().slice(0, 10),
+      source_label: metadata?.sourceLabel ?? null,
+      source_date: metadata?.sourceDate ?? null,
       review_state: metadata?.reviewState ?? "working",
     }];
   });
@@ -180,8 +200,15 @@ export async function createUnderwritingCase(db: Db, draft: CaseDraft) {
   const { rows } = await db.query<CaseRow>(
     `with new_case as (
        insert into underwriting_cases
-         (name, address, proposed_units, average_unit_square_feet, gross_building_square_feet)
-       values ($1, $2, $3, $4, $5)
+         (name, address, proposed_units, average_unit_square_feet, gross_building_square_feet,
+          fact_metadata)
+       values (
+         $1, $2, $3::integer, $4::numeric, $5::numeric,
+         reconcile_underwriting_fact_metadata(
+           '{}'::jsonb, null, null, null,
+           $3::integer, $4::numeric, $5::numeric, $7::jsonb, 1, now()
+         )
+       )
        returning *
      ), inserted_assumptions as (
        insert into underwriting_case_assumptions
@@ -207,6 +234,7 @@ export async function createUnderwritingCase(db: Db, draft: CaseDraft) {
       draft.averageUnitSquareFeet ?? null,
       draft.grossBuildingSquareFeet ?? null,
       JSON.stringify(assumptionRows(draft)),
+      JSON.stringify(draft.factMetadata ?? {}),
     ],
   );
   return getUnderwritingCase(db, rows[0].id);
@@ -253,18 +281,30 @@ export async function updateUnderwritingCase(
   draft: CaseDraft,
   expectedRevision: number,
 ) {
-  const { rows } = await db.query<{ id: string }>(
+  const { rows } = await db.query<CaseWithAssumptionsRow>(
     `with updated_case as (
        update underwriting_cases
        set name = $2,
            address = $3,
-           proposed_units = $4,
-           average_unit_square_feet = $5,
-           gross_building_square_feet = $6,
+           proposed_units = $4::integer,
+           average_unit_square_feet = $5::numeric,
+           gross_building_square_feet = $6::numeric,
+           fact_metadata = reconcile_underwriting_fact_metadata(
+             fact_metadata,
+             proposed_units,
+             average_unit_square_feet,
+             gross_building_square_feet,
+             $4::integer,
+             $5::numeric,
+             $6::numeric,
+             $9::jsonb,
+             case_revision + 1,
+             now()
+           ),
            case_revision = case_revision + 1,
            updated_at = now()
        where id = $1 and case_revision = $8
-       returning id
+       returning *
      ), supplied_assumptions as (
        select * from jsonb_to_recordset($7::jsonb) as supplied(
          key text,
@@ -291,16 +331,44 @@ export async function updateUnderwritingCase(
            source_label = excluded.source_label,
            source_date = excluded.source_date,
            review_state = case
-             when underwriting_case_assumptions.value is distinct from excluded.value then 'working'
+             when underwriting_case_assumptions.value is distinct from excluded.value
+               or underwriting_case_assumptions.source_label is distinct from excluded.source_label
+               or underwriting_case_assumptions.source_date is distinct from excluded.source_date
+             then 'working'
              else excluded.review_state
            end,
            value_changed_at = case
-             when underwriting_case_assumptions.value is distinct from excluded.value then now()
+             when underwriting_case_assumptions.value is distinct from excluded.value
+               or underwriting_case_assumptions.source_label is distinct from excluded.source_label
+               or underwriting_case_assumptions.source_date is distinct from excluded.source_date
+             then now()
              else underwriting_case_assumptions.value_changed_at
            end,
            updated_at = now()
+       returning case_id, assumption_key, value, unit, source_kind, source_label,
+                 source_date, review_state, value_changed_at
      )
-     select id from updated_case`,
+     select updated_case.*,
+            coalesce(
+              (
+                select jsonb_agg(
+                  jsonb_build_object(
+                    'case_id', inserted_assumptions.case_id,
+                    'assumption_key', inserted_assumptions.assumption_key,
+                    'value', inserted_assumptions.value,
+                    'unit', inserted_assumptions.unit,
+                    'source_kind', inserted_assumptions.source_kind,
+                    'source_label', inserted_assumptions.source_label,
+                    'source_date', inserted_assumptions.source_date,
+                    'review_state', inserted_assumptions.review_state,
+                    'value_changed_at', inserted_assumptions.value_changed_at
+                  ) order by inserted_assumptions.assumption_key
+                )
+                from inserted_assumptions
+              ),
+              '[]'::jsonb
+            ) as assumptions
+     from updated_case`,
     [
       id,
       draft.name,
@@ -310,9 +378,10 @@ export async function updateUnderwritingCase(
       draft.grossBuildingSquareFeet ?? null,
       JSON.stringify(assumptionRows(draft)),
       expectedRevision,
+      JSON.stringify(draft.factMetadata ?? {}),
     ],
   );
-  if (rows[0]) return getUnderwritingCase(db, rows[0].id);
+  if (rows[0]) return mapCase(rows[0], rows[0].assumptions);
   const existing = await getUnderwritingCase(db, id);
   if (existing) throw new UnderwritingCaseRevisionConflict();
   return null;

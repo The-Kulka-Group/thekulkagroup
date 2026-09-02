@@ -1,8 +1,11 @@
 import {
   ASSUMPTION_DEFINITIONS,
+  FACT_DEFINITIONS,
   type AssumptionName,
   type AssumptionMetadata,
   type CaseDraft,
+  type EvidenceMetadata,
+  type FactName,
 } from "@/lib/underwriting/cases";
 
 export class InvalidCaseDraft extends Error {
@@ -41,34 +44,47 @@ function optionalNumber(
   return value;
 }
 
-function sourceMetadata(value: unknown, name: AssumptionName): AssumptionMetadata | undefined {
+function optionalSourceLabel(value: unknown, field: string) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || value.trim().length === 0) return undefined;
+  if (value.trim().length > 200) {
+    const message = "Source label is too long.";
+    throw new InvalidCaseDraft(message, { [field]: message });
+  }
+  return value.trim();
+}
+
+function optionalSourceDate(value: unknown, field: string) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = typeof value === "string" ? new Date(`${value}T00:00:00.000Z`) : null;
+  if (
+    typeof value !== "string"
+    || !/^\d{4}-\d{2}-\d{2}$/.test(value)
+    || !parsed
+    || Number.isNaN(parsed.getTime())
+    || parsed.toISOString().slice(0, 10) !== value
+  ) {
+    const message = "Source date must be a valid date.";
+    throw new InvalidCaseDraft(message, { [field]: message });
+  }
+  return value;
+}
+
+function sourceMetadata(value: unknown, field: string): EvidenceMetadata | undefined {
   if (value === undefined) return undefined;
-  const field = `assumptionMetadata.${name}`;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     const message = "Source details must be an object.";
     throw new InvalidCaseDraft(message, { [field]: message });
   }
   const candidate = value as Record<string, unknown>;
-  const sourceLabel = requiredText(candidate.sourceLabel, "Source label", `${field}.sourceLabel`);
-  const sourceDate = candidate.sourceDate;
-  const parsedSourceDate = typeof sourceDate === "string"
-    ? new Date(`${sourceDate}T00:00:00.000Z`)
-    : null;
-  if (
-    typeof sourceDate !== "string"
-    || !/^\d{4}-\d{2}-\d{2}$/.test(sourceDate)
-    || !parsedSourceDate
-    || Number.isNaN(parsedSourceDate.getTime())
-    || parsedSourceDate.toISOString().slice(0, 10) !== sourceDate
-  ) {
-    const message = "Source date is required.";
-    throw new InvalidCaseDraft(message, { [`${field}.sourceDate`]: message });
-  }
-  if (candidate.reviewState !== "working" && candidate.reviewState !== "done") {
+  const sourceLabel = optionalSourceLabel(candidate.sourceLabel, `${field}.sourceLabel`);
+  const sourceDate = optionalSourceDate(candidate.sourceDate, `${field}.sourceDate`);
+  const reviewState = candidate.reviewState ?? "working";
+  if (reviewState !== "working" && reviewState !== "done") {
     const message = "Review state must be Working on it or Done.";
     throw new InvalidCaseDraft(message, { [`${field}.reviewState`]: message });
   }
-  return { sourceLabel, sourceDate, reviewState: candidate.reviewState };
+  return { sourceLabel, sourceDate, reviewState };
 }
 
 export function parseCaseDraft(body: unknown): CaseDraft {
@@ -83,6 +99,7 @@ export function parseCaseDraft(body: unknown): CaseDraft {
 
   const assumptions: CaseDraft["assumptions"] = {};
   const assumptionMetadata: NonNullable<CaseDraft["assumptionMetadata"]> = {};
+  const factMetadata: NonNullable<CaseDraft["factMetadata"]> = {};
   const suppliedMetadata = candidate.assumptionMetadata;
   if (
     suppliedMetadata !== undefined
@@ -102,6 +119,8 @@ export function parseCaseDraft(body: unknown): CaseDraft {
           "contingencyPercent",
           "vacancyPercent",
           "operatingExpensePercent",
+          "debtPercent",
+          "interestRatePercent",
         ].includes(name),
       },
     );
@@ -109,7 +128,7 @@ export function parseCaseDraft(body: unknown): CaseDraft {
       assumptions[name] = value;
       const metadata = sourceMetadata(
         (suppliedMetadata as Record<string, unknown> | undefined)?.[name],
-        name,
+        `assumptionMetadata.${name}`,
       );
       if (metadata) assumptionMetadata[name] = metadata;
     }
@@ -129,13 +148,52 @@ export function parseCaseDraft(body: unknown): CaseDraft {
     }
   }
 
-  return {
-    name: requiredText(candidate.name, "Case name", "name"),
-    address: requiredText(candidate.address, "Property address", "address"),
+  if (
+    assumptions.debtPercent !== undefined
+    && assumptions.debtPercent > 0
+    && !(assumptions.interestRatePercent !== undefined && assumptions.interestRatePercent > 0)
+  ) {
+    const message = "Interest rate must be greater than zero when debt is greater than zero.";
+    throw new InvalidCaseDraft(message, { "assumptions.interestRatePercent": message });
+  }
+
+  const facts = {
     proposedUnits: optionalNumber(candidate.proposedUnits, "Proposed units", "proposedUnits", { integer: true }),
     averageUnitSquareFeet: optionalNumber(candidate.averageUnitSquareFeet, "Average unit size", "averageUnitSquareFeet"),
     grossBuildingSquareFeet: optionalNumber(candidate.grossBuildingSquareFeet, "Gross building area", "grossBuildingSquareFeet"),
+  };
+  const suppliedFactMetadata = candidate.factMetadata;
+  if (
+    suppliedFactMetadata !== undefined
+    && (!suppliedFactMetadata || typeof suppliedFactMetadata !== "object" || Array.isArray(suppliedFactMetadata))
+  ) {
+    throw new InvalidCaseDraft("Project fact source details must be an object.");
+  }
+  const commonSourceLabel = optionalSourceLabel(candidate.commonSourceLabel, "commonSourceLabel");
+  const commonSourceDate = optionalSourceDate(candidate.commonSourceDate, "commonSourceDate");
+  const commonMetadata: EvidenceMetadata | undefined = commonSourceLabel || commonSourceDate
+    ? { sourceLabel: commonSourceLabel, sourceDate: commonSourceDate, reviewState: "working" }
+    : undefined;
+  for (const name of Object.keys(FACT_DEFINITIONS) as FactName[]) {
+    if (facts[name] === undefined) continue;
+    const metadata = sourceMetadata(
+      (suppliedFactMetadata as Record<string, unknown> | undefined)?.[name],
+      `factMetadata.${name}`,
+    ) ?? commonMetadata;
+    if (metadata) factMetadata[name] = metadata;
+  }
+  if (commonMetadata) {
+    for (const name of Object.keys(assumptions) as AssumptionName[]) {
+      if (!assumptionMetadata[name]) assumptionMetadata[name] = commonMetadata as AssumptionMetadata;
+    }
+  }
+
+  return {
+    name: requiredText(candidate.name, "Case name", "name"),
+    address: requiredText(candidate.address, "Property address", "address"),
+    ...facts,
     assumptions,
     ...(Object.keys(assumptionMetadata).length > 0 ? { assumptionMetadata } : {}),
+    ...(Object.keys(factMetadata).length > 0 ? { factMetadata } : {}),
   };
 }

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import type {
   AssumptionName,
+  FactMetadata,
+  FactName,
   UnderwritingCase,
 } from "@/lib/underwriting/cases";
 
@@ -31,6 +33,18 @@ const ASSUMPTION_FIELDS: Array<{
   { name: "holdYears", label: "Hold period", unit: "years", min: 1, step: "1", recordOnly: true },
 ];
 
+const FACT_FIELDS: Array<{
+  name: FactName;
+  label: string;
+  unit: string;
+  min: number;
+  step: string;
+}> = [
+  { name: "proposedUnits", label: "Proposed units", unit: "units", min: 1, step: "1" },
+  { name: "averageUnitSquareFeet", label: "Average unit size", unit: "SF", min: 0, step: "any" },
+  { name: "grossBuildingSquareFeet", label: "Gross building area", unit: "GSF", min: 0, step: "any" },
+];
+
 function numberValue(form: FormData, name: string) {
   const value = form.get(name);
   return typeof value === "string" && value !== "" ? Number(value) : undefined;
@@ -38,10 +52,8 @@ function numberValue(form: FormData, name: string) {
 
 export function EditUnderwritingCase({
   savedCase,
-  defaultSourceDate,
 }: {
   savedCase: UnderwritingCase;
-  defaultSourceDate: string;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -57,6 +69,7 @@ export function EditUnderwritingCase({
     const form = new FormData(event.currentTarget);
     const assumptionValues: Record<string, number | undefined> = {};
     const assumptionMetadata: Record<string, object> = {};
+    const factMetadata: Record<string, object> = {};
 
     for (const field of ASSUMPTION_FIELDS) {
       const value = numberValue(form, `assumptions.${field.name}`);
@@ -70,6 +83,16 @@ export function EditUnderwritingCase({
       }
     }
 
+    for (const field of FACT_FIELDS) {
+      if (numberValue(form, field.name) === undefined) continue;
+      factMetadata[field.name] = {
+        sourceLabel: form.get(`factMetadata.${field.name}.sourceLabel`),
+        sourceDate: form.get(`factMetadata.${field.name}.sourceDate`),
+        reviewState: form.get(`factMetadata.${field.name}.reviewState`),
+      };
+    }
+
+    let caseWasSaved = false;
     try {
       const response = await fetch(`/api/underwriting/cases/${savedCase.id}`, {
         method: "PATCH",
@@ -81,38 +104,44 @@ export function EditUnderwritingCase({
           proposedUnits: numberValue(form, "proposedUnits"),
           averageUnitSquareFeet: numberValue(form, "averageUnitSquareFeet"),
           grossBuildingSquareFeet: numberValue(form, "grossBuildingSquareFeet"),
+          factMetadata,
           assumptions: assumptionValues,
           assumptionMetadata,
         }),
       });
-      const body = await response.json();
+      const body = await responseBody(response);
       if (!response.ok) {
         setError(response.status === 409
           ? "The case changed in another session. Refresh the page, review the latest values, then retry your edits. Your entries remain in this form."
-          : body.error ?? "The case could not be saved.");
-        setFieldErrors(body.fieldErrors ?? {});
-        setSaving(false);
+          : body?.error ?? "The case could not be saved.");
+        setFieldErrors(body?.fieldErrors ?? {});
         return;
       }
+      if (!body?.case?.caseRevision) {
+        setError("The case may have been saved, but the server returned an unreadable response. Reload before making more changes.");
+        return;
+      }
+      caseWasSaved = true;
 
       const runResponse = await fetch(`/api/underwriting/cases/${savedCase.id}/runs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ expectedRevision: body.case.caseRevision }),
       });
+      const runBody = await responseBody(runResponse);
       if (!runResponse.ok) {
-        const runBody = await runResponse.json();
         setError(runResponse.status === 409
           ? "The changes were saved, but the case changed again before calculation. Refresh the page and retry the calculation."
-          : `The changes were saved. ${runBody.error ?? "The calculation could not run."}`);
-        setSaving(false);
+          : `The changes were saved. ${runBody?.error ?? "The calculation could not run."}`);
         return;
       }
 
       router.refresh();
-      setSaving(false);
     } catch {
-      setError("The case could not be saved. Check the connection and try again.");
+      setError(caseWasSaved
+        ? "The changes were saved, but the calculation request failed. Check the connection, reload, and run the calculation."
+        : "The case could not be saved. Check the connection and try again.");
+    } finally {
       setSaving(false);
     }
   }
@@ -124,10 +153,13 @@ export function EditUnderwritingCase({
         <div className="underwriting-form-grid">
           <Field name="name" label="Case name" defaultValue={savedCase.name} required error={fieldErrors.name} />
           <Field name="address" label="Property address" defaultValue={savedCase.address} required error={fieldErrors.address} />
-          <Field name="proposedUnits" label="Proposed units" type="number" min="1" step="1" defaultValue={savedCase.proposedUnits} error={fieldErrors.proposedUnits} />
-          <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0" step="any" defaultValue={savedCase.averageUnitSquareFeet} error={fieldErrors.averageUnitSquareFeet} />
-          <Field name="grossBuildingSquareFeet" label="Gross building area" unit="GSF" type="number" min="0" step="any" defaultValue={savedCase.grossBuildingSquareFeet} error={fieldErrors.grossBuildingSquareFeet} />
         </div>
+        <EvidenceTable
+          fields={FACT_FIELDS}
+          value={(name) => savedCase[name]}
+          metadata={(name) => savedCase.factMetadata[name]}
+          fieldErrors={fieldErrors}
+        />
       </section>
 
       <section className="record-section">
@@ -174,7 +206,7 @@ export function EditUnderwritingCase({
                     <td>
                       <InlineInput
                         name={`assumptionMetadata.${field.name}.sourceLabel`}
-                        defaultValue={assumption?.sourceLabel ?? "User entered"}
+                        defaultValue={assumption?.sourceLabel ?? ""}
                         label={`${field.label} source label`}
                         error={fieldErrors[`assumptionMetadata.${field.name}.sourceLabel`]}
                       />
@@ -183,7 +215,7 @@ export function EditUnderwritingCase({
                       <InlineInput
                         name={`assumptionMetadata.${field.name}.sourceDate`}
                         type="date"
-                        defaultValue={assumption?.sourceDate ?? defaultSourceDate}
+                        defaultValue={assumption?.sourceDate ?? ""}
                         label={`${field.label} source date`}
                         error={fieldErrors[`assumptionMetadata.${field.name}.sourceDate`]}
                       />
@@ -224,6 +256,91 @@ export function EditUnderwritingCase({
       </div>
     </form>
   );
+}
+
+function EvidenceTable({
+  fields,
+  value,
+  metadata,
+  fieldErrors,
+}: {
+  fields: typeof FACT_FIELDS;
+  value: (name: FactName) => number | undefined;
+  metadata: (name: FactName) => FactMetadata | undefined;
+  fieldErrors: Record<string, string>;
+}) {
+  return (
+    <div className="underwriting-edit-table-wrap">
+      <table className="underwriting-edit-table">
+        <thead>
+          <tr><th>Project fact</th><th>Value</th><th>Source label</th><th>Source date</th><th>Review state</th></tr>
+        </thead>
+        <tbody>
+          {fields.map((field) => {
+            const evidence = metadata(field.name);
+            return (
+              <tr key={field.name}>
+                <th scope="row">{field.label}<span className="underwriting-unit">{field.unit}</span></th>
+                <td>
+                  <InlineInput
+                    name={field.name}
+                    type="number"
+                    min={field.min}
+                    step={field.step}
+                    defaultValue={value(field.name)}
+                    label={`${field.label} value`}
+                    error={fieldErrors[field.name]}
+                  />
+                </td>
+                <td>
+                  <InlineInput
+                    name={`factMetadata.${field.name}.sourceLabel`}
+                    defaultValue={evidence?.sourceLabel ?? ""}
+                    label={`${field.label} source label`}
+                    error={fieldErrors[`factMetadata.${field.name}.sourceLabel`]}
+                  />
+                </td>
+                <td>
+                  <InlineInput
+                    name={`factMetadata.${field.name}.sourceDate`}
+                    type="date"
+                    defaultValue={evidence?.sourceDate ?? ""}
+                    label={`${field.label} source date`}
+                    error={fieldErrors[`factMetadata.${field.name}.sourceDate`]}
+                  />
+                </td>
+                <td>
+                  <select
+                    id={controlId(`factMetadata.${field.name}.reviewState`)}
+                    className="input"
+                    name={`factMetadata.${field.name}.reviewState`}
+                    defaultValue={evidence?.reviewState ?? "working"}
+                    aria-label={`${field.label} review state`}
+                    aria-invalid={Boolean(fieldErrors[`factMetadata.${field.name}.reviewState`])}
+                  >
+                    <option value="working">Working on it</option>
+                    <option value="done">Done</option>
+                  </select>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+async function responseBody(response: Response): Promise<{
+  error?: string;
+  fieldErrors?: Record<string, string>;
+  case?: { caseRevision?: number };
+} | null> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function Field({ label, unit, error, ...input }: {

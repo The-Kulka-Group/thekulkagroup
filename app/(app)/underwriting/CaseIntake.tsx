@@ -31,6 +31,10 @@ export function CaseIntake() {
           purchasePrice: numberValue(form, "purchasePrice"),
           monthlyRent: numberValue(form, "monthlyRent"),
           hardCostPerGrossSquareFoot: numberValue(form, "hardCostPerGrossSquareFoot"),
+          softCostPercent: numberValue(form, "softCostPercent"),
+          contingencyPercent: numberValue(form, "contingencyPercent"),
+          vacancyPercent: numberValue(form, "vacancyPercent"),
+          operatingExpensePercent: numberValue(form, "operatingExpensePercent"),
           constructionMonths: numberValue(form, "constructionMonths"),
           debtPercent: numberValue(form, "debtPercent"),
           interestRatePercent: numberValue(form, "interestRatePercent"),
@@ -62,15 +66,19 @@ export function CaseIntake() {
         <Field name="name" label="Case name" required />
         <Field name="address" label="Property address" required />
         <Field name="proposedUnits" label="Proposed units" type="number" min="1" step="1" />
-        <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0.01" step="0.01" />
-        <Field name="grossBuildingSquareFeet" label="Gross building area" unit="GSF" type="number" min="0.01" step="0.01" />
-        <Field name="purchasePrice" label="Purchase price" unit="USD" type="number" min="0.01" step="0.01" />
-        <Field name="monthlyRent" label="Average monthly rent" unit="USD/month" type="number" min="0.01" step="0.01" />
-        <Field name="hardCostPerGrossSquareFoot" label="Hard cost" unit="USD/GSF" type="number" min="0.01" step="0.01" />
+        <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0" step="any" />
+        <Field name="grossBuildingSquareFeet" label="Gross building area" unit="GSF" type="number" min="0" step="any" />
+        <Field name="purchasePrice" label="Purchase price" unit="USD" type="number" min="0" step="any" />
+        <Field name="monthlyRent" label="Average monthly rent" unit="USD/month" type="number" min="0" step="any" />
+        <Field name="hardCostPerGrossSquareFoot" label="Hard cost" unit="USD/GSF" type="number" min="0" step="any" />
+        <Field name="softCostPercent" label="Soft cost" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="contingencyPercent" label="Contingency" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="vacancyPercent" label="Vacancy" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="operatingExpensePercent" label="Operating expenses" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="constructionMonths" label="Construction duration" unit="months" type="number" min="1" step="1" />
-        <Field name="debtPercent" label="Expected debt" unit="percent" type="number" min="0.01" max="100" step="0.01" />
-        <Field name="interestRatePercent" label="Expected interest rate" unit="percent" type="number" min="0.01" max="100" step="0.01" />
-        <Field name="exitCapRatePercent" label="Exit cap rate" unit="percent" type="number" min="0.01" max="100" step="0.01" />
+        <Field name="debtPercent" label="Expected debt" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="interestRatePercent" label="Expected interest rate" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="exitCapRatePercent" label="Exit cap rate" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="holdYears" label="Hold period" unit="years" type="number" min="1" step="1" />
       </div>
 

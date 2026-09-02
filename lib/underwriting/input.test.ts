@@ -21,6 +21,28 @@ describe("parseCaseDraft", () => {
     });
   });
 
+  it("accepts zero for the approved bounded percentages", () => {
+    expect(
+      parseCaseDraft({
+        name: "Saved case",
+        address: "100 Test Avenue",
+        assumptions: {
+          purchasePrice: 0,
+          softCostPercent: 0,
+          contingencyPercent: 0,
+          vacancyPercent: 0,
+          operatingExpensePercent: 0,
+        },
+      }).assumptions,
+    ).toEqual({
+      purchasePrice: 0,
+      softCostPercent: 0,
+      contingencyPercent: 0,
+      vacancyPercent: 0,
+      operatingExpensePercent: 0,
+    });
+  });
+
   it.each([
     [{ address: "100 Test Avenue" }, "Case name is required."],
     [{ name: "Saved case" }, "Property address is required."],

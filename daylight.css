@@ -1338,6 +1338,60 @@ em, .em { font-style: normal; font-weight: 600; }
 }
 .underwriting-decision-row .t-1 { margin: var(--s1) 0; }
 .underwriting-assumptions td:nth-child(3) { color: var(--ink-2); }
+.underwriting-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s6);
+  margin-bottom: var(--s4);
+}
+.underwriting-run-action { text-align: right; }
+.underwriting-run-action .input-error { margin-top: var(--s2); }
+.underwriting-results-wrap { overflow-x: auto; }
+.underwriting-results {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.underwriting-results th,
+.underwriting-results td {
+  padding: var(--s3) var(--cell-pad-x);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  vertical-align: top;
+}
+.underwriting-results th {
+  color: var(--ink-2);
+  font-size: var(--label-size);
+  line-height: var(--label-line);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+}
+.underwriting-results th.right,
+.underwriting-results td.right { text-align: right; }
+.underwriting-results td:first-child { font-weight: 600; }
+.underwriting-results td:nth-child(3) { max-width: 280px; }
+.underwriting-results td:nth-child(4) { max-width: 340px; white-space: normal; }
+.underwriting-issues { display: flex; flex-direction: column; gap: var(--s2); }
+.underwriting-issue {
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.underwriting-issue .dot {
+  width: 17px;
+  height: 17px;
+  background: #C06A00;
+  -webkit-mask: var(--gl-waiting) center / contain no-repeat;
+  mask: var(--gl-waiting) center / contain no-repeat;
+}
 
 @media (max-width: 1180px) {
   .underwriting-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1347,7 +1401,8 @@ em, .em { font-style: normal; font-weight: 600; }
   .underwriting-intake { padding: var(--s4); }
   .underwriting-form-grid { grid-template-columns: minmax(0, 1fr); }
   .underwriting-intake-head,
-  .underwriting-decision-row { flex-direction: column; }
+  .underwriting-decision-row,
+  .underwriting-section-head { flex-direction: column; }
   .underwriting-assumptions { min-width: 680px; }
   .record-section:has(.underwriting-assumptions) { overflow-x: auto; }
 }

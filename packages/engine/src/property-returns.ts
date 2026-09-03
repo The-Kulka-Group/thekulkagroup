@@ -492,33 +492,41 @@ function metricsFor(
   yieldOnCost: number,
   developmentSpreadBasisPoints: number,
 ): PropertyReturnMetric[] {
+  const costPaths = ["analysisStartMonth", "saleMonth", "costLines"];
   const operationPaths = [
-    "analysisStartMonth", "saleMonth", "operationStartMonth", "growthStartMonth",
+    "analysisStartMonth", "saleMonth", "inputVersion", "operationStartMonth", "growthStartMonth",
     "preleasedUnits", "leaseUpUnitsPerMonth", "annualIncomeGrowthPercent",
     "annualExpenseGrowthPercent", "rentAdjustmentLossPercent", "freeRentPercent",
     "vacancyPercent", "creditLossPercent", "residentialUnitTypes", "otherIncomeLines",
     "operatingExpenseLines", "capitalExpenditureLines",
   ];
   const capitalPaths = [
-    "costLines", "targetDebtSharePercent", "annualInterestRatePercent", "loanFeePercent",
+    "capitalInputVersion", "targetDebtSharePercent", "annualInterestRatePercent", "loanFeePercent",
     "fundingOrder", "interestTreatment", "interestConvention", "feeMonth", "payoffMonth",
   ];
+  const saleValuePaths = ["saleInputVersion", "terminalCapRatePercent", "forwardNoiConvention"];
+  const saleProceedsPaths = [...saleValuePaths, "sellingCostPercent"];
+  const returnTimingPaths = ["cashFlowDateConvention", "xirrConvention"];
   return [
-    { key: "forwardNetOperatingIncome", label: "Forward Sale NOI", value: sale.forwardNetOperatingIncome, unit: "usd", formula: "forward twelve-month effective gross revenue less forward twelve-month operating expenses", inputPaths: ["forwardNoiConvention", ...operationPaths] },
-    { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: "forward sale NOI divided by terminal cap rate", inputPaths: ["terminalCapRatePercent", ...operationPaths] },
-    { key: "sellingCosts", label: "Selling Costs", value: sale.sellingCosts, unit: "usd", formula: "gross sale value times selling cost percent", inputPaths: ["sellingCostPercent"] },
-    { key: "netSaleProceeds", label: "Net Sale Proceeds", value: sale.netSaleProceeds, unit: "usd", formula: "gross sale value less selling costs", inputPaths: ["terminalCapRatePercent", "sellingCostPercent"] },
-    { key: "debtPayoff", label: "Construction Debt Payoff", value: sale.debtPayoff, unit: "usd", formula: "construction debt repayment in the sale month", inputPaths: ["saleMonth", "payoffMonth"] },
-    { key: "equitySaleProceeds", label: "Equity Sale Proceeds", value: sale.equitySaleProceeds, unit: "usd", formula: "net sale proceeds less construction debt payoff", inputPaths: ["saleMonth", "payoffMonth"] },
-    { key: "unleveredXirr", label: "Unlevered XIRR", value: returns.unlevered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly unlevered cash flow", inputPaths: ["cashFlowDateConvention", "xirrConvention"] },
-    { key: "unleveredEquityMultiple", label: "Unlevered Equity Multiple", value: returns.unlevered.equityMultiple, unit: "multiple", formula: "positive unlevered cash flow divided by negative unlevered cash flow", inputPaths: ["costLines", ...operationPaths, "terminalCapRatePercent", "sellingCostPercent"] },
-    { key: "unleveredNetProfit", label: "Unlevered Net Profit", value: returns.unlevered.netProfit, unit: "usd", formula: "sum dated monthly unlevered cash flow", inputPaths: ["costLines", ...operationPaths, "terminalCapRatePercent", "sellingCostPercent"] },
-    { key: "leveredXirr", label: "Levered XIRR", value: returns.levered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly levered cash flow", inputPaths: ["cashFlowDateConvention", "xirrConvention"] },
-    { key: "leveredEquityMultiple", label: "Levered Equity Multiple", value: returns.levered.equityMultiple, unit: "multiple", formula: "positive levered cash flow divided by negative levered cash flow", inputPaths: [...capitalPaths, ...operationPaths, "terminalCapRatePercent", "sellingCostPercent"] },
-    { key: "leveredNetProfit", label: "Levered Net Profit", value: returns.levered.netProfit, unit: "usd", formula: "sum dated monthly levered cash flow", inputPaths: [...capitalPaths, ...operationPaths, "terminalCapRatePercent", "sellingCostPercent"] },
-    { key: "yieldOnCost", label: "Sale Yield On Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: [...operationPaths, ...capitalPaths] },
-    { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: "sale yield on cost less terminal cap rate, in basis points", inputPaths: ["terminalCapRatePercent", ...operationPaths, ...capitalPaths] },
+    { key: "forwardNetOperatingIncome", label: "Forward Sale NOI", value: sale.forwardNetOperatingIncome, unit: "usd", formula: "forward twelve-month effective gross revenue less forward twelve-month operating expenses", inputPaths: rootPaths(operationPaths, ["forwardNoiConvention"]) },
+    { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: "forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths) },
+    { key: "sellingCosts", label: "Selling Costs", value: sale.sellingCosts, unit: "usd", formula: "gross sale value times selling cost percent", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
+    { key: "netSaleProceeds", label: "Net Sale Proceeds", value: sale.netSaleProceeds, unit: "usd", formula: "gross sale value less selling costs", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
+    { key: "debtPayoff", label: "Construction Debt Payoff", value: sale.debtPayoff, unit: "usd", formula: "construction debt repayment in the sale month", inputPaths: rootPaths(costPaths, operationPaths, capitalPaths) },
+    { key: "equitySaleProceeds", label: "Equity Sale Proceeds", value: sale.equitySaleProceeds, unit: "usd", formula: "net sale proceeds less construction debt payoff", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
+    { key: "unleveredXirr", label: "Unlevered XIRR", value: returns.unlevered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly unlevered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, returnTimingPaths) },
+    { key: "unleveredEquityMultiple", label: "Unlevered Equity Multiple", value: returns.unlevered.equityMultiple, unit: "multiple", formula: "positive unlevered cash flow divided by negative unlevered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths) },
+    { key: "unleveredNetProfit", label: "Unlevered Net Profit", value: returns.unlevered.netProfit, unit: "usd", formula: "sum dated monthly unlevered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths) },
+    { key: "leveredXirr", label: "Levered XIRR", value: returns.levered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, returnTimingPaths, capitalPaths) },
+    { key: "leveredEquityMultiple", label: "Levered Equity Multiple", value: returns.levered.equityMultiple, unit: "multiple", formula: "positive levered cash flow divided by negative levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
+    { key: "leveredNetProfit", label: "Levered Net Profit", value: returns.levered.netProfit, unit: "usd", formula: "sum dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
+    { key: "yieldOnCost", label: "Sale Yield On Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: rootPaths(costPaths, operationPaths, ["forwardNoiConvention"], capitalPaths) },
+    { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: "sale yield on cost less terminal cap rate, in basis points", inputPaths: rootPaths(costPaths, operationPaths, saleValuePaths, capitalPaths) },
   ];
+}
+
+function rootPaths(...groups: string[][]) {
+  return [...new Set(groups.flat())];
 }
 
 function checkUsd(id: string, label: string, expected: number, actual: number): ReconciliationCheck {

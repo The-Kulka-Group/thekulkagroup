@@ -230,6 +230,37 @@ describe("computePropertyReturns", () => {
       }
     }
   });
+
+  it.each([
+    ["sellingCosts", ["operations", "sale"]],
+    ["netSaleProceeds", ["operations", "sale"]],
+    ["debtPayoff", ["cost", "operations", "capital"]],
+    ["equitySaleProceeds", ["cost", "operations", "sale", "capital"]],
+    ["unleveredXirr", ["cost", "operations", "sale", "returnTiming"]],
+    ["leveredXirr", ["cost", "operations", "sale", "returnTiming", "capital"]],
+  ] as const)("lists every material root dependency group for %s", (metricKey, requiredGroups) => {
+    const run = computePropertyReturns(APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput as PropertyReturnsInputs);
+    const metric = run.result!.propertyReturns.metrics.find(({ key }) => key === metricKey)!;
+    const groups = {
+      cost: ["analysisStartMonth", "saleMonth", "costLines"],
+      operations: [
+        "analysisStartMonth", "saleMonth", "inputVersion", "operationStartMonth", "growthStartMonth",
+        "preleasedUnits", "leaseUpUnitsPerMonth", "annualIncomeGrowthPercent", "annualExpenseGrowthPercent",
+        "rentAdjustmentLossPercent", "freeRentPercent", "vacancyPercent", "creditLossPercent",
+        "residentialUnitTypes", "otherIncomeLines", "operatingExpenseLines", "capitalExpenditureLines",
+      ],
+      sale: ["saleInputVersion", "terminalCapRatePercent", "sellingCostPercent", "forwardNoiConvention"],
+      returnTiming: ["cashFlowDateConvention", "xirrConvention"],
+      capital: [
+        "capitalInputVersion", "targetDebtSharePercent", "annualInterestRatePercent", "loanFeePercent",
+        "fundingOrder", "interestTreatment", "interestConvention", "feeMonth", "payoffMonth",
+      ],
+    } as const;
+
+    for (const group of requiredGroups) {
+      expect(metric.inputPaths, `${metricKey} ${group} dependencies`).toEqual(expect.arrayContaining([...groups[group]]));
+    }
+  });
 });
 
 function allUsdResultsAreCentRounded(result: NonNullable<ReturnType<typeof calculatePropertyReturns>["result"]>) {

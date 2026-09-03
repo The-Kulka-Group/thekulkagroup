@@ -123,6 +123,10 @@ describe("underwriting form accessibility contract", () => {
     expect(editor).toContain("Sale Month And Next 11 Months");
     expect(editor).toContain("Actual Days Over 365");
     expect(editor).toContain("Sale Assumption Sources");
+    expect(editor).toContain("MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH");
+    expect(editor).toContain("maxLength={MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH}");
+    expect(editor).toContain("const labelId = `returns-evidence-${key}-source-label`");
+    expect(editor).toContain("<FieldError id={`${labelId}-error`}");
     expect(editor).toContain("aria-describedby={error ? errorId : undefined}");
     expect(editor).toContain("finally {");
     expect(results).toContain("Dated Monthly Property Cash Flow");

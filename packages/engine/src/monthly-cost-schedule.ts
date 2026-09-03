@@ -72,7 +72,7 @@ export type ReconciliationCheck = {
   difference: number;
   tolerance: number;
   status: "pass" | "fail";
-  unit?: "usd" | "count" | "sf";
+  unit?: "usd" | "count" | "sf" | "ratio" | "multiple" | "basis_points";
 };
 
 export type CostLineSchedule = {

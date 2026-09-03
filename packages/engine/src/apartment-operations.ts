@@ -216,6 +216,45 @@ export function computeApartmentOperations(input: ApartmentOperationsInputs): Ap
   };
 }
 
+export function projectApartmentOperationsThrough(
+  input: ApartmentOperationsInputs,
+  endMonth: string,
+): MonthlyApartmentOperations[] {
+  const start = monthIndex(input.analysisStartMonth);
+  const end = monthIndex(endMonth);
+  if (start === null || end === null || end < start) return [];
+  const months = Array.from({ length: end - start + 1 }, (_, offset) => {
+    const index = start + offset;
+    const month = `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
+    return {
+      month,
+      lineAmounts: {},
+      usesByCategory: {
+        land: 0,
+        hard_cost: 0,
+        soft_cost: 0,
+        development_fee: 0,
+        financing_fee: 0,
+      },
+      totalUses: 0,
+    };
+  });
+  const costSchedule: MonthlyCostScheduleResult = {
+    months,
+    costLineSchedules: [],
+    totalsByCategory: {
+      land: 0,
+      hard_cost: 0,
+      soft_cost: 0,
+      development_fee: 0,
+      financing_fee: 0,
+    },
+    totalUses: 0,
+    aggregateFormulaTraces: [],
+  };
+  return calculate(input, costSchedule).months;
+}
+
 function validate(input: ApartmentOperationsInputs) {
   const issues: ApartmentOperationsIssue[] = [];
   if (input.inputVersion !== APARTMENT_OPERATIONS_INPUT_VERSION) {

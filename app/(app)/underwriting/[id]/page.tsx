@@ -399,9 +399,12 @@ function formatResult(value: number, unit: "usd" | "decimal") {
   return unit === "usd" ? MONEY.format(value) : `${NUMBER.format(value * 100)}%`;
 }
 
-function formatReconciliationValue(value: number, unit: "usd" | "count" | "sf" | undefined) {
+function formatReconciliationValue(value: number, unit: "usd" | "count" | "sf" | "ratio" | "multiple" | "basis_points" | undefined) {
   if (unit === "count") return NUMBER.format(value);
   if (unit === "sf") return `${NUMBER.format(value)} SF`;
+  if (unit === "ratio") return `${NUMBER.format(value * 100)}%`;
+  if (unit === "multiple") return `${NUMBER.format(value)}x`;
+  if (unit === "basis_points") return `${NUMBER.format(value)} bps`;
   return MONEY.format(value);
 }
 

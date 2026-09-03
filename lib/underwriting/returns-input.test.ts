@@ -42,6 +42,30 @@ describe("parsePropertyReturns", () => {
       },
     })).toThrow("Review the property sale and returns fields.");
   });
+
+  it.each([
+    ["sourceLabel", 42, "invalid_source_label"],
+    ["sourceLabel", "x".repeat(501), "text_too_long"],
+    ["sourceDate", 20260902, "invalid_source_date"],
+    ["reviewState", 1, "invalid_review_state"],
+  ])("returns a typed issue for invalid sale evidence %s", (field, value, code) => {
+    try {
+      parsePropertyReturns({
+        ...plan,
+        saleAssumptionEvidence: {
+          ...plan.saleAssumptionEvidence,
+          terminalCapRatePercent: { reviewState: "working", [field]: value },
+        },
+      });
+      throw new Error("Expected sale evidence validation to fail.");
+    } catch (cause) {
+      expect(cause).toBeInstanceOf(InvalidPropertyReturns);
+      expect((cause as InvalidPropertyReturns).issues).toContainEqual(expect.objectContaining({
+        path: `saleAssumptionEvidence.terminalCapRatePercent.${field}`,
+        code,
+      }));
+    }
+  });
 });
 
 function evidence() {

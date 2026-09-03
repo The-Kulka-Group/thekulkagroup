@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   FORWARD_TWELVE_MONTH_NOI_VERSION,
   MONTH_END_CASH_FLOW_DATES_VERSION,
+  MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
   PROPERTY_RETURNS_INPUT_VERSION,
   XIRR_ACTUAL_365_VERSION,
@@ -82,7 +83,15 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
       <h4>Sale Assumption Sources</h4>
       <p className="t-meta">Each sale term and formula choice keeps its source, date, and review state.</p>
       <div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>
-        {PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => <tr key={key}><th scope="row">{LABELS[key]}</th><td><input className="input" aria-label={`${LABELS[key]} source label`} value={saleAssumptionEvidence[key].sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} /></td><td><input className="input" id={`returns-evidence-${key}-source-date`} type="date" aria-label={`${LABELS[key]} source date`} value={saleAssumptionEvidence[key].sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`saleAssumptionEvidence.${key}.sourceDate`])} aria-describedby={fieldErrors[`saleAssumptionEvidence.${key}.sourceDate`] ? `returns-evidence-${key}-source-date-error` : undefined} /><FieldError id={`returns-evidence-${key}-source-date-error`} error={fieldErrors[`saleAssumptionEvidence.${key}.sourceDate`]} /></td><td><select className="input" aria-label={`${LABELS[key]} review state`} value={saleAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></tr>)}
+        {PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => {
+          const labelPath = `saleAssumptionEvidence.${key}.sourceLabel`;
+          const datePath = `saleAssumptionEvidence.${key}.sourceDate`;
+          const statePath = `saleAssumptionEvidence.${key}.reviewState`;
+          const labelId = `returns-evidence-${key}-source-label`;
+          const dateId = `returns-evidence-${key}-source-date`;
+          const stateId = `returns-evidence-${key}-review-state`;
+          return <tr key={key}><th scope="row">{LABELS[key]}</th><td><input className="input" id={labelId} aria-label={`${LABELS[key]} source label`} maxLength={MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH} value={saleAssumptionEvidence[key].sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[labelPath])} aria-describedby={fieldErrors[labelPath] ? `${labelId}-error` : undefined} /><FieldError id={`${labelId}-error`} error={fieldErrors[labelPath]} /></td><td><input className="input" id={dateId} type="date" aria-label={`${LABELS[key]} source date`} value={saleAssumptionEvidence[key].sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[datePath])} aria-describedby={fieldErrors[datePath] ? `${dateId}-error` : undefined} /><FieldError id={`${dateId}-error`} error={fieldErrors[datePath]} /></td><td><select className="input" id={stateId} aria-label={`${LABELS[key]} review state`} value={saleAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(fieldErrors[statePath])} aria-describedby={fieldErrors[statePath] ? `${stateId}-error` : undefined}><option value="working">Working on it</option><option value="done">Done</option></select><FieldError id={`${stateId}-error`} error={fieldErrors[statePath]} /></td></tr>;
+        })}
       </tbody></table></div>
     </section>
     {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}

@@ -45,6 +45,24 @@ describe("/api/underwriting/cases/:id/returns", () => {
     expect(stale.status).toBe(409);
   });
 
+  it("returns typed evidence issues without saving", async () => {
+    const savedCase = await capitalCase();
+    const response = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({
+      expectedRevision: savedCase.caseRevision,
+      ...salePlan,
+      saleAssumptionEvidence: {
+        ...salePlan.saleAssumptionEvidence,
+        sellingCostPercent: { reviewState: "working", sourceLabel: "x".repeat(501) },
+      },
+    }) }), context(savedCase.id));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      fieldErrors: { "saleAssumptionEvidence.sellingCostPercent.sourceLabel": expect.any(String) },
+      issues: [expect.objectContaining({ code: "text_too_long" })],
+    });
+  });
+
   it("requires a saved capital plan", async () => {
     const savedCase = await createUnderwritingCase(db, { name: "No capital", address: "1 Test Way", assumptions: {} });
     const response = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: savedCase!.caseRevision, ...salePlan }) }), context(savedCase!.id));

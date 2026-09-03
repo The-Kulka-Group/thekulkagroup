@@ -5,7 +5,7 @@ const source = {
   file: "Apartment-Development-Model_v2.98-lbbejt.xlsm",
   sha256: "3481af2b91836bdbb7603a60246aa0f8c0c3ea6654311252f5df40760ff2a280",
   workbookVersion: "v2.98",
-  basis: "Saved Excel results from Underwriting rows 149 through 218 and monthly columns Q through BJ.",
+  basis: "Saved Excel results from Underwriting rows 149 through 218 and monthly columns Q through BJ. Standalone USD inputs are rounded to cents at the model boundary.",
   warning: "These values are a test fixture. They are not Kulka defaults or approved business rules.",
   mapping: "The cash-flow fields map to Underwriting rows 49, 202, 203, 205, 208, and 212. The forward sale period maps to the saved SALE pro forma in cells I168 and I181.",
 } as const;
@@ -52,7 +52,13 @@ const rows = [
 ] as const;
 
 const months = rows.map(([projectCosts, loanFee, grossInterest, totalDebtDraw, operatingCashFlow, repayment], index) => ({
-  month: addMonths("2025-12", index), projectCosts, loanFee, grossInterest, totalDebtDraw, operatingCashFlow, repayment,
+  month: addMonths("2025-12", index),
+  projectCosts: usd(projectCosts),
+  loanFee: usd(loanFee),
+  grossInterest: usd(grossInterest),
+  totalDebtDraw: usd(totalDebtDraw),
+  operatingCashFlow: usd(operatingCashFlow),
+  repayment: usd(repayment),
 }));
 
 export const APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE = {
@@ -60,8 +66,8 @@ export const APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE = {
   months,
   forwardSalePeriod: {
     startMonth: "2029-09", endMonth: "2030-08", monthCount: 12,
-    effectiveGrossRevenue: 7_183_351.602226562,
-    operatingExpenses: 2_887_167.1258111624,
+    effectiveGrossRevenue: usd(7_183_351.602226562),
+    operatingExpenses: usd(2_887_167.1258111624),
   },
   plan,
   fullModelInput: { ...APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE.fullModelInput, ...plan } as PropertyReturnsInputs,
@@ -79,11 +85,15 @@ export const APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE = {
     yieldOnCost: 0.070331103995619,
     developmentSpreadBasisPoints: 128.3110399561897,
   },
-  tolerances: { usd: 0.02, ratio: 1e-8 },
+  tolerances: { usd: 0.15, ratio: 1e-8 },
 } as const;
 
 function addMonths(value: string, offset: number) {
   const [year, month] = value.split("-").map(Number);
   const index = year * 12 + month - 1 + offset;
   return `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
+}
+
+function usd(value: number) {
+  return Math.round(value * 100) / 100;
 }

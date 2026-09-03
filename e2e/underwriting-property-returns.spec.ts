@@ -28,6 +28,7 @@ test("saves, calculates, reloads, and reopens property sale returns", async ({ p
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/underwriting/${createdCase.id}`);
+  await expect(page.getByLabel("Terminal Cap Rate source label", { exact: true })).toHaveAttribute("maxlength", "500");
   await page.locator("#returns-terminal-cap-rate").fill("0");
   await page.locator("#returns-selling-cost").fill("1.5");
   const invalidResponse = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().endsWith(`/api/underwriting/cases/${createdCase.id}/returns`));

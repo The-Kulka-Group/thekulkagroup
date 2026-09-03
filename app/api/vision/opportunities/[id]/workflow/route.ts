@@ -8,7 +8,6 @@ type Context = { params: Promise<{ id: string }> };
 async function handle(request: Request, context: Context, write: boolean) {
  const auth = await authorizeRequest(request);
  if (!auth.ok) return NextResponse.json({error: auth.error}, {status: auth.status});
- if (auth.user.temporary) return NextResponse.json({error: "Sign in with an authorized account to view the opportunity workflow."}, {status: 403});
  const {id} = await context.params;
  if (!isUuid(id)) return NextResponse.json({error: "Opportunity not found."}, {status: 404});
  let input: unknown;

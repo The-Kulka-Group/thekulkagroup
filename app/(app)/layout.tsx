@@ -7,7 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!auth.ok) redirect("/login");
   return (
     <div className="app">
-      <Rail email={auth.user.email} temporaryAccess={auth.user.temporary} />
+      <Rail email={auth.user.email} />
       <main className="field">{children}</main>
     </div>
   );

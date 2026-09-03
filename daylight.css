@@ -1157,6 +1157,9 @@ textarea.input { border-radius: var(--r-lg); }
 .login-actions { margin-top: var(--s6); }
 .login-actions .btn { width: 100%; justify-content: center; }
 .login-foot { margin-top: var(--s4); text-align: center; }
+.login-link { color: var(--primary); font-weight: 600; text-decoration: none; }
+.login-link:hover { color: var(--primary-hover); }
+.login-error { margin-top: var(--s3); color: var(--stuck); }
 
 /* --- 20. Narrow widths --------------------------------------------------- */
 

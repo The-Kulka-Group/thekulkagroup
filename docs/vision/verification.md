@@ -158,7 +158,7 @@ award evidence. Policy context stays out of the opportunity map and cannot be
 pursued, won or lost. Legacy source notes, record IDs and review data remain.
 
 The new workflow and people stores use RLS with no browser-role policies. The
-server rejects temporary access to both workflow reads and writes. Revision
+server rejects signed-out and forbidden users before workflow reads and writes. Revision
 checks gate the state, activity and inline contact insertion in one SQL statement.
 Assignees must be in the authorized staff list. Due dates use calendar dates,
 and overdue display compares against America/New_York.

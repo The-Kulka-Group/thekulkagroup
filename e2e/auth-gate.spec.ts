@@ -48,3 +48,50 @@ test("returns distinct API responses for signed-out and forbidden users", async 
   });
   expect(forbidden.status()).toBe(403);
 });
+
+test("requests password recovery without revealing account status", async ({ page }) => {
+  const response = await page.goto("/forgot-password?next=%2Funderwriting");
+  expect(response?.headers()["cache-control"]).toContain("no-cache");
+  expect(response?.headers()["vercel-cdn-cache-control"]).toBe("no-store");
+  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+  await page.getByLabel("Email").fill("browser-test@kulka.invalid");
+  await page.getByRole("button", { name: "Send Reset Link" }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "If the address has access, a password reset email is on the way.",
+  );
+  await expect(page.locator('input[name="next"]')).toHaveValue("/underwriting");
+});
+
+test("uses reset wording for a recovery link", async ({ page }) => {
+  await page.goto("/auth/continue?token_hash=browser-test-token&type=recovery");
+  await expect(page.getByRole("heading", { name: "Reset Your Password" })).toBeVisible();
+});
+
+test("confirms an invite, validates the password, and returns safely", async ({ page, context }) => {
+  await context.addCookies([{
+    name: "kulka-test-auth",
+    value: "signed-out",
+    url: "http://127.0.0.1:3188",
+  }]);
+  await page.goto(
+    "/auth/continue?token_hash=browser-test-token&type=invite&next=%2Fpursuits",
+  );
+  await expect(page.getByRole("heading", { name: "Finish Account Setup" })).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/update-password\?next=%2Fpursuits&flow=invite$/);
+
+  await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
+  await page.getByLabel("Confirm Password").fill("a different passphrase 43");
+  await page.getByRole("button", { name: "Save Password" }).click();
+  await expect(page.getByText("The passwords do not match.", { exact: true })).toBeVisible();
+
+  await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
+  await page.getByLabel("Confirm Password").fill("a long passphrase 42");
+  await page.getByRole("button", { name: "Save Password" }).click();
+  await expect(page).toHaveURL(/\/pursuits$/);
+});
+
+test("shows a generic error for an invalid account link", async ({ page }) => {
+  await page.goto("/auth/continue?token_hash=bad&type=signup");
+  await expect(page.getByText("This account link is invalid or has expired.", { exact: true })).toBeVisible();
+});

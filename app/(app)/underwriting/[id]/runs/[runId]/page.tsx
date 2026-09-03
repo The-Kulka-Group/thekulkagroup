@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
+  PROPERTY_RETURNS_ASSUMPTION_KEYS,
   type ApartmentOperationsInputs,
   type DevelopmentCapitalInputs,
   type MonthlyCostScheduleInputs,
+  type PropertyReturnsInputs,
   type ReconciliationCheck,
 } from "@kulka/engine";
 
@@ -20,6 +22,7 @@ import {
 } from "@/lib/underwriting/presentation";
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
+import { PropertyReturnsResults } from "../../PropertyReturnsResults";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +98,9 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-results-heading">
           <h3 id="run-results-heading">Saved results and formulas</h3>
-          {run.developmentCapitalResult ? (
+          {run.propertyReturnsResult ? (
+            <PropertyReturnsResults result={run.propertyReturnsResult} reconciliations={run.reconciliations} />
+          ) : run.developmentCapitalResult ? (
             <>
               <div className="underwriting-summary-band">
                 <div><span className="t-label">Total Uses</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.totalUses)}</strong></div>
@@ -194,7 +199,11 @@ export default async function UnderwritingRunPage({
           ) : <p className="t-meta underwriting-history-note">This run saved no financial results.</p>}
           <div className="underwriting-limitations" aria-labelledby="run-limitations-heading">
             <h4 id="run-limitations-heading">Model limits</h4>
-            <ul>{(run.developmentCapitalResult ? [
+            <ul>{(run.propertyReturnsResult ? [
+              "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
+              "It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.",
+              "This run does not record a finance or sale approval.",
+            ] : run.developmentCapitalResult ? [
               "This formula version funds monthly development costs and operating shortfalls with equity and construction debt.",
               "Sale proceeds, permanent debt, and property returns follow in later formula versions.",
               "This run does not record a finance approval.",
@@ -213,7 +222,14 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-inputs-heading">
           <h3 id="run-inputs-heading">Full calculation input snapshot</h3>
-          {isDevelopmentCapitalSnapshot(run.inputSnapshot) ? (
+          {isPropertyReturnsSnapshot(run.inputSnapshot) ? (
+            <>
+              <div className="underwriting-results-wrap"><table className="underwriting-snapshot"><thead><tr><th>Sale Input Version</th><th className="right">Terminal Cap Rate</th><th className="right">Selling Costs</th><th>Forward NOI Period</th><th>Cash Flow Dates</th><th>XIRR Convention</th></tr></thead><tbody><tr><td className="num">{run.inputSnapshot.saleInputVersion}</td><td className="num right">{run.inputSnapshot.terminalCapRatePercent}%</td><td className="num right">{run.inputSnapshot.sellingCostPercent}%</td><td className="num">{run.inputSnapshot.forwardNoiConvention}</td><td className="num">{run.inputSnapshot.cashFlowDateConvention}</td><td className="num">{run.inputSnapshot.xirrConvention}</td></tr></tbody></table></div>
+              <div className="underwriting-results-wrap"><table className="underwriting-snapshot"><thead><tr><th>Capital Input Version</th><th className="right">Target Debt Share</th><th className="right">Annual Interest Rate</th><th className="right">Loan Fee</th><th>Funding Order</th><th>Interest Treatment</th><th>Interest Convention</th><th>Fee Month</th><th>Payoff Month</th></tr></thead><tbody><tr><td className="num">{run.inputSnapshot.capitalInputVersion}</td><td className="num right">{run.inputSnapshot.targetDebtSharePercent}%</td><td className="num right">{run.inputSnapshot.annualInterestRatePercent}%</td><td className="num right">{run.inputSnapshot.loanFeePercent}%</td><td className="num">{run.inputSnapshot.fundingOrder}</td><td className="num">{run.inputSnapshot.interestTreatment}</td><td className="num">{run.inputSnapshot.interestConvention}</td><td className="num">{run.inputSnapshot.feeMonth}</td><td className="num">{run.inputSnapshot.payoffMonth}</td></tr></tbody></table></div>
+              <OperationsSnapshotSummary input={run.inputSnapshot} />
+              <OperationsInputTables input={run.inputSnapshot} />
+            </>
+          ) : isDevelopmentCapitalSnapshot(run.inputSnapshot) ? (
             <>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-snapshot">
@@ -341,6 +357,17 @@ export default async function UnderwritingRunPage({
               </table>
             </div>
           ) : null}
+          {run.evidenceSnapshot.propertyReturns ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Sale Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => {
+                  const evidence = run.evidenceSnapshot.propertyReturns!.saleAssumptionEvidence[key];
+                  return <tr key={key}><th scope="row">{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.propertyReturns!.lastChangedAt))}</td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          ) : null}
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>
@@ -400,6 +427,10 @@ function isApartmentOperationsSnapshot(snapshot: unknown): snapshot is Apartment
 
 function isDevelopmentCapitalSnapshot(snapshot: unknown): snapshot is DevelopmentCapitalInputs {
   return Boolean(snapshot && typeof snapshot === "object" && "capitalInputVersion" in snapshot && "residentialUnitTypes" in snapshot);
+}
+
+function isPropertyReturnsSnapshot(snapshot: unknown): snapshot is PropertyReturnsInputs {
+  return Boolean(snapshot && typeof snapshot === "object" && "saleInputVersion" in snapshot && "capitalInputVersion" in snapshot && "residentialUnitTypes" in snapshot);
 }
 
 function ReconciliationTable({ checks }: { checks: ReconciliationCheck[] }) {

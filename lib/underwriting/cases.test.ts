@@ -7,6 +7,7 @@ import {
   listUnderwritingCases,
   saveApartmentOperations,
   saveDevelopmentCapital,
+  savePropertyReturns,
   saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
@@ -607,6 +608,38 @@ describe("underwriting case repository", () => {
       },
     });
     expect(changedDate!.developmentCapital!.capitalAssumptionEvidence.feeMonth.reviewState).toBe("working");
+
+    const salePlan = {
+      saleInputVersion: "property_returns_inputs.v1" as const,
+      terminalCapRatePercent: 5.75,
+      sellingCostPercent: 1.5,
+      forwardNoiConvention: "forward_twelve_month_noi.v1" as const,
+      cashFlowDateConvention: "month_end_dates.v1" as const,
+      xirrConvention: "xirr_actual_365.v1" as const,
+      saleAssumptionEvidence: doneSaleEvidence(),
+    };
+    const sold = await savePropertyReturns(db, created!.id, changedDate!.caseRevision, salePlan);
+    expect(sold).toMatchObject({ caseRevision: 8, propertyReturns: { ...salePlan, lastChangedAt: expect.any(String) } });
+    const saleChanged = await savePropertyReturns(db, created!.id, sold!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 6,
+      saleAssumptionEvidence: {
+        ...salePlan.saleAssumptionEvidence,
+        sellingCostPercent: { ...salePlan.saleAssumptionEvidence.sellingCostPercent, sourceLabel: "Changed sale source" },
+      },
+    });
+    expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.terminalCapRatePercent.reviewState).toBe("working");
+    expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.sellingCostPercent.reviewState).toBe("working");
+    expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.saleMonth.reviewState).toBe("done");
+    const revisedSchedule = await saveUnderwritingCostSchedule(db, created!.id, saleChanged!.caseRevision, {
+      analysisStartMonth: saleChanged!.costSchedule!.analysisStartMonth,
+      saleMonth: "2027-01",
+      costLines: saleChanged!.costSchedule!.costLines.map(({ lastChangedAt, ...line }) => {
+        void lastChangedAt;
+        return line;
+      }),
+    });
+    expect(revisedSchedule!.propertyReturns!.saleAssumptionEvidence.saleMonth.reviewState).toBe("working");
   });
 });
 
@@ -652,6 +685,14 @@ function doneCapitalEvidence() {
     interestConvention: item(),
     feeMonth: item(),
     payoffMonth: item(),
+  };
+}
+
+function doneSaleEvidence() {
+  const item = () => ({ sourceLabel: "Reviewed sale source", sourceDate: "2026-08-01", reviewState: "done" as const });
+  return {
+    saleMonth: item(), terminalCapRatePercent: item(), sellingCostPercent: item(),
+    forwardNoiConvention: item(), cashFlowDateConvention: item(), xirrConvention: item(),
   };
 }
 

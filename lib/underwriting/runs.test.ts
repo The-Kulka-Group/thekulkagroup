@@ -5,6 +5,7 @@ import {
   createUnderwritingCase,
   saveApartmentOperations,
   saveDevelopmentCapital,
+  savePropertyReturns,
   saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
@@ -446,6 +447,49 @@ describe("underwriting calculation repository", () => {
     expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
     expect(reopened).toEqual(run);
   });
+
+  it("stores an immutable property sale and dated return run", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01", preleasedUnits: 10, leaseUpUnitsPerMonth: 1,
+      annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0, rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(), residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const capital = await saveDevelopmentCapital(db, savedCase!.id, operating!.caseRevision, {
+      capitalInputVersion: "development_capital_inputs.v1", targetDebtSharePercent: 65, annualInterestRatePercent: 8, loanFeePercent: 1,
+      fundingOrder: "equity_first.v1", interestTreatment: "capitalized_net_operating_cash.v1", interestConvention: "opening_balance_monthly.v1",
+      feeMonth: "2026-01", payoffMonth: "2026-12", capitalAssumptionEvidence: workingCapitalEvidence(),
+    });
+    const property = await savePropertyReturns(db, savedCase!.id, capital!.caseRevision, {
+      saleInputVersion: "property_returns_inputs.v1", terminalCapRatePercent: 5.75, sellingCostPercent: 1.5,
+      forwardNoiConvention: "forward_twelve_month_noi.v1", cashFlowDateConvention: "month_end_dates.v1", xirrConvention: "xirr_actual_365.v1",
+      saleAssumptionEvidence: workingSaleEvidence(),
+    });
+    const run = await runUnderwritingCase(db, savedCase!.id, property!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    expect(run).toMatchObject({
+      formulaVersion: "underwriting.property_returns.v1", status: "complete", caseRevision: 5,
+      inputSnapshot: { terminalCapRatePercent: 5.75, sellingCostPercent: 1.5 },
+      evidenceSnapshot: { propertyReturns: expect.objectContaining({ saleInputVersion: "property_returns_inputs.v1", lastChangedAt: expect.any(String) }) },
+      propertyReturnsResult: {
+        forwardOperations: { startMonth: "2026-12", endMonth: "2027-11", months: expect.any(Array) },
+        propertyReturns: {
+          sale: expect.objectContaining({ forwardNetOperatingIncome: 240_000, debtPayoff: expect.any(Number), equitySaleProceeds: expect.any(Number) }),
+          months: expect.arrayContaining([expect.objectContaining({ month: "2026-12", date: "2026-12-31" })]),
+          returns: { unlevered: expect.objectContaining({ xirr: expect.any(Number) }), levered: expect.objectContaining({ xirr: expect.any(Number) }) },
+        },
+      },
+    });
+    expect(run!.propertyReturnsResult!.forwardOperations.months).toHaveLength(12);
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(reopened).toEqual(run);
+  });
 });
 
 describe("underwriting calculation migration", () => {
@@ -484,5 +528,13 @@ function workingCapitalEvidence() {
   return {
     targetDebtSharePercent: item(), annualInterestRatePercent: item(), loanFeePercent: item(), fundingOrder: item(),
     interestTreatment: item(), interestConvention: item(), feeMonth: item(), payoffMonth: item(),
+  };
+}
+
+function workingSaleEvidence() {
+  const item = () => ({ reviewState: "working" as const });
+  return {
+    saleMonth: item(), terminalCapRatePercent: item(), sellingCostPercent: item(),
+    forwardNoiConvention: item(), cashFlowDateConvention: item(), xirrConvention: item(),
   };
 }

@@ -114,4 +114,23 @@ describe("underwriting form accessibility contract", () => {
       expect(source).toContain("formulaTraces");
     }
   });
+
+  it("shows versioned sale terms, dated return streams, and saved evidence", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
+    const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("Sale Month And Next 11 Months");
+    expect(editor).toContain("Actual Days Over 365");
+    expect(editor).toContain("Sale Assumption Sources");
+    expect(editor).toContain("aria-describedby={error ? errorId : undefined}");
+    expect(editor).toContain("finally {");
+    expect(results).toContain("Dated Monthly Property Cash Flow");
+    expect(results).toContain("Unlevered XIRR");
+    expect(results).toContain("Levered XIRR");
+    expect(results).toContain("Return Metrics And Formula Traces");
+    expect(casePage).toContain("PropertyReturnsEditor");
+    expect(runPage).toContain("PROPERTY_RETURNS_ASSUMPTION_KEYS");
+    expect(runPage).toContain("It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.");
+  });
 });

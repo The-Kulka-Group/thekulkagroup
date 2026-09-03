@@ -4,6 +4,10 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+export function temporaryAuthBypass(value: string | undefined) {
+  return value === "1";
+}
+
 export function allowedEmailsFrom(value: string | undefined): ReadonlySet<string> | null {
   if (!value) return null;
   const emails = value.split(",").map(normalizeEmail);

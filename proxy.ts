@@ -1,9 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { authConfiguration, normalizeEmail } from "@/lib/auth/policy";
+import { authConfiguration, normalizeEmail, temporaryAuthBypass } from "@/lib/auth/policy";
 
 export async function proxy(request: NextRequest) {
+  // LA-173: remove KULKA_AUTH_BYPASS from Vercel and redeploy to restore LA-13.
+  if (temporaryAuthBypass(process.env.KULKA_AUTH_BYPASS)) {
+    if (request.nextUrl.pathname === "/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
+
   const browserTest = process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1";
   const browserTestState = request.cookies.get("kulka-test-auth")?.value;
   let response = NextResponse.next({ request });

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { allowedEmailsFrom, authConfiguration, safeReturnPath } from "./policy";
+import { allowedEmailsFrom, authConfiguration, safeReturnPath, temporaryAuthBypass } from "./policy";
+
+describe("temporaryAuthBypass", () => {
+  it("enables only for the exact server value", () => {
+    expect(temporaryAuthBypass("1")).toBe(true);
+    expect(temporaryAuthBypass(undefined)).toBe(false);
+    expect(temporaryAuthBypass("true")).toBe(false);
+    expect(temporaryAuthBypass(" 1 ")).toBe(false);
+  });
+});
 
 describe("allowedEmailsFrom", () => {
   it("normalizes exactly five unique email addresses", () => {

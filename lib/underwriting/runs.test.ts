@@ -208,7 +208,7 @@ describe("underwriting calculation repository", () => {
 
     await expect(
       runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision),
-    ).rejects.toThrow("The case changed before the calculation ran");
+    ).rejects.toThrow("The project changed before the calculation ran");
     expect(await getLatestUnderwritingRun(db, updatedCase!.id)).toBeNull();
   });
 

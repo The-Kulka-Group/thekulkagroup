@@ -151,8 +151,8 @@ export default async function UnderwritingCasePage({
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
                   : runCount > 0
-                    ? "The case changed after the latest run and needs recalculation."
-                    : "The deterministic model has not run for this case."}
+                    ? "The project changed after the latest run and needs recalculation."
+                    : "The deterministic model has not run for this project."}
               </p>
             </div>
             <RunUnderwriting
@@ -165,7 +165,7 @@ export default async function UnderwritingCasePage({
           {!currentRun ? (
             <div className="empty empty--inline">
               <p>{runCount > 0
-                ? "Recalculate this case revision before reviewing financial results. Prior runs remain in the history."
+                ? "Recalculate this project revision before reviewing financial results. Prior runs remain in the history."
                 : "Run the calculation to create an immutable input snapshot."}</p>
             </div>
           ) : currentRun.status === "failed" ? (
@@ -394,14 +394,14 @@ export default async function UnderwritingCasePage({
 function decisionTitle(status: "complete" | "failed" | undefined, hasRunHistory: boolean) {
   if (status === "complete") return "The saved results are ready for review.";
   if (status === "failed") return "The calculation needs more input.";
-  if (hasRunHistory) return "The case changed and needs recalculation.";
-  return "The case has not been calculated.";
+  if (hasRunHistory) return "The project changed and needs recalculation.";
+  return "The project has not been calculated.";
 }
 
 function decisionDetail(status: "complete" | "failed" | undefined, hasRunHistory: boolean) {
-  if (status === "complete") return "These results apply the listed formula version to this saved case revision.";
+  if (status === "complete") return "These results apply the listed formula version to this saved project revision.";
   if (status === "failed") return "The failed run remains on record and makes no financial claim.";
-  if (hasRunHistory) return "Prior results do not match this case revision and are not current.";
+  if (hasRunHistory) return "Prior results do not match this project revision and are not current.";
   return "No financial result exists until the deterministic calculation runs.";
 }
 

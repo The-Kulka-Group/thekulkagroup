@@ -78,7 +78,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
       const body = await responseBody(response);
       if (!response.ok) {
         setError(response.status === 409
-          ? "The case changed in another session. Refresh the page, review the schedule, and try again."
+          ? "The project changed in another session. Refresh the page, review the schedule, and try again."
           : body?.error ?? "The cost schedule could not be saved.");
         setFieldErrors(body?.fieldErrors ?? {});
         return;

@@ -28,6 +28,9 @@ describe("sidebar navigation", () => {
     const homeLink = html.match(/<a class="rail-item"[^>]*href="\/"[^>]*>/)?.[0];
     expect(homeLink).toContain('aria-current="page"');
     expect(html).toContain(">H-100<");
+    expect(html).toContain('href="/clients"');
+    expect(html).toContain('href="/briefs"');
+    expect(html).not.toMatch(/>31<|>9<|>6</);
   });
 
   it("does not mark Home as active on another page", () => {

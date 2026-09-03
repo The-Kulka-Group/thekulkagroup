@@ -28,7 +28,7 @@ export function RunUnderwriting({
       const body = await responseBody(response);
       if (!response.ok) {
         setError(response.status === 409
-          ? "The case changed before the calculation ran. Refresh the page, review the latest values, and try again."
+          ? "The project changed before the calculation ran. Refresh the page, review the latest values, and try again."
           : body?.error ?? "The calculation could not run.");
         return;
       }

@@ -10,7 +10,7 @@ the token authority. A new screen must use those tokens and component rules.
 ## Product purpose
 
 The tool helps a Kulka user turn a development deal into a reviewable
-underwriting case. It must show the assumptions, the calculation results, and
+underwriting project. It must show the assumptions, the calculation results, and
 what still needs a decision. It must not present a generated answer as a
 decision or hide the source of a number.
 
@@ -38,9 +38,9 @@ Suggested records and screens:
 
 | Screen | Purpose | Primary content |
 | --- | --- | --- |
-| Underwriting list | Find and compare live cases | Deal name, stage, owner, updated date, key review state |
-| Deal overview | Establish the case and its current decision | Property facts, owner, status, next review, open items |
-| Assumptions | Review the inputs behind the case | Acquisition, program, schedule, revenue, cost, debt, and exit assumptions |
+| Underwriting list | Find and compare live projects | Deal name, stage, owner, updated date, key review state |
+| Deal overview | Establish the project and its current decision | Property facts, owner, status, next review, open items |
+| Assumptions | Review the inputs behind the project | Acquisition, program, schedule, revenue, cost, debt, and exit assumptions |
 | Sources | Show where each important value came from | Source type, file or link reference, contributor, date, review state |
 | Results | Read the base case before changing it | Uses and sources, return measures, cash flow, sensitivity summary, warnings |
 | Sensitivities | Compare bounded scenarios | Base, downside, and upside cases with the changed inputs shown beside results |
@@ -73,8 +73,8 @@ Use the Daylight status language everywhere:
 | State | Use in underwriting |
 | --- | --- |
 | Done | A reviewed input or completed review item |
-| Working on it | A case or analysis in progress |
-| Stuck | A blocked case or a material missing item |
+| Working on it | A project or analysis in progress |
+| Stuck | A blocked project or a material missing item |
 | Not started | A section that has not been prepared |
 
 An amber waiting state marks a decision that needs a person. A red state marks

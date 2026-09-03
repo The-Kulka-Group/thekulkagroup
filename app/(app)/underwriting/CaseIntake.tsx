@@ -48,17 +48,17 @@ export function CaseIntake() {
       });
       const body = await responseBody(response);
       if (!response.ok) {
-        setError(body?.error ?? "The case could not be saved.");
+        setError(body?.error ?? "The project could not be saved.");
         return;
       }
       if (!body?.case?.id) {
-        setError("The case was saved, but the server returned an unreadable response. Reload the case list.");
+        setError("The project was saved, but the server returned an unreadable response. Reload the project list.");
         return;
       }
       router.push(`/underwriting/${body.case.id}`);
       router.refresh();
     } catch {
-      setError("The case could not be saved. Check the connection and try again.");
+      setError("The project could not be saved. Check the connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -68,13 +68,13 @@ export function CaseIntake() {
     <form className="underwriting-intake" onSubmit={submit}>
       <div className="underwriting-intake-head">
         <div>
-          <h2 className="t-2">Start a ground-up multifamily case</h2>
+          <h2 className="t-2">Start a ground-up multifamily project</h2>
           <p className="t-meta">Enter what is known. Blank financial inputs stay missing.</p>
         </div>
       </div>
 
       <div className="underwriting-form-grid">
-        <Field name="name" label="Case name" required />
+        <Field name="name" label="Project name" required />
         <Field name="address" label="Property address" required />
         <Field name="proposedUnits" label="Proposed units" type="number" min="1" step="1" />
         <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0" step="any" />
@@ -98,7 +98,7 @@ export function CaseIntake() {
       {error ? <p className="input-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
         <button className="btn btn--primary btn--lg" type="submit" disabled={saving}>
-          {saving ? "Saving" : "Save case"}
+          {saving ? "Saving" : "Save project"}
         </button>
       </div>
     </form>

@@ -112,13 +112,13 @@ export function EditUnderwritingCase({
       const body = await responseBody(response);
       if (!response.ok) {
         setError(response.status === 409
-          ? "The case changed in another session. Refresh the page, review the latest values, then retry your edits. Your entries remain in this form."
-          : body?.error ?? "The case could not be saved.");
+          ? "The project changed in another session. Refresh the page, review the latest values, then retry your edits. Your entries remain in this form."
+          : body?.error ?? "The project could not be saved.");
         setFieldErrors(body?.fieldErrors ?? {});
         return;
       }
       if (!body?.case?.caseRevision) {
-        setError("The case may have been saved, but the server returned an unreadable response. Reload before making more changes.");
+        setError("The project may have been saved, but the server returned an unreadable response. Reload before making more changes.");
         return;
       }
       caseWasSaved = true;
@@ -131,7 +131,7 @@ export function EditUnderwritingCase({
       const runBody = await responseBody(runResponse);
       if (!runResponse.ok) {
         setError(runResponse.status === 409
-          ? "The changes were saved, but the case changed again before calculation. Refresh the page and retry the calculation."
+          ? "The changes were saved, but the project changed again before calculation. Refresh the page and retry the calculation."
           : `The changes were saved. ${runBody?.error ?? "The calculation could not run."}`);
         return;
       }
@@ -140,7 +140,7 @@ export function EditUnderwritingCase({
     } catch {
       setError(caseWasSaved
         ? "The changes were saved, but the calculation request failed. Check the connection, reload, and run the calculation."
-        : "The case could not be saved. Check the connection and try again.");
+        : "The project could not be saved. Check the connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -151,7 +151,7 @@ export function EditUnderwritingCase({
       <section className="record-section">
         <h3>Project facts</h3>
         <div className="underwriting-form-grid">
-          <Field name="name" label="Case name" defaultValue={savedCase.name} required error={fieldErrors.name} />
+          <Field name="name" label="Project name" defaultValue={savedCase.name} required error={fieldErrors.name} />
           <Field name="address" label="Property address" defaultValue={savedCase.address} required error={fieldErrors.address} />
         </div>
         <EvidenceTable

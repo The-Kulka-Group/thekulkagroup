@@ -63,7 +63,7 @@ export function ScenarioComparisonEditor({ savedCase }: { savedCase: Underwritin
       });
       const body = await response.json();
       if (!response.ok) {
-        setError(response.status === 409 ? "The case changed in another session. Refresh and review the scenarios." : body.error);
+        setError(response.status === 409 ? "The project changed in another session. Refresh and review the scenarios." : body.error);
         setFieldErrors(body.fieldErrors ?? {});
         return;
       }

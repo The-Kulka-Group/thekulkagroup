@@ -8,6 +8,24 @@ async function source(path: string) {
 }
 
 describe("underwriting form accessibility contract", () => {
+  it("uses project language throughout the visible underwriting flow", async () => {
+    const list = await source("app/(app)/underwriting/page.tsx");
+    const create = await source("app/(app)/underwriting/new/page.tsx");
+    const intake = await source("app/(app)/underwriting/CaseIntake.tsx");
+    const detail = await source("app/(app)/underwriting/[id]/page.tsx");
+    const run = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+
+    expect(list).toContain("New project");
+    expect(list).toContain("No underwriting projects have been saved.");
+    expect(list).toContain("<th>Project</th>");
+    expect(create).toContain('title="New underwriting project"');
+    expect(intake).toContain("Start a ground-up multifamily project");
+    expect(intake).toContain('label="Project name"');
+    expect(intake).toContain('"Save project"');
+    expect(detail).toContain("The project has not been calculated.");
+    expect(run).toContain("Back to project");
+  });
+
   it("labels inline controls and links field errors with described-by ids", async () => {
     const edit = await source("app/(app)/underwriting/[id]/EditUnderwritingCase.tsx");
     expect(edit).toContain("aria-label={`${field.label} review state`}");

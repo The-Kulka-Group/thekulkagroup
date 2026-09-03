@@ -157,6 +157,11 @@ four business sections: Sales and Marketing, Business Development, Pre-Construct
 and Development. Underwriting belongs under Development. Conceptual Budget belongs
 under Pre-Construction.
 
+Underwriting calls each saved record a project in the interface. Creation, lists,
+detail pages, run history, and errors use project language. Internal routes, database
+tables, and code may retain case identifiers when changing them would add migration risk
+without changing what the user sees (owner decision 2026-09-03).
+
 Icons (owner picks 2026-08-25): Phosphor regular. They live in two places, the rail
 and state marks, and nowhere else. An icon always sits beside its word, never
 instead of it; header actions, table rows, and body content stay words.
@@ -192,8 +197,9 @@ Only what the owner has actually ruled out:
   should do.
 - Red borders or bars as card decoration.
 - Construction costume in the visuals; the vocabulary lives in the words only.
-- Fabricated dollar figures or real client names in demos and fixtures; example data
-  is labeled (example).
+- Fabricated records, counts, names, dates, or financial values in the shipped app.
+  Tests may use synthetic fixtures inside disposable test databases, and static design
+  references may use clearly labeled examples because neither source reaches runtime.
 
 ## Code note
 

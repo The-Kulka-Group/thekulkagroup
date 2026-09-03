@@ -120,7 +120,7 @@ describe("parseCaseDraft", () => {
   });
 
   it.each([
-    [{ address: "100 Test Avenue" }, "Case name is required."],
+    [{ address: "100 Test Avenue" }, "Project name is required."],
     [{ name: "Saved case" }, "Property address is required."],
     [
       { name: "Saved case", address: "100 Test Avenue", proposedUnits: 4.5 },

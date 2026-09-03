@@ -52,7 +52,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
       const body = await responseBody(response);
       if (!response.ok) {
         setError(response.status === 409
-          ? "The case changed in another session. Refresh the page, review the sale inputs, and try again."
+          ? "The project changed in another session. Refresh the page, review the sale inputs, and try again."
           : body?.error ?? "The property sale inputs could not be saved.");
         setFieldErrors(body?.fieldErrors ?? {});
         return;

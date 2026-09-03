@@ -89,7 +89,7 @@ function sourceMetadata(value: unknown, field: string): EvidenceMetadata | undef
 
 export function parseCaseDraft(body: unknown): CaseDraft {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new InvalidCaseDraft("Send a case object.");
+    throw new InvalidCaseDraft("Send a project object.");
   }
   const candidate = body as Record<string, unknown>;
   const supplied = candidate.assumptions;
@@ -189,7 +189,7 @@ export function parseCaseDraft(body: unknown): CaseDraft {
   }
 
   return {
-    name: requiredText(candidate.name, "Case name", "name"),
+    name: requiredText(candidate.name, "Project name", "name"),
     address: requiredText(candidate.address, "Property address", "address"),
     ...facts,
     assumptions,

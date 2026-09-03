@@ -98,7 +98,7 @@ type RunRow = {
 
 export class UnderwritingRevisionConflict extends Error {
   constructor() {
-    super("The case changed before the calculation ran. Reload it and try again.");
+    super("The project changed before the calculation ran. Reload it and try again.");
   }
 }
 

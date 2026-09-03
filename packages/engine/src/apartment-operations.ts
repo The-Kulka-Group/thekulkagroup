@@ -8,6 +8,10 @@ import {
 
 export const APARTMENT_OPERATIONS_INPUT_VERSION = "apartment_operations_inputs.v1" as const;
 export const APARTMENT_OPERATIONS_FORMULA_VERSION = "underwriting.apartment_operations.v1" as const;
+export const MAX_APARTMENT_OPERATION_LINES = 250;
+export const MAX_OPERATION_LINE_ID_LENGTH = 100;
+export const MAX_OPERATION_LINE_NAME_LENGTH = 200;
+export const MAX_OPERATION_SOURCE_LABEL_LENGTH = 500;
 
 type ReviewState = "working" | "done";
 
@@ -94,6 +98,9 @@ export type ApartmentOperationsIssueCode = MonthlyCostIssueCode
   | "unsupported_unit"
   | "invalid_source_date"
   | "invalid_review_state"
+  | "invalid_line"
+  | "too_many_lines"
+  | "text_too_long"
   | "derived_results";
 
 export type ApartmentOperationsIssue = {
@@ -103,7 +110,7 @@ export type ApartmentOperationsIssue = {
 };
 
 export type OperationsFormulaTrace = {
-  key: keyof ApartmentOperationsTotals | "monthlyLeaseUp";
+  key: keyof ApartmentOperationsTotals | "monthlyLeaseUp" | "firstStabilizedMonth";
   label: string;
   formula: string;
   inputPaths: string[];
@@ -138,6 +145,14 @@ export type ApartmentOperationsTotals = Omit<MonthlyApartmentOperations,
 
 export type ApartmentOperationsResult = {
   costSchedule: MonthlyCostScheduleResult;
+  unitTypeSummaries: Array<{
+    id: string;
+    units: number;
+    nonRevenueUnits: number;
+    revenueUnits: number;
+    averageAreaSf: number;
+    areaSf: number;
+  }>;
   unitSummary: {
     totalUnits: number;
     revenueUnits: number;
@@ -182,7 +197,7 @@ export function computeApartmentOperations(input: ApartmentOperationsInputs): Ap
   }
   const reconciliations = [
     ...costRun.reconciliations,
-    ...operationReconciliations(inputSnapshot, result),
+    ...operationReconciliations(result),
   ];
   if (reconciliations.some(({ status }) => status === "fail")) {
     return failed(inputSnapshot, [{
@@ -229,11 +244,22 @@ function validate(input: ApartmentOperationsInputs) {
   }
   validateAssumptionEvidence(issues, input.assumptionEvidence);
 
+  const operationLineCount = [
+    input.residentialUnitTypes,
+    input.otherIncomeLines,
+    input.operatingExpenseLines,
+    input.capitalExpenditureLines,
+  ].reduce((total, lines) => total + (Array.isArray(lines) ? lines.length : 0), 0);
+  if (operationLineCount > MAX_APARTMENT_OPERATION_LINES) {
+    addIssue(issues, "operationsLines", "too_many_lines", `Apartment operations cannot contain more than ${MAX_APARTMENT_OPERATION_LINES} lines.`);
+  }
+
   if (!Array.isArray(input.residentialUnitTypes) || input.residentialUnitTypes.length === 0) {
     addIssue(issues, "residentialUnitTypes", "missing_lines", "Add at least one residential unit type.");
   } else {
     validateSourcedLines(issues, input.residentialUnitTypes, "residentialUnitTypes");
     input.residentialUnitTypes.forEach((line, index) => {
+      if (!isLineObject(line)) return;
       validateWholeNumber(issues, `residentialUnitTypes.${index}.units`, line.units, false);
       validateWholeNumber(issues, `residentialUnitTypes.${index}.nonRevenueUnits`, line.nonRevenueUnits, true);
       validateArea(issues, `residentialUnitTypes.${index}.averageAreaSf`, line.averageAreaSf);
@@ -242,8 +268,9 @@ function validate(input: ApartmentOperationsInputs) {
       }
       validateMoney(issues, `residentialUnitTypes.${index}.monthlyMarketRent`, line.monthlyMarketRent, false);
     });
-    const totalUnits = input.residentialUnitTypes.reduce((sum, line) => sum + line.units, 0);
-    const revenueUnits = input.residentialUnitTypes.reduce((sum, line) => sum + line.units - line.nonRevenueUnits, 0);
+    const validLines = input.residentialUnitTypes.filter(isLineObject);
+    const totalUnits = validLines.reduce((sum, line) => sum + line.units, 0);
+    const revenueUnits = validLines.reduce((sum, line) => sum + line.units - line.nonRevenueUnits, 0);
     if (Number.isFinite(input.preleasedUnits) && input.preleasedUnits > revenueUnits) {
       addIssue(issues, "preleasedUnits", "invalid_units", "Pre-leased units cannot exceed revenue units.");
     }
@@ -276,6 +303,7 @@ function validateAssumptionEvidence(
     if (item.sourceDate !== undefined && !validDate(item.sourceDate)) {
       addIssue(issues, `${path}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
     }
+    validateSourceLabel(issues, `${path}.sourceLabel`, item.sourceLabel);
     if (item.reviewState !== "working" && item.reviewState !== "done") {
       addIssue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
     }
@@ -300,6 +328,7 @@ function validateMoneyLines(
   }
   validateSourcedLines(issues, lines, path);
   lines.forEach((line, index) => {
+    if (!isLineObject(line)) return;
     validateMoney(issues, `${path}.${index}.amount`, line.amount, true);
     if (!units.includes(line.unit)) {
       addIssue(issues, `${path}.${index}.unit`, "unsupported_unit", `${labelFor(path)} unit is not supported.`);
@@ -314,12 +343,14 @@ function validateSourcedLines(issues: ApartmentOperationsIssue[], lines: Sourced
   const ids = new Set<string>();
   lines.forEach((line, index) => {
     const linePath = `${path}.${index}`;
-    if (!line || typeof line !== "object") {
-      addIssue(issues, linePath, "missing_text", "Line must be an object.");
+    if (!isLineObject(line)) {
+      addIssue(issues, linePath, "invalid_line", "Line must be an object.");
       return;
     }
     if (typeof line.id !== "string" || line.id.trim() === "") {
       addIssue(issues, `${linePath}.id`, "missing_text", "Line ID is required.");
+    } else if (line.id.length > MAX_OPERATION_LINE_ID_LENGTH) {
+      addIssue(issues, `${linePath}.id`, "text_too_long", `Line ID cannot exceed ${MAX_OPERATION_LINE_ID_LENGTH} characters.`);
     } else if (ids.has(line.id)) {
       addIssue(issues, `${linePath}.id`, "duplicate_id", "Line IDs must be unique within this section.");
     } else {
@@ -327,7 +358,10 @@ function validateSourcedLines(issues: ApartmentOperationsIssue[], lines: Sourced
     }
     if (typeof line.name !== "string" || line.name.trim() === "") {
       addIssue(issues, `${linePath}.name`, "missing_text", "Line name is required.");
+    } else if (line.name.length > MAX_OPERATION_LINE_NAME_LENGTH) {
+      addIssue(issues, `${linePath}.name`, "text_too_long", `Line name cannot exceed ${MAX_OPERATION_LINE_NAME_LENGTH} characters.`);
     }
+    validateSourceLabel(issues, `${linePath}.sourceLabel`, line.sourceLabel);
     if (line.sourceDate !== undefined && !validDate(line.sourceDate)) {
       addIssue(issues, `${linePath}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
     }
@@ -335,6 +369,18 @@ function validateSourcedLines(issues: ApartmentOperationsIssue[], lines: Sourced
       addIssue(issues, `${linePath}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
     }
   });
+}
+
+function isLineObject<T extends object>(line: T): line is T & SourcedLine {
+  return Boolean(line && typeof line === "object" && !Array.isArray(line));
+}
+
+function validateSourceLabel(issues: ApartmentOperationsIssue[], path: string, value: unknown) {
+  if (value !== undefined && typeof value !== "string") {
+    addIssue(issues, path, "missing_text", "Source label must be text.");
+  } else if (typeof value === "string" && value.length > MAX_OPERATION_SOURCE_LABEL_LENGTH) {
+    addIssue(issues, path, "text_too_long", `Source label cannot exceed ${MAX_OPERATION_SOURCE_LABEL_LENGTH} characters.`);
+  }
 }
 
 function validateMoney(issues: ApartmentOperationsIssue[], path: string, value: number, allowZero: boolean) {
@@ -357,6 +403,14 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
   const nonRevenueUnits = input.residentialUnitTypes.reduce((sum, line) => sum + line.nonRevenueUnits, 0);
   const revenueUnits = input.residentialUnitTypes.reduce((sum, line) => sum + line.units - line.nonRevenueUnits, 0);
   const totalAreaSf = input.residentialUnitTypes.reduce((sum, line) => sum + line.averageAreaSf * line.units, 0);
+  const unitTypeSummaries = input.residentialUnitTypes.map((line) => ({
+    id: line.id,
+    units: line.units,
+    nonRevenueUnits: line.nonRevenueUnits,
+    revenueUnits: line.units - line.nonRevenueUnits,
+    averageAreaSf: line.averageAreaSf,
+    areaSf: line.averageAreaSf * line.units,
+  }));
 
   let potentialIncomeYearToDate = 0;
   let vacancyLossYearToDate = 0;
@@ -459,6 +513,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
   const totals = totalOperations(months);
   return {
     costSchedule,
+    unitTypeSummaries,
     unitSummary: { totalUnits, revenueUnits, nonRevenueUnits, totalAreaSf },
     months,
     totals,
@@ -585,22 +640,20 @@ function totalOperations(months: MonthlyApartmentOperations[]): ApartmentOperati
   ])) as ApartmentOperationsTotals;
 }
 
-function operationReconciliations(input: ApartmentOperationsInputs, result: ApartmentOperationsResult) {
-  const enteredUnits = input.residentialUnitTypes.reduce((sum, line) => sum + line.units, 0);
-  const enteredAreaSf = input.residentialUnitTypes.reduce((sum, line) => sum + line.units * line.averageAreaSf, 0);
+function operationReconciliations(result: ApartmentOperationsResult) {
   const unitChecks = [
     check(
       "unit-total",
       "Unit total equals revenue units plus non-revenue units",
-      enteredUnits,
       result.unitSummary.totalUnits,
+      result.unitSummary.revenueUnits + result.unitSummary.nonRevenueUnits,
       "count",
     ),
     check(
       "area-total",
       "Area total equals unit-type units times average area",
-      enteredAreaSf,
       result.unitSummary.totalAreaSf,
+      result.unitTypeSummaries.reduce((sum, line) => sum + line.areaSf, 0),
       "sf",
     ),
   ];
@@ -636,15 +689,38 @@ function operationReconciliations(input: ApartmentOperationsInputs, result: Apar
       sumMoney(month.netOperatingIncome, -month.capitalExpenditures),
     ),
   ]);
-  const operatingCashFlowTotal = sumMoney(...result.months.map((month) => month.operatingCashFlow));
   return [
     ...unitChecks,
     ...monthlyChecks,
     check(
+      "residential-rent-total",
+      "Residential rent total equals its separate rent totals",
+      result.totals.totalResidentialRent,
+      sumMoney(result.totals.residentialGrossRent, result.totals.nonRevenueRentAdjustment, result.totals.leaseUpLoss, result.totals.rentAdjustmentLoss, result.totals.freeRentLoss),
+    ),
+    check(
+      "potential-income-total",
+      "Potential income total equals residential rent plus other income",
+      result.totals.totalPotentialIncome,
+      sumMoney(result.totals.totalResidentialRent, result.totals.otherIncome),
+    ),
+    check(
+      "effective-gross-revenue-total",
+      "Effective gross revenue total equals potential income less vacancy and credit loss",
+      result.totals.effectiveGrossRevenue,
+      sumMoney(result.totals.totalPotentialIncome, result.totals.vacancyLoss, result.totals.creditLoss),
+    ),
+    check(
+      "net-operating-income-total",
+      "Net operating income total equals effective gross revenue less operating expenses",
+      result.totals.netOperatingIncome,
+      sumMoney(result.totals.effectiveGrossRevenue, -result.totals.operatingExpenses),
+    ),
+    check(
       "operating-cash-flow-total",
-      "Operating cash flow total equals the sum of monthly operating cash flow",
+      "Operating cash flow total equals net operating income less capital expenditures",
       result.totals.operatingCashFlow,
-      operatingCashFlowTotal,
+      sumMoney(result.totals.netOperatingIncome, -result.totals.capitalExpenditures),
     ),
   ];
 }
@@ -665,10 +741,15 @@ function formulaTraces(): OperationsFormulaTrace[] {
     { key: "monthlyLeaseUp", label: "Monthly Lease-Up", formula: "the lesser of revenue units or pre-leased units plus monthly lease pace after operation start", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "residentialUnitTypes"] },
     { key: "totalResidentialRent", label: "Total Residential Rent", formula: "grown gross residential rent plus non-revenue, lease-up, rent adjustment, and free-rent losses", inputPaths: ["residentialUnitTypes", "growthStartMonth", "annualIncomeGrowthPercent", "rentAdjustmentLossPercent", "freeRentPercent"] },
     { key: "otherIncome", label: "Other Income", formula: "sum of separate grown annual and per-occupied-unit other-income lines", inputPaths: ["otherIncomeLines", "growthStartMonth", "annualIncomeGrowthPercent"] },
+    { key: "totalPotentialIncome", label: "Total Potential Income", formula: "total residential rent plus other income", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "growthStartMonth", "annualIncomeGrowthPercent"] },
     { key: "vacancyLoss", label: "Vacancy Loss", formula: "negative total potential income times vacancy percent", inputPaths: ["vacancyPercent", "residentialUnitTypes", "otherIncomeLines"] },
     { key: "creditLoss", label: "Credit Loss", formula: "negative total potential income times credit-loss percent", inputPaths: ["creditLossPercent", "residentialUnitTypes", "otherIncomeLines"] },
+    { key: "effectiveGrossRevenue", label: "Effective Gross Revenue", formula: "total potential income plus vacancy loss and credit loss", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "vacancyPercent", "creditLossPercent"] },
+    { key: "operatingExpenses", label: "Operating Expenses", formula: "sum of grown annual, per-unit, and percent-of-revenue operating expense lines", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "netOperatingIncome", label: "Net Operating Income", formula: "effective gross revenue less grown operating expenses", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
+    { key: "capitalExpenditures", label: "Capital Expenditures", formula: "sum of grown annual and per-unit capital expenditure lines", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "net operating income less grown capital expenditures", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
+    { key: "firstStabilizedMonth", label: "First Stabilized Month", formula: "first month when leased units equal all revenue units after operation start", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "residentialUnitTypes"] },
   ];
 }
 

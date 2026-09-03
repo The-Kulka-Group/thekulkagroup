@@ -110,6 +110,35 @@ describe("/api/underwriting/cases/:id/operations", () => {
     });
   });
 
+  it.each([
+    ["residentialUnitTypes", [null], "residentialUnitTypes.0"],
+    ["otherIncomeLines", ["bad"], "otherIncomeLines.0"],
+    ["operatingExpenseLines", [null], "operatingExpenseLines.0"],
+    ["capitalExpenditureLines", [4], "capitalExpenditureLines.0"],
+  ])("returns 400 for malformed %s entries", async (key, value, path) => {
+    const savedCase = await scheduledCase();
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      body: JSON.stringify({ expectedRevision: savedCase!.caseRevision, ...operations, [key]: value }),
+    }), context(savedCase!.id));
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.fieldErrors).toMatchObject({ [path]: expect.stringMatching(/object/) });
+    expect(body.issues).toContainEqual(expect.objectContaining({ path, code: "invalid_line" }));
+  });
+
+  it("rejects a request body over the app JSON limit before database access", async () => {
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ padding: "x".repeat(1_000_001) }),
+    }), context("00000000-0000-4000-8000-000000000001"));
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: expect.stringMatching(/too large/i) });
+  });
+
   it("requires a cost schedule and rejects stale revisions", async () => {
     const noSchedule = await createUnderwritingCase(db, {
       name: "No schedule",

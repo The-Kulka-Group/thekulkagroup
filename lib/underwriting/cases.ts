@@ -520,7 +520,11 @@ function reconcileAssumptionEvidence(
 ) {
   return Object.fromEntries(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => [
     key,
-    existing && existing[key] !== draft[key]
+    existing && (
+      existing[key] !== draft[key]
+      || existing.assumptionEvidence[key].sourceLabel !== draft.assumptionEvidence[key].sourceLabel
+      || existing.assumptionEvidence[key].sourceDate !== draft.assumptionEvidence[key].sourceDate
+    )
       ? { ...draft.assumptionEvidence[key], reviewState: "working" as const }
       : draft.assumptionEvidence[key],
   ])) as Record<ApartmentOperationsAssumptionKey, ApartmentOperationsInputs["assumptionEvidence"][ApartmentOperationsAssumptionKey]>;

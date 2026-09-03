@@ -5,6 +5,7 @@ import {
   APARTMENT_OPERATIONS_FORMULA_VERSION,
   APARTMENT_OPERATIONS_INPUT_VERSION,
   computeApartmentOperations,
+  MAX_APARTMENT_OPERATION_LINES,
   type ApartmentOperationsInputs,
 } from "./apartment-operations";
 
@@ -138,16 +139,29 @@ describe("computeApartmentOperations", () => {
     expect(run.result?.formulaTraces.map(({ key }) => key)).toEqual(expect.arrayContaining([
       "totalResidentialRent",
       "otherIncome",
+      "totalPotentialIncome",
       "vacancyLoss",
       "creditLoss",
+      "effectiveGrossRevenue",
+      "operatingExpenses",
       "netOperatingIncome",
+      "capitalExpenditures",
       "operatingCashFlow",
+      "firstStabilizedMonth",
     ]));
     expect(run.reconciliations).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "unit-total", status: "pass" }),
       expect.objectContaining({ id: "area-total", status: "pass" }),
+      expect.objectContaining({ id: "residential-rent-total", status: "pass" }),
+      expect.objectContaining({ id: "potential-income-total", status: "pass" }),
+      expect.objectContaining({ id: "effective-gross-revenue-total", status: "pass" }),
+      expect.objectContaining({ id: "net-operating-income-total", status: "pass" }),
       expect.objectContaining({ id: "operating-cash-flow-total", status: "pass" }),
     ]));
+    expect(run.reconciliations.find(({ id }) => id === "unit-total")).toMatchObject({
+      expected: 100,
+      actual: 100,
+    });
     expect(run.reconciliations.every(({ status }) => status === "pass")).toBe(true);
   });
 
@@ -200,6 +214,52 @@ describe("computeApartmentOperations", () => {
     expect(run.result).toBeNull();
     expect(run.reconciliations).toEqual([]);
     expect(run.issues).toContainEqual(expect.objectContaining({ code }));
+  });
+
+  it.each([
+    ["null residential unit type", "residentialUnitTypes", [null], "residentialUnitTypes.0"],
+    ["string other income line", "otherIncomeLines", ["bad"], "otherIncomeLines.0"],
+    ["null operating expense line", "operatingExpenseLines", [null], "operatingExpenseLines.0"],
+    ["number capital expenditure line", "capitalExpenditureLines", [4], "capitalExpenditureLines.0"],
+  ])("returns a typed issue for a %s", (_label, key, value, path) => {
+    const run = computeApartmentOperations({ ...complete, [key]: value } as unknown as ApartmentOperationsInputs);
+
+    expect(run.status).toBe("failed");
+    expect(run.result).toBeNull();
+    expect(run.issues).toContainEqual(expect.objectContaining({ path, code: "invalid_line" }));
+  });
+
+  it("caps all operating input lines and limits IDs, names, and source labels", () => {
+    const tooMany = Array.from({ length: MAX_APARTMENT_OPERATION_LINES + 1 }, (_, index) => ({
+      ...complete.otherIncomeLines[0],
+      id: `income-${index}`,
+    }));
+    const run = computeApartmentOperations({
+      ...complete,
+      residentialUnitTypes: [{
+        ...complete.residentialUnitTypes[0],
+        id: "x".repeat(101),
+        name: "n".repeat(201),
+        sourceLabel: "s".repeat(501),
+      }],
+      otherIncomeLines: tooMany,
+      assumptionEvidence: {
+        ...complete.assumptionEvidence,
+        vacancyPercent: {
+          ...complete.assumptionEvidence.vacancyPercent,
+          sourceLabel: "s".repeat(501),
+        },
+      },
+    });
+
+    expect(run.status).toBe("failed");
+    expect(run.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "operationsLines", code: "too_many_lines" }),
+      expect.objectContaining({ path: "residentialUnitTypes.0.id", code: "text_too_long" }),
+      expect.objectContaining({ path: "residentialUnitTypes.0.name", code: "text_too_long" }),
+      expect.objectContaining({ path: "residentialUnitTypes.0.sourceLabel", code: "text_too_long" }),
+      expect.objectContaining({ path: "assumptionEvidence.vacancyPercent.sourceLabel", code: "text_too_long" }),
+    ]));
   });
 
   it("does not mutate the submitted input", () => {

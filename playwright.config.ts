@@ -5,6 +5,7 @@ const port = 3188;
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
+  workers: 1,
   outputDir: "/tmp/kulka-playwright-results",
   reporter: "line",
   use: {

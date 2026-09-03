@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   APARTMENT_OPERATIONS_INPUT_VERSION,
+  MAX_APARTMENT_OPERATION_LINES,
+  MAX_OPERATION_LINE_NAME_LENGTH,
+  MAX_OPERATION_SOURCE_LABEL_LENGTH,
   type ApartmentOperationsAssumptionEvidence,
   type ApartmentOperationsAssumptionKey,
   type CapitalExpenditureLine,
@@ -38,6 +41,10 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const clientReady = useSyncExternalStore(hydrationSubscription, () => true, () => false);
+  const operationLineCount = residentialUnitTypes.length + otherIncomeLines.length
+    + operatingExpenseLines.length + capitalExpenditureLines.length;
+  const canAddLine = operationLineCount < MAX_APARTMENT_OPERATION_LINES;
 
   if (!savedCase.costSchedule) {
     return (
@@ -94,7 +101,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   }
 
   return (
-    <form className="underwriting-operations-editor" onSubmit={save} noValidate>
+    <form className="underwriting-operations-editor" data-client-ready={clientReady ? "true" : "false"} onSubmit={save} noValidate>
       <div className="underwriting-section-head">
         <div>
           <h3 id="apartment-operations-heading">Apartment Operations</h3>
@@ -125,6 +132,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         title="Residential Unit Types"
         description="Gross rent and non-revenue units remain visible before lease-up and rent losses."
         addLabel="Add Unit Type"
+        canAdd={canAddLine}
         onAdd={() => setResidentialUnitTypes((lines) => [...lines, blankUnitType()])}
       >
         <div className="underwriting-edit-table-wrap">
@@ -145,13 +153,13 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         </div>
       </LineSection>
 
-      <MoneyLineSection title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
+      <MoneyLineSection title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" canAdd={canAddLine} lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
         ["usd_per_year", "USD Per Year"], ["usd_per_occupied_unit_month", "USD Per Occupied Unit Per Month"],
       ]} fieldErrors={fieldErrors} />
-      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate." addLabel="Add Operating Expense" lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" units={[
+      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" units={[
         ["usd_per_year", "USD Per Year"], ["usd_per_unit_year", "USD Per Unit Per Year"], ["percent_effective_gross_revenue", "Percent Of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
-      <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow." addLabel="Add Capital Expenditure" lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" units={[
+      <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" units={[
         ["usd_per_year", "USD Per Year"], ["usd_per_unit_year", "USD Per Unit Per Year"],
       ]} fieldErrors={fieldErrors} />
 
@@ -184,17 +192,18 @@ function AssumptionEvidenceTable({ evidence, setEvidence, fieldErrors }: {
   const update = (key: ApartmentOperationsAssumptionKey, value: Partial<ApartmentOperationsAssumptionEvidence>) => {
     setEvidence((current) => ({ ...current, [key]: { ...current[key], ...value } }));
   };
-  return <section className="underwriting-line-section"><h4>Operating Assumption Sources</h4><p className="t-meta">Each timing and rate input keeps its source and review state with the saved case.</p><div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>{APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => <tr key={key}><th scope="row">{ASSUMPTION_LABELS[key]}</th><td><input className="input" aria-label={`${ASSUMPTION_LABELS[key]} source label`} value={evidence[key].sourceLabel ?? ""} onChange={(event) => update(key, { sourceLabel: event.target.value || undefined })} /></td><td><input className="input" type="date" aria-label={`${ASSUMPTION_LABELS[key]} source date`} value={evidence[key].sourceDate ?? ""} onChange={(event) => update(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`assumptionEvidence.${key}.sourceDate`])} /><FieldError error={fieldErrors[`assumptionEvidence.${key}.sourceDate`]} /></td><td><select className="input" aria-label={`${ASSUMPTION_LABELS[key]} review state`} value={evidence[key].reviewState} onChange={(event) => update(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></tr>)}</tbody></table></div></section>;
+  return <section className="underwriting-line-section"><h4>Operating Assumption Sources</h4><p className="t-meta">Each timing and rate input keeps its source and review state with the saved case.</p><div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>{APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => <tr key={key}><th scope="row">{ASSUMPTION_LABELS[key]}</th><td><input className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${ASSUMPTION_LABELS[key]} source label`} value={evidence[key].sourceLabel ?? ""} onChange={(event) => update(key, { sourceLabel: event.target.value || undefined })} /></td><td><input className="input" type="date" aria-label={`${ASSUMPTION_LABELS[key]} source date`} value={evidence[key].sourceDate ?? ""} onChange={(event) => update(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`assumptionEvidence.${key}.sourceDate`])} /><FieldError error={fieldErrors[`assumptionEvidence.${key}.sourceDate`]} /></td><td><select className="input" aria-label={`${ASSUMPTION_LABELS[key]} review state`} value={evidence[key].reviewState} onChange={(event) => update(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></tr>)}</tbody></table></div></section>;
 }
 
-function LineSection({ title, description, addLabel, onAdd, children }: { title: string; description: string; addLabel: string; onAdd: () => void; children: React.ReactNode }) {
-  return <section className="underwriting-line-section"><div className="underwriting-section-head"><div><h4>{title}</h4><p className="t-meta">{description}</p></div><button className="btn btn--secondary" type="button" onClick={onAdd}>{addLabel}</button></div>{children}</section>;
+function LineSection({ title, description, addLabel, canAdd, onAdd, children }: { title: string; description: string; addLabel: string; canAdd: boolean; onAdd: () => void; children: React.ReactNode }) {
+  return <section className="underwriting-line-section"><div className="underwriting-section-head"><div><h4>{title}</h4><p className="t-meta">{description}</p></div><button className="btn btn--secondary" type="button" onClick={onAdd} disabled={!canAdd}>{addLabel}</button></div>{children}</section>;
 }
 
-function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, lines, setLines, path, units, fieldErrors }: {
+function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors }: {
   title: string;
   description: string;
   addLabel: string;
+  canAdd: boolean;
   lines: T[];
   setLines: React.Dispatch<React.SetStateAction<T[]>>;
   path: string;
@@ -202,7 +211,7 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, l
   fieldErrors: Record<string, string>;
 }) {
   return (
-    <LineSection title={title} description={description} addLabel={addLabel} onAdd={() => setLines((current) => [...current, blankMoneyLine(units[0][0]) as T])}>
+    <LineSection title={title} description={description} addLabel={addLabel} canAdd={canAdd} onAdd={() => setLines((current) => [...current, blankMoneyLine(units[0][0]) as T])}>
       <div className="underwriting-edit-table-wrap">
         <table className="underwriting-operations-table underwriting-money-lines">
           <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
@@ -220,7 +229,7 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, l
 }
 
 function EvidenceCells({ line, onChange }: { line: ResidentialUnitType | MoneyLine; onChange: (update: Partial<ResidentialUnitType | MoneyLine>) => void }) {
-  return <><td><input className="input" aria-label={`${line.name || "Line"} source label`} value={line.sourceLabel ?? ""} onChange={(event) => onChange({ sourceLabel: event.target.value || undefined })} /></td><td><input className="input" type="date" aria-label={`${line.name || "Line"} source date`} value={line.sourceDate ?? ""} onChange={(event) => onChange({ sourceDate: event.target.value || undefined })} /></td><td><select className="input" aria-label={`${line.name || "Line"} review state`} value={line.reviewState} onChange={(event) => onChange({ reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></>;
+  return <><td><input className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${line.name || "Line"} source label`} value={line.sourceLabel ?? ""} onChange={(event) => onChange({ sourceLabel: event.target.value || undefined })} /></td><td><input className="input" type="date" aria-label={`${line.name || "Line"} source date`} value={line.sourceDate ?? ""} onChange={(event) => onChange({ sourceDate: event.target.value || undefined })} /></td><td><select className="input" aria-label={`${line.name || "Line"} review state`} value={line.reviewState} onChange={(event) => onChange({ reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></>;
 }
 
 function NumberField({ label, value, onChange, error, type = "number", suffix, ...input }: { label: string; value: string | number; onChange: (value: string) => void; error?: string; type?: "number" | "month"; suffix?: string; min?: string; max?: string; step?: string }) {
@@ -228,7 +237,7 @@ function NumberField({ label, value, onChange, error, type = "number", suffix, .
 }
 
 function TextInput({ label, value, onChange, error }: { label: string; value: string; onChange: (value: string) => void; error?: string }) {
-  return <><input className="input" aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} /><FieldError error={error} /></>;
+  return <><input className="input" maxLength={MAX_OPERATION_LINE_NAME_LENGTH} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} /><FieldError error={error} /></>;
 }
 
 function NumberInput({ label, value, onChange, error, suffix, ...input }: { label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; min?: string; max?: string; step?: string }) {
@@ -272,4 +281,8 @@ async function responseBody(response: Response): Promise<{ error?: string; field
   } catch {
     return null;
   }
+}
+
+function hydrationSubscription() {
+  return () => undefined;
 }

@@ -116,7 +116,55 @@ describe("underwriting case repository", () => {
       assumptionEvidence: doneAssumptionEvidence(),
     });
     expect(changed!.apartmentOperations!.assumptionEvidence.vacancyPercent.reviewState).toBe("working");
-    expect(changed!.apartmentOperations!.assumptionEvidence.creditLossPercent.reviewState).toBe("done");
+    expect(changed!.apartmentOperations!.assumptionEvidence.creditLossPercent.reviewState).toBe("working");
+
+    const { lastChangedAt: _changedAt, ...changedDraft } = changed!.apartmentOperations!;
+    void _changedAt;
+    const sourceChanged = await saveApartmentOperations(db, created!.id, changed!.caseRevision, {
+      ...changedDraft,
+      assumptionEvidence: {
+        ...changedDraft.assumptionEvidence,
+        creditLossPercent: {
+          ...changedDraft.assumptionEvidence.creditLossPercent,
+          sourceLabel: "Revised operating history",
+          reviewState: "done",
+        },
+      },
+    });
+    expect(sourceChanged!.apartmentOperations!.assumptionEvidence.creditLossPercent).toMatchObject({
+      sourceLabel: "Revised operating history",
+      reviewState: "working",
+    });
+
+    const { lastChangedAt: _reviewedAt, ...reviewedDraft } = sourceChanged!.apartmentOperations!;
+    void _reviewedAt;
+    const reviewed = await saveApartmentOperations(db, created!.id, sourceChanged!.caseRevision, {
+      ...reviewedDraft,
+      assumptionEvidence: {
+        ...reviewedDraft.assumptionEvidence,
+        creditLossPercent: {
+          ...reviewedDraft.assumptionEvidence.creditLossPercent,
+          reviewState: "done",
+        },
+      },
+    });
+    const { lastChangedAt: _reviewDateAt, ...reviewDateDraft } = reviewed!.apartmentOperations!;
+    void _reviewDateAt;
+    const dateChanged = await saveApartmentOperations(db, created!.id, reviewed!.caseRevision, {
+      ...reviewDateDraft,
+      assumptionEvidence: {
+        ...reviewDateDraft.assumptionEvidence,
+        creditLossPercent: {
+          ...reviewDateDraft.assumptionEvidence.creditLossPercent,
+          sourceDate: "2026-08-02",
+          reviewState: "done",
+        },
+      },
+    });
+    expect(dateChanged!.apartmentOperations!.assumptionEvidence.creditLossPercent).toMatchObject({
+      sourceDate: "2026-08-02",
+      reviewState: "working",
+    });
   });
 
   it("lists newest cases first without loading assumption rows", async () => {

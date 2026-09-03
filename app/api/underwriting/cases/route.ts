@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 
+import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { createUnderwritingCase, listUnderwritingCases } from "@/lib/underwriting/cases";
 import { InvalidCaseDraft, parseCaseDraft } from "@/lib/underwriting/input";
 
-export async function GET() {
+export async function GET(request = new Request("http://localhost/api/underwriting/cases")) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
   return NextResponse.json({ cases: await listUnderwritingCases(getDb()) });
 }
 
 export async function POST(request: Request) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
+
   let body: unknown;
   try {
     body = await request.json();

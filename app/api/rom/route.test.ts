@@ -23,6 +23,16 @@ function post(body: unknown) {
   );
 }
 
+function unauthenticatedPost() {
+  return POST(
+    new Request("http://localhost/api/rom", {
+      method: "POST",
+      headers: { "x-kulka-test-auth": "signed-out" },
+      body: JSON.stringify({ projectId: TEST_PROJECT_ID }),
+    }),
+  );
+}
+
 type RunRow = {
   id: string;
   status: string;
@@ -60,6 +70,12 @@ afterEach(async () => {
 });
 
 describe("POST /api/rom", () => {
+  it("rejects a signed-out request before opening the database", async () => {
+    const response = await unauthenticatedPost();
+    expect(response.status).toBe(401);
+    expect(await runs()).toEqual([]);
+  });
+
   it("returns a ranged line with a confidence flag for the test project", async () => {
     const response = await post({ projectId: TEST_PROJECT_ID });
     expect(response.status).toBe(200);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 
@@ -7,9 +8,10 @@ import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 // ChatGPT reach the same route later, which is what keeps the math out of a
 // prompt and the outputs the same for everyone (CONTEXT.md, controlled goalposts).
 //
-// No auth yet. LA-13 gates the site.
-
 export async function POST(request: Request) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
+
   let projectId: unknown;
   try {
     ({ projectId } = await request.json());

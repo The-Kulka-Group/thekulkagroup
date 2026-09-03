@@ -42,6 +42,11 @@ export function safeReturnPath(value: string | null | undefined) {
     return "/";
   }
   if (target.origin !== base.origin) return "/";
+  try {
+    if (value.includes("\\") || decodeURIComponent(target.pathname).includes("\\")) return "/";
+  } catch {
+    return "/";
+  }
   if (target.pathname === "/login" || target.pathname.startsWith("/login/")) return "/";
   return `${target.pathname}${target.search}${target.hash}`;
 }

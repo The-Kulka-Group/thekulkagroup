@@ -4,10 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authConfiguration, normalizeEmail } from "@/lib/auth/policy";
 
 export async function proxy(request: NextRequest) {
-  if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
-    return NextResponse.next();
-  }
-
+  const browserTest = process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1";
+  const browserTestState = request.cookies.get("kulka-test-auth")?.value;
   let response = NextResponse.next({ request });
   const configured = authConfiguration(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -16,7 +14,7 @@ export async function proxy(request: NextRequest) {
   );
   let user = null;
 
-  if (configured) {
+  if (configured && !browserTest) {
     const supabase = createServerClient(
       configured.url,
       configured.publishableKey,
@@ -36,9 +34,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const isLogin = request.nextUrl.pathname === "/login";
-  const authorized = Boolean(
-    user?.email && configured?.allowedEmails.has(normalizeEmail(user.email)),
-  );
+  const authorized = browserTest
+    ? browserTestState !== "signed-out" && browserTestState !== "forbidden"
+    : Boolean(user?.email && configured?.allowedEmails.has(normalizeEmail(user.email)));
   if (!authorized && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

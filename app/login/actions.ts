@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 import { authorizeVerifiedUser } from "@/lib/auth/server";
 import { authConfiguration, safeReturnPath } from "@/lib/auth/policy";
@@ -13,6 +14,14 @@ export async function signIn(_state: LoginState, formData: FormData): Promise<Lo
   const password = String(formData.get("password") ?? "");
   const next = safeReturnPath(String(formData.get("next") ?? "/"));
   if (!email || !password) return { error: "Enter your email and password." };
+
+  if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
+    if (email !== "browser-test@kulka.invalid" || password !== "local-browser-test-password") {
+      return { error: "The email or password is incorrect." };
+    }
+    (await cookies()).set("kulka-test-auth", "allowed", { httpOnly: true, sameSite: "lax" });
+    redirect(next);
+  }
 
   if (!authConfiguration(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -40,6 +49,10 @@ export async function signIn(_state: LoginState, formData: FormData): Promise<Lo
 }
 
 export async function signOut() {
+  if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
+    (await cookies()).set("kulka-test-auth", "signed-out", { httpOnly: true, sameSite: "lax" });
+    redirect("/login");
+  }
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect("/login");

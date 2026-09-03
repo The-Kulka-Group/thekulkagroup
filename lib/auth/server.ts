@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 import { allowedEmailsFrom, authConfiguration, normalizeEmail } from "./policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -31,9 +32,12 @@ export async function authorizeVerifiedUser(
   }
 }
 
-function testAuthorization(request?: Request): Authorization | null {
+async function testAuthorization(request?: Request): Promise<Authorization | null> {
   if (process.env.NODE_ENV === "production") return null;
-  const mode = request?.headers.get("x-kulka-test-auth");
+  let mode = request?.headers.get("x-kulka-test-auth");
+  if (!mode && process.env.KULKA_BROWSER_TEST === "1" && !request) {
+    mode = (await cookies()).get("kulka-test-auth")?.value ?? null;
+  }
   if (mode === "signed-out") return { ok: false, status: 401, error: "Sign in to continue." };
   if (mode === "forbidden") {
     return { ok: false, status: 403, error: "This account does not have access." };
@@ -45,7 +49,7 @@ function testAuthorization(request?: Request): Authorization | null {
 }
 
 export async function authorizeRequest(request?: Request): Promise<Authorization> {
-  const testResult = testAuthorization(request);
+  const testResult = await testAuthorization(request);
   if (testResult) return testResult;
   if (!authConfiguration(
     process.env.NEXT_PUBLIC_SUPABASE_URL,

@@ -49,6 +49,7 @@ describe("safeReturnPath", () => {
     "https://evil.test",
     "//evil.test",
     "/\\evil.test",
+    "/%5Cevil.test",
     "/login",
     "/login?next=/",
   ])(

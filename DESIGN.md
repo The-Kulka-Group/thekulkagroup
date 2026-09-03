@@ -197,8 +197,9 @@ Only what the owner has actually ruled out:
   should do.
 - Red borders or bars as card decoration.
 - Construction costume in the visuals; the vocabulary lives in the words only.
-- Fabricated dollar figures or real client names in demos and fixtures; example data
-  is labeled (example).
+- Fabricated records, counts, names, dates, or financial values in the shipped app.
+  Tests may use synthetic fixtures inside disposable test databases, and static design
+  references may use clearly labeled examples because neither source reaches runtime.
 
 ## Code note
 

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, Target, Users, FileText, Calculator, ChartLineUp } from "@phosphor-icons/react";
-import { OWNER_COLOR } from "@/lib/data";
 import { signOut } from "@/app/login/actions";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
@@ -12,13 +11,13 @@ import { signOut } from "@/app/login/actions";
 const NAV_GROUPS = [
   {
     label: "Sales and Marketing",
-    items: [{ href: "/clients/c-042", label: "Clients", count: "31", Icon: Users }],
+    items: [{ href: "/clients", label: "Clients", count: undefined, Icon: Users }],
   },
   {
     label: "Business Development",
     items: [
-      { href: "/pursuits", label: "Pursuits", count: "9", Icon: Target },
-      { href: "/briefs/b-217", label: "Briefs", count: "6", Icon: FileText },
+      { href: "/pursuits", label: "Pursuits", count: undefined, Icon: Target },
+      { href: "/briefs", label: "Briefs", count: undefined, Icon: FileText },
     ],
   },
   {
@@ -77,7 +76,7 @@ export function Rail({ email, temporaryAccess = false }: { email: string; tempor
       </div>
 
       <div className="rail-user">
-        <span className={`owner owner--${OWNER_COLOR.RK}`}>{initials}</span>
+        <span className="owner owner--1">{initials}</span>
         <span className="t-ui">{email}</span>
         {temporaryAccess ? null : (
           <form action={signOut}>

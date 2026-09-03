@@ -40,7 +40,7 @@ npm run lint
 |---|---|
 | `daylight.css` | The whole design system: tokens, then component classes. The token authority for DESIGN.md. |
 | `DESIGN.md` | The design language and the dated record of every owner decision behind it. |
-| `app/(app)/` | The framed routes: Home, Pursuits, a client record, a brief. |
+| `app/(app)/` | The framed routes. Unconnected modules show empty states instead of sample records. |
 | `app/login/` | The login cover, deliberately outside the app frame so it has no rail. |
 | `components/` | Rail, Sheet, and the status marks. |
 | `packages/engine/` | The deterministic ROM engine, `@kulka/engine`. Answers plus a data snapshot in, ROM out, reading nothing else. |
@@ -49,7 +49,7 @@ npm run lint
 | `app/(app)/rom/` | The conceptual budget page. Runs a ROM and shows the ranged lines it came back with. |
 | `lib/rom/` | The run: loads a snapshot, calls the engine, writes down what happened. |
 | `test/database.ts` | An in-process Postgres built from the migrations, for the API tests. |
-| `lib/data.ts` | Example data. Invented names and dates only, no fabricated dollar figures. |
+| `lib/data.ts` | Shared status labels used by the interface. |
 | `public/glyphs/` | The Phosphor state glyphs, vendored so nothing depends on a CDN at runtime. |
 | `reference/` | The original static shells and the decision choosers. Design source of truth, not part of the build. |
 
@@ -78,10 +78,10 @@ and the component decisions that came out of two blind design reviews. Utility
 classes would reintroduce the borrowed defaults the system exists to avoid. Add
 to the stylesheet, and keep new values on the type and space scales.
 
-**Production starts empty.** DESIGN.md bans invented dollar figures in demos and
-fixtures. Migrations create schema only. Tests add synthetic numeric inputs after
-the migrations run, inside an in-process database that is discarded after each
-test.
+**Production starts empty.** DESIGN.md bans invented records, counts, names, dates,
+and financial values in the shipped app. Migrations create schema only. Tests add
+synthetic inputs after the migrations run, inside an in-process database that is
+discarded after each test.
 
 **Icons live in two places only:** the rail, and state marks. Never on actions,
 table rows, or body content. An icon always sits beside its word.

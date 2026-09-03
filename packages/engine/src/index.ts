@@ -128,3 +128,24 @@ export {
   type PropertyReturnsResult,
   type PropertyReturnsRun,
 } from "./property-returns";
+
+export {
+  APARTMENT_SCENARIO_CHANGE_KEYS,
+  APARTMENT_SCENARIO_FORMULA_VERSION,
+  APARTMENT_SCENARIO_INPUT_VERSION,
+  MAX_SCENARIO_TIMING_SHIFT_MONTHS,
+  runApartmentScenarioComparison,
+  validateApartmentScenarios,
+  type ApartmentScenarioChangeKey,
+  type ApartmentScenarioComparisonResult,
+  type ApartmentScenarioComparisonRun,
+  type ApartmentScenarioDefinition,
+  type ApartmentScenarioDelta,
+  type ApartmentScenarioEvidence,
+  type ApartmentScenarioIssue,
+  type ApartmentScenarioIssueCode,
+  type ApartmentScenarioMetrics,
+  type ApartmentScenarioResult,
+  type ApartmentScenarioRole,
+  type ScenarioChangedInput,
+} from "./apartment-scenarios";

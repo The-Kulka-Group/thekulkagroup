@@ -345,7 +345,7 @@ function solveEquityCommitment(
     const simulation = simulate(months, plan, loanFeeCents, equityCents);
     const totalUsesCents = simulation.months.reduce((sum, month) => sum + cents(month.totalUses), 0);
     const nextEquityCents = totalUsesCents - percentOf(totalUsesCents, plan.targetDebtSharePercent);
-    if (nextEquityCents === equityCents) return equityCents;
+    if (Math.abs(nextEquityCents - equityCents) <= 1) return equityCents;
     equityCents = nextEquityCents;
   }
   return null;

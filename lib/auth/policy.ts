@@ -8,7 +8,7 @@ export function allowedEmailsFrom(value: string | undefined): ReadonlySet<string
   if (!value) return null;
   const emails = value.split(",").map(normalizeEmail);
   const unique = new Set(emails);
-  if (emails.length !== 3 || unique.size !== 3 || emails.some((email) => !EMAIL.test(email))) {
+  if (emails.length !== 5 || unique.size !== 5 || emails.some((email) => !EMAIL.test(email))) {
     return null;
   }
   return unique;

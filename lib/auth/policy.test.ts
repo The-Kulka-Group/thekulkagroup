@@ -3,13 +3,19 @@ import { describe, expect, it } from "vitest";
 import { allowedEmailsFrom, authConfiguration, safeReturnPath } from "./policy";
 
 describe("allowedEmailsFrom", () => {
-  it("normalizes exactly three unique email addresses", () => {
-    expect(allowedEmailsFrom(" Matt@Kulka.com,ROB@kulka.com , devin@kulka.com ")).toEqual(
-      new Set(["matt@kulka.com", "rob@kulka.com", "devin@kulka.com"]),
+  it("normalizes exactly five unique email addresses", () => {
+    expect(allowedEmailsFrom(" Matt@Kulka.com,ROB@kulka.com , devin@kulka.com,jason@kulka.com,lee@kulka.com ")).toEqual(
+      new Set(["matt@kulka.com", "rob@kulka.com", "devin@kulka.com", "jason@kulka.com", "lee@kulka.com"]),
     );
   });
 
-  it.each([undefined, "", "one@example.com,two@example.com", "a@x.com,b@x.com,a@x.com", "a,b,c"])(
+  it.each([
+    undefined,
+    "",
+    "a@x.com,b@x.com,c@x.com,d@x.com",
+    "a@x.com,b@x.com,c@x.com,d@x.com,a@x.com",
+    "a@x.com,b@x.com,c@x.com,d@x.com,invalid",
+  ])(
     "fails closed for an invalid allowlist: %s",
     (value) => expect(allowedEmailsFrom(value)).toBeNull(),
   );
@@ -19,7 +25,7 @@ describe("authConfiguration", () => {
   const valid = [
     "https://project.supabase.co",
     "publishable-key",
-    "a@x.com,b@x.com,c@x.com",
+    "a@x.com,b@x.com,c@x.com,d@x.com,e@x.com",
   ] as const;
 
   it("accepts a complete configuration", () => {

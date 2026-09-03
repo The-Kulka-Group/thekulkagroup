@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { authorizeVerifiedUser } from "./server";
 
 describe("authorizeVerifiedUser", () => {
-  const allowed = "matt@kulka.com,rob@kulka.com,devin@kulka.com";
+  const allowed = "matt@kulka.com,rob@kulka.com,devin@kulka.com,jason@kulka.com,lee@kulka.com";
 
   it("allows a verified user whose normalized email is listed", async () => {
     const result = await authorizeVerifiedUser(

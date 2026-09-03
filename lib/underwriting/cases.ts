@@ -8,10 +8,14 @@ import {
   type DevelopmentCapitalPlan,
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
+  PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  type PropertyReturnsAssumptionKey,
+  type PropertyReturnsPlan,
 } from "@kulka/engine";
 
 import type { ApartmentOperationsDraft } from "@/lib/underwriting/operations-input";
 import type { DevelopmentCapitalDraft } from "@/lib/underwriting/capital-input";
+import type { PropertyReturnsDraft } from "@/lib/underwriting/returns-input";
 
 export const ASSUMPTION_DEFINITIONS = {
   purchasePrice: { key: "purchase_price", unit: "usd", label: "Purchase price" },
@@ -102,6 +106,7 @@ export type UnderwritingCase = {
   costSchedule?: UnderwritingCostSchedule;
   apartmentOperations?: SavedApartmentOperations;
   developmentCapital?: SavedDevelopmentCapital;
+  propertyReturns?: SavedPropertyReturns;
 };
 
 export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
@@ -112,6 +117,7 @@ export type UnderwritingCostSchedule = Omit<MonthlyCostScheduleInputs, "costLine
 
 export type SavedApartmentOperations = ApartmentOperationsDraft & { lastChangedAt: string };
 export type SavedDevelopmentCapital = DevelopmentCapitalDraft & { lastChangedAt: string };
+export type SavedPropertyReturns = PropertyReturnsDraft & { lastChangedAt: string };
 
 export class UnderwritingCaseRevisionConflict extends Error {
   constructor() {
@@ -141,6 +147,9 @@ type CaseRow = {
   development_capital_input_version: DevelopmentCapitalPlan["capitalInputVersion"] | null;
   development_capital_input: DevelopmentCapitalDraft | null;
   development_capital_changed_at: Date | string | null;
+  property_returns_input_version: PropertyReturnsPlan["saleInputVersion"] | null;
+  property_returns_input: PropertyReturnsDraft | null;
+  property_returns_changed_at: Date | string | null;
 };
 
 type AssumptionRow = {
@@ -265,6 +274,13 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: Cos
         ...row.development_capital_input,
         capitalInputVersion: row.development_capital_input_version,
         lastChangedAt: iso(row.development_capital_changed_at),
+      },
+    } : {}),
+    ...(row.property_returns_input_version && row.property_returns_input && row.property_returns_changed_at ? {
+      propertyReturns: {
+        ...row.property_returns_input,
+        saleInputVersion: row.property_returns_input_version,
+        lastChangedAt: iso(row.property_returns_changed_at),
       },
     } : {}),
   };
@@ -408,6 +424,22 @@ export async function saveUnderwritingCostSchedule(
        update underwriting_cases
        set analysis_start_month = ($2::text || '-01')::date,
            sale_month = ($3::text || '-01')::date,
+           property_returns_input = case
+             when property_returns_input is not null
+               and sale_month is distinct from ($3::text || '-01')::date
+             then jsonb_set(
+               property_returns_input,
+               '{saleAssumptionEvidence,saleMonth,reviewState}',
+               '"working"'::jsonb
+             )
+             else property_returns_input
+           end,
+           property_returns_changed_at = case
+             when property_returns_input is not null
+               and sale_month is distinct from ($3::text || '-01')::date
+             then now()
+             else property_returns_changed_at
+           end,
            case_revision = case_revision + 1,
            updated_at = now()
        where id = $1 and case_revision = $5
@@ -539,6 +571,55 @@ export async function saveDevelopmentCapital(
   );
   if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
   return getUnderwritingCase(db, id);
+}
+
+export async function savePropertyReturns(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  propertyReturns: PropertyReturnsDraft,
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const reconciled = reconcilePropertyReturnsReview(existing.propertyReturns, propertyReturns);
+  const { rows } = await db.query<{ id: string }>(
+    `update underwriting_cases
+     set property_returns_input_version = $2,
+         property_returns_input = $3::jsonb,
+         property_returns_changed_at = now(),
+         case_revision = case_revision + 1,
+         updated_at = now()
+     where id = $1 and case_revision = $4
+     returning id`,
+    [id, reconciled.saleInputVersion, JSON.stringify(reconciled), expectedRevision],
+  );
+  if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
+  return getUnderwritingCase(db, id);
+}
+
+function reconcilePropertyReturnsReview(
+  existing: SavedPropertyReturns | undefined,
+  draft: PropertyReturnsDraft,
+): PropertyReturnsDraft {
+  return {
+    ...draft,
+    saleAssumptionEvidence: Object.fromEntries(PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => {
+      const priorEvidence = existing?.saleAssumptionEvidence[key];
+      const nextEvidence = draft.saleAssumptionEvidence[key];
+      const changed = existing && (
+        propertyReturnsValue(existing, key) !== propertyReturnsValue(draft, key)
+        || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
+        || priorEvidence?.sourceDate !== nextEvidence.sourceDate
+      );
+      return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
+    })) as Record<PropertyReturnsAssumptionKey, PropertyReturnsPlan["saleAssumptionEvidence"][PropertyReturnsAssumptionKey]>,
+  };
+}
+
+function propertyReturnsValue(plan: PropertyReturnsPlan, key: PropertyReturnsAssumptionKey) {
+  if (key === "saleMonth") return undefined;
+  return plan[key];
 }
 
 function reconcileDevelopmentCapitalReview(

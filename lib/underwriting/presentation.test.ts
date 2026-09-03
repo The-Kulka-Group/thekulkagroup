@@ -160,6 +160,28 @@ describe("buildUnderwritingReviewItems", () => {
 
     expect(items.filter(({ id }) => id.startsWith("capital-assumption-"))).toHaveLength(24);
   });
+
+  it("shows source and review gaps for sale assumptions", () => {
+    const item = () => ({ reviewState: "working" as const });
+    const items = buildUnderwritingReviewItems({
+      ...savedCase,
+      propertyReturns: {
+        saleInputVersion: "property_returns_inputs.v1",
+        terminalCapRatePercent: 5.75,
+        sellingCostPercent: 1.5,
+        forwardNoiConvention: "forward_twelve_month_noi.v1",
+        cashFlowDateConvention: "month_end_dates.v1",
+        xirrConvention: "xirr_actual_365.v1",
+        saleAssumptionEvidence: {
+          saleMonth: item(), terminalCapRatePercent: item(), sellingCostPercent: item(),
+          forwardNoiConvention: item(), cashFlowDateConvention: item(), xirrConvention: item(),
+        },
+        lastChangedAt: "2026-09-02T00:00:00.000Z",
+      },
+    }, undefined, false);
+
+    expect(items.filter(({ id }) => id.startsWith("returns-assumption-"))).toHaveLength(18);
+  });
 });
 
 function workingAssumptionEvidence() {

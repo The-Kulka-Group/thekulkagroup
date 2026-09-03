@@ -21,6 +21,8 @@ import { EditUnderwritingCase } from "./EditUnderwritingCase";
 import { ApartmentOperationsEditor } from "./ApartmentOperationsEditor";
 import { CostScheduleEditor } from "./CostScheduleEditor";
 import { DevelopmentCapitalEditor } from "./DevelopmentCapitalEditor";
+import { PropertyReturnsEditor } from "./PropertyReturnsEditor";
+import { PropertyReturnsResults } from "./PropertyReturnsResults";
 import { RunUnderwriting } from "./RunUnderwriting";
 
 export const dynamic = "force-dynamic";
@@ -129,10 +131,15 @@ export default async function UnderwritingCasePage({
         </section>
 
         <div className="margin" />
+        <section className="col-field record-section">
+          <PropertyReturnsEditor savedCase={savedCase} />
+        </section>
+
+        <div className="margin" />
         <div className="col-field record-section underwriting-results-section">
           <div className="underwriting-section-head">
             <div>
-              <h3>{savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
+              <h3>{savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
               <p className="t-meta">
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
@@ -164,6 +171,8 @@ export default async function UnderwritingCasePage({
               ))}
               <p className="t-meta">This run has no financial results. Its issues and input snapshot remain in the review record.</p>
             </div>
+          ) : currentRun.propertyReturnsResult ? (
+            <PropertyReturnsResults result={currentRun.propertyReturnsResult} reconciliations={currentRun.reconciliations} />
           ) : currentRun.developmentCapitalResult ? (
             <div className="underwriting-monthly-results">
               <div className="underwriting-summary-band">
@@ -296,7 +305,11 @@ export default async function UnderwritingCasePage({
           <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
             <h4 id="underwriting-limitations-heading">Model limits</h4>
             <ul>
-              {(savedCase.developmentCapital ? [
+              {(savedCase.propertyReturns ? [
+                "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
+                "It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.",
+                "These results do not record a finance or sale approval.",
+              ] : savedCase.developmentCapital ? [
                 "This formula version funds monthly project costs, operating shortfalls, and capitalized interest with equity and construction debt.",
                 "Sale proceeds and property returns follow in the next formula version.",
                 "These results do not record a finance approval.",
@@ -330,6 +343,7 @@ export default async function UnderwritingCasePage({
                     {runs.map((run) => {
                       const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
                       const capturedResult = totalDevelopmentCost?.value
+                        ?? run.propertyReturnsResult?.propertyReturns.returns.levered.netProfit
                         ?? run.developmentCapitalResult?.capital.totals.totalUses
                         ?? run.apartmentOperationsResult?.totals.operatingCashFlow
                         ?? run.monthlyCostResult?.totalUses;

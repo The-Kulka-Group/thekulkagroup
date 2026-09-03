@@ -1,0 +1,53 @@
+import { describe, expect, it } from "vitest";
+
+import { InvalidPropertyReturns, parsePropertyReturns } from "./returns-input";
+
+const plan = {
+  saleInputVersion: "property_returns_inputs.v1",
+  terminalCapRatePercent: 5.75,
+  sellingCostPercent: 1.5,
+  forwardNoiConvention: "forward_twelve_month_noi.v1",
+  cashFlowDateConvention: "month_end_dates.v1",
+  xirrConvention: "xirr_actual_365.v1",
+  saleAssumptionEvidence: evidence(),
+} as const;
+
+describe("parsePropertyReturns", () => {
+  it("keeps versioned sale terms and evidence without adding defaults", () => {
+    expect(parsePropertyReturns(plan)).toEqual(plan);
+  });
+
+  it("returns a typed field error for an invalid terminal cap rate", () => {
+    try {
+      parsePropertyReturns({ ...plan, terminalCapRatePercent: 0 });
+      throw new Error("Expected property return validation to fail.");
+    } catch (cause) {
+      expect(cause).toBeInstanceOf(InvalidPropertyReturns);
+      expect((cause as InvalidPropertyReturns).fieldErrors).toEqual({
+        terminalCapRatePercent: expect.stringMatching(/greater than zero/),
+      });
+      expect((cause as InvalidPropertyReturns).issues).toEqual([
+        expect.objectContaining({ path: "terminalCapRatePercent", code: "invalid_percent" }),
+      ]);
+    }
+  });
+
+  it("rejects unsupported conventions and invalid evidence dates", () => {
+    expect(() => parsePropertyReturns({
+      ...plan,
+      xirrConvention: "monthly_irr.v0",
+      saleAssumptionEvidence: {
+        ...plan.saleAssumptionEvidence,
+        saleMonth: { reviewState: "done", sourceDate: "2026-99-01" },
+      },
+    })).toThrow("Review the property sale and returns fields.");
+  });
+});
+
+function evidence() {
+  const item = () => ({ sourceLabel: "Owner model", sourceDate: "2026-09-02", reviewState: "done" as const });
+  return {
+    saleMonth: item(), terminalCapRatePercent: item(), sellingCostPercent: item(),
+    forwardNoiConvention: item(), cashFlowDateConvention: item(), xirrConvention: item(),
+  };
+}

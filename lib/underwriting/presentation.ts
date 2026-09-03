@@ -73,8 +73,8 @@ export function buildUnderwritingReviewItems(
     items.push({
       id: "calculation-current-revision",
       message: hasRunHistory
-        ? "The case changed after the latest calculation. Recalculate this revision before reviewing results."
-        : "This case has not been calculated. Run the calculation before reviewing results.",
+        ? "The project changed after the latest calculation. Recalculate this revision before reviewing results."
+        : "This project has not been calculated. Run the calculation before reviewing results.",
       severity: "waiting",
     });
   } else {

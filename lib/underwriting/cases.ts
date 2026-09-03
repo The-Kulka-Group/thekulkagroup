@@ -125,7 +125,7 @@ export type SavedApartmentScenario = ApartmentScenarioDefinition & { lastChanged
 
 export class UnderwritingCaseRevisionConflict extends Error {
   constructor() {
-    super("The case changed before your edits were saved. Refresh the page, review the latest case, and try again.");
+    super("The project changed before your edits were saved. Refresh the page, review the latest project, and try again.");
   }
 }
 

@@ -75,7 +75,7 @@ describe("/api/underwriting/cases/:id/runs", () => {
     }), context(savedCase!.id));
 
     expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ error: expect.stringContaining("case changed") });
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining("project changed") });
   });
 
   it("runs and returns the saved monthly cost formula for a scheduled case", async () => {

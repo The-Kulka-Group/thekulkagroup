@@ -462,7 +462,7 @@ describe("underwriting case repository", () => {
         { ...firstDraft, name: "Stale case name" },
         created!.caseRevision,
       ),
-    ).rejects.toThrow("The case changed before your edits were saved");
+    ).rejects.toThrow("The project changed before your edits were saved");
     expect(await getUnderwritingCase(db, created!.id)).toMatchObject({
       name: "Current case name",
       caseRevision: firstEdit!.caseRevision,
@@ -559,7 +559,7 @@ describe("underwriting case repository", () => {
     const schedule = { analysisStartMonth: "2026-01", saleMonth: "2026-02", costLines: [] };
     await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule);
     await expect(saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule))
-      .rejects.toThrow("case changed before your edits were saved");
+      .rejects.toThrow("project changed before your edits were saved");
   });
 
   it("stores a versioned capital plan and resets review when a term changes", async () => {

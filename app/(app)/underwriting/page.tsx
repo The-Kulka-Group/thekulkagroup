@@ -16,19 +16,19 @@ export default async function UnderwritingPage() {
     <Sheet
       number="U-100"
       title="Underwriting"
-      actions={<Link className="btn btn--primary" href="/underwriting/new">New case</Link>}
+      actions={<Link className="btn btn--primary" href="/underwriting/new">New project</Link>}
       meta={
         <>
           <span>Ground-up multifamily</span>
           <Sep />
-          <span className="num">{cases.length} saved {cases.length === 1 ? "case" : "cases"}</span>
+          <span className="num">{cases.length} saved {cases.length === 1 ? "project" : "projects"}</span>
         </>
       }
       bodyClass="sheet-body--board"
     >
       {cases.length === 0 ? (
         <div className="empty">
-          <p>No underwriting cases have been saved.</p>
+          <p>No underwriting projects have been saved.</p>
         </div>
       ) : (
         <div className="underwriting-board-wrap">
@@ -36,7 +36,7 @@ export default async function UnderwritingPage() {
             <thead>
               <tr>
                 <th>Sheet</th>
-                <th>Case</th>
+                <th>Project</th>
                 <th>Address</th>
                 <th>Type</th>
                 <th>Status</th>

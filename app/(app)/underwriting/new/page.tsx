@@ -8,7 +8,7 @@ export default function NewUnderwritingCasePage() {
   return (
     <Sheet
       number="U-NEW"
-      title="New underwriting case"
+      title="New underwriting project"
       actions={<Link className="btn btn--secondary" href="/underwriting">Cancel</Link>}
       meta={
         <>

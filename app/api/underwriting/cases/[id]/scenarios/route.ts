@@ -14,7 +14,7 @@ export async function PUT(request: Request, context: Context) {
   const denied = await requireApiUser(request);
   if (denied) return denied;
   const { id } = await context.params;
-  if (!isUuid(id)) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
+  if (!isUuid(id)) return NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
   let body: unknown;
   try {
     body = await readJsonBody(request);
@@ -27,17 +27,17 @@ export async function PUT(request: Request, context: Context) {
     ? (body as Record<string, unknown>).expectedRevision
     : undefined;
   if (!Number.isSafeInteger(expectedRevision) || Number(expectedRevision) < 1) {
-    return NextResponse.json({ error: "Send a valid expected case revision." }, { status: 400 });
+    return NextResponse.json({ error: "Send a valid expected project revision." }, { status: 400 });
   }
   const savedCase = await getUnderwritingCase(getDb(), id);
-  if (!savedCase) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
+  if (!savedCase) return NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
   if (!savedCase.costSchedule || !savedCase.apartmentOperations || !savedCase.developmentCapital || !savedCase.propertyReturns) {
     return NextResponse.json({ error: "Save the property sale plan before adding scenarios." }, { status: 400 });
   }
   try {
     const scenarios = parseApartmentScenarios(body, propertyReturnsInputsFor(savedCase));
     const saved = await saveApartmentScenarios(getDb(), id, Number(expectedRevision), scenarios);
-    return saved ? NextResponse.json({ case: saved }) : NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
+    return saved ? NextResponse.json({ case: saved }) : NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
   } catch (cause) {
     if (cause instanceof InvalidApartmentScenarios) return NextResponse.json({ error: cause.message, fieldErrors: cause.fieldErrors, issues: cause.issues }, { status: 400 });
     if (cause instanceof UnderwritingCaseRevisionConflict) return NextResponse.json({ error: cause.message }, { status: 409 });

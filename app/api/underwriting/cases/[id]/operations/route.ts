@@ -20,7 +20,7 @@ export async function PUT(request: Request, context: Context) {
   const denied = await requireApiUser(request);
   if (denied) return denied;
   const { id } = await context.params;
-  if (!isUuid(id)) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
+  if (!isUuid(id)) return NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
 
   let body: unknown;
   try {
@@ -36,11 +36,11 @@ export async function PUT(request: Request, context: Context) {
     ? (body as Record<string, unknown>).expectedRevision
     : undefined;
   if (!Number.isSafeInteger(expectedRevision) || Number(expectedRevision) < 1) {
-    return NextResponse.json({ error: "Send a valid expected case revision." }, { status: 400 });
+    return NextResponse.json({ error: "Send a valid expected project revision." }, { status: 400 });
   }
 
   const savedCase = await getUnderwritingCase(getDb(), id);
-  if (!savedCase) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
+  if (!savedCase) return NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
   if (!savedCase.costSchedule) {
     return NextResponse.json({ error: "Save the monthly cost schedule before apartment operations." }, { status: 400 });
   }
@@ -71,7 +71,7 @@ export async function PUT(request: Request, context: Context) {
     );
     return saved
       ? NextResponse.json({ case: saved })
-      : NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
+      : NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
   } catch (cause) {
     if (cause instanceof InvalidApartmentOperations) {
       return NextResponse.json({

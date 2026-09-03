@@ -5,6 +5,7 @@ import {
   createUnderwritingCase,
   getUnderwritingCase,
   listUnderwritingCases,
+  saveApartmentOperations,
   saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
@@ -59,6 +60,63 @@ describe("underwriting case repository", () => {
         expect.objectContaining({ name: "debtPercent", value: 65.25, unit: "percent" }),
       ]),
     );
+  });
+
+  it("stores versioned apartment operations inputs on a new case revision", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{
+        id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd",
+        startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line",
+        distributionVersion: "straight_line.v1", reviewState: "working",
+      }],
+    });
+    const saved = await saveApartmentOperations(db, created!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1",
+      operationStartMonth: "2026-02",
+      growthStartMonth: "2026-02",
+      preleasedUnits: 2,
+      leaseUpUnitsPerMonth: 4,
+      annualIncomeGrowthPercent: 3,
+      annualExpenseGrowthPercent: 3,
+      rentAdjustmentLossPercent: 0,
+      freeRentPercent: 0,
+      vacancyPercent: 5,
+      creditLossPercent: 1,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{
+        id: "one-bedroom", name: "One Bedroom", units: 10, nonRevenueUnits: 0,
+        averageAreaSf: 800,
+        monthlyMarketRent: 2_000, sourceLabel: "Program", sourceDate: "2026-08-01",
+        reviewState: "done",
+      }],
+      otherIncomeLines: [],
+      operatingExpenseLines: [],
+      capitalExpenditureLines: [],
+    });
+
+    expect(saved).toMatchObject({
+      caseRevision: 3,
+      apartmentOperations: {
+        inputVersion: "apartment_operations_inputs.v1",
+        operationStartMonth: "2026-02",
+        residentialUnitTypes: [expect.objectContaining({ id: "one-bedroom" })],
+        lastChangedAt: expect.any(String),
+      },
+    });
+    expect(await getUnderwritingCase(db, created!.id)).toEqual(saved);
+
+    const { lastChangedAt: _lastChangedAt, ...savedDraft } = saved!.apartmentOperations!;
+    void _lastChangedAt;
+    const changed = await saveApartmentOperations(db, created!.id, saved!.caseRevision, {
+      ...savedDraft,
+      vacancyPercent: 6,
+      assumptionEvidence: doneAssumptionEvidence(),
+    });
+    expect(changed!.apartmentOperations!.assumptionEvidence.vacancyPercent.reviewState).toBe("working");
+    expect(changed!.apartmentOperations!.assumptionEvidence.creditLossPercent.reviewState).toBe("done");
   });
 
   it("lists newest cases first without loading assumption rows", async () => {
@@ -434,6 +492,37 @@ describe("underwriting case repository", () => {
       .rejects.toThrow("case changed before your edits were saved");
   });
 });
+
+function workingAssumptionEvidence() {
+  return {
+    operationStartMonth: { reviewState: "working" as const },
+    growthStartMonth: { reviewState: "working" as const },
+    preleasedUnits: { reviewState: "working" as const },
+    leaseUpUnitsPerMonth: { reviewState: "working" as const },
+    annualIncomeGrowthPercent: { reviewState: "working" as const },
+    annualExpenseGrowthPercent: { reviewState: "working" as const },
+    rentAdjustmentLossPercent: { reviewState: "working" as const },
+    freeRentPercent: { reviewState: "working" as const },
+    vacancyPercent: { reviewState: "working" as const },
+    creditLossPercent: { reviewState: "working" as const },
+  };
+}
+
+function doneAssumptionEvidence() {
+  const item = () => ({ sourceLabel: "Reviewed source", sourceDate: "2026-08-01", reviewState: "done" as const });
+  return {
+    operationStartMonth: item(),
+    growthStartMonth: item(),
+    preleasedUnits: item(),
+    leaseUpUnitsPerMonth: item(),
+    annualIncomeGrowthPercent: item(),
+    annualExpenseGrowthPercent: item(),
+    rentAdjustmentLossPercent: item(),
+    freeRentPercent: item(),
+    vacancyPercent: item(),
+    creditLossPercent: item(),
+  };
+}
 
 describe("underwriting migration", () => {
   it("enables row level security with no browser policies", async () => {

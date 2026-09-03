@@ -58,4 +58,23 @@ describe("underwriting form accessibility contract", () => {
     expect(casePage).toContain("Reconciliation checks");
     expect(casePage).toContain("monthlyCostResult.months");
   });
+
+  it("keeps operating inputs and results in separate readable lines", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/ApartmentOperationsEditor.tsx");
+    const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("Residential Unit Types");
+    expect(editor).toContain("Other Income");
+    expect(editor).toContain("Operating Expenses");
+    expect(editor).toContain("Capital Expenditures");
+    expect(editor).toContain("finally {");
+    for (const source of [casePage, runPage]) {
+      expect(source).toContain("Lease-Up Loss");
+      expect(source).toContain("Occupied Units");
+      expect(source).toContain("Non-Revenue Units");
+      expect(source).toContain("Other Income");
+      expect(source).toContain("Credit Loss");
+      expect(source).toContain("Operating Cash Flow");
+    }
+  });
 });

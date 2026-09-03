@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { seededDatabase } from "@/test/database";
 import {
   createUnderwritingCase,
+  saveApartmentOperations,
   saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
@@ -316,6 +317,79 @@ describe("underwriting calculation repository", () => {
     expect(reopenedAnnual).toEqual(annualRun);
     expect(reopenedAnnual!.formulaVersion).toBe("underwriting.preliminary_annual.v1");
   });
+
+  it("stores an immutable apartment operations run and keeps rent and other income separate", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{
+        id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd",
+        startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line",
+        distributionVersion: "straight_line.v1", reviewState: "working",
+      }],
+    });
+    const operating = await saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1",
+      operationStartMonth: "2026-01",
+      growthStartMonth: "2026-01",
+      preleasedUnits: 10,
+      leaseUpUnitsPerMonth: 1,
+      annualIncomeGrowthPercent: 3,
+      annualExpenseGrowthPercent: 3,
+      rentAdjustmentLossPercent: 0,
+      freeRentPercent: 0,
+      vacancyPercent: 5,
+      creditLossPercent: 1,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{
+        id: "one-bedroom", name: "One Bedroom", units: 10, nonRevenueUnits: 0,
+        averageAreaSf: 800,
+        monthlyMarketRent: 2_000, reviewState: "working",
+      }],
+      otherIncomeLines: [{
+        id: "parking", name: "Parking", amount: 100, unit: "usd_per_occupied_unit_month",
+        reviewState: "working",
+      }],
+      operatingExpenseLines: [],
+      capitalExpenditureLines: [],
+    });
+    const run = await runUnderwritingCase(db, savedCase!.id, operating!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    expect(run).toMatchObject({
+      formulaVersion: "underwriting.apartment_operations.v1",
+      status: "complete",
+      caseRevision: 3,
+      apartmentOperationsResult: {
+        months: expect.arrayContaining([expect.objectContaining({
+          residentialGrossRent: 20_000,
+          totalResidentialRent: 20_000,
+          otherIncome: 1_000,
+          vacancyLoss: -1_050,
+          creditLoss: -210,
+          effectiveGrossRevenue: 19_740,
+        })]),
+        totals: expect.objectContaining({
+          residentialGrossRent: 240_000,
+          otherIncome: 12_000,
+        }),
+        firstStabilizedMonth: "2026-01",
+        formulaTraces: expect.arrayContaining([
+          expect.objectContaining({ key: "otherIncome" }),
+        ]),
+      },
+      evidenceSnapshot: {
+        apartmentOperations: expect.objectContaining({
+          inputVersion: "apartment_operations_inputs.v1",
+          lastChangedAt: expect.any(String),
+        }),
+      },
+    });
+    expect(run!.monthlyCostResult).toBeUndefined();
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(reopened).toEqual(run);
+  });
 });
 
 describe("underwriting calculation migration", () => {
@@ -333,3 +407,18 @@ describe("underwriting calculation migration", () => {
     expect(policies.rows).toEqual([]);
   });
 });
+
+function workingAssumptionEvidence() {
+  return {
+    operationStartMonth: { reviewState: "working" as const },
+    growthStartMonth: { reviewState: "working" as const },
+    preleasedUnits: { reviewState: "working" as const },
+    leaseUpUnitsPerMonth: { reviewState: "working" as const },
+    annualIncomeGrowthPercent: { reviewState: "working" as const },
+    annualExpenseGrowthPercent: { reviewState: "working" as const },
+    rentAdjustmentLossPercent: { reviewState: "working" as const },
+    freeRentPercent: { reviewState: "working" as const },
+    vacancyPercent: { reviewState: "working" as const },
+    creditLossPercent: { reviewState: "working" as const },
+  };
+}

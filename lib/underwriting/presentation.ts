@@ -1,4 +1,7 @@
-import type { UnderwritingInputKey } from "@kulka/engine";
+import {
+  APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
+  type UnderwritingInputKey,
+} from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 import type { SavedUnderwritingRun } from "@/lib/underwriting/runs";
@@ -127,6 +130,52 @@ export function buildUnderwritingReviewItems(
         message: `${line.name} is still Working on it.`,
         severity: "waiting",
       });
+    }
+  }
+
+  const operationLines = savedCase.apartmentOperations ? [
+    ...savedCase.apartmentOperations.residentialUnitTypes,
+    ...savedCase.apartmentOperations.otherIncomeLines,
+    ...savedCase.apartmentOperations.operatingExpenseLines,
+    ...savedCase.apartmentOperations.capitalExpenditureLines,
+  ] : [];
+  for (const line of operationLines) {
+    if (!line.sourceLabel?.trim()) {
+      items.push({
+        id: `operations-source-label-${line.id}`,
+        message: `${line.name} needs a source label.`,
+        severity: "waiting",
+      });
+    }
+    if (!line.sourceDate?.trim()) {
+      items.push({
+        id: `operations-source-date-${line.id}`,
+        message: `${line.name} needs a source date.`,
+        severity: "waiting",
+      });
+    }
+    if (line.reviewState === "working") {
+      items.push({
+        id: `operations-review-state-${line.id}`,
+        message: `${line.name} is still Working on it.`,
+        severity: "waiting",
+      });
+    }
+  }
+
+  if (savedCase.apartmentOperations) {
+    for (const key of APARTMENT_OPERATIONS_ASSUMPTION_KEYS) {
+      const evidence = savedCase.apartmentOperations.assumptionEvidence[key];
+      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
+      if (!evidence.sourceLabel?.trim()) {
+        items.push({ id: `operations-assumption-source-label-${key}`, message: `${label} needs a source label.`, severity: "waiting" });
+      }
+      if (!evidence.sourceDate?.trim()) {
+        items.push({ id: `operations-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
+      }
+      if (evidence.reviewState === "working") {
+        items.push({ id: `operations-assumption-review-state-${key}`, message: `${label} is still Working on it.`, severity: "waiting" });
+      }
     }
   }
 

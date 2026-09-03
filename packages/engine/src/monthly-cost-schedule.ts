@@ -64,6 +64,7 @@ export type ReconciliationCheck = {
   difference: number;
   tolerance: number;
   status: "pass" | "fail";
+  unit?: "usd" | "count" | "sf";
 };
 
 export type CostLineSchedule = {

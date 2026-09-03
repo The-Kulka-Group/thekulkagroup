@@ -44,3 +44,24 @@ export {
   type MonthlyUses,
   type ReconciliationCheck,
 } from "./monthly-cost-schedule";
+
+export {
+  APARTMENT_OPERATIONS_FORMULA_VERSION,
+  APARTMENT_OPERATIONS_INPUT_VERSION,
+  APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
+  computeApartmentOperations,
+  type ApartmentOperationsInputs,
+  type ApartmentOperationsAssumptionEvidence,
+  type ApartmentOperationsAssumptionKey,
+  type ApartmentOperationsIssue,
+  type ApartmentOperationsIssueCode,
+  type ApartmentOperationsResult,
+  type ApartmentOperationsRun,
+  type ApartmentOperationsTotals,
+  type CapitalExpenditureLine,
+  type MonthlyApartmentOperations,
+  type OperatingExpenseLine,
+  type OperationsFormulaTrace,
+  type OtherIncomeLine,
+  type ResidentialUnitType,
+} from "./apartment-operations";

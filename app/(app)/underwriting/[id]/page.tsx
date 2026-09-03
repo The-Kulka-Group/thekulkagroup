@@ -18,6 +18,7 @@ import {
 import { isUuid } from "@/lib/uuid";
 
 import { EditUnderwritingCase } from "./EditUnderwritingCase";
+import { ApartmentOperationsEditor } from "./ApartmentOperationsEditor";
 import { CostScheduleEditor } from "./CostScheduleEditor";
 import { RunUnderwriting } from "./RunUnderwriting";
 
@@ -117,10 +118,15 @@ export default async function UnderwritingCasePage({
         </section>
 
         <div className="margin" />
+        <section className="col-field record-section">
+          <ApartmentOperationsEditor savedCase={savedCase} />
+        </section>
+
+        <div className="margin" />
         <div className="col-field record-section underwriting-results-section">
           <div className="underwriting-section-head">
             <div>
-              <h3>{savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
+              <h3>{savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
               <p className="t-meta">
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
@@ -151,6 +157,40 @@ export default async function UnderwritingCasePage({
                 </div>
               ))}
               <p className="t-meta">This run has no financial results. Its issues and input snapshot remain in the review record.</p>
+            </div>
+          ) : currentRun.apartmentOperationsResult ? (
+            <div className="underwriting-monthly-results">
+              <div className="underwriting-summary-band">
+                <div><span className="t-label">Unit Total</span><strong className="num">{NUMBER.format(currentRun.apartmentOperationsResult.unitSummary.totalUnits)}</strong></div>
+                <div><span className="t-label">Unit Area</span><strong className="num">{NUMBER.format(currentRun.apartmentOperationsResult.unitSummary.totalAreaSf)} SF</strong></div>
+                <div><span className="t-label">Residential Rent</span><strong className="num">{MONEY.format(currentRun.apartmentOperationsResult.totals.totalResidentialRent)}</strong></div>
+                <div><span className="t-label">Other Income</span><strong className="num">{MONEY.format(currentRun.apartmentOperationsResult.totals.otherIncome)}</strong></div>
+                <div><span className="t-label">Effective Gross Revenue</span><strong className="num">{MONEY.format(currentRun.apartmentOperationsResult.totals.effectiveGrossRevenue)}</strong></div>
+                <div><span className="t-label">Net Operating Income</span><strong className="num">{MONEY.format(currentRun.apartmentOperationsResult.totals.netOperatingIncome)}</strong></div>
+                <div><span className="t-label">Operating Cash Flow</span><strong className="num">{MONEY.format(currentRun.apartmentOperationsResult.totals.operatingCashFlow)}</strong></div>
+                <div><span className="t-label">First Stabilized Month</span><strong className="num">{currentRun.apartmentOperationsResult.firstStabilizedMonth ?? "Not reached"}</strong></div>
+              </div>
+              <h4>Monthly lease-up and operations</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-monthly-table underwriting-operations-results">
+                  <thead><tr><th>Month</th><th className="right">Occupied Units</th><th className="right">Gross Rent</th><th className="right">Lease-Up Loss</th><th className="right">Non-Revenue Units</th><th className="right">Rent Adjustment</th><th className="right">Free Rent</th><th className="right">Residential Rent</th><th className="right">Other Income</th><th className="right">Vacancy</th><th className="right">Credit Loss</th><th className="right">Effective Gross Revenue</th><th className="right">Operating Expenses</th><th className="right">NOI</th><th className="right">Capital Expenditures</th><th className="right">Operating Cash Flow</th></tr></thead>
+                  <tbody>{currentRun.apartmentOperationsResult.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{NUMBER.format(month.leasedUnits)} / {NUMBER.format(month.revenueUnits)}</td><td className="num right">{MONEY.format(month.residentialGrossRent)}</td><td className="num right">{MONEY.format(month.leaseUpLoss)}</td><td className="num right">{MONEY.format(month.nonRevenueRentAdjustment)}</td><td className="num right">{MONEY.format(month.rentAdjustmentLoss)}</td><td className="num right">{MONEY.format(month.freeRentLoss)}</td><td className="num right">{MONEY.format(month.totalResidentialRent)}</td><td className="num right">{MONEY.format(month.otherIncome)}</td><td className="num right">{MONEY.format(month.vacancyLoss)}</td><td className="num right">{MONEY.format(month.creditLoss)}</td><td className="num right">{MONEY.format(month.effectiveGrossRevenue)}</td><td className="num right">{MONEY.format(month.operatingExpenses)}</td><td className="num right">{MONEY.format(month.netOperatingIncome)}</td><td className="num right">{MONEY.format(month.capitalExpenditures)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <h4>Formula traces</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Result</th><th>Formula</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{currentRun.apartmentOperationsResult.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <h4>Reconciliation checks</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
+                  <tbody>{currentRun.reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatReconciliationValue(check.expected, check.unit)}</td><td className="num right">{formatReconciliationValue(check.actual, check.unit)}</td><td className="num right">{formatReconciliationValue(check.difference, check.unit)}</td></tr>)}</tbody>
+                </table>
+              </div>
             </div>
           ) : currentRun.monthlyCostResult ? (
             <div className="underwriting-monthly-results">
@@ -209,7 +249,11 @@ export default async function UnderwritingCasePage({
           <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
             <h4 id="underwriting-limitations-heading">Model limits</h4>
             <ul>
-              {(savedCase.costSchedule ? [
+              {(savedCase.apartmentOperations ? [
+                "This formula version models apartment lease-up and property operations before debt funding.",
+                "Debt funding, sale proceeds, and property returns follow in later formula versions.",
+                "These results do not record a finance approval.",
+              ] : savedCase.costSchedule ? [
                 "This formula version schedules development costs only.",
                 "Lease-up, operating cash flow, debt funding, sale proceeds, and property returns follow in later formula versions.",
                 "These results do not record a finance approval.",
@@ -234,7 +278,9 @@ export default async function UnderwritingCasePage({
                   <tbody>
                     {runs.map((run) => {
                       const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
-                      const capturedResult = totalDevelopmentCost?.value ?? run.monthlyCostResult?.totalUses;
+                      const capturedResult = totalDevelopmentCost?.value
+                        ?? run.apartmentOperationsResult?.totals.operatingCashFlow
+                        ?? run.monthlyCostResult?.totalUses;
                       const matchesCurrentRevision = run.caseRevision === savedCase.caseRevision;
                       return (
                         <tr key={run.id}>
@@ -285,6 +331,12 @@ function decisionDetail(status: "complete" | "failed" | undefined, hasRunHistory
 
 function formatResult(value: number, unit: "usd" | "decimal") {
   return unit === "usd" ? MONEY.format(value) : `${NUMBER.format(value * 100)}%`;
+}
+
+function formatReconciliationValue(value: number, unit: "usd" | "count" | "sf" | undefined) {
+  if (unit === "count") return NUMBER.format(value);
+  if (unit === "sf") return `${NUMBER.format(value)} SF`;
+  return MONEY.format(value);
 }
 
 function snapshotSummary(snapshot: {

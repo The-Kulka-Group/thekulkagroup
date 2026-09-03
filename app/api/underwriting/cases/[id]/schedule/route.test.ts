@@ -129,4 +129,14 @@ describe("/api/underwriting/cases/:id/schedule", () => {
     expect(conflict.status).toBe(409);
     expect((await PUT(new Request("http://localhost"), context("bad"))).status).toBe(404);
   });
+
+  it("returns 413 for a streamed body over one megabyte before saving", async () => {
+    const savedCase = await createUnderwritingCase(db, { name: "Large schedule route case", address: "704 Test Avenue", assumptions: {} });
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      body: JSON.stringify({ expectedRevision: savedCase!.caseRevision, padding: "x".repeat(1_000_001) }),
+    }), context(savedCase!.id));
+    expect(response.status).toBe(413);
+    expect((await response.json()).error).toMatch(/too large/i);
+  });
 });

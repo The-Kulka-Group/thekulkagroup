@@ -14,6 +14,8 @@ export const APARTMENT_SCENARIO_CHANGE_KEYS = [
   "growthStartMonthShiftMonths",
 ] as const;
 export const MAX_SCENARIO_TIMING_SHIFT_MONTHS = 24;
+export const MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH = 500;
+export const MAX_APARTMENT_SCENARIO_NAME_LENGTH = 80;
 
 export type ApartmentScenarioRole = "downside" | "upside";
 export type ApartmentScenarioChangeKey = typeof APARTMENT_SCENARIO_CHANGE_KEYS[number];
@@ -49,6 +51,8 @@ export type ApartmentScenarioIssueCode =
   | "invalid_percent"
   | "invalid_timing_shift"
   | "missing_evidence"
+  | "invalid_source_label"
+  | "text_too_long"
   | "invalid_source_date"
   | "invalid_review_state"
   | "scenario_calculation";
@@ -170,6 +174,23 @@ export function validateApartmentScenarios(scenarios: ApartmentScenarioDefinitio
   return validateScenarios(structuredClone(scenarios));
 }
 
+export function defaultApartmentScenarioName(delta: ApartmentScenarioDelta): string {
+  const entries = APARTMENT_SCENARIO_CHANGE_KEYS.flatMap((key) =>
+    delta?.[key] === undefined ? [] : [[key, delta[key]] as const],
+  );
+  if (entries.length !== 1) return "";
+  const [key, value] = entries[0];
+  if (!Number.isFinite(value)) return "";
+  if (key === "growthStartMonthShiftMonths") {
+    if (!Number.isSafeInteger(value) || value === 0) return "";
+    return `Growth Start ${Math.abs(value)} ${Math.abs(value) === 1 ? "Month" : "Months"} ${value > 0 ? "Later" : "Earlier"}`;
+  }
+  const label = key === "vacancyPercent" ? "Vacancy"
+    : key === "annualIncomeGrowthPercent" ? "Income Growth"
+      : "Terminal Cap";
+  return `${label} ${value}%`;
+}
+
 function validateScenarios(scenarios: ApartmentScenarioDefinition[]) {
   const issues: ApartmentScenarioIssue[] = [];
   if (!Array.isArray(scenarios) || scenarios.length !== 2) {
@@ -195,7 +216,7 @@ function validateScenarios(scenarios: ApartmentScenarioDefinition[]) {
       roles.add(scenario.role);
     }
     const name = typeof scenario.name === "string" ? scenario.name.trim() : "";
-    if (!name || name.length > 80 || ["base", "downside", "upside"].includes(name.toLowerCase())) {
+    if (!name || name.length > MAX_APARTMENT_SCENARIO_NAME_LENGTH || ["base", "downside", "upside"].includes(name.toLowerCase()) || /\b(?:good|bad|winner|loser)\b/i.test(name)) {
       issues.push({ path: `${path}.name`, code: "invalid_name", message: "Name the changed assumption, such as Higher Vacancy or Lower Terminal Cap." });
     }
     if (scenario.inputVersion !== APARTMENT_SCENARIO_INPUT_VERSION) {
@@ -235,7 +256,12 @@ function validateDelta(issues: ApartmentScenarioIssue[], scenario: ApartmentScen
     if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
       issues.push({ path: evidencePath, code: "missing_evidence", message: `${labelFor(typedKey)} needs source and review details.` });
     } else {
-      if (evidence.sourceDate !== undefined && !validDate(evidence.sourceDate)) issues.push({ path: `${evidencePath}.sourceDate`, code: "invalid_source_date", message: "Source date must be a valid YYYY-MM-DD date." });
+      if (typeof evidence.sourceLabel !== "string" || evidence.sourceLabel.trim() === "") {
+        issues.push({ path: `${evidencePath}.sourceLabel`, code: "invalid_source_label", message: "Source label is required and cannot be blank." });
+      } else if (evidence.sourceLabel.length > MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH) {
+        issues.push({ path: `${evidencePath}.sourceLabel`, code: "text_too_long", message: `Source label cannot exceed ${MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH} characters.` });
+      }
+      if (evidence.sourceDate !== undefined && (typeof evidence.sourceDate !== "string" || !validDate(evidence.sourceDate))) issues.push({ path: `${evidencePath}.sourceDate`, code: "invalid_source_date", message: "Source date must be a valid YYYY-MM-DD date." });
       if (evidence.reviewState !== "working" && evidence.reviewState !== "done") issues.push({ path: `${evidencePath}.reviewState`, code: "invalid_review_state", message: "Review state must be Working on it or Done." });
     }
   }

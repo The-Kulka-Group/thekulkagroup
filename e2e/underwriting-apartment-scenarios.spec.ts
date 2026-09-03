@@ -19,8 +19,17 @@ test("saves apartment scenario deltas and reopens the comparison run", async ({ 
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/underwriting/${created.id}`);
+  const downsideVacancy = page.getByLabel("Downside Vacancy value");
+  await expect(page.getByLabel("Downside Vacancy source label")).toHaveAttribute("maxlength", "500");
   await page.locator("#scenario-downside-name").fill("Higher Vacancy");
-  await page.getByLabel("Downside Vacancy value").fill("8");
+  await downsideVacancy.fill("101");
+  const invalidResponse = page.waitForResponse((response) => response.request().method() === "PUT" && response.url().endsWith(`/api/underwriting/cases/${created.id}/scenarios`));
+  await page.getByRole("button", { name: "Save Scenarios" }).click();
+  expect((await invalidResponse).status()).toBe(400);
+  await expect(downsideVacancy).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText(/Vacancy Percent must be no more than 100 percent/)).toBeVisible();
+  await page.locator("#scenario-downside-name").fill("Higher Vacancy");
+  await downsideVacancy.fill("8");
   await page.getByLabel("Downside Vacancy source label").fill("Market study");
   await page.getByLabel("Downside Vacancy source date").fill("2026-09-02");
   await page.getByLabel("Downside Vacancy review state").selectOption("done");
@@ -46,6 +55,11 @@ test("saves apartment scenario deltas and reopens the comparison run", async ({ 
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved results and formulas", { exact: true })).toBeVisible();
   await expect(page.getByText("vacancyPercent: 8")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved Scenario Evidence" })).toBeVisible();
+  const evidenceRow = page.getByRole("row").filter({ hasText: "Higher Vacancy" }).filter({ hasText: "Market study" });
+  await expect(evidenceRow).toContainText("2026-09-02");
+  await expect(evidenceRow).toContainText("Done");
+  await expect(evidenceRow.locator("td").nth(4)).not.toHaveText("Missing");
   await page.setViewportSize({ width: 375, height: 812 });
   const table = await page.locator(".underwriting-results-wrap").filter({ has: page.locator(".underwriting-scenario-comparison") }).first().evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth }));
   expect(table.scrollWidth).toBeGreaterThan(table.clientWidth);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
+import { InvalidJsonBody, JsonBodyTooLarge, readJsonBody } from "@/lib/http/json-body";
 import {
   saveUnderwritingCostSchedule,
   UnderwritingCaseRevisionConflict,
@@ -16,8 +17,12 @@ export async function PUT(request: Request, context: Context) {
 
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    body = await readJsonBody(request);
+  } catch (cause) {
+    if (cause instanceof JsonBodyTooLarge) {
+      return NextResponse.json({ error: "The JSON request body is too large." }, { status: 413 });
+    }
+    if (!(cause instanceof InvalidJsonBody)) throw cause;
     return NextResponse.json({ error: "Send a JSON cost schedule." }, { status: 400 });
   }
   const expectedRevision = body && typeof body === "object" && !Array.isArray(body)

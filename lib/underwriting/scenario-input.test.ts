@@ -25,4 +25,20 @@ describe("scenario request input", () => {
   it("returns a typed issue for a non-object scenario", () => {
     expect(() => parseApartmentScenarios({ scenarios: [null, scenarios[1]] }, APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput)).toThrow(InvalidApartmentScenarios);
   });
+
+  it("derives a neutral descriptive name from one changed input", () => {
+    const parsed = parseApartmentScenarios({ scenarios: [{ ...scenarios[0], name: "" }, scenarios[1]] }, APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput);
+    expect(parsed[0].name).toBe("Vacancy 8%");
+  });
+
+  it("maps source label type, blank, and length issues to the evidence field", () => {
+    for (const sourceLabel of [42, "   ", "x".repeat(501)]) {
+      try {
+        parseApartmentScenarios({ scenarios: [{ ...scenarios[0], evidence: { vacancyPercent: { ...scenarios[0].evidence.vacancyPercent, sourceLabel } } }, scenarios[1]] }, APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput);
+        throw new Error("Expected scenario validation to fail.");
+      } catch (cause) {
+        expect(cause).toMatchObject({ fieldErrors: { "scenarios.0.evidence.vacancyPercent.sourceLabel": expect.any(String) } });
+      }
+    }
+  });
 });

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartment-development-model-v2.98-returns";
 import {
   APARTMENT_SCENARIO_FORMULA_VERSION,
+  MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH,
   runApartmentScenarioComparison,
   type ApartmentScenarioDefinition,
 } from "./apartment-scenarios";
@@ -87,6 +88,33 @@ describe("runApartmentScenarioComparison", () => {
       expect.objectContaining({ code: "duplicate_id" }),
       expect.objectContaining({ code: "missing_role" }),
     ]));
+  });
+
+  it.each([
+    ["non-text", 42, "invalid_source_label"],
+    ["blank", "   ", "invalid_source_label"],
+    ["over limit", "x".repeat(MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH + 1), "text_too_long"],
+  ])("rejects a %s evidence source label", (_label, sourceLabel, code) => {
+    const invalid = structuredClone(scenarios[0]) as ApartmentScenarioDefinition;
+    invalid.evidence.vacancyPercent!.sourceLabel = sourceLabel as string;
+    const run = runApartmentScenarioComparison(APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput, [invalid, scenarios[1]]);
+    expect(run.issues).toContainEqual(expect.objectContaining({ path: "scenarios.0.evidence.vacancyPercent.sourceLabel", code }));
+  });
+
+  it.each(["Good Vacancy", "Bad Vacancy", "Vacancy Winner", "Vacancy Loser"])("rejects the result-judgment name %s", (name) => {
+    const run = runApartmentScenarioComparison(
+      APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput,
+      [{ ...scenarios[0], name }, scenarios[1]],
+    );
+    expect(run.issues).toContainEqual(expect.objectContaining({ path: "scenarios.0.name", code: "invalid_name" }));
+  });
+
+  it("does not reject a neutral name that merely contains the same letters", () => {
+    const run = runApartmentScenarioComparison(
+      APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput,
+      [{ ...scenarios[0], name: "Goodman Vacancy Study" }, scenarios[1]],
+    );
+    expect(run.status).toBe("complete");
   });
 });
 

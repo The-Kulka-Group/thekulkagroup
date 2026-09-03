@@ -35,4 +35,12 @@ describe("/api/underwriting/cases/:id/scenarios", () => {
     const tooLarge = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ padding: "x".repeat(1_000_001) }) }), context);
     expect(tooLarge.status).toBe(413);
   });
+
+  it("returns the evidence source label error path", async () => {
+    const invalidScenarios = [{ ...scenarios[0], evidence: { vacancyPercent: { ...scenarios[0].evidence.vacancyPercent, sourceLabel: "x".repeat(501) } } }, scenarios[1]];
+    const response = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: 5, scenarios: invalidScenarios }) }), context);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ fieldErrors: { "scenarios.0.evidence.vacancyPercent.sourceLabel": expect.stringMatching(/500/) } });
+    expect(save).not.toHaveBeenCalled();
+  });
 });

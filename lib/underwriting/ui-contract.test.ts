@@ -137,4 +137,22 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("PROPERTY_RETURNS_ASSUMPTION_KEYS");
     expect(runPage).toContain("It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.");
   });
+
+  it("links every scenario control to field errors and renders scenario evidence in saved runs", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/ScenarioComparisonEditor.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH");
+    expect(editor).toContain("maxLength={MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH}");
+    expect(editor).toContain("scenario-${scenario.role}-${key}-value");
+    expect(editor).toContain("scenario-${scenario.role}-${key}-source-label");
+    for (const error of ["nameError", "valueError", "labelError", "dateError", "stateError"]) {
+      expect(editor).toContain(`aria-invalid={Boolean(${error})}`);
+      expect(editor).toContain(`aria-describedby={${error} ?`);
+    }
+    expect(editor).toContain("min={key === \"growthStartMonthShiftMonths\" ? -MAX_SCENARIO_TIMING_SHIFT_MONTHS");
+    expect(editor).toContain("max={key === \"growthStartMonthShiftMonths\" ? MAX_SCENARIO_TIMING_SHIFT_MONTHS : 100}");
+    expect(runPage).toContain("run.evidenceSnapshot.scenarios");
+    expect(runPage).toContain("Saved Scenario Evidence");
+    expect(runPage).toContain("scenario.lastChangedAt");
+  });
 });

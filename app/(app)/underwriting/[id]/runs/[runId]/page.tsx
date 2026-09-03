@@ -381,6 +381,17 @@ export default async function UnderwritingRunPage({
               </table>
             </div>
           ) : null}
+          {run.evidenceSnapshot.scenarios?.length ? (
+            <div className="underwriting-results-wrap">
+              <h4>Saved Scenario Evidence</h4>
+              <table className="underwriting-evidence">
+                <thead><tr><th>Scenario</th><th>Changed Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{run.evidenceSnapshot.scenarios.flatMap((scenario) => Object.entries(scenario.evidence).map(([key, evidence]) => (
+                  <tr key={`${scenario.id}-${key}`}><th scope="row">{scenario.name}</th><td>{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</td><td>{evidence?.sourceLabel || "Missing"}</td><td className="num">{evidence?.sourceDate || "Missing"}</td><td>{evidence ? <Chip status={evidence.reviewState} /> : "Missing"}</td><td className="num">{DATE_TIME.format(new Date(scenario.lastChangedAt))}</td></tr>
+                )))}</tbody>
+              </table>
+            </div>
+          ) : null}
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>

@@ -111,7 +111,7 @@ function capitalPlan(payoffMonth: string, targetDebtSharePercent: number, annual
 }
 
 function scenario(id: string, role: "downside" | "upside", name: string, delta: ApartmentScenarioDefinition["delta"]): ApartmentScenarioDefinition {
-  const evidence = Object.fromEntries(Object.keys(delta).map((key) => [key, { reviewState: "done" }])) as ApartmentScenarioDefinition["evidence"];
+  const evidence = Object.fromEntries(Object.keys(delta).map((key) => [key, { sourceLabel: "Generated pressure input", reviewState: "done" }])) as ApartmentScenarioDefinition["evidence"];
   return { id, role, name, inputVersion: "apartment_scenario_delta.v1", delta, evidence };
 }
 

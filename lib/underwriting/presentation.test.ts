@@ -182,6 +182,22 @@ describe("buildUnderwritingReviewItems", () => {
 
     expect(items.filter(({ id }) => id.startsWith("returns-assumption-"))).toHaveLength(18);
   });
+
+  it("shows the scenario source label gap without assuming a valid string", () => {
+    const items = buildUnderwritingReviewItems({
+      ...savedCase,
+      scenarios: [{
+        id: "higher-vacancy", role: "downside", name: "Higher Vacancy", inputVersion: "apartment_scenario_delta.v1",
+        delta: { vacancyPercent: 8 }, evidence: { vacancyPercent: { sourceLabel: 42 as unknown as string, reviewState: "working" } },
+        lastChangedAt: "2026-09-02T00:00:00.000Z",
+      }],
+    }, undefined, false);
+    expect(items.map(({ id }) => id)).toEqual(expect.arrayContaining([
+      "scenario-source-label-higher-vacancy-vacancyPercent",
+      "scenario-source-date-higher-vacancy-vacancyPercent",
+      "scenario-review-state-higher-vacancy-vacancyPercent",
+    ]));
+  });
 });
 
 function workingAssumptionEvidence() {

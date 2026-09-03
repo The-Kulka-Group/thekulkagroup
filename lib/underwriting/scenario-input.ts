@@ -1,6 +1,7 @@
 import {
   APARTMENT_SCENARIO_CHANGE_KEYS,
   APARTMENT_SCENARIO_INPUT_VERSION,
+  defaultApartmentScenarioName,
   runApartmentScenarioComparison,
   validateApartmentScenarios,
   type ApartmentScenarioChangeKey,
@@ -21,7 +22,16 @@ export class InvalidApartmentScenarios extends Error {
 export function parseApartmentScenarios(body: unknown, base: PropertyReturnsInputs) {
   const record = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
   const raw = Array.isArray(record.scenarios) ? record.scenarios : [];
-  const candidates = raw.map((value) => value as ApartmentScenarioDefinition);
+  const candidates = raw.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return value as ApartmentScenarioDefinition;
+    const candidate = value as ApartmentScenarioDefinition;
+    return {
+      ...candidate,
+      name: typeof candidate.name === "string" && candidate.name.trim()
+        ? candidate.name
+        : defaultApartmentScenarioName(candidate.delta),
+    };
+  });
   const issues = validateApartmentScenarios(candidates);
   if (issues.length) throw invalid(issues);
 

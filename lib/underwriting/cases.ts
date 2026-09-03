@@ -1,5 +1,13 @@
 import type { Db } from "@/lib/db";
-import type { MonthlyCostLine, MonthlyCostScheduleInputs } from "@kulka/engine";
+import {
+  APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
+  type ApartmentOperationsAssumptionKey,
+  type ApartmentOperationsInputs,
+  type MonthlyCostLine,
+  type MonthlyCostScheduleInputs,
+} from "@kulka/engine";
+
+import type { ApartmentOperationsDraft } from "@/lib/underwriting/operations-input";
 
 export const ASSUMPTION_DEFINITIONS = {
   purchasePrice: { key: "purchase_price", unit: "usd", label: "Purchase price" },
@@ -88,6 +96,7 @@ export type UnderwritingCase = {
   updatedAt: string;
   assumptions: UnderwritingAssumption[];
   costSchedule?: UnderwritingCostSchedule;
+  apartmentOperations?: SavedApartmentOperations;
 };
 
 export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
@@ -95,6 +104,8 @@ export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
 export type UnderwritingCostSchedule = Omit<MonthlyCostScheduleInputs, "costLines"> & {
   costLines: SavedCostLine[];
 };
+
+export type SavedApartmentOperations = ApartmentOperationsDraft & { lastChangedAt: string };
 
 export class UnderwritingCaseRevisionConflict extends Error {
   constructor() {
@@ -118,6 +129,9 @@ type CaseRow = {
   updated_at: Date | string;
   analysis_start_month: Date | string | null;
   sale_month: Date | string | null;
+  apartment_operations_input_version: ApartmentOperationsInputs["inputVersion"] | null;
+  apartment_operations_input: ApartmentOperationsDraft | null;
+  apartment_operations_changed_at: Date | string | null;
 };
 
 type AssumptionRow = {
@@ -228,6 +242,13 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: Cos
           reviewState: line.review_state,
           lastChangedAt: iso(line.value_changed_at),
         })),
+      },
+    } : {}),
+    ...(row.apartment_operations_input_version && row.apartment_operations_input && row.apartment_operations_changed_at ? {
+      apartmentOperations: {
+        ...row.apartment_operations_input,
+        inputVersion: row.apartment_operations_input_version,
+        lastChangedAt: iso(row.apartment_operations_changed_at),
       },
     } : {}),
   };
@@ -450,6 +471,78 @@ export async function saveUnderwritingCostSchedule(
     return null;
   }
   return getUnderwritingCase(db, id);
+}
+
+export async function saveApartmentOperations(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  operations: ApartmentOperationsDraft,
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const reconciled = reconcileOperationsReview(existing.apartmentOperations, operations);
+  const { rows } = await db.query<{ id: string }>(
+    `update underwriting_cases
+     set apartment_operations_input_version = $2,
+         apartment_operations_input = $3::jsonb,
+         apartment_operations_changed_at = now(),
+         case_revision = case_revision + 1,
+         updated_at = now()
+     where id = $1 and case_revision = $4
+     returning id`,
+    [id, reconciled.inputVersion, JSON.stringify(reconciled), expectedRevision],
+  );
+  if (!rows[0]) {
+    throw new UnderwritingCaseRevisionConflict();
+  }
+  return getUnderwritingCase(db, id);
+}
+
+function reconcileOperationsReview(
+  existing: SavedApartmentOperations | undefined,
+  draft: ApartmentOperationsDraft,
+): ApartmentOperationsDraft {
+  return {
+    ...draft,
+    assumptionEvidence: reconcileAssumptionEvidence(existing, draft),
+    residentialUnitTypes: reconcileLineReview(existing?.residentialUnitTypes, draft.residentialUnitTypes),
+    otherIncomeLines: reconcileLineReview(existing?.otherIncomeLines, draft.otherIncomeLines),
+    operatingExpenseLines: reconcileLineReview(existing?.operatingExpenseLines, draft.operatingExpenseLines),
+    capitalExpenditureLines: reconcileLineReview(existing?.capitalExpenditureLines, draft.capitalExpenditureLines),
+  };
+}
+
+function reconcileAssumptionEvidence(
+  existing: SavedApartmentOperations | undefined,
+  draft: ApartmentOperationsDraft,
+) {
+  return Object.fromEntries(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => [
+    key,
+    existing && existing[key] !== draft[key]
+      ? { ...draft.assumptionEvidence[key], reviewState: "working" as const }
+      : draft.assumptionEvidence[key],
+  ])) as Record<ApartmentOperationsAssumptionKey, ApartmentOperationsInputs["assumptionEvidence"][ApartmentOperationsAssumptionKey]>;
+}
+
+function reconcileLineReview<T extends { id: string; reviewState: "working" | "done" }>(
+  existing: T[] | undefined,
+  draft: T[],
+) {
+  const priorById = new Map(existing?.map((line) => [line.id, line]) ?? []);
+  return draft.map((line) => {
+    const prior = priorById.get(line.id);
+    if (!prior || sameLineWithoutReview(prior, line)) return line;
+    return { ...line, reviewState: "working" as const };
+  });
+}
+
+function sameLineWithoutReview<T extends { reviewState: "working" | "done" }>(left: T, right: T) {
+  const withoutReview = (line: T) => Object.fromEntries(
+    Object.entries(line).filter(([key]) => key !== "reviewState"),
+  );
+  return JSON.stringify(withoutReview(left)) === JSON.stringify(withoutReview(right));
 }
 
 export async function updateUnderwritingCase(

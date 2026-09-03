@@ -100,7 +100,57 @@ describe("buildUnderwritingReviewItems", () => {
       "cost-review-state-hard",
     ]));
   });
+
+  it("shows source and review gaps for apartment operation lines", () => {
+    const items = buildUnderwritingReviewItems({
+      ...savedCase,
+      apartmentOperations: {
+        inputVersion: "apartment_operations_inputs.v1",
+        operationStartMonth: "2026-06",
+        growthStartMonth: "2026-06",
+        preleasedUnits: 0,
+        leaseUpUnitsPerMonth: 5,
+        annualIncomeGrowthPercent: 3,
+        annualExpenseGrowthPercent: 3,
+        rentAdjustmentLossPercent: 0,
+        freeRentPercent: 0,
+        vacancyPercent: 5,
+        creditLossPercent: 1,
+        assumptionEvidence: workingAssumptionEvidence(),
+        residentialUnitTypes: [{
+          id: "studio", name: "Studio", units: 10, nonRevenueUnits: 0,
+          averageAreaSf: 550,
+          monthlyMarketRent: 1_500, reviewState: "working",
+        }],
+        otherIncomeLines: [],
+        operatingExpenseLines: [],
+        capitalExpenditureLines: [],
+        lastChangedAt: "2026-09-02T00:00:00.000Z",
+      },
+    }, undefined, false);
+
+    expect(items.map(({ id }) => id).filter((id) => id.includes("studio"))).toEqual([
+      "operations-source-label-studio",
+      "operations-source-date-studio",
+      "operations-review-state-studio",
+    ]);
+  });
 });
+
+function workingAssumptionEvidence() {
+  return {
+    operationStartMonth: { reviewState: "working" as const },
+    growthStartMonth: { reviewState: "working" as const },
+    preleasedUnits: { reviewState: "working" as const },
+    leaseUpUnitsPerMonth: { reviewState: "working" as const },
+    annualIncomeGrowthPercent: { reviewState: "working" as const },
+    annualExpenseGrowthPercent: { reviewState: "working" as const },
+    rentAdjustmentLossPercent: { reviewState: "working" as const },
+    freeRentPercent: { reviewState: "working" as const },
+    vacancyPercent: { reviewState: "working" as const },
+    creditLossPercent: { reviewState: "working" as const },
+  };
+}
 
 describe("underwriting limitations", () => {
   it("names the annual timing, full-balance interest, omitted models, and approval boundary", () => {

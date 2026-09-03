@@ -1,7 +1,12 @@
 import {
+  APARTMENT_OPERATIONS_FORMULA_VERSION,
+  computeApartmentOperations,
   computeMonthlyCostSchedule,
   computePreliminaryUnderwriting,
   MONTHLY_COST_FORMULA_VERSION,
+  type ApartmentOperationsInputs,
+  type ApartmentOperationsIssue,
+  type ApartmentOperationsResult,
   type MonthlyCostIssue,
   type MonthlyCostScheduleInputs,
   type MonthlyCostScheduleResult,
@@ -31,9 +36,12 @@ export type UnderwritingEvidenceSnapshot = {
   updatedAt: string;
   assumptions: UnderwritingCase["assumptions"];
   costSchedule?: UnderwritingCase["costSchedule"];
+  apartmentOperations?: UnderwritingCase["apartmentOperations"];
 };
 
-export type SavedUnderwritingInputSnapshot = PreliminaryUnderwritingInputs & Partial<MonthlyCostScheduleInputs>;
+export type SavedUnderwritingInputSnapshot = PreliminaryUnderwritingInputs
+  & Partial<MonthlyCostScheduleInputs>
+  & Partial<ApartmentOperationsInputs>;
 
 export type SavedUnderwritingRun = {
   id: string;
@@ -43,9 +51,10 @@ export type SavedUnderwritingRun = {
   status: "complete" | "failed";
   inputSnapshot: SavedUnderwritingInputSnapshot;
   evidenceSnapshot: UnderwritingEvidenceSnapshot;
-  issues: Array<UnderwritingIssue | MonthlyCostIssue>;
+  issues: Array<UnderwritingIssue | MonthlyCostIssue | ApartmentOperationsIssue>;
   results: UnderwritingResult[];
   monthlyCostResult?: MonthlyCostScheduleResult;
+  apartmentOperationsResult?: ApartmentOperationsResult;
   reconciliations: ReconciliationCheck[];
   createdAt: string;
 };
@@ -58,8 +67,8 @@ type RunRow = {
   status: SavedUnderwritingRun["status"];
   input_snapshot: SavedUnderwritingInputSnapshot;
   evidence_snapshot: UnderwritingEvidenceSnapshot;
-  result_snapshot: UnderwritingResult[] | MonthlyCostScheduleResult | Record<string, never>;
-  issues: Array<UnderwritingIssue | MonthlyCostIssue>;
+  result_snapshot: UnderwritingResult[] | MonthlyCostScheduleResult | ApartmentOperationsResult | Record<string, never>;
+  issues: Array<UnderwritingIssue | MonthlyCostIssue | ApartmentOperationsIssue>;
   reconciliation_checks: ReconciliationCheck[];
   created_at: Date | string;
 };
@@ -79,14 +88,18 @@ export async function runUnderwritingCase(
   if (!savedCase) return null;
   if (savedCase.caseRevision !== expectedRevision) throw new UnderwritingRevisionConflict();
 
-  const calculated = savedCase.costSchedule
-    ? computeMonthlyCostSchedule(monthlyInputsFor(savedCase.costSchedule))
-    : computePreliminaryUnderwriting(inputsFor(savedCase));
+  const calculated = savedCase.costSchedule && savedCase.apartmentOperations
+    ? computeApartmentOperations(operationsInputsFor(savedCase))
+    : savedCase.costSchedule
+      ? computeMonthlyCostSchedule(monthlyInputsFor(savedCase.costSchedule))
+      : computePreliminaryUnderwriting(inputsFor(savedCase));
   const evidenceSnapshot = evidenceFor(savedCase);
   const resultSnapshot = calculated.formulaVersion === MONTHLY_COST_FORMULA_VERSION
+    || calculated.formulaVersion === APARTMENT_OPERATIONS_FORMULA_VERSION
     ? calculated.result ?? {}
     : calculated.results;
   const reconciliations = calculated.formulaVersion === MONTHLY_COST_FORMULA_VERSION
+    || calculated.formulaVersion === APARTMENT_OPERATIONS_FORMULA_VERSION
     ? calculated.reconciliations
     : [];
   const { rows } = await db.query<RunRow>(
@@ -167,6 +180,12 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     && "months" in row.result_snapshot
     ? row.result_snapshot as MonthlyCostScheduleResult
     : undefined;
+  const apartmentOperations = row.formula_version === APARTMENT_OPERATIONS_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "months" in row.result_snapshot
+    && "totals" in row.result_snapshot
+    ? row.result_snapshot as ApartmentOperationsResult
+    : undefined;
   return {
     id: row.id,
     caseId: row.case_id,
@@ -178,6 +197,7 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     issues: row.issues,
     results: Array.isArray(row.result_snapshot) ? row.result_snapshot : [],
     ...(monthly ? { monthlyCostResult: monthly } : {}),
+    ...(apartmentOperations ? { apartmentOperationsResult: apartmentOperations } : {}),
     reconciliations: row.reconciliation_checks ?? [],
     createdAt: new Date(row.created_at).toISOString(),
   };
@@ -201,6 +221,17 @@ function evidenceFor(savedCase: UnderwritingCase): UnderwritingEvidenceSnapshot 
     updatedAt: savedCase.updatedAt,
     assumptions: savedCase.assumptions.map((assumption) => ({ ...assumption })),
     ...(savedCase.costSchedule ? { costSchedule: structuredClone(savedCase.costSchedule) } : {}),
+    ...(savedCase.apartmentOperations ? { apartmentOperations: structuredClone(savedCase.apartmentOperations) } : {}),
+  };
+}
+
+function operationsInputsFor(savedCase: UnderwritingCase): ApartmentOperationsInputs {
+  const operations = savedCase.apartmentOperations!;
+  const { lastChangedAt, ...savedOperations } = operations;
+  void lastChangedAt;
+  return {
+    ...monthlyInputsFor(savedCase.costSchedule!),
+    ...savedOperations,
   };
 }
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-import { allowedEmailsFrom, authConfiguration, normalizeEmail } from "./policy";
+import { allowedEmailsFrom, authConfiguration, normalizeEmail, temporaryAuthBypass } from "./policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type AuthorizedUser = { id: string; email: string };
+export type AuthorizedUser = { id: string; email: string; temporary?: true };
 export type Authorization =
   | { ok: true; user: AuthorizedUser }
   | { ok: false; status: 401 | 403 | 503; error: string };
@@ -49,6 +49,13 @@ async function testAuthorization(request?: Request): Promise<Authorization | nul
 }
 
 export async function authorizeRequest(request?: Request): Promise<Authorization> {
+  // LA-173: remove KULKA_AUTH_BYPASS from Vercel and redeploy to restore LA-13.
+  if (temporaryAuthBypass(process.env.KULKA_AUTH_BYPASS)) {
+    return {
+      ok: true,
+      user: { id: "temporary-workspace", email: "Temporary Access", temporary: true },
+    };
+  }
   const testResult = await testAuthorization(request);
   if (testResult) return testResult;
   if (!authConfiguration(

@@ -1,6 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { authorizeVerifiedUser } from "./server";
+import { authorizeRequest, authorizeVerifiedUser } from "./server";
+
+afterEach(() => vi.unstubAllEnvs());
+
+describe("temporary access", () => {
+  it("returns a labeled temporary user without Supabase", async () => {
+    vi.stubEnv("KULKA_AUTH_BYPASS", "1");
+    await expect(authorizeRequest()).resolves.toEqual({
+      ok: true,
+      user: { id: "temporary-workspace", email: "Temporary Access", temporary: true },
+    });
+  });
+});
 
 describe("authorizeVerifiedUser", () => {
   const allowed = "matt@kulka.com,rob@kulka.com,devin@kulka.com,jason@kulka.com,lee@kulka.com";

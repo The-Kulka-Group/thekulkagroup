@@ -1,0 +1,117 @@
+{
+  "source": {
+    "file": "Apartment-Development-Model_v2.98-lbbejt.xlsm",
+    "sha256": "3481af2b91836bdbb7603a60246aa0f8c0c3ea6654311252f5df40760ff2a280",
+    "workbookVersion": "v2.98",
+    "basis": "saved Excel calculation results",
+    "warning": "These values are a test fixture. They are not Kulka defaults or approved business rules.",
+    "mapping": "The fixture uses the workbook basic lease-up inputs and checks a stabilized twelve-month window against the saved untrended annual results."
+  },
+  "inputs": {
+    "inputVersion": "apartment_operations_inputs.v1",
+    "analysisStartMonth": "2024-07",
+    "saleMonth": "2028-02",
+    "costLines": [
+      {
+        "id": "land",
+        "name": "Land",
+        "category": "land",
+        "amount": 8230000,
+        "unit": "usd",
+        "startMonth": "2024-07",
+        "endMonth": "2024-07",
+        "distributionMethod": "straight_line",
+        "distributionVersion": "straight_line.v1",
+        "sourceLabel": "Workbook fixture: Underwriting I29",
+        "sourceDate": "2026-09-02",
+        "reviewState": "done"
+      }
+    ],
+    "operationStartMonth": "2026-01",
+    "growthStartMonth": "2026-01",
+    "preleasedUnits": 30,
+    "leaseUpUnitsPerMonth": 20,
+    "annualIncomeGrowthPercent": 0,
+    "annualExpenseGrowthPercent": 0,
+    "rentAdjustmentLossPercent": 0,
+    "freeRentPercent": 0,
+    "vacancyPercent": 5,
+    "creditLossPercent": 1,
+    "assumptionEvidence": {
+      "operationStartMonth": { "sourceLabel": "Workbook fixture: Underwriting D87", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "growthStartMonth": { "sourceLabel": "Workbook fixture: Underwriting E88 and E118", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "preleasedUnits": { "sourceLabel": "Workbook fixture: 10% at Underwriting I88, converted to 30 of 300 units", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "leaseUpUnitsPerMonth": { "sourceLabel": "Workbook fixture: Underwriting I89", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "annualIncomeGrowthPercent": { "sourceLabel": "Normalized untrended fixture; workbook Underwriting D88 is 3%", "sourceDate": "2026-09-02", "reviewState": "working" },
+      "annualExpenseGrowthPercent": { "sourceLabel": "Normalized untrended fixture; workbook expense growth is 3%", "sourceDate": "2026-09-02", "reviewState": "working" },
+      "rentAdjustmentLossPercent": { "sourceLabel": "Workbook fixture: Underwriting I101", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "freeRentPercent": { "sourceLabel": "Normalized stabilized fixture from Underwriting F99 and I100", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "vacancyPercent": { "sourceLabel": "Workbook fixture: Underwriting F113", "sourceDate": "2026-09-02", "reviewState": "done" },
+      "creditLossPercent": { "sourceLabel": "Workbook fixture: Underwriting F114", "sourceDate": "2026-09-02", "reviewState": "done" }
+    },
+    "residentialUnitTypes": [
+      {
+        "id": "workbook-average-unit",
+        "name": "Workbook Average Unit",
+        "units": 300,
+        "nonRevenueUnits": 2,
+        "averageAreaSf": 850,
+        "monthlyMarketRent": 1800,
+        "sourceLabel": "Workbook fixture: Underwriting C99, D99, H99, I99, and I102",
+        "sourceDate": "2026-09-02",
+        "reviewState": "done"
+      }
+    ],
+    "otherIncomeLines": [
+      {
+        "id": "workbook-other-income",
+        "name": "Workbook Other Income",
+        "amount": 817472,
+        "unit": "usd_per_year",
+        "sourceLabel": "Workbook fixture: Underwriting I109",
+        "sourceDate": "2026-09-02",
+        "reviewState": "done"
+      }
+    ],
+    "operatingExpenseLines": [
+      {
+        "id": "workbook-operating-expenses",
+        "name": "Workbook Operating Expenses",
+        "amount": 2730203.22,
+        "unit": "usd_per_year",
+        "sourceLabel": "Workbook fixture: Underwriting I132",
+        "sourceDate": "2026-09-02",
+        "reviewState": "done"
+      }
+    ],
+    "capitalExpenditureLines": [
+      {
+        "id": "workbook-capital-expenditures",
+        "name": "Workbook Capital Expenditures",
+        "amount": 25000,
+        "unit": "usd_per_year",
+        "sourceLabel": "Workbook fixture: Underwriting I140",
+        "sourceDate": "2026-09-02",
+        "reviewState": "done"
+      }
+    ]
+  },
+  "expectedOperationMonth": 19,
+  "expectedStabilizedMonth": 33,
+  "expected": {
+    "residentialGrossRent": 6480000,
+    "nonRevenueRentAdjustment": -43200,
+    "totalResidentialRent": 6436800,
+    "otherIncome": 817472,
+    "totalPotentialIncome": 7254272,
+    "vacancyLoss": -362713.6,
+    "creditLoss": -72542.72,
+    "effectiveGrossRevenue": 6819015.68,
+    "operatingExpenses": 2730203.22,
+    "netOperatingIncome": 4088812.46,
+    "capitalExpenditures": 25000,
+    "operatingCashFlow": 4063812.46
+  },
+  "expectedFirstStabilizedMonth": "2027-03",
+  "toleranceUsd": 0.01
+}

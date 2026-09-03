@@ -1356,6 +1356,9 @@ em, .em { font-style: normal; font-weight: 600; }
 .underwriting-run-action { text-align: right; }
 .underwriting-run-action .input-error { margin-top: var(--s2); }
 .underwriting-results-wrap { overflow-x: auto; }
+.underwriting-scenario-table,
+.underwriting-scenario-comparison { min-width: 760px; }
+.underwriting-scenario-editor > .underwriting-line-section { margin-top: var(--space-5); }
 .underwriting-results {
   width: 100%;
   min-width: 980px;
@@ -1421,6 +1424,97 @@ em, .em { font-style: normal; font-weight: 600; }
 .underwriting-limitations ul { margin: var(--s2) 0 0; padding-left: 20px; color: var(--ink-2); }
 .underwriting-limitations li + li { margin-top: var(--s1); }
 .underwriting-edit { margin-bottom: var(--s8); }
+.underwriting-cost-editor { margin-bottom: var(--s4); }
+.underwriting-operations-editor { margin-bottom: var(--s4); }
+.underwriting-operations-controls { margin-bottom: var(--s6); }
+.underwriting-line-section { margin-top: var(--s6); }
+.underwriting-line-section .underwriting-section-head { margin-bottom: var(--s2); }
+.underwriting-operations-table {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: separate;
+  table-layout: fixed;
+}
+.underwriting-unit-types { min-width: 1580px; }
+.underwriting-assumption-evidence { min-width: 820px; }
+.underwriting-money-lines { min-width: 1120px; }
+.underwriting-operations-results { min-width: 2360px; }
+.underwriting-operations-table th,
+.underwriting-operations-table td {
+  padding: var(--s2);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  vertical-align: top;
+}
+.underwriting-operations-table thead th {
+  color: var(--ink-2);
+  font-size: var(--meta-size);
+  font-weight: 700;
+}
+.underwriting-operations-table th.right,
+.underwriting-operations-table td.right { text-align: right; }
+.underwriting-operations-table .input-error { display: block; margin-top: var(--s1); }
+.underwriting-schedule-dates { margin-bottom: var(--s4); }
+.underwriting-cost-lines,
+.underwriting-monthly-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.underwriting-cost-lines { min-width: 1720px; }
+.underwriting-monthly-table { min-width: 920px; }
+.underwriting-cost-lines th,
+.underwriting-cost-lines td,
+.underwriting-monthly-table th,
+.underwriting-monthly-table td {
+  padding: var(--s2) var(--cell-pad-x);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  vertical-align: top;
+}
+.underwriting-cost-lines thead th,
+.underwriting-monthly-table thead th {
+  color: var(--ink-2);
+  font-size: var(--label-size);
+  line-height: var(--label-line);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+}
+.underwriting-cost-lines th.right,
+.underwriting-cost-lines td.right,
+.underwriting-monthly-table th.right,
+.underwriting-monthly-table td.right { text-align: right; }
+.underwriting-cost-lines td { min-width: 150px; }
+.underwriting-cost-lines td:first-child,
+.underwriting-cost-lines td:nth-child(7) { min-width: 210px; }
+.underwriting-cost-lines td:last-child { min-width: 100px; }
+.underwriting-cost-lines .input-error { display: block; margin-top: var(--s1); }
+.underwriting-money-input { position: relative; }
+.underwriting-money-input .input { padding-right: 48px; }
+.underwriting-money-input span {
+  position: absolute;
+  top: 9px;
+  right: var(--s3);
+  color: var(--ink-2);
+  font-size: var(--meta-size);
+}
+.underwriting-summary-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+  margin-bottom: var(--s6);
+}
+.underwriting-summary-band > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+}
+.underwriting-monthly-results h4 { margin: var(--s6) 0 var(--s2); }
 .underwriting-edit-table-wrap { overflow-x: auto; }
 .underwriting-edit-table,
 .underwriting-history {
@@ -1474,6 +1568,10 @@ em, .em { font-style: normal; font-weight: 600; }
 .underwriting-edit-table .input { min-width: 0; }
 .underwriting-edit-table .input-error { display: block; max-width: 220px; }
 .underwriting-save-error { margin-top: var(--s4); }
+.underwriting-capital-editor { margin-bottom: var(--s4); }
+.underwriting-capital-results { min-width: 1680px; }
+.underwriting-returns-editor { margin-bottom: var(--s4); }
+.underwriting-property-cash-flow { min-width: 1420px; }
 .underwriting-history-note { margin: var(--s2) 0 var(--s4); }
 .underwriting-history th.right,
 .underwriting-history td.right { text-align: right; }
@@ -1547,6 +1645,7 @@ em, .em { font-style: normal; font-weight: 600; }
   .underwriting-decision-row,
   .underwriting-section-head { flex-direction: column; }
   .underwriting-evidence-facts { grid-template-columns: minmax(0, 1fr); }
+  .underwriting-summary-band { grid-template-columns: minmax(0, 1fr); }
   .underwriting-assumptions { min-width: 680px; }
   .record-section:has(.underwriting-assumptions) { overflow-x: auto; }
 }

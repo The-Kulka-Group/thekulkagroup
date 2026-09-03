@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import {
   getLatestUnderwritingRun,
@@ -15,7 +16,9 @@ async function caseId(context: Context) {
   return isUuid(id) ? id : null;
 }
 
-export async function GET(_request: Request, context: Context) {
+export async function GET(request: Request, context: Context) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
   const id = await caseId(context);
   if (!id) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
 
@@ -26,6 +29,8 @@ export async function GET(_request: Request, context: Context) {
 }
 
 export async function POST(request: Request, context: Context) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
   const id = await caseId(context);
   if (!id) return NextResponse.json({ error: "Underwriting case not found." }, { status: 404 });
 

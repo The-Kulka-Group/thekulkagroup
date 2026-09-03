@@ -5,6 +5,11 @@ import {
   createUnderwritingCase,
   getUnderwritingCase,
   listUnderwritingCases,
+  saveApartmentOperations,
+  saveApartmentScenarios,
+  saveDevelopmentCapital,
+  savePropertyReturns,
+  saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
 } from "./cases";
@@ -33,6 +38,25 @@ afterEach(async () => {
 });
 
 describe("underwriting case repository", () => {
+  it("stores only scenario deltas and resets review after a changed value", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scenarios = [
+      { id: "higher-vacancy", role: "downside" as const, name: "Higher Vacancy", inputVersion: "apartment_scenario_delta.v1" as const, delta: { vacancyPercent: 8 }, evidence: { vacancyPercent: { sourceLabel: "Market study", sourceDate: "2026-08-01", reviewState: "done" as const } } },
+      { id: "lower-exit-cap", role: "upside" as const, name: "Lower Terminal Cap", inputVersion: "apartment_scenario_delta.v1" as const, delta: { terminalCapRatePercent: 5 }, evidence: { terminalCapRatePercent: { sourceLabel: "Broker opinion", sourceDate: "2026-08-01", reviewState: "done" as const } } },
+    ];
+    const saved = await saveApartmentScenarios(db, created!.id, created!.caseRevision, scenarios);
+    expect(saved).toMatchObject({ caseRevision: 2, scenarios: [expect.objectContaining({ delta: { vacancyPercent: 8 } }), expect.objectContaining({ delta: { terminalCapRatePercent: 5 } })] });
+    const { rows } = await db.query<{ delta: Record<string, number> }>(`select delta from underwriting_case_scenarios where case_id = $1`, [created!.id]);
+    expect(rows.every(({ delta }) => !("base" in delta))).toBe(true);
+
+    const changed = await saveApartmentScenarios(db, created!.id, saved!.caseRevision, [
+      { ...scenarios[0], delta: { vacancyPercent: 9 } },
+      scenarios[1],
+    ]);
+    expect(changed!.scenarios!.find(({ role }) => role === "downside")!.evidence.vacancyPercent!.reviewState).toBe("working");
+    expect(changed!.scenarios!.find(({ role }) => role === "upside")!.evidence.terminalCapRatePercent!.reviewState).toBe("done");
+  });
+
   it("creates and reads a case with supplied assumptions", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     const reopened = await getUnderwritingCase(db, created!.id);
@@ -58,6 +82,111 @@ describe("underwriting case repository", () => {
         expect.objectContaining({ name: "debtPercent", value: 65.25, unit: "percent" }),
       ]),
     );
+  });
+
+  it("stores versioned apartment operations inputs on a new case revision", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{
+        id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd",
+        startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line",
+        distributionVersion: "straight_line.v1", reviewState: "working",
+      }],
+    });
+    const saved = await saveApartmentOperations(db, created!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1",
+      operationStartMonth: "2026-02",
+      growthStartMonth: "2026-02",
+      preleasedUnits: 2,
+      leaseUpUnitsPerMonth: 4,
+      annualIncomeGrowthPercent: 3,
+      annualExpenseGrowthPercent: 3,
+      rentAdjustmentLossPercent: 0,
+      freeRentPercent: 0,
+      vacancyPercent: 5,
+      creditLossPercent: 1,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{
+        id: "one-bedroom", name: "One Bedroom", units: 10, nonRevenueUnits: 0,
+        averageAreaSf: 800,
+        monthlyMarketRent: 2_000, sourceLabel: "Program", sourceDate: "2026-08-01",
+        reviewState: "done",
+      }],
+      otherIncomeLines: [],
+      operatingExpenseLines: [],
+      capitalExpenditureLines: [],
+    });
+
+    expect(saved).toMatchObject({
+      caseRevision: 3,
+      apartmentOperations: {
+        inputVersion: "apartment_operations_inputs.v1",
+        operationStartMonth: "2026-02",
+        residentialUnitTypes: [expect.objectContaining({ id: "one-bedroom" })],
+        lastChangedAt: expect.any(String),
+      },
+    });
+    expect(await getUnderwritingCase(db, created!.id)).toEqual(saved);
+
+    const { lastChangedAt: _lastChangedAt, ...savedDraft } = saved!.apartmentOperations!;
+    void _lastChangedAt;
+    const changed = await saveApartmentOperations(db, created!.id, saved!.caseRevision, {
+      ...savedDraft,
+      vacancyPercent: 6,
+      assumptionEvidence: doneAssumptionEvidence(),
+    });
+    expect(changed!.apartmentOperations!.assumptionEvidence.vacancyPercent.reviewState).toBe("working");
+    expect(changed!.apartmentOperations!.assumptionEvidence.creditLossPercent.reviewState).toBe("working");
+
+    const { lastChangedAt: _changedAt, ...changedDraft } = changed!.apartmentOperations!;
+    void _changedAt;
+    const sourceChanged = await saveApartmentOperations(db, created!.id, changed!.caseRevision, {
+      ...changedDraft,
+      assumptionEvidence: {
+        ...changedDraft.assumptionEvidence,
+        creditLossPercent: {
+          ...changedDraft.assumptionEvidence.creditLossPercent,
+          sourceLabel: "Revised operating history",
+          reviewState: "done",
+        },
+      },
+    });
+    expect(sourceChanged!.apartmentOperations!.assumptionEvidence.creditLossPercent).toMatchObject({
+      sourceLabel: "Revised operating history",
+      reviewState: "working",
+    });
+
+    const { lastChangedAt: _reviewedAt, ...reviewedDraft } = sourceChanged!.apartmentOperations!;
+    void _reviewedAt;
+    const reviewed = await saveApartmentOperations(db, created!.id, sourceChanged!.caseRevision, {
+      ...reviewedDraft,
+      assumptionEvidence: {
+        ...reviewedDraft.assumptionEvidence,
+        creditLossPercent: {
+          ...reviewedDraft.assumptionEvidence.creditLossPercent,
+          reviewState: "done",
+        },
+      },
+    });
+    const { lastChangedAt: _reviewDateAt, ...reviewDateDraft } = reviewed!.apartmentOperations!;
+    void _reviewDateAt;
+    const dateChanged = await saveApartmentOperations(db, created!.id, reviewed!.caseRevision, {
+      ...reviewDateDraft,
+      assumptionEvidence: {
+        ...reviewDateDraft.assumptionEvidence,
+        creditLossPercent: {
+          ...reviewDateDraft.assumptionEvidence.creditLossPercent,
+          sourceDate: "2026-08-02",
+          reviewState: "done",
+        },
+      },
+    });
+    expect(dateChanged!.apartmentOperations!.assumptionEvidence.creditLossPercent).toMatchObject({
+      sourceDate: "2026-08-02",
+      reviewState: "working",
+    });
   });
 
   it("lists newest cases first without loading assumption rows", async () => {
@@ -339,7 +468,253 @@ describe("underwriting case repository", () => {
       caseRevision: firstEdit!.caseRevision,
     });
   });
+
+  it("stores a versioned monthly cost schedule with source and review fields", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const saved = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2027-12",
+      costLines: [{
+        id: "hard-cost",
+        name: "Hard cost",
+        category: "hard_cost",
+        amount: 42_630_000,
+        unit: "usd",
+        startMonth: "2026-02",
+        endMonth: "2027-06",
+        distributionMethod: "s_curve",
+        distributionVersion: "s_curve.smoothstep.v1",
+        sourceLabel: "Workbook fixture",
+        sourceDate: "2026-09-02",
+        reviewState: "done",
+      }],
+    });
+
+    expect(saved).toMatchObject({
+      caseRevision: 2,
+      costSchedule: {
+        analysisStartMonth: "2026-01",
+        saleMonth: "2027-12",
+        costLines: [expect.objectContaining({
+          id: "hard-cost",
+          amount: 42_630_000,
+          distributionVersion: "s_curve.smoothstep.v1",
+          sourceLabel: "Workbook fixture",
+          sourceDate: "2026-09-02",
+          reviewState: "done",
+          lastChangedAt: expect.any(String),
+        })],
+      },
+    });
+    expect((await getUnderwritingCase(db, created!.id))?.costSchedule).toEqual(saved!.costSchedule);
+  });
+
+  it("replaces removed cost lines and resets review when a line value changes", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const initial = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [
+        {
+          id: "land",
+          name: "Land",
+          category: "land",
+          amount: 1_000_000,
+          unit: "usd",
+          startMonth: "2026-01",
+          endMonth: "2026-01",
+          distributionMethod: "straight_line",
+          distributionVersion: "straight_line.v1",
+          reviewState: "done",
+        },
+        {
+          id: "soft",
+          name: "Soft cost",
+          category: "soft_cost",
+          amount: 100_000,
+          unit: "usd",
+          startMonth: "2026-01",
+          endMonth: "2026-06",
+          distributionMethod: "straight_line",
+          distributionVersion: "straight_line.v1",
+          reviewState: "working",
+        },
+      ],
+    });
+    const changed = await saveUnderwritingCostSchedule(db, created!.id, initial!.caseRevision, {
+      ...initial!.costSchedule!,
+      costLines: [{ ...initial!.costSchedule!.costLines[0], amount: 1_100_000, reviewState: "done" }],
+    });
+
+    expect(changed!.costSchedule!.costLines).toHaveLength(1);
+    expect(changed!.costSchedule!.costLines[0]).toMatchObject({
+      id: "land",
+      amount: 1_100_000,
+      reviewState: "working",
+    });
+  });
+
+  it("rejects a stale cost schedule save", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const schedule = { analysisStartMonth: "2026-01", saleMonth: "2026-02", costLines: [] };
+    await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule);
+    await expect(saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule))
+      .rejects.toThrow("case changed before your edits were saved");
+  });
+
+  it("stores a versioned capital plan and resets review when a term changes", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, created!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01",
+      preleasedUnits: 10, leaseUpUnitsPerMonth: 1, annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0,
+      rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const plan = {
+      capitalInputVersion: "development_capital_inputs.v1" as const,
+      targetDebtSharePercent: 65,
+      annualInterestRatePercent: 8,
+      loanFeePercent: 1,
+      fundingOrder: "equity_first.v1" as const,
+      interestTreatment: "capitalized_net_operating_cash.v1" as const,
+      interestConvention: "opening_balance_monthly.v1" as const,
+      feeMonth: "2026-01",
+      payoffMonth: "2026-12",
+      capitalAssumptionEvidence: doneCapitalEvidence(),
+    };
+    const saved = await saveDevelopmentCapital(db, created!.id, operating!.caseRevision, plan);
+    expect(saved).toMatchObject({
+      caseRevision: 4,
+      developmentCapital: { ...plan, lastChangedAt: expect.any(String) },
+    });
+
+    const changed = await saveDevelopmentCapital(db, created!.id, saved!.caseRevision, {
+      ...plan,
+      annualInterestRatePercent: 8.5,
+    });
+    expect(changed!.developmentCapital!.capitalAssumptionEvidence.annualInterestRatePercent.reviewState).toBe("working");
+    expect(changed!.developmentCapital!.capitalAssumptionEvidence.targetDebtSharePercent.reviewState).toBe("done");
+
+    const changedLabel = await saveDevelopmentCapital(db, created!.id, changed!.caseRevision, {
+      ...plan,
+      annualInterestRatePercent: 8.5,
+      capitalAssumptionEvidence: {
+        ...doneCapitalEvidence(),
+        targetDebtSharePercent: {
+          ...doneCapitalEvidence().targetDebtSharePercent,
+          sourceLabel: "Revised capital source",
+        },
+      },
+    });
+    expect(changedLabel!.developmentCapital!.capitalAssumptionEvidence.targetDebtSharePercent.reviewState).toBe("working");
+
+    const changedDate = await saveDevelopmentCapital(db, created!.id, changedLabel!.caseRevision, {
+      ...plan,
+      annualInterestRatePercent: 8.5,
+      capitalAssumptionEvidence: {
+        ...changedLabel!.developmentCapital!.capitalAssumptionEvidence,
+        feeMonth: {
+          ...changedLabel!.developmentCapital!.capitalAssumptionEvidence.feeMonth,
+          sourceDate: "2026-08-02",
+          reviewState: "done",
+        },
+      },
+    });
+    expect(changedDate!.developmentCapital!.capitalAssumptionEvidence.feeMonth.reviewState).toBe("working");
+
+    const salePlan = {
+      saleInputVersion: "property_returns_inputs.v1" as const,
+      terminalCapRatePercent: 5.75,
+      sellingCostPercent: 1.5,
+      forwardNoiConvention: "forward_twelve_month_noi.v1" as const,
+      cashFlowDateConvention: "month_end_dates.v1" as const,
+      xirrConvention: "xirr_actual_365.v1" as const,
+      saleAssumptionEvidence: doneSaleEvidence(),
+    };
+    const sold = await savePropertyReturns(db, created!.id, changedDate!.caseRevision, salePlan);
+    expect(sold).toMatchObject({ caseRevision: 8, propertyReturns: { ...salePlan, lastChangedAt: expect.any(String) } });
+    const saleChanged = await savePropertyReturns(db, created!.id, sold!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 6,
+      saleAssumptionEvidence: {
+        ...salePlan.saleAssumptionEvidence,
+        sellingCostPercent: { ...salePlan.saleAssumptionEvidence.sellingCostPercent, sourceLabel: "Changed sale source" },
+      },
+    });
+    expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.terminalCapRatePercent.reviewState).toBe("working");
+    expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.sellingCostPercent.reviewState).toBe("working");
+    expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.saleMonth.reviewState).toBe("done");
+    const revisedSchedule = await saveUnderwritingCostSchedule(db, created!.id, saleChanged!.caseRevision, {
+      analysisStartMonth: saleChanged!.costSchedule!.analysisStartMonth,
+      saleMonth: "2027-01",
+      costLines: saleChanged!.costSchedule!.costLines.map(({ lastChangedAt, ...line }) => {
+        void lastChangedAt;
+        return line;
+      }),
+    });
+    expect(revisedSchedule!.propertyReturns!.saleAssumptionEvidence.saleMonth.reviewState).toBe("working");
+  });
 });
+
+function workingAssumptionEvidence() {
+  return {
+    operationStartMonth: { reviewState: "working" as const },
+    growthStartMonth: { reviewState: "working" as const },
+    preleasedUnits: { reviewState: "working" as const },
+    leaseUpUnitsPerMonth: { reviewState: "working" as const },
+    annualIncomeGrowthPercent: { reviewState: "working" as const },
+    annualExpenseGrowthPercent: { reviewState: "working" as const },
+    rentAdjustmentLossPercent: { reviewState: "working" as const },
+    freeRentPercent: { reviewState: "working" as const },
+    vacancyPercent: { reviewState: "working" as const },
+    creditLossPercent: { reviewState: "working" as const },
+  };
+}
+
+function doneAssumptionEvidence() {
+  const item = () => ({ sourceLabel: "Reviewed source", sourceDate: "2026-08-01", reviewState: "done" as const });
+  return {
+    operationStartMonth: item(),
+    growthStartMonth: item(),
+    preleasedUnits: item(),
+    leaseUpUnitsPerMonth: item(),
+    annualIncomeGrowthPercent: item(),
+    annualExpenseGrowthPercent: item(),
+    rentAdjustmentLossPercent: item(),
+    freeRentPercent: item(),
+    vacancyPercent: item(),
+    creditLossPercent: item(),
+  };
+}
+
+function doneCapitalEvidence() {
+  const item = () => ({ sourceLabel: "Reviewed capital source", sourceDate: "2026-08-01", reviewState: "done" as const });
+  return {
+    targetDebtSharePercent: item(),
+    annualInterestRatePercent: item(),
+    loanFeePercent: item(),
+    fundingOrder: item(),
+    interestTreatment: item(),
+    interestConvention: item(),
+    feeMonth: item(),
+    payoffMonth: item(),
+  };
+}
+
+function doneSaleEvidence() {
+  const item = () => ({ sourceLabel: "Reviewed sale source", sourceDate: "2026-08-01", reviewState: "done" as const });
+  return {
+    saleMonth: item(), terminalCapRatePercent: item(), sellingCostPercent: item(),
+    forwardNoiConvention: item(), cashFlowDateConvention: item(), xirrConvention: item(),
+  };
+}
 
 describe("underwriting migration", () => {
   it("enables row level security with no browser policies", async () => {
@@ -383,5 +758,14 @@ describe("underwriting migration", () => {
         },
       })],
     )).rejects.toThrow();
+  });
+
+  it("protects monthly cost lines from browser access", async () => {
+    const { rows } = await db.query<{ relname: string; relrowsecurity: boolean }>(
+      `select relname, relrowsecurity from pg_class where relname = 'underwriting_case_cost_lines'`,
+    );
+    expect(rows).toEqual([{ relname: "underwriting_case_cost_lines", relrowsecurity: true }]);
+    const policies = await db.query(`select * from pg_policies where tablename = 'underwriting_case_cost_lines'`);
+    expect(policies.rows).toEqual([]);
   });
 });

@@ -1,4 +1,23 @@
 import type { Db } from "@/lib/db";
+import {
+  APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
+  type ApartmentOperationsAssumptionKey,
+  type ApartmentOperationsInputs,
+  DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
+  type DevelopmentCapitalAssumptionKey,
+  type DevelopmentCapitalPlan,
+  type MonthlyCostLine,
+  type MonthlyCostScheduleInputs,
+  PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  type ApartmentScenarioDefinition,
+  type ApartmentScenarioEvidence,
+  type PropertyReturnsAssumptionKey,
+  type PropertyReturnsPlan,
+} from "@kulka/engine";
+
+import type { ApartmentOperationsDraft } from "@/lib/underwriting/operations-input";
+import type { DevelopmentCapitalDraft } from "@/lib/underwriting/capital-input";
+import type { PropertyReturnsDraft } from "@/lib/underwriting/returns-input";
 
 export const ASSUMPTION_DEFINITIONS = {
   purchasePrice: { key: "purchase_price", unit: "usd", label: "Purchase price" },
@@ -86,7 +105,23 @@ export type UnderwritingCase = {
   createdAt: string;
   updatedAt: string;
   assumptions: UnderwritingAssumption[];
+  costSchedule?: UnderwritingCostSchedule;
+  apartmentOperations?: SavedApartmentOperations;
+  developmentCapital?: SavedDevelopmentCapital;
+  propertyReturns?: SavedPropertyReturns;
+  scenarios?: SavedApartmentScenario[];
 };
+
+export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
+
+export type UnderwritingCostSchedule = Omit<MonthlyCostScheduleInputs, "costLines"> & {
+  costLines: SavedCostLine[];
+};
+
+export type SavedApartmentOperations = ApartmentOperationsDraft & { lastChangedAt: string };
+export type SavedDevelopmentCapital = DevelopmentCapitalDraft & { lastChangedAt: string };
+export type SavedPropertyReturns = PropertyReturnsDraft & { lastChangedAt: string };
+export type SavedApartmentScenario = ApartmentScenarioDefinition & { lastChangedAt: string };
 
 export class UnderwritingCaseRevisionConflict extends Error {
   constructor() {
@@ -108,6 +143,17 @@ type CaseRow = {
   fact_metadata: Partial<Record<FactName, FactMetadata>>;
   created_at: Date | string;
   updated_at: Date | string;
+  analysis_start_month: Date | string | null;
+  sale_month: Date | string | null;
+  apartment_operations_input_version: ApartmentOperationsInputs["inputVersion"] | null;
+  apartment_operations_input: ApartmentOperationsDraft | null;
+  apartment_operations_changed_at: Date | string | null;
+  development_capital_input_version: DevelopmentCapitalPlan["capitalInputVersion"] | null;
+  development_capital_input: DevelopmentCapitalDraft | null;
+  development_capital_changed_at: Date | string | null;
+  property_returns_input_version: PropertyReturnsPlan["saleInputVersion"] | null;
+  property_returns_input: PropertyReturnsDraft | null;
+  property_returns_changed_at: Date | string | null;
 };
 
 type AssumptionRow = {
@@ -123,6 +169,33 @@ type AssumptionRow = {
 };
 
 type CaseWithAssumptionsRow = CaseRow & { assumptions: AssumptionRow[] };
+type CostLineRow = {
+  id: string;
+  case_id: string;
+  line_order: number;
+  name: string;
+  category: MonthlyCostLine["category"];
+  amount: string | number;
+  unit: MonthlyCostLine["unit"];
+  start_month: Date | string;
+  end_month: Date | string;
+  distribution_method: MonthlyCostLine["distributionMethod"];
+  distribution_version: MonthlyCostLine["distributionVersion"];
+  source_label: string | null;
+  source_date: Date | string | null;
+  review_state: MonthlyCostLine["reviewState"];
+  value_changed_at: Date | string;
+};
+type ScenarioRow = {
+  id: string;
+  role: ApartmentScenarioDefinition["role"];
+  name: string;
+  input_version: ApartmentScenarioDefinition["inputVersion"];
+  delta: ApartmentScenarioDefinition["delta"];
+  evidence: ApartmentScenarioDefinition["evidence"];
+  value_changed_at: Date | string;
+};
+type CaseDetailRow = CaseWithAssumptionsRow & { cost_lines: CostLineRow[]; scenarios: ScenarioRow[] };
 
 const byStoredKey = new Map(
   Object.entries(ASSUMPTION_DEFINITIONS).map(([name, definition]) => [
@@ -141,11 +214,15 @@ function dateOnly(value: Date | string | null) {
   return value.slice(0, 10);
 }
 
+function monthOnly(value: Date | string) {
+  return dateOnly(value)!.slice(0, 7);
+}
+
 function optionalNumber(value: string | number | null) {
   return value === null ? undefined : Number(value);
 }
 
-function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingCase {
+function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: CostLineRow[] = [], scenarios: ScenarioRow[] = []): UnderwritingCase {
   return {
     id: row.id,
     caseNumber: Number(row.case_number),
@@ -177,6 +254,57 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = []): UnderwritingC
         lastChangedAt: iso(assumption.value_changed_at),
       };
     }),
+    scenarios: scenarios.map((scenario) => ({
+      id: scenario.id,
+      role: scenario.role,
+      name: scenario.name,
+      inputVersion: scenario.input_version,
+      delta: scenario.delta,
+      evidence: scenario.evidence,
+      lastChangedAt: iso(scenario.value_changed_at),
+    })),
+    ...(row.analysis_start_month && row.sale_month ? {
+      costSchedule: {
+        analysisStartMonth: monthOnly(row.analysis_start_month),
+        saleMonth: monthOnly(row.sale_month),
+        costLines: costLines.map((line) => ({
+          id: line.id,
+          name: line.name,
+          category: line.category,
+          amount: Number(line.amount),
+          unit: line.unit,
+          startMonth: monthOnly(line.start_month),
+          endMonth: monthOnly(line.end_month),
+          distributionMethod: line.distribution_method,
+          distributionVersion: line.distribution_version,
+          sourceLabel: line.source_label ?? undefined,
+          sourceDate: dateOnly(line.source_date),
+          reviewState: line.review_state,
+          lastChangedAt: iso(line.value_changed_at),
+        })),
+      },
+    } : {}),
+    ...(row.apartment_operations_input_version && row.apartment_operations_input && row.apartment_operations_changed_at ? {
+      apartmentOperations: {
+        ...row.apartment_operations_input,
+        inputVersion: row.apartment_operations_input_version,
+        lastChangedAt: iso(row.apartment_operations_changed_at),
+      },
+    } : {}),
+    ...(row.development_capital_input_version && row.development_capital_input && row.development_capital_changed_at ? {
+      developmentCapital: {
+        ...row.development_capital_input,
+        capitalInputVersion: row.development_capital_input_version,
+        lastChangedAt: iso(row.development_capital_changed_at),
+      },
+    } : {}),
+    ...(row.property_returns_input_version && row.property_returns_input && row.property_returns_changed_at ? {
+      propertyReturns: {
+        ...row.property_returns_input,
+        saleInputVersion: row.property_returns_input_version,
+        lastChangedAt: iso(row.property_returns_changed_at),
+      },
+    } : {}),
   };
 }
 
@@ -248,7 +376,7 @@ export async function listUnderwritingCases(db: Db): Promise<UnderwritingCase[]>
 }
 
 export async function getUnderwritingCase(db: Db, id: string): Promise<UnderwritingCase | null> {
-  const { rows } = await db.query<CaseWithAssumptionsRow>(
+  const { rows } = await db.query<CaseDetailRow>(
     `select c.*,
             coalesce(
               jsonb_agg(
@@ -265,14 +393,406 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
                 ) order by a.assumption_key
               ) filter (where a.id is not null),
               '[]'::jsonb
-            ) as assumptions
+            ) as assumptions,
+            coalesce(
+              (
+                select jsonb_agg(
+                  jsonb_build_object(
+                    'id', line.id,
+                    'case_id', line.case_id,
+                    'line_order', line.line_order,
+                    'name', line.name,
+                    'category', line.category,
+                    'amount', line.amount,
+                    'unit', line.unit,
+                    'start_month', line.start_month,
+                    'end_month', line.end_month,
+                    'distribution_method', line.distribution_method,
+                    'distribution_version', line.distribution_version,
+                    'source_label', line.source_label,
+                    'source_date', line.source_date,
+                    'review_state', line.review_state,
+                    'value_changed_at', line.value_changed_at
+                  ) order by line.line_order
+                )
+                from underwriting_case_cost_lines line
+                where line.case_id = c.id
+              ),
+              '[]'::jsonb
+            ) as cost_lines
+            ,coalesce(
+              (
+                select jsonb_agg(jsonb_build_object(
+                  'id', scenario.id,
+                  'role', scenario.role,
+                  'name', scenario.name,
+                  'input_version', scenario.input_version,
+                  'delta', scenario.delta,
+                  'evidence', scenario.evidence,
+                  'value_changed_at', scenario.value_changed_at
+                ) order by scenario.role)
+                from underwriting_case_scenarios scenario
+                where scenario.case_id = c.id
+              ),
+              '[]'::jsonb
+            ) as scenarios
      from underwriting_cases c
      left join underwriting_case_assumptions a on a.case_id = c.id
      where c.id = $1
      group by c.id`,
     [id],
   );
-  return rows[0] ? mapCase(rows[0], rows[0].assumptions) : null;
+  return rows[0] ? mapCase(rows[0], rows[0].assumptions, rows[0].cost_lines, rows[0].scenarios) : null;
+}
+
+export async function saveApartmentScenarios(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  scenarios: ApartmentScenarioDefinition[],
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const priorById = new Map((existing.scenarios ?? []).map((scenario) => [scenario.id, scenario]));
+  const supplied = scenarios.map((scenario) => ({
+    ...scenario,
+    evidence: reconcileScenarioEvidence(priorById.get(scenario.id), scenario),
+  }));
+  const { rows } = await db.query<{ id: string }>(
+    `with updated_case as (
+       update underwriting_cases set case_revision = case_revision + 1, updated_at = now()
+       where id = $1 and case_revision = $3 returning id
+     ), supplied as (
+       select * from jsonb_to_recordset($2::jsonb) as item(
+         id text, role text, name text, "inputVersion" text, delta jsonb, evidence jsonb
+       )
+     ), removed as (
+       delete from underwriting_case_scenarios
+       where case_id in (select id from updated_case)
+         and id not in (select id from supplied)
+     ), saved as (
+       insert into underwriting_case_scenarios(case_id, id, role, name, input_version, delta, evidence)
+       select updated_case.id, supplied.id, supplied.role, supplied.name,
+              supplied."inputVersion", supplied.delta, supplied.evidence
+       from updated_case cross join supplied
+       on conflict (case_id, id) do update set
+         role = excluded.role,
+         name = excluded.name,
+         input_version = excluded.input_version,
+         delta = excluded.delta,
+         evidence = excluded.evidence,
+         value_changed_at = case when
+           underwriting_case_scenarios.role is distinct from excluded.role
+           or underwriting_case_scenarios.name is distinct from excluded.name
+           or underwriting_case_scenarios.input_version is distinct from excluded.input_version
+           or underwriting_case_scenarios.delta is distinct from excluded.delta
+           or underwriting_case_scenarios.evidence is distinct from excluded.evidence
+         then now() else underwriting_case_scenarios.value_changed_at end,
+         updated_at = now()
+     ) select id from updated_case`,
+    [id, JSON.stringify(supplied), expectedRevision],
+  );
+  if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
+  return getUnderwritingCase(db, id);
+}
+
+function reconcileScenarioEvidence(
+  existing: SavedApartmentScenario | undefined,
+  draft: ApartmentScenarioDefinition,
+) {
+  return Object.fromEntries(Object.entries(draft.evidence).map(([key, evidence]) => {
+    const prior = existing?.evidence[key as keyof ApartmentScenarioDefinition["evidence"]];
+    const changed = existing && (
+      existing.delta[key as keyof ApartmentScenarioDefinition["delta"]] !== draft.delta[key as keyof ApartmentScenarioDefinition["delta"]]
+      || prior?.sourceLabel !== evidence?.sourceLabel
+      || prior?.sourceDate !== evidence?.sourceDate
+    );
+    return [key, changed ? { ...evidence, reviewState: "working" as const } : evidence];
+  })) as Partial<Record<keyof ApartmentScenarioDefinition["evidence"], ApartmentScenarioEvidence>>;
+}
+
+export async function saveUnderwritingCostSchedule(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  schedule: MonthlyCostScheduleInputs,
+) {
+  const supplied = schedule.costLines.map((line, lineOrder) => ({
+    ...line,
+    lineOrder,
+    sourceLabel: line.sourceLabel ?? null,
+    sourceDate: line.sourceDate ?? null,
+  }));
+  const { rows } = await db.query<{ id: string }>(
+    `with updated_case as (
+       update underwriting_cases
+       set analysis_start_month = ($2::text || '-01')::date,
+           sale_month = ($3::text || '-01')::date,
+           property_returns_input = case
+             when property_returns_input is not null
+               and sale_month is distinct from ($3::text || '-01')::date
+             then jsonb_set(
+               property_returns_input,
+               '{saleAssumptionEvidence,saleMonth,reviewState}',
+               '"working"'::jsonb
+             )
+             else property_returns_input
+           end,
+           property_returns_changed_at = case
+             when property_returns_input is not null
+               and sale_month is distinct from ($3::text || '-01')::date
+             then now()
+             else property_returns_changed_at
+           end,
+           case_revision = case_revision + 1,
+           updated_at = now()
+       where id = $1 and case_revision = $5
+       returning id
+     ), supplied_lines as (
+       select * from jsonb_to_recordset($4::jsonb) as supplied(
+         id text, name text, category text, amount numeric, unit text,
+         "startMonth" text, "endMonth" text, "distributionMethod" text,
+         "distributionVersion" text, "sourceLabel" text, "sourceDate" date,
+         "reviewState" text, "lineOrder" integer
+       )
+     ), removed_lines as (
+       delete from underwriting_case_cost_lines
+       where case_id in (select id from updated_case)
+         and id not in (select id from supplied_lines)
+     ), saved_lines as (
+       insert into underwriting_case_cost_lines
+         (case_id, id, line_order, name, category, amount, unit, start_month,
+          end_month, distribution_method, distribution_version, source_label,
+          source_date, review_state)
+       select updated_case.id, supplied.id, supplied."lineOrder", supplied.name,
+              supplied.category, supplied.amount, supplied.unit,
+              (supplied."startMonth" || '-01')::date,
+              (supplied."endMonth" || '-01')::date,
+              supplied."distributionMethod", supplied."distributionVersion",
+              supplied."sourceLabel", supplied."sourceDate", supplied."reviewState"
+       from updated_case cross join supplied_lines supplied
+       on conflict (case_id, id) do update
+       set line_order = excluded.line_order,
+           name = excluded.name,
+           category = excluded.category,
+           amount = excluded.amount,
+           unit = excluded.unit,
+           start_month = excluded.start_month,
+           end_month = excluded.end_month,
+           distribution_method = excluded.distribution_method,
+           distribution_version = excluded.distribution_version,
+           source_label = excluded.source_label,
+           source_date = excluded.source_date,
+           review_state = case
+             when underwriting_case_cost_lines.name is distinct from excluded.name
+               or underwriting_case_cost_lines.category is distinct from excluded.category
+               or underwriting_case_cost_lines.amount is distinct from excluded.amount
+               or underwriting_case_cost_lines.unit is distinct from excluded.unit
+               or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
+               or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
+               or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
+               or underwriting_case_cost_lines.distribution_version is distinct from excluded.distribution_version
+               or underwriting_case_cost_lines.source_label is distinct from excluded.source_label
+               or underwriting_case_cost_lines.source_date is distinct from excluded.source_date
+             then 'working'
+             else excluded.review_state
+           end,
+           value_changed_at = case
+             when underwriting_case_cost_lines.name is distinct from excluded.name
+               or underwriting_case_cost_lines.category is distinct from excluded.category
+               or underwriting_case_cost_lines.amount is distinct from excluded.amount
+               or underwriting_case_cost_lines.unit is distinct from excluded.unit
+               or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
+               or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
+               or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
+               or underwriting_case_cost_lines.distribution_version is distinct from excluded.distribution_version
+               or underwriting_case_cost_lines.source_label is distinct from excluded.source_label
+               or underwriting_case_cost_lines.source_date is distinct from excluded.source_date
+             then now()
+             else underwriting_case_cost_lines.value_changed_at
+           end,
+           updated_at = now()
+       returning case_id
+     )
+     select id from updated_case`,
+    [id, schedule.analysisStartMonth, schedule.saleMonth, JSON.stringify(supplied), expectedRevision],
+  );
+  if (!rows[0]) {
+    const existing = await getUnderwritingCase(db, id);
+    if (existing) throw new UnderwritingCaseRevisionConflict();
+    return null;
+  }
+  return getUnderwritingCase(db, id);
+}
+
+export async function saveApartmentOperations(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  operations: ApartmentOperationsDraft,
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const reconciled = reconcileOperationsReview(existing.apartmentOperations, operations);
+  const { rows } = await db.query<{ id: string }>(
+    `update underwriting_cases
+     set apartment_operations_input_version = $2,
+         apartment_operations_input = $3::jsonb,
+         apartment_operations_changed_at = now(),
+         case_revision = case_revision + 1,
+         updated_at = now()
+     where id = $1 and case_revision = $4
+     returning id`,
+    [id, reconciled.inputVersion, JSON.stringify(reconciled), expectedRevision],
+  );
+  if (!rows[0]) {
+    throw new UnderwritingCaseRevisionConflict();
+  }
+  return getUnderwritingCase(db, id);
+}
+
+export async function saveDevelopmentCapital(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  capital: DevelopmentCapitalDraft,
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const reconciled = reconcileDevelopmentCapitalReview(existing.developmentCapital, capital);
+  const { rows } = await db.query<{ id: string }>(
+    `update underwriting_cases
+     set development_capital_input_version = $2,
+         development_capital_input = $3::jsonb,
+         development_capital_changed_at = now(),
+         case_revision = case_revision + 1,
+         updated_at = now()
+     where id = $1 and case_revision = $4
+     returning id`,
+    [id, reconciled.capitalInputVersion, JSON.stringify(reconciled), expectedRevision],
+  );
+  if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
+  return getUnderwritingCase(db, id);
+}
+
+export async function savePropertyReturns(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  propertyReturns: PropertyReturnsDraft,
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const reconciled = reconcilePropertyReturnsReview(existing.propertyReturns, propertyReturns);
+  const { rows } = await db.query<{ id: string }>(
+    `update underwriting_cases
+     set property_returns_input_version = $2,
+         property_returns_input = $3::jsonb,
+         property_returns_changed_at = now(),
+         case_revision = case_revision + 1,
+         updated_at = now()
+     where id = $1 and case_revision = $4
+     returning id`,
+    [id, reconciled.saleInputVersion, JSON.stringify(reconciled), expectedRevision],
+  );
+  if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
+  return getUnderwritingCase(db, id);
+}
+
+function reconcilePropertyReturnsReview(
+  existing: SavedPropertyReturns | undefined,
+  draft: PropertyReturnsDraft,
+): PropertyReturnsDraft {
+  return {
+    ...draft,
+    saleAssumptionEvidence: Object.fromEntries(PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => {
+      const priorEvidence = existing?.saleAssumptionEvidence[key];
+      const nextEvidence = draft.saleAssumptionEvidence[key];
+      const changed = existing && (
+        propertyReturnsValue(existing, key) !== propertyReturnsValue(draft, key)
+        || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
+        || priorEvidence?.sourceDate !== nextEvidence.sourceDate
+      );
+      return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
+    })) as Record<PropertyReturnsAssumptionKey, PropertyReturnsPlan["saleAssumptionEvidence"][PropertyReturnsAssumptionKey]>,
+  };
+}
+
+function propertyReturnsValue(plan: PropertyReturnsPlan, key: PropertyReturnsAssumptionKey) {
+  if (key === "saleMonth") return undefined;
+  return plan[key];
+}
+
+function reconcileDevelopmentCapitalReview(
+  existing: SavedDevelopmentCapital | undefined,
+  draft: DevelopmentCapitalDraft,
+): DevelopmentCapitalDraft {
+  return {
+    ...draft,
+    capitalAssumptionEvidence: Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
+      key,
+      existing && (
+        existing[key] !== draft[key]
+        || existing.capitalAssumptionEvidence[key].sourceLabel !== draft.capitalAssumptionEvidence[key].sourceLabel
+        || existing.capitalAssumptionEvidence[key].sourceDate !== draft.capitalAssumptionEvidence[key].sourceDate
+      )
+        ? { ...draft.capitalAssumptionEvidence[key], reviewState: "working" as const }
+        : draft.capitalAssumptionEvidence[key],
+    ])) as Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalPlan["capitalAssumptionEvidence"][DevelopmentCapitalAssumptionKey]>,
+  };
+}
+
+function reconcileOperationsReview(
+  existing: SavedApartmentOperations | undefined,
+  draft: ApartmentOperationsDraft,
+): ApartmentOperationsDraft {
+  return {
+    ...draft,
+    assumptionEvidence: reconcileAssumptionEvidence(existing, draft),
+    residentialUnitTypes: reconcileLineReview(existing?.residentialUnitTypes, draft.residentialUnitTypes),
+    otherIncomeLines: reconcileLineReview(existing?.otherIncomeLines, draft.otherIncomeLines),
+    operatingExpenseLines: reconcileLineReview(existing?.operatingExpenseLines, draft.operatingExpenseLines),
+    capitalExpenditureLines: reconcileLineReview(existing?.capitalExpenditureLines, draft.capitalExpenditureLines),
+  };
+}
+
+function reconcileAssumptionEvidence(
+  existing: SavedApartmentOperations | undefined,
+  draft: ApartmentOperationsDraft,
+) {
+  return Object.fromEntries(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => [
+    key,
+    existing && (
+      existing[key] !== draft[key]
+      || existing.assumptionEvidence[key].sourceLabel !== draft.assumptionEvidence[key].sourceLabel
+      || existing.assumptionEvidence[key].sourceDate !== draft.assumptionEvidence[key].sourceDate
+    )
+      ? { ...draft.assumptionEvidence[key], reviewState: "working" as const }
+      : draft.assumptionEvidence[key],
+  ])) as Record<ApartmentOperationsAssumptionKey, ApartmentOperationsInputs["assumptionEvidence"][ApartmentOperationsAssumptionKey]>;
+}
+
+function reconcileLineReview<T extends { id: string; reviewState: "working" | "done" }>(
+  existing: T[] | undefined,
+  draft: T[],
+) {
+  const priorById = new Map(existing?.map((line) => [line.id, line]) ?? []);
+  return draft.map((line) => {
+    const prior = priorById.get(line.id);
+    if (!prior || sameLineWithoutReview(prior, line)) return line;
+    return { ...line, reviewState: "working" as const };
+  });
+}
+
+function sameLineWithoutReview<T extends { reviewState: "working" | "done" }>(left: T, right: T) {
+  const withoutReview = (line: T) => Object.fromEntries(
+    Object.entries(line).filter(([key]) => key !== "reviewState"),
+  );
+  return JSON.stringify(withoutReview(left)) === JSON.stringify(withoutReview(right));
 }
 
 export async function updateUnderwritingCase(

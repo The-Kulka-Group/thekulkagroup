@@ -30,7 +30,7 @@ takes what it wants later by copy or fork. The tool stays off the public website
   site renders runs live. The run record is both the progress view and the audit
   trail.
 - No generic skills platform until a second skill exists.
-- Auth: Supabase, three accounts (Matt, Rob, Devin), roles and approval workflows
+- Auth: Supabase, five named accounts, with no roles or self-serve signup in v1
   later.
 - Database: Kulka's own Supabase account. Matt's access is set up. Schema managed by
   migrations from this repo.

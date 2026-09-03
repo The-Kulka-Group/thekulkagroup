@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 
-// The app is on the open internet with no login, so crawlers are told to stay
-// out. This is a request, not a lock: anyone holding the link still sees the
-// site. Added 2026-08-26.
+// Authentication protects the app. This also asks crawlers not to index the
+// login route or any page that might appear in a redirect chain.
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {

@@ -1,6 +1,32 @@
 import {
+  APARTMENT_SCENARIO_FORMULA_VERSION,
+  APARTMENT_OPERATIONS_FORMULA_VERSION,
+  DEVELOPMENT_CAPITAL_FORMULA_VERSION,
+  PROPERTY_RETURNS_FORMULA_VERSION,
+  computeApartmentOperations,
+  computeDevelopmentCapital,
+  computeMonthlyCostSchedule,
   computePreliminaryUnderwriting,
+  computePropertyReturns,
+  runApartmentScenarioComparison,
+  MONTHLY_COST_FORMULA_VERSION,
+  type ApartmentOperationsInputs,
+  type ApartmentScenarioComparisonResult,
+  type ApartmentScenarioDefinition,
+  type ApartmentScenarioIssue,
+  type ApartmentOperationsIssue,
+  type ApartmentOperationsResult,
+  type DevelopmentCapitalInputs,
+  type DevelopmentCapitalIssue,
+  type DevelopmentCapitalRun,
+  type MonthlyCostIssue,
+  type MonthlyCostScheduleInputs,
+  type MonthlyCostScheduleResult,
   type PreliminaryUnderwritingInputs,
+  type PropertyReturnsInputs,
+  type PropertyReturnsIssue,
+  type PropertyReturnsResult,
+  type ReconciliationCheck,
   type UnderwritingIssue,
   type UnderwritingResult,
 } from "@kulka/engine";
@@ -24,7 +50,18 @@ export type UnderwritingEvidenceSnapshot = {
   createdAt: string;
   updatedAt: string;
   assumptions: UnderwritingCase["assumptions"];
+  costSchedule?: UnderwritingCase["costSchedule"];
+  apartmentOperations?: UnderwritingCase["apartmentOperations"];
+  developmentCapital?: UnderwritingCase["developmentCapital"];
+  propertyReturns?: UnderwritingCase["propertyReturns"];
+  scenarios?: UnderwritingCase["scenarios"];
 };
+
+export type SavedUnderwritingInputSnapshot = Partial<PreliminaryUnderwritingInputs
+  & Partial<MonthlyCostScheduleInputs>
+  & Partial<ApartmentOperationsInputs>
+  & Partial<DevelopmentCapitalInputs>
+  & Partial<PropertyReturnsInputs>> & { base?: PropertyReturnsInputs; scenarios?: ApartmentScenarioDefinition[] };
 
 export type SavedUnderwritingRun = {
   id: string;
@@ -32,10 +69,16 @@ export type SavedUnderwritingRun = {
   caseRevision: number;
   formulaVersion: string;
   status: "complete" | "failed";
-  inputSnapshot: PreliminaryUnderwritingInputs;
+  inputSnapshot: SavedUnderwritingInputSnapshot;
   evidenceSnapshot: UnderwritingEvidenceSnapshot;
-  issues: UnderwritingIssue[];
+  issues: Array<UnderwritingIssue | MonthlyCostIssue | ApartmentOperationsIssue | DevelopmentCapitalIssue | PropertyReturnsIssue | ApartmentScenarioIssue>;
   results: UnderwritingResult[];
+  monthlyCostResult?: MonthlyCostScheduleResult;
+  apartmentOperationsResult?: ApartmentOperationsResult;
+  developmentCapitalResult?: NonNullable<DevelopmentCapitalRun["result"]>;
+  propertyReturnsResult?: PropertyReturnsResult;
+  scenarioComparisonResult?: ApartmentScenarioComparisonResult;
+  reconciliations: ReconciliationCheck[];
   createdAt: string;
 };
 
@@ -45,10 +88,11 @@ type RunRow = {
   case_revision: string | number;
   formula_version: string;
   status: SavedUnderwritingRun["status"];
-  input_snapshot: PreliminaryUnderwritingInputs;
+  input_snapshot: SavedUnderwritingInputSnapshot;
   evidence_snapshot: UnderwritingEvidenceSnapshot;
-  result_snapshot: UnderwritingResult[];
-  issues: UnderwritingIssue[];
+  result_snapshot: UnderwritingResult[] | MonthlyCostScheduleResult | ApartmentOperationsResult | NonNullable<DevelopmentCapitalRun["result"]> | PropertyReturnsResult | ApartmentScenarioComparisonResult | Record<string, never>;
+  issues: Array<UnderwritingIssue | MonthlyCostIssue | ApartmentOperationsIssue | DevelopmentCapitalIssue | PropertyReturnsIssue | ApartmentScenarioIssue>;
+  reconciliation_checks: ReconciliationCheck[];
   created_at: Date | string;
 };
 
@@ -67,8 +111,39 @@ export async function runUnderwritingCase(
   if (!savedCase) return null;
   if (savedCase.caseRevision !== expectedRevision) throw new UnderwritingRevisionConflict();
 
-  const calculated = computePreliminaryUnderwriting(inputsFor(savedCase));
+  const calculated = savedCase.costSchedule && savedCase.apartmentOperations && savedCase.developmentCapital && savedCase.propertyReturns && savedCase.scenarios?.length === 2
+    ? runApartmentScenarioComparison(propertyReturnsInputsFor(savedCase), savedCase.scenarios.map((scenario) => ({
+      id: scenario.id,
+      role: scenario.role,
+      name: scenario.name,
+      inputVersion: scenario.inputVersion,
+      delta: structuredClone(scenario.delta),
+      evidence: structuredClone(scenario.evidence),
+    })))
+    : savedCase.costSchedule && savedCase.apartmentOperations && savedCase.developmentCapital && savedCase.propertyReturns
+      ? computePropertyReturns(propertyReturnsInputsFor(savedCase))
+    : savedCase.costSchedule && savedCase.apartmentOperations && savedCase.developmentCapital
+      ? computeDevelopmentCapital(capitalInputsFor(savedCase))
+    : savedCase.costSchedule && savedCase.apartmentOperations
+      ? computeApartmentOperations(operationsInputsFor(savedCase))
+      : savedCase.costSchedule
+        ? computeMonthlyCostSchedule(monthlyInputsFor(savedCase.costSchedule))
+        : computePreliminaryUnderwriting(inputsFor(savedCase));
   const evidenceSnapshot = evidenceFor(savedCase);
+  const resultSnapshot = calculated.formulaVersion === MONTHLY_COST_FORMULA_VERSION
+    || calculated.formulaVersion === APARTMENT_OPERATIONS_FORMULA_VERSION
+    || calculated.formulaVersion === DEVELOPMENT_CAPITAL_FORMULA_VERSION
+    || calculated.formulaVersion === PROPERTY_RETURNS_FORMULA_VERSION
+    || calculated.formulaVersion === APARTMENT_SCENARIO_FORMULA_VERSION
+    ? calculated.result ?? {}
+    : calculated.results;
+  const reconciliations = calculated.formulaVersion === MONTHLY_COST_FORMULA_VERSION
+    || calculated.formulaVersion === APARTMENT_OPERATIONS_FORMULA_VERSION
+    || calculated.formulaVersion === DEVELOPMENT_CAPITAL_FORMULA_VERSION
+    || calculated.formulaVersion === PROPERTY_RETURNS_FORMULA_VERSION
+    || calculated.formulaVersion === APARTMENT_SCENARIO_FORMULA_VERSION
+    ? calculated.reconciliations
+    : [];
   const { rows } = await db.query<RunRow>(
     `with matching_case as (
        select case_revision
@@ -78,9 +153,9 @@ export async function runUnderwritingCase(
      ), new_run as (
        insert into underwriting_calculation_runs
          (case_id, case_revision, formula_version, status, input_snapshot,
-          evidence_snapshot, result_snapshot, issues)
+          evidence_snapshot, result_snapshot, issues, reconciliation_checks)
        select $1, matching_case.case_revision, $3, $4, $5::jsonb,
-              $6::jsonb, $7::jsonb, $8::jsonb
+              $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb
        from matching_case
        returning *
      )
@@ -92,8 +167,9 @@ export async function runUnderwritingCase(
       calculated.status,
       JSON.stringify(calculated.inputSnapshot),
       JSON.stringify(evidenceSnapshot),
-      JSON.stringify(calculated.results),
+      JSON.stringify(resultSnapshot),
       JSON.stringify(calculated.issues),
+      JSON.stringify(reconciliations),
     ],
   );
   if (!rows[0]) throw new UnderwritingRevisionConflict();
@@ -141,6 +217,36 @@ export async function getUnderwritingRun(db: Db, runId: string) {
 }
 
 function mapRun(row: RunRow): SavedUnderwritingRun {
+  const monthly = row.formula_version === MONTHLY_COST_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "months" in row.result_snapshot
+    ? row.result_snapshot as MonthlyCostScheduleResult
+    : undefined;
+  const apartmentOperations = row.formula_version === APARTMENT_OPERATIONS_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "months" in row.result_snapshot
+    && "totals" in row.result_snapshot
+    ? row.result_snapshot as ApartmentOperationsResult
+    : undefined;
+  const developmentCapital = row.formula_version === DEVELOPMENT_CAPITAL_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "apartmentOperations" in row.result_snapshot
+    && "capital" in row.result_snapshot
+    ? row.result_snapshot as NonNullable<DevelopmentCapitalRun["result"]>
+    : undefined;
+  const propertyReturns = row.formula_version === PROPERTY_RETURNS_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "developmentCapital" in row.result_snapshot
+    && "forwardOperations" in row.result_snapshot
+    && "propertyReturns" in row.result_snapshot
+    ? row.result_snapshot as PropertyReturnsResult
+    : undefined;
+  const scenarios = row.formula_version === APARTMENT_SCENARIO_FORMULA_VERSION
+    && !Array.isArray(row.result_snapshot)
+    && "base" in row.result_snapshot
+    && "scenarios" in row.result_snapshot
+    ? row.result_snapshot as ApartmentScenarioComparisonResult
+    : undefined;
   return {
     id: row.id,
     caseId: row.case_id,
@@ -150,7 +256,13 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     inputSnapshot: row.input_snapshot,
     evidenceSnapshot: row.evidence_snapshot,
     issues: row.issues,
-    results: row.result_snapshot,
+    results: Array.isArray(row.result_snapshot) ? row.result_snapshot : [],
+    ...(monthly ? { monthlyCostResult: monthly } : {}),
+    ...(apartmentOperations ? { apartmentOperationsResult: apartmentOperations } : {}),
+    ...(developmentCapital ? { developmentCapitalResult: developmentCapital } : {}),
+    ...(propertyReturns ? { propertyReturnsResult: propertyReturns } : {}),
+    ...(scenarios ? { scenarioComparisonResult: scenarios } : {}),
+    reconciliations: row.reconciliation_checks ?? [],
     createdAt: new Date(row.created_at).toISOString(),
   };
 }
@@ -172,6 +284,53 @@ function evidenceFor(savedCase: UnderwritingCase): UnderwritingEvidenceSnapshot 
     createdAt: savedCase.createdAt,
     updatedAt: savedCase.updatedAt,
     assumptions: savedCase.assumptions.map((assumption) => ({ ...assumption })),
+    ...(savedCase.costSchedule ? { costSchedule: structuredClone(savedCase.costSchedule) } : {}),
+    ...(savedCase.apartmentOperations ? { apartmentOperations: structuredClone(savedCase.apartmentOperations) } : {}),
+    ...(savedCase.developmentCapital ? { developmentCapital: structuredClone(savedCase.developmentCapital) } : {}),
+    ...(savedCase.propertyReturns ? { propertyReturns: structuredClone(savedCase.propertyReturns) } : {}),
+    ...(savedCase.scenarios?.length ? { scenarios: structuredClone(savedCase.scenarios) } : {}),
+  };
+}
+
+function operationsInputsFor(savedCase: UnderwritingCase): ApartmentOperationsInputs {
+  const operations = savedCase.apartmentOperations!;
+  const { lastChangedAt, ...savedOperations } = operations;
+  void lastChangedAt;
+  return {
+    ...monthlyInputsFor(savedCase.costSchedule!),
+    ...savedOperations,
+  };
+}
+
+function capitalInputsFor(savedCase: UnderwritingCase): DevelopmentCapitalInputs {
+  const capital = savedCase.developmentCapital!;
+  const { lastChangedAt, ...savedCapital } = capital;
+  void lastChangedAt;
+  return {
+    ...operationsInputsFor(savedCase),
+    ...savedCapital,
+  };
+}
+
+export function propertyReturnsInputsFor(savedCase: UnderwritingCase): PropertyReturnsInputs {
+  const propertyReturns = savedCase.propertyReturns!;
+  const { lastChangedAt, ...savedPropertyReturns } = propertyReturns;
+  void lastChangedAt;
+  return {
+    ...capitalInputsFor(savedCase),
+    ...savedPropertyReturns,
+  };
+}
+
+function monthlyInputsFor(schedule: NonNullable<UnderwritingCase["costSchedule"]>): MonthlyCostScheduleInputs {
+  return {
+    analysisStartMonth: schedule.analysisStartMonth,
+    saleMonth: schedule.saleMonth,
+    costLines: schedule.costLines.map((savedLine) => {
+      const { lastChangedAt, ...line } = savedLine;
+      void lastChangedAt;
+      return line;
+    }),
   };
 }
 

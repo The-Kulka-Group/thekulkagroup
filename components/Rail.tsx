@@ -22,10 +22,6 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "Operations",
-    items: [{ href: "/", label: "Homepage", count: "H-100", Icon: House }],
-  },
-  {
     label: "Pre-Construction",
     items: [{ href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator }],
   },
@@ -48,6 +44,15 @@ export function Rail({ email, temporaryAccess = false }: { email: string; tempor
       </div>
 
       <div className="rail-nav">
+        <Link
+          className="rail-item"
+          href="/"
+          aria-current={path === "/" ? "page" : undefined}
+        >
+          <House size={16} />
+          <span>Home</span>
+          <span className="count">H-100</span>
+        </Link>
         {NAV_GROUPS.map((group) => (
           <div className="rail-group" key={group.label}>
             <div className="rail-section t-label">{group.label}</div>

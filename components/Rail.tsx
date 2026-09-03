@@ -31,7 +31,7 @@ const NAV_GROUPS = [
   },
 ];
 
-export function Rail({ email }: { email: string }) {
+export function Rail({ email, temporaryAccess = false }: { email: string; temporaryAccess?: boolean }) {
   const path = usePathname();
   const initials = email.slice(0, 2).toUpperCase();
   return (
@@ -79,9 +79,11 @@ export function Rail({ email }: { email: string }) {
       <div className="rail-user">
         <span className={`owner owner--${OWNER_COLOR.RK}`}>{initials}</span>
         <span className="t-ui">{email}</span>
-        <form action={signOut}>
-          <button className="btn btn--quiet" type="submit">Sign Out</button>
-        </form>
+        {temporaryAccess ? null : (
+          <form action={signOut}>
+            <button className="btn btn--quiet" type="submit">Sign Out</button>
+          </form>
+        )}
       </div>
     </nav>
   );

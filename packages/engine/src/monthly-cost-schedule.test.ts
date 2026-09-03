@@ -223,6 +223,10 @@ describe("computeMonthlyCostSchedule", () => {
     );
     expect(result.totalsByCategory.land).toBe(checks.land.expected);
     expect(result.totalsByCategory.hard_cost).toBe(checks.hardCost.expected);
+    expect(result.months.reduce(
+      (total, month) => total + month.usesByCategory.hard_cost,
+      0,
+    )).toBe(checks.hardCost.expected);
     expect(result.totalsByCategory.development_fee).toBe(checks.developmentFee.expected);
     expect(result.totalsByCategory.soft_cost + result.totalsByCategory.development_fee)
       .toBe(checks.softCostIncludingDevelopmentFee.expected);

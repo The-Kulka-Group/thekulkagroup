@@ -28,9 +28,14 @@ export {
 
 export {
   computeMonthlyCostSchedule,
+  MAX_COST_LINES,
+  MAX_MODEL_YEAR,
+  MAX_TIMELINE_MONTHS,
+  MIN_MODEL_YEAR,
   MONTHLY_COST_FORMULA_VERSION,
   S_CURVE_DISTRIBUTION_VERSION,
   STRAIGHT_LINE_DISTRIBUTION_VERSION,
+  type AggregateFormulaTrace,
   type CostCategory,
   type CostDistributionMethod,
   type CostDistributionVersion,

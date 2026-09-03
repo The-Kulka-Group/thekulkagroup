@@ -4,6 +4,9 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  MAX_COST_LINES,
+  MAX_MODEL_YEAR,
+  MIN_MODEL_YEAR,
   S_CURVE_DISTRIBUTION_VERSION,
   STRAIGHT_LINE_DISTRIBUTION_VERSION,
   type MonthlyCostLine,
@@ -93,30 +96,38 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
           <h3>Development Cost Schedule</h3>
           <p className="t-meta">Enter dated source amounts. A saved schedule uses the monthly formula version on the next run.</p>
         </div>
-        <button className="btn btn--secondary" type="button" onClick={addLine}>Add Cost Line</button>
+        <button className="btn btn--secondary" type="button" onClick={addLine} disabled={lines.length >= MAX_COST_LINES}>Add Cost Line</button>
       </div>
       <div className="underwriting-form-grid underwriting-schedule-dates">
         <label className="field-label t-label">
           Analysis start month
           <input
+            id="cost-schedule-analysis-start-month"
             className="input"
             type="month"
+            min={`${MIN_MODEL_YEAR}-01`}
+            max={`${MAX_MODEL_YEAR}-12`}
             value={analysisStartMonth}
             onChange={(event) => setAnalysisStartMonth(event.target.value)}
             aria-invalid={Boolean(fieldErrors.analysisStartMonth)}
+            aria-describedby={fieldErrors.analysisStartMonth ? "cost-schedule-analysis-start-month-error" : undefined}
           />
-          <FieldError error={fieldErrors.analysisStartMonth} />
+          <FieldError id="cost-schedule-analysis-start-month-error" error={fieldErrors.analysisStartMonth} />
         </label>
         <label className="field-label t-label">
           Sale month
           <input
+            id="cost-schedule-sale-month"
             className="input"
             type="month"
+            min={`${MIN_MODEL_YEAR}-01`}
+            max={`${MAX_MODEL_YEAR}-12`}
             value={saleMonth}
             onChange={(event) => setSaleMonth(event.target.value)}
             aria-invalid={Boolean(fieldErrors.saleMonth)}
+            aria-describedby={fieldErrors.saleMonth ? "cost-schedule-sale-month-error" : undefined}
           />
-          <FieldError error={fieldErrors.saleMonth} />
+          <FieldError id="cost-schedule-sale-month-error" error={fieldErrors.saleMonth} />
         </label>
       </div>
 
@@ -129,34 +140,44 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
             </tr>
           </thead>
           <tbody>
-            {lines.map((line, index) => (
-              <tr key={line.id}>
+            {lines.map((line, index) => {
+              const name = fieldState(fieldErrors, index, "name");
+              const category = fieldState(fieldErrors, index, "category");
+              const amount = fieldState(fieldErrors, index, "amount");
+              const startMonth = fieldState(fieldErrors, index, "startMonth", "line");
+              const endMonth = fieldState(fieldErrors, index, "endMonth");
+              const distribution = fieldState(fieldErrors, index, "distributionMethod", "distributionVersion");
+              const sourceLabel = fieldState(fieldErrors, index, "sourceLabel");
+              const sourceDate = fieldState(fieldErrors, index, "sourceDate");
+              const reviewState = fieldState(fieldErrors, index, "reviewState");
+              return <tr key={line.id}>
                 <td>
-                  <input className="input" aria-label={`Cost line ${index + 1} name`} value={line.name}
+                  <input {...name.controlProps} className="input" maxLength={200} aria-label={`Cost line ${index + 1} name`} value={line.name}
                     onChange={(event) => updateLine(index, { name: event.target.value })} />
-                  <FieldError error={fieldErrors[`costLines.${index}.name`]} />
+                  <FieldError id={name.errorId} error={name.error} />
                 </td>
                 <td>
-                  <select className="input" aria-label={`${line.name || `Cost line ${index + 1}`} category`} value={line.category}
+                  <select {...category.controlProps} className="input" aria-label={`${line.name || `Cost line ${index + 1}`} category`} value={line.category}
                     onChange={(event) => updateLine(index, { category: event.target.value as EditableLine["category"] })}>
                     {CATEGORY_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
                   </select>
+                  <FieldError id={category.errorId} error={category.error} />
                 </td>
                 <td>
                   <div className="underwriting-money-input">
-                    <input className="input num right" type="number" min="0.01" step="0.01"
+                    <input {...amount.controlProps} className="input num right" type="number" min="0.01" step="0.01"
                       aria-label={`${line.name || `Cost line ${index + 1}`} amount in USD`} value={line.amount || ""}
                       onChange={(event) => updateLine(index, { amount: Number(event.target.value) })} />
                     <span>USD</span>
                   </div>
-                  <FieldError error={fieldErrors[`costLines.${index}.amount`]} />
+                  <FieldError id={amount.errorId} error={amount.error} />
                 </td>
-                <td><input className="input" type="month" aria-label={`${line.name || `Cost line ${index + 1}`} start month`}
-                  value={line.startMonth} onChange={(event) => updateLine(index, { startMonth: event.target.value })} /></td>
-                <td><input className="input" type="month" aria-label={`${line.name || `Cost line ${index + 1}`} end month`}
-                  value={line.endMonth} onChange={(event) => updateLine(index, { endMonth: event.target.value })} /></td>
+                <td><input {...startMonth.controlProps} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`} aria-label={`${line.name || `Cost line ${index + 1}`} start month`}
+                  value={line.startMonth} onChange={(event) => updateLine(index, { startMonth: event.target.value })} /><FieldError id={startMonth.errorId} error={startMonth.error} /></td>
+                <td><input {...endMonth.controlProps} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`} aria-label={`${line.name || `Cost line ${index + 1}`} end month`}
+                  value={line.endMonth} onChange={(event) => updateLine(index, { endMonth: event.target.value })} /><FieldError id={endMonth.errorId} error={endMonth.error} /></td>
                 <td>
-                  <select className="input" aria-label={`${line.name || `Cost line ${index + 1}`} distribution`}
+                  <select {...distribution.controlProps} className="input" aria-label={`${line.name || `Cost line ${index + 1}`} distribution`}
                     value={line.distributionMethod}
                     onChange={(event) => {
                       const distributionMethod = event.target.value as EditableLine["distributionMethod"];
@@ -170,23 +191,26 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                     <option value="straight_line">Straight-line</option>
                     <option value="s_curve">S-curve</option>
                   </select>
+                  <FieldError id={distribution.errorId} error={distribution.error} />
                 </td>
-                <td><input className="input" aria-label={`${line.name || `Cost line ${index + 1}`} source label`}
-                  value={line.sourceLabel ?? ""} onChange={(event) => updateLine(index, { sourceLabel: event.target.value || undefined })} /></td>
-                <td><input className="input" type="date" aria-label={`${line.name || `Cost line ${index + 1}`} source date`}
-                  value={line.sourceDate ?? ""} onChange={(event) => updateLine(index, { sourceDate: event.target.value || undefined })} /></td>
+                <td><input {...sourceLabel.controlProps} className="input" aria-label={`${line.name || `Cost line ${index + 1}`} source label`}
+                  value={line.sourceLabel ?? ""} onChange={(event) => updateLine(index, { sourceLabel: event.target.value || undefined })} /><FieldError id={sourceLabel.errorId} error={sourceLabel.error} /></td>
+                <td><input {...sourceDate.controlProps} className="input" type="date" aria-label={`${line.name || `Cost line ${index + 1}`} source date`}
+                  value={line.sourceDate ?? ""} onChange={(event) => updateLine(index, { sourceDate: event.target.value || undefined })} /><FieldError id={sourceDate.errorId} error={sourceDate.error} /></td>
                 <td>
-                  <select className="input" aria-label={`${line.name || `Cost line ${index + 1}`} review state`}
+                  <select {...reviewState.controlProps} className="input" aria-label={`${line.name || `Cost line ${index + 1}`} review state`}
                     value={line.reviewState} onChange={(event) => updateLine(index, { reviewState: event.target.value as EditableLine["reviewState"] })}>
                     <option value="working">Working on it</option><option value="done">Done</option>
                   </select>
+                  <FieldError id={reviewState.errorId} error={reviewState.error} />
                 </td>
                 <td><button className="btn btn--secondary" type="button" onClick={() => setLines((current) => current.filter((_, position) => position !== index))}>Remove</button></td>
-              </tr>
-            ))}
+              </tr>;
+            })}
           </tbody>
         </table>
       </div>
+      <FieldError id="cost-schedule-lines-error" error={fieldErrors.costLines} />
       {lines.length === 0 ? <div className="empty empty--inline"><p>Add at least one cost line to build the monthly schedule.</p></div> : null}
       {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
@@ -196,8 +220,32 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   );
 }
 
-function FieldError({ error }: { error?: string }) {
-  return error ? <span className="input-error" role="alert">{error}</span> : null;
+function fieldState(
+  fieldErrors: Record<string, string>,
+  index: number,
+  field: string,
+  alternateField?: string,
+) {
+  const path = `costLines.${index}.${field}`;
+  const alternatePath = alternateField === "line"
+    ? `costLines.${index}`
+    : alternateField ? `costLines.${index}.${alternateField}` : undefined;
+  const error = fieldErrors[path] ?? (alternatePath ? fieldErrors[alternatePath] : undefined);
+  const controlId = `cost-line-${index}-${field}`;
+  const errorId = `${controlId}-error`;
+  return {
+    error,
+    errorId,
+    controlProps: {
+      id: controlId,
+      "aria-invalid": Boolean(error),
+      "aria-describedby": error ? errorId : undefined,
+    },
+  };
+}
+
+function FieldError({ id, error }: { id: string; error?: string }) {
+  return error ? <span id={id} className="input-error" role="alert">{error}</span> : null;
 }
 
 async function responseBody(response: Response): Promise<{

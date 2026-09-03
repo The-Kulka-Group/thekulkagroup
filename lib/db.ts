@@ -11,6 +11,7 @@ export type Db = {
 };
 
 let pool: Pool | undefined;
+let browserTestDb: Db | undefined;
 
 /**
  * Match PostgreSQL's sslmode=require rules for the URL Vercel gets from
@@ -28,6 +29,15 @@ export function vercelPostgresConnectionString(connectionString?: string) {
 
 /** The app's database. Vercel's Supabase integration provides POSTGRES_URL. */
 export function getDb(): Db {
+  if (process.env.KULKA_BROWSER_TEST === "1") {
+    browserTestDb ??= {
+      query: async <Row>(text: string, params: unknown[] = []) => {
+        const { getBrowserTestDb } = await import("@/lib/browser-test-db");
+        return getBrowserTestDb().query<Row>(text, params);
+      },
+    };
+    return browserTestDb;
+  }
   if (!pool) {
     const connectionString =
       process.env.DATABASE_URL ??

@@ -1,6 +1,10 @@
 export const MONTHLY_COST_FORMULA_VERSION = "underwriting.monthly_cost_schedule.v1" as const;
 export const STRAIGHT_LINE_DISTRIBUTION_VERSION = "straight_line.v1" as const;
 export const S_CURVE_DISTRIBUTION_VERSION = "s_curve.smoothstep.v1" as const;
+export const MIN_MODEL_YEAR = 1900;
+export const MAX_MODEL_YEAR = 2200;
+export const MAX_TIMELINE_MONTHS = 240;
+export const MAX_COST_LINES = 250;
 
 export type CostCategory =
   | "land"
@@ -48,6 +52,10 @@ export type MonthlyCostIssueCode =
   | "unsupported_distribution_version"
   | "invalid_source_date"
   | "invalid_review_state"
+  | "invalid_year"
+  | "text_too_long"
+  | "timeline_too_long"
+  | "too_many_cost_lines"
   | "derived_results";
 
 export type MonthlyCostIssue = {
@@ -84,11 +92,20 @@ export type MonthlyUses = {
   totalUses: number;
 };
 
+export type AggregateFormulaTrace = {
+  key: string;
+  label: string;
+  value: number;
+  formulaTrace: string;
+  inputPaths: string[];
+};
+
 export type MonthlyCostScheduleResult = {
   months: MonthlyUses[];
   costLineSchedules: CostLineSchedule[];
   totalsByCategory: Record<CostCategory, number>;
   totalUses: number;
+  aggregateFormulaTraces: AggregateFormulaTrace[];
 };
 
 export type MonthlyCostScheduleRun = {
@@ -149,8 +166,17 @@ function validate(input: MonthlyCostScheduleInputs) {
   const sale = monthIndex(input.saleMonth);
   if (analysis === null) issue(issues, "analysisStartMonth", "invalid_month", "Analysis start month must use YYYY-MM.");
   if (sale === null) issue(issues, "saleMonth", "invalid_month", "Sale month must use YYYY-MM.");
+  if (analysis !== null && !validModelYear(input.analysisStartMonth)) {
+    issue(issues, "analysisStartMonth", "invalid_year", `Analysis start year must be between ${MIN_MODEL_YEAR} and ${MAX_MODEL_YEAR}.`);
+  }
+  if (sale !== null && !validModelYear(input.saleMonth)) {
+    issue(issues, "saleMonth", "invalid_year", `Sale year must be between ${MIN_MODEL_YEAR} and ${MAX_MODEL_YEAR}.`);
+  }
   if (analysis !== null && sale !== null && sale < analysis) {
     issue(issues, "saleMonth", "month_order", "Sale month cannot be before the analysis start month.");
+  }
+  if (analysis !== null && sale !== null && sale - analysis + 1 > MAX_TIMELINE_MONTHS) {
+    issue(issues, "saleMonth", "timeline_too_long", `The analysis timeline cannot exceed ${MAX_TIMELINE_MONTHS} months.`);
   }
   if (!Array.isArray(input.costLines)) {
     issue(issues, "costLines", "missing_text", "Cost lines must be an array.");
@@ -158,6 +184,9 @@ function validate(input: MonthlyCostScheduleInputs) {
   }
   if (input.costLines.length === 0) {
     issue(issues, "costLines", "missing_text", "Add at least one cost line.");
+  }
+  if (input.costLines.length > MAX_COST_LINES) {
+    issue(issues, "costLines", "too_many_cost_lines", `A schedule cannot contain more than ${MAX_COST_LINES} cost lines.`);
   }
 
   const ids = new Map<string, number>();
@@ -169,6 +198,8 @@ function validate(input: MonthlyCostScheduleInputs) {
     }
     if (typeof line.id !== "string" || line.id.trim() === "") {
       issue(issues, `${path}.id`, "missing_text", "Cost line ID is required.");
+    } else if (textLength(line.id) > 100) {
+      issue(issues, `${path}.id`, "text_too_long", "Cost line ID cannot exceed 100 characters.");
     } else if (ids.has(line.id)) {
       issue(issues, `${path}.id`, "duplicate_id", "Cost line IDs must be unique.");
     } else {
@@ -176,6 +207,8 @@ function validate(input: MonthlyCostScheduleInputs) {
     }
     if (typeof line.name !== "string" || line.name.trim() === "") {
       issue(issues, `${path}.name`, "missing_text", "Cost line name is required.");
+    } else if (textLength(line.name) > 200) {
+      issue(issues, `${path}.name`, "text_too_long", "Cost line name cannot exceed 200 characters.");
     }
     if (!CATEGORIES.includes(line.category)) {
       issue(issues, `${path}.category`, "invalid_category", "Cost line category is not supported.");
@@ -190,6 +223,12 @@ function validate(input: MonthlyCostScheduleInputs) {
     const end = monthIndex(line.endMonth);
     if (start === null) issue(issues, `${path}.startMonth`, "invalid_month", "Cost line start month must use YYYY-MM.");
     if (end === null) issue(issues, `${path}.endMonth`, "invalid_month", "Cost line end month must use YYYY-MM.");
+    if (start !== null && !validModelYear(line.startMonth)) {
+      issue(issues, `${path}.startMonth`, "invalid_year", `Cost line start year must be between ${MIN_MODEL_YEAR} and ${MAX_MODEL_YEAR}.`);
+    }
+    if (end !== null && !validModelYear(line.endMonth)) {
+      issue(issues, `${path}.endMonth`, "invalid_year", `Cost line end year must be between ${MIN_MODEL_YEAR} and ${MAX_MODEL_YEAR}.`);
+    }
     if (start !== null && end !== null && end < start) {
       issue(issues, `${path}.endMonth`, "month_order", "Cost line end month cannot be before its start month.");
     }
@@ -209,6 +248,9 @@ function validate(input: MonthlyCostScheduleInputs) {
     }
     if (line.sourceDate !== undefined && !validDate(line.sourceDate)) {
       issue(issues, `${path}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
+    }
+    if (line.sourceLabel !== undefined && (typeof line.sourceLabel !== "string" || line.sourceLabel.trim() === "")) {
+      issue(issues, `${path}.sourceLabel`, "missing_text", "Source label cannot be blank when supplied.");
     }
     if (line.reviewState !== "working" && line.reviewState !== "done") {
       issue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
@@ -260,13 +302,17 @@ function smoothstep(position: number) {
 
 function resultFor(spine: string[], lines: MonthlyCostLine[], schedules: CostLineSchedule[]): MonthlyCostScheduleResult | null {
   const totalsByCategory = emptyCategories();
-  const months = spine.map((month) => {
+  const scheduleStarts = schedules.map((schedule) => monthIndex(schedule.months[0])!);
+  const spineStart = monthIndex(spine[0])!;
+  const months = spine.map((month, monthOffset) => {
     const usesByCategory = emptyCategories();
     const lineAmounts: Record<string, number> = {};
     for (const [index, line] of lines.entries()) {
       const schedule = schedules[index];
-      const monthPosition = schedule.months.indexOf(month);
-      const amount = monthPosition === -1 ? 0 : schedule.monthlyAmounts[monthPosition];
+      const monthPosition = spineStart + monthOffset - scheduleStarts[index];
+      const amount = monthPosition < 0 || monthPosition >= schedule.monthlyAmounts.length
+        ? 0
+        : schedule.monthlyAmounts[monthPosition];
       lineAmounts[line.id] = amount;
       usesByCategory[line.category] = fromCents(toCents(usesByCategory[line.category]) + toCents(amount));
       totalsByCategory[line.category] = fromCents(toCents(totalsByCategory[line.category]) + toCents(amount));
@@ -276,7 +322,77 @@ function resultFor(spine: string[], lines: MonthlyCostLine[], schedules: CostLin
   });
   const totalCents = Object.values(totalsByCategory).reduce((sum, amount) => sum + toCents(amount), 0);
   if (!Number.isSafeInteger(totalCents)) return null;
-  return { months, costLineSchedules: schedules, totalsByCategory, totalUses: fromCents(totalCents) };
+  const totalUses = fromCents(totalCents);
+  return {
+    months,
+    costLineSchedules: schedules,
+    totalsByCategory,
+    totalUses,
+    aggregateFormulaTraces: aggregateFormulaTraces(months, lines, schedules, totalsByCategory, totalUses),
+  };
+}
+
+function aggregateFormulaTraces(
+  months: MonthlyUses[],
+  lines: MonthlyCostLine[],
+  schedules: CostLineSchedule[],
+  totalsByCategory: Record<CostCategory, number>,
+  totalUses: number,
+): AggregateFormulaTrace[] {
+  const monthly = months.map((month) => {
+    const monthNumber = monthIndex(month.month)!;
+    const inputPaths = schedules.flatMap((schedule, index) => {
+      const start = monthIndex(schedule.months[0])!;
+      return monthNumber >= start && monthNumber < start + schedule.monthlyAmounts.length
+        ? costLineInputPaths(index)
+        : [];
+    });
+    return {
+      key: `month:${month.month}:total-uses`,
+      label: `${month.month} Total Uses`,
+      value: month.totalUses,
+      formulaTrace: "Sum the scheduled amount for each cost line in this month.",
+      inputPaths,
+    };
+  });
+  const categories = CATEGORIES.map((category) => ({
+    key: `category:${category}`,
+    label: `${categoryLabel(category)} Total`,
+    value: totalsByCategory[category],
+    formulaTrace: "Sum all monthly amounts for cost lines in this category.",
+    inputPaths: lines.flatMap((line, index) => line.category === category ? [`costLines.${index}.amount`] : []),
+  }));
+  return [
+    ...monthly,
+    ...categories,
+    {
+      key: "total-uses",
+      label: "Total Uses",
+      value: totalUses,
+      formulaTrace: "Sum the entered amount of every cost line across all categories.",
+      inputPaths: lines.map((_, index) => `costLines.${index}.amount`),
+    },
+  ];
+}
+
+function costLineInputPaths(index: number) {
+  return [
+    `costLines.${index}.amount`,
+    `costLines.${index}.startMonth`,
+    `costLines.${index}.endMonth`,
+    `costLines.${index}.distributionMethod`,
+    `costLines.${index}.distributionVersion`,
+  ];
+}
+
+function categoryLabel(category: CostCategory) {
+  return ({
+    land: "Land",
+    hard_cost: "Hard Cost",
+    soft_cost: "Soft Cost",
+    development_fee: "Development Fee",
+    financing_fee: "Financing Fee",
+  } as const)[category];
 }
 
 function reconciliationChecks(lines: MonthlyCostLine[], schedules: CostLineSchedule[], result: MonthlyCostScheduleResult) {
@@ -308,6 +424,15 @@ function monthIndex(value: string) {
   if (typeof value !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return null;
   const [year, month] = value.split("-").map(Number);
   return year * 12 + month - 1;
+}
+
+function validModelYear(value: string) {
+  const year = Number(value.slice(0, 4));
+  return year >= MIN_MODEL_YEAR && year <= MAX_MODEL_YEAR;
+}
+
+function textLength(value: string) {
+  return Array.from(value).length;
 }
 
 function monthSpine(start: string, end: string) {

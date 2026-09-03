@@ -10,7 +10,10 @@ alter table underwriting_cases
       and sale_month is not null
       and analysis_start_month = date_trunc('month', analysis_start_month)::date
       and sale_month = date_trunc('month', sale_month)::date
+      and extract(year from analysis_start_month) between 1900 and 2200
+      and extract(year from sale_month) between 1900 and 2200
       and sale_month >= analysis_start_month
+      and sale_month < analysis_start_month + interval '240 months'
     )
   );
 
@@ -26,7 +29,10 @@ create table underwriting_case_cost_lines (
   unit text not null check (unit = 'usd'),
   start_month date not null check (start_month = date_trunc('month', start_month)::date),
   end_month date not null check (
-    end_month = date_trunc('month', end_month)::date and end_month >= start_month
+    end_month = date_trunc('month', end_month)::date
+    and end_month >= start_month
+    and extract(year from start_month) between 1900 and 2200
+    and extract(year from end_month) between 1900 and 2200
   ),
   distribution_method text not null check (distribution_method in ('straight_line', 's_curve')),
   distribution_version text not null,

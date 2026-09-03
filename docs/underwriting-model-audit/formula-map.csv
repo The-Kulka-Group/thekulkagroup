@@ -1,0 +1,54 @@
+area,calculation,source_sheet,source_cells,workbook_rule,saved_value,kulka_target,priority
+Project facts,Units per acre,Underwriting,E16,Units divided by land acres,66.6666666667,project facts,P2
+Project facts,FAR,Underwriting,E17,Gross buildable area divided by land square feet,1.6372717070,project facts,P2
+Project facts,Parking ratio,Underwriting,E20,Parking spaces divided by units,1.1833333333,project facts,P2
+Uses,Total land costs,Underwriting,I29,Sum of land cost line items,8230000,cost lines,P0
+Uses,Total hard costs,Underwriting,I35,Sum of hard cost line items,42630000,cost lines,P0
+Uses,Development fee,Underwriting,I42,3 percent of land plus hard costs plus other soft cost lines,1630362,development fee module,P1
+Uses,Total soft costs,Underwriting,I43,Sum of soft cost line items including development fee,5115762,cost lines,P0
+Uses,Project cost before financing,Underwriting,I45,Land plus hard plus soft costs,55975762,total cost before financing,P0
+Carry,Capitalized construction interest,Underwriting,I48,Sum monthly construction interest,4754370.350403,monthly debt engine,P0
+Carry,Operating shortfall,Underwriting,I50,Sum monthly operating shortfall funding,354995.457103,monthly debt engine,P0
+Carry,Total carry costs,Underwriting,I51,Interest plus fees plus operating shortfall,5109365.807506,total carry,P0
+Uses,Total uses,Underwriting,I53,Project cost before financing plus carry,61085127.807506,total development cost,P0
+Sources,Construction debt,Underwriting,I57,Total uses minus equity,39705280.650265,construction debt,P0
+Sources,Equity,Underwriting,I65,Sum monthly equity contributions,21379847.157241,equity contributions,P0
+Sources,Debt before reserves,Underwriting,I68,Sum monthly base debt draws,34595914.842759,debt draws,P0
+Sources,Interest reserve,Underwriting,I69,Sum monthly interest reserve draws,4754370.350403,interest reserve,P0
+Sources,Operating shortfall reserve,Underwriting,I70,Sum monthly shortfall reserve draws,354995.457103,shortfall reserve,P0
+Sources,Total construction debt,Underwriting,I71,Debt before reserves plus reserves,39705280.650265,construction debt,P0
+Lease-up,Operation begin month,Underwriting,D87,Construction end month plus one,19,monthly operations,P0
+Lease-up,First stabilized month,Underwriting,D89,First month lease-up reaches one hundred percent,33,monthly operations,P0
+Residential income,Gross rent,Underwriting,I99,Sum unit-type annual rent,6480000,unit mix,P0
+Residential income,Non-revenue units,Underwriting,I102,Monthly non-revenue amount times twelve,-43200,lease-up and rent loss,P1
+Residential income,Total rental income,Underwriting,I103,Gross rent plus concessions plus loss to lease plus non-revenue units,6436800,residential income,P0
+Other income,Total other income,Underwriting,I109,Sum other-income lines,817472,other income lines,P0
+Retail,Net retail income,Underwriting,I111,Optional retail sheet net income,0,retail module,P2
+Operations,Total potential income,Underwriting,I112,Rental income plus other income plus optional retail income,7254272,total potential income,P0
+Operations,General vacancy,Underwriting,I113,Selected revenue base times vacancy rate,-362713.6,vacancy loss,P0
+Operations,Credit loss,Underwriting,I114,Selected revenue base times credit-loss rate,-72542.72,credit loss,P1
+Operations,Effective gross revenue,Underwriting,I115,Potential income plus vacancy and credit loss,6819015.68,effective gross revenue,P0
+Operations,Management fee,Underwriting,I129,Management fee rate times effective gross revenue,204570.4704,expense lines,P1
+Operations,Total operating expenses,Underwriting,I132,Sum operating-expense lines,2730203.219319,expense lines,P0
+Operations,Net operating income,Underwriting,I134,Effective gross revenue minus operating expenses,4088812.460681,NOI,P0
+Operations,Total capital expenditures,Underwriting,I140,Sum capital-expenditure lines,25000,capital expenditure lines,P1
+Operations,Cash flow from operations,Underwriting,I142,NOI minus capital expenditures,4063812.460681,operating cash flow,P0
+Sale,Sale-period effective gross revenue,Underwriting,I168,Forward twelve-month potential income less vacancy and credit loss,7183351.602227,sale pro forma,P0
+Sale,Sale-period NOI,Underwriting,I183,Sale-period effective gross revenue minus sale-period expenses,4296184.476415,forward NOI,P0
+Sale,Gross sale proceeds,Underwriting,E193,Sale-period NOI divided by terminal cap,74716251.763746,gross sale value,P0
+Sale,Selling costs,Underwriting,E194,Gross sale proceeds times negative selling-cost rate,-1120743.776456,selling costs,P0
+Sale,Net sale proceeds,Underwriting,E195,Gross sale proceeds plus selling costs,73595507.98729,net sale proceeds,P0
+Sale,Construction loan payoff,Underwriting,E196,Negative construction debt payoff,-39705280.650265,debt payoff,P0
+Sale,Equity proceeds from sale,Underwriting,E197,Net sale proceeds plus debt payoff,33890227.337025,equity sale proceeds,P0
+Returns,Unlevered equity multiple,Underwriting,G217,Positive unlevered cash flow divided by negative unlevered cash flow,1.4169947938,property returns,P0
+Returns,Unlevered XIRR,Underwriting,H217,XIRR over monthly dated unlevered cash flow,0.1213574588,property returns,P0
+Returns,Levered equity multiple,Underwriting,G218,Positive levered cash flow divided by negative levered cash flow,1.6122562547,property returns,P0
+Returns,Levered XIRR,Underwriting,H218,XIRR over monthly dated levered cash flow,0.1467147291,property returns,P0
+Returns,Sale yield on cost,Underwriting,I221,Sale-period NOI divided by project cost before financing,0.0703311040,development returns,P0
+Returns,Sale development spread,Underwriting,I223,Sale yield on cost minus terminal cap in basis points,128.3110399562,development returns,P0
+Waterfall,LP net equity multiple,Underwriting,H229,LP distributions divided by LP contributions,1.5488204698,waterfall,P2
+Waterfall,LP net XIRR,Underwriting,I229,XIRR over monthly dated LP cash flow,0.1334536850,waterfall,P2
+Waterfall,GP net equity multiple,Underwriting,H230,GP distributions divided by GP contributions,2.1831783192,waterfall,P2
+Waterfall,GP net XIRR,Underwriting,I230,XIRR over monthly dated GP cash flow,0.2526625693,waterfall,P2
+Waterfall,Partnership net equity multiple,Underwriting,F252,Total distributions divided by total contributions,1.6122562547,waterfall,P2
+Waterfall,Partnership net XIRR,Underwriting,G252,XIRR over monthly dated total partnership cash flow,0.1467147291,waterfall,P2

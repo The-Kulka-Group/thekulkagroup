@@ -2,11 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeMonthlyCostSchedule,
+  MAX_COST_LINES,
+  MAX_TIMELINE_MONTHS,
   MONTHLY_COST_FORMULA_VERSION,
   S_CURVE_DISTRIBUTION_VERSION,
   STRAIGHT_LINE_DISTRIBUTION_VERSION,
   type MonthlyCostScheduleInputs,
 } from "./monthly-cost-schedule";
+import {
+  APARTMENT_DEVELOPMENT_V2_98_COST_CHECKS,
+  APARTMENT_DEVELOPMENT_V2_98_COST_SCHEDULE,
+  APARTMENT_DEVELOPMENT_V2_98_SOURCE,
+} from "./fixtures/apartment-development-v2-98";
 
 const complete: MonthlyCostScheduleInputs = {
   analysisStartMonth: "2026-01",
@@ -85,6 +92,11 @@ describe("computeMonthlyCostSchedule", () => {
       tolerance: 0.01,
     }));
     expect(run.result?.costLineSchedules.every(({ formulaTrace }) => formulaTrace.length > 0)).toBe(true);
+    expect(run.result?.aggregateFormulaTraces).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "month:2026-01:total-uses", inputPaths: expect.arrayContaining(["costLines.0.amount"]) }),
+      expect.objectContaining({ key: "category:hard_cost", inputPaths: expect.arrayContaining(["costLines.1.amount"]) }),
+      expect.objectContaining({ key: "total-uses", inputPaths: expect.arrayContaining(["costLines.0.amount", "costLines.1.amount"]) }),
+    ]));
   });
 
   it("allocates rounding remainders without losing a cent", () => {
@@ -132,5 +144,68 @@ describe("computeMonthlyCostSchedule", () => {
     expect(run.issues.map(({ code }) => code)).toEqual(expect.arrayContaining([
       "duplicate_id", "invalid_amount", "month_order",
     ]));
+  });
+
+  it("caps the monthly spine and cost-line count with typed issues", () => {
+    const longTimeline = computeMonthlyCostSchedule({
+      ...complete,
+      analysisStartMonth: "1900-01",
+      saleMonth: "2200-12",
+    });
+    const tooManyLines = computeMonthlyCostSchedule({
+      ...complete,
+      costLines: Array.from({ length: MAX_COST_LINES + 1 }, (_, index) => ({
+        ...complete.costLines[0],
+        id: `line-${index}`,
+      })),
+    });
+
+    expect(MAX_TIMELINE_MONTHS).toBe(240);
+    expect(longTimeline.issues).toContainEqual(expect.objectContaining({
+      path: "saleMonth",
+      code: "timeline_too_long",
+    }));
+    expect(tooManyLines.issues).toContainEqual(expect.objectContaining({
+      path: "costLines",
+      code: "too_many_cost_lines",
+    }));
+  });
+
+  it("rejects years and text that cannot be saved by the schedule schema", () => {
+    const run = computeMonthlyCostSchedule({
+      ...complete,
+      analysisStartMonth: "1899-12",
+      saleMonth: "2201-01",
+      costLines: [{
+        ...complete.costLines[0],
+        id: "x".repeat(101),
+        name: "n".repeat(201),
+        sourceLabel: "   ",
+      }],
+    });
+
+    expect(run.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "analysisStartMonth", code: "invalid_year" }),
+      expect.objectContaining({ path: "saleMonth", code: "invalid_year" }),
+      expect.objectContaining({ path: "costLines.0.id", code: "text_too_long" }),
+      expect.objectContaining({ path: "costLines.0.name", code: "text_too_long" }),
+      expect.objectContaining({ path: "costLines.0.sourceLabel", code: "missing_text" }),
+    ]));
+  });
+
+  it("matches all five audited LA-166 workbook cost checks", () => {
+    const run = computeMonthlyCostSchedule(APARTMENT_DEVELOPMENT_V2_98_COST_SCHEDULE);
+    const result = run.result!;
+    const checks = APARTMENT_DEVELOPMENT_V2_98_COST_CHECKS;
+
+    expect(APARTMENT_DEVELOPMENT_V2_98_SOURCE.sha256).toBe(
+      "3481af2b91836bdbb7603a60246aa0f8c0c3ea6654311252f5df40760ff2a280",
+    );
+    expect(result.totalsByCategory.land).toBe(checks.land.expected);
+    expect(result.totalsByCategory.hard_cost).toBe(checks.hardCost.expected);
+    expect(result.totalsByCategory.development_fee).toBe(checks.developmentFee.expected);
+    expect(result.totalsByCategory.soft_cost + result.totalsByCategory.development_fee)
+      .toBe(checks.softCostIncludingDevelopmentFee.expected);
+    expect(result.totalUses).toBe(checks.projectCostBeforeFinancing.expected);
   });
 });

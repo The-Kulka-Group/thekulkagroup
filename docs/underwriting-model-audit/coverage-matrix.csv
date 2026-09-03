@@ -1,0 +1,49 @@
+capability,workbook_v2_98,current_kulka,fit,gap,priority
+Saved case record,No,Yes,Kulka advantage,Keep saved cases and revisions,P0
+Source label and source date,No,Yes,Kulka advantage,Keep provenance on every accepted input,P0
+Review state by input,No,Yes,Kulka advantage,Extend to each new line item and module,P0
+Immutable run snapshot,No,Yes,Kulka advantage,Keep formula version and input snapshot,P0
+Project facts,Yes,Partial,Partial,Add land area buildings stories parking and NRA,P2
+Land cost line items,Yes,Lump sum,Partial,Replace purchase price only field with cost lines,P0
+Hard cost line items,Yes,Lump rate,Partial,Add line items and timing while retaining GSF checks,P0
+Soft cost line items,Yes,Lump percent,Partial,Add line items and development fee rules,P0
+Contingency,No separate sample line,Yes,Different,Keep explicit contingency and state its basis,P1
+Monthly date spine,Yes,No,Missing,Create one date spine through sale,P0
+Straight-line cost timing,Yes,No,Missing,Add distribution method,P0
+S-curve cost timing,Yes,No,Missing,Add versioned S-curve rule,P0
+Sources and uses reconciliation,Yes,Partial,Partial,Add full and monthly reconciliation checks,P0
+Construction debt draws,Yes,No,Missing,Add funding order and monthly debt roll-forward,P0
+Capitalized interest,Yes,Annual estimate only,Partial,Replace full-balance estimate with draw-based interest,P0
+Operating shortfall reserve,Yes,No,Missing,Add reserve funding and release rules,P0
+Mezzanine debt,Yes,No,Missing,Add optional second debt tranche,P2
+Permanent debt,Yes,No,Missing,Add LTV and cost sizing debt service and payoff,P1
+Unit mix,Yes,Average only,Partial,Add unit-type rows and weighted checks,P0
+Free rent and concessions,Yes,No,Missing,Add lease assumptions,P1
+Loss to lease,Yes,No,Missing,Add separate rent-loss line,P1
+Non-revenue units,Yes,No,Missing,Add model-unit line,P1
+Basic lease-up,Yes,No,Missing,Add prelease pace and stabilization,P0
+Detailed lease-up,Yes,No,Missing,Add optional detailed schedule,P2
+Income growth timing,Yes,No,Missing,Add rate and begin month,P0
+Other income lines,Yes,No,Missing,Separate parking RUBS and other income,P0
+Retail income,Yes,No,Missing,Add optional retail module after core model,P2
+Vacancy and credit loss,Separate,Vacancy only,Partial,Split vacancy and credit loss and select their bases,P0
+Basic operating expenses,Yes,Ratio only,Partial,Add expense categories and growth,P0
+Detailed operating expenses,Yes,No,Missing,Add optional detail module,P2
+Property tax mill rate,Yes,No,Missing,Add reviewed tax method and timing,P2
+Capital expenditures,Yes,No,Missing,Add reserves and below-NOI lines,P1
+Forward sale-period NOI,Yes,No,Missing,Use forward twelve-month sale pro forma,P0
+Selling costs,Yes,No,Missing,Add sale costs before equity proceeds,P0
+Debt payoff at sale,Yes,No,Missing,Add payoff from debt roll-forward,P0
+Monthly property cash flow,Yes,No,Missing,Create unlevered and levered cash flows,P0
+Annual cash flow report,Yes,No,Missing,Aggregate monthly cash flow for reporting,P1
+Unlevered XIRR and equity multiple,Yes,No,Missing,Calculate from dated monthly cash flow,P0
+Levered XIRR and equity multiple,Yes,No,Missing,Calculate from dated monthly cash flow,P0
+Net profit,Yes,No,Missing,Add property and partnership net profit,P0
+Yield on cost,Yes,Yes,Partial,Add untrended trended and sale-period forms,P0
+Development spread,Yes,No,Missing,Add basis-point spread by valuation period,P0
+Sensitivity cases,Yes,No,Missing,Run versioned scenarios through the same engine,P1
+Single promote waterfall,Yes,No,Missing,Add only after property cash flow reconciles,P2
+Double promote waterfall,Yes,No,Missing,Add as a later optional module,P3
+Residual land value,Yes,No,Missing,Add as a separate solve with stated target,P2
+Formula trace,Opaque formulas,Yes,Kulka advantage,Extend the current trace to every result,P0
+Design system,Spreadsheet styling,Daylight,Kulka advantage,Use Daylight sheets tables flags and review states,P0

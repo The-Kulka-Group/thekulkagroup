@@ -80,6 +80,40 @@ describe("/api/underwriting/cases/:id/schedule", () => {
     });
   });
 
+  it("returns typed field errors for every schedule schema boundary", async () => {
+    const savedCase = await createUnderwritingCase(db, {
+      name: "Schedule boundary route case",
+      address: "703 Test Avenue",
+      assumptions: {},
+    });
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      body: JSON.stringify({
+        expectedRevision: savedCase!.caseRevision,
+        ...schedule,
+        analysisStartMonth: "1899-12",
+        saleMonth: "2201-01",
+        costLines: [{
+          ...schedule.costLines[0],
+          id: "x".repeat(101),
+          name: "n".repeat(201),
+          sourceLabel: "   ",
+        }],
+      }),
+    }), context(savedCase!.id));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      fieldErrors: {
+        analysisStartMonth: expect.stringMatching(/between 1900 and 2200/),
+        saleMonth: expect.stringMatching(/between 1900 and 2200/),
+        "costLines.0.id": expect.stringMatching(/100 characters/),
+        "costLines.0.name": expect.stringMatching(/200 characters/),
+        "costLines.0.sourceLabel": expect.stringMatching(/cannot be blank/),
+      },
+    });
+  });
+
   it("returns 409 for a stale revision and 404 for invalid IDs", async () => {
     const savedCase = await createUnderwritingCase(db, {
       name: "Stale schedule route case",

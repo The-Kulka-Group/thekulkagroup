@@ -178,6 +178,13 @@ export default async function UnderwritingCasePage({
                   <tbody>{currentRun.monthlyCostResult.costLineSchedules.map((line) => <tr key={line.lineId}><th scope="row">{line.name}</th><td>{line.formulaTrace}</td><td className="t-meta">{line.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
               </div>
+              <h4>Aggregate formula traces</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{currentRun.monthlyCostResult.aggregateFormulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td className="num right">{MONEY.format(trace.value)}</td><td>{trace.formulaTrace}</td><td className="t-meta">{trace.inputPaths.join(", ") || "No cost lines in this period"}</td></tr>)}</tbody>
+                </table>
+              </div>
               <h4>Reconciliation checks</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">

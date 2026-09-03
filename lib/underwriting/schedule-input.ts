@@ -29,7 +29,12 @@ export function parseCostSchedule(body: unknown): MonthlyCostScheduleInputs {
     throw new InvalidCostSchedule(
       "Review the cost schedule fields.",
       checked.issues,
-      Object.fromEntries(checked.issues.map((item) => [item.path, item.message])),
+      checked.issues.reduce<Record<string, string>>((errors, item) => {
+        errors[item.path] = errors[item.path]
+          ? `${errors[item.path]} ${item.message}`
+          : item.message;
+        return errors;
+      }, {}),
     );
   }
   return checked.inputSnapshot;

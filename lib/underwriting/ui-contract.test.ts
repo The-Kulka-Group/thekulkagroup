@@ -57,5 +57,20 @@ describe("underwriting form accessibility contract", () => {
     expect(casePage).toContain("Monthly uses");
     expect(casePage).toContain("Reconciliation checks");
     expect(casePage).toContain("monthlyCostResult.months");
+    expect(casePage).toContain("aggregateFormulaTraces");
+  });
+
+  it("links every cost schedule control to its own field error", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/CostScheduleEditor.tsx");
+    for (const field of [
+      "name", "category", "amount", "startMonth", "endMonth",
+      "distributionMethod", "sourceLabel", "sourceDate", "reviewState",
+    ]) {
+      expect(editor).toContain(`fieldState(fieldErrors, index, "${field}"`);
+    }
+    expect(editor).toContain('"aria-invalid": Boolean(error)');
+    expect(editor).toContain('"aria-describedby": error ? errorId : undefined');
+    expect(editor).toContain("id: controlId");
+    expect(editor).toContain("<span id={id} className=\"input-error\" role=\"alert\">");
   });
 });

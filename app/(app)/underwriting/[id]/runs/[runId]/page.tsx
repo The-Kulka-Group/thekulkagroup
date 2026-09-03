@@ -108,6 +108,12 @@ export default async function UnderwritingRunPage({
               </div>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
+                  <thead><tr><th>Aggregate Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{run.monthlyCostResult.aggregateFormulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td className="num right">{MONEY.format(trace.value)}</td><td>{trace.formulaTrace}</td><td className="t-meta">{trace.inputPaths.join(", ") || "No cost lines in this period"}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
                   <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
                   <tbody>{run.reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{MONEY.format(check.expected)}</td><td className="num right">{MONEY.format(check.actual)}</td><td className="num right">{MONEY.format(check.difference)}</td></tr>)}</tbody>
                 </table>

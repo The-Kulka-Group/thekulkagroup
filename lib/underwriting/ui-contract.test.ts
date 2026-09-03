@@ -92,4 +92,23 @@ describe("underwriting form accessibility contract", () => {
       expect(source).toContain("Operating Cash Flow");
     }
   });
+
+  it("shows versioned capital rules, typed field errors, and monthly debt results", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/DevelopmentCapitalEditor.tsx");
+    const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("Equity First");
+    expect(editor).toContain("Opening Balance, Annual Rate Divided By 12");
+    expect(editor).toContain("Capital Assumption Sources");
+    expect(editor).toContain("aria-describedby={error ? errorId : undefined}");
+    expect(editor).toContain("finally {");
+    for (const source of [casePage, runPage]) {
+      expect(source).toContain("Debt Before Reserves");
+      expect(source).toContain("Interest Reserve");
+      expect(source).toContain("Operating Shortfall Reserve");
+      expect(source).toContain("Opening Debt");
+      expect(source).toContain("Closing Debt");
+      expect(source).toContain("formulaTraces");
+    }
+  });
 });

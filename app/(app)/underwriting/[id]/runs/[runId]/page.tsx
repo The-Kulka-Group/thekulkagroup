@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
+  DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   type ApartmentOperationsInputs,
+  type DevelopmentCapitalInputs,
   type MonthlyCostScheduleInputs,
   type ReconciliationCheck,
 } from "@kulka/engine";
@@ -93,7 +95,33 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-results-heading">
           <h3 id="run-results-heading">Saved results and formulas</h3>
-          {run.apartmentOperationsResult ? (
+          {run.developmentCapitalResult ? (
+            <>
+              <div className="underwriting-summary-band">
+                <div><span className="t-label">Total Uses</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.totalUses)}</strong></div>
+                <div><span className="t-label">Equity</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.equity)}</strong></div>
+                <div><span className="t-label">Debt Before Reserves</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.debtBeforeReserves)}</strong></div>
+                <div><span className="t-label">Interest Reserve</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.interestReserve)}</strong></div>
+                <div><span className="t-label">Operating Shortfall Reserve</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.operatingShortfallReserve)}</strong></div>
+                <div><span className="t-label">Total Debt</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.totalDebt)}</strong></div>
+                <div><span className="t-label">Debt Share</span><strong className="num">{NUMBER.format(run.developmentCapitalResult.capital.totals.debtSharePercent)}%</strong></div>
+                <div><span className="t-label">Capitalized Interest</span><strong className="num">{MONEY.format(run.developmentCapitalResult.capital.totals.capitalizedInterest)}</strong></div>
+              </div>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-monthly-table underwriting-capital-results">
+                  <thead><tr><th>Month</th><th className="right">Project Costs</th><th className="right">Operating Cash Flow</th><th className="right">Opening Debt</th><th className="right">Equity</th><th className="right">Debt Before Reserves</th><th className="right">Operating Shortfall Reserve</th><th className="right">Gross Interest</th><th className="right">Operating Cash Applied</th><th className="right">Interest Reserve</th><th className="right">Total Sources</th><th className="right">Total Uses</th><th className="right">Repayment</th><th className="right">Closing Debt</th></tr></thead>
+                  <tbody>{run.developmentCapitalResult.capital.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{MONEY.format(month.projectCosts)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td><td className="num right">{MONEY.format(month.openingDebtBalance)}</td><td className="num right">{MONEY.format(month.equityContribution)}</td><td className="num right">{MONEY.format(month.debtBeforeReservesDraw)}</td><td className="num right">{MONEY.format(month.operatingShortfallReserveDraw)}</td><td className="num right">{MONEY.format(month.grossInterest)}</td><td className="num right">{MONEY.format(month.operatingCashAppliedToInterest)}</td><td className="num right">{MONEY.format(month.interestReserveDraw)}</td><td className="num right">{MONEY.format(month.totalSources)}</td><td className="num right">{MONEY.format(month.totalUses)}</td><td className="num right">{MONEY.format(month.repayment)}</td><td className="num right">{MONEY.format(month.closingDebtBalance)}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Result</th><th>Formula Trace</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{run.developmentCapitalResult.capital.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <ReconciliationTable checks={run.reconciliations} />
+            </>
+          ) : run.apartmentOperationsResult ? (
             <>
               <div className="underwriting-summary-band">
                 <div><span className="t-label">Unit Total</span><strong className="num">{NUMBER.format(run.apartmentOperationsResult.unitSummary.totalUnits)}</strong></div>
@@ -166,7 +194,11 @@ export default async function UnderwritingRunPage({
           ) : <p className="t-meta underwriting-history-note">This run saved no financial results.</p>}
           <div className="underwriting-limitations" aria-labelledby="run-limitations-heading">
             <h4 id="run-limitations-heading">Model limits</h4>
-            <ul>{(run.apartmentOperationsResult ? [
+            <ul>{(run.developmentCapitalResult ? [
+              "This formula version funds monthly development costs and operating shortfalls with equity and construction debt.",
+              "Sale proceeds, permanent debt, and property returns follow in later formula versions.",
+              "This run does not record a finance approval.",
+            ] : run.apartmentOperationsResult ? [
               "This formula version models apartment lease-up and property operations before debt funding.",
               "Debt funding, sale proceeds, and property returns follow in later formula versions.",
               "This run does not record a finance approval.",
@@ -181,7 +213,18 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-inputs-heading">
           <h3 id="run-inputs-heading">Full calculation input snapshot</h3>
-          {isApartmentOperationsSnapshot(run.inputSnapshot) ? (
+          {isDevelopmentCapitalSnapshot(run.inputSnapshot) ? (
+            <>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-snapshot">
+                  <thead><tr><th>Capital Input Version</th><th className="right">Target Debt Share</th><th className="right">Annual Interest Rate</th><th className="right">Loan Fee</th><th>Funding Order</th><th>Interest Treatment</th><th>Interest Convention</th><th>Fee Month</th><th>Payoff Month</th></tr></thead>
+                  <tbody><tr><td className="num">{run.inputSnapshot.capitalInputVersion}</td><td className="num right">{run.inputSnapshot.targetDebtSharePercent}%</td><td className="num right">{run.inputSnapshot.annualInterestRatePercent}%</td><td className="num right">{run.inputSnapshot.loanFeePercent}%</td><td className="num">{run.inputSnapshot.fundingOrder}</td><td className="num">{run.inputSnapshot.interestTreatment}</td><td className="num">{run.inputSnapshot.interestConvention}</td><td className="num">{run.inputSnapshot.feeMonth}</td><td className="num">{run.inputSnapshot.payoffMonth}</td></tr></tbody>
+                </table>
+              </div>
+              <OperationsSnapshotSummary input={run.inputSnapshot} />
+              <OperationsInputTables input={run.inputSnapshot} />
+            </>
+          ) : isApartmentOperationsSnapshot(run.inputSnapshot) ? (
             <>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-snapshot">
@@ -287,6 +330,17 @@ export default async function UnderwritingRunPage({
               </table>
             </div></>
           ) : null}
+          {run.evidenceSnapshot.developmentCapital ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Capital Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => {
+                  const evidence = run.evidenceSnapshot.developmentCapital!.capitalAssumptionEvidence[key];
+                  return <tr key={key}><th scope="row">{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.developmentCapital!.lastChangedAt))}</td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          ) : null}
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>
@@ -344,6 +398,10 @@ function isApartmentOperationsSnapshot(snapshot: unknown): snapshot is Apartment
   return Boolean(snapshot && typeof snapshot === "object" && "inputVersion" in snapshot && "residentialUnitTypes" in snapshot);
 }
 
+function isDevelopmentCapitalSnapshot(snapshot: unknown): snapshot is DevelopmentCapitalInputs {
+  return Boolean(snapshot && typeof snapshot === "object" && "capitalInputVersion" in snapshot && "residentialUnitTypes" in snapshot);
+}
+
 function ReconciliationTable({ checks }: { checks: ReconciliationCheck[] }) {
   return <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead><tbody>{checks.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatReconciliationValue(check.expected, check.unit)}</td><td className="num right">{formatReconciliationValue(check.actual, check.unit)}</td><td className="num right">{formatReconciliationValue(check.difference, check.unit)}</td></tr>)}</tbody></table></div>;
 }
@@ -362,6 +420,10 @@ function OperationsInputTables({ input }: { input: ApartmentOperationsInputs }) 
     ["Capital Expenditures", input.capitalExpenditureLines],
   ] as const;
   return <>{sections.map(([title, lines]) => <div className="underwriting-results-wrap" key={title}><h4>{title}</h4><table className="underwriting-evidence"><thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>{lines.map((line) => <tr key={line.id}><th scope="row">{line.name}</th><td className="num right">{typeof line.amount === "number" ? NUMBER.format(line.amount) : line.amount}</td><td>{line.unit}</td><td>{line.sourceLabel || "Missing"}</td><td className="num">{line.sourceDate || "Missing"}</td><td><Chip status={line.reviewState} /></td></tr>)}</tbody></table></div>)}</>;
+}
+
+function OperationsSnapshotSummary({ input }: { input: ApartmentOperationsInputs }) {
+  return <div className="underwriting-results-wrap"><table className="underwriting-snapshot"><thead><tr><th>Operations Input Version</th><th>Analysis Start</th><th>Operation Start</th><th>Growth Start</th><th>Sale Month</th><th className="right">Pre-Leased Units</th><th className="right">Monthly Lease Pace</th><th className="right">Income Growth</th><th className="right">Expense Growth</th><th className="right">Rent Adjustment</th><th className="right">Free Rent</th><th className="right">Vacancy</th><th className="right">Credit Loss</th></tr></thead><tbody><tr><td className="num">{input.inputVersion}</td><td className="num">{input.analysisStartMonth}</td><td className="num">{input.operationStartMonth}</td><td className="num">{input.growthStartMonth}</td><td className="num">{input.saleMonth}</td><td className="num right">{input.preleasedUnits}</td><td className="num right">{input.leaseUpUnitsPerMonth}</td><td className="num right">{input.annualIncomeGrowthPercent}%</td><td className="num right">{input.annualExpenseGrowthPercent}%</td><td className="num right">{input.rentAdjustmentLossPercent}%</td><td className="num right">{input.freeRentPercent}%</td><td className="num right">{input.vacancyPercent}%</td><td className="num right">{input.creditLossPercent}%</td></tr></tbody></table></div>;
 }
 
 function issuePath(issue: { inputKey?: string; path?: string }) {

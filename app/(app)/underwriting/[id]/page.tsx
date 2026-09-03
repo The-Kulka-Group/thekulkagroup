@@ -20,6 +20,7 @@ import { isUuid } from "@/lib/uuid";
 import { EditUnderwritingCase } from "./EditUnderwritingCase";
 import { ApartmentOperationsEditor } from "./ApartmentOperationsEditor";
 import { CostScheduleEditor } from "./CostScheduleEditor";
+import { DevelopmentCapitalEditor } from "./DevelopmentCapitalEditor";
 import { RunUnderwriting } from "./RunUnderwriting";
 
 export const dynamic = "force-dynamic";
@@ -123,10 +124,15 @@ export default async function UnderwritingCasePage({
         </section>
 
         <div className="margin" />
+        <section className="col-field record-section">
+          <DevelopmentCapitalEditor savedCase={savedCase} />
+        </section>
+
+        <div className="margin" />
         <div className="col-field record-section underwriting-results-section">
           <div className="underwriting-section-head">
             <div>
-              <h3>{savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
+              <h3>{savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
               <p className="t-meta">
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
@@ -157,6 +163,40 @@ export default async function UnderwritingCasePage({
                 </div>
               ))}
               <p className="t-meta">This run has no financial results. Its issues and input snapshot remain in the review record.</p>
+            </div>
+          ) : currentRun.developmentCapitalResult ? (
+            <div className="underwriting-monthly-results">
+              <div className="underwriting-summary-band">
+                <div><span className="t-label">Total Uses</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.totalUses)}</strong></div>
+                <div><span className="t-label">Equity</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.equity)}</strong></div>
+                <div><span className="t-label">Debt Before Reserves</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.debtBeforeReserves)}</strong></div>
+                <div><span className="t-label">Interest Reserve</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.interestReserve)}</strong></div>
+                <div><span className="t-label">Operating Shortfall Reserve</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.operatingShortfallReserve)}</strong></div>
+                <div><span className="t-label">Total Debt</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.totalDebt)}</strong></div>
+                <div><span className="t-label">Debt Share</span><strong className="num">{NUMBER.format(currentRun.developmentCapitalResult.capital.totals.debtSharePercent)}%</strong></div>
+                <div><span className="t-label">Capitalized Interest</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.capitalizedInterest)}</strong></div>
+              </div>
+              <h4>Monthly funding and debt balance</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-monthly-table underwriting-capital-results">
+                  <thead><tr><th>Month</th><th className="right">Project Costs</th><th className="right">Operating Shortfall</th><th className="right">Loan Fee</th><th className="right">Gross Interest</th><th className="right">Operating Cash To Interest</th><th className="right">Equity</th><th className="right">Debt Before Reserves</th><th className="right">Interest Reserve</th><th className="right">Shortfall Reserve</th><th className="right">Opening Debt</th><th className="right">Repayment</th><th className="right">Closing Debt</th></tr></thead>
+                  <tbody>{currentRun.developmentCapitalResult.capital.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{MONEY.format(month.projectCosts)}</td><td className="num right">{MONEY.format(month.operatingShortfall)}</td><td className="num right">{MONEY.format(month.loanFee)}</td><td className="num right">{MONEY.format(month.grossInterest)}</td><td className="num right">{MONEY.format(month.operatingCashAppliedToInterest)}</td><td className="num right">{MONEY.format(month.equityContribution)}</td><td className="num right">{MONEY.format(month.debtBeforeReservesDraw)}</td><td className="num right">{MONEY.format(month.interestReserveDraw)}</td><td className="num right">{MONEY.format(month.operatingShortfallReserveDraw)}</td><td className="num right">{MONEY.format(month.openingDebtBalance)}</td><td className="num right">{MONEY.format(month.repayment)}</td><td className="num right">{MONEY.format(month.closingDebtBalance)}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <h4>Formula traces</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Result</th><th>Formula</th><th>Inputs Used</th></tr></thead>
+                  <tbody>{currentRun.developmentCapitalResult.capital.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
+                </table>
+              </div>
+              <h4>Reconciliation checks</h4>
+              <div className="underwriting-results-wrap">
+                <table className="underwriting-results">
+                  <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
+                  <tbody>{currentRun.reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatReconciliationValue(check.expected, check.unit)}</td><td className="num right">{formatReconciliationValue(check.actual, check.unit)}</td><td className="num right">{formatReconciliationValue(check.difference, check.unit)}</td></tr>)}</tbody>
+                </table>
+              </div>
             </div>
           ) : currentRun.apartmentOperationsResult ? (
             <div className="underwriting-monthly-results">
@@ -256,7 +296,11 @@ export default async function UnderwritingCasePage({
           <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
             <h4 id="underwriting-limitations-heading">Model limits</h4>
             <ul>
-              {(savedCase.apartmentOperations ? [
+              {(savedCase.developmentCapital ? [
+                "This formula version funds monthly project costs, operating shortfalls, and capitalized interest with equity and construction debt.",
+                "Sale proceeds and property returns follow in the next formula version.",
+                "These results do not record a finance approval.",
+              ] : savedCase.apartmentOperations ? [
                 "This formula version models apartment lease-up and property operations before debt funding.",
                 "Debt funding, sale proceeds, and property returns follow in later formula versions.",
                 "These results do not record a finance approval.",
@@ -286,6 +330,7 @@ export default async function UnderwritingCasePage({
                     {runs.map((run) => {
                       const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
                       const capturedResult = totalDevelopmentCost?.value
+                        ?? run.developmentCapitalResult?.capital.totals.totalUses
                         ?? run.apartmentOperationsResult?.totals.operatingCashFlow
                         ?? run.monthlyCostResult?.totalUses;
                       const matchesCurrentRevision = run.caseRevision === savedCase.caseRevision;

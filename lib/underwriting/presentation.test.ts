@@ -135,6 +135,31 @@ describe("buildUnderwritingReviewItems", () => {
       "operations-review-state-studio",
     ]);
   });
+
+  it("shows source and review gaps for capital assumptions", () => {
+    const item = () => ({ reviewState: "working" as const });
+    const items = buildUnderwritingReviewItems({
+      ...savedCase,
+      developmentCapital: {
+        capitalInputVersion: "development_capital_inputs.v1",
+        targetDebtSharePercent: 65,
+        annualInterestRatePercent: 8,
+        loanFeePercent: 1,
+        fundingOrder: "equity_first.v1",
+        interestTreatment: "capitalized_net_operating_cash.v1",
+        interestConvention: "opening_balance_monthly.v1",
+        feeMonth: "2026-01",
+        payoffMonth: "2026-12",
+        capitalAssumptionEvidence: {
+          targetDebtSharePercent: item(), annualInterestRatePercent: item(), loanFeePercent: item(), fundingOrder: item(),
+          interestTreatment: item(), interestConvention: item(), feeMonth: item(), payoffMonth: item(),
+        },
+        lastChangedAt: "2026-09-02T00:00:00.000Z",
+      },
+    }, undefined, false);
+
+    expect(items.filter(({ id }) => id.startsWith("capital-assumption-"))).toHaveLength(24);
+  });
 });
 
 function workingAssumptionEvidence() {

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { authConfiguration } from "@/lib/auth/policy";
+import { authConfiguration, normalizeEmail } from "@/lib/auth/policy";
 
 export async function proxy(request: NextRequest) {
   if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
@@ -36,7 +36,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const isLogin = request.nextUrl.pathname === "/login";
-  if (!user && !isLogin) {
+  const authorized = Boolean(
+    user?.email && configured?.allowedEmails.has(normalizeEmail(user.email)),
+  );
+  if (!authorized && !isLogin) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";

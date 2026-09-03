@@ -57,8 +57,9 @@ export async function authorizeRequest(request?: Request): Promise<Authorization
   const supabase = await createSupabaseServerClient();
   return authorizeVerifiedUser(async () => {
     const { data, error } = await supabase.auth.getUser();
+    if (!data.user) return null;
     if (error) throw error;
-    return data.user ? { id: data.user.id, email: data.user.email } : null;
+    return { id: data.user.id, email: data.user.email };
   }, process.env.KULKA_AUTH_ALLOWED_EMAILS);
 }
 

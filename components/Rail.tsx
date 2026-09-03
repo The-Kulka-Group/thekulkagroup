@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, Target, Users, FileText, Calculator, ChartLineUp } from "@phosphor-icons/react";
 import { OWNER_COLOR } from "@/lib/data";
+import { signOut } from "@/app/login/actions";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
 // sits beside its word (DESIGN.md, Navigation).
@@ -34,8 +35,9 @@ const NAV_GROUPS = [
   },
 ];
 
-export function Rail() {
+export function Rail({ email }: { email: string }) {
   const path = usePathname();
+  const initials = email.slice(0, 2).toUpperCase();
   return (
     <nav className="rail">
       <div className="rail-logo">
@@ -70,8 +72,11 @@ export function Rail() {
       </div>
 
       <div className="rail-user">
-        <span className={`owner owner--${OWNER_COLOR.RK}`}>RK</span>
-        <span className="t-ui">Rob K. (example)</span>
+        <span className={`owner owner--${OWNER_COLOR.RK}`}>{initials}</span>
+        <span className="t-ui">{email}</span>
+        <form action={signOut}>
+          <button className="btn btn--quiet" type="submit">Sign Out</button>
+        </form>
       </div>
     </nav>
   );

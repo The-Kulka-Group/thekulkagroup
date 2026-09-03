@@ -4,6 +4,7 @@ import { seededDatabase } from "@/test/database";
 import {
   createUnderwritingCase,
   saveApartmentOperations,
+  saveDevelopmentCapital,
   saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
@@ -390,6 +391,61 @@ describe("underwriting calculation repository", () => {
     expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
     expect(reopened).toEqual(run);
   });
+
+  it("stores an immutable capital run with sources, uses, reserves, and debt roll-forward", async () => {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01",
+      preleasedUnits: 10, leaseUpUnitsPerMonth: 1, annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0,
+      rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const capital = await saveDevelopmentCapital(db, savedCase!.id, operating!.caseRevision, {
+      capitalInputVersion: "development_capital_inputs.v1",
+      targetDebtSharePercent: 65,
+      annualInterestRatePercent: 8,
+      loanFeePercent: 1,
+      fundingOrder: "equity_first.v1",
+      interestTreatment: "capitalized_net_operating_cash.v1",
+      interestConvention: "opening_balance_monthly.v1",
+      feeMonth: "2026-01",
+      payoffMonth: "2026-12",
+      capitalAssumptionEvidence: workingCapitalEvidence(),
+    });
+    const run = await runUnderwritingCase(db, savedCase!.id, capital!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    expect(run).toMatchObject({
+      formulaVersion: "underwriting.development_capital.v1",
+      status: "complete",
+      caseRevision: 4,
+      inputSnapshot: {
+        capitalInputVersion: "development_capital_inputs.v1",
+        targetDebtSharePercent: 65,
+      },
+      evidenceSnapshot: {
+        developmentCapital: expect.objectContaining({
+          targetDebtSharePercent: 65,
+          lastChangedAt: expect.any(String),
+        }),
+      },
+      developmentCapitalResult: {
+        capital: {
+          totals: expect.objectContaining({ totalUses: expect.any(Number), totalDebt: expect.any(Number) }),
+          months: expect.arrayContaining([expect.objectContaining({ month: "2026-12", closingDebtBalance: 0 })]),
+        },
+      },
+    });
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(reopened).toEqual(run);
+  });
 });
 
 describe("underwriting calculation migration", () => {
@@ -420,5 +476,13 @@ function workingAssumptionEvidence() {
     freeRentPercent: { reviewState: "working" as const },
     vacancyPercent: { reviewState: "working" as const },
     creditLossPercent: { reviewState: "working" as const },
+  };
+}
+
+function workingCapitalEvidence() {
+  const item = () => ({ reviewState: "working" as const });
+  return {
+    targetDebtSharePercent: item(), annualInterestRatePercent: item(), loanFeePercent: item(), fundingOrder: item(),
+    interestTreatment: item(), interestConvention: item(), feeMonth: item(), payoffMonth: item(),
   };
 }

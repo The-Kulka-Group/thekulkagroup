@@ -1,5 +1,6 @@
 import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
+  DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   type UnderwritingInputKey,
 } from "@kulka/engine";
 
@@ -175,6 +176,22 @@ export function buildUnderwritingReviewItems(
       }
       if (evidence.reviewState === "working") {
         items.push({ id: `operations-assumption-review-state-${key}`, message: `${label} is still Working on it.`, severity: "waiting" });
+      }
+    }
+  }
+
+  if (savedCase.developmentCapital) {
+    for (const key of DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS) {
+      const evidence = savedCase.developmentCapital.capitalAssumptionEvidence[key];
+      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
+      if (!evidence.sourceLabel?.trim()) {
+        items.push({ id: `capital-assumption-source-label-${key}`, message: `${label} needs a source label.`, severity: "waiting" });
+      }
+      if (!evidence.sourceDate?.trim()) {
+        items.push({ id: `capital-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
+      }
+      if (evidence.reviewState === "working") {
+        items.push({ id: `capital-assumption-review-state-${key}`, message: `${label} is still Working on it.`, severity: "waiting" });
       }
     }
   }

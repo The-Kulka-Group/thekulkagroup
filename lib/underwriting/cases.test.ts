@@ -6,6 +6,7 @@ import {
   getUnderwritingCase,
   listUnderwritingCases,
   saveApartmentOperations,
+  saveDevelopmentCapital,
   saveUnderwritingCostSchedule,
   updateUnderwritingCase,
   type CaseDraft,
@@ -539,6 +540,47 @@ describe("underwriting case repository", () => {
     await expect(saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, schedule))
       .rejects.toThrow("case changed before your edits were saved");
   });
+
+  it("stores a versioned capital plan and resets review when a term changes", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, created!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01",
+      preleasedUnits: 10, leaseUpUnitsPerMonth: 1, annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0,
+      rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const plan = {
+      capitalInputVersion: "development_capital_inputs.v1" as const,
+      targetDebtSharePercent: 65,
+      annualInterestRatePercent: 8,
+      loanFeePercent: 1,
+      fundingOrder: "equity_first.v1" as const,
+      interestTreatment: "capitalized_net_operating_cash.v1" as const,
+      interestConvention: "opening_balance_monthly.v1" as const,
+      feeMonth: "2026-01",
+      payoffMonth: "2026-12",
+      capitalAssumptionEvidence: doneCapitalEvidence(),
+    };
+    const saved = await saveDevelopmentCapital(db, created!.id, operating!.caseRevision, plan);
+    expect(saved).toMatchObject({
+      caseRevision: 4,
+      developmentCapital: { ...plan, lastChangedAt: expect.any(String) },
+    });
+
+    const changed = await saveDevelopmentCapital(db, created!.id, saved!.caseRevision, {
+      ...plan,
+      annualInterestRatePercent: 8.5,
+    });
+    expect(changed!.developmentCapital!.capitalAssumptionEvidence.annualInterestRatePercent.reviewState).toBe("working");
+    expect(changed!.developmentCapital!.capitalAssumptionEvidence.targetDebtSharePercent.reviewState).toBe("done");
+  });
 });
 
 function workingAssumptionEvidence() {
@@ -569,6 +611,20 @@ function doneAssumptionEvidence() {
     freeRentPercent: item(),
     vacancyPercent: item(),
     creditLossPercent: item(),
+  };
+}
+
+function doneCapitalEvidence() {
+  const item = () => ({ sourceLabel: "Reviewed capital source", sourceDate: "2026-08-01", reviewState: "done" as const });
+  return {
+    targetDebtSharePercent: item(),
+    annualInterestRatePercent: item(),
+    loanFeePercent: item(),
+    fundingOrder: item(),
+    interestTreatment: item(),
+    interestConvention: item(),
+    feeMonth: item(),
+    payoffMonth: item(),
   };
 }
 

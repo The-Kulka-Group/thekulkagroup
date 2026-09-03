@@ -1565,6 +1565,8 @@ em, .em { font-style: normal; font-weight: 600; }
 .underwriting-edit-table .input { min-width: 0; }
 .underwriting-edit-table .input-error { display: block; max-width: 220px; }
 .underwriting-save-error { margin-top: var(--s4); }
+.underwriting-capital-editor { margin-bottom: var(--s4); }
+.underwriting-capital-results { min-width: 1680px; }
 .underwriting-history-note { margin: var(--s2) 0 var(--s4); }
 .underwriting-history th.right,
 .underwriting-history td.right { text-align: right; }

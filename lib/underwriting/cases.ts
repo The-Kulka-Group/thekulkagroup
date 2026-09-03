@@ -3,11 +3,15 @@ import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   type ApartmentOperationsAssumptionKey,
   type ApartmentOperationsInputs,
+  DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
+  type DevelopmentCapitalAssumptionKey,
+  type DevelopmentCapitalPlan,
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
 } from "@kulka/engine";
 
 import type { ApartmentOperationsDraft } from "@/lib/underwriting/operations-input";
+import type { DevelopmentCapitalDraft } from "@/lib/underwriting/capital-input";
 
 export const ASSUMPTION_DEFINITIONS = {
   purchasePrice: { key: "purchase_price", unit: "usd", label: "Purchase price" },
@@ -97,6 +101,7 @@ export type UnderwritingCase = {
   assumptions: UnderwritingAssumption[];
   costSchedule?: UnderwritingCostSchedule;
   apartmentOperations?: SavedApartmentOperations;
+  developmentCapital?: SavedDevelopmentCapital;
 };
 
 export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
@@ -106,6 +111,7 @@ export type UnderwritingCostSchedule = Omit<MonthlyCostScheduleInputs, "costLine
 };
 
 export type SavedApartmentOperations = ApartmentOperationsDraft & { lastChangedAt: string };
+export type SavedDevelopmentCapital = DevelopmentCapitalDraft & { lastChangedAt: string };
 
 export class UnderwritingCaseRevisionConflict extends Error {
   constructor() {
@@ -132,6 +138,9 @@ type CaseRow = {
   apartment_operations_input_version: ApartmentOperationsInputs["inputVersion"] | null;
   apartment_operations_input: ApartmentOperationsDraft | null;
   apartment_operations_changed_at: Date | string | null;
+  development_capital_input_version: DevelopmentCapitalPlan["capitalInputVersion"] | null;
+  development_capital_input: DevelopmentCapitalDraft | null;
+  development_capital_changed_at: Date | string | null;
 };
 
 type AssumptionRow = {
@@ -249,6 +258,13 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: Cos
         ...row.apartment_operations_input,
         inputVersion: row.apartment_operations_input_version,
         lastChangedAt: iso(row.apartment_operations_changed_at),
+      },
+    } : {}),
+    ...(row.development_capital_input_version && row.development_capital_input && row.development_capital_changed_at ? {
+      developmentCapital: {
+        ...row.development_capital_input,
+        capitalInputVersion: row.development_capital_input_version,
+        lastChangedAt: iso(row.development_capital_changed_at),
       },
     } : {}),
   };
@@ -498,6 +514,46 @@ export async function saveApartmentOperations(
     throw new UnderwritingCaseRevisionConflict();
   }
   return getUnderwritingCase(db, id);
+}
+
+export async function saveDevelopmentCapital(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  capital: DevelopmentCapitalDraft,
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const reconciled = reconcileDevelopmentCapitalReview(existing.developmentCapital, capital);
+  const { rows } = await db.query<{ id: string }>(
+    `update underwriting_cases
+     set development_capital_input_version = $2,
+         development_capital_input = $3::jsonb,
+         development_capital_changed_at = now(),
+         case_revision = case_revision + 1,
+         updated_at = now()
+     where id = $1 and case_revision = $4
+     returning id`,
+    [id, reconciled.capitalInputVersion, JSON.stringify(reconciled), expectedRevision],
+  );
+  if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
+  return getUnderwritingCase(db, id);
+}
+
+function reconcileDevelopmentCapitalReview(
+  existing: SavedDevelopmentCapital | undefined,
+  draft: DevelopmentCapitalDraft,
+): DevelopmentCapitalDraft {
+  return {
+    ...draft,
+    capitalAssumptionEvidence: Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
+      key,
+      existing && existing[key] !== draft[key]
+        ? { ...draft.capitalAssumptionEvidence[key], reviewState: "working" as const }
+        : draft.capitalAssumptionEvidence[key],
+    ])) as Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalPlan["capitalAssumptionEvidence"][DevelopmentCapitalAssumptionKey]>,
+  };
 }
 
 function reconcileOperationsReview(

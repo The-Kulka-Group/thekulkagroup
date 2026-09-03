@@ -580,6 +580,33 @@ describe("underwriting case repository", () => {
     });
     expect(changed!.developmentCapital!.capitalAssumptionEvidence.annualInterestRatePercent.reviewState).toBe("working");
     expect(changed!.developmentCapital!.capitalAssumptionEvidence.targetDebtSharePercent.reviewState).toBe("done");
+
+    const changedLabel = await saveDevelopmentCapital(db, created!.id, changed!.caseRevision, {
+      ...plan,
+      annualInterestRatePercent: 8.5,
+      capitalAssumptionEvidence: {
+        ...doneCapitalEvidence(),
+        targetDebtSharePercent: {
+          ...doneCapitalEvidence().targetDebtSharePercent,
+          sourceLabel: "Revised capital source",
+        },
+      },
+    });
+    expect(changedLabel!.developmentCapital!.capitalAssumptionEvidence.targetDebtSharePercent.reviewState).toBe("working");
+
+    const changedDate = await saveDevelopmentCapital(db, created!.id, changedLabel!.caseRevision, {
+      ...plan,
+      annualInterestRatePercent: 8.5,
+      capitalAssumptionEvidence: {
+        ...changedLabel!.developmentCapital!.capitalAssumptionEvidence,
+        feeMonth: {
+          ...changedLabel!.developmentCapital!.capitalAssumptionEvidence.feeMonth,
+          sourceDate: "2026-08-02",
+          reviewState: "done",
+        },
+      },
+    });
+    expect(changedDate!.developmentCapital!.capitalAssumptionEvidence.feeMonth.reviewState).toBe("working");
   });
 });
 

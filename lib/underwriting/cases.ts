@@ -549,7 +549,11 @@ function reconcileDevelopmentCapitalReview(
     ...draft,
     capitalAssumptionEvidence: Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
       key,
-      existing && existing[key] !== draft[key]
+      existing && (
+        existing[key] !== draft[key]
+        || existing.capitalAssumptionEvidence[key].sourceLabel !== draft.capitalAssumptionEvidence[key].sourceLabel
+        || existing.capitalAssumptionEvidence[key].sourceDate !== draft.capitalAssumptionEvidence[key].sourceDate
+      )
         ? { ...draft.capitalAssumptionEvidence[key], reviewState: "working" as const }
         : draft.capitalAssumptionEvidence[key],
     ])) as Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalPlan["capitalAssumptionEvidence"][DevelopmentCapitalAssumptionKey]>,

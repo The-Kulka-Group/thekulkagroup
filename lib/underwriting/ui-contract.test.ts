@@ -100,6 +100,9 @@ describe("underwriting form accessibility contract", () => {
     expect(editor).toContain("Equity First");
     expect(editor).toContain("Opening Balance, Annual Rate Divided By 12");
     expect(editor).toContain("Capital Assumption Sources");
+    expect(editor).toContain("MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH");
+    expect(editor).toContain("maxLength={MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH}");
+    expect(editor).toContain("capital-evidence-${key}-source-label-error");
     expect(editor).toContain("aria-describedby={error ? errorId : undefined}");
     expect(editor).toContain("finally {");
     for (const source of [casePage, runPage]) {

@@ -11,6 +11,7 @@ export const DEVELOPMENT_CAPITAL_FORMULA_VERSION = "underwriting.development_cap
 export const EQUITY_FIRST_FUNDING_VERSION = "equity_first.v1" as const;
 export const CAPITALIZED_NET_OPERATING_CASH_VERSION = "capitalized_net_operating_cash.v1" as const;
 export const OPENING_BALANCE_MONTHLY_VERSION = "opening_balance_monthly.v1" as const;
+export const MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH = 500;
 
 type ReviewState = "working" | "done";
 
@@ -62,12 +63,15 @@ export type DevelopmentCapitalIssueCode =
   | "non_contiguous_months"
   | "outside_timeline"
   | "payoff_before_last_use"
+  | "payoff_before_final_month"
   | "unsupported_funding_order"
   | "unsupported_interest_treatment"
   | "unsupported_interest_convention"
   | "missing_evidence"
   | "invalid_source_date"
+  | "invalid_source_label"
   | "invalid_review_state"
+  | "text_too_long"
   | "derived_results"
   | "funding_solution";
 
@@ -113,7 +117,7 @@ export type DevelopmentCapitalTotals = {
 };
 
 export type CapitalFormulaTrace = {
-  key: keyof DevelopmentCapitalTotals | "monthlyDebtRollForward";
+  key: keyof DevelopmentCapitalTotals | "operatingCashFlow" | "repayment" | "monthlyDebtRollForward";
   label: string;
   formula: string;
   inputPaths: string[];
@@ -210,7 +214,7 @@ export function fundMonthlyDevelopmentCashFlow(
   }
   const calculated = simulate(monthlyCashFlow, plan, loanFeeCents, equityCents);
   const totals = totalsFor(calculated.months);
-  const reconciliations = reconciliationsFor(calculated.months, totals);
+  const reconciliations = reconciliationsFor(calculated.months, totals, plan);
   if (!numbersAreSafe(calculated.months, totals) || reconciliations.some(({ status }) => status === "fail")) {
     return failed(inputSnapshot, [{
       path: "capital",
@@ -280,6 +284,9 @@ function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapital
   }
   const payoffIndex = monthIndex(plan.payoffMonth);
   if (payoffIndex !== null) {
+    if (last !== null && payoffIndex < last) {
+      addIssue(issues, "payoffMonth", "payoff_before_final_month", "Debt payoff must occur in the final model month until a named payoff source is available.");
+    }
     const lastRequiredUse = [...months].reverse().find((month) => month.projectCosts > 0 || month.operatingCashFlow < 0);
     const lastRequiredUseIndex = lastRequiredUse ? monthIndex(lastRequiredUse.month) : null;
     const feeIndex = plan.loanFeePercent > 0 ? monthIndex(plan.feeMonth) : null;
@@ -307,7 +314,12 @@ function validateEvidence(
       addIssue(issues, path, "missing_evidence", `${labelFor(key)} needs source and review details.`);
       continue;
     }
-    if (item.sourceDate !== undefined && !validDate(item.sourceDate)) {
+    if (item.sourceLabel !== undefined && typeof item.sourceLabel !== "string") {
+      addIssue(issues, `${path}.sourceLabel`, "invalid_source_label", "Source label must be text.");
+    } else if (typeof item.sourceLabel === "string" && item.sourceLabel.length > MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH) {
+      addIssue(issues, `${path}.sourceLabel`, "text_too_long", `Source label cannot exceed ${MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH} characters.`);
+    }
+    if (item.sourceDate !== undefined && (typeof item.sourceDate !== "string" || !validDate(item.sourceDate))) {
       addIssue(issues, `${path}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
     }
     if (item.reviewState !== "working" && item.reviewState !== "done") {
@@ -426,7 +438,11 @@ function totalsFor(months: MonthlyDevelopmentCapital[]): DevelopmentCapitalTotal
   };
 }
 
-function reconciliationsFor(months: MonthlyDevelopmentCapital[], totals: DevelopmentCapitalTotals) {
+function reconciliationsFor(
+  months: MonthlyDevelopmentCapital[],
+  totals: DevelopmentCapitalTotals,
+  plan: DevelopmentCapitalPlan,
+) {
   const checks = months.flatMap((month) => [
     check(`sources-uses:${month.month}`, `${month.month} sources equal uses`, month.totalUses, month.totalSources),
     check(
@@ -434,6 +450,18 @@ function reconciliationsFor(months: MonthlyDevelopmentCapital[], totals: Develop
       `${month.month} debt opening plus draws less repayment equals closing`,
       month.closingDebtBalance,
       money(month.openingDebtBalance, month.totalDebtDraw, -month.repayment),
+    ),
+    check(
+      `expected-interest:${month.month}`,
+      `${month.month} interest equals opening debt times the monthly interest rate`,
+      dollars(percentOf(cents(month.openingDebtBalance), plan.annualInterestRatePercent / 12)),
+      month.grossInterest,
+    ),
+    check(
+      `operating-cash-offset:${month.month}`,
+      `${month.month} operating cash applied equals the lesser of positive operating cash flow or interest`,
+      dollars(Math.min(Math.max(cents(month.operatingCashFlow), 0), cents(month.grossInterest))),
+      month.operatingCashAppliedToInterest,
     ),
   ]);
   return [
@@ -445,20 +473,34 @@ function reconciliationsFor(months: MonthlyDevelopmentCapital[], totals: Develop
       totals.totalDebt,
       money(totals.debtBeforeReserves, totals.interestReserve, totals.operatingShortfallReserve),
     ),
+    check(
+      "target-debt-share",
+      "Total debt equals the target share of total uses",
+      dollars(percentOf(cents(totals.totalUses), plan.targetDebtSharePercent)),
+      totals.totalDebt,
+    ),
     check("debt-paid-off", "Closing construction debt equals zero after the payoff month", 0, months.at(-1)?.closingDebtBalance ?? 0),
   ];
 }
 
 function formulaTraces(): CapitalFormulaTrace[] {
   return [
+    { key: "projectCosts", label: "Project Costs", formula: "the displayed monthly cost schedule carried into the capital schedule", inputPaths: ["apartmentOperations.costSchedule.costLines"] },
+    { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "the displayed monthly apartment operating cash flow carried into the capital schedule", inputPaths: ["apartmentOperations.months.operatingCashFlow"] },
+    { key: "operatingShortfall", label: "Operating Shortfall", formula: "the amount by which monthly operating cash flow is below zero", inputPaths: ["apartmentOperations.months.operatingCashFlow"] },
     { key: "equity", label: "Equity", formula: "equity funds monthly uses first until the target debt share of total uses is reached", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
     { key: "debtBeforeReserves", label: "Debt Before Reserves", formula: "project costs and loan fees not funded by equity", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth", "fundingOrder"] },
     { key: "grossInterest", label: "Gross Interest", formula: "opening monthly debt balance times annual interest rate divided by twelve", inputPaths: ["annualInterestRatePercent", "interestConvention"] },
     { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied To Interest", formula: "the lesser of positive monthly operating cash flow or gross interest", inputPaths: ["interestTreatment", "apartmentOperations.months.operatingCashFlow"] },
+    { key: "capitalizedInterest", label: "Capitalized Interest", formula: "gross monthly interest less positive operating cash applied to interest", inputPaths: ["annualInterestRatePercent", "interestConvention", "interestTreatment", "apartmentOperations.months.operatingCashFlow"] },
     { key: "interestReserve", label: "Interest Reserve", formula: "gross interest less positive operating cash applied to interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", "interestTreatment", "fundingOrder"] },
     { key: "operatingShortfallReserve", label: "Operating Shortfall Reserve", formula: "negative operating cash flow funded after equity under the equity-first rule and kept separate from project costs", inputPaths: ["fundingOrder", "apartmentOperations.months.operatingCashFlow"] },
     { key: "loanFees", label: "Loan Fees", formula: "project costs times target debt share times loan fee percent in the entered fee month", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth"] },
+    { key: "totalDebt", label: "Total Debt", formula: "debt before reserves plus interest reserve and operating shortfall reserve draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", "annualInterestRatePercent", "loanFeePercent", "apartmentOperations.months.operatingCashFlow"] },
+    { key: "totalSources", label: "Total Sources", formula: "equity contributions plus all debt draws", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
     { key: "totalUses", label: "Total Uses", formula: "project costs plus loan fees, operating shortfalls, and capitalized interest", inputPaths: ["apartmentOperations.costSchedule", "loanFeePercent", "apartmentOperations.months.operatingCashFlow", "annualInterestRatePercent"] },
+    { key: "debtSharePercent", label: "Debt Share", formula: "total debt divided by total uses", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
+    { key: "repayment", label: "Debt Repayment", formula: "the full opening debt plus current debt draws repaid in the final entered payoff month", inputPaths: ["payoffMonth"] },
     { key: "monthlyDebtRollForward", label: "Monthly Debt Roll-Forward", formula: "opening debt plus debt draws and reserves less payoff equals closing debt", inputPaths: ["payoffMonth", "fundingOrder", "interestTreatment", "interestConvention"] },
   ];
 }

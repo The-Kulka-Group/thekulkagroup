@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_INPUT_VERSION,
+  MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH,
   computeDevelopmentCapital,
   fundMonthlyDevelopmentCashFlow,
   type DevelopmentCapitalInputs,
@@ -76,6 +77,16 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     });
     expect(run.result?.totals.operatingShortfallReserve).toBe(10_000);
     expect(run.result?.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(run.result?.formulaTraces).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "projectCosts", inputPaths: expect.arrayContaining(["apartmentOperations.costSchedule.costLines"]) }),
+      expect.objectContaining({ key: "operatingCashFlow", inputPaths: expect.arrayContaining(["apartmentOperations.months.operatingCashFlow"]) }),
+      expect.objectContaining({ key: "operatingShortfall", inputPaths: expect.arrayContaining(["apartmentOperations.months.operatingCashFlow"]) }),
+      expect.objectContaining({ key: "capitalizedInterest", inputPaths: expect.arrayContaining(["annualInterestRatePercent"]) }),
+      expect.objectContaining({ key: "totalDebt", inputPaths: expect.arrayContaining(["targetDebtSharePercent"]) }),
+      expect.objectContaining({ key: "totalSources", inputPaths: expect.arrayContaining(["fundingOrder"]) }),
+      expect.objectContaining({ key: "debtSharePercent", inputPaths: expect.arrayContaining(["targetDebtSharePercent"]) }),
+      expect.objectContaining({ key: "repayment", inputPaths: expect.arrayContaining(["payoffMonth"]) }),
+    ]));
     for (const month of run.result?.months ?? []) {
       expect(month.totalSources).toBeCloseTo(month.totalUses, 2);
       expect(month.openingDebtBalance + month.totalDebtDraw - month.repayment)
@@ -110,6 +121,27 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     expect(run.status).toBe("failed");
     expect(run.result).toBeNull();
     expect(run.issues).toContainEqual(expect.objectContaining({ code }));
+  });
+
+  it.each([
+    ["non-text source label", { sourceLabel: 42, sourceDate: "2026-08-01", reviewState: "done" }, "sourceLabel", "invalid_source_label"],
+    ["source label over the limit", { sourceLabel: "x".repeat(MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH + 1), sourceDate: "2026-08-01", reviewState: "done" }, "sourceLabel", "text_too_long"],
+    ["non-text source date", { sourceLabel: "Term sheet", sourceDate: 20260801, reviewState: "done" }, "sourceDate", "invalid_source_date"],
+    ["invalid review state type", { sourceLabel: "Term sheet", sourceDate: "2026-08-01", reviewState: 1 }, "reviewState", "invalid_review_state"],
+  ])("returns a typed issue for %s", (_label, item, field, code) => {
+    const run = fundMonthlyDevelopmentCashFlow(cashFlow, {
+      ...plan,
+      capitalAssumptionEvidence: {
+        ...evidence,
+        annualInterestRatePercent: item,
+      },
+    } as DevelopmentCapitalPlan);
+
+    expect(run.status).toBe("failed");
+    expect(run.issues).toContainEqual(expect.objectContaining({
+      path: `capitalAssumptionEvidence.annualInterestRatePercent.${field}`,
+      code,
+    }));
   });
 
   it("does not mutate the submitted cash flow or capital plan", () => {
@@ -148,6 +180,51 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     );
     expect(run.status).toBe("failed");
     expect(run.issues).toContainEqual(expect.objectContaining({ code: "payoff_before_last_use" }));
+  });
+
+  it("requires debt payoff in the final month until a named payoff source exists", () => {
+    const noLaterUses = cashFlow.map((month, index) => ({
+      ...month,
+      projectCosts: index === 0 ? month.projectCosts : 0,
+      operatingCashFlow: 0,
+    }));
+    const run = fundMonthlyDevelopmentCashFlow(noLaterUses, { ...plan, feeMonth: "2026-01", payoffMonth: "2026-04" });
+
+    expect(run.status).toBe("failed");
+    expect(run.issues).toContainEqual(expect.objectContaining({
+      path: "payoffMonth",
+      code: "payoff_before_final_month",
+    }));
+  });
+
+  it.each([
+    [0, 0, 0, 100],
+    [12, 1, 0.4, 100.6],
+  ])("reconciles interest, operating cash offsets, target debt, and final payoff at a %s percent rate", (annualInterestRatePercent, expectedInterest, expectedOffset, expectedPayoff) => {
+    const shortCashFlow = [
+      { month: "2026-01", projectCosts: 100, operatingCashFlow: 0 },
+      { month: "2026-02", projectCosts: 0, operatingCashFlow: 0.4 },
+    ];
+    const run = fundMonthlyDevelopmentCashFlow(shortCashFlow, {
+      ...plan,
+      targetDebtSharePercent: 100,
+      annualInterestRatePercent,
+      loanFeePercent: 0,
+      feeMonth: "2026-01",
+      payoffMonth: "2026-02",
+    });
+
+    expect(run.status).toBe("complete");
+    for (const month of shortCashFlow) {
+      expect(run.result?.reconciliations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: `expected-interest:${month.month}`, status: "pass" }),
+        expect.objectContaining({ id: `operating-cash-offset:${month.month}`, status: "pass" }),
+      ]));
+    }
+    expect(run.result?.reconciliations).toContainEqual(expect.objectContaining({ id: "target-debt-share", status: "pass" }));
+    expect(run.result?.reconciliations.find(({ id }) => id === "expected-interest:2026-02")).toMatchObject({ expected: expectedInterest, actual: expectedInterest });
+    expect(run.result?.reconciliations.find(({ id }) => id === "operating-cash-offset:2026-02")).toMatchObject({ expected: expectedOffset, actual: expectedOffset });
+    expect(run.result?.months.at(-1)).toMatchObject({ month: "2026-02", repayment: expectedPayoff, closingDebtBalance: 0 });
   });
 });
 

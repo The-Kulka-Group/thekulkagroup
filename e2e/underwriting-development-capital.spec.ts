@@ -67,6 +67,7 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/underwriting/${createdCase.id}`);
+  await expect(page.getByLabel("Annual Interest Rate source label", { exact: true })).toHaveAttribute("maxlength", "500");
   await page.locator("#capital-target-debt-share").fill("101");
   await page.locator("#capital-annual-interest-rate").fill("8");
   await page.locator("#capital-loan-fee").fill("1");

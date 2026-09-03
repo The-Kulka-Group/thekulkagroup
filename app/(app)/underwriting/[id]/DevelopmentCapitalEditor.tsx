@@ -7,6 +7,7 @@ import {
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   DEVELOPMENT_CAPITAL_INPUT_VERSION,
   EQUITY_FIRST_FUNDING_VERSION,
+  MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH,
   OPENING_BALANCE_MONTHLY_VERSION,
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalEvidence,
@@ -105,12 +106,18 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
         <div className="underwriting-edit-table-wrap">
           <table className="underwriting-operations-table underwriting-assumption-evidence">
             <thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead>
-            <tbody>{DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => <tr key={key}>
-              <th scope="row">{LABELS[key]}</th>
-              <td><input className="input" aria-label={`${LABELS[key]} source label`} value={capitalAssumptionEvidence[key].sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} /></td>
-              <td><input className="input" id={`capital-evidence-${key}-source-date`} type="date" aria-label={`${LABELS[key]} source date`} value={capitalAssumptionEvidence[key].sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`capitalAssumptionEvidence.${key}.sourceDate`])} aria-describedby={fieldErrors[`capitalAssumptionEvidence.${key}.sourceDate`] ? `capital-evidence-${key}-source-date-error` : undefined} /><FieldError id={`capital-evidence-${key}-source-date-error`} error={fieldErrors[`capitalAssumptionEvidence.${key}.sourceDate`]} /></td>
-              <td><select className="input" aria-label={`${LABELS[key]} review state`} value={capitalAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td>
-            </tr>)}</tbody>
+            <tbody>{DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => {
+              const path = `capitalAssumptionEvidence.${key}`;
+              const sourceLabelError = fieldErrors[`${path}.sourceLabel`];
+              const sourceDateError = fieldErrors[`${path}.sourceDate`];
+              const reviewStateError = fieldErrors[`${path}.reviewState`];
+              return <tr key={key}>
+                <th scope="row">{LABELS[key]}</th>
+                <td><input className="input" id={`capital-evidence-${key}-source-label`} maxLength={MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH} aria-label={`${LABELS[key]} source label`} value={capitalAssumptionEvidence[key].sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(sourceLabelError)} aria-describedby={sourceLabelError ? `capital-evidence-${key}-source-label-error` : undefined} /><FieldError id={`capital-evidence-${key}-source-label-error`} error={sourceLabelError} /></td>
+                <td><input className="input" id={`capital-evidence-${key}-source-date`} type="date" aria-label={`${LABELS[key]} source date`} value={capitalAssumptionEvidence[key].sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(sourceDateError)} aria-describedby={sourceDateError ? `capital-evidence-${key}-source-date-error` : undefined} /><FieldError id={`capital-evidence-${key}-source-date-error`} error={sourceDateError} /></td>
+                <td><select className="input" id={`capital-evidence-${key}-review-state`} aria-label={`${LABELS[key]} review state`} value={capitalAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(reviewStateError)} aria-describedby={reviewStateError ? `capital-evidence-${key}-review-state-error` : undefined}><option value="working">Working on it</option><option value="done">Done</option></select><FieldError id={`capital-evidence-${key}-review-state-error`} error={reviewStateError} /></td>
+              </tr>;
+            })}</tbody>
           </table>
         </div>
       </section>

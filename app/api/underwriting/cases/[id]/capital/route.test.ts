@@ -69,6 +69,43 @@ describe("/api/underwriting/cases/:id/capital", () => {
     });
   });
 
+  it.each([
+    ["sourceLabel", 42, "invalid_source_label"],
+    ["sourceLabel", "x".repeat(501), "text_too_long"],
+    ["sourceDate", 20260801, "invalid_source_date"],
+    ["reviewState", 1, "invalid_review_state"],
+  ])("returns a typed issue for invalid evidence %s", async (field, value, code) => {
+    const savedCase = await operatingCase();
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      body: JSON.stringify({
+        expectedRevision: savedCase.caseRevision,
+        ...plan,
+        capitalAssumptionEvidence: {
+          ...plan.capitalAssumptionEvidence,
+          annualInterestRatePercent: { reviewState: "working", [field]: value },
+        },
+      }),
+    }), context(savedCase.id));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      fieldErrors: { [`capitalAssumptionEvidence.annualInterestRatePercent.${field}`]: expect.any(String) },
+      issues: [expect.objectContaining({ code })],
+    });
+  });
+
+  it("rejects a request body over the app JSON limit before database access", async () => {
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ padding: "x".repeat(1_000_001) }),
+    }), context("00000000-0000-4000-8000-000000000001"));
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: expect.stringMatching(/too large/i) });
+  });
+
   it("requires apartment operations and rejects a stale case revision", async () => {
     const noOperations = await createUnderwritingCase(db, {
       name: "No operations",

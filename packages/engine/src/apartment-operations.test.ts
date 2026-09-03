@@ -157,6 +157,12 @@ describe("computeApartmentOperations", () => {
       expect.objectContaining({ id: "effective-gross-revenue-total", status: "pass" }),
       expect.objectContaining({ id: "net-operating-income-total", status: "pass" }),
       expect.objectContaining({ id: "operating-cash-flow-total", status: "pass" }),
+      expect.objectContaining({ id: "monthly-residential-rent-total", status: "pass" }),
+      expect.objectContaining({ id: "monthly-other-income-total", status: "pass" }),
+      expect.objectContaining({ id: "monthly-effective-gross-revenue-total", status: "pass" }),
+      expect.objectContaining({ id: "monthly-net-operating-income-total", status: "pass" }),
+      expect.objectContaining({ id: "monthly-capital-expenditures-total", status: "pass" }),
+      expect.objectContaining({ id: "monthly-operating-cash-flow-total", status: "pass" }),
     ]));
     expect(run.reconciliations.find(({ id }) => id === "unit-total")).toMatchObject({
       expected: 100,

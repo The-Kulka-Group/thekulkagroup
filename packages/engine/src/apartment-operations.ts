@@ -722,7 +722,27 @@ function operationReconciliations(result: ApartmentOperationsResult) {
       result.totals.operatingCashFlow,
       sumMoney(result.totals.netOperatingIncome, -result.totals.capitalExpenditures),
     ),
+    monthlyTotalCheck(result, "totalResidentialRent", "monthly-residential-rent-total", "Residential rent"),
+    monthlyTotalCheck(result, "otherIncome", "monthly-other-income-total", "Other income"),
+    monthlyTotalCheck(result, "effectiveGrossRevenue", "monthly-effective-gross-revenue-total", "Effective gross revenue"),
+    monthlyTotalCheck(result, "netOperatingIncome", "monthly-net-operating-income-total", "Net operating income"),
+    monthlyTotalCheck(result, "capitalExpenditures", "monthly-capital-expenditures-total", "Capital expenditures"),
+    monthlyTotalCheck(result, "operatingCashFlow", "monthly-operating-cash-flow-total", "Operating cash flow"),
   ];
+}
+
+function monthlyTotalCheck(
+  result: ApartmentOperationsResult,
+  key: keyof ApartmentOperationsTotals,
+  id: string,
+  label: string,
+) {
+  return check(
+    id,
+    `${label} total equals the sum of displayed monthly rows`,
+    result.totals[key],
+    sumMoney(...result.months.map((month) => month[key])),
+  );
 }
 
 function check(

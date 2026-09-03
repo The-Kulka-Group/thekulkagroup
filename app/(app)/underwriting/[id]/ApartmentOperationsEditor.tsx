@@ -116,16 +116,16 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       />
 
       <div className="underwriting-form-grid underwriting-operations-controls">
-        <NumberField label="Operation start month" type="month" value={operationStartMonth} onChange={setOperationStartMonth} error={fieldErrors.operationStartMonth} />
-        <NumberField label="Growth start month" type="month" value={growthStartMonth} onChange={setGrowthStartMonth} error={fieldErrors.growthStartMonth} />
-        <NumberField label="Pre-leased units" value={preleasedUnits} onChange={(value) => setPreleasedUnits(Number(value))} error={fieldErrors.preleasedUnits} min="0" step="1" />
-        <NumberField label="Lease-up units per month" value={leaseUpUnitsPerMonth} onChange={(value) => setLeaseUpUnitsPerMonth(Number(value))} error={fieldErrors.leaseUpUnitsPerMonth} min="1" step="1" />
-        <NumberField label="Annual income growth" value={annualIncomeGrowthPercent} onChange={(value) => setAnnualIncomeGrowthPercent(Number(value))} error={fieldErrors.annualIncomeGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField label="Annual expense growth" value={annualExpenseGrowthPercent} onChange={(value) => setAnnualExpenseGrowthPercent(Number(value))} error={fieldErrors.annualExpenseGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField label="Rent adjustment loss" value={rentAdjustmentLossPercent} onChange={(value) => setRentAdjustmentLossPercent(Number(value))} error={fieldErrors.rentAdjustmentLossPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField label="Free rent" value={freeRentPercent} onChange={(value) => setFreeRentPercent(Number(value))} error={fieldErrors.freeRentPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField label="Vacancy" value={vacancyPercent} onChange={(value) => setVacancyPercent(Number(value))} error={fieldErrors.vacancyPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField label="Credit loss" value={creditLossPercent} onChange={(value) => setCreditLossPercent(Number(value))} error={fieldErrors.creditLossPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="operationStartMonth" label="Operation start month" type="month" value={operationStartMonth} onChange={setOperationStartMonth} error={fieldErrors.operationStartMonth} />
+        <NumberField path="growthStartMonth" label="Growth start month" type="month" value={growthStartMonth} onChange={setGrowthStartMonth} error={fieldErrors.growthStartMonth} />
+        <NumberField path="preleasedUnits" label="Pre-leased units" value={preleasedUnits} onChange={(value) => setPreleasedUnits(Number(value))} error={fieldErrors.preleasedUnits} min="0" step="1" />
+        <NumberField path="leaseUpUnitsPerMonth" label="Lease-up units per month" value={leaseUpUnitsPerMonth} onChange={(value) => setLeaseUpUnitsPerMonth(Number(value))} error={fieldErrors.leaseUpUnitsPerMonth} min="1" step="1" />
+        <NumberField path="annualIncomeGrowthPercent" label="Annual income growth" value={annualIncomeGrowthPercent} onChange={(value) => setAnnualIncomeGrowthPercent(Number(value))} error={fieldErrors.annualIncomeGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="annualExpenseGrowthPercent" label="Annual expense growth" value={annualExpenseGrowthPercent} onChange={(value) => setAnnualExpenseGrowthPercent(Number(value))} error={fieldErrors.annualExpenseGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="rentAdjustmentLossPercent" label="Rent adjustment loss" value={rentAdjustmentLossPercent} onChange={(value) => setRentAdjustmentLossPercent(Number(value))} error={fieldErrors.rentAdjustmentLossPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="freeRentPercent" label="Free rent" value={freeRentPercent} onChange={(value) => setFreeRentPercent(Number(value))} error={fieldErrors.freeRentPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="vacancyPercent" label="Vacancy" value={vacancyPercent} onChange={(value) => setVacancyPercent(Number(value))} error={fieldErrors.vacancyPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="creditLossPercent" label="Credit loss" value={creditLossPercent} onChange={(value) => setCreditLossPercent(Number(value))} error={fieldErrors.creditLossPercent} min="0" max="100" step="0.01" suffix="%" />
       </div>
 
       <LineSection
@@ -140,12 +140,12 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
             <thead><tr><th>Unit Type</th><th className="right">Units</th><th className="right">Average Area</th><th className="right">Non-Revenue Units</th><th className="right">Monthly Market Rent</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
             <tbody>{residentialUnitTypes.map((line, index) => (
               <tr key={line.id}>
-                <td><TextInput label={`Unit type ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setResidentialUnitTypes, index, { name })} error={fieldErrors[`residentialUnitTypes.${index}.name`]} /></td>
-                <td><NumberInput label={`${line.name || `Unit type ${index + 1}`} units`} value={line.units} onChange={(units) => updateAt(setResidentialUnitTypes, index, { units })} error={fieldErrors[`residentialUnitTypes.${index}.units`]} min="1" step="1" /></td>
-                <td><NumberInput label={`${line.name || `Unit type ${index + 1}`} average area`} value={line.averageAreaSf} onChange={(averageAreaSf) => updateAt(setResidentialUnitTypes, index, { averageAreaSf })} error={fieldErrors[`residentialUnitTypes.${index}.averageAreaSf`]} min="1" step="0.01" suffix="SF" /></td>
-                <td><NumberInput label={`${line.name || `Unit type ${index + 1}`} non-revenue units`} value={line.nonRevenueUnits} onChange={(nonRevenueUnits) => updateAt(setResidentialUnitTypes, index, { nonRevenueUnits })} error={fieldErrors[`residentialUnitTypes.${index}.nonRevenueUnits`]} min="0" step="1" /></td>
-                <td><NumberInput label={`${line.name || `Unit type ${index + 1}`} monthly market rent`} value={line.monthlyMarketRent} onChange={(monthlyMarketRent) => updateAt(setResidentialUnitTypes, index, { monthlyMarketRent })} error={fieldErrors[`residentialUnitTypes.${index}.monthlyMarketRent`]} min="0.01" step="0.01" suffix="USD" /></td>
-                <EvidenceCells line={line} onChange={(update) => updateAt(setResidentialUnitTypes, index, update)} />
+                <td><TextInput path={`residentialUnitTypes.${index}.name`} label={`Unit type ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setResidentialUnitTypes, index, { name })} error={fieldErrors[`residentialUnitTypes.${index}.name`]} /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.units`} label={`${line.name || `Unit type ${index + 1}`} units`} value={line.units} onChange={(units) => updateAt(setResidentialUnitTypes, index, { units })} error={fieldErrors[`residentialUnitTypes.${index}.units`]} min="1" step="1" /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.averageAreaSf`} label={`${line.name || `Unit type ${index + 1}`} average area`} value={line.averageAreaSf} onChange={(averageAreaSf) => updateAt(setResidentialUnitTypes, index, { averageAreaSf })} error={fieldErrors[`residentialUnitTypes.${index}.averageAreaSf`]} min="1" step="0.01" suffix="SF" /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.nonRevenueUnits`} label={`${line.name || `Unit type ${index + 1}`} non-revenue units`} value={line.nonRevenueUnits} onChange={(nonRevenueUnits) => updateAt(setResidentialUnitTypes, index, { nonRevenueUnits })} error={fieldErrors[`residentialUnitTypes.${index}.nonRevenueUnits`]} min="0" step="1" /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.monthlyMarketRent`} label={`${line.name || `Unit type ${index + 1}`} monthly market rent`} value={line.monthlyMarketRent} onChange={(monthlyMarketRent) => updateAt(setResidentialUnitTypes, index, { monthlyMarketRent })} error={fieldErrors[`residentialUnitTypes.${index}.monthlyMarketRent`]} min="0.01" step="0.01" suffix="USD" /></td>
+                <EvidenceCells path={`residentialUnitTypes.${index}`} line={line} fieldErrors={fieldErrors} onChange={(update) => updateAt(setResidentialUnitTypes, index, update)} />
                 <td><RemoveButton onClick={() => removeAt(setResidentialUnitTypes, index)} /></td>
               </tr>
             ))}</tbody>
@@ -192,7 +192,38 @@ function AssumptionEvidenceTable({ evidence, setEvidence, fieldErrors }: {
   const update = (key: ApartmentOperationsAssumptionKey, value: Partial<ApartmentOperationsAssumptionEvidence>) => {
     setEvidence((current) => ({ ...current, [key]: { ...current[key], ...value } }));
   };
-  return <section className="underwriting-line-section"><h4>Operating Assumption Sources</h4><p className="t-meta">Each timing and rate input keeps its source and review state with the saved case.</p><div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>{APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => <tr key={key}><th scope="row">{ASSUMPTION_LABELS[key]}</th><td><input className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${ASSUMPTION_LABELS[key]} source label`} value={evidence[key].sourceLabel ?? ""} onChange={(event) => update(key, { sourceLabel: event.target.value || undefined })} /></td><td><input className="input" type="date" aria-label={`${ASSUMPTION_LABELS[key]} source date`} value={evidence[key].sourceDate ?? ""} onChange={(event) => update(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`assumptionEvidence.${key}.sourceDate`])} /><FieldError error={fieldErrors[`assumptionEvidence.${key}.sourceDate`]} /></td><td><select className="input" aria-label={`${ASSUMPTION_LABELS[key]} review state`} value={evidence[key].reviewState} onChange={(event) => update(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></tr>)}</tbody></table></div></section>;
+  return (
+    <section className="underwriting-line-section">
+      <h4>Operating Assumption Sources</h4>
+      <p className="t-meta">Each timing and rate input keeps its source and review state with the saved case.</p>
+      <div className="underwriting-edit-table-wrap">
+        <table className="underwriting-operations-table underwriting-assumption-evidence">
+          <thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead>
+          <tbody>{APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => {
+            const path = `assumptionEvidence.${key}`;
+            const sourceLabel = controlProps(`${path}.sourceLabel`, fieldErrors[`${path}.sourceLabel`]);
+            const sourceDate = controlProps(`${path}.sourceDate`, fieldErrors[`${path}.sourceDate`]);
+            const reviewState = controlProps(`${path}.reviewState`, fieldErrors[`${path}.reviewState`]);
+            return <tr key={key}>
+              <th scope="row">{ASSUMPTION_LABELS[key]}</th>
+              <td>
+                <input {...sourceLabel.input} className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${ASSUMPTION_LABELS[key]} source label`} value={evidence[key].sourceLabel ?? ""} onChange={(event) => update(key, { sourceLabel: event.target.value || undefined })} />
+                <FieldError id={sourceLabel.errorId} error={fieldErrors[`${path}.sourceLabel`]} />
+              </td>
+              <td>
+                <input {...sourceDate.input} className="input" type="date" aria-label={`${ASSUMPTION_LABELS[key]} source date`} value={evidence[key].sourceDate ?? ""} onChange={(event) => update(key, { sourceDate: event.target.value || undefined })} />
+                <FieldError id={sourceDate.errorId} error={fieldErrors[`${path}.sourceDate`]} />
+              </td>
+              <td>
+                <select {...reviewState.input} className="input" aria-label={`${ASSUMPTION_LABELS[key]} review state`} value={evidence[key].reviewState} onChange={(event) => update(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select>
+                <FieldError id={reviewState.errorId} error={fieldErrors[`${path}.reviewState`]} />
+              </td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </section>
+  );
 }
 
 function LineSection({ title, description, addLabel, canAdd, onAdd, children }: { title: string; description: string; addLabel: string; canAdd: boolean; onAdd: () => void; children: React.ReactNode }) {
@@ -215,41 +246,68 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, c
       <div className="underwriting-edit-table-wrap">
         <table className="underwriting-operations-table underwriting-money-lines">
           <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
-          <tbody>{lines.map((line, index) => <tr key={line.id}>
-            <td><TextInput label={`${title} line ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setLines, index, { name } as Partial<T>)} error={fieldErrors[`${path}.${index}.name`]} /></td>
-            <td><NumberInput label={`${line.name || `${title} line ${index + 1}`} amount`} value={line.amount} onChange={(amount) => updateAt(setLines, index, { amount } as Partial<T>)} error={fieldErrors[`${path}.${index}.amount`]} min="0" step="0.01" /></td>
-            <td><select className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, { unit: event.target.value } as Partial<T>)}>{units.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select></td>
-            <EvidenceCells line={line} onChange={(update) => updateAt(setLines, index, update as Partial<T>)} />
-            <td><RemoveButton onClick={() => removeAt(setLines, index)} /></td>
-          </tr>)}</tbody>
+          <tbody>{lines.map((line, index) => {
+            const linePath = `${path}.${index}`;
+            const unit = controlProps(`${linePath}.unit`, fieldErrors[`${linePath}.unit`]);
+            return <tr key={line.id}>
+              <td><TextInput path={`${linePath}.name`} label={`${title} line ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setLines, index, { name } as Partial<T>)} error={fieldErrors[`${linePath}.name`]} /></td>
+              <td><NumberInput path={`${linePath}.amount`} label={`${line.name || `${title} line ${index + 1}`} amount`} value={line.amount} onChange={(amount) => updateAt(setLines, index, { amount } as Partial<T>)} error={fieldErrors[`${linePath}.amount`]} min="0" step="0.01" /></td>
+              <td><select {...unit.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, { unit: event.target.value } as Partial<T>)}>{units.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select><FieldError id={unit.errorId} error={fieldErrors[`${linePath}.unit`]} /></td>
+              <EvidenceCells path={linePath} line={line} fieldErrors={fieldErrors} onChange={(update) => updateAt(setLines, index, update as Partial<T>)} />
+              <td><RemoveButton onClick={() => removeAt(setLines, index)} /></td>
+            </tr>;
+          })}</tbody>
         </table>
       </div>
     </LineSection>
   );
 }
 
-function EvidenceCells({ line, onChange }: { line: ResidentialUnitType | MoneyLine; onChange: (update: Partial<ResidentialUnitType | MoneyLine>) => void }) {
-  return <><td><input className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${line.name || "Line"} source label`} value={line.sourceLabel ?? ""} onChange={(event) => onChange({ sourceLabel: event.target.value || undefined })} /></td><td><input className="input" type="date" aria-label={`${line.name || "Line"} source date`} value={line.sourceDate ?? ""} onChange={(event) => onChange({ sourceDate: event.target.value || undefined })} /></td><td><select className="input" aria-label={`${line.name || "Line"} review state`} value={line.reviewState} onChange={(event) => onChange({ reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select></td></>;
+function EvidenceCells({ path, line, fieldErrors, onChange }: { path: string; line: ResidentialUnitType | MoneyLine; fieldErrors: Record<string, string>; onChange: (update: Partial<ResidentialUnitType | MoneyLine>) => void }) {
+  const sourceLabel = controlProps(`${path}.sourceLabel`, fieldErrors[`${path}.sourceLabel`]);
+  const sourceDate = controlProps(`${path}.sourceDate`, fieldErrors[`${path}.sourceDate`]);
+  const reviewState = controlProps(`${path}.reviewState`, fieldErrors[`${path}.reviewState`]);
+  return <>
+    <td><input {...sourceLabel.input} className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${line.name || "Line"} source label`} value={line.sourceLabel ?? ""} onChange={(event) => onChange({ sourceLabel: event.target.value || undefined })} /><FieldError id={sourceLabel.errorId} error={fieldErrors[`${path}.sourceLabel`]} /></td>
+    <td><input {...sourceDate.input} className="input" type="date" aria-label={`${line.name || "Line"} source date`} value={line.sourceDate ?? ""} onChange={(event) => onChange({ sourceDate: event.target.value || undefined })} /><FieldError id={sourceDate.errorId} error={fieldErrors[`${path}.sourceDate`]} /></td>
+    <td><select {...reviewState.input} className="input" aria-label={`${line.name || "Line"} review state`} value={line.reviewState} onChange={(event) => onChange({ reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select><FieldError id={reviewState.errorId} error={fieldErrors[`${path}.reviewState`]} /></td>
+  </>;
 }
 
-function NumberField({ label, value, onChange, error, type = "number", suffix, ...input }: { label: string; value: string | number; onChange: (value: string) => void; error?: string; type?: "number" | "month"; suffix?: string; min?: string; max?: string; step?: string }) {
-  return <label className="field-label t-label">{label}<span className={suffix ? "underwriting-money-input" : undefined}><input className="input num" type={type} value={value || ""} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError error={error} /></label>;
+function NumberField({ path, label, value, onChange, error, type = "number", suffix, ...input }: { path: string; label: string; value: string | number; onChange: (value: string) => void; error?: string; type?: "number" | "month"; suffix?: string; min?: string; max?: string; step?: string }) {
+  const control = controlProps(path, error);
+  return <label className="field-label t-label" htmlFor={control.input.id}>{label}<span className={suffix ? "underwriting-money-input" : undefined}><input {...control.input} className="input num" type={type} value={value} onChange={(event) => onChange(event.target.value)} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError id={control.errorId} error={error} /></label>;
 }
 
-function TextInput({ label, value, onChange, error }: { label: string; value: string; onChange: (value: string) => void; error?: string }) {
-  return <><input className="input" maxLength={MAX_OPERATION_LINE_NAME_LENGTH} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} /><FieldError error={error} /></>;
+function TextInput({ path, label, value, onChange, error }: { path: string; label: string; value: string; onChange: (value: string) => void; error?: string }) {
+  const control = controlProps(path, error);
+  return <><input {...control.input} className="input" maxLength={MAX_OPERATION_LINE_NAME_LENGTH} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /><FieldError id={control.errorId} error={error} /></>;
 }
 
-function NumberInput({ label, value, onChange, error, suffix, ...input }: { label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; min?: string; max?: string; step?: string }) {
-  return <><span className={suffix ? "underwriting-money-input" : undefined}><input className="input num right" type="number" aria-label={label} value={value || ""} onChange={(event) => onChange(Number(event.target.value))} aria-invalid={Boolean(error)} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError error={error} /></>;
+function NumberInput({ path, label, value, onChange, error, suffix, ...input }: { path: string; label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; min?: string; max?: string; step?: string }) {
+  const control = controlProps(path, error);
+  return <><span className={suffix ? "underwriting-money-input" : undefined}><input {...control.input} className="input num right" type="number" aria-label={label} value={value} onChange={(event) => onChange(Number(event.target.value))} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError id={control.errorId} error={error} /></>;
 }
 
 function RemoveButton({ onClick }: { onClick: () => void }) {
   return <button className="btn btn--secondary" type="button" onClick={onClick}>Remove</button>;
 }
 
-function FieldError({ error }: { error?: string }) {
-  return error ? <span className="input-error" role="alert">{error}</span> : null;
+function FieldError({ id, error }: { id: string; error?: string }) {
+  return error ? <span id={id} className="input-error" role="alert">{error}</span> : null;
+}
+
+function controlProps(path: string, error?: string) {
+  const id = `apartment-operations-${path.replaceAll(".", "-")}`;
+  const errorId = `${id}-error`;
+  return {
+    errorId,
+    input: {
+      id,
+      "aria-invalid": Boolean(error),
+      "aria-describedby": error ? errorId : undefined,
+    },
+  };
 }
 
 function blankUnitType(): ResidentialUnitType {

@@ -36,20 +36,43 @@ test("saves, runs, reloads, and reopens monthly apartment operations", async ({ 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/underwriting/${createdCase.id}`);
   await expect(page.locator(".underwriting-operations-editor")).toHaveAttribute("data-client-ready", "true");
-  await page.getByLabel("Operation start month", { exact: true }).fill("2026-02");
-  await page.getByLabel("Growth start month", { exact: true }).fill("2026-02");
-  await page.getByLabel("Pre-leased units", { exact: true }).fill("2");
-  await page.getByLabel("Lease-up units per month", { exact: true }).fill("4");
-  await page.getByRole("spinbutton", { name: "Annual income growth %", exact: true }).fill("3");
-  await page.getByRole("spinbutton", { name: "Annual expense growth %", exact: true }).fill("3");
-  await page.getByRole("spinbutton", { name: "Vacancy %", exact: true }).fill("5");
-  await page.getByRole("spinbutton", { name: "Credit loss %", exact: true }).fill("1");
   await page.getByRole("button", { name: "Add Unit Type" }).click();
-  await page.getByLabel("Unit type 1 name").fill("One Bedroom");
-  await page.getByLabel("One Bedroom units").fill("10");
-  await page.getByLabel("One Bedroom average area").fill("800");
-  await page.getByLabel("One Bedroom non-revenue units").fill("0");
-  await page.getByLabel("One Bedroom monthly market rent").fill("2000");
+  const invalidSave = page.waitForResponse((response) =>
+    response.request().method() === "PUT"
+    && response.url().endsWith(`/api/underwriting/cases/${createdCase.id}/operations`));
+  await page.getByRole("button", { name: "Save Operations" }).click();
+  expect((await invalidSave).status()).toBe(400);
+
+  const operationStart = page.locator("#apartment-operations-operationStartMonth");
+  await expect(operationStart).toHaveAttribute("id", "apartment-operations-operationStartMonth");
+  await expect(operationStart).toHaveAttribute("aria-invalid", "true");
+  await expect(operationStart).toHaveAttribute("aria-describedby", "apartment-operations-operationStartMonth-error");
+  await expect(page.locator("#apartment-operations-operationStartMonth-error")).toContainText("YYYY-MM");
+  const unitName = page.locator("#apartment-operations-residentialUnitTypes-0-name");
+  await expect(unitName).toHaveAttribute("id", "apartment-operations-residentialUnitTypes-0-name");
+  await expect(unitName).toHaveAttribute("aria-invalid", "true");
+  await expect(unitName).toHaveAttribute("aria-describedby", "apartment-operations-residentialUnitTypes-0-name-error");
+  await expect(page.getByLabel("Line source label", { exact: true })).toHaveAttribute("id", "apartment-operations-residentialUnitTypes-0-sourceLabel");
+  await expect(page.getByLabel("Line source label", { exact: true })).toHaveAttribute("aria-invalid", "false");
+  await expect(page.getByLabel("Line source date", { exact: true })).toHaveAttribute("id", "apartment-operations-residentialUnitTypes-0-sourceDate");
+  await expect(page.getByLabel("Line review state", { exact: true })).toHaveAttribute("id", "apartment-operations-residentialUnitTypes-0-reviewState");
+  await expect(page.getByRole("spinbutton", { name: "Rent adjustment loss %", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Free rent %", exact: true })).toHaveValue("0");
+  await expect(page.getByLabel("Unit type 1 non-revenue units", { exact: true })).toHaveValue("0");
+
+  await page.locator("#apartment-operations-operationStartMonth").fill("2026-02");
+  await page.locator("#apartment-operations-growthStartMonth").fill("2026-02");
+  await page.locator("#apartment-operations-preleasedUnits").fill("2");
+  await page.locator("#apartment-operations-leaseUpUnitsPerMonth").fill("4");
+  await page.locator("#apartment-operations-annualIncomeGrowthPercent").fill("3");
+  await page.locator("#apartment-operations-annualExpenseGrowthPercent").fill("3");
+  await page.locator("#apartment-operations-vacancyPercent").fill("5");
+  await page.locator("#apartment-operations-creditLossPercent").fill("1");
+  await page.locator("#apartment-operations-residentialUnitTypes-0-name").fill("One Bedroom");
+  await page.locator("#apartment-operations-residentialUnitTypes-0-units").fill("10");
+  await page.locator("#apartment-operations-residentialUnitTypes-0-averageAreaSf").fill("800");
+  await page.locator("#apartment-operations-residentialUnitTypes-0-nonRevenueUnits").fill("0");
+  await page.locator("#apartment-operations-residentialUnitTypes-0-monthlyMarketRent").fill("2000");
 
   const saveResponse = page.waitForResponse((response) =>
     response.request().method() === "PUT"
@@ -77,6 +100,9 @@ test("saves, runs, reloads, and reopens monthly apartment operations", async ({ 
   await page.reload();
   await expect(page.getByLabel("Operation start month", { exact: true })).toHaveValue("2026-02");
   await expect(page.getByLabel("One Bedroom units", { exact: true })).toHaveValue("10");
+  await expect(page.getByRole("spinbutton", { name: "Rent adjustment loss %", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Free rent %", exact: true })).toHaveValue("0");
+  await expect(page.getByLabel("One Bedroom non-revenue units", { exact: true })).toHaveValue("0");
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
   await expect(page.getByText("One Bedroom needs a source label.")).toBeVisible();
 

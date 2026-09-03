@@ -173,6 +173,28 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     }
   });
 
+  it("settles a generated fractional plan to a cent", () => {
+    const run = fundMonthlyDevelopmentCashFlow([
+      { month: "2026-01", projectCosts: 148_902.31, operatingCashFlow: 0 },
+      { month: "2026-02", projectCosts: 712_455.82, operatingCashFlow: 0 },
+      { month: "2026-03", projectCosts: 349_875.19, operatingCashFlow: -24_890.14 },
+      { month: "2026-04", projectCosts: 0, operatingCashFlow: 42_189.45 },
+      { month: "2026-05", projectCosts: 0, operatingCashFlow: 55_813.78 },
+      { month: "2026-06", projectCosts: 0, operatingCashFlow: 63_511.09 },
+    ], {
+      ...plan,
+      targetDebtSharePercent: 67.381947,
+      annualInterestRatePercent: 7.81943,
+      loanFeePercent: 0,
+      feeMonth: "2026-01",
+      payoffMonth: "2026-06",
+    });
+
+    expect(run.status).toBe("complete");
+    expect(run.result?.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(run.result?.months.at(-1)?.closingDebtBalance).toBe(0);
+  });
+
   it("does not allow a loan fee draw after the payoff month", () => {
     const run = fundMonthlyDevelopmentCashFlow(
       cashFlow.map((month, index) => ({ ...month, projectCosts: index === 0 ? month.projectCosts : 0, operatingCashFlow: 0 })),

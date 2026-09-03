@@ -23,6 +23,8 @@ import { CostScheduleEditor } from "./CostScheduleEditor";
 import { DevelopmentCapitalEditor } from "./DevelopmentCapitalEditor";
 import { PropertyReturnsEditor } from "./PropertyReturnsEditor";
 import { PropertyReturnsResults } from "./PropertyReturnsResults";
+import { ScenarioComparisonEditor } from "./ScenarioComparisonEditor";
+import { ScenarioComparisonResults } from "./ScenarioComparisonResults";
 import { RunUnderwriting } from "./RunUnderwriting";
 
 export const dynamic = "force-dynamic";
@@ -136,10 +138,15 @@ export default async function UnderwritingCasePage({
         </section>
 
         <div className="margin" />
+        <section className="col-field record-section">
+          <ScenarioComparisonEditor savedCase={savedCase} />
+        </section>
+
+        <div className="margin" />
         <div className="col-field record-section underwriting-results-section">
           <div className="underwriting-section-head">
             <div>
-              <h3>{savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
+              <h3>{savedCase.scenarios?.length === 2 ? "Apartment scenario comparison" : savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
               <p className="t-meta">
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
@@ -171,6 +178,8 @@ export default async function UnderwritingCasePage({
               ))}
               <p className="t-meta">This run has no financial results. Its issues and input snapshot remain in the review record.</p>
             </div>
+          ) : currentRun.scenarioComparisonResult ? (
+            <ScenarioComparisonResults result={currentRun.scenarioComparisonResult} />
           ) : currentRun.propertyReturnsResult ? (
             <PropertyReturnsResults result={currentRun.propertyReturnsResult} reconciliations={currentRun.reconciliations} />
           ) : currentRun.developmentCapitalResult ? (
@@ -343,6 +352,7 @@ export default async function UnderwritingCasePage({
                     {runs.map((run) => {
                       const totalDevelopmentCost = run.results.find((result) => result.key === "totalDevelopmentCost");
                       const capturedResult = totalDevelopmentCost?.value
+                        ?? run.scenarioComparisonResult?.base.propertyResult.propertyReturns.returns.levered.netProfit
                         ?? run.propertyReturnsResult?.propertyReturns.returns.levered.netProfit
                         ?? run.developmentCapitalResult?.capital.totals.totalUses
                         ?? run.apartmentOperationsResult?.totals.operatingCashFlow

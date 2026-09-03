@@ -213,5 +213,14 @@ export function buildUnderwritingReviewItems(
     }
   }
 
+  for (const scenario of savedCase.scenarios ?? []) {
+    for (const [key, evidence] of Object.entries(scenario.evidence)) {
+      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
+      if (!evidence?.sourceLabel?.trim()) items.push({ id: `scenario-source-label-${scenario.id}-${key}`, message: `${scenario.name} ${label} needs a source label.`, severity: "waiting" });
+      if (!evidence?.sourceDate?.trim()) items.push({ id: `scenario-source-date-${scenario.id}-${key}`, message: `${scenario.name} ${label} needs a source date.`, severity: "waiting" });
+      if (evidence?.reviewState === "working") items.push({ id: `scenario-review-state-${scenario.id}-${key}`, message: `${scenario.name} ${label} is still Working on it.`, severity: "waiting" });
+    }
+  }
+
   return items;
 }

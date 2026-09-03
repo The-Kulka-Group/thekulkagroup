@@ -23,6 +23,7 @@ import {
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
 import { PropertyReturnsResults } from "../../PropertyReturnsResults";
+import { ScenarioComparisonResults } from "../../ScenarioComparisonResults";
 
 export const dynamic = "force-dynamic";
 
@@ -98,7 +99,9 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-results-heading">
           <h3 id="run-results-heading">Saved results and formulas</h3>
-          {run.propertyReturnsResult ? (
+          {run.scenarioComparisonResult ? (
+            <ScenarioComparisonResults result={run.scenarioComparisonResult} />
+          ) : run.propertyReturnsResult ? (
             <PropertyReturnsResults result={run.propertyReturnsResult} reconciliations={run.reconciliations} />
           ) : run.developmentCapitalResult ? (
             <>
@@ -199,7 +202,11 @@ export default async function UnderwritingRunPage({
           ) : <p className="t-meta underwriting-history-note">This run saved no financial results.</p>}
           <div className="underwriting-limitations" aria-labelledby="run-limitations-heading">
             <h4 id="run-limitations-heading">Model limits</h4>
-            <ul>{(run.propertyReturnsResult ? [
+            <ul>{(run.scenarioComparisonResult ? [
+              "This formula version changes only the four named apartment sensitivity inputs.",
+              "It does not model permanent debt, investor waterfalls, or taxes.",
+              "This run does not record a finance or sale approval.",
+            ] : run.propertyReturnsResult ? [
               "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
               "It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.",
               "This run does not record a finance or sale approval.",
@@ -222,7 +229,13 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-inputs-heading">
           <h3 id="run-inputs-heading">Full calculation input snapshot</h3>
-          {isPropertyReturnsSnapshot(run.inputSnapshot) ? (
+          {isScenarioSnapshot(run.inputSnapshot) ? (
+            <>
+              <div className="underwriting-results-wrap"><table className="underwriting-snapshot underwriting-scenario-comparison"><thead><tr><th>Scenario</th><th>Role</th><th>Input Version</th><th>Delta</th></tr></thead><tbody>{run.inputSnapshot.scenarios.map((scenario) => <tr key={scenario.id}><th scope="row">{scenario.name}</th><td>{scenario.role}</td><td className="num">{scenario.inputVersion}</td><td className="num">{Object.entries(scenario.delta).map(([key, value]) => `${key}: ${value}`).join(", ")}</td></tr>)}</tbody></table></div>
+              <OperationsSnapshotSummary input={run.inputSnapshot.base} />
+              <OperationsInputTables input={run.inputSnapshot.base} />
+            </>
+          ) : isPropertyReturnsSnapshot(run.inputSnapshot) ? (
             <>
               <div className="underwriting-results-wrap"><table className="underwriting-snapshot"><thead><tr><th>Sale Input Version</th><th className="right">Terminal Cap Rate</th><th className="right">Selling Costs</th><th>Forward NOI Period</th><th>Cash Flow Dates</th><th>XIRR Convention</th></tr></thead><tbody><tr><td className="num">{run.inputSnapshot.saleInputVersion}</td><td className="num right">{run.inputSnapshot.terminalCapRatePercent}%</td><td className="num right">{run.inputSnapshot.sellingCostPercent}%</td><td className="num">{run.inputSnapshot.forwardNoiConvention}</td><td className="num">{run.inputSnapshot.cashFlowDateConvention}</td><td className="num">{run.inputSnapshot.xirrConvention}</td></tr></tbody></table></div>
               <div className="underwriting-results-wrap"><table className="underwriting-snapshot"><thead><tr><th>Capital Input Version</th><th className="right">Target Debt Share</th><th className="right">Annual Interest Rate</th><th className="right">Loan Fee</th><th>Funding Order</th><th>Interest Treatment</th><th>Interest Convention</th><th>Fee Month</th><th>Payoff Month</th></tr></thead><tbody><tr><td className="num">{run.inputSnapshot.capitalInputVersion}</td><td className="num right">{run.inputSnapshot.targetDebtSharePercent}%</td><td className="num right">{run.inputSnapshot.annualInterestRatePercent}%</td><td className="num right">{run.inputSnapshot.loanFeePercent}%</td><td className="num">{run.inputSnapshot.fundingOrder}</td><td className="num">{run.inputSnapshot.interestTreatment}</td><td className="num">{run.inputSnapshot.interestConvention}</td><td className="num">{run.inputSnapshot.feeMonth}</td><td className="num">{run.inputSnapshot.payoffMonth}</td></tr></tbody></table></div>
@@ -431,6 +444,10 @@ function isDevelopmentCapitalSnapshot(snapshot: unknown): snapshot is Developmen
 
 function isPropertyReturnsSnapshot(snapshot: unknown): snapshot is PropertyReturnsInputs {
   return Boolean(snapshot && typeof snapshot === "object" && "saleInputVersion" in snapshot && "capitalInputVersion" in snapshot && "residentialUnitTypes" in snapshot);
+}
+
+function isScenarioSnapshot(snapshot: unknown): snapshot is { base: PropertyReturnsInputs; scenarios: Array<{ id: string; role: string; name: string; inputVersion: string; delta: Record<string, number> }> } {
+  return Boolean(snapshot && typeof snapshot === "object" && "base" in snapshot && "scenarios" in snapshot && Array.isArray((snapshot as { scenarios?: unknown }).scenarios));
 }
 
 function ReconciliationTable({ checks }: { checks: ReconciliationCheck[] }) {

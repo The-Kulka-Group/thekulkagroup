@@ -1356,6 +1356,9 @@ em, .em { font-style: normal; font-weight: 600; }
 .underwriting-run-action { text-align: right; }
 .underwriting-run-action .input-error { margin-top: var(--s2); }
 .underwriting-results-wrap { overflow-x: auto; }
+.underwriting-scenario-table,
+.underwriting-scenario-comparison { min-width: 760px; }
+.underwriting-scenario-editor > .underwriting-line-section { margin-top: var(--space-5); }
 .underwriting-results {
   width: 100%;
   min-width: 980px;

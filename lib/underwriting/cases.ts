@@ -9,6 +9,8 @@ import {
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  type ApartmentScenarioDefinition,
+  type ApartmentScenarioEvidence,
   type PropertyReturnsAssumptionKey,
   type PropertyReturnsPlan,
 } from "@kulka/engine";
@@ -107,6 +109,7 @@ export type UnderwritingCase = {
   apartmentOperations?: SavedApartmentOperations;
   developmentCapital?: SavedDevelopmentCapital;
   propertyReturns?: SavedPropertyReturns;
+  scenarios?: SavedApartmentScenario[];
 };
 
 export type SavedCostLine = MonthlyCostLine & { lastChangedAt: string };
@@ -118,6 +121,7 @@ export type UnderwritingCostSchedule = Omit<MonthlyCostScheduleInputs, "costLine
 export type SavedApartmentOperations = ApartmentOperationsDraft & { lastChangedAt: string };
 export type SavedDevelopmentCapital = DevelopmentCapitalDraft & { lastChangedAt: string };
 export type SavedPropertyReturns = PropertyReturnsDraft & { lastChangedAt: string };
+export type SavedApartmentScenario = ApartmentScenarioDefinition & { lastChangedAt: string };
 
 export class UnderwritingCaseRevisionConflict extends Error {
   constructor() {
@@ -182,7 +186,16 @@ type CostLineRow = {
   review_state: MonthlyCostLine["reviewState"];
   value_changed_at: Date | string;
 };
-type CaseDetailRow = CaseWithAssumptionsRow & { cost_lines: CostLineRow[] };
+type ScenarioRow = {
+  id: string;
+  role: ApartmentScenarioDefinition["role"];
+  name: string;
+  input_version: ApartmentScenarioDefinition["inputVersion"];
+  delta: ApartmentScenarioDefinition["delta"];
+  evidence: ApartmentScenarioDefinition["evidence"];
+  value_changed_at: Date | string;
+};
+type CaseDetailRow = CaseWithAssumptionsRow & { cost_lines: CostLineRow[]; scenarios: ScenarioRow[] };
 
 const byStoredKey = new Map(
   Object.entries(ASSUMPTION_DEFINITIONS).map(([name, definition]) => [
@@ -209,7 +222,7 @@ function optionalNumber(value: string | number | null) {
   return value === null ? undefined : Number(value);
 }
 
-function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: CostLineRow[] = []): UnderwritingCase {
+function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: CostLineRow[] = [], scenarios: ScenarioRow[] = []): UnderwritingCase {
   return {
     id: row.id,
     caseNumber: Number(row.case_number),
@@ -241,6 +254,15 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: Cos
         lastChangedAt: iso(assumption.value_changed_at),
       };
     }),
+    scenarios: scenarios.map((scenario) => ({
+      id: scenario.id,
+      role: scenario.role,
+      name: scenario.name,
+      inputVersion: scenario.input_version,
+      delta: scenario.delta,
+      evidence: scenario.evidence,
+      lastChangedAt: iso(scenario.value_changed_at),
+    })),
     ...(row.analysis_start_month && row.sale_month ? {
       costSchedule: {
         analysisStartMonth: monthOnly(row.analysis_start_month),
@@ -398,13 +420,96 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
               ),
               '[]'::jsonb
             ) as cost_lines
+            ,coalesce(
+              (
+                select jsonb_agg(jsonb_build_object(
+                  'id', scenario.id,
+                  'role', scenario.role,
+                  'name', scenario.name,
+                  'input_version', scenario.input_version,
+                  'delta', scenario.delta,
+                  'evidence', scenario.evidence,
+                  'value_changed_at', scenario.value_changed_at
+                ) order by scenario.role)
+                from underwriting_case_scenarios scenario
+                where scenario.case_id = c.id
+              ),
+              '[]'::jsonb
+            ) as scenarios
      from underwriting_cases c
      left join underwriting_case_assumptions a on a.case_id = c.id
      where c.id = $1
      group by c.id`,
     [id],
   );
-  return rows[0] ? mapCase(rows[0], rows[0].assumptions, rows[0].cost_lines) : null;
+  return rows[0] ? mapCase(rows[0], rows[0].assumptions, rows[0].cost_lines, rows[0].scenarios) : null;
+}
+
+export async function saveApartmentScenarios(
+  db: Db,
+  id: string,
+  expectedRevision: number,
+  scenarios: ApartmentScenarioDefinition[],
+) {
+  const existing = await getUnderwritingCase(db, id);
+  if (!existing) return null;
+  if (existing.caseRevision !== expectedRevision) throw new UnderwritingCaseRevisionConflict();
+  const priorById = new Map((existing.scenarios ?? []).map((scenario) => [scenario.id, scenario]));
+  const supplied = scenarios.map((scenario) => ({
+    ...scenario,
+    evidence: reconcileScenarioEvidence(priorById.get(scenario.id), scenario),
+  }));
+  const { rows } = await db.query<{ id: string }>(
+    `with updated_case as (
+       update underwriting_cases set case_revision = case_revision + 1, updated_at = now()
+       where id = $1 and case_revision = $3 returning id
+     ), supplied as (
+       select * from jsonb_to_recordset($2::jsonb) as item(
+         id text, role text, name text, "inputVersion" text, delta jsonb, evidence jsonb
+       )
+     ), removed as (
+       delete from underwriting_case_scenarios
+       where case_id in (select id from updated_case)
+         and id not in (select id from supplied)
+     ), saved as (
+       insert into underwriting_case_scenarios(case_id, id, role, name, input_version, delta, evidence)
+       select updated_case.id, supplied.id, supplied.role, supplied.name,
+              supplied."inputVersion", supplied.delta, supplied.evidence
+       from updated_case cross join supplied
+       on conflict (case_id, id) do update set
+         role = excluded.role,
+         name = excluded.name,
+         input_version = excluded.input_version,
+         delta = excluded.delta,
+         evidence = excluded.evidence,
+         value_changed_at = case when
+           underwriting_case_scenarios.role is distinct from excluded.role
+           or underwriting_case_scenarios.name is distinct from excluded.name
+           or underwriting_case_scenarios.input_version is distinct from excluded.input_version
+           or underwriting_case_scenarios.delta is distinct from excluded.delta
+           or underwriting_case_scenarios.evidence is distinct from excluded.evidence
+         then now() else underwriting_case_scenarios.value_changed_at end,
+         updated_at = now()
+     ) select id from updated_case`,
+    [id, JSON.stringify(supplied), expectedRevision],
+  );
+  if (!rows[0]) throw new UnderwritingCaseRevisionConflict();
+  return getUnderwritingCase(db, id);
+}
+
+function reconcileScenarioEvidence(
+  existing: SavedApartmentScenario | undefined,
+  draft: ApartmentScenarioDefinition,
+) {
+  return Object.fromEntries(Object.entries(draft.evidence).map(([key, evidence]) => {
+    const prior = existing?.evidence[key as keyof ApartmentScenarioDefinition["evidence"]];
+    const changed = existing && (
+      existing.delta[key as keyof ApartmentScenarioDefinition["delta"]] !== draft.delta[key as keyof ApartmentScenarioDefinition["delta"]]
+      || prior?.sourceLabel !== evidence?.sourceLabel
+      || prior?.sourceDate !== evidence?.sourceDate
+    );
+    return [key, changed ? { ...evidence, reviewState: "working" as const } : evidence];
+  })) as Partial<Record<keyof ApartmentScenarioDefinition["evidence"], ApartmentScenarioEvidence>>;
 }
 
 export async function saveUnderwritingCostSchedule(

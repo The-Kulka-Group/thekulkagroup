@@ -6,6 +6,7 @@ import {
   getUnderwritingCase,
   listUnderwritingCases,
   saveApartmentOperations,
+  saveApartmentScenarios,
   saveDevelopmentCapital,
   savePropertyReturns,
   saveUnderwritingCostSchedule,
@@ -37,6 +38,25 @@ afterEach(async () => {
 });
 
 describe("underwriting case repository", () => {
+  it("stores only scenario deltas and resets review after a changed value", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scenarios = [
+      { id: "higher-vacancy", role: "downside" as const, name: "Higher Vacancy", inputVersion: "apartment_scenario_delta.v1" as const, delta: { vacancyPercent: 8 }, evidence: { vacancyPercent: { sourceLabel: "Market study", sourceDate: "2026-08-01", reviewState: "done" as const } } },
+      { id: "lower-exit-cap", role: "upside" as const, name: "Lower Terminal Cap", inputVersion: "apartment_scenario_delta.v1" as const, delta: { terminalCapRatePercent: 5 }, evidence: { terminalCapRatePercent: { sourceLabel: "Broker opinion", sourceDate: "2026-08-01", reviewState: "done" as const } } },
+    ];
+    const saved = await saveApartmentScenarios(db, created!.id, created!.caseRevision, scenarios);
+    expect(saved).toMatchObject({ caseRevision: 2, scenarios: [expect.objectContaining({ delta: { vacancyPercent: 8 } }), expect.objectContaining({ delta: { terminalCapRatePercent: 5 } })] });
+    const { rows } = await db.query<{ delta: Record<string, number> }>(`select delta from underwriting_case_scenarios where case_id = $1`, [created!.id]);
+    expect(rows.every(({ delta }) => !("base" in delta))).toBe(true);
+
+    const changed = await saveApartmentScenarios(db, created!.id, saved!.caseRevision, [
+      { ...scenarios[0], delta: { vacancyPercent: 9 } },
+      scenarios[1],
+    ]);
+    expect(changed!.scenarios!.find(({ role }) => role === "downside")!.evidence.vacancyPercent!.reviewState).toBe("working");
+    expect(changed!.scenarios!.find(({ role }) => role === "upside")!.evidence.terminalCapRatePercent!.reviewState).toBe("done");
+  });
+
   it("creates and reads a case with supplied assumptions", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     const reopened = await getUnderwritingCase(db, created!.id);

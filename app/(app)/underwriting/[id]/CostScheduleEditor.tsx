@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -25,13 +25,20 @@ const CATEGORY_OPTIONS = [
 
 export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
-  const [expectedRevision, setExpectedRevision] = useState(savedCase.caseRevision);
+  const [lastScheduleSave, setLastScheduleSave] = useState({
+    caseId: savedCase.id,
+    revision: savedCase.caseRevision,
+  });
   const [analysisStartMonth, setAnalysisStartMonth] = useState(savedCase.costSchedule?.analysisStartMonth ?? "");
   const [saleMonth, setSaleMonth] = useState(savedCase.costSchedule?.saleMonth ?? "");
   const [lines, setLines] = useState<EditableLine[]>(() => editableLines(savedCase));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const clientReady = useSyncExternalStore(hydrationSubscription, () => true, () => false);
+  const expectedRevision = lastScheduleSave.caseId === savedCase.id
+    ? Math.max(savedCase.caseRevision, lastScheduleSave.revision)
+    : savedCase.caseRevision;
 
   function addLine() {
     setLines((current) => [...current, {
@@ -80,7 +87,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
         setError("The saved cost schedule could not be loaded. Refresh the page before making another change.");
         return;
       }
-      setExpectedRevision(body.case.caseRevision);
+      setLastScheduleSave({ caseId: body.case.id, revision: body.case.caseRevision });
       setAnalysisStartMonth(body.case.costSchedule.analysisStartMonth);
       setSaleMonth(body.case.costSchedule.saleMonth);
       setLines(editableLines(body.case));
@@ -93,7 +100,13 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   }
 
   return (
-    <form className="underwriting-cost-editor" onSubmit={save} noValidate>
+    <form
+      className="underwriting-cost-editor"
+      data-client-ready={clientReady ? "true" : "false"}
+      data-expected-revision={expectedRevision}
+      onSubmit={save}
+      noValidate
+    >
       <div className="underwriting-section-head">
         <div>
           <h3>Development Cost Schedule</h3>
@@ -269,4 +282,8 @@ function editableLines(savedCase: UnderwritingCase): EditableLine[] {
     void lastChangedAt;
     return line;
   }) ?? [];
+}
+
+function hydrationSubscription() {
+  return () => undefined;
 }

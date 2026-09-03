@@ -41,7 +41,7 @@ export function RunUnderwriting({
   }
 
   return (
-    <div className="underwriting-run-action">
+    <div className="underwriting-run-action" data-case-revision={caseRevision}>
       <button className="btn btn--primary" type="button" onClick={run} disabled={running}>
         {running ? "Calculating" : hasRun ? "Run again" : "Run calculation"}
       </button>

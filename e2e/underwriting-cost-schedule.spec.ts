@@ -12,8 +12,12 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/underwriting/${savedCase.id}`);
+  const scheduleEditor = page.locator(".underwriting-cost-editor");
+  await expect(scheduleEditor).toHaveAttribute("data-client-ready", "true");
   await page.locator("#cost-schedule-analysis-start-month").fill("2026-01");
   await page.locator("#cost-schedule-sale-month").fill("2026-12");
+  await expect(page.locator("#cost-schedule-analysis-start-month")).toHaveValue("2026-01");
+  await expect(page.locator("#cost-schedule-sale-month")).toHaveValue("2026-12");
   await page.getByRole("button", { name: "Add Cost Line" }).click();
 
   await page.getByRole("button", { name: "Save Schedule" }).click();
@@ -45,14 +49,34 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   expect(scheduleResponse.status(), JSON.stringify(scheduleResponseBody)).toBe(200);
   await expect(page.getByText("Land needs a source label.")).toBeVisible();
 
+  const projectRevision = scheduleResponseBody.case.caseRevision + 1;
+  await page.locator("#cost-line-1-amount").fill("2050000");
+  await page.locator("#underwriting-proposedUnits").fill("72");
+  const savedFactsResponse = page.waitForResponse((response) =>
+    response.request().method() === "PATCH" && response.url().endsWith(`/api/underwriting/cases/${savedCase.id}`));
+  await page.getByRole("button", { name: "Save and recalculate" }).click();
+  const factsResponse = await savedFactsResponse;
+  expect(factsResponse.status(), JSON.stringify(await factsResponse.json())).toBe(200);
+  await expect(scheduleEditor).toHaveAttribute("data-expected-revision", String(projectRevision));
+  await expect(page.locator("#cost-line-1-amount")).toHaveValue("2050000");
+  await saveSchedule(page, savedCase.id);
+  await expect(page.locator("#cost-line-1-amount")).toHaveValue("2050000");
+
   await page.locator("#cost-line-1-reviewState").selectOption("done");
   await saveSchedule(page, savedCase.id);
   await expect(page.locator("#cost-line-1-reviewState")).toHaveValue("done");
   await page.locator("#cost-line-1-amount").fill("2100000");
-  await saveSchedule(page, savedCase.id);
+  const finalSchedule = await saveSchedule(page, savedCase.id);
   await expect(page.locator("#cost-line-1-reviewState")).toHaveValue("working");
+  await expect(page.locator(".underwriting-run-action")).toHaveAttribute(
+    "data-case-revision",
+    String(finalSchedule.case.caseRevision),
+  );
 
+  const runResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST" && response.url().endsWith(`/api/underwriting/cases/${savedCase.id}/runs`));
   await page.getByRole("button", { name: "Run calculation" }).click();
+  expect((await runResponse).status()).toBe(201);
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Monthly uses" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Aggregate formula traces" })).toBeVisible();
@@ -121,4 +145,5 @@ async function saveSchedule(page: import("@playwright/test").Page, caseId: strin
   const response = await savedResponse;
   const body = await response.json();
   expect(response.status(), JSON.stringify(body)).toBe(200);
+  return body;
 }

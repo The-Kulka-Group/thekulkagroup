@@ -43,7 +43,15 @@ describe("safeReturnPath", () => {
     );
   });
 
-  it.each([undefined, "", "https://evil.test", "//evil.test", "/login", "/login?next=/"])(
+  it.each([
+    undefined,
+    "",
+    "https://evil.test",
+    "//evil.test",
+    "/\\evil.test",
+    "/login",
+    "/login?next=/",
+  ])(
     "sends an unsafe return path to the homepage: %s",
     (value) => expect(safeReturnPath(value)).toBe("/"),
   );

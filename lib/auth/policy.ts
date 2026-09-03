@@ -33,8 +33,15 @@ export function authConfiguration(
 }
 
 export function safeReturnPath(value: string | null | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
-  const pathname = value.split("?", 1)[0];
-  if (pathname === "/login" || pathname.startsWith("/login/")) return "/";
-  return value;
+  if (!value || !value.startsWith("/")) return "/";
+  const base = new URL("https://kulka.invalid");
+  let target: URL;
+  try {
+    target = new URL(value, base);
+  } catch {
+    return "/";
+  }
+  if (target.origin !== base.origin) return "/";
+  if (target.pathname === "/login" || target.pathname.startsWith("/login/")) return "/";
+  return `${target.pathname}${target.search}${target.hash}`;
 }

@@ -21,6 +21,8 @@ use judgment and match the shipped screens.
   defaults are acceptable and get tuned to Daylight where it is cheap. There is no
   mandatory reskin gate.
 - 2026-08-25: the Blackline doctrine is retired; this document replaces it.
+- 2026-09-03: Home is the first rail item and sits outside the business sections.
+  Its label is Home, not Homepage. The empty Operations section is hidden.
 - 2026-08-25: final element picks from the chooser. Buttons stay rounded 8 (a
   same-day pill trial was reverted). Board rows are 40px. Inputs are 36px tall with
   a 10px radius and a light border. The active rail item fills Kulka black with
@@ -150,9 +152,9 @@ the visuals never dress up as drawings, blueprints, or job sites.
 
 ## Navigation
 
-The rail uses five business sections: Sales and Marketing, Business Development,
-Operations, Pre-Construction, and Development. The Homepage remains under
-Operations. Underwriting belongs under Development. Conceptual Budget belongs
+Home is the first rail item and sits outside the business sections. The rail then uses
+four business sections: Sales and Marketing, Business Development, Pre-Construction,
+and Development. Underwriting belongs under Development. Conceptual Budget belongs
 under Pre-Construction.
 
 Icons (owner picks 2026-08-25): Phosphor regular. They live in two places, the rail

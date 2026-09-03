@@ -1,7 +1,15 @@
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AUTH_TOKEN_HASH = /^[A-Za-z0-9_-]{16,512}$/;
+
+export type AuthEmailType = "invite" | "recovery";
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+export function safeAuthEmail(value: string | null | undefined) {
+  const email = normalizeEmail(value ?? "");
+  return email.length <= 254 && EMAIL.test(email) ? email : null;
 }
 
 export function allowedEmailsFrom(value: string | undefined): ReadonlySet<string> | null {
@@ -49,4 +57,32 @@ export function safeReturnPath(value: string | null | undefined) {
   }
   if (target.pathname === "/login" || target.pathname.startsWith("/login/")) return "/";
   return `${target.pathname}${target.search}${target.hash}`;
+}
+
+export function safeAuthEmailType(value: string | null | undefined): AuthEmailType | null {
+  return value === "invite" || value === "recovery" ? value : null;
+}
+
+export function safeAuthTokenHash(value: string | null | undefined) {
+  return value && AUTH_TOKEN_HASH.test(value) ? value : null;
+}
+
+export function siteUrlFrom(value: string | undefined) {
+  let url: URL;
+  try {
+    url = new URL(value ?? "");
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    return null;
+  }
+  return url.origin;
+}
+
+export function passwordValidationError(password: string, confirmation: string) {
+  if (password.length < 12) return "Use at least 12 characters.";
+  if (password.length > 128) return "Use no more than 128 characters.";
+  if (password !== confirmation) return "The passwords do not match.";
+  return null;
 }

@@ -78,9 +78,9 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     expect(run.result?.totals.operatingShortfallReserve).toBe(10_000);
     expect(run.result?.reconciliations.every(({ status }) => status === "pass")).toBe(true);
     expect(run.result?.formulaTraces).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: "projectCosts", inputPaths: expect.arrayContaining(["apartmentOperations.costSchedule.costLines"]) }),
-      expect.objectContaining({ key: "operatingCashFlow", inputPaths: expect.arrayContaining(["apartmentOperations.months.operatingCashFlow"]) }),
-      expect.objectContaining({ key: "operatingShortfall", inputPaths: expect.arrayContaining(["apartmentOperations.months.operatingCashFlow"]) }),
+      expect.objectContaining({ key: "projectCosts", inputPaths: expect.arrayContaining(["costLines"]) }),
+      expect.objectContaining({ key: "operatingCashFlow", inputPaths: expect.arrayContaining(["residentialUnitTypes", "operatingExpenseLines", "capitalExpenditureLines"]) }),
+      expect.objectContaining({ key: "operatingShortfall", inputPaths: expect.arrayContaining(["residentialUnitTypes", "operatingExpenseLines", "capitalExpenditureLines"]) }),
       expect.objectContaining({ key: "capitalizedInterest", inputPaths: expect.arrayContaining(["annualInterestRatePercent"]) }),
       expect.objectContaining({ key: "totalDebt", inputPaths: expect.arrayContaining(["targetDebtSharePercent"]) }),
       expect.objectContaining({ key: "totalSources", inputPaths: expect.arrayContaining(["fundingOrder"]) }),
@@ -238,4 +238,23 @@ describe("computeDevelopmentCapital", () => {
     expect(run.result!.apartmentOperations.months).toHaveLength(run.result!.capital.months.length);
     expect(run.inputSnapshot).toEqual(input);
   });
+
+  it("resolves every capital formula input path against the immutable flat input snapshot", () => {
+    const input = APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE.fullModelInput as DevelopmentCapitalInputs;
+    const run = computeDevelopmentCapital(input);
+
+    expect(run.status).toBe("complete");
+    for (const trace of run.result!.capital.formulaTraces) {
+      for (const path of trace.inputPaths) {
+        expect(resolvePath(run.inputSnapshot, path), `${trace.key} input path ${path}`).not.toBeUndefined();
+      }
+    }
+  });
 });
+
+function resolvePath(value: unknown, path: string): unknown {
+  return path.split(".").reduce<unknown>((current, part) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[part];
+  }, value);
+}

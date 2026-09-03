@@ -306,7 +306,7 @@ function resultFor(spine: string[], lines: MonthlyCostLine[], schedules: CostLin
   const spineStart = monthIndex(spine[0])!;
   const months = spine.map((month, monthOffset) => {
     const usesByCategory = emptyCategories();
-    const lineAmounts: Record<string, number> = {};
+    const lineAmounts = Object.create(null) as Record<string, number>;
     for (const [index, line] of lines.entries()) {
       const schedule = schedules[index];
       const monthPosition = spineStart + monthOffset - scheduleStarts[index];
@@ -360,7 +360,9 @@ function aggregateFormulaTraces(
     label: `${categoryLabel(category)} Total`,
     value: totalsByCategory[category],
     formulaTrace: "Sum all monthly amounts for cost lines in this category.",
-    inputPaths: lines.flatMap((line, index) => line.category === category ? [`costLines.${index}.amount`] : []),
+    inputPaths: lines.flatMap((line, index) => line.category === category
+      ? [`costLines.${index}.category`, `costLines.${index}.amount`]
+      : []),
   }));
   return [
     ...monthly,

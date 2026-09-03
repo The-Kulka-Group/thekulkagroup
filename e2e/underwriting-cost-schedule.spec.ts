@@ -26,7 +26,7 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   for (let index = 1; index < 4; index += 1) {
     await page.getByRole("button", { name: "Add Cost Line" }).click();
   }
-  await fillLine(page, 1, { name: "Hard Cost", category: "hard_cost", amount: "2000000", start: "2026-02", end: "2026-10", distribution: "s_curve", source: "Synthetic browser fixture" });
+  await fillLine(page, 1, { name: "Hard Cost", category: "hard_cost", amount: "2000000", start: "2026-02", end: "2026-10", distribution: "s_curve", source: "Synthetic browser fixture", sourceDate: "2026-09-02" });
   await fillLine(page, 2, { name: "Soft Cost", category: "soft_cost", amount: "300000", start: "2026-02", end: "2026-10", source: "Synthetic browser fixture" });
   await fillLine(page, 3, { name: "Development Fee", category: "development_fee", amount: "100000", start: "2026-02", end: "2026-10", source: "Synthetic browser fixture" });
 
@@ -44,11 +44,19 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   const scheduleResponseBody = await scheduleResponse.json();
   expect(scheduleResponse.status(), JSON.stringify(scheduleResponseBody)).toBe(200);
   await expect(page.getByText("Land needs a source label.")).toBeVisible();
+
+  await page.locator("#cost-line-1-reviewState").selectOption("done");
+  await saveSchedule(page, savedCase.id);
+  await expect(page.locator("#cost-line-1-reviewState")).toHaveValue("done");
+  await page.locator("#cost-line-1-amount").fill("2100000");
+  await saveSchedule(page, savedCase.id);
+  await expect(page.locator("#cost-line-1-reviewState")).toHaveValue("working");
+
   await page.getByRole("button", { name: "Run calculation" }).click();
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Monthly uses" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Aggregate formula traces" })).toBeVisible();
-  await expect(page.getByText("$3,400,000").first()).toBeVisible();
+  await expect(page.getByText("$3,500,000").first()).toBeVisible();
 
   await page.reload();
   await expect(page.locator("#cost-line-0-name")).toHaveValue("Land");
@@ -85,6 +93,7 @@ async function fillLine(
     end: string;
     distribution?: string;
     source?: string;
+    sourceDate?: string;
   },
 ) {
   await page.locator(`#cost-line-${index}-name`).fill(input.name);
@@ -98,4 +107,18 @@ async function fillLine(
   if (input.source) {
     await page.locator(`#cost-line-${index}-sourceLabel`).fill(input.source);
   }
+  if (input.sourceDate) {
+    const sourceDate = page.locator(`#cost-line-${index}-sourceDate`);
+    await sourceDate.fill(input.sourceDate);
+    await expect(sourceDate).toHaveValue(input.sourceDate);
+  }
+}
+
+async function saveSchedule(page: import("@playwright/test").Page, caseId: string) {
+  const savedResponse = page.waitForResponse((response) =>
+    response.request().method() === "PUT" && response.url().endsWith(`/api/underwriting/cases/${caseId}/schedule`));
+  await page.getByRole("button", { name: "Save Schedule" }).click();
+  const response = await savedResponse;
+  const body = await response.json();
+  expect(response.status(), JSON.stringify(body)).toBe(200);
 }

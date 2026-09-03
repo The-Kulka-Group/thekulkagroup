@@ -94,9 +94,29 @@ describe("computeMonthlyCostSchedule", () => {
     expect(run.result?.costLineSchedules.every(({ formulaTrace }) => formulaTrace.length > 0)).toBe(true);
     expect(run.result?.aggregateFormulaTraces).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: "month:2026-01:total-uses", inputPaths: expect.arrayContaining(["costLines.0.amount"]) }),
-      expect.objectContaining({ key: "category:hard_cost", inputPaths: expect.arrayContaining(["costLines.1.amount"]) }),
       expect.objectContaining({ key: "total-uses", inputPaths: expect.arrayContaining(["costLines.0.amount", "costLines.1.amount"]) }),
     ]));
+    expect(run.result?.aggregateFormulaTraces.find(({ key }) => key === "category:land")?.inputPaths)
+      .toEqual(["costLines.0.category", "costLines.0.amount"]);
+    expect(run.result?.aggregateFormulaTraces.find(({ key }) => key === "category:hard_cost")?.inputPaths)
+      .toEqual(["costLines.1.category", "costLines.1.amount"]);
+    expect(run.result?.aggregateFormulaTraces.find(({ key }) => key === "category:soft_cost")?.inputPaths)
+      .toEqual(["costLines.2.category", "costLines.2.amount"]);
+    expect(run.result?.aggregateFormulaTraces.find(({ key }) => key === "category:financing_fee")?.inputPaths)
+      .toEqual([]);
+  });
+
+  it("keeps cost line IDs that match reserved object keys as own monthly amounts", () => {
+    const run = computeMonthlyCostSchedule({
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-01",
+      costLines: [{ ...complete.costLines[0], id: "__proto__" }],
+    });
+    const lineAmounts = run.result!.months[0].lineAmounts;
+
+    expect(Object.hasOwn(lineAmounts, "__proto__")).toBe(true);
+    expect(lineAmounts.__proto__).toBe(8_230_000);
+    expect(Object.getPrototypeOf(lineAmounts)).toBeNull();
   });
 
   it("allocates rounding remainders without losing a cent", () => {

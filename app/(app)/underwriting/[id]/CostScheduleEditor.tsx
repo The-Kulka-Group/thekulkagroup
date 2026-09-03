@@ -25,15 +25,10 @@ const CATEGORY_OPTIONS = [
 
 export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
+  const [expectedRevision, setExpectedRevision] = useState(savedCase.caseRevision);
   const [analysisStartMonth, setAnalysisStartMonth] = useState(savedCase.costSchedule?.analysisStartMonth ?? "");
   const [saleMonth, setSaleMonth] = useState(savedCase.costSchedule?.saleMonth ?? "");
-  const [lines, setLines] = useState<EditableLine[]>(() =>
-    savedCase.costSchedule?.costLines.map((savedLine) => {
-      const { lastChangedAt, ...line } = savedLine;
-      void lastChangedAt;
-      return line;
-    }) ?? [],
-  );
+  const [lines, setLines] = useState<EditableLine[]>(() => editableLines(savedCase));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -67,7 +62,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          expectedRevision: savedCase.caseRevision,
+          expectedRevision,
           analysisStartMonth,
           saleMonth,
           costLines: lines,
@@ -81,6 +76,14 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
         setFieldErrors(body?.fieldErrors ?? {});
         return;
       }
+      if (!body?.case?.costSchedule) {
+        setError("The saved cost schedule could not be loaded. Refresh the page before making another change.");
+        return;
+      }
+      setExpectedRevision(body.case.caseRevision);
+      setAnalysisStartMonth(body.case.costSchedule.analysisStartMonth);
+      setSaleMonth(body.case.costSchedule.saleMonth);
+      setLines(editableLines(body.case));
       router.refresh();
     } catch {
       setError("The cost schedule request failed. Check the connection and try again.");
@@ -251,10 +254,19 @@ function FieldError({ id, error }: { id: string; error?: string }) {
 async function responseBody(response: Response): Promise<{
   error?: string;
   fieldErrors?: Record<string, string>;
+  case?: UnderwritingCase;
 } | null> {
   try {
     return await response.json();
   } catch {
     return null;
   }
+}
+
+function editableLines(savedCase: UnderwritingCase): EditableLine[] {
+  return savedCase.costSchedule?.costLines.map((savedLine) => {
+    const { lastChangedAt, ...line } = savedLine;
+    void lastChangedAt;
+    return line;
+  }) ?? [];
 }

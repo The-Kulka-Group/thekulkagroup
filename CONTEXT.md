@@ -66,3 +66,37 @@ here, never in a prompt.
 **Skill**:
 A raw definition file for one workflow (its questions, steps, and output shape) that
 any surface can run: Claude, ChatGPT, or the site.
+
+### CRM and Vision
+
+**Source record**:
+An item published by an outside authority, with the evidence and dates needed to
+understand it. It may describe a project, application or policy change.
+
+**Opportunity**:
+A possible piece of work Kulka has chosen to assess or track. Several source
+records can support it without becoming separate opportunities.
+
+**Pursuit**:
+An opportunity Kulka has chosen to pursue commercially. It retains the same
+identity and history as the opportunity.
+
+**Company**:
+An organization connected to Kulka or a project. A client is a company with a
+client relationship; a named applicant is not automatically a client or owner.
+
+**Opportunity party**:
+A company or person with a stated role in an opportunity, such as applicant,
+property owner, developer or architect.
+
+**Responsible staff member**:
+The Kulka person accountable for an opportunity or relationship. This role is
+distinct from the owner of the property.
+
+**Review status**:
+The state of the team's review work. Completing review does not mean Kulka won
+the work.
+
+**Sales stage**:
+The commercial position of an opportunity, from qualification through outcome.
+It is separate from a public authority's application status.

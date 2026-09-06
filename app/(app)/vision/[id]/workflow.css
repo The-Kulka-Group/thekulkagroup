@@ -1,0 +1,32 @@
+.wf {margin-bottom:var(--s6);}
+.wf-banner,.wf-buttons {display:flex;align-items:center;flex-wrap:wrap;gap:var(--s2);}
+.wf-banner {gap:var(--s3);padding:var(--s3) 0;}
+.wf-feedback:empty {display:none;}
+.wf-feedback {padding:var(--s3);background:var(--canvas);border-radius:var(--r-sm);margin-bottom:var(--s3);}
+.wf-columns {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:var(--s6);}
+.wf-columns section {padding:var(--s6) 0;border-bottom:1px solid var(--border-light);}
+.wf-columns h2 {font-size:var(--t3-size);line-height:var(--t3-line);margin:0 0 var(--s3);font-weight:700;}
+.wf-columns h3 {font-size:var(--body-size);margin:var(--s3) 0;}
+.wf-columns aside {padding:0 var(--s4);background:var(--canvas);border-radius:var(--r-lg);min-width:0;}
+.wf label {display:flex;flex-direction:column;gap:var(--s2);font-weight:600;font-size:var(--meta-size);margin-bottom:var(--s3);}
+.wf-fields {display:grid;grid-template-columns:1fr 1fr;gap:0 var(--s3);}
+.wf-wide {grid-column:1/-1;}
+.wf .input {width:100%;min-width:0;}
+.wf textarea.input {height:auto;}
+.wf-details {margin:var(--s3) 0;}
+.wf-details summary,.wf-source-edit summary {cursor:pointer;font-weight:600;padding:var(--s2) 0;color:var(--primary-hover);}
+.wf-details form+form {margin-top:var(--s4);border-top:1px solid var(--border-light);}
+.wf-action {border-left:3px solid var(--primary);background:var(--canvas);padding:var(--s3);margin-bottom:var(--s3);overflow-wrap:anywhere;}
+.wf-inline {display:flex;align-items:end;gap:var(--s3);flex-wrap:wrap;}
+.wf-inline label {margin-bottom:0;}
+.wf-people {list-style:none;padding:0;margin:0;}
+.wf-people li {display:flex;justify-content:space-between;gap:var(--s3);align-items:start;padding:var(--s3) 0;border-bottom:1px solid var(--border-light);overflow-wrap:anywhere;}
+.wf dt {color:var(--ink-2);font-size:var(--meta-size);margin-top:var(--s3);}
+.wf dd {margin:var(--s1) 0;overflow-wrap:anywhere;}
+.wf-notes {white-space:pre-wrap;}
+.wf-activity {padding-left:var(--s4);}
+.wf-activity li {padding:var(--s2) 0;overflow-wrap:anywhere;}
+.wf-activity p {margin:0 0 var(--s1);}
+.wf-source-edit {border-top:1px solid var(--border);padding:var(--s4) 0;}
+@media(max-width:860px){.wf-columns {grid-template-columns:minmax(0,1fr);gap:var(--s3);}.wf-columns aside {padding:0 var(--s3);}}
+@media(max-width:500px){.wf-fields {grid-template-columns:minmax(0,1fr);}.wf-people li {flex-wrap:wrap;}}

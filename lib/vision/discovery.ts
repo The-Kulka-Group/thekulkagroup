@@ -8,7 +8,7 @@ import { parseDiscoveryFilters, type DiscoveryFilters } from "./discovery-filter
 export type DiscoveryCandidate = { id:string; source_id:string; snapshot:DiscoveredRecord; revision:number; review_state:"new"|"dismissed"|"accepted"; opportunity_id:string|null; first_seen_at:string; last_seen_at:string; changed_at:string };
 export type DiscoveryState = { last_checked_at:string|null; last_success_at:string|null; last_error:string|null; record_count:number; coverage:{year:number;documents:string[]}|null; running:boolean };
 export class DiscoveryConflict extends Error {}
-export const DISCOVERY_SOURCE_IDS = ["nassau-applications", "suffolk-planning"] as const;
+export const DISCOVERY_SOURCE_IDS = ["nassau-applications", "suffolk-planning", "nassau-ida", "suffolk-ida"] as const;
 export function discoverySourceId(value: unknown = DISCOVERY_SOURCE.id): string {
   if (typeof value !== "string" || !(DISCOVERY_SOURCE_IDS as readonly string[]).includes(value)) throw new InvalidVisionInput("Choose a supported source.");
   return value;
@@ -45,7 +45,7 @@ function validateRecords(records:DiscoveredRecord[]) {
     if (record.evidence !== undefined) {
       if (!Array.isArray(record.evidence) || record.evidence.length > 240) throw new Error("The source returned too many evidence pages.");
       for (const page of record.evidence) {
-        if (!page || typeof page.title !== "string" || page.title.length>500 || typeof page.text !== "string" || page.text.length>40000 || !Number.isSafeInteger(page.page) || page.page<1 || typeof page.checksum!=="string" || !/^[a-f0-9]{64}$/.test(page.checksum)) throw new Error("The source returned invalid evidence.");
+        if (!page || (page.kind !== undefined && page.kind !== "index-link") || typeof page.title !== "string" || page.title.length>500 || typeof page.text !== "string" || page.text.length>40000 || !Number.isSafeInteger(page.page) || page.page<1 || typeof page.checksum!=="string" || !/^[a-f0-9]{64}$/.test(page.checksum)) throw new Error("The source returned invalid evidence.");
         try { safeSourceUrl(page.url); } catch { throw new Error("The source returned an invalid evidence link."); }
       }
     }
@@ -60,7 +60,10 @@ export async function collectDiscovery(db:Db, sourceId=DISCOVERY_SOURCE.id) {
     where (vision_discovery_sources.lease_until is null or vision_discovery_sources.lease_until <= clock_timestamp()) and (vision_discovery_sources.last_checked_at is null or vision_discovery_sources.last_checked_at <= clock_timestamp()-interval '5 minutes') returning id`,[sourceId,token]);
   if (!lease.rows.length) throw new DiscoveryConflict("A check is running or ran within the last five minutes. Wait five minutes between source checks.");
   try {
-    const records=sourceId === "suffolk-planning" ? await (await import("./suffolk-source")).fetchSuffolkRecords() : await fetchDiscoveryRecords(); validateRecords(records);
+    const records=sourceId === "suffolk-planning" ? await (await import("./suffolk-source")).fetchSuffolkRecords()
+      : sourceId === "nassau-ida" ? await (await import("./ida-source")).fetchNassauIdaRecords()
+      : sourceId === "suffolk-ida" ? await (await import("./ida-source")).fetchSuffolkIdaRecords()
+      : await fetchDiscoveryRecords(); validateRecords(records);
     const coverage=sourceId === "suffolk-planning" ? {year:Number(records[0].details["Collection year"] || new Intl.DateTimeFormat("en",{timeZone:"America/New_York",year:"numeric"}).format(new Date())),documents:[...new Set(records.flatMap(record=>record.evidence?.map(page=>page.url.split("#")[0]) ?? []))].sort()} : null;
     const result=await db.query(`with owned as (
       update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null

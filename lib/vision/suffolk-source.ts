@@ -1,3 +1,4 @@
+import { readPublicSource } from "./source-fetch";
 import { createHash } from "node:crypto";
 import type { DiscoveredRecord } from "./discovery-source";
 
@@ -183,32 +184,8 @@ export function mergeSuffolkRecords(records: DiscoveredRecord[]): DiscoveredReco
   }
   return [...grouped.values()].sort((a, b) => a.externalId.localeCompare(b.externalId));
 }
-async function readAttempt(url: string, max: number, deadline: AbortSignal): Promise<Uint8Array> {
-  const response = await fetch(url, { signal: AbortSignal.any([deadline, AbortSignal.timeout(30_000)]), redirect: "error", cache: "no-store", headers: { "User-Agent": "Mozilla/5.0 (compatible; KulkaVision public-record collector)", Accept: url === SUFFOLK_SOURCE.url ? "text/html" : "application/pdf" } });
-  if (!response.ok) throw new Error(`The Suffolk source returned HTTP ${response.status}. Earlier finds have been kept.`);
-  if (!response.body) throw new Error("The Suffolk source returned an empty body.");
-  const chunks: Uint8Array[] = [];
-  const reader = response.body.getReader();
-  let size = 0;
-  try {
-    for (;;) {
-      const part = await reader.read();
-      if (part.done) break;
-      size += part.value.byteLength;
-      if (size > max) throw new Error("The Suffolk source exceeded the response size limit.");
-      chunks.push(part.value);
-    }
-  } finally { await reader.cancel(); reader.releaseLock(); }
-  return new Uint8Array(Buffer.concat(chunks));
-}
-async function read(url: string, max: number, deadline: AbortSignal): Promise<Uint8Array> {
-  try { return await readAttempt(url, max, deadline); }
-  catch (error) {
-    deadline.throwIfAborted();
-    const retryable = error instanceof Error && (error.name === "TimeoutError" || error.message === "fetch failed" || /HTTP 5\d\d/.test(error.message));
-    if (!retryable) throw error;
-    return readAttempt(url, max, deadline);
-  }
+function read(url: string, max: number, deadline: AbortSignal) {
+  return readPublicSource(url, max, deadline, { accept: url === SUFFOLK_SOURCE.url ? "text/html" : "application/pdf" });
 }
 export async function fetchSuffolkRecords(): Promise<DiscoveredRecord[]> {
   const controller = new AbortController();

@@ -1,4 +1,7 @@
+import { NASSAU_IDA_SOURCE, SUFFOLK_IDA_SOURCE } from "./discovery-catalog";
 export const VISION_SOURCES = [
+  { ...NASSAU_IDA_SOURCE, place: "Nassau County", county: "Nassau", kind: "IDA projects and documents", description: NASSAU_IDA_SOURCE.coverage, checkedAt: "2026-09-06" },
+  { ...SUFFOLK_IDA_SOURCE, place: "Suffolk County", county: "Suffolk", kind: "IDA project filings", description: SUFFOLK_IDA_SOURCE.coverage, checkedAt: "2026-09-06" },
   {id:"suffolk-planning",name:"Suffolk Planning Commission",place:"Suffolk County",county:"Suffolk",kind:"Planning documents",url:"https://www.suffolkcountyny.gov/Departments/Economic-Development-and-Planning/Planning-and-Environment/Regulatory-Review/Suffolk-County-Planning-Commission",description:"Review county agendas, staff reports, meeting summaries and resolutions. Use Discover opportunities to collect the current year’s linked text documents.",checkedAt:"2026-09-05"},
   {
     id: "nassau-hearings",

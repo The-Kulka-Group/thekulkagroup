@@ -1,7 +1,7 @@
 # Long Island source expansion
 
-Research for LA-226, checked September 5, 2026, Eastern time. This is a source
-integration plan. The new sources below are not connected collectors yet.
+Research for LA-226, checked September 5, 2026, Eastern time. The Suffolk collector is now implemented in draft PR #11 and verified in the local
+preview. The other sources below remain planned integrations.
 Long Island means Nassau and Suffolk for this release; the plan does not claim
 complete coverage of every town, village, filing or permit.
 
@@ -97,5 +97,6 @@ Public procurement, IDA project records and permit datasets are later source
 families with different meanings and date fields. Keep them distinct from
 planning applications rather than forcing them into one undifferentiated feed.
 
-No source researched in this job was added to a collection schedule, and no
-additional records were imported into the preview or production database.
+Suffolk now has a manual collector in draft PR #11. A local preview check imported
+50 records from 48 PDFs. No additional source runs on a schedule, and no production
+records were imported. See the [verification notes](../vision/verification.md).

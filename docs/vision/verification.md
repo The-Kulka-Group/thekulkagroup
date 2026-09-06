@@ -180,3 +180,44 @@ The browser checks used marked temporary QA activity in the disposable local
 database. The preview database was reset afterward. No QA contact, action or
 outcome is included in a migration. Production schema, data and settings were not
 changed. The prototype remains on its separate branch.
+
+## Suffolk collection and filing links, LA-236 and LA-237
+
+The real HTTP collector checked the 48 linked 2026 documents and produced 50
+review records. Twenty records have resolved case identities; nine records carry
+policy context. These counts describe source records, not qualified opportunities.
+The collector preserves all 48 canonical PDF URLs, page numbers, checksums and
+embedded text. The source's current linked documents end in August; this is not
+complete Suffolk permit or development coverage.
+
+The local preview's Check source action also returned 50 records and displayed
+48 documents in completed coverage. The browser saved the Motor Parkway agenda
+entry, then attached its staff report to that same opportunity. Both source
+records and their page evidence remained available after reload. The record
+remained undecided, without contacts, assigned actions or a claimed commercial
+outcome. No coordinates were added.
+
+The opportunity and source-review pages were checked at 375px width. The document
+scroll width remained 375px. Source evidence is collapsible, and opening another
+record closes the previous record's expanded evidence. Linked sources stay
+collapsed above the decision workflow so they do not push work controls down.
+
+All 85 Vision tests across six files pass. They cover source selection, independent
+leases, failure preservation, known and unknown identity, policy detection, wrapped
+locations, original field labels, evidence history, new and existing opportunity
+acceptance, concurrent retries, competing targets and retained notes/workflow.
+TypeScript, ESLint and the production build pass. The Standards review's URL,
+document-count and duplicate-metadata findings were fixed. The Spec review's
+collection-year mismatch was fixed and has a regression test.
+
+The local runtime uses NODE_OPTIONS=--dns-result-order=ipv4first because Node's
+initial address selection timed out against the county site on this machine.
+This changes the local preview process only. PDF extraction uses pdfjs-dist as
+an external server package; it requires Node 22.13 or newer. The collector limits
+a batch to 80 documents and 80 MB, a document to 8 MB and 120 pages, and each page
+to 40,000 text characters. Requests have a 30-second timeout and one transient
+retry within a 180-second batch deadline. Failed runs retain preceding data.
+
+The new source-links migration ran only in disposable test and browser databases.
+No production migration or deployment ran. No Suffolk schedule was enabled. The
+preview remains an in-memory database that resets when its server restarts.

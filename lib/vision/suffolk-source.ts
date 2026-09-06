@@ -1,12 +1,8 @@
 import { createHash } from "node:crypto";
 import type { DiscoveredRecord } from "./discovery-source";
 
-export const SUFFOLK_SOURCE = {
-  id: "suffolk-planning",
-  name: "Suffolk planning documents",
-  url: "https://www.suffolkcountyny.gov/Departments/Economic-Development-and-Planning/Planning-and-Environment/Regulatory-Review/Suffolk-County-Planning-Commission",
-  coverage: "Checks the current year's linked staff reports, agendas, summaries and resolutions, up to 80 documents. Text with a clear municipality and file number becomes a case; other documents need identity review. Evidence retains page references. Locations without verified coordinates stay off the map. This is county referral coverage, not every local project or permit.",
-};
+import { SUFFOLK_SOURCE } from "./discovery-catalog";
+export { SUFFOLK_SOURCE } from "./discovery-catalog";
 type Kind = "Staff report" | "Agenda" | "Meeting summary" | "Resolution";
 export type SuffolkDocument = { url: string; title: string; kind: Kind; meetingDate: string };
 type Evidence = NonNullable<DiscoveredRecord["evidence"]>[number];
@@ -131,13 +127,24 @@ export function parseSuffolkDocument(doc: SuffolkDocument, pages: string[], chec
     const townText = field(first, "Municipality");
     const town = new RegExp(`^${MUNICIPALITY}$`, "i").test(townText) ? townText : "";
     const name = field(first, "Petitioner") || field(first, "Applicant") || doc.title;
-    const address = field(first, "Location");
+    const locationLines = first.split("\n");
+    const locationIndex = locationLines.findIndex(line => /^Location:/i.test(line));
+    const addressParts: string[] = [];
+    if (locationIndex >= 0) {
+      addressParts.push(locationLines[locationIndex].replace(/^Location:\s*/i,""));
+      for (const line of locationLines.slice(locationIndex+1)) {
+        if (/^[A-Za-z][A-Za-z .]*:/.test(line) || addressParts.length>=4) break;
+        addressParts.push(line);
+      }
+    }
+    const address = clean(addressParts.join(" "));
     const kind = field(first, "Type of Action") || field(first, "Jurisdiction");
     const identifiers = [...`${decodeURIComponent(doc.url)} ${doc.title}`.matchAll(new RegExp(CASE, "g"))].map(m => m[0]);
     const conflict = file && identifiers.some(id => id !== file);
     const policy = /moratorium|comp(?:rehensive)?\.? plan|land use plan|zoning (?:text|code) amendment|town.wide|village.wide/i.test(`${doc.title} ${address} ${kind}`);
     const row = record(doc, ev, file, town, name, address, isoDate(field(first, "Received")), policy, conflict ? "The index or filename and the report disagree about the file number." : "");
-    if (kind) row.details["Action reported by source"] = kind;
+    if (field(first,"Type of Action")) row.details["Type of Action"] = field(first,"Type of Action");
+    if (field(first,"Jurisdiction")) row.details["Jurisdiction"] = field(first,"Jurisdiction");
     return [row];
   }
   if (doc.kind === "Agenda") {

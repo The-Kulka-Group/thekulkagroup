@@ -29,6 +29,13 @@ describe("Suffolk public document intake", () => {
     expect(row.evidence?.[0]).toMatchObject({ checksum: "abc", page: 1, url: staff.url });
     expect(row.details["Meeting date"]).toBe("2026-06-03");
   });
+  it("keeps wrapped locations and uses the source's own jurisdiction label", () => {
+    const text="File Number: HU-26-05\nMunicipality: Town of Huntington\nLocation: Southwest corner of Veterans Memorial Highway and\nMotor Parkway\nReceived: 05/12/2026\nJurisdiction: Adjacent to a county road";
+    const [row]=parseSuffolkDocument(staff,[text],"abc");
+    expect(row.address).toBe("Southwest corner of Veterans Memorial Highway and Motor Parkway");
+    expect(row.details.Jurisdiction).toBe("Adjacent to a county road");
+    expect(row.details["Type of Action"]).toBeUndefined();
+  });
   it("does not resolve a title and body file-number conflict", () => {
     const doc = docs.find(d => d.title.includes("BR-26-28"))!;
     const [row] = parseSuffolkDocument(doc, conflict, "abc");

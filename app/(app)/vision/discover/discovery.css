@@ -36,3 +36,5 @@
 .discovery-page-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
 .discovery-checksum { overflow-wrap: anywhere; }
 .discovery-evidence article { border-top: 1px solid var(--border-light); padding-block: var(--s4); }
+
+.vision-linked-sources > summary { cursor: pointer; font-weight: 600; }

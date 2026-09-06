@@ -45,7 +45,7 @@ function validateRecords(records:DiscoveredRecord[]) {
     if (record.evidence !== undefined) {
       if (!Array.isArray(record.evidence) || record.evidence.length > 240) throw new Error("The source returned too many evidence pages.");
       for (const page of record.evidence) {
-        if (!page || typeof page.title !== "string" || page.title.length>500 || typeof page.text !== "string" || page.text.length>10000 || !Number.isSafeInteger(page.page) || page.page<1 || typeof page.checksum!=="string" || !/^[a-f0-9]{64}$/.test(page.checksum)) throw new Error("The source returned invalid evidence.");
+        if (!page || typeof page.title !== "string" || page.title.length>500 || typeof page.text !== "string" || page.text.length>40000 || !Number.isSafeInteger(page.page) || page.page<1 || typeof page.checksum!=="string" || !/^[a-f0-9]{64}$/.test(page.checksum)) throw new Error("The source returned invalid evidence.");
         try { safeSourceUrl(page.url); } catch { throw new Error("The source returned an invalid evidence link."); }
       }
     }
@@ -61,7 +61,7 @@ export async function collectDiscovery(db:Db, sourceId=DISCOVERY_SOURCE.id) {
   if (!lease.rows.length) throw new DiscoveryConflict("A check is running or ran within the last five minutes. Wait five minutes between source checks.");
   try {
     const records=sourceId === "suffolk-planning" ? await (await import("./suffolk-source")).fetchSuffolkRecords() : await fetchDiscoveryRecords(); validateRecords(records);
-    const coverage=sourceId === "suffolk-planning" ? {year:new Date().getUTCFullYear(),documents:[...new Set(records.flatMap(record=>record.evidence?.map(page=>page.url) ?? []))].sort()} : null;
+    const coverage=sourceId === "suffolk-planning" ? {year:Number(records[0].details["Collection year"] || new Intl.DateTimeFormat("en",{timeZone:"America/New_York",year:"numeric"}).format(new Date())),documents:[...new Set(records.flatMap(record=>record.evidence?.map(page=>page.url.split("#")[0]) ?? []))].sort()} : null;
     const result=await db.query(`with owned as (
       update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null
       where id=$1 and lease_token=$2 and lease_until>clock_timestamp() returning id
@@ -88,7 +88,7 @@ export function parseDiscoveryReview(body:unknown) {
   const b=body as Record<string,unknown>;
   if (typeof b.action!=="string" || !["accept","dismiss"].includes(b.action) || !Number.isSafeInteger(b.expectedRevision) || Number(b.expectedRevision)<1) throw new InvalidVisionInput("Send a review action and the current revision.");
   if (b.action==="accept" && (typeof b.notes!=="string" || b.notes.trim().length>8000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(b.notes))) throw new InvalidVisionInput("Send your review notes with at most 8000 characters.");
-  if (b.opportunityId !== undefined && (b.action!=="accept" || !isUuid(b.opportunityId))) throw new InvalidVisionInput("Choose a valid existing opportunity.");
+  if (b.opportunityId !== undefined && (b.action!=="accept" || typeof b.opportunityId!=="string" || !isUuid(b.opportunityId))) throw new InvalidVisionInput("Choose a valid existing opportunity.");
   if (b.action==="accept" && !b.opportunityId && (typeof b.town!=="string" || !b.town.trim() || b.town.trim().length>120)) throw new InvalidVisionInput("Enter the town before saving this opportunity.");
   return {opportunityId:typeof b.opportunityId==="string" ? b.opportunityId : null,town:typeof b.town==="string"?b.town.trim():"",action:b.action as "accept"|"dismiss",expectedRevision:Number(b.expectedRevision),notes:typeof b.notes==="string"?b.notes.trim():""};
 }

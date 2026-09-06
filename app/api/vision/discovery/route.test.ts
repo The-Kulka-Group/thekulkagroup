@@ -53,11 +53,11 @@ describe("Vision discovery API",()=>{
  });
  it("retains evidence versions while keeping evidence text out of inbox rows",async()=>{
   const evidence={url:"https://www.suffolkcountyny.gov/Portals/0/test.pdf",title:"Public report",page:1,checksum:"a".repeat(64),text:"File Number HU-26-05"};
-  fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk",evidence:[evidence]}]);
+  fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk",details:{"Collection year":"2025"},evidence:[evidence]}]);
   const run=()=>refresh.POST(new Request("http://localhost?source=suffolk-planning",{method:"POST"}));
   await run();
   const response=await (await inbox.GET(new Request("http://localhost?source=suffolk-planning"))).json();
-  const item=response.candidates[0];expect(item.snapshot.evidence).toBeUndefined();expect(response.source.coverage.documents).toEqual([evidence.url]);
+  const item=response.candidates[0];expect(item.snapshot.evidence).toBeUndefined();expect(response.source.coverage.documents).toEqual([evidence.url]);expect(response.source.coverage.year).toBe(2025);
   const record=()=>detail.GET(req(),ctx(item.id)).then(response=>response.json());
   expect((await record()).candidate.snapshot.evidence).toEqual([evidence]);
   await age();await run();expect((await record()).history).toHaveLength(1);

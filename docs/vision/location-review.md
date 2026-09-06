@@ -36,3 +36,30 @@ The report's file-number conflict remains unresolved; matching a parcel does
 not resolve that separate source-identity issue.
 
 No production data or access settings are part of this build.
+
+## Verification on September 6, 2026
+
+All 93 Vision tests passed. Typecheck, lint and the final production build
+passed. The standards review found stale pristine source forms and off-scale
+styles; both were fixed and passed a second review. The spec review found no
+remaining gap.
+
+The local browser check used a separate in-memory database on port 3194.
+It collected 300 Nassau records and 50 Suffolk records, then linked the two
+Motor Parkway filings to one saved opportunity. It confirmed the county parcel
+point above and verified that the saved pin appeared on the main map and
+remained visible on the detail page after reload.
+
+A Census lookup for a known public address returned a suggestion without
+writing it to the opportunity. The intersection lookup returned no matches
+and preserved the saved pin. Clearing the pin left the opportunity in the
+list and exposed its resolve-location link. Confirmation restored the pin.
+
+A pristine source form accepted a notes save after a location change. A dirty
+notes form kept its draft across a location save and received HTTP 409 on a
+stale submission. The saved notes, review status and source link remained
+unchanged. The test draft was discarded without saving it.
+
+The saved-location layout fit a 375px viewport without horizontal overflow.
+The viewport override was reset after the check. These checks prove the local
+build; production remains on the earlier release.

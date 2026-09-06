@@ -7,6 +7,8 @@ import { InvalidVisionInput } from "./input";
 import type { Workflow, WorkflowAction, WorkflowPerson, WorkflowDecision } from "./workflow-types";
 export class WorkflowConflict extends Error { constructor() { super("This workflow changed. Reload it before saving again."); } }
 const closed = (decision: WorkflowDecision) => ["passed", "won", "lost"].includes(decision);
+const active = (decision: WorkflowDecision) => ["watching", "pursuing"].includes(decision);
+const actionDescription = (action: WorkflowAction) => `${action.title}. Assigned to ${action.assigneeEmail}${action.dueDate ? `, due ${action.dueDate}` : ""}.`;
 const initial = (id: string): Workflow => ({ opportunityId: id, revision: 0, classification: "opportunity", decision: "undecided", reviewDate: null, nextAction: null, people: [], activity: [] });
 export function workflowStaff(actorEmail: string): string[] {
   // The actor has already passed authorization. This also supports the isolated browser-test identity.
@@ -30,7 +32,7 @@ function object(value: unknown): Record<string, unknown> {
 }
 function text(value: unknown, label: string, max: number, required = true): string {
  if (value === undefined && !required) return "";
- if (typeof value !== "string" || value.length > max || (required && !value.trim())) throw new InvalidVisionInput(`Enter a valid ${label}.`);
+ if (typeof value !== "string" || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value) || value.length > max || (required && !value.trim())) throw new InvalidVisionInput(`Enter a valid ${label}.`);
  return value.trim();
 }
 function classification(value: unknown): Workflow["classification"] {
@@ -61,12 +63,13 @@ export async function updateWorkflow(db: Db, id: string, input: unknown, actor: 
  let newPerson: WorkflowPerson | null = null;
  switch (body.type) {
   case "reviewDate":
+   if (next.decision !== "watching") throw new InvalidVisionInput("Choose Watching before scheduling a review date.");
    next.reviewDate = date(body.reviewDate);
    description = next.reviewDate ? `Review scheduled for ${next.reviewDate}.` : "Review date cleared.";
    break;
   case "cancelAction":
    if (!next.nextAction) throw new InvalidVisionInput("There is no open next action to cancel.");
-   description = `Cancelled action: ${next.nextAction.title}.`;
+   description = `Cancelled action: ${actionDescription(next.nextAction)}`;
    next.nextAction = null;
    break;
   case "unlinkPerson": {
@@ -85,11 +88,13 @@ export async function updateWorkflow(db: Db, id: string, input: unknown, actor: 
    next.decision = body.decision as WorkflowDecision;
    if (body.classification !== undefined) next.classification = classification(body.classification);
    if (closed(next.decision)) { next.nextAction = null; next.reviewDate = null; }
+   if (next.decision !== "watching") next.reviewDate = null;
    description = `Decision changed to ${next.decision}.`;
+   if (closed(next.decision) && current.nextAction) description += ` Cancelled action: ${actionDescription(current.nextAction)}`;
    break;
   }
   case "action":
-   if (closed(next.decision)) throw new InvalidVisionInput("Reopen the opportunity before assigning work.");
+   if (!active(next.decision)) throw new InvalidVisionInput("Choose Watching or Pursuing before assigning work.");
    next.nextAction = action(body.action, workflowStaff(actor.email));
    description = `Next action: ${next.nextAction.title}. Assigned to ${next.nextAction.assigneeEmail}${next.nextAction.dueDate ? `, due ${next.nextAction.dueDate}` : ""}.`;
    break;
@@ -111,13 +116,13 @@ export async function updateWorkflow(db: Db, id: string, input: unknown, actor: 
    break;
   }
   case "result": {
-   if (closed(next.decision)) throw new InvalidVisionInput("Reopen the opportunity before recording another result.");
+   if (!active(next.decision)) throw new InvalidVisionInput("Choose Watching or Pursuing before recording a result.");
    const result = text(body.result, "result", 10000);
    if (body.outcome !== undefined && body.outcome !== "won" && body.outcome !== "lost") throw new InvalidVisionInput("Choose a valid outcome.");
    if (body.outcome && body.nextAction != null) throw new InvalidVisionInput("Closed work cannot have a next action.");
    let awardEvidence = "";
    if (body.outcome === "won") awardEvidence = text(body.awardEvidence, "award evidence", 4000);
-   description = `${current.nextAction ? `Completed: ${current.nextAction.title}. ` : ""}${result}${body.outcome ? ` Outcome: ${body.outcome}.` : ""}${awardEvidence ? ` Award evidence: ${awardEvidence}` : ""}`;
+   description = `${current.nextAction ? `Completed: ${actionDescription(current.nextAction)} ` : ""}${result}${body.outcome ? ` Outcome: ${body.outcome}.` : ""}${awardEvidence ? ` Award evidence: ${awardEvidence}` : ""}`;
    next.nextAction = body.nextAction == null ? null : action(body.nextAction, workflowStaff(actor.email));
    if (body.outcome) { next.decision = body.outcome; next.reviewDate = null; }
    if (next.nextAction) description += ` Next action: ${next.nextAction.title}. Assigned to ${next.nextAction.assigneeEmail}${next.nextAction.dueDate ? `, due ${next.nextAction.dueDate}` : ""}.`;

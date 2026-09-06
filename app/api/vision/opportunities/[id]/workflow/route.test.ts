@@ -89,6 +89,7 @@ describe("private opportunity workflow",()=>{
   let workflow=await change({type:"person",personId,role:"Advisor"});
   expect(workflow.people[0].role).toBe("Advisor");
   expect((await post({type:"person",personId,expectedRevision:1})).status).toBe(400);
+  await change({type:"decision",decision:"watching"});
   await change({type:"action",action:nextAction});
   workflow=await change({type:"cancelAction"});
   expect(workflow.nextAction).toBeNull();
@@ -109,11 +110,13 @@ describe("private opportunity workflow",()=>{
   {type:"decision",decision:"invented"},
   {type:"classification",classification:"other"},
  ])("rejects invalid changes without touching the workflow: %j",async body=>{
-  expect((await post({...body,expectedRevision:0})).status).toBe(400);
-  expect((await read()).workflow.revision).toBe(0);
+  await change({type:"decision",decision:"watching"});
+  expect((await post({...body,expectedRevision:1})).status).toBe(400);
+  expect((await read()).workflow.revision).toBe(1);
  });
  it("requires a revision and accepts action due dates without turning them into timestamps",async()=>{
   expect((await post({type:"action",action:nextAction})).status).toBe(400);
+  await change({type:"decision",decision:"watching"});
   expect((await change({type:"action",action:{...nextAction,dueDate:null}})).nextAction?.dueDate).toBeNull();
   expect((await change({type:"action",action:nextAction})).nextAction?.dueDate).toBe("2026-09-09");
  });
@@ -130,6 +133,30 @@ describe("private opportunity workflow",()=>{
    expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);
    expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);
   }
+ });
+ it("requires an active decision before assigning work or recording results",async()=>{
+  for(const body of [{type:"action",action:nextAction},{type:"result",result:"Called"},{type:"result",result:"Awarded",outcome:"won",awardEvidence:"Executed agreement"},{type:"reviewDate",reviewDate:"2026-10-01"}]){
+   expect((await post({...body,expectedRevision:0})).status).toBe(400);
+  }
+  expect((await read()).workflow.revision).toBe(0);
+  await change({type:"decision",decision:"watching"});
+  await change({type:"reviewDate",reviewDate:"2026-10-01"});
+  let workflow=await change({type:"decision",decision:"pursuing"});
+  expect(workflow.reviewDate).toBeNull();
+  expect((await post({type:"reviewDate",reviewDate:"2026-10-02",expectedRevision:3})).status).toBe(400);
+  await change({type:"action",action:nextAction});
+  workflow=await change({type:"decision",decision:"passed"});
+  expect(workflow.activity.at(-1)?.description).toContain("Cancelled action: Call planning staff. Assigned to browser-test@kulka.invalid, due 2026-09-09.");
+  expect((await post({type:"reviewDate",reviewDate:"2026-10-02",expectedRevision:5})).status).toBe(400);
+ });
+ it("rejects unsupported control characters before PostgreSQL and keeps the existing workflow",async()=>{
+  await change({type:"decision",decision:"watching"});
+  for(const body of [{type:"person",person:{name:"Bad\u0000name"}},{type:"action",action:{...nextAction,title:"Bad\u0001action"}},{type:"result",result:"Bad\u007fresult"},{type:"person",person:{name:"Person",role:"Bad\u000brole"}}]){
+   expect((await post({...body,expectedRevision:1})).status).toBe(400);
+  }
+  expect((await read()).workflow.revision).toBe(1);
+  expect((await read()).people).toEqual([]);
+  expect((await change({type:"result",result:"First line.\nSecond line."})).activity.at(-1)?.description).toContain("First line.\nSecond line.");
  });
  it("handles malformed JSON and missing opportunities",async()=>{
   expect((await POST(new Request("http://localhost",{method:"POST",body:"{"}),context())).status).toBe(400);

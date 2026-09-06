@@ -116,3 +116,19 @@ one record. Minor subdivisions with unknown dates returned 100 records. Clearing
 the filters restored the 300-record inbox. The viewport override was reset.
 
 The filter addition changes no schema or production settings.
+
+## Map visibility and color
+
+LA-221 fixes the empty map by adding the unreviewed discovery inbox as a distinct
+blue layer. Tracked opportunities retain their Daylight review colors. The map
+uses colored base tiles with more contrast, a taller canvas, a legend and layer
+controls. Screen-based grouping preserves separate applications at one location;
+popups list every member and provide a zoom action. A record link opens its
+source review and scrolls it into view. Accepted and dismissed discoveries stay
+out of this layer through the existing inbox query.
+
+Sixteen tests pass across map grouping and discovery API behavior. TypeScript
+and lint pass. Desktop and 375px browser checks confirmed 300 discovered records,
+visible colored markers, layer hiding, keyboard cluster activation, record
+navigation, mobile popup bounds and zoom regrouping. The temporary viewport was
+reset. No source record was accepted as part of this visual check.

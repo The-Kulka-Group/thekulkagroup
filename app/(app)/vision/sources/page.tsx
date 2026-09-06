@@ -7,11 +7,11 @@ export default function VisionSources() {
   return (
     <Sheet number="V-001" title="Find opportunities"
       meta={<span>Long Island · Public planning and development records</span>}
-      actions={<Link className="btn btn--quiet" href="/vision">Back to Vision</Link>}>
+      actions={<><Link className="btn btn--primary" href="/vision/discover">Discovery inbox</Link><Link className="btn btn--quiet" href="/vision">Back to Vision</Link></>}>
       <div className="vision-source-intro">
         <h2>Start with the public record.</h2>
         <p>Open a source, find a construction or development application, and save the
-          opportunity with the document link and date. These sources require manual review.</p>
+          opportunity with the document link and date. The discovery inbox collects Nassau application records. Other sources require manual capture.</p>
       </div>
       <div className="vision-source-grid">
         {VISION_SOURCES.map((source) => {

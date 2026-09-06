@@ -26,7 +26,7 @@ describe("Suffolk public document intake", () => {
     expect(row.address).toContain("Jericho Turnpike");
     expect(row.evidence?.[1].text).toContain("54");
     expect(row.evidence?.[1].text).toContain("46");
-    expect(row.evidence?.[0]).toMatchObject({ checksum: "abc", page: 1, url: `${staff.url}#page=1` });
+    expect(row.evidence?.[0]).toMatchObject({ checksum: "abc", page: 1, url: staff.url });
     expect(row.details["Meeting date"]).toBe("2026-06-03");
   });
   it("does not resolve a title and body file-number conflict", () => {
@@ -40,7 +40,7 @@ describe("Suffolk public document intake", () => {
   it("extracts four agenda cases and keeps Islandia separate from Islip", () => {
     const doc = docs.find(d => d.kind === "Agenda" && d.meetingDate === "2026-06-03")!;
     const rows = parseSuffolkDocument(doc, agenda, "abc");
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows[3]).toMatchObject({ town: "Village of Islandia", sourceCaseId: "Is-26-02" });
     expect(rows[2].evidence?.[0].page).toBe(2);
   });
@@ -51,10 +51,16 @@ describe("Suffolk public document intake", () => {
     const rows = parseSuffolkDocument(doc, agenda, "agenda");
     const merged = mergeSuffolkRecords([...rows, ...report, ...report, ...revised]);
     const row = merged.find(r => r.sourceCaseId === "HU-26-05")!;
-    expect(merged).toHaveLength(4);
+    expect(merged).toHaveLength(5);
     expect(row.sourceDateLabel).toBe("Received date");
     expect(row.evidence).toHaveLength(5);
     expect(mergeSuffolkRecords([...revised, ...report, ...rows])).toEqual(merged);
+  });
+  it("marks area planning and abbreviated comp plans as policy", () => {
+    for (const title of ["Village Comp Plan", "Zoning text amendment", "Land Use Plan"]) {
+      const [row] = parseSuffolkDocument({ ...staff, title }, elwood, "abc");
+      expect(row.classification).toBe("policy");
+    }
   });
   it("keeps missing IDs and document-level minutes unresolved", () => {
     const [missing] = parseSuffolkDocument(staff, [elwood[0].replace("File Number: HU-26-05", "File Number:")], "abc");

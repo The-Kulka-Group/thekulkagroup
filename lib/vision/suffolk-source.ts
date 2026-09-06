@@ -14,7 +14,7 @@ const MAX_DOCUMENTS = 80;
 const MAX_BYTES = 8_000_000;
 const MAX_TOTAL_BYTES = 80_000_000;
 const MAX_PAGES = 120;
-const MAX_PAGE_TEXT = 10_000;
+const MAX_PAGE_TEXT = 40_000;
 const CASE = "[A-Za-z]{2}-\\d{2}-\\d{2,3}";
 const MUNICIPALITY = "(?:Town|(?:Inc\\.?\\s+)?Village) of [A-Za-z][A-Za-z ]*";
 const hash = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
@@ -107,7 +107,7 @@ function field(text: string, label: string): string {
   return clean(new RegExp(`^${label}:\\s*(.*)$`, "mi").exec(text)?.[1] ?? "");
 }
 function evidence(doc: SuffolkDocument, pages: string[], checksum: string): Evidence[] {
-  return pages.map((text, i) => ({ url: `${doc.url}#page=${i + 1}`, title: `${doc.kind}: ${doc.title}`, checksum, page: i + 1, text }));
+  return pages.map((text, i) => ({ url: doc.url, title: `${doc.kind}: ${doc.title}`, checksum, page: i + 1, text }));
 }
 function record(doc: SuffolkDocument, ev: Evidence[], file = "", town = "", name = "", address = "", received: string | null = null, policy = false, reason = ""): DiscoveredRecord {
   const resolved = Boolean(file && town && !reason);
@@ -118,7 +118,7 @@ function record(doc: SuffolkDocument, ev: Evidence[], file = "", town = "", name
     latitude: null, longitude: null,
     sourceTitle: `Suffolk Planning Commission: ${doc.kind}`, sourceUrl: ev[0]?.url ?? doc.url,
     sourceDate: received ?? doc.meetingDate, sourceDateLabel: received ? "Received date" : "Meeting date",
-    details: { "Record type": doc.kind, "Meeting date": doc.meetingDate, ...(file ? { "File number": file } : {}), ...(received ? { "Received date": received } : {}), ...(!resolved ? { "Identity review": reason || "The document needs a confirmed municipality and application file number." } : {}) },
+    details: { "Record type": doc.kind, "Meeting date": doc.meetingDate, "Evidence text": "Embedded PDF text with physical page references.", ...(file ? { "File number": file } : {}), ...(received ? { "Received date": received } : {}), ...(!resolved ? { "Identity review": reason || "The document needs a confirmed municipality and application file number." } : {}) },
     evidence: ev, classification: policy ? "policy" : "opportunity", identityStatus: resolved ? "resolved" : "unresolved", ...(resolved ? { sourceCaseId: file } : {}),
   };
 }
@@ -135,7 +135,7 @@ export function parseSuffolkDocument(doc: SuffolkDocument, pages: string[], chec
     const kind = field(first, "Type of Action") || field(first, "Jurisdiction");
     const identifiers = [...`${decodeURIComponent(doc.url)} ${doc.title}`.matchAll(new RegExp(CASE, "g"))].map(m => m[0]);
     const conflict = file && identifiers.some(id => id !== file);
-    const policy = /moratorium|comprehensive plan|town.wide|village.wide/i.test(`${doc.title} ${address} ${kind}`);
+    const policy = /moratorium|comp(?:rehensive)?\.? plan|land use plan|zoning (?:text|code) amendment|town.wide|village.wide/i.test(`${doc.title} ${address} ${kind}`);
     const row = record(doc, ev, file, town, name, address, isoDate(field(first, "Received")), policy, conflict ? "The index or filename and the report disagree about the file number." : "");
     if (kind) row.details["Action reported by source"] = kind;
     return [row];
@@ -145,11 +145,11 @@ export function parseSuffolkDocument(doc: SuffolkDocument, pages: string[], chec
     for (let page = 0; page < pages.length; page++) {
       const pattern = new RegExp(`(?:^|\\n)[•*\\s]*(${CASE})\\s+([^\\n]+?),\\s*(${MUNICIPALITY})\\s*(?=\\n|$)`, "g");
       for (const match of pages[page].matchAll(pattern)) {
-        const policy = /moratorium|comprehensive plan|town.wide|village.wide/i.test(match[2]);
+        const policy = /moratorium|comp(?:rehensive)?\.? plan|land use plan|zoning (?:text|code) amendment|town.wide|village.wide/i.test(match[2]);
         rows.push(record(doc, [ev[page]], match[1], match[3], clean(match[2]), "", null, policy));
       }
     }
-    if (rows.length) return rows;
+    if (rows.length) return [...rows, record(doc, ev, "", "", "", "", null, false, "Full agenda retained for review, including items without a parsed application identifier.")];
   }
   // Minutes and resolutions contain voting tables and more than one case. Retain
   // the document for explicit review rather than assigning an arbitrary town.
@@ -162,18 +162,22 @@ export function mergeSuffolkRecords(records: DiscoveredRecord[]): DiscoveredReco
   for (const row of sorted) {
     const previous = grouped.get(row.externalId);
     if (!previous) { grouped.set(row.externalId, { ...row, evidence: [...(row.evidence || [])] }); continue; }
+    const conflicts = ["name", "address", "sourceDate"] as const;
+    if (conflicts.some(key => previous[key] && row[key] && previous[key] !== row[key] && (key !== "sourceDate" || previous.sourceDateLabel === row.sourceDateLabel))) {
+      previous.details["Conflicting source facts"] = "Sources use different names, locations or dates for this case. Review each document before relying on a field.";
+    }
     previous.evidence = [...(previous.evidence || []), ...(row.evidence || [])];
     if (row.classification === "policy") previous.classification = "policy";
   }
   for (const row of grouped.values()) {
-    row.evidence = [...new Map((row.evidence || []).map(e => [`${e.url}:${e.checksum}`, e])).values()].sort((a, b) => a.url.localeCompare(b.url) || a.checksum.localeCompare(b.checksum));
+    row.evidence = [...new Map((row.evidence || []).map(e => [`${e.url}:${e.checksum}:${e.page}`, e])).values()].sort((a, b) => a.url.localeCompare(b.url) || a.checksum.localeCompare(b.checksum) || a.page - b.page);
     if (row.evidence.length > 240) throw new Error("A Suffolk case exceeds the evidence page limit.");
     row.details["Evidence pages"] = String(row.evidence.length);
   }
   return [...grouped.values()].sort((a, b) => a.externalId.localeCompare(b.externalId));
 }
-async function read(url: string, max: number, deadline: AbortSignal): Promise<Uint8Array> {
-  const response = await fetch(url, { signal: AbortSignal.any([deadline, AbortSignal.timeout(15_000)]), redirect: "error", cache: "no-store", headers: { "User-Agent": "Mozilla/5.0 (compatible; KulkaVision public-record collector)", Accept: url === SUFFOLK_SOURCE.url ? "text/html" : "application/pdf" } });
+async function readAttempt(url: string, max: number, deadline: AbortSignal): Promise<Uint8Array> {
+  const response = await fetch(url, { signal: AbortSignal.any([deadline, AbortSignal.timeout(30_000)]), redirect: "error", cache: "no-store", headers: { "User-Agent": "Mozilla/5.0 (compatible; KulkaVision public-record collector)", Accept: url === SUFFOLK_SOURCE.url ? "text/html" : "application/pdf" } });
   if (!response.ok) throw new Error(`The Suffolk source returned HTTP ${response.status}. Earlier finds have been kept.`);
   if (!response.body) throw new Error("The Suffolk source returned an empty body.");
   const chunks: Uint8Array[] = [];
@@ -190,8 +194,18 @@ async function read(url: string, max: number, deadline: AbortSignal): Promise<Ui
   } finally { await reader.cancel(); reader.releaseLock(); }
   return new Uint8Array(Buffer.concat(chunks));
 }
+async function read(url: string, max: number, deadline: AbortSignal): Promise<Uint8Array> {
+  try { return await readAttempt(url, max, deadline); }
+  catch (error) {
+    deadline.throwIfAborted();
+    const retryable = error instanceof Error && (error.name === "TimeoutError" || error.message === "fetch failed" || /HTTP 5\d\d/.test(error.message));
+    if (!retryable) throw error;
+    return readAttempt(url, max, deadline);
+  }
+}
 export async function fetchSuffolkRecords(): Promise<DiscoveredRecord[]> {
-  const deadline = AbortSignal.timeout(180_000);
+  const controller = new AbortController();
+  const deadline = AbortSignal.any([controller.signal, AbortSignal.timeout(180_000)]);
   const year = Number(new Intl.DateTimeFormat("en", { timeZone: "America/New_York", year: "numeric" }).format(new Date()));
   const html = await read(SUFFOLK_SOURCE.url, 1_000_000, deadline);
   const docs = parseSuffolkIndex(new TextDecoder().decode(html), year);
@@ -200,6 +214,7 @@ export async function fetchSuffolkRecords(): Promise<DiscoveredRecord[]> {
   const results: DiscoveredRecord[][] = [];
   // Three workers bound bandwidth and keep the whole scan within the source lease.
   await Promise.all(Array.from({ length: 3 }, async () => {
+    try {
     for (;;) {
       const index = next++;
       if (index >= docs.length) return;
@@ -213,6 +228,7 @@ export async function fetchSuffolkRecords(): Promise<DiscoveredRecord[]> {
       deadline.throwIfAborted();
       results[index] = parseSuffolkDocument(docs[index], pages, checksum);
     }
+    } catch (error) { controller.abort(error); throw error; }
   }));
   const records = mergeSuffolkRecords(results.flat());
   for (const row of records) {

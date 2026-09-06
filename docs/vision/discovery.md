@@ -55,6 +55,14 @@ disposable database. Public records collected there disappear on server restart.
 Release requires the schema, an authorized account, a protected scheduler and
 live verification under separate production approval.
 
+For an approved release, configure a random `VISION_DISCOVERY_CRON_SECRET` of at
+least 32 characters in server and scheduler secrets. The scheduler sends POST to
+`/api/vision/discovery/cron` with `Authorization: Bearer <secret>`. Use a daily
+schedule; this build does not configure one. A five-minute database lease and
+check interval cover both manual and scheduled collection. Missing or incorrect
+credentials return 401. The inbox reports the last check, last completed check,
+and a failed check while retaining prior records.
+
 ## Source verification
 
 On September 5, 2026, Eastern time, the actual adapter returned 300 records across

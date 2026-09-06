@@ -1,6 +1,7 @@
 # Vision verification
 
-This check covers LA-205, LA-206, and LA-207 in the first Vision build.
+The first check covers LA-205, LA-206, and LA-207. The discovery extension below
+covers LA-218 and LA-219.
 The test session ran on September 5, 2026, Eastern time.
 
 ## Automated checks
@@ -56,10 +57,47 @@ found that search omitted sheet numbers. Both reviewers confirmed their fixes.
 The browser also caught missing keyboard activation on the marker; the fix
 passed the repeated browser check.
 
-## Limits
+## First build limits
 
 No production migration or deployment ran. The shipped migration contains no
 records. The preview database is disposable and resets when its server restarts.
 The source directory requires manual review and capture. It does not monitor
 sources, extract applications, or promise complete permit coverage. There is
 no automatic CRM or underwriting conversion in this slice.
+
+## Discovery extension
+
+The extended module passes 70 tests across six files: the original 47 checks,
+12 source-adapter checks and 11 discovery API checks. These exercise bounded
+source requests, schema drift, missing dates and coordinates, duplicate IDs,
+oversized responses, malformed results, capture history, stale review rejection,
+concurrent acceptance, preserved notes, retained dismissals, expired leases,
+five-minute collection limits and authentication. Cron tests reject absent,
+short, incorrect and multibyte credentials. All databases are disposable.
+
+Lint, TypeScript and the final production build pass. The child worktree's build
+first stopped because Turbopack rejected its dependency symlink. The integration
+worktree uses installed dependencies and its build passed.
+
+The browser collected 300 actual Nassau source records into the local test
+database. A reviewer saved zoning referral 83126 with test notes. The saved
+opportunity retained its official source link and coordinates after reload,
+kept the referral date labeled in notes, and appeared on the map. A second
+record was dismissed and remained available under the Dismissed filter.
+
+The Standards review found a missing Daylight status treatment and a stale
+filter-response risk. The Spec review found that removing the final record on
+page two could show a false empty state. The fixes add glyph pills, guard list
+responses and clamp the current page. The browser reproduced the page boundary
+with 21 records matching "meadow"; dismissing the last record returned to a
+populated page one with 20 records. The Spec reviewer confirmed the fix.
+
+Desktop at 1440px and mobile at 375px were inspected. Mobile page width matched
+the 375px viewport, and source review, search and dismissal remained usable.
+The temporary viewport override was reset. A final server restart clears the
+test review decisions before collecting a fresh local inbox.
+
+Collection now runs from Check source or the protected scheduled endpoint.
+Production migration, deployment and schedule activation have not run. Other
+directory sources remain manual, and the Nassau scan covers the selection
+described in discovery.md rather than every county record.

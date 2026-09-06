@@ -22,3 +22,7 @@
 .discovery-state--accepted svg {color:var(--done);}
 .discovery-state--dismissed {background:var(--neutral-fill);}
 .discovery-state--dismissed svg {color:var(--ink-2);}
+
+.discovery-filters {display:grid;grid-template-columns:220px minmax(0,1fr);}
+.discovery-filters label {min-width:0;}
+@media(max-width:600px){.discovery-filters{grid-template-columns:1fr;}}

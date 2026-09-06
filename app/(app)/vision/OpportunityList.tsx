@@ -3,8 +3,8 @@ import { StatusBlock } from "@/components/Status";
 import type { VisionOpportunity } from "@/lib/vision/types";
 import { visionDate } from "@/lib/vision/presentation";
 
-export function OpportunityList({ opportunities }: { opportunities: VisionOpportunity[] }) {
-  if (!opportunities.length) return <div className="empty"><p>No opportunities match these filters.</p><p>Find a source or save an opportunity to begin tracking it.</p></div>;
+export function OpportunityList({ opportunities, filtered = false }: { opportunities: VisionOpportunity[]; filtered?: boolean }) {
+  if (!opportunities.length) return <div className="empty"><p>{filtered ? "No opportunities match these filters." : "You have not saved any opportunities yet."}</p><p><Link href="/vision/sources">Find a source</Link> or <Link href="/vision/new">save an opportunity</Link> to begin tracking it.</p></div>;
   return <div className="vision-board-wrap"><table className="vision-board"><thead><tr>
     <th>Opportunity</th><th>Location</th><th>Source</th><th>Review status</th><th className="right">Updated</th>
   </tr></thead><tbody>{opportunities.map(opportunity => <tr key={opportunity.id}>

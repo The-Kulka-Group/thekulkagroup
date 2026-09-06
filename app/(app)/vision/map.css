@@ -10,7 +10,11 @@
 .vision-map-canvas .leaflet-tooltip { font-family: var(--family); border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow-card); color: var(--ink); }
 .vision-map-marker { background: transparent; border: 0; }
 .vision-map-marker:focus { outline: 3px solid var(--primary); outline-offset: 4px; border-radius: var(--r-pill); }
-.vision-map-pin { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 2px solid var(--ink-2); border-radius: var(--r-pill); background: var(--neutral-fill); color: var(--ink); box-shadow: var(--shadow-card); font-size: var(--chip-size); line-height: var(--chip-line); font-weight: 700; font-variant-numeric: tabular-nums; }
+.vision-map-pin { display: flex; align-items: center; justify-content: center; gap: var(--s1); width: 64px; height: 36px; border: 2px solid var(--ink-2); border-radius: var(--r-pill); background: var(--neutral-fill); color: var(--ink); box-shadow: var(--shadow-card); font-size: var(--chip-size); line-height: var(--chip-line); font-weight: 700; font-variant-numeric: tabular-nums; }
+.vision-map-state { width: 14px; height: 14px; background: currentColor; mask: var(--gl-open) center / contain no-repeat; }
+.vision-map-pin--working .vision-map-state { mask-image: var(--gl-working); }
+.vision-map-pin--stuck .vision-map-state { mask-image: var(--gl-stuck); }
+.vision-map-pin--done .vision-map-state { mask-image: var(--gl-done); }
 .vision-map-pin--working { border-color: var(--working); background: var(--working-tint); }
 .vision-map-pin--stuck { border-color: var(--stuck-bright); background: var(--stuck-tint); }
 .vision-map-pin--done { border-color: var(--done); background: var(--done-tint); }

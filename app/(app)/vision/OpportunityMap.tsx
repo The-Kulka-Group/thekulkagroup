@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Map as LeafletMap } from "leaflet";
 import type { VisionOpportunity } from "@/lib/vision/types";
+import { STATUS_LABEL } from "@/lib/data";
 import "leaflet/dist/leaflet.css";
 import "./map.css";
 
@@ -47,15 +48,28 @@ export function OpportunityMap({ opportunities }: { opportunities: VisionOpportu
           bounds.extend(point);
           const pin = document.createElement("span");
           pin.className = `vision-map-pin vision-map-pin--${record.status}`;
-          pin.textContent = record.sheetNumber.replace(/^V-/, "");
+          const glyph = document.createElement("span");
+          glyph.className = "vision-map-state";
+          glyph.setAttribute("aria-hidden", "true");
+          pin.append(glyph, document.createTextNode(record.sheetNumber.replace(/^V-/, "")));
+          const description = `Open ${record.name}, ${STATUS_LABEL[record.status]}`;
           const marker = L.marker(point, {
-            icon: L.divIcon({ html: pin, className: "vision-map-marker", iconSize: [36, 36], iconAnchor: [18, 18] }),
-            keyboard: true, title: `Open ${record.name}`, alt: `Open ${record.name}`,
+            icon: L.divIcon({ html: pin, className: "vision-map-marker", iconSize: [64, 36], iconAnchor: [32, 18] }),
+            keyboard: true, title: description, alt: description,
           }).addTo(map);
+          marker.getElement()?.setAttribute("aria-label", description);
           const label = document.createElement("span");
-          label.textContent = record.name;
+          label.textContent = `${record.name} · ${STATUS_LABEL[record.status]}`;
           marker.bindTooltip(label);
           marker.on("click", () => router.push(`/vision/${record.id}`));
+          marker.on("keydown", (event) => {
+            const key = (event.originalEvent as KeyboardEvent).key;
+            if (key === "Enter" || key === " ") {
+              event.originalEvent.preventDefault();
+              event.originalEvent.stopPropagation();
+              router.push(`/vision/${record.id}`);
+            }
+          });
         }
         if (bounds.isValid()) map.fitBounds(bounds.pad(0.2), { maxZoom: 13, animate: false });
         resize = new ResizeObserver(() => map.invalidateSize({ animate: false }));

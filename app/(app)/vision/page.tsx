@@ -28,6 +28,6 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
     </form>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
     <OpportunityMap opportunities={opportunities} />
-    <OpportunityList opportunities={opportunities} />
+    <OpportunityList opportunities={opportunities} filtered={Boolean(filters.search || filters.county || filters.status)} />
   </Sheet>;
 }

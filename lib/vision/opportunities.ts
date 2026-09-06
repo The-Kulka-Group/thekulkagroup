@@ -26,7 +26,7 @@ export async function createVisionOpportunity(db: Db, draft: VisionDraft): Promi
 }
 export async function listVisionOpportunities(db: Db, filters: VisionFilters = {}): Promise<VisionOpportunity[]> {
   const { rows } = await db.query<Row>(`select * from vision_opportunities
-    where ($1 = '' or strpos(lower(name || ' ' || town || ' ' || county || ' ' || address || ' ' || source_title || ' ' || notes), lower($1)) > 0)
+    where ($1 = '' or strpos(lower('V-' || (opportunity_number + 100)::text || ' ' || name || ' ' || town || ' ' || county || ' ' || address || ' ' || source_title || ' ' || notes), lower($1)) > 0)
     and ($2 = '' or lower(county) = lower($2)) and ($3 = '' or status = $3)
     order by updated_at desc, opportunity_number desc`, [filters.search ?? "",filters.county ?? "",filters.status ?? ""]);
   return rows.map(record);

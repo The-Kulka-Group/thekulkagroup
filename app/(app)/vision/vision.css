@@ -36,3 +36,5 @@
 .vision-tracked-filters { margin-bottom:var(--s3); }
 .vision-tracked-filters summary { cursor:pointer; font-weight:600; padding:var(--s2) 0; }
 .vision-tracked-filters .vision-filters { margin:var(--s2) 0; }
+
+.vision-cell-meta.vision-due-alert {color:var(--stuck);font-weight:600;}

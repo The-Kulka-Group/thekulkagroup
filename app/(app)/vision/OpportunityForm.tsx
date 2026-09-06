@@ -6,7 +6,7 @@ import { STATUS_LABEL } from "@/lib/data";
 import type { VisionOpportunity } from "@/lib/vision/types";
 
 type Prefill = { sourceTitle?: string; sourceUrl?: string; sourceDate?: string };
-export function OpportunityForm({ opportunity, prefill = {} }: { opportunity?: VisionOpportunity; prefill?: Prefill }) {
+export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = false }: { opportunity?: VisionOpportunity; prefill?: Prefill; hideReviewStatus?: boolean }) {
   const router = useRouter();
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState<string>();
@@ -21,7 +21,7 @@ export function OpportunityForm({ opportunity, prefill = {} }: { opportunity?: V
     try {
       const response = await fetch(opportunity ? `/api/vision/opportunities/${opportunity.id}` : "/api/vision/opportunities", {
         method: opportunity ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body,latitude:number("latitude"),longitude:number("longitude"), ...(opportunity ? {status:form.get("status"),expectedRevision:revision} : {}) }),
+        body: JSON.stringify({ ...body,latitude:number("latitude"),longitude:number("longitude"), ...(opportunity ? {status:hideReviewStatus?opportunity.status:form.get("status"),expectedRevision:revision} : {}) }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) { setError(result?.error ?? "The opportunity could not be saved."); return; }
@@ -52,8 +52,8 @@ export function OpportunityForm({ opportunity, prefill = {} }: { opportunity?: V
       </label>)}</div>
       <p className="t-meta">Enter both coordinates to place this opportunity on the map. A source date is the publication date, if known.</p>
     </section>
-    <section><h2 className="t-2">Review</h2><p className="t-meta">The status tracks your review work. It does not confirm that a project is approved or ready to build.</p>
-      {opportunity ? <label className="vision-status-label" htmlFor="vision-status">Review status<select className="input" id="vision-status" name="status" defaultValue={opportunity.status}>{Object.entries(STATUS_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
+    <section><h2 className="t-2">{hideReviewStatus ? "Original notes" : "Review"}</h2>{!hideReviewStatus ? <p className="t-meta">The status tracks your review work. It does not confirm that a project is approved or ready to build.</p> : null}
+      {opportunity && !hideReviewStatus ? <label className="vision-status-label" htmlFor="vision-status">Review status<select className="input" id="vision-status" name="status" defaultValue={opportunity.status}>{Object.entries(STATUS_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
       <label htmlFor="vision-notes">Notes<textarea className="input vision-notes" id="vision-notes" name="notes" maxLength={10000} rows={6} defaultValue={opportunity?.notes ?? ""} /></label>
     </section>
     {error ? <p role="alert" className="input-error">{error}</p> : null}

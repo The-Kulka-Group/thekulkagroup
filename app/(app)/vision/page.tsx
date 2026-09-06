@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Sheet, Sep } from "@/components/Sheet";
+import { authorizeRequest } from "@/lib/auth/server";
+import { listWorkflowSummaries } from "@/lib/vision/workflow";
 import { getDb } from "@/lib/db";
 import { discoveryInbox } from "@/lib/vision/discovery";
 import { parseDiscoveryFilters } from "@/lib/vision/discovery-filters";
@@ -26,6 +28,9 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   const [saved,counties,discovery] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb()),discoveryInbox(getDb(), "new", discoveryFilters)]);
   const opportunities = error ? [] : saved;
   const candidates = discoveryError ? [] : discovery.candidates;
+  const auth = await authorizeRequest();
+  const workflowRows = auth.ok && !auth.user.temporary ? await listWorkflowSummaries(getDb(),opportunities.map(item=>item.id)) : undefined;
+  const workflows = workflowRows ? Object.fromEntries(workflowRows.map(item=>[item.opportunityId,{decision:item.decision,classification:item.classification,nextAction:item.nextAction,reviewDate:item.reviewDate}])) : undefined;
   return <Sheet number="V-100" title="Vision" actions={<><Link className="btn btn--quiet" href="/vision/discover">Discover opportunities</Link><Link className="btn btn--primary" href="/vision/new">New opportunity</Link></>}
     meta={<><span>Construction and development opportunities</span><Sep /><span className="num">{candidates.length} discoveries shown · {opportunities.length} tracked opportunities shown</span></>}>
     <form className="vision-map-filters" action="/vision" key={params.toString()}>
@@ -45,8 +50,8 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
     </form>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
     {discoveryError ? <p role="alert" className="input-error">{discoveryError} Discovery results are hidden until you correct the filters.</p> : candidates.length === 0 ? <p role="status" className="vision-map-notice">{discoveryFiltered ? "No discoveries match these filters. Clear or widen the filters to see more opportunities." : "There are no discoveries awaiting review. Open Discover opportunities to collect source records."}</p> : null}
-    <OpportunityMap opportunities={opportunities} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
+    <OpportunityMap workflowDecisions={workflows ? Object.fromEntries(Object.entries(workflows).map(([id,workflow])=>[id,workflow.decision])) : undefined} opportunities={opportunities.filter(item=>workflows?.[item.id]?.classification!=="policy")} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
     <h2 className="t-2">Tracked opportunities</h2>
-    <OpportunityList opportunities={opportunities} filtered={Boolean(filters.search || filters.county || filters.status)} />
+    <OpportunityList workflows={workflows} opportunities={opportunities} filtered={Boolean(filters.search || filters.county || filters.status)} />
   </Sheet>;
 }

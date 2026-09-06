@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import type { Map as LeafletMap } from "leaflet";
 import { groupMapPoints, type DiscoveryMapPoint } from "@/lib/vision/map-points";
 import type { VisionOpportunity } from "@/lib/vision/types";
+import { WORKFLOW_LABELS } from "@/lib/vision/presentation";
 import { STATUS_LABEL } from "@/lib/data";
 import "leaflet/dist/leaflet.css";
 import "./map.css";
 
-export function OpportunityMap({ opportunities, discoveries }: { opportunities: VisionOpportunity[]; discoveries:DiscoveryMapPoint[] }) {
+export function OpportunityMap({ opportunities, discoveries, workflowDecisions }: { opportunities: VisionOpportunity[]; discoveries:DiscoveryMapPoint[]; workflowDecisions?:Record<string,keyof typeof WORKFLOW_LABELS> }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const router = useRouter();
@@ -51,19 +52,22 @@ export function OpportunityMap({ opportunities, discoveries }: { opportunities: 
           const point = L.latLng(record.latitude, record.longitude);
           bounds.extend(point);
           const pin = document.createElement("span");
-          pin.className = `vision-map-pin vision-map-pin--${record.status}`;
+          const decision = workflowDecisions?.[record.id] ?? "undecided";
+          const markerStatus = workflowDecisions ? (decision === "pursuing" ? "working" : decision === "won" ? "done" : "open") : record.status;
+          const stateLabel = workflowDecisions ? WORKFLOW_LABELS[decision] : STATUS_LABEL[record.status];
+          pin.className = `vision-map-pin vision-map-pin--${markerStatus}`;
           const glyph = document.createElement("span");
           glyph.className = "vision-map-state";
           glyph.setAttribute("aria-hidden", "true");
           pin.append(glyph, document.createTextNode(record.sheetNumber.replace(/^V-/, "")));
-          const description = `Open ${record.name}, ${STATUS_LABEL[record.status]}`;
+          const description = `Open ${record.name}, ${stateLabel}`;
           const marker = L.marker(point, {
             icon: L.divIcon({ html: pin, className: "vision-map-marker", iconSize: [64, 36], iconAnchor: [32, 18] }),
             keyboard: true, title: description, alt: description, zIndexOffset:1000,
           }).addTo(map);
           marker.getElement()?.setAttribute("aria-label", description);
           const label = document.createElement("span");
-          label.textContent = `${record.name} · ${STATUS_LABEL[record.status]}`;
+          label.textContent = `${record.name} · ${stateLabel}`;
           marker.bindTooltip(label);
           marker.on("click", () => router.push(`/vision/${record.id}`));
           marker.on("keydown", (event) => {
@@ -115,7 +119,7 @@ export function OpportunityMap({ opportunities, discoveries }: { opportunities: 
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [opportunities, discoveries, showDiscoveries, showTracked, router]);
+  }, [opportunities, discoveries, showDiscoveries, showTracked, router, workflowDecisions]);
 
   return (
     <section className="vision-map-section" aria-label="Opportunity map">
@@ -133,11 +137,11 @@ export function OpportunityMap({ opportunities, discoveries }: { opportunities: 
       <div className="vision-map-legend">
         <label><input type="checkbox" checked={showDiscoveries} onChange={e=>setShowDiscoveries(e.target.checked)} /><span className="vision-legend-discovery">◆</span> Discoveries awaiting review</label>
         <label><input type="checkbox" checked={showTracked} onChange={e=>setShowTracked(e.target.checked)} /> Tracked opportunities</label>
-        {Object.entries(STATUS_LABEL).map(([state,label])=><span key={state} className={`vision-map-pin vision-map-pin--${state}`}><span className="vision-map-state" aria-hidden="true" />{label}</span>)}
+        {Object.entries(workflowDecisions ? {working:"Pursuing",done:"Won",open:"Other decisions"} : STATUS_LABEL).map(([state,label])=><span key={state} className={`vision-map-pin vision-map-pin--${state}`}><span className="vision-map-state" aria-hidden="true" />{label}</span>)}
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
-      <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Discovery shows up to 500 matching inbox records; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
+      <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Policy context stays in the list. Discovery shows up to 500 matching inbox records; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
     </section>
   );
 }

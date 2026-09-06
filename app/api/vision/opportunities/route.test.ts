@@ -11,7 +11,7 @@ const context = (id:string) => ({params:Promise.resolve({id})});
 const request = (method:string,body?:unknown,auth?:string) => new Request(base,{method,headers:auth ? {"x-kulka-test-auth":auth} : {},body:body === undefined ? undefined : JSON.stringify(body)});
 const create = async (body:unknown=draft) => POST(request("POST",body));
 beforeAll(async () => { db = await seededDatabase(); }, 60000);
-beforeEach(async () => { vi.stubEnv("KULKA_AUTH_BYPASS",""); await db.query("truncate vision_opportunities restart identity"); });
+beforeEach(async () => { vi.stubEnv("KULKA_AUTH_BYPASS",""); await db.query("truncate vision_opportunities restart identity cascade"); });
 afterEach(() => { vi.unstubAllEnvs(); });
 afterAll(async () => { await db?.close(); });
 describe("Vision opportunities", () => {

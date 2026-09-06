@@ -18,7 +18,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   let error: string | undefined;
   try { filters = parseVisionFilters(params); } catch (cause) { if (cause instanceof InvalidVisionInput) error = cause.message; else throw cause; }
   const [opportunities,counties] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb())]);
-  return <Sheet number="V-100" title="Vision" actions={<><Link className="btn btn--quiet" href="/vision/sources">Find opportunities</Link><Link className="btn btn--primary" href="/vision/new">New opportunity</Link></>}
+  return <Sheet number="V-100" title="Vision" actions={<><Link className="btn btn--quiet" href="/vision/discover">Discover opportunities</Link><Link className="btn btn--primary" href="/vision/new">New opportunity</Link></>}
     meta={<><span>Construction and development opportunities</span><Sep /><span className="num">{opportunities.length} {opportunities.length === 1 ? "opportunity" : "opportunities"} shown</span></>}>
     <form className="vision-filters" action="/vision">
       <label>Search<input className="input" type="search" name="search" maxLength={200} defaultValue={filters.search} placeholder="Name, place, source or notes" /></label>

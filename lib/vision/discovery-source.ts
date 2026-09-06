@@ -9,6 +9,10 @@ export const DISCOVERY_SOURCE = {
   coverage: "Checks up to 100 records per category: Nassau zoning, major subdivisions and minor subdivisions, ordered by the county’s record number. These records can include older applications and zoning policy changes. Other sources still require manual review.",
 };
 export type DiscoveredRecord = {
+  evidence?: Array<{ url: string; title: string; checksum: string; page: number; text: string }>;
+  classification?: "opportunity" | "policy";
+  identityStatus?: "resolved" | "unresolved";
+  sourceCaseId?: string;
   externalId: string; name: string; town: string; county: string; address: string;
   latitude: number | null; longitude: number | null;
   sourceTitle: string; sourceUrl: string; sourceDate: string | null;

@@ -57,3 +57,11 @@ export async function updateVisionReview(db: Db, id: string, review: VisionRevie
   if (await getVisionOpportunity(db,id)) throw new VisionRevisionConflict();
   return null;
 }
+
+export async function updateVisionLocation(db: Db, id: string, location: {address:string;latitude:number|null;longitude:number|null;expectedRevision:number}): Promise<VisionOpportunity|null> {
+  const { rows } = await db.query<Row>(`update vision_opportunities set address=$2,latitude=$3,longitude=$4,revision=revision+1,updated_at=clock_timestamp()
+    where id=$1 and revision=$5 returning *`, [id,location.address,location.latitude,location.longitude,location.expectedRevision]);
+  if (rows[0]) return record(rows[0]);
+  if (await getVisionOpportunity(db,id)) throw new VisionRevisionConflict();
+  return null;
+}

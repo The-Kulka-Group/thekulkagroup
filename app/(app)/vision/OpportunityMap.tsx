@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import "./[id]/location.css";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Map as LeafletMap } from "leaflet";
@@ -141,6 +143,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
+      {opportunities.length>mapped.length?<details className="vision-off-map" open><summary>{opportunities.length-mapped.length} tracked {opportunities.length-mapped.length===1?"opportunity needs":"opportunities need"} a location</summary><ul>{opportunities.filter(item=>item.latitude===null||item.longitude===null).map(item=><li key={item.id}><Link href={`/vision/${item.id}#location`}>{item.name}: resolve map location</Link></li>)}</ul></details>:null}
       <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Policy context stays in the list. Discovery shows up to 500 matching records per source; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
     </section>
   );

@@ -10,8 +10,16 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
   const router = useRouter();
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState<string>();
+  const [conflict,setConflict] = useState(false);
   const [saved,setSaved] = useState(false);
-  const [revision,setRevision] = useState(opportunity?.revision);
+  const [record,setRecord] = useState(opportunity);
+  const [dirty,setDirty] = useState(false);
+  // New server data can refresh a pristine form. A dirty draft keeps its original
+  // fields and revision so a later write cannot overwrite a newer location.
+  if (!dirty && !saving && opportunity && (!record || opportunity.revision > record.revision)) {
+    setRecord(opportunity);
+  }
+  const revision = record?.revision;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true); setError(undefined); setSaved(false);
@@ -21,17 +29,17 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
     try {
       const response = await fetch(opportunity ? `/api/vision/opportunities/${opportunity.id}` : "/api/vision/opportunities", {
         method: opportunity ? "PATCH" : "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body,latitude:number("latitude"),longitude:number("longitude"), ...(opportunity ? {status:hideReviewStatus?opportunity.status:form.get("status"),expectedRevision:revision} : {}) }),
+        body: JSON.stringify({ ...body,latitude:number("latitude"),longitude:number("longitude"), ...(opportunity ? {status:hideReviewStatus?record?.status:form.get("status"),expectedRevision:revision} : {}) }),
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok) { setError(result?.error ?? "The opportunity could not be saved."); return; }
+      if (!response.ok) { if(response.status===409)setConflict(true); setError(result?.error ?? "The opportunity could not be saved."); return; }
       if (!result?.opportunity?.id) { setError("The server returned an unreadable response. Reload the list to check whether the opportunity was saved."); return; }
       if (!opportunity) router.push(`/vision/${result.opportunity.id}`);
-      setRevision(result.opportunity.revision); setSaved(true); router.refresh();
+      setRecord(result.opportunity); setDirty(false); setSaved(true); router.refresh();
     } catch { setError("The opportunity could not be saved. Check the connection and try again."); }
     finally { setSaving(false); }
   }
-  const defaults = { ...prefill,...opportunity };
+  const defaults = { ...prefill,...record };
   const fields = [
     {name:"name",label:"Opportunity name",max:200,required:true},
     {name:"town",label:"Town",max:120,required:true},
@@ -43,21 +51,22 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
     {name:"sourceUrl",label:"Source URL",type:"url",max:2048,required:true},
     {name:"sourceDate",label:"Source date",type:"date"},
   ];
-  return <form className="vision-form" onSubmit={submit}>
+  return <form key={record?.revision ?? "new"} className="vision-form" onSubmit={submit} onChange={()=>{setDirty(true);setSaved(false);}}>
     <section><h2 className="t-2">{opportunity ? "Opportunity details" : "Save a construction or development opportunity"}</h2>
       <p className="t-meta">Record the public source and what it says. Leave unknown addresses, coordinates and dates blank.</p>
       <div className="vision-form-grid">{fields.map(field => <label key={field.name} htmlFor={`vision-${field.name}`}>{field.label}{field.required ? " (required)" : ""}
-        <input id={`vision-${field.name}`} className="input" name={field.name} type={field.type ?? "text"} required={field.required} maxLength={field.max} min={field.min} max={field.maxNumber} step={field.type === "number" ? "any" : undefined}
+        <input id={`vision-${field.name}`} className="input" name={field.name} type={field.type ?? "text"} disabled={saving} required={field.required} maxLength={field.max} min={field.min} max={field.maxNumber} step={field.type === "number" ? "any" : undefined}
           defaultValue={defaults[field.name as keyof typeof defaults] ?? ""} />
       </label>)}</div>
       <p className="t-meta">Enter both coordinates to place this opportunity on the map. A source date is the publication date, if known.</p>
     </section>
     <section><h2 className="t-2">{hideReviewStatus ? "Original notes" : "Review"}</h2>{!hideReviewStatus ? <p className="t-meta">The status tracks your review work. It does not confirm that a project is approved or ready to build.</p> : null}
-      {opportunity && !hideReviewStatus ? <label className="vision-status-label" htmlFor="vision-status">Review status<select className="input" id="vision-status" name="status" defaultValue={opportunity.status}>{Object.entries(STATUS_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
-      <label htmlFor="vision-notes">Notes<textarea className="input vision-notes" id="vision-notes" name="notes" maxLength={10000} rows={6} defaultValue={opportunity?.notes ?? ""} /></label>
+      {opportunity && !hideReviewStatus ? <label className="vision-status-label" htmlFor="vision-status">Review status<select className="input" id="vision-status" name="status" disabled={saving} defaultValue={record?.status}>{Object.entries(STATUS_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
+      <label htmlFor="vision-notes">Notes<textarea className="input vision-notes" id="vision-notes" name="notes" maxLength={10000} rows={6} disabled={saving} defaultValue={record?.notes ?? ""} /></label>
     </section>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
+    {conflict ? <button className="btn" type="button" onClick={()=>window.location.reload()}>Reload latest record</button> : null}
     {saved ? <p role="status">Your changes were saved.</p> : null}
-    <div className="vision-form-actions"><button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving…" : opportunity ? "Save changes" : "Save opportunity"}</button><Link className="btn btn--quiet" href="/vision">Back to opportunities</Link></div>
+    <div className="vision-form-actions"><button className="btn btn--primary" type="submit" disabled={saving||conflict}>{saving ? "Saving…" : opportunity ? "Save changes" : "Save opportunity"}</button><Link className="btn btn--quiet" href="/vision">Back to opportunities</Link></div>
   </form>;
 }

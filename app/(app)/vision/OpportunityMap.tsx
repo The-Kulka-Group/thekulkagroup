@@ -141,7 +141,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
-      <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Policy context stays in the list. Discovery shows up to 500 matching inbox records; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
+      <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Policy context stays in the list. Discovery shows up to 500 matching records per source; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 export const VISION_SOURCES = [
+  {id:"suffolk-planning",name:"Suffolk Planning Commission",place:"Suffolk County",county:"Suffolk",kind:"Planning documents",url:"https://www.suffolkcountyny.gov/Departments/Economic-Development-and-Planning/Planning-and-Environment/Regulatory-Review/Suffolk-County-Planning-Commission",description:"Review county agendas, staff reports, meeting summaries and resolutions. Use Discover opportunities to collect the current year’s linked text documents.",checkedAt:"2026-09-05"},
   {
     id: "nassau-hearings",
     name: "Nassau Planning Commission",

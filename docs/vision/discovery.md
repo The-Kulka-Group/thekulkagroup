@@ -69,3 +69,26 @@ On September 5, 2026, Eastern time, the actual adapter returned 300 records acro
 all three layers. Of these, 151 had no source date. The check read public records
 without credentials and did not write to the county service. Parser tests use
 synthetic responses that never enter application data.
+
+## Suffolk collection and filing links
+
+LA-236 and LA-237 extend this flow with a separately checked Suffolk source.
+The source selector controls the inbox and manual check. Each source has its own
+lease, cooldown, last success and error. The cron route remains Nassau-only.
+Suffolk coverage records the year and every document URL in a completed check.
+A failed batch leaves the preceding coverage and candidate records intact.
+
+Suffolk PDF evidence lives in candidate snapshots and capture history. The inbox
+omits page text to keep list responses small; opening a record loads its evidence.
+The opportunity page exposes linked source records and their capture history.
+Source dates retain their stated labels, including received and meeting dates.
+Unknown coordinates remain absent.
+
+A review can attach the candidate to an existing opportunity using its ID. The
+new source-links migration removes the old one-filing-per-opportunity constraint.
+The acceptance revision check prevents a stale or competing review from changing
+a link. Source updates never overwrite the linked opportunity or its workflow.
+Policy and unresolved document records can support an existing opportunity but
+cannot create a project through this review action.
+
+This migration requires a separate approved release before production use.

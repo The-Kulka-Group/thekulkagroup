@@ -31,3 +31,8 @@
 .discovery-narrow-filters label {display:flex;flex-direction:column;gap:var(--s2);min-width:0;font-weight:600;}
 .discovery-narrow-filters .input {width:100%;min-width:0;}
 @media(max-width:600px){.discovery-narrow-filters{grid-template-columns:1fr;}}
+
+.discovery-evidence { margin-block: var(--s4); }
+.discovery-page-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
+.discovery-checksum { overflow-wrap: anywhere; }
+.discovery-evidence article { border-top: 1px solid var(--border-light); padding-block: var(--s4); }

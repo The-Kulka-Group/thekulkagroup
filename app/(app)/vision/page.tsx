@@ -25,7 +25,8 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   let discoveryError: string | undefined;
   try { discoveryFilters = parseDiscoveryFilters(params); } catch (cause) { if (cause instanceof InvalidVisionInput) discoveryError = cause.message; else throw cause; }
   const discoveryFiltered = Boolean(discoveryFilters.applicationType || discoveryFilters.location || discoveryFilters.dateMode !== "all" || discoveryFilters.from || discoveryFilters.to);
-  const [saved,counties,discovery] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb()),discoveryInbox(getDb(), "new", discoveryFilters)]);
+  const [saved,counties,nassau,suffolk] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb()),discoveryInbox(getDb(), "new", discoveryFilters),discoveryInbox(getDb(), "new", discoveryFilters,"suffolk-planning")]);
+  const discovery={candidates:[...nassau.candidates,...suffolk.candidates],applicationTypes:[...new Set([...nassau.applicationTypes,...suffolk.applicationTypes])].sort()};
   const opportunities = error ? [] : saved;
   const candidates = discoveryError ? [] : discovery.candidates;
   const auth = await authorizeRequest();
@@ -40,7 +41,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
         <label>Source dates<select className="input" name="dateMode" defaultValue={params.get("dateMode") || "all"}><option value="all">All dates</option><option value="known">Known dates</option><option value="unknown">Unknown dates</option></select></label>
         <label>From<input className="input" type="date" name="from" defaultValue={params.get("from") ?? ""} /></label>
         <label>Through<input className="input" type="date" name="to" defaultValue={params.get("to") ?? ""} /></label>
-      </div><p className="t-meta">Dates refer to filing or referral. Clear both date bounds to find records with unknown dates.</p></fieldset>
+      </div><p className="t-meta">Dates use each source record’s date label. Clear both date bounds to find records with unknown dates.</p></fieldset>
       <details className="vision-tracked-filters" open={Boolean(filters.search || filters.county || filters.status || error)}><summary>Tracked opportunity filters</summary><div className="vision-filters">
       <label>Search<input className="input" type="search" name="search" maxLength={200} defaultValue={filters.search} placeholder="Name, place, source or notes" /></label>
       <label>County<select className="input" name="county" defaultValue={filters.county ?? ""}><option value="">All counties</option>{counties.map(county => <option key={county}>{county}</option>)}</select></label>

@@ -3,6 +3,8 @@ import { seededDatabase } from "@/test/database";
 import type { Db } from "@/lib/db";
 let db:Awaited<ReturnType<typeof seededDatabase>>;
 const fetchRecords=vi.hoisted(()=>vi.fn());
+const fetchSuffolk=vi.hoisted(()=>vi.fn());
+vi.mock("@/lib/vision/suffolk-source",()=>({fetchSuffolkRecords:fetchSuffolk}));
 vi.mock("@/lib/db",()=>({getDb:()=>db as Db}));
 vi.mock("@/lib/vision/discovery-source",()=>({DISCOVERY_SOURCE:{id:"nassau-applications"},fetchDiscoveryRecords:fetchRecords}));
 const inbox=await import("./route");const refresh=await import("./refresh/route");const detail=await import("./[id]/route");const cron=await import("./cron/route");
@@ -14,9 +16,62 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);});
+beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
+ it("collects and filters Suffolk independently while keeping Nassau unchanged",async()=>{
+  await check();
+  const run=()=>refresh.POST(new Request("http://localhost/api/vision/discovery/refresh?source=suffolk-planning",{method:"POST"}));
+  expect((await run()).status).toBe(200);
+  expect(fetchRecords).toHaveBeenCalledTimes(1);expect(fetchSuffolk).toHaveBeenCalledTimes(1);
+  const suffolk=await (await inbox.GET(new Request("http://localhost?source=suffolk-planning"))).json();
+  expect(suffolk.candidates).toHaveLength(1);expect(suffolk.candidates[0].snapshot.county).toBe("Suffolk");
+  expect((await listed())[0].snapshot.county).toBe("Nassau");
+  await age();fetchSuffolk.mockRejectedValue(new Error("Unreadable PDF"));expect((await run()).status).toBe(502);
+  const after=await (await inbox.GET(new Request("http://localhost?source=suffolk-planning"))).json();
+  expect(after.candidates).toEqual(suffolk.candidates);expect(after.source.last_success_at).toBe(suffolk.source.last_success_at);expect(after.source.last_error).toContain("incomplete");
+  expect((await inbox.GET(new Request("http://localhost?source=unsupported"))).status).toBe(400);
+  expect((await refresh.POST(new Request("http://localhost?source=unsupported",{method:"POST"}))).status).toBe(400);
+ });
+ it("links separate filings to one opportunity without changing notes and rejects another target",async()=>{
+  await check();const [first]=await listed();const saved=await (await review(first.id)).json();
+  await db.query("update vision_opportunities set notes='Keep human notes' where id=$1",[saved.opportunity_id]);
+  const workflow={opportunityId:saved.opportunity_id,revision:1,classification:"opportunity",decision:"watching",reviewDate:"2026-09-10",nextAction:null,people:[],activity:[]};
+  await db.query("insert into vision_workflows(opportunity_id,revision,state) values($1,1,$2::jsonb)",[saved.opportunity_id,JSON.stringify(workflow)]);
+  await age();fetchRecords.mockResolvedValue([{...source,externalId:"second-filing"}]);await check();const [second]=await listed();
+  const link=()=>detail.POST(req({action:"accept",expectedRevision:1,opportunityId:saved.opportunity_id,notes:""}),ctx(second.id));
+  expect((await link()).status).toBe(200);expect((await link()).status).toBe(200);
+  expect((await db.query("select * from vision_opportunities")).rows).toHaveLength(1);
+  expect((await db.query<{notes:string}>("select notes from vision_opportunities")).rows[0].notes).toBe("Keep human notes");
+  const {opportunityEvidence}=await import("@/lib/vision/discovery");
+  expect(await opportunityEvidence(db,saved.opportunity_id)).toHaveLength(2);
+  expect((await db.query<{state:unknown}>("select state from vision_workflows where opportunity_id=$1",[saved.opportunity_id])).rows[0].state).toEqual(workflow);
+  const other=(await db.query<{id:string}>("insert into vision_opportunities(name,town,county,source_title,source_url) values('Other','Town','Suffolk','Source','https://example.org') returning id")).rows[0];
+  expect((await detail.POST(req({action:"accept",expectedRevision:1,opportunityId:other.id,notes:""}),ctx(second.id))).status).toBe(409);
+  expect((await detail.POST(req({action:"accept",expectedRevision:1,opportunityId:"00000000-0000-4000-8000-000000000099",notes:""}),ctx(second.id))).status).toBe(400);
+  expect((await detail.POST(req({action:"accept",expectedRevision:1,opportunityId:"not-an-id",notes:""}),ctx(second.id))).status).toBe(400);
+ });
+ it("retains evidence versions while keeping evidence text out of inbox rows",async()=>{
+  const evidence={url:"https://www.suffolkcountyny.gov/Portals/0/test.pdf",title:"Public report",page:1,checksum:"a".repeat(64),text:"File Number HU-26-05"};
+  fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk",evidence:[evidence]}]);
+  const run=()=>refresh.POST(new Request("http://localhost?source=suffolk-planning",{method:"POST"}));
+  await run();
+  const response=await (await inbox.GET(new Request("http://localhost?source=suffolk-planning"))).json();
+  const item=response.candidates[0];expect(item.snapshot.evidence).toBeUndefined();expect(response.source.coverage.documents).toEqual([evidence.url]);
+  const record=()=>detail.GET(req(),ctx(item.id)).then(response=>response.json());
+  expect((await record()).candidate.snapshot.evidence).toEqual([evidence]);
+  await age();await run();expect((await record()).history).toHaveLength(1);
+  await age();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk",evidence:[{...evidence,checksum:"b".repeat(64),text:"Revised report"}]}]);await run();
+  const updated=await record();expect(updated.history).toHaveLength(2);expect(updated.history[1].snapshot.evidence).toEqual([evidence]);
+ });
+ it("keeps unresolved documents and policy context out of new opportunities",async()=>{
+  for(const marker of [{identityStatus:"unresolved"},{classification:"policy"}]){
+   await age();fetchRecords.mockResolvedValue([{...source,externalId:JSON.stringify(marker),...marker}]);await check();
+   const record=(await listed()).find((item:{external_id:string})=>item.external_id===JSON.stringify(marker));
+   expect((await review(record.id)).status).toBe(400);
+   expect((await db.query("select * from vision_opportunities")).rows).toHaveLength(0);
+  }
+ });
  it("combines application, location and inclusive source-date filters",async()=>{
   fetchRecords.mockResolvedValue([
    {...source,externalId:"first",sourceDate:"2026-08-01",details:{"Record type":"Zoning referral"}},

@@ -160,3 +160,46 @@ describe("Vision discovery API",()=>{
   for(const table of ["vision_discovery_sources","vision_discovery_candidates","vision_discovery_history"]){expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);}
  });
 });
+
+describe("combined source selection",()=>{
+ it("combines selected results with stable dates and source IDs while preserving saved opportunities",async()=>{
+  fetchRecords.mockResolvedValue([{...source,sourceDate:"2026-08-01"}]);
+  fetchSuffolk.mockResolvedValue([{...source,externalId:"suffolk-test",county:"Suffolk",sourceDate:"2026-08-02"}]);
+  await check();await refresh.POST(new Request("http://localhost?source=suffolk-planning",{method:"POST"}));
+  const query=async(sources:string,state="new")=>(await (await inbox.GET(new Request(`http://localhost?${new URLSearchParams({sources,state})}`))).json());
+  const combined=await query("nassau-applications,suffolk-planning");
+  expect(combined.candidates.map((item:{source_id:string})=>item.source_id)).toEqual(["suffolk-planning","nassau-applications"]);
+  expect((await query("suffolk-planning,nassau-applications")).candidates).toEqual(combined.candidates);
+  expect(Object.keys(combined.sources)).toEqual(["nassau-applications","suffolk-planning"]);
+  expect((await query("suffolk-planning")).candidates).toHaveLength(1);
+  const nassau=combined.candidates[1];await review(nassau.id);
+  const tracked=(await db.query("select * from vision_opportunities")).rows;expect(tracked).toHaveLength(1);
+  expect((await query("")).candidates).toEqual([]);
+  expect((await db.query("select * from vision_opportunities")).rows).toEqual(tracked);
+  expect((await detail.GET(req(),ctx(nassau.id))).status).toBe(200);
+  expect((await inbox.GET(new Request("http://localhost?sources=unknown"))).status).toBe(400);
+  expect((await inbox.GET(new Request("http://localhost?sources=&state=invalid"))).status).toBe(400);
+ });
+ it("keeps other source records available when one source cannot be read",async()=>{
+  await check();
+  const {selectedDiscoveryInbox}=await import("@/lib/vision/selected-discovery");
+  const {parseDiscoveryFilters}=await import("@/lib/vision/discovery-filters");
+  const partial:Db={query:async(text,params)=>{if(params?.includes("suffolk-planning"))throw new Error("Synthetic unavailable source");return db.query(text,params);}};
+  const result=await selectedDiscoveryInbox(partial,["nassau-applications","suffolk-planning"],"new",parseDiscoveryFilters(new URLSearchParams()));
+  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].source_id).toBe("nassau-applications");
+  expect(result.sourceErrors["suffolk-planning"]).toBeTruthy();expect(result.sources["nassau-applications"]).not.toBeNull();
+ });
+ it("keeps successful checks and old failed-source records in the combined view",async()=>{
+  fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);
+  const suffolk=()=>refresh.POST(new Request("http://localhost?source=suffolk-planning",{method:"POST"}));
+  await suffolk();await age();fetchSuffolk.mockRejectedValue(new Error("Synthetic PDF failure"));
+  const {checkSelectedSources}=await import("@/lib/vision/source-selection");
+  const outcomes:Record<string,string>={};
+  await checkSelectedSources(["nassau-applications","suffolk-planning"],async id=>{
+    const response=await refresh.POST(new Request(`http://localhost?source=${id}`,{method:"POST"}));const result=await response.json();if(!response.ok)throw new Error(result.error);return result;
+  },(id,result)=>{outcomes[id]=result.status;});
+  expect(outcomes).toEqual({"nassau-applications":"success","suffolk-planning":"error"});
+  const result=await (await inbox.GET(new Request("http://localhost?sources=nassau-applications,suffolk-planning"))).json();
+  expect(result.candidates).toHaveLength(2);expect(result.sources["suffolk-planning"].last_error).toBeTruthy();
+ });
+});

@@ -6,7 +6,7 @@ export const DISCOVERY_SOURCE = {
   id: "nassau-applications",
   name: "Nassau planning applications",
   url: "https://www.nassaucountyny.gov/Planning",
-  coverage: "Checks up to 100 records per category: Nassau zoning, major subdivisions and minor subdivisions, ordered by the county’s record number. These records can include older applications and zoning policy changes. Other sources still require manual review.",
+  coverage: "Checks up to 100 records per category: Nassau zoning, major subdivisions and minor subdivisions, ordered by the county’s record number. These records can include older applications and zoning policy changes. Local records outside these categories require manual review.",
 };
 export type DiscoveredRecord = {
   evidence?: Array<{ url: string; title: string; checksum: string; page: number; text: string }>;

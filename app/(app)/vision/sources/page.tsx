@@ -1,9 +1,13 @@
+import {cookies} from "next/headers";
+import {SOURCE_SELECTION_COOKIE,readSourcePreference} from "@/lib/vision/source-selection";
 import Link from "next/link";
+import {SavedSourceSelection} from "../SourceSelection";
 import { Sheet } from "@/components/Sheet";
 import { VISION_SOURCES } from "@/lib/vision/sources";
 import "../map.css";
 
-export default function VisionSources() {
+export default async function VisionSources() {
+  const selectedSources=readSourcePreference((await cookies()).get(SOURCE_SELECTION_COOKIE)?.value);
   return (
     <Sheet number="V-001" title="Find opportunities"
       meta={<span>Long Island · Public planning and development records</span>}
@@ -11,8 +15,9 @@ export default function VisionSources() {
       <div className="vision-source-intro">
         <h2>Start with the public record.</h2>
         <p>Open a source, find a construction or development application, and save the
-          opportunity with the document link and date. The discovery inbox collects Nassau application records. Other sources require manual capture.</p>
+          opportunity with the document link and date. The discovery inbox collects Nassau applications and Suffolk planning documents. Other sources require manual capture.</p>
       </div>
+      <SavedSourceSelection initialSources={selectedSources}/>
       <div className="vision-source-grid">
         {VISION_SOURCES.map((source) => {
           const query = new URLSearchParams({ sourceTitle: source.name, sourceUrl: source.url });

@@ -1,9 +1,13 @@
+import {cookies} from "next/headers";
+import {SOURCE_SELECTION_COOKIE,readSourcePreference} from "@/lib/vision/source-selection";
 import Link from "next/link";
 import { Sheet, Sep } from "@/components/Sheet";
 import { authorizeRequest } from "@/lib/auth/server";
 import { listWorkflowSummaries } from "@/lib/vision/workflow";
 import { getDb } from "@/lib/db";
-import { discoveryInbox } from "@/lib/vision/discovery";
+import {DISCOVERY_SOURCES} from "@/lib/vision/discovery-catalog";
+import { selectedDiscoveryInbox } from "@/lib/vision/selected-discovery";
+import { SavedSourceSelection } from "./SourceSelection";
 import { parseDiscoveryFilters } from "@/lib/vision/discovery-filters";
 import { STATUS_LABEL } from "@/lib/data";
 import { listVisionCounties, listVisionOpportunities } from "@/lib/vision/opportunities";
@@ -25,8 +29,8 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   let discoveryError: string | undefined;
   try { discoveryFilters = parseDiscoveryFilters(params); } catch (cause) { if (cause instanceof InvalidVisionInput) discoveryError = cause.message; else throw cause; }
   const discoveryFiltered = Boolean(discoveryFilters.applicationType || discoveryFilters.location || discoveryFilters.dateMode !== "all" || discoveryFilters.from || discoveryFilters.to);
-  const [saved,counties,nassau,suffolk] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb()),discoveryInbox(getDb(), "new", discoveryFilters),discoveryInbox(getDb(), "new", discoveryFilters,"suffolk-planning")]);
-  const discovery={candidates:[...nassau.candidates,...suffolk.candidates],applicationTypes:[...new Set([...nassau.applicationTypes,...suffolk.applicationTypes])].sort()};
+  const selectedSources=readSourcePreference((await cookies()).get(SOURCE_SELECTION_COOKIE)?.value);
+  const [saved,counties,discovery] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb()),selectedDiscoveryInbox(getDb(),selectedSources,"new",discoveryFilters)]);
   const opportunities = error ? [] : saved;
   const candidates = discoveryError ? [] : discovery.candidates;
   const auth = await authorizeRequest();
@@ -34,9 +38,11 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   const workflows = workflowRows ? Object.fromEntries(workflowRows.map(item=>[item.opportunityId,{decision:item.decision,classification:item.classification,nextAction:item.nextAction,reviewDate:item.reviewDate}])) : undefined;
   return <Sheet number="V-100" title="Vision" actions={<><Link className="btn btn--quiet" href="/vision/discover">Discover opportunities</Link><Link className="btn btn--primary" href="/vision/new">New opportunity</Link></>}
     meta={<><span>Construction and development opportunities</span><Sep /><span className="num">{candidates.length} discoveries shown · {opportunities.length} tracked opportunities shown</span></>}>
+    <SavedSourceSelection initialSources={selectedSources}/>
+    {Object.entries(discovery.sourceErrors).map(([source,message])=><p className="input-error" role="alert" key={source}>{DISCOVERY_SOURCES.find(item=>item.id===source)?.name}: {message}</p>)}
     <form className="vision-map-filters" action="/vision" key={params.toString()}>
       <fieldset className="vision-filter-group"><legend>Discoveries awaiting review</legend><div className="vision-filters">
-        <label>Application type<select className="input" name="applicationType" defaultValue={params.get("applicationType") ?? ""}><option value="">All application types</option>{discovery.applicationTypes.map(type => <option key={type}>{type}</option>)}</select></label>
+        <label>Application type<select className="input" name="applicationType" defaultValue={params.get("applicationType") ?? ""}><option value="">All application types</option>{[...new Set([...discovery.applicationTypes,...(discoveryFilters.applicationType?[discoveryFilters.applicationType]:[])])].sort().map(type => <option key={type}>{type}</option>)}</select></label>
         <label>Location<input className="input" type="search" name="location" maxLength={400} defaultValue={params.get("location") ?? ""} placeholder="Town, county or address" /></label>
         <label>Source dates<select className="input" name="dateMode" defaultValue={params.get("dateMode") || "all"}><option value="all">All dates</option><option value="known">Known dates</option><option value="unknown">Unknown dates</option></select></label>
         <label>From<input className="input" type="date" name="from" defaultValue={params.get("from") ?? ""} /></label>
@@ -50,7 +56,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
       <div className="vision-form-actions"><button className="btn" type="submit">Apply filters</button><Link className="btn btn--quiet" href="/vision">Clear filters</Link></div>
     </form>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
-    {discoveryError ? <p role="alert" className="input-error">{discoveryError} Discovery results are hidden until you correct the filters.</p> : candidates.length === 0 ? <p role="status" className="vision-map-notice">{discoveryFiltered ? "No discoveries match these filters. Clear or widen the filters to see more opportunities." : "There are no discoveries awaiting review. Open Discover opportunities to collect source records."}</p> : null}
+    {discoveryError ? <p role="alert" className="input-error">{discoveryError} Discovery results are hidden until you correct the filters.</p> : selectedSources.length > 0 && candidates.length === 0 ? <p role="status" className="vision-map-notice">{discoveryFiltered ? "No discoveries match these filters. Clear or widen the filters to see more opportunities." : "There are no discoveries awaiting review. Open Discover opportunities to collect source records."}</p> : null}
     <OpportunityMap workflowDecisions={workflows ? Object.fromEntries(Object.entries(workflows).map(([id,workflow])=>[id,workflow.decision])) : undefined} opportunities={opportunities.filter(item=>workflows?.[item.id]?.classification!=="policy")} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
     <h2 className="t-2">Tracked opportunities</h2>
     <OpportunityList workflows={workflows} opportunities={opportunities} filtered={Boolean(filters.search || filters.county || filters.status)} />

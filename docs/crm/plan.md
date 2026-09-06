@@ -1,7 +1,7 @@
 # Kulka CRM plan
 
 This is the proposed product plan for LA-226, prepared September 5, 2026, Eastern time.
-Matt asked for the whole CRM plan and additional Long Island sources. This document
+Matt asked for the whole CRM plan and additional Long Island sources. Matt then approved testing one complete opportunity workflow before building separate CRM modules. This revision replaces the earlier database-first order and nine-stage proposal. This document
 sets the direction and build order. It does not claim these features exist.
 
 ## Direction
@@ -83,35 +83,42 @@ on each. Never fill either from an unsupported estimate or automatic fit score.
 3. Qualify the opportunity using project type, location, scope, timing, known
    parties, relationship access and the reason Kulka would pursue it. Unknowns
    become explicit research tasks. No fixed dollar cutoff is assumed.
-4. Choose whether to monitor, pursue or pass. Require a responsible staff member,
-   a written reason and a next action when starting active pursuit. A missing
+4. Choose whether to monitor, pursue or pass. Default responsibility to the signed-in person and expose the next action
+   immediately when they choose to pursue. Do not require a separate reason form. A missing
    contact is a research task, not grounds to invent a person.
-5. Log outreach and meetings, update the sales stage, and complete or reassign
+5. Log outreach and meetings, update the opportunity decision, and complete or reassign
    tasks. Record what happened rather than marking outreach sent from a draft.
 6. Record the outcome and reason. A won opportunity requires recorded award
    evidence. A lost opportunity records the known reason or says it is unknown.
    Reopening preserves the prior outcome and stage history.
 
-### Proposed sales stages
+### Minimum workflow states
 
-These are starter defaults, not a claim about Kulka's existing sales process.
+Start with Needs a decision, Watching, Pursuing and Closed. Closed records carry
+an outcome of Won, Lost or Passed. These are prototype choices to validate with
+Matt, not a claim about Kulka's established sales process.
 
-| Stage | Meaning and entry evidence |
-| --- | --- |
-| Qualifying | The team is assessing scope, parties and relevance. This is not active pipeline. |
-| Monitoring | There is a reason to keep watching and a next review date. This is not active pipeline. |
-| Outreach | Kulka has chosen to pursue, assigned a person and set the next action. |
-| Engaged | A logged two-way contact or meeting establishes engagement. |
-| Proposal | The team is preparing or has delivered a proposal. Track draft and delivered dates separately. |
-| Negotiation | A logged exchange shows that terms or award are under discussion. |
-| Won | A user records award evidence and the award date. |
-| Lost | A user records the outcome date and reason, if known. |
-| Passed | Kulka chooses not to pursue and records why. |
+A person chooses Pursue, Watch or Pass from the source record. Pursue does not
+require a company, contact, value or qualification form. The signed-in person
+is the default assignee. An open pursuit without a next action appears visibly
+in the work queue, rather than blocking the initial decision with more fields.
+A next action may be contact research while the contact remains unknown.
 
-Stages may move backward with a reason. Review status stays separate. Do not
-convert old Done records to Won during migration. Start old saved records at
-Qualifying, preserve their IDs, links, notes and review state, and mark qualification
-as pending. Unassigned legacy records appear in a clear team queue.
+Capture the next action once, with its assignee and optional due date. Recording
+a result completes that action, writes the activity and can set the next action
+in the same form. Dates and assignments remain editable in context. Closing an
+opportunity closes its open next action and preserves the history. A Won outcome
+requires award evidence; watching a policy notice never makes it an eligible
+construction award.
+
+Keep source review state internally for intake. Do not ask users to maintain a
+second general review status alongside the opportunity decision. Preserve old
+review fields during migration without mapping Done to Won. Existing saved
+records retain their IDs, URLs and notes and need a commercial decision.
+
+Do not add separate Engagement, Proposal or Negotiation stages until a real
+workflow shows that the stage changes an action or a useful report. Log those
+events as activity in the meantime.
 
 ## Screens and daily work
 
@@ -175,18 +182,28 @@ phase into one-job issues when its implementation spec is ready.
 
 | Order | Delivery | Acceptance evidence |
 | --- | --- | --- |
-| 1 | Shared companies, contacts, staff assignments and opportunity links. | One company can support two opportunities; one contact can hold distinct project roles; imports detect repeat rows; unauthenticated and wrong-workspace access fail. Existing Vision URLs and notes still work. |
-| 2 | Suffolk source collection into the existing review inbox, plus source-to-opportunity linking. | Repeated collection is idempotent; changed documents retain history; policy items do not inflate deal counts; duplicate suggestions never silently merge. Incomplete location stays off the map. |
-| 3 | Qualification and Pursuits using the same opportunity record. | A reviewed discovery becomes one pursuit; stage changes retain actor/time/reason; review Done never means Won; cards and map/list views agree. |
-| 4 | Tasks, activity and Home. | Two staff members can assign and complete work without lost updates; due dates use America/New_York; date-only tasks become overdue after the due day; closed work leaves the active queue. |
-| 5 | Islip, Oyster Bay and Hempstead imports, then deeper town coverage. | Each source passes its own fixture, live-sample, update, identity and failure checks before it joins regular collection. |
-| 6 | Briefs, document links, approved imports and reporting. | Brief facts link to evidence; missing facts remain open questions; pipeline totals reconcile to records; role checks apply to attachments and exports. |
-| 7 | Approved production pilot and later connected workflows. | Verify migration and rollback on a staging copy, login/member permissions, persistence across restart, source schedule recovery, audit history and a full two-user work cycle. Production changes require approval. |
+| 1 | Prototype one opportunity screen with real filing facts and marked practice scenarios. | Pursue without a contact; link a person in context; assign a next action; record its result and next step. Repeat intake without another opportunity. Watch a policy notice without inventing a project. Matt tries the workflow and identifies any unnecessary step. |
+| 2 | Build the validated workflow with saved records. Add only the company/contact links and task/activity storage that support it. | The whole flow survives reload and concurrent edits. Existing Vision links and notes still work. Authenticated membership checks protect all private data. One action does not require repeated entry into separate modules. |
+| 3 | Connect Suffolk source collection and source linking to this workflow. | Changed documents retain evidence; uncertain matches require judgment; reliable repeat IDs do not create duplicates; incomplete locations stay off the map. |
+| 4 | Add useful team views over the same records. | Home and Pursuits expose missing next actions, assignments, due work and closed outcomes without requiring users to update those views separately. |
+| 5 | Add Islip, Oyster Bay and Hempstead collectors, then deeper town coverage. | Each source passes its own identity, live-sample, update and failure checks before regular collection. |
+| 6 | Add imports, briefs and reports only for demonstrated work needs. | Each feature replaces a specific manual step. Reports reconcile to records and briefs show evidence. None is a prerequisite for pursuing a lead. |
+| 7 | Run an approved production pilot. | Verify migration and rollback in staging, access, persistence, recovery and a two-person work cycle. Production changes require separate approval. |
 
-Prepare the full product model now; implement the smallest useful phases in this
-order. Do not activate a second source just to show a larger marker count.
-The first implementation job is the shared company/contact and opportunity-link
-foundation. The next collector is Suffolk County Planning Commission.
+The immediate deliverable is the single-screen workflow prototype, not separate
+company and contact CRUD pages. The shared record model remains useful underneath
+the workflow, but users should not need to maintain its structure by hand.
+
+The prototype is captured on the separate `codex/vision-workflow-prototype`
+branch at `docs/crm/prototypes/opportunity-workflow.html`. It is standalone and
+keeps changes in memory. It contains real Nassau filing details and clearly
+labeled example contacts and actions. It must not enter the production build.
+The repeat-intake scenario models an exact identity match; it does not implement
+or validate the future matching algorithm.
+
+Measure required fields, repeated entry, navigation and recovery using the full
+flow. The prototype's committed-action count is only a diagnostic, not a click
+count or proof of usability. Do not declare zero friction from agent inspection.
 
 ## Scenarios that the model must survive
 
@@ -206,13 +223,12 @@ foundation. The next collector is Suffolk County Planning Commission.
 
 ## Assumptions to validate during the first usable slice
 
-Use one shared Kulka workspace, project-led selling, and the proposed stages above.
+Use one shared Kulka workspace, project-led selling, and the minimum workflow states above.
 Do not assume a project-size minimum, weighted forecast, existing client import,
 email provider, outbound automation or a separate acquisition CRM. Those choices
-can refine the first screens without holding up the record foundation. If land
+can refine the first screens without holding up the workflow. If land
 acquisition needs a separate sales process, give it a separate stage definition
 while sharing sites, companies, contacts and source evidence.
 
 See [Long Island source plan](long-island-sources.md) for source evidence and the
-collector acceptance contract. No CRM feature, extra collector or production
-setting changed as part of this planning job.
+collector acceptance contract. The workflow prototype does not add a persistent CRM feature, extra collector or production setting.

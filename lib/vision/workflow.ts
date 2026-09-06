@@ -118,7 +118,7 @@ export async function updateWorkflow(db: Db, id: string, input: unknown, actor: 
   case "result": {
    if (!active(next.decision)) throw new InvalidVisionInput("Choose Watching or Pursuing before recording a result.");
    const result = text(body.result, "result", 10000);
-   if (body.outcome !== undefined && body.outcome !== "won" && body.outcome !== "lost") throw new InvalidVisionInput("Choose a valid outcome.");
+   if (body.outcome !== undefined && body.outcome !== "won" && body.outcome !== "lost" && body.outcome !== "passed") throw new InvalidVisionInput("Choose a valid outcome.");
    if (body.outcome && body.nextAction != null) throw new InvalidVisionInput("Closed work cannot have a next action.");
    let awardEvidence = "";
    if (body.outcome === "won") awardEvidence = text(body.awardEvidence, "award evidence", 4000);

@@ -134,6 +134,19 @@ describe("private opportunity workflow",()=>{
    expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);
   }
  });
+ it("records a pass result atomically for policy context and closes open work",async()=>{
+  await change({type:"classification",classification:"policy"});
+  await change({type:"decision",decision:"watching"});
+  await change({type:"reviewDate",reviewDate:"2026-10-01"});
+  const before=await change({type:"action",action:nextAction});
+  expect((await post({type:"result",result:"Policy does not affect our work.",outcome:"passed",nextAction,expectedRevision:before.revision})).status).toBe(400);
+  expect((await read()).workflow).toEqual(before);
+  const passed=await change({type:"result",result:"Policy does not affect our work.",outcome:"passed"});
+  expect(passed).toMatchObject({classification:"policy",decision:"passed",nextAction:null,reviewDate:null});
+  expect(passed.activity.at(-1)?.description).toContain("Policy does not affect our work. Outcome: passed.");
+  expect(passed.activity.at(-1)?.description).toContain("Assigned to browser-test@kulka.invalid, due 2026-09-09.");
+  expect((await read()).workflow).toEqual(passed);
+ });
  it("requires an active decision before assigning work or recording results",async()=>{
   for(const body of [{type:"action",action:nextAction},{type:"result",result:"Called"},{type:"result",result:"Awarded",outcome:"won",awardEvidence:"Executed agreement"},{type:"reviewDate",reviewDate:"2026-10-01"}]){
    expect((await post({...body,expectedRevision:0})).status).toBe(400);

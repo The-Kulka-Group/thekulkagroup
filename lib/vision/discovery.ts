@@ -2,15 +2,22 @@ import { randomUUID } from "node:crypto";
 import type { Db } from "@/lib/db";
 import { DISCOVERY_SOURCE, fetchDiscoveryRecords, type DiscoveredRecord } from "./discovery-source";
 import { parseVisionDraft, InvalidVisionInput } from "./input";
+import { parseDiscoveryFilters, type DiscoveryFilters } from "./discovery-filters";
 
 export type DiscoveryCandidate = { id:string; snapshot:DiscoveredRecord; revision:number; review_state:"new"|"dismissed"|"accepted"; opportunity_id:string|null; first_seen_at:string; last_seen_at:string; changed_at:string };
 export type DiscoveryState = { last_checked_at:string|null; last_success_at:string|null; last_error:string|null; record_count:number; running:boolean };
 export class DiscoveryConflict extends Error {}
-export async function discoveryInbox(db:Db, state="new") {
+export async function discoveryInbox(db:Db, state="new", filters:DiscoveryFilters=parseDiscoveryFilters(new URLSearchParams())) {
   if (!["new","dismissed","accepted","all"].includes(state)) throw new InvalidVisionInput("Choose a valid review filter.");
   const source = await db.query<DiscoveryState>(`select last_checked_at,last_success_at,last_error,record_count,coalesce(lease_until > clock_timestamp(),false) as running from vision_discovery_sources where id=$1`,[DISCOVERY_SOURCE.id]);
-  const candidates = await db.query<DiscoveryCandidate>(`select * from vision_discovery_candidates where ($1='all' or review_state=$1) order by snapshot->>'sourceDate' desc nulls last,changed_at desc,id limit 500`,[state]);
-  return { source:source.rows[0] ?? null, candidates:candidates.rows };
+  const candidates = await db.query<DiscoveryCandidate>(`select * from vision_discovery_candidates where ($1='all' or review_state=$1)
+    and ($2='' or snapshot->'details'->>'Record type'=$2)
+    and ($3='' or strpos(lower(concat_ws(' ',snapshot->>'town',snapshot->>'county',snapshot->>'address')),lower($3))>0)
+    and ($4='all' or ($4='known' and snapshot->>'sourceDate' is not null) or ($4='unknown' and snapshot->>'sourceDate' is null))
+    and ($5='' or snapshot->>'sourceDate'>=$5) and ($6='' or snapshot->>'sourceDate'<=$6)
+    order by snapshot->>'sourceDate' desc nulls last,changed_at desc,id limit 500`,[state,filters.applicationType,filters.location,filters.dateMode,filters.from,filters.to]);
+  const types=await db.query<{name:string}>(`select distinct snapshot->'details'->>'Record type' as name from vision_discovery_candidates where snapshot->'details'->>'Record type' is not null order by name`);
+  return { source:source.rows[0] ?? null, candidates:candidates.rows, applicationTypes:types.rows.map(row=>row.name) };
 }
 export async function discoveryDetail(db:Db,id:string) {
   const candidate = (await db.query<DiscoveryCandidate>("select * from vision_discovery_candidates where id=$1",[id])).rows[0];

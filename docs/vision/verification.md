@@ -101,3 +101,18 @@ Collection now runs from Check source or the protected scheduled endpoint.
 Production migration, deployment and schedule activation have not run. Other
 directory sources remain manual, and the Nassau scan covers the selection
 described in discovery.md rather than every county record.
+
+## Discovery filters
+
+LA-220 adds application type, location and source-date filters before the server
+result limit. The discovery API suite now passes 14 tests, including inclusive
+date bounds, unknown dates, combined filters, invalid ranges and an older match
+beyond the first 500 source records. Lint and TypeScript pass.
+
+Browser checks at desktop and 375px confirmed type and location selection,
+complete date entry, unknown dates, disabled date bounds and Clear filters.
+Zoning referrals in Valley Stream from August 1 through August 31, 2026 returned
+one record. Minor subdivisions with unknown dates returned 100 records. Clearing
+the filters restored the 300-record inbox. The viewport override was reset.
+
+The filter addition changes no schema or production settings.

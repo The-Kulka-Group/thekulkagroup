@@ -17,6 +17,35 @@ beforeAll(async()=>{db=await seededDatabase();},60000);
 beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
+ it("combines application, location and inclusive source-date filters",async()=>{
+  fetchRecords.mockResolvedValue([
+   {...source,externalId:"first",sourceDate:"2026-08-01",details:{"Record type":"Zoning referral"}},
+   {...source,externalId:"last",sourceDate:"2026-08-31",details:{"Record type":"Zoning referral"}},
+   {...source,externalId:"other-type",details:{"Record type":"Major subdivision"}},
+   {...source,externalId:"outside",sourceDate:"2026-07-31",details:{"Record type":"Zoning referral"}},
+   {...source,externalId:"unknown",sourceDate:null,details:{"Record type":"Zoning referral"}},
+  ]);await check();
+  const query=async(params:Record<string,string>)=>(await (await inbox.GET(new Request(`http://localhost?${new URLSearchParams(params)}`))).json());
+  const matched=await query({applicationType:"Zoning referral",location:"TEST ADDRESS",from:"2026-08-01",to:"2026-08-31"});
+  expect(matched.candidates.map((x:{external_id:string})=>x.external_id)).toEqual(["last","first"]);
+  expect(matched.applicationTypes).toEqual(["Major subdivision","Zoning referral"]);
+  expect((await query({location:"nassau",dateMode:"unknown"})).candidates.map((x:{external_id:string})=>x.external_id)).toEqual(["unknown"]);
+  expect((await query({location:"test town",dateMode:"known"})).candidates).toHaveLength(4);
+  expect((await query({location:"%"})).candidates).toEqual([]);
+  expect((await query({})).candidates).toHaveLength(5);
+ });
+ it("filters before the 500-record limit",async()=>{
+  fetchRecords.mockResolvedValue(Array.from({length:501},(_,i)=>({...source,externalId:`record-${i}`,sourceDate:i===500?"2020-01-01":"2026-08-01",address:i===500?"Unique older address":"Common address",details:{"Record type":i===500?"Minor subdivision":"Zoning referral"}})));
+  await check();
+  const result=await (await inbox.GET(new Request("http://localhost?applicationType=Minor%20subdivision&location=Unique&to=2020-01-01"))).json();
+  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].external_id).toBe("record-500");
+ });
+ it("rejects malformed and conflicting date filters",async()=>{
+  for(const query of ["from=2026-02-30","to=invalid","from=0000-01-01","from=2026-09-01&to=2026-08-01","dateMode=unknown&from=2026-01-01","dateMode=invalid",`location=${"x".repeat(401)}`]){
+   expect((await inbox.GET(new Request(`http://localhost?${query}`))).status).toBe(400);
+  }
+ });
+
  it("keeps repeated records, records changed snapshots, and preserves saved opportunity notes",async()=>{
   expect((await check()).status).toBe(200);const [item]=await listed();
   await age();await check();let record=await (await detail.GET(req(),ctx(item.id))).json();expect(record.history).toHaveLength(1);

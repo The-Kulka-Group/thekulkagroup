@@ -26,3 +26,8 @@
 .discovery-filters {display:grid;grid-template-columns:220px minmax(0,1fr);}
 .discovery-filters label {min-width:0;}
 @media(max-width:600px){.discovery-filters{grid-template-columns:1fr;}}
+
+.discovery-narrow-filters {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s4);align-items:end;margin-bottom:var(--s4);}
+.discovery-narrow-filters label {display:flex;flex-direction:column;gap:var(--s2);min-width:0;font-weight:600;}
+.discovery-narrow-filters .input {width:100%;min-width:0;}
+@media(max-width:600px){.discovery-narrow-filters{grid-template-columns:1fr;}}

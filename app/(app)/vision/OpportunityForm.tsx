@@ -10,6 +10,7 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
   const router = useRouter();
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState<string>();
+  const [conflict,setConflict] = useState(false);
   const [saved,setSaved] = useState(false);
   const [revision,setRevision] = useState(opportunity?.revision);
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -24,7 +25,7 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
         body: JSON.stringify({ ...body,latitude:number("latitude"),longitude:number("longitude"), ...(opportunity ? {status:hideReviewStatus?opportunity.status:form.get("status"),expectedRevision:revision} : {}) }),
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok) { setError(result?.error ?? "The opportunity could not be saved."); return; }
+      if (!response.ok) { if(response.status===409)setConflict(true); setError(result?.error ?? "The opportunity could not be saved."); return; }
       if (!result?.opportunity?.id) { setError("The server returned an unreadable response. Reload the list to check whether the opportunity was saved."); return; }
       if (!opportunity) router.push(`/vision/${result.opportunity.id}`);
       setRevision(result.opportunity.revision); setSaved(true); router.refresh();
@@ -57,7 +58,8 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
       <label htmlFor="vision-notes">Notes<textarea className="input vision-notes" id="vision-notes" name="notes" maxLength={10000} rows={6} defaultValue={opportunity?.notes ?? ""} /></label>
     </section>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
+    {conflict ? <button className="btn" type="button" onClick={()=>window.location.reload()}>Reload latest record</button> : null}
     {saved ? <p role="status">Your changes were saved.</p> : null}
-    <div className="vision-form-actions"><button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving…" : opportunity ? "Save changes" : "Save opportunity"}</button><Link className="btn btn--quiet" href="/vision">Back to opportunities</Link></div>
+    <div className="vision-form-actions"><button className="btn btn--primary" type="submit" disabled={saving||conflict}>{saving ? "Saving…" : opportunity ? "Save changes" : "Save opportunity"}</button><Link className="btn btn--quiet" href="/vision">Back to opportunities</Link></div>
   </form>;
 }

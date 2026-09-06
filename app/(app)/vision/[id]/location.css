@@ -1,0 +1,15 @@
+.opportunity-location { margin: 20px 0; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); scroll-margin-top: 24px; }
+.location-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.location-heading h2 { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+.location-heading p { margin: 5px 0; }
+.location-editor { display: grid; gap: 12px; margin-top: 16px; }
+.location-editor > label { display: grid; gap: 6px; }
+.location-editor > button { justify-self: start; }
+.location-map { height: 340px; min-height: 260px; border-radius: 10px; }
+.location-source { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+.location-source p { width: 100%; margin: 0; overflow-wrap: anywhere; }
+.location-matches { margin: 0; padding-left: 20px; }
+.location-matches .btn { white-space: normal; text-align: left; height: auto; }
+.vision-off-map { background: var(--canvas); border-radius: 10px; padding: 16px; margin: 12px 0; }
+.vision-off-map li { margin: 10px 0; }
+@media(max-width:600px) { .opportunity-location { padding: 14px; } .location-heading { flex-direction: column; } .location-editor .vision-form-grid { grid-template-columns: 1fr; } }

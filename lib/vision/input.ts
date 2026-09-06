@@ -56,3 +56,17 @@ export function parseVisionFilters(params: URLSearchParams): VisionFilters {
   if (status && !statuses.includes(status)) throw new InvalidVisionInput("Choose a valid review status.");
   return { search: text(params.get("search") ?? "", "Search", 200), county: text(params.get("county") ?? "", "County", 120), status: status as VisionStatus | undefined };
 }
+
+export function parseVisionLocation(value: unknown) {
+  const body = object(value);
+  if (Object.keys(body).some(key => !["address", "latitude", "longitude", "expectedRevision"].includes(key))) throw new InvalidVisionInput("Send only the address, coordinates and current revision.");
+  if (!Number.isSafeInteger(body.expectedRevision) || Number(body.expectedRevision) < 1) throw new InvalidVisionInput("Send the current opportunity revision.");
+  if (!("latitude" in body) || !("longitude" in body) || typeof body.address !== "string") throw new InvalidVisionInput("Send the address and both coordinates, or null to clear the pin.");
+  const latitude = coordinate(body.latitude, 90, "Latitude");
+  const longitude = coordinate(body.longitude, 180, "Longitude");
+  if ((latitude === null) !== (longitude === null)) throw new InvalidVisionInput("Enter both latitude and longitude, or leave both blank.");
+  return { address: text(body.address, "Address", 400), latitude, longitude, expectedRevision: Number(body.expectedRevision) };
+}
+export function parseLocationQuery(value: unknown) {
+  return text(object(value).address, "Street address with town and state", 400, true);
+}

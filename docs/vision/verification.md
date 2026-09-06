@@ -148,3 +148,35 @@ and 100 minor subdivisions with unknown dates. Mobile controls fit at 375px
 without horizontal overflow. Clear filters restores the full discovery layer.
 The viewport override was reset. This change has no production settings or
 schema changes.
+
+## Saved opportunity workflow
+
+LA-230 and LA-231 add the approved single-record workflow. An authorized staff
+member can pursue, watch or pass; add or link a person; assign one next action;
+and record a result with a replacement action or a closed outcome. Won requires
+award evidence. Policy context stays out of the opportunity map and cannot be
+pursued, won or lost. Legacy source notes, record IDs and review data remain.
+
+The new workflow and people stores use RLS with no browser-role policies. The
+server rejects temporary access to both workflow reads and writes. Revision
+checks gate the state, activity and inline contact insertion in one SQL statement.
+Assignees must be in the authorized staff list. Due dates use calendar dates,
+and overdue display compares against America/New_York.
+
+All 69 tests pass across workflow, legacy opportunity routes, discovery routes,
+source parsing and map grouping. TypeScript, lint and the production build pass. Browser checks on the
+actual HTTP app confirmed source acceptance, pursuit without a contact, saved
+action/due date, inline person creation, result plus next action, reload retention,
+atomic pass with a reason, action closure and existing-person linking. The mobile
+375px viewport had no horizontal overflow. Desktop and mobile layouts were
+inspected, and the viewport override was reset.
+
+The Standards review found inconsistent state chips and bold overdue dates; both
+now use Daylight's shared status treatment. The Spec review found a stale outcome
+selection after classification changes and a missing atomic pass result. Both
+paths were corrected, including outcome reset after loading a conflict revision.
+
+The browser checks used marked temporary QA activity in the disposable local
+database. The preview database was reset afterward. No QA contact, action or
+outcome is included in a migration. Production schema, data and settings were not
+changed. The prototype remains on its separate branch.

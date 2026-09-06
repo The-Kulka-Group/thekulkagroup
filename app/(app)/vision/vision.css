@@ -28,7 +28,7 @@
 
 .vision-form h2, .vision-source h2 { font-size:var(--body-size); line-height:var(--body-line); font-weight:700; letter-spacing:normal; }
 
-.vision-map-filters { margin-bottom:var(--s5); }
+.vision-map-filters { margin-bottom:var(--s6); }
 .vision-filter-group { border:1px solid var(--border-light); padding:var(--s3); margin:0 0 var(--s3); min-width:0; }
 .vision-filter-group legend { font-weight:600; padding:0 var(--s2); }
 .vision-filter-group .vision-filters { margin-bottom:var(--s2); }
@@ -37,4 +37,5 @@
 .vision-tracked-filters summary { cursor:pointer; font-weight:600; padding:var(--s2) 0; }
 .vision-tracked-filters .vision-filters { margin:var(--s2) 0; }
 
-.vision-cell-meta.vision-due-alert {color:var(--stuck);font-weight:600;}
+.vision-workflow-decision {width:auto;min-width:112px;padding:0 var(--s3);white-space:nowrap;}
+.vision-workflow-decision--watching {--gl:url("/glyphs/clock.svg");}

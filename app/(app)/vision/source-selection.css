@@ -1,0 +1,10 @@
+.vision-source-selection { border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: var(--s4); margin: var(--s4) 0; background: var(--surface); }
+.vision-source-selection legend { font-size: var(--body-size); line-height: var(--body-line); font-weight: 700; padding: 0 var(--s2); }
+.vision-source-selection > div { display: flex; flex-wrap: wrap; gap: var(--s4); }
+.vision-source-selection label { display: flex; align-items: center; gap: var(--s2); font-weight: 600; cursor: pointer; }
+.vision-source-selection input { accent-color: var(--primary); width: var(--s4); height: var(--s4); }
+.discovery-source-checks { display: grid; gap: var(--s3); margin: var(--s4) 0; }
+.discovery-source-check { background: var(--canvas); padding: var(--s4); border-radius: var(--r-lg); }
+.discovery-source-check h2 { font-size: var(--body-size); line-height: var(--body-line); margin: 0 0 var(--s2); }
+.discovery-source-check p { margin: var(--s2) 0; }
+.discovery-source-check a { overflow-wrap: anywhere; }

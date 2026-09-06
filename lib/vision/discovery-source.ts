@@ -41,6 +41,7 @@ function date(value: unknown): string | null {
 function parseFeature(value: unknown, layer: typeof LAYERS[number]): DiscoveredRecord {
   const feature = object(value);
   const attributes = object(feature.attributes);
+  if (layer.fields.split(",").some(key => !Object.hasOwn(attributes, key))) throw new Error("The Nassau source omitted expected fields. Earlier finds have been kept.");
   const globalId = field(attributes, "GlobalID", true).replace(/[{}]/g, "").toLowerCase();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(globalId)) throw new Error("The Nassau source returned an invalid record identifier.");
   const objectId = attributes.OBJECTID;

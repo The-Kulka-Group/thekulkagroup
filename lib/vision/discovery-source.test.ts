@@ -4,7 +4,7 @@ import { fetchDiscoveryRecords } from "./discovery-source";
 // Synthetic source responses only. No fixture is imported by the application.
 function page(layer: number) {
   return { spatialReference: { wkid: 4326 }, exceededTransferLimit: true, features: [{
-    attributes: { OBJECTID: 12, GlobalID: "{00000000-0000-4000-8000-000000000012}", File_No: "TEST-12", Address: "Synthetic address", ...(layer === 0 ? { Municipality: "Synthetic town", Referral_Date: Date.UTC(2026, 8, 1), Type_Referral: "Synthetic referral" } : {}), ...(layer === 1 ? { Init_Filing_Date: null, Approve_Date: Date.UTC(2025, 1, 2), No_Lots: 2 } : {}) },
+    attributes: { OBJECTID: 12, GlobalID: "{00000000-0000-4000-8000-000000000012}", File_No: "TEST-12", Address: "Synthetic address", Municipality: null as string|null, Referral_Date: null as number|null, Type_Referral: null as string|null, Multi_Fam:null, Init_Filing_Date:null, Approve_Date:null as number|null, No_Lots:null as number|null, Section:null, Block:null, Lots:null, ...(layer === 0 ? { Municipality: "Synthetic town", Referral_Date: Date.UTC(2026, 8, 1), Type_Referral: "Synthetic referral" } : {}), ...(layer === 1 ? { Init_Filing_Date: null, Approve_Date: Date.UTC(2025, 1, 2), No_Lots: 2 } : {}) },
     geometry: { x: -73.6, y: 40.7 },
   }] };
 }
@@ -38,6 +38,7 @@ describe("Nassau discovery source", () => {
   it.each([
     (data: ReturnType<typeof page>) => ({...data,features:[]}),
     () => ({error:{code:500}}),
+    (data: ReturnType<typeof page>) => ({...data,features:data.features.map(feature=>({...feature,attributes:{OBJECTID:12}}))}),
     (data: ReturnType<typeof page>) => ({...data,spatialReference:{wkid:2263}}),
     (data: ReturnType<typeof page>) => ({...data,features:[...data.features,...data.features]}),
     (data: ReturnType<typeof page>) => {data.features[0].geometry.x=100000;return data;},

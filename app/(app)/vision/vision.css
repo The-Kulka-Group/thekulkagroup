@@ -27,3 +27,12 @@
 @media(max-width:600px) { .vision-form-grid { grid-template-columns:1fr; } .vision-filters label { width:100%; } .vision-form-actions .btn { flex:1; } }
 
 .vision-form h2, .vision-source h2 { font-size:var(--body-size); line-height:var(--body-line); font-weight:700; letter-spacing:normal; }
+
+.vision-map-filters { margin-bottom:var(--s5); }
+.vision-filter-group { border:1px solid var(--border-light); padding:var(--s3); margin:0 0 var(--s3); min-width:0; }
+.vision-filter-group legend { font-weight:600; padding:0 var(--s2); }
+.vision-filter-group .vision-filters { margin-bottom:var(--s2); }
+.vision-filter-group .t-meta { margin:0; }
+.vision-tracked-filters { margin-bottom:var(--s3); }
+.vision-tracked-filters summary { cursor:pointer; font-weight:600; padding:var(--s2) 0; }
+.vision-tracked-filters .vision-filters { margin:var(--s2) 0; }

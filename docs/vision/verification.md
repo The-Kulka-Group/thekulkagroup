@@ -132,3 +132,19 @@ and lint pass. Desktop and 375px browser checks confirmed 300 discovered records
 visible colored markers, layer hiding, keyboard cluster activation, record
 navigation, mobile popup bounds and zoom regrouping. The temporary viewport was
 reset. No source record was accepted as part of this visual check.
+
+## Discovery filters on the map
+
+LA-224 adds application type, location and source date filters to the map through
+the existing validated discovery query. A GET form preserves selections in the
+URL across reloads. Tracked filters remain in their own section. Invalid source
+filters hide discovery results and show a correction message. Empty matches
+have a separate message from records without coordinates.
+
+Sixteen map grouping and discovery API tests pass, along with TypeScript and
+lint. Browser checks confirmed one Valley Stream zoning referral in August
+2026, retained filters after reload, zero markers for an empty location search,
+and 100 minor subdivisions with unknown dates. Mobile controls fit at 375px
+without horizontal overflow. Clear filters restores the full discovery layer.
+The viewport override was reset. This change has no production settings or
+schema changes.

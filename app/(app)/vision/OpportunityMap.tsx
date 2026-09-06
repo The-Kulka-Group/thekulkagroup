@@ -137,7 +137,7 @@ export function OpportunityMap({ opportunities, discoveries }: { opportunities: 
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
-      <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Tracked opportunities use the filters above. Discovery shows up to 500 inbox records; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
+      <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Discovery shows up to 500 matching inbox records; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
     </section>
   );
 }

@@ -1,8 +1,15 @@
 .vision-source-selection { border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: var(--s4); margin: var(--s4) 0; background: var(--surface); }
 .vision-source-selection legend { font-size: var(--body-size); line-height: var(--body-line); font-weight: 700; padding: 0 var(--s2); }
 .vision-source-selection > div { display: flex; flex-wrap: wrap; gap: var(--s4); }
-.vision-source-selection label { display: flex; align-items: center; gap: var(--s2); font-weight: 600; cursor: pointer; }
-.vision-source-selection input { accent-color: var(--primary); width: var(--s4); height: var(--s4); }
+.vision-source-selection label { display: flex; align-items: center; min-height: 44px; gap: var(--s3); font-weight: 600; cursor: pointer; }
+.vision-source-switch { appearance: none; position: relative; flex: 0 0 44px; width: 44px; height: 26px; margin: 0; border: 1px solid var(--ink-3); border-radius: 999px; background: var(--ink-3); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.vision-source-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--surface); transition: transform 150ms ease; }
+.vision-source-switch:checked { background: var(--primary); border-color: var(--primary); }
+.vision-source-switch:checked::before { transform: translateX(18px); }
+.vision-source-switch:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.vision-source-switch:disabled { opacity: .55; cursor: wait; }
+@media (prefers-reduced-motion: reduce) { .vision-source-switch, .vision-source-switch::before { transition: none; } }
+@media (forced-colors: active) { .vision-source-switch { background: Canvas; border-color: ButtonText; } .vision-source-switch::before { background: ButtonText; } .vision-source-switch:checked { background: Highlight; border-color: Highlight; } .vision-source-switch:checked::before { background: HighlightText; } }
 .discovery-source-checks { display: grid; gap: var(--s3); margin: var(--s4) 0; }
 .discovery-source-check { background: var(--canvas); padding: var(--s4); border-radius: var(--r-lg); }
 .discovery-source-check h2 { font-size: var(--body-size); line-height: var(--body-line); margin: 0 0 var(--s2); }

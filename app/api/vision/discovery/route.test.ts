@@ -4,6 +4,9 @@ import type { Db } from "@/lib/db";
 let db:Awaited<ReturnType<typeof seededDatabase>>;
 const fetchRecords=vi.hoisted(()=>vi.fn());
 const fetchSuffolk=vi.hoisted(()=>vi.fn());
+const fetchNassauIda=vi.hoisted(()=>vi.fn());
+const fetchSuffolkIda=vi.hoisted(()=>vi.fn());
+vi.mock("@/lib/vision/ida-source",()=>({fetchNassauIdaRecords:fetchNassauIda,fetchSuffolkIdaRecords:fetchSuffolkIda}));
 vi.mock("@/lib/vision/suffolk-source",()=>({fetchSuffolkRecords:fetchSuffolk}));
 vi.mock("@/lib/db",()=>({getDb:()=>db as Db}));
 vi.mock("@/lib/vision/discovery-source",()=>({DISCOVERY_SOURCE:{id:"nassau-applications"},fetchDiscoveryRecords:fetchRecords}));
@@ -16,9 +19,34 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);});
+beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
+ it("collects both IDA sources independently and retains reviews, evidence and history on stable refresh",async()=>{
+  const evidence={kind:"index-link",url:"https://suffolkida.org/wp-content/uploads/test.pdf",title:"Index link metadata",page:1,checksum:"a".repeat(64),text:"Synthetic index metadata. PDF contents were not read."};
+  fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk",evidence:[evidence]}]);
+  const run=(id:string,auth?:string)=>refresh.POST(new Request(`http://localhost?source=${id}`,{method:"POST",headers:auth?{"x-kulka-test-auth":auth}:{}}));
+  expect((await run("nassau-ida")).status).toBe(200);
+  expect((await run("suffolk-ida")).status).toBe(200);
+  expect(fetchRecords).not.toHaveBeenCalled();expect(fetchSuffolk).not.toHaveBeenCalled();
+  const both=await (await inbox.GET(new Request("http://localhost?sources=nassau-ida,suffolk-ida"))).json();
+  expect(both.candidates).toHaveLength(2);
+  expect(new Set(both.candidates.map((row:{source_id:string})=>row.source_id))).toEqual(new Set(["nassau-ida","suffolk-ida"]));
+  const candidate=both.candidates.find((row:{source_id:string})=>row.source_id==="suffolk-ida");
+  const saved=await (await review(candidate.id)).json();
+  await db.query("update vision_opportunities set notes='Keep reviewed notes' where id=$1",[saved.opportunity_id]);
+  expect((await run("suffolk-ida")).status).toBe(409);
+  await age();expect((await run("suffolk-ida")).status).toBe(200);
+  const stable=await (await detail.GET(req(),ctx(candidate.id))).json();
+  expect(stable.history).toHaveLength(1);expect(stable.candidate.review_state).toBe("accepted");expect(stable.candidate.snapshot.evidence).toEqual([evidence]);
+  await age();fetchNassauIda.mockRejectedValue(new Error("Missing page"));
+  expect((await run("nassau-ida")).status).toBe(502);
+  expect((await run("suffolk-ida")).status).toBe(200);
+  const after=await (await inbox.GET(new Request("http://localhost?sources=nassau-ida,suffolk-ida&state=all"))).json();
+  expect(after.candidates).toHaveLength(2);expect(after.sources["nassau-ida"].last_error).toContain("incomplete");expect(after.sources["suffolk-ida"].last_error).toBeNull();
+  expect((await db.query<{notes:string}>("select notes from vision_opportunities where id=$1",[saved.opportunity_id])).rows[0].notes).toBe("Keep reviewed notes");
+  vi.stubEnv("KULKA_AUTH_BYPASS","1");expect((await run("nassau-ida")).status).toBe(403);expect((await run("suffolk-ida")).status).toBe(403);
+ });
  it("collects and filters Suffolk independently while keeping Nassau unchanged",async()=>{
   await check();
   const run=()=>refresh.POST(new Request("http://localhost/api/vision/discovery/refresh?source=suffolk-planning",{method:"POST"}));
@@ -190,7 +218,7 @@ describe("combined source selection",()=>{
   expect(result.sourceErrors["suffolk-planning"]).toBeTruthy();expect(result.sources["nassau-applications"]).not.toBeNull();
  });
  it("keeps successful checks and old failed-source records in the combined view",async()=>{
-  fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);
+  fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);
   const suffolk=()=>refresh.POST(new Request("http://localhost?source=suffolk-planning",{method:"POST"}));
   await suffolk();await age();fetchSuffolk.mockRejectedValue(new Error("Synthetic PDF failure"));
   const {checkSelectedSources}=await import("@/lib/vision/source-selection");

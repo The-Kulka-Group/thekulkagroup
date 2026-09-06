@@ -1,6 +1,7 @@
 import {cookies} from "next/headers";
 import {SOURCE_SELECTION_COOKIE,readSourcePreference} from "@/lib/vision/source-selection";
 import Link from "next/link";
+import {SourceBrand} from "../SourceBrand";
 import {SavedSourceSelection} from "../SourceSelection";
 import { Sheet } from "@/components/Sheet";
 import { VISION_SOURCES } from "@/lib/vision/sources";
@@ -15,7 +16,7 @@ export default async function VisionSources() {
       <div className="vision-source-intro">
         <h2>Start with the public record.</h2>
         <p>Open a source, find a construction or development application, and save the
-          opportunity with the document link and date. The discovery inbox collects Nassau applications and Suffolk planning documents. Other sources require manual capture.</p>
+          opportunity with the document link and date. The discovery inbox collects county planning records and Nassau and Suffolk IDA project filings. Other sources require manual capture.</p>
       </div>
       <SavedSourceSelection initialSources={selectedSources}/>
       <div className="vision-source-grid">
@@ -24,9 +25,9 @@ export default async function VisionSources() {
           return (
             <article className="vision-directory-card" key={source.id}>
               <p className="t-meta">{source.place} · {source.kind}</p>
-              <h2>{source.name}</h2>
+              <h2><SourceBrand id={source.id} name={source.name}/></h2>
               <p>{source.description}</p>
-              <p className="t-meta">We checked this link on September 5, 2026.</p>
+              <p className="t-meta">We checked this link on {new Intl.DateTimeFormat("en-US", {month:"long",day:"numeric",year:"numeric",timeZone:"UTC"}).format(new Date(source.checkedAt))}.</p>
               <div className="vision-source-actions">
                 <a className="btn btn--primary" href={source.url} target="_blank" rel="noopener noreferrer">Open source</a>
                 <Link className="btn btn--quiet" href={`/vision/new?${query}`}>Add an opportunity</Link>

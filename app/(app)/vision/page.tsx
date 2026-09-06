@@ -6,6 +6,7 @@ import { listVisionCounties, listVisionOpportunities } from "@/lib/vision/opport
 import { InvalidVisionInput, parseVisionFilters } from "@/lib/vision/input";
 import type { VisionFilters } from "@/lib/vision/types";
 import { OpportunityList } from "./OpportunityList";
+import { OpportunityMap } from "./OpportunityMap";
 import "./vision.css";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   let error: string | undefined;
   try { filters = parseVisionFilters(params); } catch (cause) { if (cause instanceof InvalidVisionInput) error = cause.message; else throw cause; }
   const [opportunities,counties] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb())]);
-  return <Sheet number="V-100" title="Vision" actions={<Link className="btn btn--primary" href="/vision/new">New opportunity</Link>}
+  return <Sheet number="V-100" title="Vision" actions={<><Link className="btn btn--quiet" href="/vision/sources">Find opportunities</Link><Link className="btn btn--primary" href="/vision/new">New opportunity</Link></>}
     meta={<><span>Construction and development opportunities</span><Sep /><span className="num">{opportunities.length} {opportunities.length === 1 ? "opportunity" : "opportunities"} shown</span></>}>
     <form className="vision-filters" action="/vision">
       <label>Search<input className="input" type="search" name="search" maxLength={200} defaultValue={filters.search} placeholder="Name, place, source or notes" /></label>
@@ -26,6 +27,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
       <button className="btn" type="submit">Apply filters</button><Link className="btn btn--quiet" href="/vision">Clear filters</Link>
     </form>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
+    <OpportunityMap opportunities={opportunities} />
     <OpportunityList opportunities={opportunities} />
   </Sheet>;
 }

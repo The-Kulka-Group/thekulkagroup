@@ -15,6 +15,7 @@ vi.mock("./ida-source", () => ({
 
 const {
   AUTOMATED_SOURCE_DEFINITIONS,
+  enabledAutomatedSourceDefinitions,
   REGISTERED_SOURCE_ADAPTER_KEYS,
   collectAutomatedSource,
   discoverySourceId,
@@ -87,6 +88,13 @@ describe("Vision automated source registry", () => {
     expect(fetchSuffolkPlanning).toHaveBeenCalledOnce();
     expect(fetchNassauIda).toHaveBeenCalledOnce();
     expect(fetchSuffolkIda).toHaveBeenCalledOnce();
+  });
+
+  it("selects enabled source definitions without changing registry order", () => {
+    expect(enabledAutomatedSourceDefinitions([
+      {...AUTOMATED_SOURCE_DEFINITIONS[0], enabled: false},
+      ...AUTOMATED_SOURCE_DEFINITIONS.slice(1),
+    ]).map(source => source.id)).toEqual(["suffolk-planning", "nassau-ida", "suffolk-ida"]);
   });
 
   it("rejects unsupported IDs and request objects before a collector can run", async () => {

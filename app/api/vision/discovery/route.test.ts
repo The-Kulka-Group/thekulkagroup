@@ -19,7 +19,7 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);});
+beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
  it("collects both IDA sources independently and retains reviews, evidence and history on stable refresh",async()=>{
@@ -117,11 +117,11 @@ describe("Vision discovery API",()=>{
   expect((await query({location:"%"})).candidates).toEqual([]);
   expect((await query({})).candidates).toHaveLength(5);
  });
- it("filters before the 500-record limit",async()=>{
-  fetchRecords.mockResolvedValue(Array.from({length:501},(_,i)=>({...source,externalId:`record-${i}`,sourceDate:i===500?"2020-01-01":"2026-08-01",address:i===500?"Unique older address":"Common address",details:{"Record type":i===500?"Minor subdivision":"Zoning referral"}})));
+ it("filters before the source result limit",async()=>{
+  fetchRecords.mockResolvedValue(Array.from({length:300},(_,i)=>({...source,externalId:`record-${i}`,sourceDate:i===299?"2020-01-01":"2026-08-01",address:i===299?"Unique older address":"Common address",details:{"Record type":i===299?"Minor subdivision":"Zoning referral"}})));
   await check();
   const result=await (await inbox.GET(new Request("http://localhost?applicationType=Minor%20subdivision&location=Unique&to=2020-01-01"))).json();
-  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].external_id).toBe("record-500");
+  expect(result.candidates).toHaveLength(1);expect(result.candidates[0].external_id).toBe("record-299");
  });
  it("rejects malformed and conflicting date filters",async()=>{
   for(const query of ["from=2026-02-30","to=invalid","from=0000-01-01","from=2026-09-01&to=2026-08-01","dateMode=unknown&from=2026-01-01","dateMode=invalid",`location=${"x".repeat(401)}`]){
@@ -156,12 +156,12 @@ describe("Vision discovery API",()=>{
  });
  it("keeps saved records and last success when fetches fail or return malformed records",async()=>{
   await check();const before=await (await inbox.GET(req())).json();
-  for(const bad of [null,[],[{...source,externalId:""}],[{...source,sourceUrl:"javascript:alert(1)"}],[source,source],[{...source,details:{x:4}}]]){
+  for(const bad of [null,[{...source,externalId:""}],[{...source,sourceUrl:"javascript:alert(1)"}],[source,source],[{...source,details:{x:4}}]]){
    await age();fetchRecords.mockResolvedValue(bad);expect((await check()).status).toBe(502);const after=await (await inbox.GET(req())).json();expect(after.candidates).toEqual(before.candidates);expect(after.source.last_success_at).toBe(before.source.last_success_at);expect(after.source.last_error).toContain("failed");
   }
   await age();fetchRecords.mockRejectedValue(new Error("Private upstream error"));expect((await check()).status).toBe(502);
  });
- it("rejects an empty result without deleting previous candidates",async()=>{await check();await age();fetchRecords.mockResolvedValue([]);expect((await check()).status).toBe(502);const result=await (await inbox.GET(req())).json();expect(result.candidates).toHaveLength(1);expect(result.source.record_count).toBe(1);});
+ it("records an empty result without deleting previous candidates",async()=>{await check();await age();fetchRecords.mockResolvedValue([]);const response=await check();expect(response.status).toBe(200);expect((await response.json()).outcome).toBe("completed_empty");const result=await (await inbox.GET(req())).json();expect(result.candidates).toHaveLength(1);expect(result.source.record_count).toBe(0);});
  it("shares an expiring lease, rate limits checks and protects against an old run overwriting a newer lease",async()=>{
   let release!:(records:typeof source[])=>void;fetchRecords.mockImplementation(()=>new Promise(resolve=>{release=resolve;}));const first=check();
   for(let attempt=0;attempt<100 && !release;attempt++)await new Promise(resolve=>setTimeout(resolve,1));
@@ -182,11 +182,55 @@ describe("Vision discovery API",()=>{
  it("requires a long matching cron secret independent of user access",async()=>{
   vi.stubEnv("KULKA_AUTH_BYPASS","1");const call=(token:string,sourceId?:string)=>cron.POST(new Request(`http://localhost${sourceId?`?source=${sourceId}`:""}`,{method:"POST",headers:{authorization:`Bearer ${token}`}}));
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","");expect((await call("")).status).toBe(401);vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","short");expect((await call("short")).status).toBe(401);
-  vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));expect((await call("b".repeat(32))).status).toBe(401);expect((await call("é".repeat(32))).status).toBe(401);expect((await call("a".repeat(32))).status).toBe(200);
+  vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));expect((await call("b".repeat(32))).status).toBe(401);expect((await call("é".repeat(32))).status).toBe(401);expect((await call("a".repeat(32),"nassau-applications")).status).toBe(200);
   expect(fetchRecords).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"suffolk-planning")).status).toBe(200);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"unsupported")).status).toBe(400);
  });
+ it("runs all enabled sources with separate stored outcomes",async()=>{
+  vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));
+  fetchSuffolk.mockRejectedValue(new Error("authorization: Bearer private-upstream-token"));
+  fetchNassauIda.mockResolvedValue([]);
+  const response=await cron.POST(new Request("http://localhost?source=all",{method:"POST",headers:{authorization:`Bearer ${"a".repeat(32)}`}}));
+  expect(response.status).toBe(200);
+  const body=await response.json();
+  expect(body.results.map((item:{sourceId:string;outcome:string})=>[item.sourceId,item.outcome])).toEqual([
+   ["nassau-applications","completed"],
+   ["suffolk-planning","failed"],
+   ["nassau-ida","completed_empty"],
+   ["suffolk-ida","completed"],
+  ]);
+  expect(fetchRecords).toHaveBeenCalledTimes(1);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect(fetchNassauIda).toHaveBeenCalledTimes(1);expect(fetchSuffolkIda).toHaveBeenCalledTimes(1);
+  const runs=(await db.query<{source_id:string;outcome:string;fetched_count:number;error_summary:string|null}>("select source_id,outcome,fetched_count,error_summary from vision_discovery_runs order by started_at,source_id")).rows;
+  expect(runs).toHaveLength(4);
+  expect(runs.find(run=>run.source_id==="nassau-ida")).toMatchObject({outcome:"completed_empty",fetched_count:0,error_summary:null});
+  expect(runs.find(run=>run.source_id==="suffolk-planning")?.error_summary).not.toContain("private-upstream-token");
+  expect((await db.query("select * from vision_discovery_candidates")).rows).toHaveLength(2);
+ });
+ it("records insert, unchanged, update, failure, and blocked attempts without changing prior records",async()=>{
+  expect((await check()).status).toBe(200);
+  await age();expect((await check()).status).toBe(200);
+  await age();fetchRecords.mockResolvedValue([{...source,name:"Changed source name"}]);expect((await check()).status).toBe(200);
+  let release!:(records:typeof source[])=>void;await age();fetchRecords.mockImplementation(()=>new Promise(resolve=>{release=resolve;}));const active=check();
+  for(let attempt=0;attempt<100 && !release;attempt++)await new Promise(resolve=>setTimeout(resolve,1));
+  expect((await check()).status).toBe(409);release([{...source,name:"Changed source name"}]);expect((await active).status).toBe(200);
+  await age();fetchRecords.mockRejectedValue(new Error("password=never-store-this"));expect((await check()).status).toBe(502);
+  const runs=(await db.query<{outcome:string;inserted_count:number;updated_count:number;unchanged_count:number;error_summary:string|null;coverage_start_date:string|null;coverage_end_date:string|null}>("select outcome,inserted_count,updated_count,unchanged_count,error_summary,coverage_start_date::text,coverage_end_date::text from vision_discovery_runs order by started_at,id")).rows;
+  expect(runs.map(run=>run.outcome).sort()).toEqual(["blocked","completed","completed","completed","completed","failed"]);
+  expect(runs[0]).toMatchObject({inserted_count:1,updated_count:0,unchanged_count:0,coverage_start_date:"2026-08-01",coverage_end_date:"2026-08-01"});
+  expect(runs[1]).toMatchObject({inserted_count:0,updated_count:0,unchanged_count:1});
+  expect(runs[2]).toMatchObject({inserted_count:0,updated_count:1,unchanged_count:0});
+  expect(runs.find(run=>run.outcome==="failed")?.error_summary).not.toContain("never-store-this");
+  expect((await listed())[0].snapshot.name).toBe("Changed source name");
+ });
+ it("rejects request supplied collection settings before a source fetch",async()=>{
+  vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));
+  for(const query of ["source=unknown","source=nassau-applications&origin=https://evil.test","url=https://evil.test/feed"]){
+   const response=await cron.POST(new Request(`http://localhost?${query}`,{method:"POST",headers:{authorization:`Bearer ${"a".repeat(32)}`}}));
+   expect(response.status).toBe(400);
+  }
+  expect(fetchRecords).not.toHaveBeenCalled();expect(fetchSuffolk).not.toHaveBeenCalled();expect(fetchNassauIda).not.toHaveBeenCalled();expect(fetchSuffolkIda).not.toHaveBeenCalled();
+ });
  it("enables RLS without browser policies on each discovery table",async()=>{
-  for(const table of ["vision_discovery_sources","vision_discovery_candidates","vision_discovery_history"]){expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);}
+  for(const table of ["vision_discovery_sources","vision_discovery_candidates","vision_discovery_history","vision_discovery_runs"]){expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);}
  });
 });
 

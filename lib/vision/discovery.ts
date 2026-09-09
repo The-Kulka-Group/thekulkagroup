@@ -4,16 +4,19 @@ import type { DiscoveredRecord } from "./discovery-source";
 import { isUuid } from "@/lib/uuid";
 import { parseVisionDraft, safeSourceUrl, InvalidVisionInput } from "./input";
 import { parseDiscoveryFilters, type DiscoveryFilters } from "./discovery-filters";
-import { collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, discoverySourceId } from "./source-registry";
+import { automatedSourceDefinition, collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, discoverySourceId, enabledAutomatedSourceDefinitions } from "./source-registry";
 
 export type DiscoveryCandidate = { id:string; source_id:string; snapshot:DiscoveredRecord; revision:number; review_state:"new"|"dismissed"|"accepted"; opportunity_id:string|null; first_seen_at:string; last_seen_at:string; changed_at:string };
-export type DiscoveryState = { last_checked_at:string|null; last_success_at:string|null; last_error:string|null; record_count:number; coverage:{year:number;documents:string[]}|null; running:boolean };
+export type DiscoveryRunOutcome = "completed"|"completed_empty"|"skipped"|"blocked"|"failed";
+export type DiscoveryState = { last_checked_at:string|null; last_success_at:string|null; last_error:string|null; last_outcome:DiscoveryRunOutcome|null; record_count:number; coverage:{year:number;documents:string[]}|null; running:boolean };
+export type DiscoveryRunResult = {sourceId:string;outcome:DiscoveryRunOutcome;count:number;coverage:{year:number;documents:string[]}|null;fetched:number;inserted:number;updated:number;unchanged:number;rejected:number;error:string|null};
 export class DiscoveryConflict extends Error {}
+class DiscoverySourceFailure extends Error {}
 export { DISCOVERY_SOURCE_IDS, discoverySourceId } from "./source-registry";
 export async function discoveryInbox(db:Db, state="new", filters:DiscoveryFilters=parseDiscoveryFilters(new URLSearchParams()), sourceId=DEFAULT_AUTOMATED_SOURCE_ID) {
   discoverySourceId(sourceId);
   if (!["new","dismissed","accepted","all"].includes(state)) throw new InvalidVisionInput("Choose a valid review filter.");
-  const source = await db.query<DiscoveryState>(`select last_checked_at,last_success_at,last_error,record_count,coverage,coalesce(lease_until > clock_timestamp(),false) as running from vision_discovery_sources where id=$1`,[sourceId]);
+  const source = await db.query<DiscoveryState>(`select last_checked_at,last_success_at,last_error,last_outcome,record_count,coverage,coalesce(lease_until > clock_timestamp(),false) as running from vision_discovery_sources where id=$1`,[sourceId]);
   const candidates = await db.query<DiscoveryCandidate>(`select id,source_id,external_id,snapshot-'evidence' as snapshot,revision,review_state,opportunity_id,first_seen_at,last_seen_at,changed_at from vision_discovery_candidates where source_id=$7 and ($1='all' or review_state=$1)
     and ($2='' or snapshot->'details'->>'Record type'=$2)
     and ($3='' or strpos(lower(concat_ws(' ',snapshot->>'town',snapshot->>'county',snapshot->>'address')),lower($3))>0)
@@ -29,56 +32,111 @@ export async function discoveryDetail(db:Db,id:string) {
   const history = await db.query<{revision:number;snapshot:DiscoveredRecord;captured_at:string}>("select revision,snapshot,captured_at from vision_discovery_history where candidate_id=$1 order by revision desc",[id]);
   return {candidate,history:history.rows};
 }
-function validateRecords(records:DiscoveredRecord[]) {
-  if (!Array.isArray(records) || records.length === 0 || records.length > 2000) throw new Error("The source returned an invalid record count.");
-  const ids = new Set<string>();
+class SourceValidationError extends Error { constructor(readonly fetched:number,readonly rejected:number){super("The source returned records outside its contract.");} }
+function validateRecords(value:unknown,maxRecords:number): asserts value is DiscoveredRecord[] {
+  if (!Array.isArray(value)) throw new SourceValidationError(0,1);
+  if (value.length > maxRecords) throw new SourceValidationError(value.length,value.length-maxRecords);
+  const records=value as DiscoveredRecord[],ids=new Set<string>();
+  let rejected=0;
   for (const record of records) {
-    try { parseVisionDraft({...record,town:record.town || "Unspecified",notes:""}); }
-    catch { throw new Error("The source returned invalid opportunity fields."); }
-    if (typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length>300 || ids.has(record.externalId)) throw new Error("The source returned an invalid or repeated record identifier.");
-    if (typeof record.sourceDateLabel !== "string" || !record.sourceDateLabel.trim() || record.sourceDateLabel.length>100 || !record.details || typeof record.details!=="object" || Array.isArray(record.details) || Object.keys(record.details).length>40 || Object.entries(record.details).some(([k,v])=>k.length>100 || typeof v!=="string" || v.length>5000)) throw new Error("The source returned invalid record details.");
-    if (record.identityStatus !== undefined && !["resolved","unresolved"].includes(record.identityStatus)) throw new Error("The source returned an invalid identity status.");
-    if (record.classification !== undefined && !["opportunity","policy"].includes(record.classification)) throw new Error("The source returned an invalid classification.");
-    if (record.evidence !== undefined) {
-      if (!Array.isArray(record.evidence) || record.evidence.length > 240) throw new Error("The source returned too many evidence pages.");
-      for (const page of record.evidence) {
-        if (!page || (page.kind !== undefined && page.kind !== "index-link") || typeof page.title !== "string" || page.title.length>500 || typeof page.text !== "string" || page.text.length>40000 || !Number.isSafeInteger(page.page) || page.page<1 || typeof page.checksum!=="string" || !/^[a-f0-9]{64}$/.test(page.checksum)) throw new Error("The source returned invalid evidence.");
-        try { safeSourceUrl(page.url); } catch { throw new Error("The source returned an invalid evidence link."); }
+    try {
+      parseVisionDraft({...record,town:record.town || "Unspecified",notes:""});
+      if (typeof record.externalId !== "string" || !record.externalId.trim() || record.externalId.length>300 || ids.has(record.externalId)) throw new Error();
+      if (typeof record.sourceDateLabel !== "string" || !record.sourceDateLabel.trim() || record.sourceDateLabel.length>100 || !record.details || typeof record.details!=="object" || Array.isArray(record.details) || Object.keys(record.details).length>40 || Object.entries(record.details).some(([k,v])=>k.length>100 || typeof v!=="string" || v.length>5000)) throw new Error();
+      if (record.identityStatus !== undefined && !["resolved","unresolved"].includes(record.identityStatus)) throw new Error();
+      if (record.classification !== undefined && !["opportunity","policy"].includes(record.classification)) throw new Error();
+      if (record.evidence !== undefined) {
+        if (!Array.isArray(record.evidence) || record.evidence.length > 240) throw new Error();
+        for (const page of record.evidence) {
+          if (!page || (page.kind !== undefined && page.kind !== "index-link") || typeof page.title !== "string" || page.title.length>500 || typeof page.text !== "string" || page.text.length>40000 || !Number.isSafeInteger(page.page) || page.page<1 || typeof page.checksum!=="string" || !/^[a-f0-9]{64}$/.test(page.checksum)) throw new Error();
+          safeSourceUrl(page.url);
+        }
       }
-    }
-    ids.add(record.externalId);
+    } catch { rejected++; }
+    if(typeof record.externalId==="string")ids.add(record.externalId);
   }
+  if(rejected)throw new SourceValidationError(records.length,rejected);
 }
-export async function collectDiscovery(db:Db, sourceId=DEFAULT_AUTOMATED_SOURCE_ID) {
-  discoverySourceId(sourceId);
+function coverageDates(records:DiscoveredRecord[]) {
+  const dates=records.map(record=>record.sourceDate).filter((date):date is string=>typeof date==="string" && /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  return {start:dates[0]??null,end:dates.at(-1)??null};
+}
+function elapsed(started:number){return Math.max(0,Math.min(2_147_483_647,Date.now()-started));}
+const FAILED_SUMMARY="The source check failed. Coverage is incomplete. Saved records remain available. Try again later.";
+async function recordRun(db:Db,input:{sourceId:string;startedAt:string;durationMs:number;outcome:DiscoveryRunOutcome;coverage:unknown;coverageStart:string|null;coverageEnd:string|null;fetched:number;inserted:number;updated:number;unchanged:number;rejected:number;error:string|null}) {
+  await db.query(`insert into vision_discovery_sources(id) values($1) on conflict(id) do nothing`,[input.sourceId]);
+  await db.query(`insert into vision_discovery_runs(source_id,started_at,duration_ms,outcome,coverage,coverage_start_date,coverage_end_date,fetched_count,inserted_count,updated_count,unchanged_count,rejected_count,error_summary)
+    values($1,$2::timestamptz,$3,$4,$5::jsonb,$6::date,$7::date,$8,$9,$10,$11,$12,$13)`,[input.sourceId,input.startedAt,input.durationMs,input.outcome,JSON.stringify(input.coverage),input.coverageStart,input.coverageEnd,input.fetched,input.inserted,input.updated,input.unchanged,input.rejected,input.error]);
+}
+async function collectDiscoveryAttempt(db:Db,sourceId:string):Promise<DiscoveryRunResult> {
+  const source=automatedSourceDefinition(sourceId),started=Date.now(),startedAt=new Date(started).toISOString();
+  if(!source.enabled){
+    await db.query(`insert into vision_discovery_sources(id,last_checked_at,last_outcome) values($1,clock_timestamp(),'skipped') on conflict(id) do update set last_checked_at=clock_timestamp(),last_outcome='skipped'`,[sourceId]);
+    await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"skipped",coverage:null,coverageStart:null,coverageEnd:null,fetched:0,inserted:0,updated:0,unchanged:0,rejected:0,error:null});
+    return {sourceId,outcome:"skipped",count:0,coverage:null,fetched:0,inserted:0,updated:0,unchanged:0,rejected:0,error:null};
+  }
   const token=randomUUID();
   const lease=await db.query(`insert into vision_discovery_sources(id,lease_token,lease_until,last_checked_at) values($1,$2,clock_timestamp()+interval '5 minutes',clock_timestamp())
     on conflict(id) do update set lease_token=$2,lease_until=clock_timestamp()+interval '5 minutes',last_checked_at=clock_timestamp()
     where (vision_discovery_sources.lease_until is null or vision_discovery_sources.lease_until <= clock_timestamp()) and (vision_discovery_sources.last_checked_at is null or vision_discovery_sources.last_checked_at <= clock_timestamp()-interval '5 minutes') returning id`,[sourceId,token]);
-  if (!lease.rows.length) throw new DiscoveryConflict("A check is running or ran within the last five minutes. Wait five minutes between source checks.");
+  if(!lease.rows.length){
+    await db.query(`update vision_discovery_sources set last_outcome='blocked' where id=$1`,[sourceId]);
+    await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"blocked",coverage:null,coverageStart:null,coverageEnd:null,fetched:0,inserted:0,updated:0,unchanged:0,rejected:0,error:null});
+    return {sourceId,outcome:"blocked",count:0,coverage:null,fetched:0,inserted:0,updated:0,unchanged:0,rejected:0,error:"A check is running or ran within the last five minutes. Wait five minutes between source checks."};
+  }
+  let fetched=0,rejected=0;
   try {
-    const {records,coverage}=await collectAutomatedSource(sourceId); validateRecords(records);
-    const result=await db.query(`with owned as (
-      update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null
+    const collected=await collectAutomatedSource(sourceId);fetched=Array.isArray(collected.records)?collected.records.length:0;validateRecords(collected.records,source.limits.maxRecords);
+    const records=collected.records,coverage=collected.coverage,{start:coverageStart,end:coverageEnd}=coverageDates(records),outcome:DiscoveryRunOutcome=records.length?"completed":"completed_empty";
+    const result=await db.query<{inserted_count:number;updated_count:number;unchanged_count:number}>(`with owned as (
+      update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,last_outcome=$9,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null
       where id=$1 and lease_token=$2 and lease_until>clock_timestamp() returning id
+    ), incoming as (
+      select item->>'externalId' as external_id,item as snapshot from jsonb_array_elements($4::jsonb) item
+    ), classified as (
+      select incoming.*,case when current.id is null then 'inserted' when current.snapshot is distinct from incoming.snapshot then 'updated' else 'unchanged' end as change
+      from incoming cross join owned left join vision_discovery_candidates current on current.source_id=$1 and current.external_id=incoming.external_id
     ), imported as (
       insert into vision_discovery_candidates(source_id,external_id,snapshot)
-      select owned.id,item->>'externalId',item from owned cross join jsonb_array_elements($4::jsonb) item
-      on conflict(source_id,external_id) do update set
-        snapshot=excluded.snapshot,last_seen_at=clock_timestamp(),
-        revision=vision_discovery_candidates.revision + case when vision_discovery_candidates.snapshot is distinct from excluded.snapshot then 1 else 0 end,
-        changed_at=case when vision_discovery_candidates.snapshot is distinct from excluded.snapshot then clock_timestamp() else vision_discovery_candidates.changed_at end
+      select owned.id,classified.external_id,classified.snapshot from owned cross join classified
+      on conflict(source_id,external_id) do update set snapshot=excluded.snapshot,last_seen_at=clock_timestamp(),revision=vision_discovery_candidates.revision + case when vision_discovery_candidates.snapshot is distinct from excluded.snapshot then 1 else 0 end,changed_at=case when vision_discovery_candidates.snapshot is distinct from excluded.snapshot then clock_timestamp() else vision_discovery_candidates.changed_at end
       returning id,revision,snapshot
     ), history as (
       insert into vision_discovery_history(candidate_id,revision,snapshot) select id,revision,snapshot from imported on conflict do nothing
-    ) select id from owned`,[sourceId,token,records.length,JSON.stringify(records),JSON.stringify(coverage)]);
-    if (!result.rows.length) throw new DiscoveryConflict("The source check expired. Start a new check.");
-    return {count:records.length,coverage};
+    ), counts as (
+      select count(*) filter(where change='inserted')::integer as inserted_count,count(*) filter(where change='updated')::integer as updated_count,count(*) filter(where change='unchanged')::integer as unchanged_count from classified
+    ), run as (
+      insert into vision_discovery_runs(source_id,started_at,duration_ms,outcome,coverage,coverage_start_date,coverage_end_date,fetched_count,inserted_count,updated_count,unchanged_count,rejected_count)
+      select owned.id,$6::timestamptz,greatest(0,floor(extract(epoch from (clock_timestamp()-$6::timestamptz))*1000))::integer,$9,$5::jsonb,$7::date,$8::date,$3,counts.inserted_count,counts.updated_count,counts.unchanged_count,0 from owned cross join counts
+    ) select counts.* from owned cross join counts`,[sourceId,token,records.length,JSON.stringify(records),JSON.stringify(coverage),startedAt,coverageStart,coverageEnd,outcome]);
+    if(!result.rows.length)throw new DiscoveryConflict("The source check expired. Start a new check.");
+    const counts=result.rows[0];
+    return {sourceId,outcome,count:records.length,coverage,fetched,inserted:counts.inserted_count,updated:counts.updated_count,unchanged:counts.unchanged_count,rejected:0,error:null};
   } catch(error) {
-    console.error("Vision source collection failed.", {sourceId,message:error instanceof Error ? error.message : "Unknown source error"});
-    await db.query(`update vision_discovery_sources set last_error=$3,lease_token=null,lease_until=null where id=$1 and lease_token=$2`,[sourceId,token,"The source check failed. Coverage is incomplete. Saved records remain available. Try again later."]);
-    throw error;
+    if(error instanceof DiscoveryConflict){
+      await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"blocked",coverage:null,coverageStart:null,coverageEnd:null,fetched,inserted:0,updated:0,unchanged:0,rejected:0,error:null});
+      return {sourceId,outcome:"blocked",count:0,coverage:null,fetched,inserted:0,updated:0,unchanged:0,rejected:0,error:error.message};
+    }
+    if(error instanceof SourceValidationError){fetched=error.fetched;rejected=error.rejected;}
+    console.error("Vision source collection failed.",{sourceId,message:FAILED_SUMMARY});
+    await db.query(`update vision_discovery_sources set last_error=$3,last_outcome='failed',lease_token=null,lease_until=null where id=$1 and lease_token=$2`,[sourceId,token,FAILED_SUMMARY]);
+    await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"failed",coverage:null,coverageStart:null,coverageEnd:null,fetched,inserted:0,updated:0,unchanged:0,rejected,error:FAILED_SUMMARY});
+    return {sourceId,outcome:"failed",count:0,coverage:null,fetched,inserted:0,updated:0,unchanged:0,rejected,error:FAILED_SUMMARY};
   }
+}
+export async function collectDiscovery(db:Db,sourceId=DEFAULT_AUTOMATED_SOURCE_ID) {
+  discoverySourceId(sourceId);
+  const result=await collectDiscoveryAttempt(db,sourceId);
+  if(result.outcome==="blocked")throw new DiscoveryConflict(result.error!);
+  if(result.outcome==="failed")throw new DiscoverySourceFailure(result.error!);
+  return {count:result.count,coverage:result.coverage,outcome:result.outcome,counts:{fetched:result.fetched,inserted:result.inserted,updated:result.updated,unchanged:result.unchanged,rejected:result.rejected}};
+}
+export async function collectAllDiscovery(db:Db) {
+  return {mode:"all",results:await Promise.all(enabledAutomatedSourceDefinitions().map(source=>collectDiscoveryAttempt(db,source.id)))};
+}
+export async function discoverySourceHealth(db:Db) {
+  const result=await db.query<DiscoveryState & {id:string}>(`select id,last_checked_at,last_success_at,last_error,last_outcome,record_count,coverage,coalesce(lease_until > clock_timestamp(),false) as running from vision_discovery_sources`);
+  return Object.fromEntries(result.rows.map(row=>[row.id,row]));
 }
 export function parseDiscoveryReview(body:unknown) {
   if (!body || typeof body!=="object" || Array.isArray(body)) throw new InvalidVisionInput("Send a review object.");

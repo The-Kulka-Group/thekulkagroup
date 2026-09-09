@@ -50,6 +50,8 @@
 .vision-source-empty h2, .vision-source-empty p { margin: 0; }
 .vision-source-empty p { margin-top: var(--s1); color: var(--ink-2); }
 .vision-source-actions { margin-top: auto; padding-top: var(--s2); }
+.vision-source-health { display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-top:auto;padding-top:var(--s3);border-top:1px solid var(--border-light); }
+.vision-source-health p { flex-basis:100%;margin:0; }
 @media (max-width: 860px) {
   .vision-map-heading { align-items: flex-start; flex-direction: column; }
   .vision-map-canvas { height: 420px; }

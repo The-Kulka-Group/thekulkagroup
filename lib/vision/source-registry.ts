@@ -204,6 +204,10 @@ export const AUTOMATED_SOURCE_DEFINITIONS = Object.freeze(
 export const DEFAULT_AUTOMATED_SOURCE_ID = "nassau-applications";
 export const DISCOVERY_SOURCE_IDS = Object.freeze(AUTOMATED_SOURCE_DEFINITIONS.map(source => source.id));
 
+export function enabledAutomatedSourceDefinitions(sources: readonly AutomatedSourceDefinition[] = AUTOMATED_SOURCE_DEFINITIONS) {
+  return sources.filter(source => source.enabled);
+}
+
 export function discoverySourceId(value: unknown = DEFAULT_AUTOMATED_SOURCE_ID): string {
   if (typeof value !== "string" || !DISCOVERY_SOURCE_IDS.includes(value)) throw new InvalidVisionInput("Choose a supported source.");
   return value;

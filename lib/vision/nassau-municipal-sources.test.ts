@@ -52,6 +52,7 @@ describe("Nassau municipal source coverage", () => {
       expect(source.collectionState).not.toBe("collectable");
       if (source.accessMode === "no-public-feed") {
         expect(source.coverage).toContain("No public project feed was found");
+        expect(source.recordFamilies).toEqual(["Building records", "Permit records", "Planning records", "Zoning records"]);
       }
     }
   });
@@ -88,7 +89,7 @@ describe("Nassau municipal source coverage", () => {
     const expectedUrls = new Map([
       ["Brookville", "https://www.villageofbrookville.gov/buildingdepartment"],
       ["Farmingdale", "https://farmingdalevillage.gov/"],
-      ["Hewlett Harbor", "https://hewlettharbor.gov/"],
+      ["Hewlett Harbor", "https://hewlettharbor.gov/application-licenses/"],
       ["Rockville Centre", "https://www.rvcny.gov/building-department"],
       ["Lawrence", "https://www.lawrenceny.gov/buildingdepartment"],
       ["Massapequa Park", "https://masspkny.gov/agenda-and-minutes"],
@@ -99,6 +100,39 @@ describe("Nassau municipal source coverage", () => {
     for (const [jurisdiction, url] of expectedUrls) {
       expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === jurisdiction)?.url).toBe(url);
     }
+  });
+
+  it("links no-feed entries to the official department, forms or records route when one exists", () => {
+    const expectedUrls = new Map([
+      ["Atlantic Beach", "https://atlanticbeachny.gov/building-department/"],
+      ["Hewlett Harbor", "https://hewlettharbor.gov/application-licenses/"],
+      ["Island Park", "https://villageofislandpark.gov/applications-fees/"],
+      ["Malverne", "https://www.malvernevillage.gov/building-department"],
+      ["Stewart Manor", "https://stewartmanor.org/content/PermitsFormsLicenses"],
+      ["Woodsburgh", "https://woodsburgh.gov/building-department/"],
+      ["East Williston", "https://eastwilliston.gov/building"],
+      ["Kings Point", "https://www.villageofkingspoint.gov/building-department"],
+      ["Plandome Heights", "https://plandomeheights-ny.gov/forms/"],
+      ["Plandome Manor", "https://plandomemanorny.gov/permit-applications/"],
+      ["Port Washington North", "https://portwashingtonnorth.gov/permits-forms/"],
+      ["Roslyn Harbor", "https://www.roslynharbor.org/permit-forms"],
+      ["Russell Gardens", "https://www.russellgardens.com/forms-and-applications"],
+      ["Sands Point", "https://www.sandspoint.gov/form-depository"],
+      ["Williston Park", "https://www.willistonparkny.gov/building-department"],
+      ["Cove Neck", "https://www.coveneck.org/building-department/pages/documents-forms"],
+      ["Lattingtown", "https://www.lattingtown.gov/building--landscaping.html"],
+      ["Matinecock", "https://www.matinecockvillage.gov/PrintableVillageForms.aspx"],
+    ]);
+
+    for (const [jurisdiction, url] of expectedUrls) {
+      expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === jurisdiction)).toMatchObject({
+        accessMode: "no-public-feed",
+        url,
+      });
+    }
+    const saddleRock = NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === "Saddle Rock");
+    expect(saddleRock?.url).toBe("https://saddlerockny.gov/");
+    expect(saddleRock?.limits).toContain("under construction");
   });
 
   it("does not deny public land-use records that the current village sites publish", () => {
@@ -116,12 +150,18 @@ describe("Nassau municipal source coverage", () => {
   });
 
   it("keeps public meeting archives separate from applicant and request routes", () => {
-    const ids = [
-      "north-hempstead-zoning-records", "freeport-site-plan-files", "lynbrook-board-minutes",
-      "freeport-online-permitting", "hempstead-village-smartgov", "valley-stream-permit-system",
-    ];
+    const routes = new Map([
+      ["north-hempstead-zoning-records", "North Hempstead"],
+      ["freeport-site-plan-files", "Freeport"],
+      ["lynbrook-board-minutes", "Lynbrook"],
+      ["freeport-online-permitting", "Freeport"],
+      ["hempstead-village-smartgov", "Hempstead"],
+      ["valley-stream-permit-system", "Valley Stream"],
+    ]);
 
-    expect(ids.every(id => NASSAU_MUNICIPAL_SOURCES.some(source => source.id === id))).toBe(true);
+    for (const [id, jurisdiction] of routes) {
+      expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === id)?.jurisdiction).toBe(jurisdiction);
+    }
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-site-plan-files")?.accessMode).toBe("public-online");
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-online-permitting")?.accessMode).toBe("request-or-contact");
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "lynbrook-board-minutes")?.collectionState).toBe("manual");

@@ -63,14 +63,27 @@ describe("Suffolk municipal source coverage", () => {
   });
 
   it("keeps each Suffolk town building route separate from meeting records", () => {
-    const ids = [
-      "babylon-online-permit-center", "brookhaven-public-records", "east-hampton-opengov-permits",
-      "huntington-permit-portal", "islip-application-portal", "riverhead-building-portal",
-      "shelter-island-property-records", "shelter-island-citysquared", "smithtown-building-portal",
-      "southampton-permit-lookup", "southampton-building-epermits", "southold-laserfiche-records",
-      "islip-building-records-request", "riverhead-building-records-request",
-    ];
-    const sources = ids.map(id => SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === id));
+    const routes = new Map([
+      ["babylon-online-permit-center", "Babylon"],
+      ["brookhaven-public-records", "Brookhaven"],
+      ["east-hampton-opengov-permits", "East Hampton"],
+      ["huntington-permit-portal", "Huntington"],
+      ["islip-application-portal", "Islip"],
+      ["islip-building-records-request", "Islip"],
+      ["riverhead-building-portal", "Riverhead"],
+      ["riverhead-building-records-request", "Riverhead"],
+      ["shelter-island-property-records", "Shelter Island"],
+      ["shelter-island-citysquared", "Shelter Island"],
+      ["smithtown-building-portal", "Smithtown"],
+      ["southampton-permit-lookup", "Southampton"],
+      ["southampton-building-epermits", "Southampton"],
+      ["southold-laserfiche-records", "Southold"],
+    ]);
+    const sources = [...routes].map(([id, jurisdiction]) => {
+      const source = SUFFOLK_MUNICIPAL_SOURCES.find(item => item.id === id);
+      expect(source?.jurisdiction).toBe(jurisdiction);
+      return source;
+    });
 
     expect(sources.every(Boolean)).toBe(true);
     expect(sources.every(source => source?.recordFamilies.some(family => /permit|property|record/i.test(family)))).toBe(true);

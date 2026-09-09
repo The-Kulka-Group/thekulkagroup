@@ -201,13 +201,13 @@ Vision collected production records from manual sources, or that this work is
 deployed. No collection run, production import, migration, schedule, or deployment
 is part of this check.
 
-The full Vitest run passed 454 tests in 47 files. All 10 active Playwright tests
+The full Vitest run passed 455 tests in 47 files. All 10 active Playwright tests
 passed, and the separate temporary-access test stayed skipped because that setting
 was off. TypeScript, lint, the production build, and the whitespace check passed.
 
-A same-day live link audit checked all 139 saved source routes. One hundred eighteen
+A same-day live link audit checked all 139 saved source routes. One hundred seventeen
 answered the automated request. Nineteen returned an access block, one portal
-returned a server error, and one request failed at the network layer. Those results
+returned a server error, and two requests failed at the network layer. Those results
 do not prove that a source is down because several sites block command-line requests.
 The audit found that eleven Nassau villages had moved to new official domains. It
 also found public land-use records that the first registry pass had classified as

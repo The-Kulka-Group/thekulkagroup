@@ -22,7 +22,7 @@ export const SUFFOLK_VILLAGE_JURISDICTIONS = [
 // current incorporated village.
 export const SUFFOLK_DISSOLVED_JURISDICTIONS = ["Mastic Beach"] as const;
 
-type Entry = {
+type SuffolkMunicipalSourceEntry = {
   id: string;
   name: string;
   jurisdiction: string;
@@ -37,7 +37,7 @@ type Entry = {
   collectionState?: SourceCollectionState;
 };
 
-function municipalSource(jurisdictionType: "town" | "village", entry: Entry): MunicipalSource {
+function municipalSource(jurisdictionType: "town" | "village", entry: SuffolkMunicipalSourceEntry): MunicipalSource {
   return {
     id: entry.id,
     name: entry.name,

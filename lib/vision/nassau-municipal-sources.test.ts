@@ -45,7 +45,7 @@ describe("Nassau municipal source coverage", () => {
     for (const source of NASSAU_MUNICIPAL_SOURCES) {
       expect(source.checkedAt).toBe("2026-09-09");
       expect(source.recordFamilies.length).toBeGreaterThan(0);
-      expect(source.retrievableFields.length).toBeGreaterThan(0);
+      expect(source.availableFields.length).toBeGreaterThan(0);
       expect(source.manualSteps.length).toBeGreaterThan(0);
       expect(source.limits.length).toBeGreaterThan(0);
       expect(source.accessMode).not.toBe("automated");
@@ -65,6 +65,6 @@ describe("Nassau municipal source coverage", () => {
       url: "https://floralparkny.gov/board-of-trustees-meeting-minutes/",
     });
     expect(floralPark?.recordFamilies).toContain("Building Department project updates");
-    expect(floralPark?.retrievableFields).toContain("Street address");
+    expect(floralPark?.availableFields).toContain("Street address");
   });
 });

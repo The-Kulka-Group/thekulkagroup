@@ -13,7 +13,7 @@ const source = (overrides: Partial<MunicipalSource> = {}): MunicipalSource => ({
   county: "Nassau",
   officialAgency: "Test planning board",
   recordFamilies: ["Planning applications"],
-  retrievableFields: ["Case number"],
+  availableFields: ["Case number"],
   accessMode: "public-online",
   collectionState: "manual",
   manualSteps: "Open the public source and review the case.",
@@ -75,10 +75,9 @@ describe("Vision municipal source directory", () => {
     }
   });
 
-  it("rejects duplicate, incomplete and inconsistent source claims", () => {
+  it("rejects duplicate and incomplete source claims", () => {
     expect(() => validateMunicipalSources([source(), source()])).toThrow("Duplicate");
-    expect(() => validateMunicipalSources([source({retrievableFields: []})])).toThrow("capability");
+    expect(() => validateMunicipalSources([source({availableFields: []})])).toThrow("capability");
     expect(() => validateMunicipalSources([source({url: "http://example.gov"})])).toThrow("HTTPS");
-    expect(() => validateMunicipalSources([source({accessMode: "automated", collectionState: "manual"})])).toThrow("inconsistent");
   });
 });

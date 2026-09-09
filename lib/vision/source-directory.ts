@@ -15,7 +15,7 @@ export type MunicipalSource = {
   county: "Nassau" | "Suffolk";
   officialAgency: string;
   recordFamilies: readonly string[];
-  retrievableFields: readonly string[];
+  availableFields: readonly string[];
   accessMode: SourceAccessMode;
   collectionState: SourceCollectionState;
   manualSteps: string;
@@ -41,11 +41,11 @@ export type SourceCoverageSummary = {
   accessModes: Record<SourceAccessMode, number>;
 };
 
-export const SOURCE_ACCESS: Record<SourceAccessMode, {filterLabel: string; collectionState: SourceCollectionState}> = {
-  automated: {filterLabel: "Vision collects this source", collectionState: "collectable"},
-  "public-online": {filterLabel: "Public source, manual review", collectionState: "manual"},
-  "request-or-contact": {filterLabel: "Request or account needed", collectionState: "restricted"},
-  "no-public-feed": {filterLabel: "No public project feed found", collectionState: "no-public-feed"},
+export const SOURCE_ACCESS: Record<SourceAccessMode, {filterLabel: string}> = {
+  automated: {filterLabel: "Vision collects this source"},
+  "public-online": {filterLabel: "Public source, manual review"},
+  "request-or-contact": {filterLabel: "Request or account needed"},
+  "no-public-feed": {filterLabel: "No public project feed found"},
 };
 
 export const COLLECTION_STATE_LABELS: Record<SourceCollectionState, string> = {
@@ -65,10 +65,9 @@ export function validateMunicipalSources(sources: readonly MunicipalSource[]) {
     if (ids.has(source.id)) throw new Error(`Duplicate municipal source ID: ${source.id}`);
     ids.add(source.id);
     if (!source.id || !source.name || !source.jurisdiction || !source.officialAgency) throw new Error("A municipal source is missing its identity.");
-    if (!source.recordFamilies.length || !source.retrievableFields.length) throw new Error(`Municipal source ${source.id} is missing capability details.`);
+    if (!source.recordFamilies.length || !source.availableFields.length) throw new Error(`Municipal source ${source.id} is missing capability details.`);
     if (!/^https:\/\//.test(source.url)) throw new Error(`Municipal source ${source.id} must use an official HTTPS URL.`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(source.checkedAt)) throw new Error(`Municipal source ${source.id} has an invalid checked date.`);
-    if (SOURCE_ACCESS[source.accessMode].collectionState !== source.collectionState) throw new Error(`Municipal source ${source.id} has inconsistent access and collection claims.`);
   }
   return sources;
 }

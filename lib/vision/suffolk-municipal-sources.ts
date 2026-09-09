@@ -46,7 +46,7 @@ function municipalSource(jurisdictionType: "town" | "village", entry: Entry): Mu
     county: "Suffolk",
     officialAgency: entry.agency,
     recordFamilies: entry.families,
-    retrievableFields: entry.fields,
+    availableFields: entry.fields,
     accessMode: entry.accessMode ?? "public-online",
     collectionState: entry.collectionState ?? "manual",
     manualSteps: entry.steps,

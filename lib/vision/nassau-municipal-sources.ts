@@ -81,14 +81,14 @@ export const NASSAU_AUTHORITATIVE_JURISDICTIONS: readonly NassauJurisdiction[] =
 ];
 
 type SourceProfile = Partial<Pick<MunicipalSource,
-  "name" | "officialAgency" | "recordFamilies" | "retrievableFields" | "accessMode" |
+  "name" | "officialAgency" | "recordFamilies" | "availableFields" | "accessMode" |
   "collectionState" | "manualSteps" | "limits" | "coverage" | "url">>;
 
-const publicMeetings = (name: string, officialAgency: string, url: string, recordFamilies: readonly string[], retrievableFields: readonly string[], coverage: string): SourceProfile => ({
+const publicMeetings = (name: string, officialAgency: string, url: string, recordFamilies: readonly string[], availableFields: readonly string[], coverage: string): SourceProfile => ({
   name,
   officialAgency,
   recordFamilies,
-  retrievableFields,
+  availableFields,
   accessMode: "public-online",
   collectionState: "manual",
   manualSteps: "Open the official page and review the linked notice, agenda, application, packet or minutes.",
@@ -151,7 +151,7 @@ function requestSource(item: NassauJurisdiction): MunicipalSource {
     county: "Nassau",
     officialAgency: item.jurisdictionType === "town" ? `Town of ${item.jurisdiction}` : `Village of ${item.jurisdiction}`,
     recordFamilies: ["Building permits", "Planning records", "Zoning records"],
-    retrievableFields: ["Record details supplied after account access or a records request"],
+    availableFields: ["Record details supplied after account access or a records request"],
     accessMode: "request-or-contact",
     collectionState: "restricted",
     manualSteps: "Use the official department page to sign in, file a records request or contact the clerk or building department.",
@@ -172,7 +172,7 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
     county: "Nassau",
     officialAgency: `${agencyType} of ${item.jurisdiction}`,
     recordFamilies: ["Building, planning and zoning records"],
-    retrievableFields: ["Official department or records contact information"],
+    availableFields: ["Official department or records contact information"],
     accessMode: "no-public-feed",
     collectionState: "no-public-feed",
     manualSteps: "Open the official site and contact the clerk or building department about the record needed.",
@@ -208,7 +208,7 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     county: "Nassau",
     officialAgency: "Town of Hempstead Building Department",
     recordFamilies: ["Building permits", "Building licenses", "Property inspections"],
-    retrievableFields: ["Permit application status", "Previous permits tied to the signed-in account", "Inspection requests", "Messages with town staff", "Permit document"],
+    availableFields: ["Permit application status", "Previous permits tied to the signed-in account", "Inspection requests", "Messages with town staff", "Permit document"],
     accessMode: "request-or-contact",
     collectionState: "restricted",
     manualSteps: "Create or use a resident account to submit a permit, review account records, request an inspection or contact town staff.",
@@ -225,7 +225,7 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     county: "Nassau",
     officialAgency: "Town of Oyster Bay Building Division",
     recordFamilies: ["Building permits", "Permit fees", "Building inspections"],
-    retrievableFields: ["Eligible permit type", "Permit application status", "Fee or payment status", "Inspection request", "Inspection result"],
+    availableFields: ["Eligible permit type", "Permit application status", "Fee or payment status", "Inspection request", "Inspection result"],
     accessMode: "request-or-contact",
     collectionState: "restricted",
     manualSteps: "Create or use a public registrant or contractor account to submit an eligible permit, monitor it, pay a fee or manage an inspection.",

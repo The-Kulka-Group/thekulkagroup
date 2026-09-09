@@ -57,7 +57,7 @@ export function SourceDirectoryResults({sources}: {sources: MunicipalSource[]}) 
           <p>{source.coverage}</p>
           <dl className="vision-source-capabilities">
             <div><dt>What this source publishes</dt><dd>{source.recordFamilies.join(", ")}</dd></div>
-            <div><dt>{sourceIsCollectable(source) ? "Vision can retrieve" : "Fields available from source"}</dt><dd>{source.retrievableFields.join(", ")}</dd></div>
+            <div><dt>{sourceIsCollectable(source) ? "Vision can retrieve" : "Fields available from source"}</dt><dd>{source.availableFields.join(", ")}</dd></div>
             <div><dt>Manual step or access need</dt><dd>{source.manualSteps}</dd></div>
             <div><dt>Coverage and limits</dt><dd>{source.limits}</dd></div>
           </dl>

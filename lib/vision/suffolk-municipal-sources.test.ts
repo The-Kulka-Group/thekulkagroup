@@ -58,7 +58,7 @@ describe("Suffolk municipal source coverage", () => {
       officialAgency: "Town of Huntington Building & Housing / Engineering Services",
     });
     expect(source?.recordFamilies).toContain("Building permits");
-    expect(source?.retrievableFields).toContain("SCTM");
+    expect(source?.availableFields).toContain("SCTM");
     expect(source?.limits).toContain("not an official town record");
   });
 
@@ -67,7 +67,7 @@ describe("Suffolk municipal source coverage", () => {
       expect(source.checkedAt).toBe("2026-09-09");
       expect(source.url).toMatch(/^https:\/\//);
       expect(source.recordFamilies.length).toBeGreaterThan(0);
-      expect(source.retrievableFields.length).toBeGreaterThan(0);
+      expect(source.availableFields.length).toBeGreaterThan(0);
       expect(source.manualSteps.length).toBeGreaterThan(0);
       expect(source.limits.length).toBeGreaterThan(0);
       expect(source.accessMode).not.toBe("automated");

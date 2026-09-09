@@ -181,6 +181,42 @@ database. The preview database was reset afterward. No QA contact, action or
 outcome is included in a migration. Production schema, data and settings were not
 changed. The prototype remains on its separate branch.
 
+## Long Island municipal source directory, LA-379 through LA-384
+
+The joined local registry represents 111 current local jurisdictions: 69 in Nassau
+and 42 in Suffolk. Twenty-three separate permit, property, meeting and account
+routes bring the local source count to 134. Five county-level source entries bring
+the directory to 139 sources. Four county planning and IDA sources have collection
+adapters. The other 135 entries describe
+public manual review, records requests, direct contact, or the
+absence of a public project feed. These figures count jurisdictions and source
+routes. They do not count projects or prove that a filing describes an active job.
+
+The local checks validate the joined municipal lists, duplicate source IDs, source
+capability fields, filters, access labels, empty results, every official link target,
+representative link clicks, checked dates, and the 375px layout. This proves the code
+and directory coverage in the tested commit. It does not prove that every official
+site is still reachable, that
+Vision collected production records from manual sources, or that this work is
+deployed. No collection run, production import, migration, schedule, or deployment
+is part of this check.
+
+The full Vitest run passed 455 tests in 47 files. All 10 active Playwright tests
+passed, and the separate temporary-access test stayed skipped because that setting
+was off. TypeScript, lint, the production build, and the whitespace check passed.
+
+A same-day live link audit checked all 139 saved source routes. One hundred seventeen
+answered the automated request. Nineteen returned an access block, one portal
+returned a server error, and two requests failed at the network layer. Those results
+do not prove that a source is down because several sites block command-line requests.
+The audit found that eleven Nassau villages had moved to new official domains. It
+also found public land-use records that the first registry pass had classified as
+restricted or as having no public feed. The directory now links each current official
+site and states whether Vision can collect the source, a user can review it online,
+or a user must contact the agency. The audit also found separate town permit searches,
+property records, meeting archives, records-request pages and account portals. The
+directory lists those routes with their fields and access limits.
+
 ## Suffolk collection and filing links, LA-236 and LA-237
 
 The real HTTP collector checked the 48 linked 2026 documents and produced 50

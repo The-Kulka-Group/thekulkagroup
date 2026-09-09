@@ -11,14 +11,19 @@ describe("Vision source directory view", () => {
 
     expect(html).toContain("<strong>111</strong><span>local jurisdictions</span>");
     expect(html).toContain("69 Nassau · 42 Suffolk");
-    expect(html).toContain("<strong>116</strong><span>directory sources</span>");
+    expect(html).toContain("<strong>119</strong><span>directory sources</span>");
     expect(html).toContain("<strong>4</strong><span>collectable sources</span>");
     expect(html).toContain("What this source publishes");
     expect(html).toContain("Vision can retrieve");
+    expect(html).toContain("Fields available from source");
     expect(html).toContain("Manual step or access need");
     expect(html).toContain("Coverage and limits");
     expect(html).toContain("Open official source");
-    expect(html).toContain("Checked September 9, 2026");
+    expect(html).toContain("We checked this source on September 9, 2026.");
+    expect(html).toContain("status-block status-block--done vision-source-state");
+    expect(html).toContain("status-block status-block--open vision-source-state");
+    expect(html).toContain("status-block status-block--working vision-source-state");
+    expect(html).toContain("status-block status-block--stuck vision-source-state");
   });
 
   it("renders a clear empty result", () => {

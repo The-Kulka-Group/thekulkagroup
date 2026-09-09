@@ -1,11 +1,22 @@
 import {describe, expect, it} from "vitest";
+import {
+  EXPECTED_NASSAU_CITIES,
+  EXPECTED_NASSAU_TOWNS,
+  EXPECTED_NASSAU_VILLAGES,
+} from "./fixtures/nassau/authoritative-jurisdictions";
 import {NASSAU_AUTHORITATIVE_JURISDICTIONS, NASSAU_MUNICIPAL_SOURCES} from "./nassau-municipal-sources";
+
+const sorted = (values: readonly string[]) => [...values].sort();
 
 describe("Nassau municipal source coverage", () => {
   it("matches the official Nassau directory totals", () => {
-    expect(NASSAU_AUTHORITATIVE_JURISDICTIONS.filter(item => item.jurisdictionType === "city")).toHaveLength(2);
-    expect(NASSAU_AUTHORITATIVE_JURISDICTIONS.filter(item => item.jurisdictionType === "town")).toHaveLength(3);
-    expect(NASSAU_AUTHORITATIVE_JURISDICTIONS.filter(item => item.jurisdictionType === "village")).toHaveLength(64);
+    const names = (type: "city" | "town" | "village") => NASSAU_AUTHORITATIVE_JURISDICTIONS
+      .filter(item => item.jurisdictionType === type)
+      .map(item => item.jurisdiction);
+
+    expect(sorted(names("city"))).toEqual(sorted(EXPECTED_NASSAU_CITIES));
+    expect(sorted(names("town"))).toEqual(sorted(EXPECTED_NASSAU_TOWNS));
+    expect(sorted(names("village"))).toEqual(sorted(EXPECTED_NASSAU_VILLAGES));
   });
 
   it("has one Nassau source entry for every local jurisdiction", () => {
@@ -16,9 +27,18 @@ describe("Nassau municipal source coverage", () => {
       .map(item => `${item.jurisdictionType}:${item.jurisdiction}`)
       .sort();
 
-    expect(actual).toEqual(expected);
-    expect(new Set(actual).size).toBe(actual.length);
+    expect(new Set(actual)).toEqual(new Set(expected));
     expect(NASSAU_MUNICIPAL_SOURCES.every(item => item.county === "Nassau")).toBe(true);
+  });
+
+  it("keeps account permit portals as separate restricted sources", () => {
+    const hempstead = NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "hempstead-online-permit-center");
+    const oysterBay = NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "oyster-bay-building-portal");
+
+    expect(hempstead).toMatchObject({accessMode: "request-or-contact", collectionState: "restricted", url: "https://hempsteadny.gov/622/Online-Permit-Center"});
+    expect(hempstead?.limits).toContain("not a public townwide permit or project search");
+    expect(oysterBay).toMatchObject({accessMode: "request-or-contact", collectionState: "restricted", url: "https://oysterbaytown.com/departments/planning-and-development/building-portal/"});
+    expect(oysterBay?.limits).toContain("requires an account");
   });
 
   it("states source capabilities and limits without exposing manual sources as collectable", () => {

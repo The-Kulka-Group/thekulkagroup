@@ -1,6 +1,7 @@
 export const JURISDICTION_TYPES = ["county", "city", "town", "village"] as const;
 export const ACCESS_MODES = ["automated", "public-online", "request-or-contact", "no-public-feed"] as const;
 export const COLLECTION_STATES = ["collectable", "manual", "restricted", "no-public-feed"] as const;
+export const MUNICIPAL_SOURCE_CHECKED_AT = "2026-09-09";
 
 export type JurisdictionType = typeof JURISDICTION_TYPES[number];
 export type SourceAccessMode = typeof ACCESS_MODES[number];
@@ -45,6 +46,20 @@ export const ACCESS_MODE_LABELS: Record<SourceAccessMode, string> = {
   "public-online": "Public source, manual review",
   "request-or-contact": "Request or contact needed",
   "no-public-feed": "No public project feed found",
+};
+
+export const ACCESS_MODE_STATUS_LABELS: Record<SourceAccessMode, string> = {
+  automated: "Collected",
+  "public-online": "Public manual",
+  "request-or-contact": "Request needed",
+  "no-public-feed": "No public feed",
+};
+
+export const COLLECTION_STATE_STATUS: Record<SourceCollectionState, "done" | "open" | "working" | "stuck"> = {
+  collectable: "done",
+  manual: "open",
+  restricted: "working",
+  "no-public-feed": "stuck",
 };
 
 export function validateMunicipalSources(sources: readonly MunicipalSource[]) {

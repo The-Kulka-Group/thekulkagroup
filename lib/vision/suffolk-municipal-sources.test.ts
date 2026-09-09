@@ -33,7 +33,7 @@ describe("Suffolk municipal source coverage", () => {
     expect(SUFFOLK_DISSOLVED_JURISDICTIONS).toContain("Mastic Beach");
   });
 
-  it("assigns every current town and village to Suffolk once", () => {
+  it("covers every current town and village in Suffolk", () => {
     const coveredTowns = SUFFOLK_MUNICIPAL_SOURCES
       .filter(source => source.jurisdictionType === "town")
       .map(source => source.jurisdiction);
@@ -41,10 +41,24 @@ describe("Suffolk municipal source coverage", () => {
       .filter(source => source.jurisdictionType === "village")
       .map(source => source.jurisdiction);
 
-    expect(sorted(coveredTowns)).toEqual(sorted(SUFFOLK_TOWN_JURISDICTIONS));
-    expect(sorted(coveredVillages)).toEqual(sorted(SUFFOLK_VILLAGE_JURISDICTIONS));
+    expect(sorted([...new Set(coveredTowns)])).toEqual(sorted(SUFFOLK_TOWN_JURISDICTIONS));
+    expect(sorted([...new Set(coveredVillages)])).toEqual(sorted(SUFFOLK_VILLAGE_JURISDICTIONS));
     expect(SUFFOLK_MUNICIPAL_SOURCES.every(source => source.county === "Suffolk")).toBe(true);
     expect(new Set(SUFFOLK_MUNICIPAL_SOURCES.map(source => source.id)).size).toBe(SUFFOLK_MUNICIPAL_SOURCES.length);
+  });
+
+  it("keeps Huntington permit history separate from meeting records", () => {
+    const source = SUFFOLK_MUNICIPAL_SOURCES.find(item => item.id === "huntington-site-history");
+
+    expect(source).toMatchObject({
+      jurisdiction: "Huntington",
+      accessMode: "public-online",
+      collectionState: "manual",
+      url: "https://huntingtonny.gov/site-history",
+    });
+    expect(source?.recordFamilies).toContain("Building permits");
+    expect(source?.retrievableFields).toContain("SCTM");
+    expect(source?.limits).toContain("not an official town record");
   });
 
   it("gives every jurisdiction a checked official source and bounded capability claim", () => {

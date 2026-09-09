@@ -1,6 +1,4 @@
-import type {JurisdictionType, MunicipalSource} from "./source-directory";
-
-const CHECKED_AT = "2026-09-09";
+import {MUNICIPAL_SOURCE_CHECKED_AT, type JurisdictionType, type MunicipalSource} from "./source-directory";
 
 type NassauJurisdiction = {
   jurisdiction: string;
@@ -156,7 +154,7 @@ function requestSource(item: NassauJurisdiction): MunicipalSource {
     limits: "No open, townwide or village-wide project feed was verified. Account access or staff help may be required, and Vision does not collect this source.",
     coverage: "Building, planning or zoning records available through the official department, account portal or records request process.",
     url: REQUEST_SOURCE_URLS[item.jurisdiction] ?? item.officialUrl,
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   };
 }
 
@@ -177,11 +175,11 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
     limits: "No public project-level building, planning, zoning, permit or meeting feed was verified in this check. Vision does not collect this source.",
     coverage: "No public project feed was found. The link is the jurisdiction's official site for department or records contact details.",
     url: item.officialUrl,
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   };
 }
 
-export const NASSAU_MUNICIPAL_SOURCES: MunicipalSource[] = NASSAU_AUTHORITATIVE_JURISDICTIONS.map(item => {
+const JURISDICTION_SOURCES: MunicipalSource[] = NASSAU_AUTHORITATIVE_JURISDICTIONS.map(item => {
   const profile = item.jurisdiction === "Hempstead" && item.jurisdictionType === "village"
     ? publicMeetings("Hempstead Village Agenda Center", "Village of Hempstead", "https://www.villageofhempstead.org/AgendaCenter", ["Planning applications", "Zoning appeals", "Public hearings", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Published application detail"], "Planning Board, Zoning Board and public hearing agendas and minutes.")
     : PUBLIC_SOURCE_PROFILES[item.jurisdiction];
@@ -191,10 +189,49 @@ export const NASSAU_MUNICIPAL_SOURCES: MunicipalSource[] = NASSAU_AUTHORITATIVE_
       jurisdiction: item.jurisdiction,
       jurisdictionType: item.jurisdictionType,
       county: "Nassau",
-      checkedAt: CHECKED_AT,
+      checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
       ...profile,
     } as MunicipalSource;
   }
   if (REQUEST_OR_CONTACT_JURISDICTIONS.has(item.jurisdiction)) return requestSource(item);
   return noPublicFeedSource(item);
 });
+
+const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
+  {
+    id: "hempstead-online-permit-center",
+    name: "Hempstead Online Permit Center",
+    jurisdiction: "Hempstead",
+    jurisdictionType: "town",
+    county: "Nassau",
+    officialAgency: "Town of Hempstead Building Department",
+    recordFamilies: ["Building permits", "Building licenses", "Property inspections"],
+    retrievableFields: ["Permit application status", "Previous permits tied to the signed-in account", "Inspection requests", "Messages with town staff", "Permit document"],
+    accessMode: "request-or-contact",
+    collectionState: "restricted",
+    manualSteps: "Create or use a resident account to submit a permit, review account records, request an inspection or contact town staff.",
+    limits: "The portal shows records tied to the signed-in user. It is not a public townwide permit or project search, and Vision does not collect it.",
+    coverage: "The town portal supports permit and license transactions, application monitoring, prior account permits, inspection requests and permit printing.",
+    url: "https://hempsteadny.gov/622/Online-Permit-Center",
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
+  },
+  {
+    id: "oyster-bay-building-portal",
+    name: "Oyster Bay Building Division Online Portal",
+    jurisdiction: "Oyster Bay",
+    jurisdictionType: "town",
+    county: "Nassau",
+    officialAgency: "Town of Oyster Bay Building Division",
+    recordFamilies: ["Building permits", "Permit fees", "Building inspections"],
+    retrievableFields: ["Eligible permit type", "Permit application status", "Fee or payment status", "Inspection request", "Inspection result"],
+    accessMode: "request-or-contact",
+    collectionState: "restricted",
+    manualSteps: "Create or use a public registrant or contractor account to submit an eligible permit, monitor it, pay a fee or manage an inspection.",
+    limits: "The portal requires an account and covers listed online permit types. It is not a public townwide permit or project search, and Vision does not collect it.",
+    coverage: "The town portal supports listed building permit applications, fee payment, permit monitoring, inspection scheduling and inspection result monitoring.",
+    url: "https://oysterbaytown.com/departments/planning-and-development/building-portal/",
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
+  },
+];
+
+export const NASSAU_MUNICIPAL_SOURCES: MunicipalSource[] = [...JURISDICTION_SOURCES, ...ACCOUNT_PORTAL_SOURCES];

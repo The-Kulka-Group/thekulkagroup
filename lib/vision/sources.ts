@@ -1,10 +1,8 @@
 import {NASSAU_IDA_SOURCE, SUFFOLK_IDA_SOURCE, SUFFOLK_SOURCE} from "./discovery-catalog";
 import {DISCOVERY_SOURCE} from "./discovery-source";
 import {NASSAU_MUNICIPAL_SOURCES} from "./nassau-municipal-sources";
-import {validateMunicipalSources, type MunicipalSource} from "./source-directory";
+import {MUNICIPAL_SOURCE_CHECKED_AT, validateMunicipalSources, type MunicipalSource} from "./source-directory";
 import {SUFFOLK_MUNICIPAL_SOURCES} from "./suffolk-municipal-sources";
-
-const CHECKED_AT = "2026-09-09";
 
 export const VISION_SOURCES = validateMunicipalSources([
   {
@@ -19,7 +17,7 @@ export const VISION_SOURCES = validateMunicipalSources([
     collectionState: "collectable",
     manualSteps: "Review the county record and confirm the project before saving an opportunity.",
     limits: DISCOVERY_SOURCE.coverage,
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
     ...SUFFOLK_SOURCE,
@@ -33,7 +31,7 @@ export const VISION_SOURCES = validateMunicipalSources([
     collectionState: "collectable",
     manualSteps: "Review the source document and confirm the site before saving or linking an opportunity.",
     limits: SUFFOLK_SOURCE.coverage,
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
     ...NASSAU_IDA_SOURCE,
@@ -47,7 +45,7 @@ export const VISION_SOURCES = validateMunicipalSources([
     collectionState: "collectable",
     manualSteps: "Open the linked filing to confirm the project, location and current status.",
     limits: NASSAU_IDA_SOURCE.coverage,
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
     ...SUFFOLK_IDA_SOURCE,
@@ -61,7 +59,7 @@ export const VISION_SOURCES = validateMunicipalSources([
     collectionState: "collectable",
     manualSteps: "Open the linked filing to confirm the site, project scope and current status.",
     limits: SUFFOLK_IDA_SOURCE.coverage,
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
     id: "nassau-hearings",
@@ -78,7 +76,7 @@ export const VISION_SOURCES = validateMunicipalSources([
     limits: "Vision links to these files but does not collect them. A meeting record does not prove permit approval or construction status.",
     coverage: "Public Planning Commission hearings, agendas, transcripts, resolutions and SEQRA files.",
     url: "https://www.nassaucountyny.gov/5697/Planning-Commission",
-    checkedAt: CHECKED_AT,
+    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   ...NASSAU_MUNICIPAL_SOURCES,
   ...SUFFOLK_MUNICIPAL_SOURCES,

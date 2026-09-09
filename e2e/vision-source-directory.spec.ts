@@ -1,14 +1,56 @@
 import {expect, test} from "@playwright/test";
+import {ACCESS_MODES, filterMunicipalSources} from "../lib/vision/source-directory";
+import {VISION_SOURCES} from "../lib/vision/sources";
+
+const expectedCount = (filters: Parameters<typeof filterMunicipalSources>[1]) => filterMunicipalSources(VISION_SOURCES, filters).length;
 
 test("shows joined source coverage and filters to a clear empty result", async ({page}) => {
   await page.goto("/vision/sources");
 
   const coverage = page.getByLabel("Long Island source coverage");
   await expect(coverage).toContainText("111local jurisdictions69 Nassau · 42 Suffolk");
-  await expect(coverage).toContainText("116directory sources5 county-level · 111 local");
+  await expect(coverage).toContainText("119directory sources5 county-level · 114 local-source entries");
   await expect(coverage).toContainText("4collectable sources");
   await expect(page.getByText(/official source routes, not projects/i)).toBeVisible();
-  await expect(page.locator(".vision-directory-card")).toHaveCount(116);
+  await expect(page.locator(".vision-directory-card")).toHaveCount(119);
+  await expect(page.locator(".vision-source-checked")).toHaveCount(119);
+  const sourceState = page.locator(".vision-source-state").first();
+  await expect(sourceState).toHaveCSS("width", "112px");
+  expect(await sourceState.evaluate(element => {
+    const glyph = getComputedStyle(element, "::before");
+    const label = getComputedStyle(element);
+    const root = getComputedStyle(document.documentElement);
+    const comparison = document.createElement("span");
+    comparison.style.color = root.getPropertyValue("--ink");
+    document.body.append(comparison);
+    const ink = getComputedStyle(comparison).color;
+    comparison.remove();
+    return {
+      glyphWidth: glyph.width,
+      hasGlyphMask: glyph.maskImage !== "none",
+      usesInkLabel: label.color === ink,
+    };
+  })).toEqual({glyphWidth: "14px", hasGlyphMask: true, usesInkLabel: true});
+  const sourceUrls = await page.getByRole("link", {name: "Open official source"}).evaluateAll(links => links.map(link => (link as HTMLAnchorElement).href));
+  expect(sourceUrls).toEqual(VISION_SOURCES.map(source => source.url));
+
+  const municipalityType = page.getByRole("combobox", {name: "Municipality type", exact: true});
+  await municipalityType.selectOption("village");
+  await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({jurisdictionType: "village"}));
+  await municipalityType.selectOption("");
+
+  const recordType = page.getByRole("combobox", {name: "Record type", exact: true});
+  await recordType.selectOption("Building permits");
+  await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({recordFamily: "Building permits"}));
+  await recordType.selectOption("");
+
+  const access = page.getByRole("combobox", {name: "Access", exact: true});
+  for (const mode of ACCESS_MODES) {
+    await access.selectOption(mode);
+    await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({accessMode: mode}));
+    await expect(page.locator(`.vision-directory-card:not([data-access-mode="${mode}"])`)).toHaveCount(0);
+  }
+  await access.selectOption("");
 
   await page.getByRole("combobox", {name: "Location", exact: true}).selectOption("Suffolk:village:Poquott");
   await expect(page.locator(".vision-directory-card")).toHaveCount(1);
@@ -16,7 +58,7 @@ test("shows joined source coverage and filters to a clear empty result", async (
   await expect(page.getByText("What this source publishes")).toBeVisible();
   await expect(page.getByText("Manual step or access need")).toBeVisible();
   await expect(page.getByRole("link", {name: "Open official source"})).toHaveAttribute("href", /^https:\/\//);
-  await expect(page.getByText("Checked September 9, 2026")).toBeVisible();
+  await expect(page.getByText("We checked this source on September 9, 2026.")).toBeVisible();
 
   await page.getByRole("combobox", {name: "County", exact: true}).selectOption("Nassau");
   await expect(page.getByRole("heading", {name: "No sources match these filters."})).toBeVisible();
@@ -28,9 +70,25 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
   await page.goto("/vision/sources");
 
   await expect(page.getByLabel("Long Island source coverage")).toBeVisible();
+  await expect(page.getByRole("link", {name: "Open official source"})).toHaveCount(119);
+  await expect(page.locator(".vision-source-checked")).toHaveCount(119);
   await expect(page.getByRole("combobox", {name: "Location", exact: true})).toBeVisible();
-  await page.getByRole("combobox", {name: "Access", exact: true}).selectOption("automated");
-  await expect(page.locator(".vision-directory-card")).toHaveCount(4);
-  await expect(page.getByText("4 of 116 sources shown")).toBeVisible();
+  const municipalityType = page.getByRole("combobox", {name: "Municipality type", exact: true});
+  await municipalityType.selectOption("town");
+  await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({jurisdictionType: "town"}));
+  await municipalityType.selectOption("");
+
+  const recordType = page.getByRole("combobox", {name: "Record type", exact: true});
+  await recordType.selectOption("Building permits");
+  await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({recordFamily: "Building permits"}));
+  await recordType.selectOption("");
+
+  const access = page.getByRole("combobox", {name: "Access", exact: true});
+  for (const mode of ACCESS_MODES) {
+    await access.selectOption(mode);
+    await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({accessMode: mode}));
+  }
+  await access.selectOption("automated");
+  await expect(page.getByText("4 of 119 sources shown")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 });

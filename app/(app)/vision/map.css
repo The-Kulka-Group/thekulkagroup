@@ -27,7 +27,7 @@
 .vision-source-summary strong { font-size: var(--title-size); line-height: var(--title-line); font-variant-numeric: tabular-nums; }
 .vision-source-summary span { font-weight: 700; }
 .vision-source-summary small { color: var(--ink-2); line-height: var(--meta-line); }
-.vision-source-coverage-note { margin: 0 0 var(--s6); max-width: 82ch; color: var(--ink-2); }
+.vision-source-coverage-note { margin: 0 0 var(--s6); max-width: 62ch; color: var(--ink-2); }
 .vision-source-directory-heading { display: flex; justify-content: space-between; align-items: end; gap: var(--s4); margin: var(--s4) 0; }
 .vision-source-directory-heading h2, .vision-source-directory-heading p { margin: 0; }
 .vision-source-directory-heading > div > p { color: var(--ink-2); margin-top: var(--s1); }
@@ -40,10 +40,7 @@
 .vision-directory-card h2 { margin-bottom: var(--s2); }
 .vision-source-card-heading { display: flex; justify-content: space-between; align-items: start; gap: var(--s3); margin-bottom: var(--s3); }
 .vision-source-card-heading p { margin: 0; }
-.vision-source-state { display: inline-flex; padding: 4px 8px; border-radius: var(--r-pill); background: var(--neutral-fill); color: var(--ink); font-size: var(--label-size); line-height: var(--label-line); font-weight: 700; text-align: right; }
-.vision-source-state--collectable { background: var(--done-tint); color: var(--done); }
-.vision-source-state--restricted { background: var(--working-tint); }
-.vision-source-state--no-public-feed { background: var(--stuck-tint); color: var(--stuck-bright); }
+.vision-source-state { flex: 0 0 112px; }
 .vision-source-capabilities { display: grid; gap: var(--s3); margin: var(--s2) 0 var(--s4); }
 .vision-source-capabilities div { display: grid; grid-template-columns: minmax(112px, .34fr) minmax(0, 1fr); gap: var(--s3); padding-top: var(--s2); border-top: 1px solid var(--border-light); }
 .vision-source-capabilities dt { font-size: var(--meta-size); font-weight: 700; color: var(--ink); }
@@ -64,7 +61,6 @@
 @media (max-width: 520px) {
   .vision-source-filters { grid-template-columns: minmax(0, 1fr); }
   .vision-source-card-heading { align-items: flex-start; flex-direction: column; }
-  .vision-source-state { text-align: left; }
   .vision-source-capabilities div { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
 }
 

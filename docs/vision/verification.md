@@ -181,6 +181,27 @@ database. The preview database was reset afterward. No QA contact, action or
 outcome is included in a migration. Production schema, data and settings were not
 changed. The prototype remains on its separate branch.
 
+## Long Island municipal source directory, LA-379 through LA-384
+
+The joined local registry represents 111 current local jurisdictions: 69 in Nassau
+and 42 in Suffolk. Five county-level source entries bring the directory to 116
+sources. Four county planning and IDA sources have collection adapters. The other
+112 entries describe public manual review, records requests, direct contact, or the
+absence of a public project feed. These figures count jurisdictions and source
+routes. They do not count projects or prove that a filing describes an active job.
+
+The local checks validate the joined municipal lists, duplicate source IDs, source
+capability fields, filters, access labels, empty results, official links, checked
+dates, and the 375px layout. This proves the code and directory coverage in the
+tested commit. It does not prove that every official site is still reachable, that
+Vision collected production records from manual sources, or that this work is
+deployed. No collection run, production import, migration, schedule, or deployment
+is part of this check.
+
+The full Vitest run passed 444 tests in 47 files. All 10 active Playwright tests
+passed, and the separate temporary-access test stayed skipped because that setting
+was off. TypeScript, lint, the production build, and the whitespace check passed.
+
 ## Suffolk collection and filing links, LA-236 and LA-237
 
 The real HTTP collector checked the 48 linked 2026 documents and produced 50

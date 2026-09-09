@@ -22,10 +22,16 @@
 .vision-map-notice { background: var(--working-tint); color: var(--ink); }
 .vision-source-intro { padding: var(--s6) 0; max-width: 62ch; }
 .vision-source-intro p { margin: var(--s2) 0 0; color: var(--ink-2); line-height: var(--body-line); }
+.vision-source-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); margin: var(--s2) 0 var(--s3); }
+.vision-source-summary > div { display: grid; gap: var(--s1); padding: var(--s4); border: 1px solid var(--border-light); border-radius: var(--r-lg); background: var(--canvas); }
+.vision-source-summary strong { font-size: var(--title-size); line-height: var(--title-line); font-variant-numeric: tabular-nums; }
+.vision-source-summary span { font-weight: 700; }
+.vision-source-summary small { color: var(--ink-2); line-height: var(--meta-line); }
+.vision-source-coverage-note { margin: 0 0 var(--s6); max-width: 82ch; color: var(--ink-2); }
 .vision-source-directory-heading { display: flex; justify-content: space-between; align-items: end; gap: var(--s4); margin: var(--s4) 0; }
 .vision-source-directory-heading h2, .vision-source-directory-heading p { margin: 0; }
 .vision-source-directory-heading > div > p { color: var(--ink-2); margin-top: var(--s1); }
-.vision-source-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s3); margin-bottom: var(--s4); padding: var(--s4); background: var(--canvas); border: 1px solid var(--border-light); border-radius: var(--r-lg); }
+.vision-source-filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s3); margin-bottom: var(--s4); padding: var(--s4); background: var(--canvas); border: 1px solid var(--border-light); border-radius: var(--r-lg); }
 .vision-source-filters label { display: grid; gap: var(--s1); color: var(--ink-2); font-size: var(--meta-size); font-weight: 700; }
 .vision-source-filters select { width: 100%; min-width: 0; }
 .vision-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
@@ -51,6 +57,7 @@
   .vision-map-canvas { height: 420px; }
   .vision-source-directory-heading { align-items: flex-start; flex-direction: column; }
   .vision-source-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vision-source-summary { grid-template-columns: minmax(0, 1fr); }
   .vision-source-grid { grid-template-columns: minmax(0, 1fr); }
   .vision-directory-card { padding: var(--s4); }
 }

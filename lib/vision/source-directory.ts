@@ -26,9 +26,18 @@ export type MunicipalSource = {
 
 export type SourceDirectoryFilters = {
   county?: MunicipalSource["county"] | "";
+  jurisdiction?: string;
   jurisdictionType?: JurisdictionType | "";
   recordFamily?: string;
   accessMode?: SourceAccessMode | "";
+};
+
+export type SourceCoverageSummary = {
+  localJurisdictions: {total: number; Nassau: number; Suffolk: number};
+  countySources: number;
+  directorySources: number;
+  collectableSources: number;
+  accessModes: Record<SourceAccessMode, number>;
 };
 
 export const ACCESS_MODE_LABELS: Record<SourceAccessMode, string> = {
@@ -56,12 +65,44 @@ export function validateMunicipalSources(sources: readonly MunicipalSource[]) {
 export function filterMunicipalSources(sources: readonly MunicipalSource[], filters: SourceDirectoryFilters) {
   return sources.filter(source =>
     (!filters.county || source.county === filters.county)
+    && (!filters.jurisdiction || jurisdictionFilterValue(source) === filters.jurisdiction)
     && (!filters.jurisdictionType || source.jurisdictionType === filters.jurisdictionType)
     && (!filters.recordFamily || source.recordFamilies.includes(filters.recordFamily))
     && (!filters.accessMode || source.accessMode === filters.accessMode));
 }
 
+export function jurisdictionFilterValue(source: MunicipalSource) {
+  return `${source.county}:${source.jurisdictionType}:${source.jurisdiction}`;
+}
+
+export function sourceJurisdictions(sources: readonly MunicipalSource[]) {
+  const unique = new Map<string, {value: string; label: string}>();
+  for (const source of sources) {
+    const value = jurisdictionFilterValue(source);
+    unique.set(value, {
+      value,
+      label: `${source.jurisdiction} · ${source.jurisdictionType.replace(/^./, letter => letter.toUpperCase())} · ${source.county}`,
+    });
+  }
+  return [...unique.values()].sort((left, right) => left.label.localeCompare(right.label));
+}
+
+export function sourceCoverageSummary(sources: readonly MunicipalSource[]): SourceCoverageSummary {
+  const local = sources.filter(source => source.jurisdictionType !== "county");
+  const localKeys = new Set(local.map(jurisdictionFilterValue));
+  const countyCount = (county: MunicipalSource["county"]) =>
+    new Set(local.filter(source => source.county === county).map(jurisdictionFilterValue)).size;
+  const accessModes = Object.fromEntries(ACCESS_MODES.map(mode => [mode, sources.filter(source => source.accessMode === mode).length])) as Record<SourceAccessMode, number>;
+
+  return {
+    localJurisdictions: {total: localKeys.size, Nassau: countyCount("Nassau"), Suffolk: countyCount("Suffolk")},
+    countySources: sources.filter(source => source.jurisdictionType === "county").length,
+    directorySources: sources.length,
+    collectableSources: sources.filter(source => source.collectionState === "collectable").length,
+    accessModes,
+  };
+}
+
 export function sourceRecordFamilies(sources: readonly MunicipalSource[]) {
   return [...new Set(sources.flatMap(source => source.recordFamilies))].sort();
 }
-

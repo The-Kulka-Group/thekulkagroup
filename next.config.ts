@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
   // Bundling it replaces those URLs and prevents the test database from opening.
   serverExternalPackages: ["@electric-sql/pglite", "pdfjs-dist"],
 
+  // pdfjs-dist loads its worker at runtime. Include it in both server routes
+  // that can collect Suffolk Planning Board PDFs.
+  outputFileTracingIncludes: {
+    "/api/vision/discovery/cron": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+    "/api/vision/discovery/refresh": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+  },
+
   // Pin the workspace root. Next infers it by walking up for a lockfile, so
   // any lockfile above the repo wins over ours.
   turbopack: { root: import.meta.dirname },

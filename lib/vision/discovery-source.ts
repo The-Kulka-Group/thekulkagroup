@@ -1,13 +1,11 @@
+import { DISCOVERY_SOURCE } from "./discovery-catalog";
+
+export { DISCOVERY_SOURCE } from "./discovery-catalog";
+
 /** Nassau's official Planning page links the map backed by this public service. */
 const SERVICE = "https://services1.arcgis.com/rsOafHhKLHpnpr4t/arcgis/rest/services/NCPC_Cases_Map/FeatureServer";
 const RECORD_LIMIT = 100;
 const RESPONSE_LIMIT = 1_000_000;
-export const DISCOVERY_SOURCE = {
-  id: "nassau-applications",
-  name: "Nassau planning applications",
-  url: "https://www.nassaucountyny.gov/Planning",
-  coverage: "Checks up to 100 records per category: Nassau zoning, major subdivisions and minor subdivisions, ordered by the county’s record number. These records can include older applications and zoning policy changes. Local records outside these categories require manual review.",
-};
 export type DiscoveredRecord = {
   evidence?: Array<{ kind?: "index-link"; url: string; title: string; checksum: string; page: number; text: string }>;
   classification?: "opportunity" | "policy";

@@ -1,19 +1,16 @@
 import { randomUUID } from "node:crypto";
 import type { Db } from "@/lib/db";
-import { DISCOVERY_SOURCE, fetchDiscoveryRecords, type DiscoveredRecord } from "./discovery-source";
+import type { DiscoveredRecord } from "./discovery-source";
 import { isUuid } from "@/lib/uuid";
 import { parseVisionDraft, safeSourceUrl, InvalidVisionInput } from "./input";
 import { parseDiscoveryFilters, type DiscoveryFilters } from "./discovery-filters";
+import { collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, DISCOVERY_SOURCE_IDS, discoverySourceId } from "./source-registry";
 
 export type DiscoveryCandidate = { id:string; source_id:string; snapshot:DiscoveredRecord; revision:number; review_state:"new"|"dismissed"|"accepted"; opportunity_id:string|null; first_seen_at:string; last_seen_at:string; changed_at:string };
 export type DiscoveryState = { last_checked_at:string|null; last_success_at:string|null; last_error:string|null; record_count:number; coverage:{year:number;documents:string[]}|null; running:boolean };
 export class DiscoveryConflict extends Error {}
-export const DISCOVERY_SOURCE_IDS = ["nassau-applications", "suffolk-planning", "nassau-ida", "suffolk-ida"] as const;
-export function discoverySourceId(value: unknown = DISCOVERY_SOURCE.id): string {
-  if (typeof value !== "string" || !(DISCOVERY_SOURCE_IDS as readonly string[]).includes(value)) throw new InvalidVisionInput("Choose a supported source.");
-  return value;
-}
-export async function discoveryInbox(db:Db, state="new", filters:DiscoveryFilters=parseDiscoveryFilters(new URLSearchParams()), sourceId=DISCOVERY_SOURCE.id) {
+export { DISCOVERY_SOURCE_IDS, discoverySourceId } from "./source-registry";
+export async function discoveryInbox(db:Db, state="new", filters:DiscoveryFilters=parseDiscoveryFilters(new URLSearchParams()), sourceId=DEFAULT_AUTOMATED_SOURCE_ID) {
   discoverySourceId(sourceId);
   if (!["new","dismissed","accepted","all"].includes(state)) throw new InvalidVisionInput("Choose a valid review filter.");
   const source = await db.query<DiscoveryState>(`select last_checked_at,last_success_at,last_error,record_count,coverage,coalesce(lease_until > clock_timestamp(),false) as running from vision_discovery_sources where id=$1`,[sourceId]);
@@ -52,7 +49,7 @@ function validateRecords(records:DiscoveredRecord[]) {
     ids.add(record.externalId);
   }
 }
-export async function collectDiscovery(db:Db, sourceId=DISCOVERY_SOURCE.id) {
+export async function collectDiscovery(db:Db, sourceId=DEFAULT_AUTOMATED_SOURCE_ID) {
   discoverySourceId(sourceId);
   const token=randomUUID();
   const lease=await db.query(`insert into vision_discovery_sources(id,lease_token,lease_until,last_checked_at) values($1,$2,clock_timestamp()+interval '5 minutes',clock_timestamp())
@@ -60,11 +57,7 @@ export async function collectDiscovery(db:Db, sourceId=DISCOVERY_SOURCE.id) {
     where (vision_discovery_sources.lease_until is null or vision_discovery_sources.lease_until <= clock_timestamp()) and (vision_discovery_sources.last_checked_at is null or vision_discovery_sources.last_checked_at <= clock_timestamp()-interval '5 minutes') returning id`,[sourceId,token]);
   if (!lease.rows.length) throw new DiscoveryConflict("A check is running or ran within the last five minutes. Wait five minutes between source checks.");
   try {
-    const records=sourceId === "suffolk-planning" ? await (await import("./suffolk-source")).fetchSuffolkRecords()
-      : sourceId === "nassau-ida" ? await (await import("./ida-source")).fetchNassauIdaRecords()
-      : sourceId === "suffolk-ida" ? await (await import("./ida-source")).fetchSuffolkIdaRecords()
-      : await fetchDiscoveryRecords(); validateRecords(records);
-    const coverage=sourceId === "suffolk-planning" ? {year:Number(records[0].details["Collection year"] || new Intl.DateTimeFormat("en",{timeZone:"America/New_York",year:"numeric"}).format(new Date())),documents:[...new Set(records.flatMap(record=>record.evidence?.map(page=>page.url.split("#")[0]) ?? []))].sort()} : null;
+    const {records,coverage}=await collectAutomatedSource(sourceId); validateRecords(records);
     const result=await db.query(`with owned as (
       update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null
       where id=$1 and lease_token=$2 and lease_until>clock_timestamp() returning id

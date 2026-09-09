@@ -1,5 +1,4 @@
-import {NASSAU_IDA_SOURCE, SUFFOLK_IDA_SOURCE, SUFFOLK_SOURCE} from "./discovery-catalog";
-import {DISCOVERY_SOURCE} from "./discovery-source";
+import {DISCOVERY_SOURCE, NASSAU_IDA_SOURCE, SUFFOLK_IDA_SOURCE, SUFFOLK_SOURCE} from "./discovery-catalog";
 import {NASSAU_MUNICIPAL_SOURCES} from "./nassau-municipal-sources";
 import {MUNICIPAL_SOURCE_CHECKED_AT, validateMunicipalSources, type MunicipalSource} from "./source-directory";
 import {SUFFOLK_MUNICIPAL_SOURCES} from "./suffolk-municipal-sources";

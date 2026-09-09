@@ -1,9 +1,11 @@
 export const JURISDICTION_TYPES = ["county", "city", "town", "village"] as const;
 export const ACCESS_MODES = ["automated", "public-online", "request-or-contact", "no-public-feed"] as const;
+export const COLLECTION_STATES = ["collectable", "manual", "restricted", "no-public-feed"] as const;
 export const MUNICIPAL_SOURCE_CHECKED_AT = "2026-09-09";
 
 export type JurisdictionType = typeof JURISDICTION_TYPES[number];
 export type SourceAccessMode = typeof ACCESS_MODES[number];
+export type SourceCollectionState = typeof COLLECTION_STATES[number];
 
 export type MunicipalSource = {
   id: string;
@@ -15,6 +17,7 @@ export type MunicipalSource = {
   recordFamilies: readonly string[];
   retrievableFields: readonly string[];
   accessMode: SourceAccessMode;
+  collectionState: SourceCollectionState;
   manualSteps: string;
   limits: string;
   coverage: string;
@@ -38,15 +41,22 @@ export type SourceCoverageSummary = {
   accessModes: Record<SourceAccessMode, number>;
 };
 
-export const SOURCE_ACCESS: Record<SourceAccessMode, {filterLabel: string; cardLabel: string; collectable: boolean}> = {
-  automated: {filterLabel: "Vision collects this source", cardLabel: "Vision collection", collectable: true},
-  "public-online": {filterLabel: "Public source, manual review", cardLabel: "Public manual review", collectable: false},
-  "request-or-contact": {filterLabel: "Request or contact needed", cardLabel: "Request or contact", collectable: false},
-  "no-public-feed": {filterLabel: "No public project feed found", cardLabel: "No public feed", collectable: false},
+export const SOURCE_ACCESS: Record<SourceAccessMode, {filterLabel: string; collectionState: SourceCollectionState}> = {
+  automated: {filterLabel: "Vision collects this source", collectionState: "collectable"},
+  "public-online": {filterLabel: "Public source, manual review", collectionState: "manual"},
+  "request-or-contact": {filterLabel: "Request or account needed", collectionState: "restricted"},
+  "no-public-feed": {filterLabel: "No public project feed found", collectionState: "no-public-feed"},
 };
 
-export function sourceIsCollectable(source: Pick<MunicipalSource, "accessMode">) {
-  return SOURCE_ACCESS[source.accessMode].collectable;
+export const COLLECTION_STATE_LABELS: Record<SourceCollectionState, string> = {
+  collectable: "Collectable",
+  manual: "Manual review",
+  restricted: "Restricted access",
+  "no-public-feed": "No public feed",
+};
+
+export function sourceIsCollectable(source: Pick<MunicipalSource, "collectionState">) {
+  return source.collectionState === "collectable";
 }
 
 export function validateMunicipalSources(sources: readonly MunicipalSource[]) {
@@ -58,6 +68,7 @@ export function validateMunicipalSources(sources: readonly MunicipalSource[]) {
     if (!source.recordFamilies.length || !source.retrievableFields.length) throw new Error(`Municipal source ${source.id} is missing capability details.`);
     if (!/^https:\/\//.test(source.url)) throw new Error(`Municipal source ${source.id} must use an official HTTPS URL.`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(source.checkedAt)) throw new Error(`Municipal source ${source.id} has an invalid checked date.`);
+    if (SOURCE_ACCESS[source.accessMode].collectionState !== source.collectionState) throw new Error(`Municipal source ${source.id} has inconsistent access and collection claims.`);
   }
   return sources;
 }

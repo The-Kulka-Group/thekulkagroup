@@ -82,7 +82,7 @@ export const NASSAU_AUTHORITATIVE_JURISDICTIONS: readonly NassauJurisdiction[] =
 
 type SourceProfile = Partial<Pick<MunicipalSource,
   "name" | "officialAgency" | "recordFamilies" | "retrievableFields" | "accessMode" |
-  "manualSteps" | "limits" | "coverage" | "url">>;
+  "collectionState" | "manualSteps" | "limits" | "coverage" | "url">>;
 
 const publicMeetings = (name: string, officialAgency: string, url: string, recordFamilies: readonly string[], retrievableFields: readonly string[], coverage: string): SourceProfile => ({
   name,
@@ -90,35 +90,39 @@ const publicMeetings = (name: string, officialAgency: string, url: string, recor
   recordFamilies,
   retrievableFields,
   accessMode: "public-online",
+  collectionState: "manual",
   manualSteps: "Open the official page and review the linked notice, agenda, application, packet or minutes.",
   limits: "Vision links to this source but does not collect it. Published meeting material may omit permit history and current project status.",
   coverage,
   url,
 });
 
+const sourceProfileKey = (jurisdictionType: Exclude<JurisdictionType, "county">, jurisdiction: string) => `${jurisdictionType}:${jurisdiction}`;
+
 const PUBLIC_SOURCE_PROFILES: Record<string, SourceProfile> = {
-  "Glen Cove": publicMeetings("Glen Cove Planning Board", "City of Glen Cove Planning Board", "https://glencoveny.gov/planning-board", ["Planning applications", "Planning Board meetings"], ["Meeting date", "Agenda", "Applicant", "Application or affidavit link"], "Planning Board agendas, applications and affidavits published by the city."),
-  "Long Beach": publicMeetings("Long Beach Planning Board", "City of Long Beach Planning Board", "https://www.longbeachny.gov/planning", ["Planning applications", "Site plans", "Subdivisions", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application type", "Published address"], "Planning Board and Architectural Review Board agendas, minutes and linked meeting files."),
-  "Floral Park": publicMeetings("Floral Park Board of Trustees minutes", "Incorporated Village of Floral Park", "https://floralparkny.gov/wp-content/uploads/2025/09/07152025-Minutes-F.pdf", ["Board of Trustees minutes", "Building Department project updates", "Building permits", "Zoning applications"], ["Meeting date", "Street address", "Project or proposed work", "Published construction status", "Permit or application status", "Board review", "Next step"], "Board minutes with a Building Department report that names properties, construction work, permits, zoning applications and next board steps."),
-  Hempstead: publicMeetings("Hempstead Agenda Center", "Town of Hempstead", "https://hempsteadny.gov/AgendaCenter", ["Town Board matters", "Building and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Resolution", "Published permit or application number", "Published address"], "Town agendas and packets that may name building permits, zoning matters and site addresses."),
-  "Oyster Bay": publicMeetings("Oyster Bay boards and calendars", "Town of Oyster Bay Planning and Development", "https://oysterbaytown.com/calendars/", ["Planning applications", "Zoning appeals", "Town Board matters", "Meeting documents"], ["Hearing or meeting date", "Agenda or calendar", "Application or case details", "Draft or adopted resolution", "Minutes or video link"], "Planning Advisory Board, Zoning Board of Appeals and Town Board files published by the town."),
-  Freeport: publicMeetings("Freeport Zoning Board files", "Village of Freeport Zoning Board of Appeals", "https://www.freeportny.gov/999/Zoning-Board-AgendasMinutes-2026", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Calendar", "Application", "Transcript", "Minutes"], "Zoning Board calendars, applications, transcripts and minutes."),
-  "Garden City": publicMeetings("Garden City Agenda Center", "Village of Garden City", "https://www.gardencityny.net/AgendaCenter", ["Planning applications", "Zoning appeals", "Architectural review", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application or site-plan detail"], "Planning Commission, Zoning Board of Appeals and Architectural Design Review Board files."),
-  "Great Neck Plaza": publicMeetings("Great Neck Plaza board records", "Village of Great Neck Plaza", "https://www.greatneckplaza.net/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Application detail", "Minutes"], "Planning, zoning and board records published by the village."),
-  "Baxter Estates": publicMeetings("Baxter Estates public notices", "Village of Baxter Estates", "https://www.baxterestates.org/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Public notices published by the village."),
-  Bayville: publicMeetings("Bayville meeting agendas and minutes", "Village of Bayville", "https://bayvilleny.gov/about-us/meeting-agendas-meeting-minutes", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Case number", "Published address and tax lot"], "Planning Board, Zoning Board and Board of Trustees agendas and minutes."),
-  "Sea Cliff": publicMeetings("Sea Cliff Agenda Center", "Village of Sea Cliff", "https://www.seacliff-ny.gov/AgendaCenter", ["Planning applications", "Zoning appeals", "Architectural review", "Meeting documents"], ["Meeting date", "Agenda", "Published application or hearing detail", "Minutes"], "Planning Board, Zoning Board of Appeals and architectural review files."),
-  "Mill Neck": publicMeetings("Mill Neck news and notices", "Village of Mill Neck", "https://millneckvillage.com/news-and-notices/", ["Planning notices", "Zoning notices", "Public hearings", "Board records"], ["Notice date", "Hearing or meeting date", "Board", "Published application detail"], "Planning Board and Zoning Board notices plus linked village records."),
-  Muttontown: publicMeetings("Muttontown board files", "Village of Muttontown", "https://www.muttontownny.gov/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Application detail", "Minutes or decision"], "Planning, zoning and board files published by the village."),
-  Farmingdale: publicMeetings("Farmingdale board packages", "Village of Farmingdale", "https://www.farmingdalevillage.com/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or packet", "Application detail", "Published address"], "Planning and zoning board packages published by the village."),
-  "East Rockaway": publicMeetings("East Rockaway agendas", "Village of East Rockaway", "https://www.villageofeastrockaway.org/", ["Planning and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Published matter", "Minutes"], "Village agendas that may list planning and zoning matters."),
-  Cedarhurst: publicMeetings("Cedarhurst public notices", "Village of Cedarhurst", "https://www.cedarhurst.gov/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Planning, zoning and hearing notices published by the village."),
-  "Rockville Centre": publicMeetings("Rockville Centre board agendas", "Village of Rockville Centre", "https://www.rvcny.us/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Published application detail", "Minutes"], "Planning and zoning board agendas published by the village."),
-  Mineola: publicMeetings("Mineola Agenda Center", "Village of Mineola", "https://www.mineola-ny.gov/AgendaCenter", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Published application detail"], "Planning Board and Zoning Board agendas and minutes."),
-  "Flower Hill": publicMeetings("Flower Hill agendas", "Village of Flower Hill", "https://villageflowerhill.org/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Published application detail", "Minutes"], "Planning and zoning agendas published by the village."),
-  "Laurel Hollow": publicMeetings("Laurel Hollow agendas", "Village of Laurel Hollow", "https://www.laurelhollow.org/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Published application detail", "Minutes"], "Planning and zoning agendas published by the village."),
-  "Old Brookville": publicMeetings("Old Brookville board links", "Village of Old Brookville", "https://www.oldbrookville.net/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Board link", "Agenda or notice", "Published application detail"], "Planning and zoning board links published by the village."),
-  "Hewlett Neck": publicMeetings("Hewlett Neck public notices", "Village of Hewlett Neck", "https://hewlettneck.org/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Planning, zoning and hearing notices published by the village."),
+  [sourceProfileKey("city", "Glen Cove")]: publicMeetings("Glen Cove Planning Board", "City of Glen Cove Planning Board", "https://glencoveny.gov/planning-board", ["Planning applications", "Planning Board meetings"], ["Meeting date", "Agenda", "Applicant", "Application or affidavit link"], "Planning Board agendas, applications and affidavits published by the city."),
+  [sourceProfileKey("city", "Long Beach")]: publicMeetings("Long Beach Planning Board", "City of Long Beach Planning Board", "https://www.longbeachny.gov/planning", ["Planning applications", "Site plans", "Subdivisions", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application type", "Published address"], "Planning Board and Architectural Review Board agendas, minutes and linked meeting files."),
+  [sourceProfileKey("village", "Floral Park")]: publicMeetings("Floral Park Board of Trustees minutes", "Incorporated Village of Floral Park", "https://floralparkny.gov/board-of-trustees-meeting-minutes/", ["Board of Trustees minutes", "Building Department project updates", "Building permits", "Zoning applications"], ["Meeting date", "Street address", "Project or proposed work", "Published construction status", "Permit or application status", "Board review", "Next step"], "Board minutes with a Building Department report that names properties, construction work, permits, zoning applications and next board steps."),
+  [sourceProfileKey("town", "Hempstead")]: publicMeetings("Hempstead Agenda Center", "Town of Hempstead", "https://hempsteadny.gov/AgendaCenter", ["Town Board matters", "Building and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Resolution", "Published permit or application number", "Published address"], "Town agendas and packets that may name building permits, zoning matters and site addresses."),
+  [sourceProfileKey("village", "Hempstead")]: publicMeetings("Hempstead Village Agenda Center", "Village of Hempstead", "https://www.villageofhempstead.org/AgendaCenter", ["Planning applications", "Zoning appeals", "Public hearings", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Published application detail"], "Planning Board, Zoning Board and public hearing agendas and minutes."),
+  [sourceProfileKey("town", "Oyster Bay")]: publicMeetings("Oyster Bay boards and calendars", "Town of Oyster Bay Planning and Development", "https://oysterbaytown.com/calendars/", ["Planning applications", "Zoning appeals", "Town Board matters", "Meeting documents"], ["Hearing or meeting date", "Agenda or calendar", "Application or case details", "Draft or adopted resolution", "Minutes or video link"], "Planning Advisory Board, Zoning Board of Appeals and Town Board files published by the town."),
+  [sourceProfileKey("village", "Freeport")]: publicMeetings("Freeport Zoning Board files", "Village of Freeport Zoning Board of Appeals", "https://www.freeportny.gov/999/Zoning-Board-AgendasMinutes-2026", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Calendar", "Application", "Transcript", "Minutes"], "Zoning Board calendars, applications, transcripts and minutes."),
+  [sourceProfileKey("village", "Garden City")]: publicMeetings("Garden City Agenda Center", "Village of Garden City", "https://www.gardencityny.net/AgendaCenter", ["Planning applications", "Zoning appeals", "Architectural review", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application or site-plan detail"], "Planning Commission, Zoning Board of Appeals and Architectural Design Review Board files."),
+  [sourceProfileKey("village", "Great Neck Plaza")]: publicMeetings("Great Neck Plaza board records", "Village of Great Neck Plaza", "https://www.greatneckplaza.net/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Application detail", "Minutes"], "Planning, zoning and board records published by the village."),
+  [sourceProfileKey("village", "Baxter Estates")]: publicMeetings("Baxter Estates public notices", "Village of Baxter Estates", "https://www.baxterestates.org/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Public notices published by the village."),
+  [sourceProfileKey("village", "Bayville")]: publicMeetings("Bayville meeting agendas and minutes", "Village of Bayville", "https://bayvilleny.gov/about-us/meeting-agendas-meeting-minutes", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Case number", "Published address and tax lot"], "Planning Board, Zoning Board and Board of Trustees agendas and minutes."),
+  [sourceProfileKey("village", "Sea Cliff")]: publicMeetings("Sea Cliff Agenda Center", "Village of Sea Cliff", "https://www.seacliff-ny.gov/AgendaCenter", ["Planning applications", "Zoning appeals", "Architectural review", "Meeting documents"], ["Meeting date", "Agenda", "Published application or hearing detail", "Minutes"], "Planning Board, Zoning Board of Appeals and architectural review files."),
+  [sourceProfileKey("village", "Mill Neck")]: publicMeetings("Mill Neck news and notices", "Village of Mill Neck", "https://millneckvillage.com/news-and-notices/", ["Planning notices", "Zoning notices", "Public hearings", "Board records"], ["Notice date", "Hearing or meeting date", "Board", "Published application detail"], "Planning Board and Zoning Board notices plus linked village records."),
+  [sourceProfileKey("village", "Muttontown")]: publicMeetings("Muttontown board files", "Village of Muttontown", "https://www.muttontownny.gov/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Application detail", "Minutes or decision"], "Planning, zoning and board files published by the village."),
+  [sourceProfileKey("village", "Farmingdale")]: publicMeetings("Farmingdale board packages", "Village of Farmingdale", "https://www.farmingdalevillage.com/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or packet", "Application detail", "Published address"], "Planning and zoning board packages published by the village."),
+  [sourceProfileKey("village", "East Rockaway")]: publicMeetings("East Rockaway agendas", "Village of East Rockaway", "https://www.villageofeastrockaway.org/", ["Planning and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Published matter", "Minutes"], "Village agendas that may list planning and zoning matters."),
+  [sourceProfileKey("village", "Cedarhurst")]: publicMeetings("Cedarhurst public notices", "Village of Cedarhurst", "https://www.cedarhurst.gov/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Planning, zoning and hearing notices published by the village."),
+  [sourceProfileKey("village", "Rockville Centre")]: publicMeetings("Rockville Centre board agendas", "Village of Rockville Centre", "https://www.rvcny.us/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Published application detail", "Minutes"], "Planning and zoning board agendas published by the village."),
+  [sourceProfileKey("village", "Mineola")]: publicMeetings("Mineola Agenda Center", "Village of Mineola", "https://www.mineola-ny.gov/AgendaCenter", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Published application detail"], "Planning Board and Zoning Board agendas and minutes."),
+  [sourceProfileKey("village", "Flower Hill")]: publicMeetings("Flower Hill agendas", "Village of Flower Hill", "https://villageflowerhill.org/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Published application detail", "Minutes"], "Planning and zoning agendas published by the village."),
+  [sourceProfileKey("village", "Laurel Hollow")]: publicMeetings("Laurel Hollow agendas", "Village of Laurel Hollow", "https://www.laurelhollow.org/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Published application detail", "Minutes"], "Planning and zoning agendas published by the village."),
+  [sourceProfileKey("village", "Old Brookville")]: publicMeetings("Old Brookville board links", "Village of Old Brookville", "https://www.oldbrookville.net/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Board link", "Agenda or notice", "Published application detail"], "Planning and zoning board links published by the village."),
+  [sourceProfileKey("village", "Hewlett Neck")]: publicMeetings("Hewlett Neck public notices", "Village of Hewlett Neck", "https://hewlettneck.org/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Planning, zoning and hearing notices published by the village."),
 };
 
 const REQUEST_OR_CONTACT_JURISDICTIONS = new Set([
@@ -149,6 +153,7 @@ function requestSource(item: NassauJurisdiction): MunicipalSource {
     recordFamilies: ["Building permits", "Planning records", "Zoning records"],
     retrievableFields: ["Record details supplied after account access or a records request"],
     accessMode: "request-or-contact",
+    collectionState: "restricted",
     manualSteps: "Use the official department page to sign in, file a records request or contact the clerk or building department.",
     limits: "No open, townwide or village-wide project feed was verified. Account access or staff help may be required, and Vision does not collect this source.",
     coverage: "Building, planning or zoning records available through the official department, account portal or records request process.",
@@ -169,6 +174,7 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
     recordFamilies: ["Building, planning and zoning records"],
     retrievableFields: ["Official department or records contact information"],
     accessMode: "no-public-feed",
+    collectionState: "no-public-feed",
     manualSteps: "Open the official site and contact the clerk or building department about the record needed.",
     limits: "No public project-level building, planning, zoning, permit or meeting feed was verified in this check. Vision does not collect this source.",
     coverage: "No public project feed was found. The link is the jurisdiction's official site for department or records contact details.",
@@ -178,9 +184,7 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
 }
 
 const JURISDICTION_SOURCES: MunicipalSource[] = NASSAU_AUTHORITATIVE_JURISDICTIONS.map(item => {
-  const profile = item.jurisdiction === "Hempstead" && item.jurisdictionType === "village"
-    ? publicMeetings("Hempstead Village Agenda Center", "Village of Hempstead", "https://www.villageofhempstead.org/AgendaCenter", ["Planning applications", "Zoning appeals", "Public hearings", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Published application detail"], "Planning Board, Zoning Board and public hearing agendas and minutes.")
-    : PUBLIC_SOURCE_PROFILES[item.jurisdiction];
+  const profile = PUBLIC_SOURCE_PROFILES[sourceProfileKey(item.jurisdictionType, item.jurisdiction)];
   if (profile) {
     return {
       id: `nassau-${item.jurisdictionType}-${slug(item.jurisdiction)}-records`,
@@ -206,6 +210,7 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     recordFamilies: ["Building permits", "Building licenses", "Property inspections"],
     retrievableFields: ["Permit application status", "Previous permits tied to the signed-in account", "Inspection requests", "Messages with town staff", "Permit document"],
     accessMode: "request-or-contact",
+    collectionState: "restricted",
     manualSteps: "Create or use a resident account to submit a permit, review account records, request an inspection or contact town staff.",
     limits: "The portal shows records tied to the signed-in user. It is not a public townwide permit or project search, and Vision does not collect it.",
     coverage: "The town portal supports permit and license transactions, application monitoring, prior account permits, inspection requests and permit printing.",
@@ -222,6 +227,7 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     recordFamilies: ["Building permits", "Permit fees", "Building inspections"],
     retrievableFields: ["Eligible permit type", "Permit application status", "Fee or payment status", "Inspection request", "Inspection result"],
     accessMode: "request-or-contact",
+    collectionState: "restricted",
     manualSteps: "Create or use a public registrant or contractor account to submit an eligible permit, monitor it, pay a fee or manage an inspection.",
     limits: "The portal requires an account and covers listed online permit types. It is not a public townwide permit or project search, and Vision does not collect it.",
     coverage: "The town portal supports listed building permit applications, fee payment, permit monitoring, inspection scheduling and inspection result monitoring.",

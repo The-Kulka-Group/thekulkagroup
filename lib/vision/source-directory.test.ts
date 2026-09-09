@@ -15,6 +15,7 @@ const source = (overrides: Partial<MunicipalSource> = {}): MunicipalSource => ({
   recordFamilies: ["Planning applications"],
   retrievableFields: ["Case number"],
   accessMode: "public-online",
+  collectionState: "manual",
   manualSteps: "Open the public source and review the case.",
   limits: "The source publishes current cases only.",
   coverage: "Current public cases.",
@@ -25,15 +26,15 @@ const source = (overrides: Partial<MunicipalSource> = {}): MunicipalSource => ({
 
 describe("Vision municipal source directory", () => {
   it("keeps every collectable source in the discovery catalog and excludes manual sources", () => {
-    const collectableIds = VISION_SOURCES.filter(item => item.accessMode === "automated").map(item => item.id);
+    const collectableIds = VISION_SOURCES.filter(item => item.collectionState === "collectable").map(item => item.id);
     expect(collectableIds).toEqual(DISCOVERY_SOURCES.map(item => item.id));
-    expect(VISION_SOURCES.find(item => item.id === "huntington-meetings")?.accessMode).toBe("public-online");
+    expect(VISION_SOURCES.find(item => item.id === "huntington-meetings")?.collectionState).toBe("manual");
   });
 
   it("filters source capabilities by county, jurisdiction, record family and access mode", () => {
     const sources = [
       source(),
-      source({id: "source-two", county: "Suffolk", jurisdictionType: "village", recordFamilies: ["Building permits"], accessMode: "request-or-contact"}),
+      source({id: "source-two", county: "Suffolk", jurisdictionType: "village", recordFamilies: ["Building permits"], accessMode: "request-or-contact", collectionState: "restricted"}),
     ];
     expect(filterMunicipalSources(sources, {county: "Suffolk"}).map(item => item.id)).toEqual(["source-two"]);
     expect(filterMunicipalSources(sources, {jurisdiction: "Nassau:town:Test town"}).map(item => item.id)).toEqual(["source-one"]);
@@ -74,9 +75,10 @@ describe("Vision municipal source directory", () => {
     }
   });
 
-  it("rejects duplicate and incomplete source claims", () => {
+  it("rejects duplicate, incomplete and inconsistent source claims", () => {
     expect(() => validateMunicipalSources([source(), source()])).toThrow("Duplicate");
     expect(() => validateMunicipalSources([source({retrievableFields: []})])).toThrow("capability");
     expect(() => validateMunicipalSources([source({url: "http://example.gov"})])).toThrow("HTTPS");
+    expect(() => validateMunicipalSources([source({accessMode: "automated", collectionState: "manual"})])).toThrow("inconsistent");
   });
 });

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {useMemo, useState} from "react";
-import {ACCESS_MODES, JURISDICTION_TYPES, SOURCE_ACCESS, filterMunicipalSources, sourceCoverageSummary, sourceIsCollectable, sourceJurisdictions, sourceRecordFamilies, type MunicipalSource, type SourceAccessMode, type JurisdictionType} from "@/lib/vision/source-directory";
+import {ACCESS_MODES, COLLECTION_STATE_LABELS, JURISDICTION_TYPES, SOURCE_ACCESS, filterMunicipalSources, sourceCoverageSummary, sourceIsCollectable, sourceJurisdictions, sourceRecordFamilies, type MunicipalSource, type SourceAccessMode, type JurisdictionType} from "@/lib/vision/source-directory";
 import {SourceBrand} from "../SourceBrand";
 
 const formatEnumLabel = (value: string) => value.replaceAll("-", " ").replace(/^./, letter => letter.toUpperCase());
@@ -20,9 +20,9 @@ export function SourceDirectory({sources}: {sources: MunicipalSource[]}) {
 
   return <section aria-labelledby="source-directory-title">
     <div className="vision-source-summary" aria-label="Long Island source coverage">
-      <div><strong>{summary.localJurisdictions.total}</strong><span>local jurisdictions</span><small>{summary.localJurisdictions.Nassau} Nassau · {summary.localJurisdictions.Suffolk} Suffolk</small></div>
-      <div><strong>{summary.directorySources}</strong><span>directory sources</span><small>{summary.countySources} county-level · {summary.directorySources - summary.countySources} local-source entries</small></div>
-      <div><strong>{summary.collectableSources}</strong><span>collectable sources</span><small>{summary.accessModes["public-online"]} public manual · {summary.accessModes["request-or-contact"]} request or contact · {summary.accessModes["no-public-feed"]} no public feed</small></div>
+      <div><strong>{summary.localJurisdictions.total}</strong><span>local jurisdictions</span><small>Nassau has {summary.localJurisdictions.Nassau}, and Suffolk has {summary.localJurisdictions.Suffolk}.</small></div>
+      <div><strong>{summary.directorySources}</strong><span>directory sources</span><small>There are {summary.countySources} county sources and {summary.directorySources - summary.countySources} local sources.</small></div>
+      <div><strong>{summary.collectableSources}</strong><span>collectable sources</span><small>There are {summary.accessModes["public-online"]} manual, {summary.accessModes["request-or-contact"]} restricted, and {summary.accessModes["no-public-feed"]} no-public-feed sources.</small></div>
     </div>
     <p className="vision-source-coverage-note">The directory covers Nassau and Suffolk. Its {summary.directorySources} entries are official source routes, not projects. Vision can collect records from {summary.collectableSources} county sources. Each other entry states whether review, a records request or contact is required, or no public project feed was found.</p>
     <div className="vision-source-directory-heading">
@@ -47,10 +47,10 @@ export function SourceDirectoryResults({sources}: {sources: MunicipalSource[]}) 
   return sources.length ? <div className="vision-source-grid">
       {sources.map(source => {
         const query = new URLSearchParams({sourceTitle: source.name, sourceUrl: source.url});
-        return <article className="vision-directory-card" data-access-mode={source.accessMode} key={source.id}>
+        return <article className="vision-directory-card" data-access-mode={source.accessMode} data-collection-state={source.collectionState} key={source.id}>
           <div className="vision-source-card-heading">
             <p className="t-meta">{source.jurisdictionType === "county" ? `This is a ${source.county} County source.` : `This source covers ${source.jurisdiction}, a ${source.jurisdictionType} in ${source.county} County.`}</p>
-            <span className="vision-source-access" aria-label={`Access: ${SOURCE_ACCESS[source.accessMode].filterLabel}`}>{SOURCE_ACCESS[source.accessMode].cardLabel}</span>
+            <span className="vision-source-access" aria-label={`Access: ${SOURCE_ACCESS[source.accessMode].filterLabel}`}>{COLLECTION_STATE_LABELS[source.collectionState]}</span>
           </div>
           <h2><SourceBrand id={source.id} name={source.name}/></h2>
           <p className="t-meta">{source.officialAgency} publishes this source.</p>

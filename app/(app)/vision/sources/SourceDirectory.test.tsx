@@ -10,7 +10,8 @@ describe("Vision source directory view", () => {
     const html = renderToStaticMarkup(createElement(SourceDirectory, {sources: [...VISION_SOURCES]}));
 
     expect(html).toContain("<strong>111</strong><span>local jurisdictions</span>");
-    expect(html).toContain("69 Nassau · 42 Suffolk");
+    expect(html).toContain("Nassau has 69, and Suffolk has 42.");
+    expect(html).toContain("There are 5 county sources and 114 local sources.");
     expect(html).toContain("<strong>119</strong><span>directory sources</span>");
     expect(html).toContain("<strong>4</strong><span>collectable sources</span>");
     expect(html).toContain("What this source publishes");
@@ -21,10 +22,10 @@ describe("Vision source directory view", () => {
     expect(html).toContain("Open official source");
     expect(html).toContain("We checked this source on September 9, 2026.");
     expect(html).toContain("vision-source-access");
-    expect(html).toContain("Access: Vision collects this source");
-    expect(html).toContain("Access: Public source, manual review");
-    expect(html).toContain("Access: Request or contact needed");
-    expect(html).toContain("Access: No public project feed found");
+    expect(html).toContain("Collectable");
+    expect(html).toContain("Manual review");
+    expect(html).toContain("Restricted access");
+    expect(html).toContain("No public feed");
   });
 
   it("renders a clear empty result", () => {

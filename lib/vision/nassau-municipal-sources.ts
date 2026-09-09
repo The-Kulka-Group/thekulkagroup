@@ -204,6 +204,17 @@ function requestSource(item: NassauJurisdiction): MunicipalSource {
 function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
   const agencyType = item.jurisdictionType === "city" ? "City" : item.jurisdictionType === "town" ? "Town" : "Village";
   const hasDepartmentPage = Boolean(NO_PUBLIC_FEED_SOURCE_URLS[item.jurisdiction]);
+  const accessDetails = hasDepartmentPage ? {
+    availableFields: ["Official department contact", "Published forms or filing instructions"],
+    manualSteps: "Open the official department or forms page, then contact the clerk or building department about the project record needed.",
+    limits: "The official page provides forms, filing instructions or contact details, but no public project-level feed was verified. Vision does not collect this source.",
+    coverage: "No public project feed was found. The link opens the official department, forms or records route for manual follow-up.",
+  } : {
+    availableFields: ["Official jurisdiction contact information"],
+    manualSteps: "Open the official site and contact the village about the project record needed.",
+    limits: "The official site is under construction and has no stable department, forms, records or contact page. No public project-level feed was verified, and Vision does not collect this source.",
+    coverage: "No public project feed was found. The official village homepage is the only stable public route found in this check.",
+  };
   return {
     id: `nassau-${item.jurisdictionType}-${slug(item.jurisdiction)}-records`,
     name: `${item.jurisdiction} official records contact`,
@@ -212,12 +223,9 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
     county: "Nassau",
     officialAgency: `${agencyType} of ${item.jurisdiction}`,
     recordFamilies: ["Building records", "Permit records", "Planning records", "Zoning records"],
-    availableFields: hasDepartmentPage ? ["Official department contact", "Published forms or filing instructions"] : ["Official jurisdiction contact information"],
     accessMode: "no-public-feed",
     collectionState: "no-public-feed",
-    manualSteps: hasDepartmentPage ? "Open the official department or forms page, then contact the clerk or building department about the project record needed." : "Open the official site and contact the village about the project record needed.",
-    limits: hasDepartmentPage ? "The official page provides forms, filing instructions or contact details, but no public project-level feed was verified. Vision does not collect this source." : "The official site is under construction and has no stable department, forms, records or contact page. No public project-level feed was verified, and Vision does not collect this source.",
-    coverage: hasDepartmentPage ? "No public project feed was found. The link opens the official department, forms or records route for manual follow-up." : "No public project feed was found. The official village homepage is the only stable public route found in this check.",
+    ...accessDetails,
     url: NO_PUBLIC_FEED_SOURCE_URLS[item.jurisdiction] ?? item.officialUrl,
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   };

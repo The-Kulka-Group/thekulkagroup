@@ -35,9 +35,9 @@ describe("Nassau municipal source coverage", () => {
     const hempstead = NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "hempstead-online-permit-center");
     const oysterBay = NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "oyster-bay-building-portal");
 
-    expect(hempstead).toMatchObject({accessMode: "request-or-contact", collectionState: "restricted", url: "https://hempsteadny.gov/622/Online-Permit-Center"});
+    expect(hempstead).toMatchObject({jurisdiction: "Hempstead", accessMode: "request-or-contact", collectionState: "restricted", url: "https://hempsteadny.gov/622/Online-Permit-Center"});
     expect(hempstead?.limits).toContain("not a public townwide permit or project search");
-    expect(oysterBay).toMatchObject({accessMode: "request-or-contact", collectionState: "restricted", url: "https://oysterbaytown.com/departments/planning-and-development/building-portal/"});
+    expect(oysterBay).toMatchObject({jurisdiction: "Oyster Bay", accessMode: "request-or-contact", collectionState: "restricted", url: "https://oysterbaytown.com/departments/planning-and-development/building-portal/"});
     expect(oysterBay?.limits).toContain("requires an account");
   });
 

@@ -1,6 +1,8 @@
 import {NASSAU_IDA_SOURCE, SUFFOLK_IDA_SOURCE, SUFFOLK_SOURCE} from "./discovery-catalog";
 import {DISCOVERY_SOURCE} from "./discovery-source";
+import {NASSAU_MUNICIPAL_SOURCES} from "./nassau-municipal-sources";
 import {validateMunicipalSources, type MunicipalSource} from "./source-directory";
+import {SUFFOLK_MUNICIPAL_SOURCES} from "./suffolk-municipal-sources";
 
 const CHECKED_AT = "2026-09-09";
 
@@ -112,4 +114,6 @@ export const VISION_SOURCES = validateMunicipalSources([
     url: "https://smithtownny.portal.civicclerk.com/",
     checkedAt: CHECKED_AT,
   },
+  ...NASSAU_MUNICIPAL_SOURCES,
+  ...SUFFOLK_MUNICIPAL_SOURCES,
 ] satisfies MunicipalSource[]);

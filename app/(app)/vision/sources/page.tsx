@@ -6,11 +6,12 @@ import { Sheet } from "@/components/Sheet";
 import { VISION_SOURCES } from "@/lib/vision/sources";
 import {SourceDirectory} from "./SourceDirectory";
 import "../map.css";
+import "../vision.css";
 
 export default async function VisionSources() {
   const selectedSources=readSourcePreference((await cookies()).get(SOURCE_SELECTION_COOKIE)?.value);
   return (
-    <Sheet number="V-001" title="Find opportunities"
+    <Sheet number="V-001" title="Find opportunities" bodyClass="vision-workspace"
       meta={<span>Long Island · Public planning and development records</span>}
       actions={<><Link className="btn btn--primary" href="/vision/discover">Discovery inbox</Link><Link className="btn btn--quiet" href="/vision">Back to Vision</Link></>}>
       <div className="vision-source-intro">

@@ -268,8 +268,7 @@ em, .em { font-style: normal; font-weight: 600; }
   mask: var(--u) center / contain no-repeat;
 }
 
-/* Nav items stay flat. The active rule marks location without turning the
-   item into a pill. */
+/* Navigation uses the same pill language as every other clickable control. */
 .rail-item {
   display: flex;
   align-items: center;
@@ -278,19 +277,21 @@ em, .em { font-style: normal; font-weight: 600; }
   /* The row is a fixed height, so a label that wrapped would spill out of it. */
   white-space: nowrap;
   padding: 0 var(--s3) 0 calc(var(--s3) - 2px);
-  border-left: 2px solid transparent;
-  border-radius: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
   color: var(--ink);
   text-decoration: none;
   font-size: var(--ui-size);
   transition: background var(--motion-fast) var(--ease),
               color var(--motion-fast) var(--ease);
 }
-.rail-item:hover { color: var(--primary); }
+.rail-item:hover { color: var(--primary); background: var(--surface); border-color: var(--border-light); }
 .rail-item[aria-current="page"] {
-  border-left-color: var(--brand);
-  color: var(--brand);
+  border-color: var(--border-light);
+  background: var(--surface);
+  color: var(--primary-hover);
   font-weight: 600;
+  box-shadow: var(--shadow-card);
 }
 .rail-item .count {
   margin-left: auto;
@@ -583,9 +584,9 @@ em, .em { font-style: normal; font-weight: 600; }
 .btn {
   height: var(--control-h);
   padding: 0 var(--s4);
-  border-radius: var(--r-sm);
-  border: 1px solid transparent;
-  background: none;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-light);
+  background: var(--surface);
   font-family: inherit;
   font-size: var(--ui-size);
   font-weight: 600;
@@ -598,17 +599,22 @@ em, .em { font-style: normal; font-weight: 600; }
   gap: var(--s2);
   transition: background var(--motion-fast) var(--ease),
               border-color var(--motion-fast) var(--ease),
-              box-shadow var(--motion-fast) var(--ease);
+              box-shadow var(--motion-fast) var(--ease),
+              transform var(--motion-fast) var(--ease);
 }
 
-.btn--primary { background: var(--primary); color: #FFFFFF; }
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-card); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-tint); border-color: var(--primary); }
+
+.btn--primary { background: var(--primary); color: #FFFFFF; border-color: var(--primary); box-shadow: 0 4px 12px rgba(0, 115, 234, 0.16); }
 .btn--primary:hover { background: var(--primary-hover); }
 
 .btn--secondary { background: var(--surface); border-color: var(--border); }
 .btn--secondary:hover { border-color: var(--primary); color: var(--primary); }
 
-.btn--quiet { color: var(--primary); padding: 0 var(--s2); }
-.btn--quiet:hover { background: var(--primary-tint); }
+.btn--quiet { color: var(--primary-hover); padding: 0 var(--s3); background: var(--primary-tint); border-color: transparent; }
+.btn--quiet:hover { background: var(--selected); border-color: var(--border-light); }
 
 .btn--redline { color: var(--redline); padding: 0 var(--s2); }
 .btn--redline:hover { background: var(--redline-tint); }
@@ -618,8 +624,10 @@ em, .em { font-style: normal; font-weight: 600; }
 .btn:disabled {
   color: var(--ink-3);
   border-color: var(--border-light);
-  background: none;
+  background: var(--canvas);
   cursor: default;
+  box-shadow: none;
+  transform: none;
 }
 
 /* --- 10. Inputs ---------------------------------------------------------- */
@@ -633,7 +641,7 @@ em, .em { font-style: normal; font-weight: 600; }
   padding: 0 var(--cell-pad-x);
   background: var(--surface);
   border: 1px solid var(--border-light);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-pill);
   font-family: inherit;
   font-size: var(--value-size);
   color: var(--ink);
@@ -647,6 +655,8 @@ em, .em { font-style: normal; font-weight: 600; }
   box-shadow: 0 0 0 3px var(--primary-tint);
 }
 .input[aria-invalid="true"] { border-color: var(--stuck); }
+
+textarea.input { border-radius: var(--r-lg); }
 
 .input-error {
   margin-top: var(--s1);

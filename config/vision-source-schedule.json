@@ -1,0 +1,8 @@
+{
+  "id": "vision-discovery-all-enabled",
+  "active": false,
+  "cadence": "daily",
+  "method": "POST",
+  "path": "/api/vision/discovery/cron?source=all",
+  "authorizationEnvironmentVariable": "VISION_DISCOVERY_CRON_SECRET"
+}

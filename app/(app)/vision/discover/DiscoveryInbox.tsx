@@ -3,7 +3,7 @@ import { useCallback,useEffect,useRef,useState } from "react";
 import Link from "next/link";
 import { Check,Clock,MinusCircle } from "@phosphor-icons/react";
 import {SourceSelection,useSourceSelection} from "../SourceSelection";
-import {checkSelectedSources,type SourceCheckResult} from "@/lib/vision/source-selection";
+import type {SourceCheckResult} from "@/lib/vision/source-selection";
 import type { DiscoveryCandidate,DiscoveryState } from "@/lib/vision/discovery";
 import type { DiscoveredRecord } from "@/lib/vision/discovery-source";
 import {SourceBrand} from "../SourceBrand";
@@ -14,6 +14,7 @@ type Detail={candidate:DiscoveryCandidate;history:{revision:number;snapshot:Disc
 async function api(path:string,body?:unknown) {const r=await fetch(`/api/vision/discovery${path}`,body===undefined?{}:{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const data=await r.json();if(!r.ok) throw new Error(data.error || "The request failed.");return data;}
 function when(value:string|null) {return value?new Date(value).toLocaleString():"Not checked yet";}
 const REVIEW_STATES = {new:{label:"Needs review",Glyph:Clock},accepted:{label:"Saved to Vision",Glyph:Check},dismissed:{label:"Dismissed",Glyph:MinusCircle}};
+const RUN_OUTCOMES={completed:"Completed",completed_empty:"Completed with no records",skipped:"Skipped",blocked:"Blocked",failed:"Failed"} as const;
 function ReviewState({state}:{state:DiscoveryCandidate["review_state"]}) {const {label,Glyph}=REVIEW_STATES[state];return <span className={`status-block discovery-state discovery-state--${state}`}><Glyph size={14} aria-hidden="true" />{label}</span>;}
 const EMPTY_FILTERS={applicationType:"",location:"",dateMode:"all",from:"",to:""};
 export function DiscoveryInbox({initialRecord,initialSources}:{initialRecord?:string;initialSources:string[]}) {
@@ -52,9 +53,19 @@ export function DiscoveryInbox({initialRecord,initialSources}:{initialRecord?:st
     return()=>{active=false;};
   },[initialRecord]);
   useEffect(()=>{if(detail?.candidate.id)document.getElementById("vision-source-record")?.scrollIntoView({block:"start"});},[detail?.candidate.id]);
-  async function refresh(){
+  function showRun(result:{sourceId:string;outcome:keyof typeof RUN_OUTCOMES;count:number;error:string|null}){
+    setChecks(current=>({...current,[result.sourceId]:result.outcome==="completed"||result.outcome==="completed_empty"?{status:"success",count:result.count}:{status:"error",error:result.error??RUN_OUTCOMES[result.outcome]}}));
+  }
+  async function refreshAll(){
     setBusy(true);setError("");setNotice("");setChecks({});
-    try {await checkSelectedSources(selected,id=>api(`/refresh?source=${encodeURIComponent(id)}`,{}),(id,result)=>setChecks(current=>({...current,[id]:result})));await load();}
+    try {const result=await api("/refresh?source=all",{});for(const run of result.results)showRun(run);setNotice("The enabled source checks finished with separate results.");await load();}
+    catch(cause){setError((cause as Error).message);}
+    finally {setBusy(false);}
+  }
+  async function refreshOne(id:string){
+    setBusy(true);setError("");setNotice("");setChecks(current=>({...current,[id]:{status:"running"}}));
+    try {const result=await api(`/refresh?source=${encodeURIComponent(id)}`,{});showRun({sourceId:id,outcome:result.outcome,count:result.count,error:null});await load();}
+    catch(cause){setChecks(current=>({...current,[id]:{status:"error",error:(cause as Error).message}}));await load();}
     finally {setBusy(false);}
   }
   async function open(id:string){setBusy(true);setError("");try{const data=await api(`/${id}`);setDetail(data);setNotes("");setTargetId("");setTown(data.candidate.snapshot.town);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
@@ -71,10 +82,10 @@ export function DiscoveryInbox({initialRecord,initialSources}:{initialRecord?:st
     <SourceSelection selected={selected} disabled={busy||pending} onChange={ids=>{change(ids);setPage(0);setError("");}}/>
     {selectionError?<p role="alert" className="input-error">{selectionError}</p>:null}
     {pending?<p role="status">Updating discovery sources…</p>:null}
-    <div className="discovery-check"><p>Allow five minutes between checks of each source. A public filing does not confirm approval, funding, or an open bid.</p><button className="btn btn--primary" disabled={busy||pending||!selected.length} onClick={()=>void refresh()}>{busy?"Please wait…":"Check sources"}</button></div>
+    <div className="discovery-check"><p>Allow five minutes between checks of each source. A public filing does not confirm approval, funding, or an open bid.</p><button className="btn btn--primary" disabled={busy||pending} onClick={()=>void refreshAll()}>{busy?"Please wait…":"Check all enabled sources"}</button></div>
     <div className="discovery-source-checks">{DISCOVERY_SOURCES.filter(item=>selected.includes(item.id)).map(source=>{
       const status=sources[source.id],result=checks[source.id];
-      return <section className="discovery-source-check" key={source.id}><h2><SourceBrand id={source.id} name={source.name}/></h2><p>{source.coverage}</p><a className="btn btn--quiet" href={source.url} target="_blank" rel="noopener noreferrer">Open source</a><p className="t-meta">Last check: {when(status?.last_checked_at??null)} · Last completed check: {when(status?.last_success_at??null)}</p>
+      return <section className="discovery-source-check" key={source.id}><h2><SourceBrand id={source.id} name={source.name}/></h2><p>{source.coverage}</p><div className="vision-source-health"><span className="chip chip--neutral">Daily schedule</span><span className="chip chip--neutral">Latest outcome: {status?.last_outcome?RUN_OUTCOMES[status.last_outcome]:"Not checked"}</span><span className="chip chip--neutral">{status?.record_count??0} records</span></div><div className="vision-inline-actions"><button className="btn btn--primary" type="button" disabled={busy||pending} onClick={()=>void refreshOne(source.id)}>Check this source</button><a className="btn btn--quiet" href={source.url} target="_blank" rel="noopener noreferrer">Open source</a></div><p className="t-meta">Last check: {when(status?.last_checked_at??null)} · Last completed check: {when(status?.last_success_at??null)}</p>
         {result?<p role={result.status==="error"?"alert":"status"} className={result.status==="error"?"input-error":undefined}>{result.status==="running"?"Checking this source…":result.status==="success"?`The check returned ${result.count} records. Existing review choices stay unchanged.`:result.error}</p>:status?.running?<p role="status">A source check is running. Reload to see its result.</p>:status?.last_error?<p className="input-error">{status.last_error}</p>:null}
         {sourceErrors[source.id]?<p role="alert" className="input-error">{sourceErrors[source.id]}</p>:null}
         {status?.coverage?<details><summary>Last completed coverage: {status.coverage.documents.length} documents from {status.coverage.year}</summary><ul>{status.coverage.documents.map(url=><li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{decodeURIComponent(url.split("/").pop()||url)}</a></li>)}</ul></details>:null}

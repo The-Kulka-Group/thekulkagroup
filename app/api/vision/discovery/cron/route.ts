@@ -7,5 +7,5 @@ export async function POST(request:Request) {
   const supplied=request.headers.get("authorization") || "";
   const expected=`Bearer ${secret}`;
   if(!secret || secret.length<32 || Buffer.byteLength(supplied)!==Buffer.byteLength(expected) || !timingSafeEqual(Buffer.from(supplied),Buffer.from(expected))) return NextResponse.json({error:"Unauthorized."},{status:401});
-  return runCollection();
+  return runCollection(new URL(request.url).searchParams.get("source") || undefined);
 }

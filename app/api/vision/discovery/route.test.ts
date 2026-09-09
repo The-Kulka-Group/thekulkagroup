@@ -180,9 +180,10 @@ describe("Vision discovery API",()=>{
   vi.stubEnv("KULKA_AUTH_BYPASS","1");expect((await inbox.GET(req())).status).toBe(200);expect((await refresh.POST(req({}))).status).toBe(403);expect((await detail.POST(req({}),ctx("bad"))).status).toBe(403);expect(fetchRecords).not.toHaveBeenCalled();
  });
  it("requires a long matching cron secret independent of user access",async()=>{
-  vi.stubEnv("KULKA_AUTH_BYPASS","1");const call=(token:string)=>cron.POST(new Request("http://localhost",{method:"POST",headers:{authorization:`Bearer ${token}`}}));
+  vi.stubEnv("KULKA_AUTH_BYPASS","1");const call=(token:string,sourceId?:string)=>cron.POST(new Request(`http://localhost${sourceId?`?source=${sourceId}`:""}`,{method:"POST",headers:{authorization:`Bearer ${token}`}}));
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","");expect((await call("")).status).toBe(401);vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","short");expect((await call("short")).status).toBe(401);
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));expect((await call("b".repeat(32))).status).toBe(401);expect((await call("é".repeat(32))).status).toBe(401);expect((await call("a".repeat(32))).status).toBe(200);
+  expect(fetchRecords).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"suffolk-planning")).status).toBe(200);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"unsupported")).status).toBe(400);
  });
  it("enables RLS without browser policies on each discovery table",async()=>{
   for(const table of ["vision_discovery_sources","vision_discovery_candidates","vision_discovery_history"]){expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);}

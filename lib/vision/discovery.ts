@@ -82,6 +82,7 @@ export async function collectDiscovery(db:Db, sourceId=DISCOVERY_SOURCE.id) {
     if (!result.rows.length) throw new DiscoveryConflict("The source check expired. Start a new check.");
     return {count:records.length,coverage};
   } catch(error) {
+    console.error("Vision source collection failed.", {sourceId,message:error instanceof Error ? error.message : "Unknown source error"});
     await db.query(`update vision_discovery_sources set last_error=$3,lease_token=null,lease_until=null where id=$1 and lease_token=$2`,[sourceId,token,"The source check failed. Coverage is incomplete. Saved records remain available. Try again later."]);
     throw error;
   }

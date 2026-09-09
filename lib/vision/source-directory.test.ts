@@ -59,16 +59,16 @@ describe("Vision municipal source directory", () => {
       .map(item => `${item.county}:${item.jurisdictionType}:${item.jurisdiction}`);
 
     expect(new Set(actual)).toEqual(new Set([...nassauExpected, ...suffolkExpected]));
-    expect(actual).toHaveLength(114);
+    expect(actual).toHaveLength(134);
     expect(summary.localJurisdictions).toEqual({total: 111, Nassau: 69, Suffolk: 42});
     expect(summary.countySources).toBe(5);
-    expect(summary.directorySources).toBe(119);
+    expect(summary.directorySources).toBe(139);
     expect(summary.collectableSources).toBe(4);
-    expect(Object.values(summary.accessModes).reduce((total, count) => total + count, 0)).toBe(119);
+    expect(Object.values(summary.accessModes).reduce((total, count) => total + count, 0)).toBe(139);
   });
 
   it("keeps a current date and official HTTPS link on every directory entry", () => {
-    expect(VISION_SOURCES).toHaveLength(119);
+    expect(VISION_SOURCES).toHaveLength(139);
     for (const item of VISION_SOURCES) {
       expect(item.checkedAt).toBe("2026-09-09");
       expect(item.url).toMatch(/^https:\/\//);

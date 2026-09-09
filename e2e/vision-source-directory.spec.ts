@@ -9,11 +9,11 @@ test("shows joined source coverage and filters to a clear empty result", async (
 
   const coverage = page.getByLabel("Long Island source coverage");
   await expect(coverage).toContainText("111local jurisdictionsNassau has 69, and Suffolk has 42.");
-  await expect(coverage).toContainText("119directory sourcesThere are 5 county sources and 114 local sources.");
+  await expect(coverage).toContainText("139directory sourcesThere are 5 county sources and 134 local sources.");
   await expect(coverage).toContainText("4collectable sources");
   await expect(page.getByText(/official source routes, not projects/i)).toBeVisible();
-  await expect(page.locator(".vision-directory-card")).toHaveCount(119);
-  await expect(page.locator(".vision-source-checked")).toHaveCount(119);
+  await expect(page.locator(".vision-directory-card")).toHaveCount(139);
+  await expect(page.locator(".vision-source-checked")).toHaveCount(139);
   const sourceAccess = page.locator(".vision-source-access").first();
   await expect(sourceAccess).toHaveCSS("min-width", "112px");
   await expect(sourceAccess).toHaveCSS("color", "rgb(50, 51, 56)");
@@ -40,7 +40,7 @@ test("shows joined source coverage and filters to a clear empty result", async (
 
   await page.getByRole("combobox", {name: "Location", exact: true}).selectOption("Suffolk:village:Poquott");
   await expect(page.locator(".vision-directory-card")).toHaveCount(1);
-  await expect(page.getByRole("heading", {name: "Poquott board agenda"})).toBeVisible();
+  await expect(page.getByRole("heading", {name: "Poquott planning and permit records contact"})).toBeVisible();
   await expect(page.getByText("What this source publishes")).toBeVisible();
   await expect(page.getByText("Manual step or access need")).toBeVisible();
   await expect(page.getByRole("link", {name: "Open official source"})).toHaveAttribute("href", /^https:\/\//);
@@ -60,8 +60,8 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
   await page.goto("/vision/sources");
 
   await expect(page.getByLabel("Long Island source coverage")).toBeVisible();
-  await expect(page.getByRole("link", {name: "Open official source"})).toHaveCount(119);
-  await expect(page.locator(".vision-source-checked")).toHaveCount(119);
+  await expect(page.getByRole("link", {name: "Open official source"})).toHaveCount(139);
+  await expect(page.locator(".vision-source-checked")).toHaveCount(139);
   const county = page.getByRole("combobox", {name: "County", exact: true});
   await county.selectOption("Nassau");
   await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({county: "Nassau"}));
@@ -93,7 +93,7 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
     await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({accessMode: mode}));
   }
   await access.selectOption("automated");
-  await expect(page.getByText("The directory shows 4 of 119 sources.")).toBeVisible();
+  await expect(page.getByText("The directory shows 4 of 139 sources.")).toBeVisible();
   await access.selectOption("");
 
   await location.selectOption("Suffolk:village:Poquott");

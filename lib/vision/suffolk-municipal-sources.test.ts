@@ -62,6 +62,42 @@ describe("Suffolk municipal source coverage", () => {
     expect(source?.limits).toContain("not an official town record");
   });
 
+  it("keeps each Suffolk town building route separate from meeting records", () => {
+    const ids = [
+      "babylon-online-permit-center", "brookhaven-public-records", "east-hampton-opengov-permits",
+      "huntington-permit-portal", "islip-application-portal", "riverhead-building-portal",
+      "shelter-island-property-records", "shelter-island-citysquared", "smithtown-building-portal",
+      "southampton-permit-lookup", "southampton-building-epermits", "southold-laserfiche-records",
+      "islip-building-records-request", "riverhead-building-records-request",
+    ];
+    const sources = ids.map(id => SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === id));
+
+    expect(sources.every(Boolean)).toBe(true);
+    expect(sources.every(source => source?.recordFamilies.some(family => /permit|property|record/i.test(family)))).toBe(true);
+    expect(sources.every(source => source?.availableFields.length)).toBe(true);
+    expect(SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === "brookhaven-public-records")?.accessMode).toBe("public-online");
+    expect(SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === "southampton-permit-lookup")?.availableFields).toContain("Permit status");
+    expect(SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === "southold-laserfiche-records")?.availableFields).toContain("Tax map number");
+    expect(SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === "babylon-online-permit-center")?.accessMode).toBe("request-or-contact");
+  });
+
+  it("uses public access for public village minutes and does not call Poquott's old agenda current", () => {
+    for (const id of ["belle-terre-minutes", "saltaire-minutes", "village-of-the-branch-forms"]) {
+      expect(SUFFOLK_MUNICIPAL_SOURCES.find(source => source.id === id)).toMatchObject({
+        accessMode: "public-online",
+        collectionState: "manual",
+      });
+    }
+    const poquott = SUFFOLK_MUNICIPAL_SOURCES.find(source => source.jurisdiction === "Poquott");
+    expect(poquott).toMatchObject({
+      id: "poquott-records-contact",
+      accessMode: "request-or-contact",
+      collectionState: "restricted",
+      url: "https://www.villageofpoquott.com/",
+    });
+    expect(poquott?.limits).toContain("January 2024");
+  });
+
   it("gives every jurisdiction a checked official source and bounded capability claim", () => {
     for (const source of SUFFOLK_MUNICIPAL_SOURCES) {
       expect(source.checkedAt).toBe("2026-09-09");

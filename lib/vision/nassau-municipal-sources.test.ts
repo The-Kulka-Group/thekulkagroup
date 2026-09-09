@@ -67,4 +67,63 @@ describe("Nassau municipal source coverage", () => {
     expect(floralPark?.recordFamilies).toContain("Building Department project updates");
     expect(floralPark?.availableFields).toContain("Street address");
   });
+
+  it("uses current public land-use sources for Manorhaven, Munsey Park and Thomaston", () => {
+    const manorhaven = NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === "Manorhaven");
+    const munseyPark = NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === "Munsey Park");
+    const thomaston = NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === "Thomaston");
+
+    for (const source of [manorhaven, munseyPark, thomaston]) {
+      expect(source).toMatchObject({accessMode: "public-online", collectionState: "manual"});
+    }
+    expect(manorhaven?.url).toBe("https://manorhaven.gov/events/category/monthly-village-meetings/");
+    expect(manorhaven?.availableFields).toContain("Legal notice");
+    expect(munseyPark?.url).toBe("https://munseypark.gov/");
+    expect(munseyPark?.recordFamilies).toContain("Zoning appeals");
+    expect(thomaston?.url).toBe("https://villageofthomastonny.gov/meeting-schedule/");
+    expect(thomaston?.availableFields).toContain("Proposed work");
+  });
+
+  it("uses the current official domains for migrated village sites", () => {
+    const expectedUrls = new Map([
+      ["Brookville", "https://www.villageofbrookville.gov/buildingdepartment"],
+      ["Farmingdale", "https://farmingdalevillage.gov/"],
+      ["Hewlett Harbor", "https://hewlettharbor.gov/"],
+      ["Rockville Centre", "https://www.rvcny.gov/building-department"],
+      ["Lawrence", "https://www.lawrenceny.gov/buildingdepartment"],
+      ["Massapequa Park", "https://masspkny.gov/agenda-and-minutes"],
+      ["Old Westbury", "https://www.villageofoldwestbury.gov/AgendaCenter"],
+      ["Westbury", "https://villageofwestbury.gov/"],
+    ]);
+
+    for (const [jurisdiction, url] of expectedUrls) {
+      expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === jurisdiction)?.url).toBe(url);
+    }
+  });
+
+  it("does not deny public land-use records that the current village sites publish", () => {
+    const jurisdictions = [
+      "Great Neck Estates", "Lake Success", "Lawrence", "Massapequa Park", "North Hills",
+      "Old Westbury", "Plandome", "Roslyn", "Roslyn Estates", "Valley Stream", "Westbury",
+    ];
+
+    for (const jurisdiction of jurisdictions) {
+      expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === jurisdiction)).toMatchObject({
+        accessMode: "public-online",
+        collectionState: "manual",
+      });
+    }
+  });
+
+  it("keeps public meeting archives separate from applicant and request routes", () => {
+    const ids = [
+      "north-hempstead-zoning-records", "freeport-site-plan-files", "lynbrook-board-minutes",
+      "freeport-online-permitting", "hempstead-village-smartgov", "valley-stream-permit-system",
+    ];
+
+    expect(ids.every(id => NASSAU_MUNICIPAL_SOURCES.some(source => source.id === id))).toBe(true);
+    expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-site-plan-files")?.accessMode).toBe("public-online");
+    expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-online-permitting")?.accessMode).toBe("request-or-contact");
+    expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "lynbrook-board-minutes")?.collectionState).toBe("manual");
+  });
 });

@@ -7,9 +7,9 @@ describe("source preference",()=>{
     expect(readSourcePreference(sourcePreferenceValue([]))).toEqual([]);
     expect(readSourcePreference(sourcePreferenceValue(["suffolk-planning"]))).toEqual(["suffolk-planning"]);
   });
-  it("does not add IDA sources to an existing browser choice",()=>{
+  it("does not add sources to an existing browser choice",()=>{
     expect(readSourcePreference("v1:nassau-applications,suffolk-planning")).toEqual(["nassau-applications","suffolk-planning"]);
-    expect(readSourcePreference(undefined)).toEqual(["nassau-applications","suffolk-planning","nassau-ida","suffolk-ida"]);
+    expect(readSourcePreference(undefined)).toEqual(["nassau-applications","suffolk-planning","nassau-ida","suffolk-ida","nassau-town-oyster-bay-records"]);
     expect(readSourcePreference(sourcePreferenceValue(["nassau-ida","suffolk-ida"]))).toEqual(["nassau-ida","suffolk-ida"]);
   });
   it("allows only catalog IDs, deduplicates and keeps catalog order",()=>{

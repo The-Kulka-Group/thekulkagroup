@@ -6,8 +6,10 @@ const fetchRecords=vi.hoisted(()=>vi.fn());
 const fetchSuffolk=vi.hoisted(()=>vi.fn());
 const fetchNassauIda=vi.hoisted(()=>vi.fn());
 const fetchSuffolkIda=vi.hoisted(()=>vi.fn());
+const fetchOysterBayZba=vi.hoisted(()=>vi.fn());
 vi.mock("@/lib/vision/ida-source",()=>({fetchNassauIdaRecords:fetchNassauIda,fetchSuffolkIdaRecords:fetchSuffolkIda}));
 vi.mock("@/lib/vision/suffolk-source",()=>({fetchSuffolkRecords:fetchSuffolk}));
+vi.mock("@/lib/vision/oyster-bay-zba-source",()=>({fetchOysterBayZbaRecords:fetchOysterBayZba}));
 vi.mock("@/lib/db",()=>({getDb:()=>db as Db}));
 vi.mock("@/lib/vision/discovery-source",()=>({DISCOVERY_SOURCE:{id:"nassau-applications"},fetchDiscoveryRecords:fetchRecords}));
 const inbox=await import("./route");const refresh=await import("./refresh/route");const detail=await import("./[id]/route");const cron=await import("./cron/route");
@@ -19,7 +21,7 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);});
+beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue([{...source,externalId:"oyster-bay-appeal"}]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
  it("collects both IDA sources independently and retains reviews, evidence and history on stable refresh",async()=>{
@@ -183,7 +185,7 @@ describe("Vision discovery API",()=>{
   vi.stubEnv("KULKA_AUTH_BYPASS","1");const call=(token:string,sourceId?:string)=>cron.POST(new Request(`http://localhost${sourceId?`?source=${sourceId}`:""}`,{method:"POST",headers:{authorization:`Bearer ${token}`}}));
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","");expect((await call("")).status).toBe(401);vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","short");expect((await call("short")).status).toBe(401);
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));expect((await call("b".repeat(32))).status).toBe(401);expect((await call("é".repeat(32))).status).toBe(401);expect((await call("a".repeat(32),"nassau-applications")).status).toBe(200);
-  expect(fetchRecords).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"suffolk-planning")).status).toBe(200);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"unsupported")).status).toBe(400);
+  expect(fetchRecords).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"suffolk-planning")).status).toBe(200);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"nassau-town-oyster-bay-records")).status).toBe(200);expect(fetchOysterBayZba).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"unsupported")).status).toBe(400);
  });
  it("runs all enabled sources with separate stored outcomes",async()=>{
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));
@@ -197,13 +199,14 @@ describe("Vision discovery API",()=>{
    ["suffolk-planning","failed"],
    ["nassau-ida","completed_empty"],
    ["suffolk-ida","completed"],
+   ["nassau-town-oyster-bay-records","completed"],
   ]);
-  expect(fetchRecords).toHaveBeenCalledTimes(1);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect(fetchNassauIda).toHaveBeenCalledTimes(1);expect(fetchSuffolkIda).toHaveBeenCalledTimes(1);
+  expect(fetchRecords).toHaveBeenCalledTimes(1);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect(fetchNassauIda).toHaveBeenCalledTimes(1);expect(fetchSuffolkIda).toHaveBeenCalledTimes(1);expect(fetchOysterBayZba).toHaveBeenCalledTimes(1);
   const runs=(await db.query<{source_id:string;outcome:string;fetched_count:number;error_summary:string|null}>("select source_id,outcome,fetched_count,error_summary from vision_discovery_runs order by started_at,source_id")).rows;
-  expect(runs).toHaveLength(4);
+  expect(runs).toHaveLength(5);
   expect(runs.find(run=>run.source_id==="nassau-ida")).toMatchObject({outcome:"completed_empty",fetched_count:0,error_summary:null});
   expect(runs.find(run=>run.source_id==="suffolk-planning")?.error_summary).not.toContain("private-upstream-token");
-  expect((await db.query("select * from vision_discovery_candidates")).rows).toHaveLength(2);
+  expect((await db.query("select * from vision_discovery_candidates")).rows).toHaveLength(3);
  });
  it("records insert, unchanged, update, failure, and blocked attempts without changing prior records",async()=>{
   expect((await check()).status).toBe(200);
@@ -227,7 +230,7 @@ describe("Vision discovery API",()=>{
    const response=await cron.POST(new Request(`http://localhost?${query}`,{method:"POST",headers:{authorization:`Bearer ${"a".repeat(32)}`}}));
    expect(response.status).toBe(400);
   }
-  expect(fetchRecords).not.toHaveBeenCalled();expect(fetchSuffolk).not.toHaveBeenCalled();expect(fetchNassauIda).not.toHaveBeenCalled();expect(fetchSuffolkIda).not.toHaveBeenCalled();
+  expect(fetchRecords).not.toHaveBeenCalled();expect(fetchSuffolk).not.toHaveBeenCalled();expect(fetchNassauIda).not.toHaveBeenCalled();expect(fetchSuffolkIda).not.toHaveBeenCalled();expect(fetchOysterBayZba).not.toHaveBeenCalled();
  });
  it("enables RLS without browser policies on each discovery table",async()=>{
   for(const table of ["vision_discovery_sources","vision_discovery_candidates","vision_discovery_history","vision_discovery_runs"]){expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);}

@@ -4,7 +4,7 @@ import type { DiscoveredRecord } from "./discovery-source";
 import { isUuid } from "@/lib/uuid";
 import { parseVisionDraft, safeSourceUrl, InvalidVisionInput } from "./input";
 import { parseDiscoveryFilters, type DiscoveryFilters } from "./discovery-filters";
-import { collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, DISCOVERY_SOURCE_IDS, discoverySourceId } from "./source-registry";
+import { collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, discoverySourceId } from "./source-registry";
 
 export type DiscoveryCandidate = { id:string; source_id:string; snapshot:DiscoveredRecord; revision:number; review_state:"new"|"dismissed"|"accepted"; opportunity_id:string|null; first_seen_at:string; last_seen_at:string; changed_at:string };
 export type DiscoveryState = { last_checked_at:string|null; last_success_at:string|null; last_error:string|null; record_count:number; coverage:{year:number;documents:string[]}|null; running:boolean };

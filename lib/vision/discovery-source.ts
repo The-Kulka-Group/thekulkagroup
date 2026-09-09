@@ -1,5 +1,3 @@
-import { DISCOVERY_SOURCE } from "./discovery-catalog";
-
 export { DISCOVERY_SOURCE } from "./discovery-catalog";
 
 /** Nassau's official Planning page links the map backed by this public service. */

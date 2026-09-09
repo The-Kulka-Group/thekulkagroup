@@ -98,7 +98,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
             const popup=document.createElement("div");popup.className="vision-discovery-popup";
             const heading=document.createElement("strong");heading.textContent=group.length===1?"Discovered opportunity":`${group.length} discovered opportunities`;popup.append(heading);
             if(group.length>1){const zoom=document.createElement("button");zoom.className="btn btn--quiet";zoom.textContent="Zoom to this area";zoom.onclick=()=>{map.closePopup();map.setView([latitude,longitude],Math.min(18,map.getZoom()+2),{animate:false});};popup.append(zoom);}
-            for(const record of group){const link=document.createElement("a");link.href=`/vision/discover?record=${record.id}`;link.textContent=`${record.name}${record.address?` · ${record.address}`:""}`;popup.append(link);}
+            for(const record of group){const link=document.createElement("a");link.className="vision-popup-link";link.href=`/vision/discover?record=${record.id}`;link.textContent=`${record.name}${record.address?` · ${record.address}`:""}`;popup.append(link);}
             marker.bindPopup(popup,{maxWidth:Math.max(180,Math.min(340,container.current!.clientWidth-60)),maxHeight:260});
             marker.on("keydown",event=>{const key=(event.originalEvent as KeyboardEvent).key;if(key==="Enter" || key===" "){event.originalEvent.preventDefault();marker.openPopup();}});
           }
@@ -143,7 +143,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
-      {opportunities.length>mapped.length?<details className="vision-off-map" open><summary>{opportunities.length-mapped.length} tracked {opportunities.length-mapped.length===1?"opportunity needs":"opportunities need"} a location</summary><ul>{opportunities.filter(item=>item.latitude===null||item.longitude===null).map(item=><li key={item.id}><Link href={`/vision/${item.id}#location`}>{item.name}: resolve map location</Link></li>)}</ul></details>:null}
+      {opportunities.length>mapped.length?<details className="vision-off-map" open><summary>{opportunities.length-mapped.length} tracked {opportunities.length-mapped.length===1?"opportunity needs":"opportunities need"} a location</summary><ul>{opportunities.filter(item=>item.latitude===null||item.longitude===null).map(item=><li key={item.id}><Link className="vision-link-pill" href={`/vision/${item.id}#location`}>{item.name}: resolve map location</Link></li>)}</ul></details>:null}
       <p className="vision-map-caption">Blue markers show unreviewed source records, grouped by proximity. Open a marker to review its records. Each layer uses its own filters above. Policy context stays in the list. Discovery shows up to 500 matching records per source; {discoveries.length-discovered.length+opportunities.length-mapped.length} records have no coordinates.</p>
     </section>
   );

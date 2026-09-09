@@ -33,11 +33,11 @@ export function SourceDirectory({sources}: {sources: MunicipalSource[]}) {
       <output className="t-meta" aria-live="polite">The directory shows {filtered.length} of {sources.length} sources.</output>
     </div>
     <div className="vision-source-filters" aria-label="Filter municipal sources">
-      <label>County<select value={county} onChange={event => setCounty(event.target.value as typeof county)}><option value="">All counties</option><option value="Nassau">Nassau</option><option value="Suffolk">Suffolk</option></select></label>
-      <label>Location<select value={jurisdiction} onChange={event => setJurisdiction(event.target.value)}><option value="">All locations</option>{jurisdictions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-      <label>Municipality type<select value={jurisdictionType} onChange={event => setJurisdictionType(event.target.value as typeof jurisdictionType)}><option value="">All types</option>{JURISDICTION_TYPES.map(value => <option key={value} value={value}>{formatEnumLabel(value)}</option>)}</select></label>
-      <label>Record type<select value={recordFamily} onChange={event => setRecordFamily(event.target.value)}><option value="">All records</option>{recordFamilies.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
-      <label>Access<select value={accessMode} onChange={event => setAccessMode(event.target.value as typeof accessMode)}><option value="">All access</option>{ACCESS_MODES.map(value => <option key={value} value={value}>{SOURCE_ACCESS[value].filterLabel}</option>)}</select></label>
+      <label>County<select className="input" value={county} onChange={event => setCounty(event.target.value as typeof county)}><option value="">All counties</option><option value="Nassau">Nassau</option><option value="Suffolk">Suffolk</option></select></label>
+      <label>Location<select className="input" value={jurisdiction} onChange={event => setJurisdiction(event.target.value)}><option value="">All locations</option>{jurisdictions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <label>Municipality type<select className="input" value={jurisdictionType} onChange={event => setJurisdictionType(event.target.value as typeof jurisdictionType)}><option value="">All types</option>{JURISDICTION_TYPES.map(value => <option key={value} value={value}>{formatEnumLabel(value)}</option>)}</select></label>
+      <label>Record type<select className="input" value={recordFamily} onChange={event => setRecordFamily(event.target.value)}><option value="">All records</option>{recordFamilies.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+      <label>Access<select className="input" value={accessMode} onChange={event => setAccessMode(event.target.value as typeof accessMode)}><option value="">All access</option>{ACCESS_MODES.map(value => <option key={value} value={value}>{SOURCE_ACCESS[value].filterLabel}</option>)}</select></label>
     </div>
     <SourceDirectoryResults sources={filtered}/>
   </section>;

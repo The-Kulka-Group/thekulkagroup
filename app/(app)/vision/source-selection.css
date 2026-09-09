@@ -1,20 +1,26 @@
-.vision-source-selection { border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: var(--s4); margin: var(--s4) 0; background: var(--surface); }
+.vision-source-selection { border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: var(--s4); margin: 0 0 var(--s6); background: var(--canvas); box-shadow: inset 0 1px 0 var(--surface), var(--shadow-card); }
 .vision-source-selection legend { font-size: var(--body-size); line-height: var(--body-line); font-weight: 700; padding: 0 var(--s2); }
 .vision-source-selection > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
-.vision-source-selection label { display: flex; justify-content: space-between; align-items: center; min-height: 64px; gap: var(--s3); padding: var(--s2); border-radius: var(--r-md); font-weight: 600; cursor: pointer; }
-.vision-source-selection label:hover { background: var(--hover); }
+.vision-source-selection label { display: flex; justify-content: space-between; align-items: center; min-height: 60px; gap: var(--s3); padding: var(--s2) var(--s3); border: 1px solid var(--border-light); border-radius: var(--r-pill); background: var(--surface); box-shadow: var(--shadow-card); font-weight: 600; cursor: pointer; transition: border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease), transform var(--motion-fast) var(--ease); }
+.vision-source-selection label:hover { border-color: var(--primary); transform: translateY(-1px); }
+.vision-source-selection label:has(.vision-source-switch:checked) { border-color: var(--primary); background: var(--primary-tint); }
+.vision-source-selection label:has(.vision-source-switch:focus-visible) { box-shadow: 0 0 0 3px var(--primary-tint); }
+.vision-source-selection .vision-source-logo { flex-basis: 72px; width: 72px; height: 40px; border-radius: var(--r-pill); }
+.vision-source-selection > p { margin: var(--s3) var(--s2) 0; }
 .vision-source-switch { appearance: none; position: relative; flex: 0 0 44px; width: 44px; height: 26px; margin: 0; border: 1px solid var(--ink-3); border-radius: 999px; background: var(--ink-3); cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
 .vision-source-switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--surface); transition: transform 150ms ease; }
 .vision-source-switch:checked { background: var(--primary); border-color: var(--primary); }
 .vision-source-switch:checked::before { transform: translateX(18px); }
-.vision-source-switch:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.vision-source-switch:focus-visible { outline: none; }
 .vision-source-switch:disabled { opacity: .55; cursor: wait; }
 @media (prefers-reduced-motion: reduce) { .vision-source-switch, .vision-source-switch::before { transition: none; } }
 @media (forced-colors: active) { .vision-source-switch { background: Canvas; border-color: ButtonText; } .vision-source-switch::before { background: ButtonText; } .vision-source-switch:checked { background: Highlight; border-color: Highlight; } .vision-source-switch:checked::before { background: HighlightText; } }
-.discovery-source-checks { display: grid; gap: var(--s3); margin: var(--s4) 0; }
-.discovery-source-check { background: var(--canvas); padding: var(--s4); border-radius: var(--r-lg); }
+.discovery-source-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); margin: var(--s4) 0 var(--s6); }
+.discovery-source-check { background: var(--canvas); padding: var(--s4); border: 1px solid var(--border-light); border-radius: var(--r-lg); box-shadow: inset 0 1px 0 var(--surface); }
 .discovery-source-check h2 { font-size: var(--body-size); line-height: var(--body-line); margin: 0 0 var(--s2); }
 .discovery-source-check p { margin: var(--s2) 0; }
 .discovery-source-check a { overflow-wrap: anywhere; }
 
-@media (max-width: 800px) { .vision-source-selection > div { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 800px) { .vision-source-selection > div, .discovery-source-checks { grid-template-columns: minmax(0, 1fr); } }
+
+@media (prefers-reduced-motion: reduce) { .vision-source-selection label { transition: none; } .vision-source-selection label:hover { transform: none; } }

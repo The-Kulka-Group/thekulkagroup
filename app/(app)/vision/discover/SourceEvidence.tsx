@@ -16,7 +16,7 @@ export function SourceEvidence({record}: {record: DiscoveredRecord}) {
     {record.evidence.map((entry, index) => {
       const indexLink = isIndexLink(entry);
       return <article key={`${entry.url}:${entry.checksum}:${entry.page}:${index}`}>
-        <h3><a href={indexLink ? entry.url : `${entry.url.split("#")[0]}#page=${entry.page}`} target="_blank" rel="noopener noreferrer">{entry.title}{indexLink ? "" : `, page ${entry.page}`}</a></h3>
+        <h3><a className="evidence-link" href={indexLink ? entry.url : `${entry.url.split("#")[0]}#page=${entry.page}`} target="_blank" rel="noopener noreferrer">{entry.title}{indexLink ? "" : `, page ${entry.page}`}</a></h3>
         <p className="t-meta discovery-checksum">{indexLink ? "Index capture" : "Document version"}: {entry.checksum}</p>
         <pre className="discovery-page-text">{entry.text}</pre>
       </article>;

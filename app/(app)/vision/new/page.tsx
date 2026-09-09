@@ -8,7 +8,7 @@ export default async function NewOpportunityPage({ searchParams }: { searchParam
   const auth = await authorizeRequest();
   const params = await searchParams;
   const prefill = Object.fromEntries(["sourceTitle","sourceUrl","sourceDate"].flatMap(key => typeof params[key] === "string" ? [[key,params[key]]] : []));
-  return <Sheet number="V-NEW" title="New opportunity" meta={<span>Vision</span>}>
+  return <Sheet number="V-NEW" title="New opportunity" bodyClass="vision-workspace" meta={<span>Vision</span>}>
     {auth.ok && !auth.user.temporary ? <OpportunityForm prefill={prefill} /> : <div className="empty"><p>Sign in with an authorized account to save Vision opportunities.</p><Link className="btn" href="/vision">Back to opportunities</Link></div>}
   </Sheet>;
 }

@@ -73,6 +73,20 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
       return { records: await fetchSuffolkIdaRecords(), coverage: null };
     },
   },
+  "oyster-bay-zba-documents": {
+    async collect() {
+      const { fetchOysterBayZbaRecords } = await import("./oyster-bay-zba-source");
+      const records = await fetchOysterBayZbaRecords();
+      const fallbackYear = Number(new Intl.DateTimeFormat("en", { timeZone: "America/New_York", year: "numeric" }).format(new Date()));
+      return {
+        records,
+        coverage: {
+          year: Number(records[0]?.details["Collection year"] || fallbackYear),
+          documents: [...new Set(records.flatMap(record => record.evidence?.map(page => page.url.split("#")[0]) ?? []))].sort(),
+        },
+      };
+    },
+  },
 };
 
 export const REGISTERED_SOURCE_ADAPTER_KEYS = Object.freeze(Object.keys(SOURCE_ADAPTERS));
@@ -151,6 +165,25 @@ const SOURCE_DEFINITION_INPUTS: AutomatedSourceDefinition[] = [
     identityRule: "Vision uses the official linked document URL hash.",
     evidenceRule: "Evidence includes the official resource index label, meeting date and linked PDF URL. The collector does not read PDF contents.",
     coverage: "Checks named applications, abstracts and project hearing links in the first 15 resource entries. Older archive pages and the separate hearings tab are excluded. Dates are index meeting dates, not filing dates. PDF contents and project locations require review.",
+    schedule: { cadence: "daily" },
+    enabled: true,
+  },
+  {
+    id: "nassau-town-oyster-bay-records",
+    name: "Oyster Bay Zoning Board hearing calendars",
+    officialAgency: "Town of Oyster Bay Zoning Board of Appeals",
+    jurisdiction: "Oyster Bay",
+    county: "Nassau",
+    adapterKey: "oyster-bay-zba-documents",
+    directoryUrl: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/",
+    endpoint: {
+      url: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/",
+      allowedOrigins: ["https://oysterbaytown.com"],
+    },
+    limits: { maxRequests: 27, maxRecords: 500, maxResponseBytes: 2_000_000, maxDurationMs: 120_000, maxDocuments: 26, maxPages: 20, maxTotalResponseBytes: 30_000_000 },
+    identityRule: "Vision joins the Town of Oyster Bay publishing authority to the published Zoning Board appeal number.",
+    evidenceRule: "Evidence includes the official hearing calendar PDF, SHA-256 checksum, physical page number and bounded embedded text for the appeal.",
+    coverage: "Checks linked public hearing calendars in the current year's Zoning Board of Appeals schedule. Planning Advisory Board documents, decisions, permits, approval status, project value and map coordinates are excluded.",
     schedule: { cadence: "daily" },
     enabled: true,
   },

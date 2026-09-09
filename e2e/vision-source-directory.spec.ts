@@ -10,7 +10,7 @@ test("shows joined source coverage and filters to a clear empty result", async (
   const coverage = page.getByLabel("Long Island source coverage");
   await expect(coverage).toContainText("111local jurisdictionsNassau has 69, and Suffolk has 42.");
   await expect(coverage).toContainText("139directory sourcesThere are 5 county sources and 134 local sources.");
-  await expect(coverage).toContainText("4collectable sources");
+  await expect(coverage).toContainText("5collectable sources");
   await expect(page.getByText(/official source routes, not projects/i)).toBeVisible();
   await expect(page.locator(".vision-directory-card")).toHaveCount(139);
   await expect(page.locator(".vision-source-checked")).toHaveCount(139);
@@ -93,7 +93,7 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
     await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({accessMode: mode}));
   }
   await access.selectOption("automated");
-  await expect(page.getByText("The directory shows 4 of 139 sources.")).toBeVisible();
+  await expect(page.getByText("The directory shows 5 of 139 sources.")).toBeVisible();
   await access.selectOption("");
 
   await location.selectOption("Suffolk:village:Poquott");

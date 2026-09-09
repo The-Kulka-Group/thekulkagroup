@@ -29,7 +29,7 @@ export function SourceDirectory({sources,health={}}: {sources: MunicipalSource[]
       <div><strong>{summary.directorySources}</strong><span>directory sources</span><small>There are {summary.countySources} county sources and {summary.directorySources - summary.countySources} local sources.</small></div>
       <div><strong>{summary.collectableSources}</strong><span>collectable sources</span><small>There are {summary.accessModes["public-online"]} manual, {summary.accessModes["request-or-contact"]} restricted, and {summary.accessModes["no-public-feed"]} no-public-feed sources.</small></div>
     </div>
-    <p className="vision-source-coverage-note">The directory covers Nassau and Suffolk. Its {summary.directorySources} entries are official source routes, not projects. Vision can collect records from {summary.collectableSources} county sources. Each other entry states whether review, a records request or contact is required, or no public project feed was found.</p>
+    <p className="vision-source-coverage-note">The directory covers Nassau and Suffolk. Its {summary.directorySources} entries are official source routes, not projects. Vision can collect records from {summary.collectableSources} sources. Each other entry states whether review, a records request or contact is required, or no public project feed was found.</p>
     <div className="vision-source-directory-heading">
       <div>
         <h2 id="source-directory-title">Municipal source directory</h2>

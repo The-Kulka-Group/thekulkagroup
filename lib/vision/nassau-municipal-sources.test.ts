@@ -35,9 +35,9 @@ describe("Nassau municipal source coverage", () => {
     const hempstead = NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "hempstead-online-permit-center");
     const oysterBay = NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "oyster-bay-building-portal");
 
-    expect(hempstead).toMatchObject({accessMode: "request-or-contact", collectionState: "restricted", url: "https://hempsteadny.gov/622/Online-Permit-Center"});
+    expect(hempstead).toMatchObject({accessMode: "request-or-contact", url: "https://hempsteadny.gov/622/Online-Permit-Center"});
     expect(hempstead?.limits).toContain("not a public townwide permit or project search");
-    expect(oysterBay).toMatchObject({accessMode: "request-or-contact", collectionState: "restricted", url: "https://oysterbaytown.com/departments/planning-and-development/building-portal/"});
+    expect(oysterBay).toMatchObject({accessMode: "request-or-contact", url: "https://oysterbaytown.com/departments/planning-and-development/building-portal/"});
     expect(oysterBay?.limits).toContain("requires an account");
   });
 
@@ -48,10 +48,21 @@ describe("Nassau municipal source coverage", () => {
       expect(source.retrievableFields.length).toBeGreaterThan(0);
       expect(source.manualSteps.length).toBeGreaterThan(0);
       expect(source.limits.length).toBeGreaterThan(0);
-      expect(source.collectionState).not.toBe("collectable");
+      expect(source.accessMode).not.toBe("automated");
       if (source.accessMode === "no-public-feed") {
         expect(source.coverage).toContain("No public project feed was found");
       }
     }
+  });
+
+  it("keeps Floral Park's published building updates available for manual review", () => {
+    const floralPark = NASSAU_MUNICIPAL_SOURCES.find(source => source.jurisdiction === "Floral Park");
+
+    expect(floralPark).toMatchObject({
+      accessMode: "public-online",
+      url: "https://floralparkny.gov/wp-content/uploads/2025/09/07152025-Minutes-F.pdf",
+    });
+    expect(floralPark?.recordFamilies).toContain("Building Department project updates");
+    expect(floralPark?.retrievableFields).toContain("Street address");
   });
 });

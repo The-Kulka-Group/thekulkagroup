@@ -53,8 +53,8 @@ describe("Suffolk municipal source coverage", () => {
     expect(source).toMatchObject({
       jurisdiction: "Huntington",
       accessMode: "public-online",
-      collectionState: "manual",
       url: "https://huntingtonny.gov/site-history",
+      officialAgency: "Town of Huntington Building & Housing / Engineering Services",
     });
     expect(source?.recordFamilies).toContain("Building permits");
     expect(source?.retrievableFields).toContain("SCTM");
@@ -69,7 +69,6 @@ describe("Suffolk municipal source coverage", () => {
       expect(source.retrievableFields.length).toBeGreaterThan(0);
       expect(source.manualSteps.length).toBeGreaterThan(0);
       expect(source.limits.length).toBeGreaterThan(0);
-      expect(source.collectionState).not.toBe("collectable");
       expect(source.accessMode).not.toBe("automated");
     }
   });

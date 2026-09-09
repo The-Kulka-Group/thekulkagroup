@@ -82,7 +82,7 @@ export const NASSAU_AUTHORITATIVE_JURISDICTIONS: readonly NassauJurisdiction[] =
 
 type SourceProfile = Partial<Pick<MunicipalSource,
   "name" | "officialAgency" | "recordFamilies" | "retrievableFields" | "accessMode" |
-  "collectionState" | "manualSteps" | "limits" | "coverage" | "url">>;
+  "manualSteps" | "limits" | "coverage" | "url">>;
 
 const publicMeetings = (name: string, officialAgency: string, url: string, recordFamilies: readonly string[], retrievableFields: readonly string[], coverage: string): SourceProfile => ({
   name,
@@ -90,7 +90,6 @@ const publicMeetings = (name: string, officialAgency: string, url: string, recor
   recordFamilies,
   retrievableFields,
   accessMode: "public-online",
-  collectionState: "manual",
   manualSteps: "Open the official page and review the linked notice, agenda, application, packet or minutes.",
   limits: "Vision links to this source but does not collect it. Published meeting material may omit permit history and current project status.",
   coverage,
@@ -100,6 +99,7 @@ const publicMeetings = (name: string, officialAgency: string, url: string, recor
 const PUBLIC_SOURCE_PROFILES: Record<string, SourceProfile> = {
   "Glen Cove": publicMeetings("Glen Cove Planning Board", "City of Glen Cove Planning Board", "https://glencoveny.gov/planning-board", ["Planning applications", "Planning Board meetings"], ["Meeting date", "Agenda", "Applicant", "Application or affidavit link"], "Planning Board agendas, applications and affidavits published by the city."),
   "Long Beach": publicMeetings("Long Beach Planning Board", "City of Long Beach Planning Board", "https://www.longbeachny.gov/planning", ["Planning applications", "Site plans", "Subdivisions", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application type", "Published address"], "Planning Board and Architectural Review Board agendas, minutes and linked meeting files."),
+  "Floral Park": publicMeetings("Floral Park Board of Trustees minutes", "Incorporated Village of Floral Park", "https://floralparkny.gov/wp-content/uploads/2025/09/07152025-Minutes-F.pdf", ["Board of Trustees minutes", "Building Department project updates", "Building permits", "Zoning applications"], ["Meeting date", "Street address", "Project or proposed work", "Published construction status", "Permit or application status", "Board review", "Next step"], "Board minutes with a Building Department report that names properties, construction work, permits, zoning applications and next board steps."),
   Hempstead: publicMeetings("Hempstead Agenda Center", "Town of Hempstead", "https://hempsteadny.gov/AgendaCenter", ["Town Board matters", "Building and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Resolution", "Published permit or application number", "Published address"], "Town agendas and packets that may name building permits, zoning matters and site addresses."),
   "Oyster Bay": publicMeetings("Oyster Bay boards and calendars", "Town of Oyster Bay Planning and Development", "https://oysterbaytown.com/calendars/", ["Planning applications", "Zoning appeals", "Town Board matters", "Meeting documents"], ["Hearing or meeting date", "Agenda or calendar", "Application or case details", "Draft or adopted resolution", "Minutes or video link"], "Planning Advisory Board, Zoning Board of Appeals and Town Board files published by the town."),
   Freeport: publicMeetings("Freeport Zoning Board files", "Village of Freeport Zoning Board of Appeals", "https://www.freeportny.gov/999/Zoning-Board-AgendasMinutes-2026", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Calendar", "Application", "Transcript", "Minutes"], "Zoning Board calendars, applications, transcripts and minutes."),
@@ -149,7 +149,6 @@ function requestSource(item: NassauJurisdiction): MunicipalSource {
     recordFamilies: ["Building permits", "Planning records", "Zoning records"],
     retrievableFields: ["Record details supplied after account access or a records request"],
     accessMode: "request-or-contact",
-    collectionState: "restricted",
     manualSteps: "Use the official department page to sign in, file a records request or contact the clerk or building department.",
     limits: "No open, townwide or village-wide project feed was verified. Account access or staff help may be required, and Vision does not collect this source.",
     coverage: "Building, planning or zoning records available through the official department, account portal or records request process.",
@@ -170,7 +169,6 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
     recordFamilies: ["Building, planning and zoning records"],
     retrievableFields: ["Official department or records contact information"],
     accessMode: "no-public-feed",
-    collectionState: "no-public-feed",
     manualSteps: "Open the official site and contact the clerk or building department about the record needed.",
     limits: "No public project-level building, planning, zoning, permit or meeting feed was verified in this check. Vision does not collect this source.",
     coverage: "No public project feed was found. The link is the jurisdiction's official site for department or records contact details.",
@@ -208,7 +206,6 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     recordFamilies: ["Building permits", "Building licenses", "Property inspections"],
     retrievableFields: ["Permit application status", "Previous permits tied to the signed-in account", "Inspection requests", "Messages with town staff", "Permit document"],
     accessMode: "request-or-contact",
-    collectionState: "restricted",
     manualSteps: "Create or use a resident account to submit a permit, review account records, request an inspection or contact town staff.",
     limits: "The portal shows records tied to the signed-in user. It is not a public townwide permit or project search, and Vision does not collect it.",
     coverage: "The town portal supports permit and license transactions, application monitoring, prior account permits, inspection requests and permit printing.",
@@ -225,7 +222,6 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     recordFamilies: ["Building permits", "Permit fees", "Building inspections"],
     retrievableFields: ["Eligible permit type", "Permit application status", "Fee or payment status", "Inspection request", "Inspection result"],
     accessMode: "request-or-contact",
-    collectionState: "restricted",
     manualSteps: "Create or use a public registrant or contractor account to submit an eligible permit, monitor it, pay a fee or manage an inspection.",
     limits: "The portal requires an account and covers listed online permit types. It is not a public townwide permit or project search, and Vision does not collect it.",
     coverage: "The town portal supports listed building permit applications, fee payment, permit monitoring, inspection scheduling and inspection result monitoring.",

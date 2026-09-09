@@ -184,9 +184,10 @@ changed. The prototype remains on its separate branch.
 ## Long Island municipal source directory, LA-379 through LA-384
 
 The joined local registry represents 111 current local jurisdictions: 69 in Nassau
-and 42 in Suffolk. Five county-level source entries bring the directory to 116
-sources. Four county planning and IDA sources have collection adapters. The other
-112 entries describe public manual review, records requests, direct contact, or the
+and 42 in Suffolk. Three separate permit sources bring the local source count to 114.
+Five county-level source entries bring the directory to 119 sources. Four county
+planning and IDA sources have collection adapters. The other 115 entries describe
+public manual review, records requests, direct contact, or the
 absence of a public project feed. These figures count jurisdictions and source
 routes. They do not count projects or prove that a filing describes an active job.
 

@@ -20,10 +20,11 @@ describe("Vision source directory view", () => {
     expect(html).toContain("Coverage and limits");
     expect(html).toContain("Open official source");
     expect(html).toContain("We checked this source on September 9, 2026.");
-    expect(html).toContain("status-block status-block--done vision-source-state");
-    expect(html).toContain("status-block status-block--open vision-source-state");
-    expect(html).toContain("status-block status-block--working vision-source-state");
-    expect(html).toContain("status-block status-block--stuck vision-source-state");
+    expect(html).toContain("vision-source-access");
+    expect(html).toContain("Access: Vision collects this source");
+    expect(html).toContain("Access: Public source, manual review");
+    expect(html).toContain("Access: Request or contact needed");
+    expect(html).toContain("Access: No public project feed found");
   });
 
   it("renders a clear empty result", () => {

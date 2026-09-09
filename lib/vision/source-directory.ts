@@ -1,11 +1,9 @@
 export const JURISDICTION_TYPES = ["county", "city", "town", "village"] as const;
 export const ACCESS_MODES = ["automated", "public-online", "request-or-contact", "no-public-feed"] as const;
-export const COLLECTION_STATES = ["collectable", "manual", "restricted", "no-public-feed"] as const;
 export const MUNICIPAL_SOURCE_CHECKED_AT = "2026-09-09";
 
 export type JurisdictionType = typeof JURISDICTION_TYPES[number];
 export type SourceAccessMode = typeof ACCESS_MODES[number];
-export type SourceCollectionState = typeof COLLECTION_STATES[number];
 
 export type MunicipalSource = {
   id: string;
@@ -17,7 +15,6 @@ export type MunicipalSource = {
   recordFamilies: readonly string[];
   retrievableFields: readonly string[];
   accessMode: SourceAccessMode;
-  collectionState: SourceCollectionState;
   manualSteps: string;
   limits: string;
   coverage: string;
@@ -41,26 +38,16 @@ export type SourceCoverageSummary = {
   accessModes: Record<SourceAccessMode, number>;
 };
 
-export const ACCESS_MODE_LABELS: Record<SourceAccessMode, string> = {
-  automated: "Vision collects this source",
-  "public-online": "Public source, manual review",
-  "request-or-contact": "Request or contact needed",
-  "no-public-feed": "No public project feed found",
+export const SOURCE_ACCESS: Record<SourceAccessMode, {filterLabel: string; cardLabel: string; collectable: boolean}> = {
+  automated: {filterLabel: "Vision collects this source", cardLabel: "Vision collection", collectable: true},
+  "public-online": {filterLabel: "Public source, manual review", cardLabel: "Public manual review", collectable: false},
+  "request-or-contact": {filterLabel: "Request or contact needed", cardLabel: "Request or contact", collectable: false},
+  "no-public-feed": {filterLabel: "No public project feed found", cardLabel: "No public feed", collectable: false},
 };
 
-export const ACCESS_MODE_STATUS_LABELS: Record<SourceAccessMode, string> = {
-  automated: "Collected",
-  "public-online": "Public manual",
-  "request-or-contact": "Request needed",
-  "no-public-feed": "No public feed",
-};
-
-export const COLLECTION_STATE_STATUS: Record<SourceCollectionState, "done" | "open" | "working" | "stuck"> = {
-  collectable: "done",
-  manual: "open",
-  restricted: "working",
-  "no-public-feed": "stuck",
-};
+export function sourceIsCollectable(source: Pick<MunicipalSource, "accessMode">) {
+  return SOURCE_ACCESS[source.accessMode].collectable;
+}
 
 export function validateMunicipalSources(sources: readonly MunicipalSource[]) {
   const ids = new Set<string>();
@@ -71,8 +58,6 @@ export function validateMunicipalSources(sources: readonly MunicipalSource[]) {
     if (!source.recordFamilies.length || !source.retrievableFields.length) throw new Error(`Municipal source ${source.id} is missing capability details.`);
     if (!/^https:\/\//.test(source.url)) throw new Error(`Municipal source ${source.id} must use an official HTTPS URL.`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(source.checkedAt)) throw new Error(`Municipal source ${source.id} has an invalid checked date.`);
-    if (source.accessMode === "automated" && source.collectionState !== "collectable") throw new Error(`Municipal source ${source.id} has inconsistent collection claims.`);
-    if (source.collectionState === "collectable" && source.accessMode !== "automated") throw new Error(`Municipal source ${source.id} has inconsistent access claims.`);
   }
   return sources;
 }
@@ -113,7 +98,7 @@ export function sourceCoverageSummary(sources: readonly MunicipalSource[]): Sour
     localJurisdictions: {total: localKeys.size, Nassau: countyCount("Nassau"), Suffolk: countyCount("Suffolk")},
     countySources: sources.filter(source => source.jurisdictionType === "county").length,
     directorySources: sources.length,
-    collectableSources: sources.filter(source => source.collectionState === "collectable").length,
+    collectableSources: sources.filter(sourceIsCollectable).length,
     accessModes,
   };
 }

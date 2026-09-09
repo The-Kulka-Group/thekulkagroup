@@ -14,23 +14,9 @@ test("shows joined source coverage and filters to a clear empty result", async (
   await expect(page.getByText(/official source routes, not projects/i)).toBeVisible();
   await expect(page.locator(".vision-directory-card")).toHaveCount(119);
   await expect(page.locator(".vision-source-checked")).toHaveCount(119);
-  const sourceState = page.locator(".vision-source-state").first();
-  await expect(sourceState).toHaveCSS("width", "112px");
-  expect(await sourceState.evaluate(element => {
-    const glyph = getComputedStyle(element, "::before");
-    const label = getComputedStyle(element);
-    const root = getComputedStyle(document.documentElement);
-    const comparison = document.createElement("span");
-    comparison.style.color = root.getPropertyValue("--ink");
-    document.body.append(comparison);
-    const ink = getComputedStyle(comparison).color;
-    comparison.remove();
-    return {
-      glyphWidth: glyph.width,
-      hasGlyphMask: glyph.maskImage !== "none",
-      usesInkLabel: label.color === ink,
-    };
-  })).toEqual({glyphWidth: "14px", hasGlyphMask: true, usesInkLabel: true});
+  const sourceAccess = page.locator(".vision-source-access").first();
+  await expect(sourceAccess).toHaveCSS("min-width", "112px");
+  await expect(sourceAccess).toHaveCSS("color", "rgb(50, 51, 56)");
   const sourceUrls = await page.getByRole("link", {name: "Open official source"}).evaluateAll(links => links.map(link => (link as HTMLAnchorElement).href));
   expect(sourceUrls).toEqual(VISION_SOURCES.map(source => source.url));
 
@@ -89,6 +75,6 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
     await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({accessMode: mode}));
   }
   await access.selectOption("automated");
-  await expect(page.getByText("4 of 119 sources shown")).toBeVisible();
+  await expect(page.getByText("The directory shows 4 of 119 sources.")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 });

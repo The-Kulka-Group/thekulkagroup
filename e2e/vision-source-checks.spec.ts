@@ -25,7 +25,7 @@ async function mockVisionChecks(page: Page) {
     const request = route.request();
     const url = new URL(request.url());
     if (request.method() === "GET") {
-      await route.fulfill({json: emptyInbox()});
+      await route.fulfill({json: emptyInbox({"nassau-applications": "completed"})});
       return;
     }
     await new Promise<void>(resolve => { releaseRequest = resolve; });
@@ -59,6 +59,8 @@ for (const viewport of [{name: "desktop", width: 1280, height: 900}, {name: "375
     await page.goto("/vision/discover");
 
     const nassau = page.locator(".discovery-source-check").filter({hasText: "Nassau planning applications"});
+    await expect(nassau).toContainText("Latest outcome: Completed");
+    await expect(nassau).toContainText("Last check: Not checked yet · Last completed check: Not checked yet");
     const checkNassau = nassau.getByRole("button", {name: "Check this source"});
     await checkNassau.click();
     await expect(nassau.getByRole("status")).toHaveText("Checking this source…");

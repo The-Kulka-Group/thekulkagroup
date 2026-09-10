@@ -6,11 +6,9 @@ import {ACCESS_MODES, COLLECTION_STATE_LABELS, JURISDICTION_TYPES, SOURCE_ACCESS
 import {SourceBrand} from "../SourceBrand";
 import {AUTOMATED_SOURCE_DEFINITIONS} from "@/lib/vision/source-registry";
 import type {DiscoveryState} from "@/lib/vision/discovery";
+import {SOURCE_RUN_OUTCOME_LABELS, visionDateTime} from "@/lib/vision/presentation";
 
 const formatEnumLabel = (value: string) => value.replaceAll("-", " ").replace(/^./, letter => letter.toUpperCase());
-
-const OUTCOME_LABELS={completed:"Completed",completed_empty:"Completed with no records",skipped:"Skipped",blocked:"Blocked",failed:"Failed"} as const;
-const when=(value:string|null|undefined)=>value?new Date(value).toLocaleString():"Not checked yet";
 
 export function SourceDirectory({sources,health={}}: {sources: MunicipalSource[];health?:Record<string,DiscoveryState>}) {
   const [county, setCounty] = useState<"" | MunicipalSource["county"]>("");
@@ -70,9 +68,9 @@ export function SourceDirectoryResults({sources,health={}}: {sources: MunicipalS
           <p className="t-meta vision-source-checked">We checked this source on {new Intl.DateTimeFormat("en-US", {month: "long", day: "numeric", year: "numeric", timeZone: "UTC"}).format(new Date(source.checkedAt))}.</p>
           {definition?<div className="vision-source-health" aria-label={`${source.name} collection health`}>
             <span className="chip chip--neutral">Daily schedule</span>
-            <span className="chip chip--neutral">Latest outcome: {status?.last_outcome?OUTCOME_LABELS[status.last_outcome]:"Not checked"}</span>
+            <span className="chip chip--neutral">Latest outcome: {status?.last_outcome?SOURCE_RUN_OUTCOME_LABELS[status.last_outcome]:"Not checked"}</span>
             <span className="chip chip--neutral">{status?.record_count??0} records</span>
-            <p className="t-meta">Last completed: {when(status?.last_success_at)}.</p>
+            <p className="t-meta">Last completed: {visionDateTime(status?.last_success_at)}.</p>
             {status?.last_error?<p className="input-error">{status.last_error}</p>:null}
           </div>:null}
           <div className="vision-source-actions">

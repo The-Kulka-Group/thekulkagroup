@@ -4,9 +4,13 @@ import {
   EXPECTED_NASSAU_TOWNS,
   EXPECTED_NASSAU_VILLAGES,
 } from "./fixtures/nassau/authoritative-jurisdictions";
-import {NASSAU_AUTHORITATIVE_JURISDICTIONS, NASSAU_MUNICIPAL_SOURCES} from "./nassau-municipal-sources";
+import {NASSAU_AUTHORITATIVE_JURISDICTIONS} from "./nassau-municipal-sources";
+import {AUTOMATED_SOURCE_DEFINITIONS} from "./source-registry";
+import {VISION_SOURCES} from "./sources";
 
 const sorted = (values: readonly string[]) => [...values].sort();
+const NASSAU_MUNICIPAL_SOURCES = VISION_SOURCES.filter(source => source.county === "Nassau" && source.jurisdictionType !== "county");
+const AUTOMATED_SOURCE_IDS = new Set(AUTOMATED_SOURCE_DEFINITIONS.map(source => source.id));
 
 describe("Nassau municipal source coverage", () => {
   it("matches the official Nassau directory totals", () => {
@@ -48,11 +52,12 @@ describe("Nassau municipal source coverage", () => {
       expect(source.availableFields.length).toBeGreaterThan(0);
       expect(source.manualSteps.length).toBeGreaterThan(0);
       expect(source.limits.length).toBeGreaterThan(0);
-      if (source.id === "nassau-town-oyster-bay-records") {
-        expect(source).toMatchObject({accessMode: "automated", collectionState: "collectable", url: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/"});
-        expect(source.coverage).toContain("Zoning Board of Appeals");
-      } else if (source.id === "hempstead-village-smartgov") {
+      if (AUTOMATED_SOURCE_IDS.has(source.id)) {
         expect(source).toMatchObject({accessMode: "automated", collectionState: "collectable"});
+        if (source.id === "nassau-town-oyster-bay-records") {
+          expect(source.url).toBe("https://oysterbaytown.com/calendars/zoning-board-of-appeals/");
+          expect(source.coverage).toContain("Zoning Board of Appeals");
+        }
       } else {
         expect(source.accessMode).not.toBe("automated");
         expect(source.collectionState).not.toBe("collectable");

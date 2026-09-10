@@ -24,6 +24,8 @@ describe("Vision source directory view", () => {
     expect(html).toContain("Daily schedule");
     expect(html).toContain("Latest outcome");
     expect(html).toContain("Completed");
+    expect(html).toContain("Latest outcome: Not checked");
+    expect(html).toContain("Last completed: Not checked yet.");
     expect(html).toContain("12 records");
     expect(html).toContain("vision-source-access");
     expect(html).toContain("Collectable");

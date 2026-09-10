@@ -25,6 +25,11 @@ export type MunicipalSource = {
   checkedAt: string;
 };
 
+export type AutomatedSourceDirectoryResearch = Pick<MunicipalSource,
+  "id" | "jurisdictionType" | "recordFamilies" | "availableFields" | "manualSteps" | "checkedAt">;
+
+export type MunicipalSourceInput = MunicipalSource | AutomatedSourceDirectoryResearch;
+
 export type SourceDirectoryFilters = {
   county?: MunicipalSource["county"] | "";
   jurisdiction?: string;

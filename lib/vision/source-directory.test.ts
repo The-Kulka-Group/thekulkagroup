@@ -1,9 +1,10 @@
 import {describe, expect, it} from "vitest";
 import {DISCOVERY_SOURCES} from "./discovery-catalog";
 import {filterMunicipalSources, sourceCoverageSummary, sourceJurisdictions, sourceRecordFamilies, validateMunicipalSources, type MunicipalSource} from "./source-directory";
-import {VISION_SOURCES} from "./sources";
-import {NASSAU_AUTHORITATIVE_JURISDICTIONS} from "./nassau-municipal-sources";
-import {SUFFOLK_TOWN_JURISDICTIONS, SUFFOLK_VILLAGE_JURISDICTIONS} from "./suffolk-municipal-sources";
+import {AUTOMATED_SOURCE_DEFINITIONS} from "./source-registry";
+import {AUTOMATED_COUNTY_SOURCE_RESEARCH, assembleVisionSources, joinAutomatedSourceDirectory, VISION_SOURCES} from "./sources";
+import {NASSAU_AUTHORITATIVE_JURISDICTIONS, NASSAU_MUNICIPAL_SOURCE_INPUTS} from "./nassau-municipal-sources";
+import {SUFFOLK_MUNICIPAL_SOURCES, SUFFOLK_TOWN_JURISDICTIONS, SUFFOLK_VILLAGE_JURISDICTIONS} from "./suffolk-municipal-sources";
 
 const source = (overrides: Partial<MunicipalSource> = {}): MunicipalSource => ({
   id: "source-one",
@@ -32,6 +33,87 @@ describe("Vision municipal source directory", () => {
     for (const id of ["nassau-village-hempstead-records", "nassau-village-hempstead-zoning-records", "nassau-village-garden-city-records"]) {
       expect(VISION_SOURCES.find(item => item.id === id)).toMatchObject({accessMode: "automated", collectionState: "collectable"});
     }
+  });
+
+  it("joins each automated definition to one directory route and owns its shared facts", () => {
+    const collectableSources = VISION_SOURCES.filter(item => item.collectionState === "collectable");
+
+    expect(AUTOMATED_SOURCE_DEFINITIONS).toHaveLength(9);
+    expect(collectableSources).toHaveLength(9);
+    expect(new Set(collectableSources.map(item => item.id))).toEqual(new Set(AUTOMATED_SOURCE_DEFINITIONS.map(item => item.id)));
+
+    for (const definition of AUTOMATED_SOURCE_DEFINITIONS) {
+      const matches = VISION_SOURCES.filter(item => item.id === definition.id);
+      expect(matches).toHaveLength(1);
+      expect(matches[0]).toMatchObject({
+        name: definition.name,
+        officialAgency: definition.officialAgency,
+        jurisdiction: definition.jurisdiction,
+        county: definition.county,
+        url: definition.directoryUrl,
+        coverage: definition.coverage,
+        limits: definition.coverage,
+        accessMode: "automated",
+        collectionState: "collectable",
+      });
+    }
+  });
+
+  it("keeps automated directory inputs limited to research fields", () => {
+    const automatedIds = new Set(AUTOMATED_SOURCE_DEFINITIONS.map(item => item.id));
+    const inputs = [
+      ...AUTOMATED_COUNTY_SOURCE_RESEARCH,
+      ...NASSAU_MUNICIPAL_SOURCE_INPUTS.filter(item => automatedIds.has(item.id)),
+    ];
+
+    expect(inputs).toHaveLength(9);
+    for (const input of inputs) {
+      expect(Object.keys(input).sort()).toEqual([
+        "availableFields",
+        "checkedAt",
+        "id",
+        "jurisdictionType",
+        "manualSteps",
+        "recordFamilies",
+      ]);
+    }
+  });
+
+  it("keeps automated municipal routes in registry order without adapter-based placement", () => {
+    const localDirectoryIds = VISION_SOURCES
+      .filter(item => item.jurisdictionType !== "county")
+      .map(item => item.id);
+    const municipalInputIds = new Set([
+      ...NASSAU_MUNICIPAL_SOURCE_INPUTS.map(item => item.id),
+      ...SUFFOLK_MUNICIPAL_SOURCES.map(item => item.id),
+    ]);
+    const automatedMunicipalIds = AUTOMATED_SOURCE_DEFINITIONS
+      .map(item => item.id)
+      .filter(id => municipalInputIds.has(id));
+
+    expect(localDirectoryIds.slice(0, automatedMunicipalIds.length)).toEqual(automatedMunicipalIds);
+    expect(localDirectoryIds).toHaveLength(municipalInputIds.size);
+    expect(new Set(localDirectoryIds)).toEqual(municipalInputIds);
+  });
+
+  it("rejects missing, duplicate and unregistered collectable directory joins", () => {
+    const definition = AUTOMATED_SOURCE_DEFINITIONS[0];
+    const joinedSource = source({id: definition.id});
+
+    expect(() => joinAutomatedSourceDirectory([], [definition])).toThrow(`Automated source ${definition.id} must match one directory entry.`);
+    expect(() => joinAutomatedSourceDirectory([joinedSource, joinedSource], [definition])).toThrow(`Automated source ${definition.id} must match one directory entry.`);
+    expect(() => joinAutomatedSourceDirectory([source({collectionState: "collectable"})], [])).toThrow("Collectable directory source source-one has no automated source definition.");
+  });
+
+  it("rejects duplicate automated municipal inputs through production assembly", () => {
+    const automated = NASSAU_MUNICIPAL_SOURCE_INPUTS.find(item => item.id === "hempstead-village-smartgov");
+    if (!automated) throw new Error("Missing automated municipal test input.");
+
+    expect(() => assembleVisionSources([
+      ...NASSAU_MUNICIPAL_SOURCE_INPUTS,
+      ...SUFFOLK_MUNICIPAL_SOURCES,
+      automated,
+    ])).toThrow("Automated source hempstead-village-smartgov must match one directory entry.");
   });
 
   it("filters source capabilities by county, jurisdiction, record family and access mode", () => {

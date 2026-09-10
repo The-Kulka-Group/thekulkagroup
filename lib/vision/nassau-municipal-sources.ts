@@ -85,6 +85,8 @@ type SourceProfile = Partial<Pick<MunicipalSource,
   "name" | "officialAgency" | "recordFamilies" | "availableFields" | "accessMode" |
   "collectionState" | "manualSteps" | "limits" | "coverage" | "url">>;
 
+const AUTOMATED_SOURCE_REVIEW_STEPS = "Review the source record and official meeting document before saving or linking an opportunity.";
+
 const publicMeetings = (name: string, officialAgency: string, url: string, recordFamilies: readonly string[], availableFields: readonly string[], coverage: string): SourceProfile => ({
   name,
   officialAgency,
@@ -105,7 +107,7 @@ const PUBLIC_SOURCE_PROFILES: Record<string, SourceProfile> = {
   [sourceProfileKey("city", "Long Beach")]: publicMeetings("Long Beach Planning Board", "City of Long Beach Planning Board", "https://www.longbeachny.gov/planning", ["Planning applications", "Site plans", "Subdivisions", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application type", "Published address"], "Planning Board and Architectural Review Board agendas, minutes and linked meeting files."),
   [sourceProfileKey("village", "Floral Park")]: publicMeetings("Floral Park Board of Trustees minutes", "Incorporated Village of Floral Park", "https://floralparkny.gov/board-of-trustees-meeting-minutes/", ["Board of Trustees minutes", "Building Department project updates", "Building permits", "Zoning applications"], ["Meeting date", "Street address", "Project or proposed work", "Published construction status", "Permit or application status", "Board review", "Next step"], "Board minutes with a Building Department report that names properties, construction work, permits, zoning applications and next board steps."),
   [sourceProfileKey("town", "Hempstead")]: publicMeetings("Hempstead Agenda Center", "Town of Hempstead", "https://hempsteadny.gov/AgendaCenter", ["Town Board matters", "Building and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Resolution", "Published permit or application number", "Published address"], "Town agendas and packets that may name building permits, zoning matters and site addresses."),
-  [sourceProfileKey("village", "Hempstead")]: publicMeetings("Hempstead Village Planning Board records", "Village of Hempstead Planning Board", "https://www.villageofhempstead.org/AgendaCenter/Planning-Board-3", ["Planning applications", "Meeting documents"], ["Meeting date", "Case number", "Address", "Proposed work", "Tax parcel", "Agenda", "Minutes"], "Planning Board agendas and minutes published through CivicPlus Agenda Center."),
+  [sourceProfileKey("village", "Hempstead")]: {...publicMeetings("Hempstead Village Planning Board records", "Village of Hempstead Planning Board", "https://www.villageofhempstead.org/AgendaCenter/Planning-Board-3", ["Planning applications", "Meeting documents"], ["Meeting date", "Case number", "Address", "Proposed work", "Tax parcel", "Agenda", "Minutes"], "Planning Board agendas and minutes published through CivicPlus Agenda Center."), manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS},
   [sourceProfileKey("town", "Oyster Bay")]: {
     name: "Oyster Bay Zoning Board hearing calendars",
     officialAgency: "Town of Oyster Bay Zoning Board of Appeals",
@@ -113,13 +115,13 @@ const PUBLIC_SOURCE_PROFILES: Record<string, SourceProfile> = {
     availableFields: ["Hearing date", "Appeal number", "Applicant", "Locality", "Address", "Requested relief", "Tax section, block and lot", "Zone", "Official document page and checksum"],
     accessMode: "automated",
     collectionState: "collectable",
-    manualSteps: "Review the official hearing calendar and confirm later board action or permit status before saving or linking an opportunity.",
+    manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS,
     limits: "Vision checks up to 26 linked current-year Zoning Board hearing calendars, 20 pages per PDF and 500 appeals. Planning Advisory Board files, decisions, permits, project value and map coordinates are excluded.",
     coverage: "Current-year Town of Oyster Bay Zoning Board of Appeals public hearing calendars with text-readable appeal details.",
     url: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/",
   },
   [sourceProfileKey("village", "Freeport")]: publicMeetings("Freeport Zoning Board files", "Village of Freeport Zoning Board of Appeals", "https://www.freeportny.gov/999/Zoning-Board-AgendasMinutes-2026", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Calendar", "Application", "Transcript", "Minutes"], "Zoning Board calendars, applications, transcripts and minutes."),
-  [sourceProfileKey("village", "Garden City")]: publicMeetings("Garden City Zoning Board records", "Village of Garden City Zoning Board of Appeals", "https://www.gardencityny.net/AgendaCenter/Zoning-Board-of-Appeals-9", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Building application number", "Applicant", "Address", "Proposed work", "Agenda", "Minutes"], "Zoning Board of Appeals agendas and minutes published through CivicPlus Agenda Center."),
+  [sourceProfileKey("village", "Garden City")]: {...publicMeetings("Garden City Zoning Board records", "Village of Garden City Zoning Board of Appeals", "https://www.gardencityny.net/AgendaCenter/Zoning-Board-of-Appeals-9", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Building application number", "Applicant", "Address", "Proposed work", "Agenda", "Minutes"], "Zoning Board of Appeals agendas and minutes published through CivicPlus Agenda Center."), manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS},
   [sourceProfileKey("village", "Great Neck Plaza")]: publicMeetings("Great Neck Plaza board records", "Village of Great Neck Plaza", "https://www.greatneckplaza.net/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Application detail", "Minutes"], "Planning, zoning and board records published by the village."),
   [sourceProfileKey("village", "Baxter Estates")]: publicMeetings("Baxter Estates public notices", "Village of Baxter Estates", "https://www.baxterestates.org/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Public notices published by the village."),
   [sourceProfileKey("village", "Bayville")]: publicMeetings("Bayville meeting agendas and minutes", "Village of Bayville", "https://bayvilleny.gov/about-us/meeting-agendas-meeting-minutes", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Case number", "Published address and tax lot"], "Planning Board, Zoning Board and Board of Trustees agendas and minutes."),
@@ -407,7 +409,7 @@ const ADDITIONAL_PUBLIC_SOURCES: MunicipalSource[] = [{
   availableFields: ["Meeting date", "Case number", "Applicant", "Address", "Proposed work", "Tax parcel", "Agenda", "Minutes"],
   accessMode: "public-online",
   collectionState: "manual",
-  manualSteps: "Open the official Agenda Center category and review the agenda or minutes for the named case.",
+  manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS,
   limits: "Published files may omit a reliable case number or use a format that Vision cannot read. Board records do not prove permit approval or construction status.",
   coverage: "Board of Zoning Appeals agendas and minutes published through CivicPlus Agenda Center.",
   url: "https://www.villageofhempstead.org/AgendaCenter/Zoning-Board-of-Appeals-5",

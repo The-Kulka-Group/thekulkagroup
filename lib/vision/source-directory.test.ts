@@ -1,7 +1,8 @@
 import {describe, expect, it} from "vitest";
 import {DISCOVERY_SOURCES} from "./discovery-catalog";
 import {filterMunicipalSources, sourceCoverageSummary, sourceJurisdictions, sourceRecordFamilies, validateMunicipalSources, type MunicipalSource} from "./source-directory";
-import {VISION_SOURCES} from "./sources";
+import {AUTOMATED_SOURCE_DEFINITIONS} from "./source-registry";
+import {joinAutomatedSourceDirectory, VISION_SOURCES} from "./sources";
 import {NASSAU_AUTHORITATIVE_JURISDICTIONS} from "./nassau-municipal-sources";
 import {SUFFOLK_TOWN_JURISDICTIONS, SUFFOLK_VILLAGE_JURISDICTIONS} from "./suffolk-municipal-sources";
 
@@ -32,6 +33,39 @@ describe("Vision municipal source directory", () => {
     for (const id of ["nassau-village-hempstead-records", "nassau-village-hempstead-zoning-records", "nassau-village-garden-city-records"]) {
       expect(VISION_SOURCES.find(item => item.id === id)).toMatchObject({accessMode: "automated", collectionState: "collectable"});
     }
+  });
+
+  it("joins each automated definition to one directory route and owns its shared facts", () => {
+    const collectableSources = VISION_SOURCES.filter(item => item.collectionState === "collectable");
+
+    expect(AUTOMATED_SOURCE_DEFINITIONS).toHaveLength(9);
+    expect(collectableSources).toHaveLength(9);
+    expect(new Set(collectableSources.map(item => item.id))).toEqual(new Set(AUTOMATED_SOURCE_DEFINITIONS.map(item => item.id)));
+
+    for (const definition of AUTOMATED_SOURCE_DEFINITIONS) {
+      const matches = VISION_SOURCES.filter(item => item.id === definition.id);
+      expect(matches).toHaveLength(1);
+      expect(matches[0]).toMatchObject({
+        name: definition.name,
+        officialAgency: definition.officialAgency,
+        jurisdiction: definition.jurisdiction,
+        county: definition.county,
+        url: definition.directoryUrl,
+        coverage: definition.coverage,
+        limits: definition.coverage,
+        accessMode: "automated",
+        collectionState: "collectable",
+      });
+    }
+  });
+
+  it("rejects missing, duplicate and unregistered collectable directory joins", () => {
+    const definition = AUTOMATED_SOURCE_DEFINITIONS[0];
+    const joinedSource = source({id: definition.id});
+
+    expect(() => joinAutomatedSourceDirectory([], [definition])).toThrow(`Automated source ${definition.id} must match one directory entry.`);
+    expect(() => joinAutomatedSourceDirectory([joinedSource, joinedSource], [definition])).toThrow(`Automated source ${definition.id} must match one directory entry.`);
+    expect(() => joinAutomatedSourceDirectory([source({collectionState: "collectable"})], [])).toThrow("Collectable directory source source-one has no automated source definition.");
   });
 
   it("filters source capabilities by county, jurisdiction, record family and access mode", () => {

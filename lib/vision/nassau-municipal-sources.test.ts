@@ -51,6 +51,8 @@ describe("Nassau municipal source coverage", () => {
       if (source.id === "nassau-town-oyster-bay-records") {
         expect(source).toMatchObject({accessMode: "automated", collectionState: "collectable", url: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/"});
         expect(source.coverage).toContain("Zoning Board of Appeals");
+      } else if (source.id === "hempstead-village-smartgov") {
+        expect(source).toMatchObject({accessMode: "automated", collectionState: "collectable"});
       } else {
         expect(source.accessMode).not.toBe("automated");
         expect(source.collectionState).not.toBe("collectable");
@@ -170,5 +172,10 @@ describe("Nassau municipal source coverage", () => {
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-site-plan-files")?.accessMode).toBe("public-online");
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-online-permitting")?.accessMode).toBe("request-or-contact");
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "lynbrook-board-minutes")?.collectionState).toBe("manual");
+    expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "hempstead-village-smartgov")).toMatchObject({
+      accessMode: "automated",
+      collectionState: "collectable",
+      url: "https://vlg-hempstead-ny.smartgovcommunity.com/ApplicationPublic/ApplicationSearchAdvanced",
+    });
   });
 });

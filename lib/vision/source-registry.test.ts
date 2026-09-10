@@ -7,6 +7,7 @@ const fetchNassauIda = vi.hoisted(() => vi.fn());
 const fetchSuffolkIda = vi.hoisted(() => vi.fn());
 const fetchOysterBayZba = vi.hoisted(() => vi.fn());
 const fetchCivicPlus = vi.hoisted(() => vi.fn());
+const fetchSmartGov = vi.hoisted(() => vi.fn());
 
 vi.mock("./discovery-source", () => ({ fetchDiscoveryRecords: fetchNassauPlanning }));
 vi.mock("./suffolk-source", () => ({ fetchSuffolkRecords: fetchSuffolkPlanning }));
@@ -16,6 +17,7 @@ vi.mock("./ida-source", () => ({
 }));
 vi.mock("./oyster-bay-zba-source", () => ({ fetchOysterBayZbaRecords: fetchOysterBayZba }));
 vi.mock("./civicplus-source", () => ({ fetchCivicPlusRecords: fetchCivicPlus }));
+vi.mock("./smartgov-source", () => ({ fetchSmartGovRecords: fetchSmartGov }));
 
 const {
   AUTOMATED_SOURCE_DEFINITIONS,
@@ -42,10 +44,12 @@ const record: DiscoveredRecord = {
 };
 
 beforeEach(() => {
-  for (const fetcher of [fetchNassauPlanning, fetchSuffolkPlanning, fetchNassauIda, fetchSuffolkIda, fetchOysterBayZba]) {
+  for (const fetcher of [fetchNassauPlanning, fetchSuffolkPlanning, fetchNassauIda, fetchSuffolkIda, fetchSmartGov]) {
     fetcher.mockReset();
     fetcher.mockResolvedValue([record]);
   }
+  fetchOysterBayZba.mockReset();
+  fetchOysterBayZba.mockResolvedValue([record]);
   fetchCivicPlus.mockReset();
   fetchCivicPlus.mockResolvedValue({records: [record], coverage: {year: 2026, documents: [record.sourceUrl]}});
 });
@@ -61,6 +65,7 @@ describe("Vision automated source registry", () => {
       "nassau-village-hempstead-records",
       "nassau-village-hempstead-zoning-records",
       "nassau-village-garden-city-records",
+      "hempstead-village-smartgov",
     ]);
 
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
@@ -100,6 +105,7 @@ describe("Vision automated source registry", () => {
     expect(fetchSuffolkIda).toHaveBeenCalledOnce();
     expect(fetchOysterBayZba).toHaveBeenCalledOnce();
     expect(fetchCivicPlus).toHaveBeenCalledTimes(3);
+    expect(fetchSmartGov).toHaveBeenCalledOnce();
   });
 
   it("selects enabled source definitions without changing registry order", () => {
@@ -119,6 +125,7 @@ describe("Vision automated source registry", () => {
     expect(fetchSuffolkIda).not.toHaveBeenCalled();
     expect(fetchOysterBayZba).not.toHaveBeenCalled();
     expect(fetchCivicPlus).not.toHaveBeenCalled();
+    expect(fetchSmartGov).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate sources, unknown adapters and endpoint origins outside the fixed allowlist", () => {

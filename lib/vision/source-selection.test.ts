@@ -2,8 +2,8 @@ import {describe,expect,it} from "vitest";
 import {checkSelectedSources,DEFAULT_SOURCE_IDS,parseSelectedSources,readSourcePreference,sourcePreferenceValue,type SourceCheckResult} from "./source-selection";
 describe("source preference",()=>{
   it("defaults all catalog sources on and preserves the intentional empty selection",()=>{
-    expect(DEFAULT_SOURCE_IDS).toHaveLength(8);
-    expect(DEFAULT_SOURCE_IDS).toEqual(expect.arrayContaining(["nassau-town-oyster-bay-records","nassau-village-hempstead-records","nassau-village-hempstead-zoning-records","nassau-village-garden-city-records"]));
+    expect(DEFAULT_SOURCE_IDS).toHaveLength(9);
+    expect(DEFAULT_SOURCE_IDS).toEqual(expect.arrayContaining(["nassau-town-oyster-bay-records","nassau-village-hempstead-records","nassau-village-hempstead-zoning-records","nassau-village-garden-city-records","hempstead-village-smartgov"]));
     expect(readSourcePreference(undefined)).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference("broken")).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference(sourcePreferenceValue([]))).toEqual([]);

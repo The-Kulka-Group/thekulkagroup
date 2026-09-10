@@ -1,4 +1,5 @@
 import {MUNICIPAL_SOURCE_CHECKED_AT, type JurisdictionType, type MunicipalSource} from "./source-directory";
+import {HEMPSTEAD_SMARTGOV_SOURCE} from "./discovery-catalog";
 
 type NassauJurisdiction = {
   jurisdiction: string;
@@ -362,20 +363,18 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
+    ...HEMPSTEAD_SMARTGOV_SOURCE,
     id: "hempstead-village-smartgov",
-    name: "Hempstead Village SmartGov portal",
     jurisdiction: "Hempstead",
     jurisdictionType: "village",
     county: "Nassau",
     officialAgency: "Village of Hempstead Building Department",
-    recordFamilies: ["Building permits", "Application filing", "Application tracking"],
-    availableFields: ["Application type", "Application status", "Submitted records", "Review progress tied to the account"],
-    accessMode: "request-or-contact",
-    collectionState: "restricted",
-    manualSteps: "Register with SmartGov to file an application and review records tied to the account.",
-    limits: "The portal requires registration and is not a public village-wide permit search. Vision does not collect it.",
-    coverage: "Application filing, review, tracking and status for registered applicants.",
-    url: "https://www.villageofhempstead.org/355/Doing-Business-in-Hempstead",
+    recordFamilies: ["Building permits", "Permit applications"],
+    availableFields: ["Record number", "Portal record ID", "Permit type", "Published status and status date", "Site address", "Public detail fields", "Published map coordinates"],
+    accessMode: "automated",
+    collectionState: "collectable",
+    manualSteps: "Review the public SmartGov record before saving or linking an opportunity.",
+    limits: HEMPSTEAD_SMARTGOV_SOURCE.coverage,
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {

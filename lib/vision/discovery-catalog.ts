@@ -10,4 +10,5 @@ export const DISCOVERY_SOURCE = catalogSource("nassau-applications");
 export const SUFFOLK_SOURCE = catalogSource("suffolk-planning");
 export const NASSAU_IDA_SOURCE = catalogSource("nassau-ida");
 export const SUFFOLK_IDA_SOURCE = catalogSource("suffolk-ida");
+export const HEMPSTEAD_SMARTGOV_SOURCE = catalogSource("hempstead-village-smartgov");
 export const DISCOVERY_SOURCES = AUTOMATED_SOURCE_DEFINITIONS.map(source => catalogSource(source.id));

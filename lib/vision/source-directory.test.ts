@@ -66,7 +66,7 @@ describe("Vision municipal source directory", () => {
     expect(summary.localJurisdictions).toEqual({total: 111, Nassau: 69, Suffolk: 42});
     expect(summary.countySources).toBe(5);
     expect(summary.directorySources).toBe(140);
-    expect(summary.collectableSources).toBe(8);
+    expect(summary.collectableSources).toBe(9);
     expect(Object.values(summary.accessModes).reduce((total, count) => total + count, 0)).toBe(140);
   });
 

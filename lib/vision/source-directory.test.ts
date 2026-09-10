@@ -2,7 +2,7 @@ import {describe, expect, it} from "vitest";
 import {DISCOVERY_SOURCES} from "./discovery-catalog";
 import {filterMunicipalSources, sourceCoverageSummary, sourceJurisdictions, sourceRecordFamilies, validateMunicipalSources, type MunicipalSource} from "./source-directory";
 import {AUTOMATED_SOURCE_DEFINITIONS} from "./source-registry";
-import {AUTOMATED_COUNTY_SOURCE_RESEARCH, joinAutomatedSourceDirectory, VISION_SOURCES} from "./sources";
+import {AUTOMATED_COUNTY_SOURCE_RESEARCH, assembleVisionSources, joinAutomatedSourceDirectory, VISION_SOURCES} from "./sources";
 import {NASSAU_AUTHORITATIVE_JURISDICTIONS, NASSAU_MUNICIPAL_SOURCE_INPUTS} from "./nassau-municipal-sources";
 import {SUFFOLK_MUNICIPAL_SOURCES, SUFFOLK_TOWN_JURISDICTIONS, SUFFOLK_VILLAGE_JURISDICTIONS} from "./suffolk-municipal-sources";
 
@@ -103,6 +103,17 @@ describe("Vision municipal source directory", () => {
     expect(() => joinAutomatedSourceDirectory([], [definition])).toThrow(`Automated source ${definition.id} must match one directory entry.`);
     expect(() => joinAutomatedSourceDirectory([joinedSource, joinedSource], [definition])).toThrow(`Automated source ${definition.id} must match one directory entry.`);
     expect(() => joinAutomatedSourceDirectory([source({collectionState: "collectable"})], [])).toThrow("Collectable directory source source-one has no automated source definition.");
+  });
+
+  it("rejects duplicate automated municipal inputs through production assembly", () => {
+    const automated = NASSAU_MUNICIPAL_SOURCE_INPUTS.find(item => item.id === "hempstead-village-smartgov");
+    if (!automated) throw new Error("Missing automated municipal test input.");
+
+    expect(() => assembleVisionSources([
+      ...NASSAU_MUNICIPAL_SOURCE_INPUTS,
+      ...SUFFOLK_MUNICIPAL_SOURCES,
+      automated,
+    ])).toThrow("Automated source hempstead-village-smartgov must match one directory entry.");
   });
 
   it("filters source capabilities by county, jurisdiction, record family and access mode", () => {

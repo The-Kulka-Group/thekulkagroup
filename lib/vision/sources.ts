@@ -4,7 +4,6 @@ import {SUFFOLK_MUNICIPAL_SOURCES} from "./suffolk-municipal-sources";
 import {AUTOMATED_SOURCE_DEFINITIONS, type AutomatedSourceDefinition} from "./source-registry";
 
 const MUNICIPAL_SOURCES = [...NASSAU_MUNICIPAL_SOURCE_INPUTS, ...SUFFOLK_MUNICIPAL_SOURCES];
-const MUNICIPAL_SOURCE_BY_ID = new Map(MUNICIPAL_SOURCES.map(source => [source.id, source]));
 function registryOwnedDirectoryFields(definition: AutomatedSourceDefinition) {
   return {
     id: definition.id,
@@ -78,35 +77,39 @@ export const AUTOMATED_COUNTY_SOURCE_RESEARCH: readonly AutomatedSourceDirectory
   },
 ];
 
-const AUTOMATED_MUNICIPAL_SOURCES = AUTOMATED_SOURCE_DEFINITIONS.flatMap(definition => {
-  const source = MUNICIPAL_SOURCE_BY_ID.get(definition.id);
-  return source ? [source] : [];
-});
-const AUTOMATED_MUNICIPAL_SOURCE_IDS = new Set(AUTOMATED_MUNICIPAL_SOURCES.map(source => source.id));
+const NASSAU_HEARINGS_SOURCE: MunicipalSource = {
+  id: "nassau-hearings",
+  name: "Nassau Planning Commission hearings",
+  jurisdiction: "Nassau County",
+  jurisdictionType: "county",
+  county: "Nassau",
+  officialAgency: "Nassau County Planning Commission",
+  recordFamilies: ["Public hearings", "Meeting documents"],
+  availableFields: ["Hearing date", "Agenda", "Transcript", "Resolution", "SEQRA document link"],
+  accessMode: "public-online",
+  collectionState: "manual",
+  manualSteps: "Open the meeting page and review the linked notice, agenda, transcript or resolution.",
+  limits: "Vision links to these files but does not collect them. A meeting record does not prove permit approval or construction status.",
+  coverage: "Public Planning Commission hearings, agendas, transcripts, resolutions and SEQRA files.",
+  url: "https://www.nassaucountyny.gov/5697/Planning-Commission",
+  checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
+};
 
-const DIRECTORY_SOURCES: MunicipalSourceInput[] = [
-  ...AUTOMATED_COUNTY_SOURCE_RESEARCH,
-  ...AUTOMATED_MUNICIPAL_SOURCES,
-  {
-    id: "nassau-hearings",
-    name: "Nassau Planning Commission hearings",
-    jurisdiction: "Nassau County",
-    jurisdictionType: "county",
-    county: "Nassau",
-    officialAgency: "Nassau County Planning Commission",
-    recordFamilies: ["Public hearings", "Meeting documents"],
-    availableFields: ["Hearing date", "Agenda", "Transcript", "Resolution", "SEQRA document link"],
-    accessMode: "public-online",
-    collectionState: "manual",
-    manualSteps: "Open the meeting page and review the linked notice, agenda, transcript or resolution.",
-    limits: "Vision links to these files but does not collect them. A meeting record does not prove permit approval or construction status.",
-    coverage: "Public Planning Commission hearings, agendas, transcripts, resolutions and SEQRA files.",
-    url: "https://www.nassaucountyny.gov/5697/Planning-Commission",
-    checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
-  },
-  ...MUNICIPAL_SOURCES.filter(source => !AUTOMATED_MUNICIPAL_SOURCE_IDS.has(source.id)),
-];
+export function assembleVisionSources(
+  municipalSources: readonly MunicipalSourceInput[] = MUNICIPAL_SOURCES,
+  definitions: readonly AutomatedSourceDefinition[] = AUTOMATED_SOURCE_DEFINITIONS,
+): readonly MunicipalSource[] {
+  const automatedIds = new Set(definitions.map(definition => definition.id));
+  const automatedMunicipalSources = definitions.flatMap(definition =>
+    municipalSources.filter(source => source.id === definition.id));
+  const directorySources: MunicipalSourceInput[] = [
+    ...AUTOMATED_COUNTY_SOURCE_RESEARCH,
+    ...automatedMunicipalSources,
+    NASSAU_HEARINGS_SOURCE,
+    ...municipalSources.filter(source => !automatedIds.has(source.id)),
+  ];
 
-export const VISION_SOURCES = validateMunicipalSources(
-  joinAutomatedSourceDirectory(DIRECTORY_SOURCES),
-);
+  return validateMunicipalSources(joinAutomatedSourceDirectory(directorySources, definitions));
+}
+
+export const VISION_SOURCES = assembleVisionSources();

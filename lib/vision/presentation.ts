@@ -1,6 +1,11 @@
 import type {DiscoveryRunOutcome} from "./discovery";
 
 const DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const DATE_TIME = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "short",
+  timeStyle: "medium",
+  timeZone: "America/New_York",
+});
 export function visionDate(value: string) { return DATE.format(new Date(value)); }
 
 export const SOURCE_RUN_OUTCOME_LABELS: Readonly<Record<DiscoveryRunOutcome, string>> = {
@@ -12,7 +17,7 @@ export const SOURCE_RUN_OUTCOME_LABELS: Readonly<Record<DiscoveryRunOutcome, str
 };
 
 export function visionDateTime(value: string | null | undefined) {
-  return value ? new Date(value).toLocaleString() : "Not checked yet";
+  return value ? DATE_TIME.format(new Date(value)) : "Not checked yet";
 }
 
 export const WORKFLOW_LABELS = {undecided:"Needs a decision",watching:"Watching",pursuing:"Pursuing",passed:"Passed",won:"Won",lost:"Lost"} as const;

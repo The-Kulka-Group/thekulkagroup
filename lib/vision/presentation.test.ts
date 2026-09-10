@@ -11,4 +11,8 @@ describe("Vision source run presentation", () => {
     expect(visionDateTime(null)).toBe("Not checked yet");
     expect(visionDateTime(undefined)).toBe("Not checked yet");
   });
+
+  it("formats completed checks in a fixed time zone", () => {
+    expect(visionDateTime("2026-09-09T17:56:08.000Z")).toBe("9/9/26, 1:56:08 PM");
+  });
 });

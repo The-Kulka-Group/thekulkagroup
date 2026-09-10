@@ -5,6 +5,7 @@ const fetchNassauPlanning = vi.hoisted(() => vi.fn());
 const fetchSuffolkPlanning = vi.hoisted(() => vi.fn());
 const fetchNassauIda = vi.hoisted(() => vi.fn());
 const fetchSuffolkIda = vi.hoisted(() => vi.fn());
+const fetchCivicPlus = vi.hoisted(() => vi.fn());
 
 vi.mock("./discovery-source", () => ({ fetchDiscoveryRecords: fetchNassauPlanning }));
 vi.mock("./suffolk-source", () => ({ fetchSuffolkRecords: fetchSuffolkPlanning }));
@@ -12,6 +13,7 @@ vi.mock("./ida-source", () => ({
   fetchNassauIdaRecords: fetchNassauIda,
   fetchSuffolkIdaRecords: fetchSuffolkIda,
 }));
+vi.mock("./civicplus-source", () => ({ fetchCivicPlusRecords: fetchCivicPlus }));
 
 const {
   AUTOMATED_SOURCE_DEFINITIONS,
@@ -42,6 +44,8 @@ beforeEach(() => {
     fetcher.mockReset();
     fetcher.mockResolvedValue([record]);
   }
+  fetchCivicPlus.mockReset();
+  fetchCivicPlus.mockResolvedValue({records: [record], coverage: {year: 2026, documents: [record.sourceUrl]}});
 });
 
 describe("Vision automated source registry", () => {
@@ -51,6 +55,9 @@ describe("Vision automated source registry", () => {
       "suffolk-planning",
       "nassau-ida",
       "suffolk-ida",
+      "nassau-village-hempstead-records",
+      "nassau-village-hempstead-zoning-records",
+      "nassau-village-garden-city-records",
     ]);
 
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
@@ -71,7 +78,7 @@ describe("Vision automated source registry", () => {
     }
   });
 
-  it("runs all four collectors through one adapter result contract", async () => {
+  it("runs every collector through one adapter result contract", async () => {
     fetchSuffolkPlanning.mockResolvedValue([{ ...record, details: { "Collection year": "2026" } }]);
 
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
@@ -79,7 +86,7 @@ describe("Vision automated source registry", () => {
       expect(result.records).toHaveLength(1);
       if (source.id === "suffolk-planning") {
         expect(result.coverage).toEqual({ year: 2026, documents: [] });
-      } else {
+      } else if (source.adapterKey !== "civicplus-agenda-center") {
         expect(result.coverage).toBeNull();
       }
     }
@@ -88,13 +95,14 @@ describe("Vision automated source registry", () => {
     expect(fetchSuffolkPlanning).toHaveBeenCalledOnce();
     expect(fetchNassauIda).toHaveBeenCalledOnce();
     expect(fetchSuffolkIda).toHaveBeenCalledOnce();
+    expect(fetchCivicPlus).toHaveBeenCalledTimes(3);
   });
 
   it("selects enabled source definitions without changing registry order", () => {
     expect(enabledAutomatedSourceDefinitions([
       {...AUTOMATED_SOURCE_DEFINITIONS[0], enabled: false},
       ...AUTOMATED_SOURCE_DEFINITIONS.slice(1),
-    ]).map(source => source.id)).toEqual(["suffolk-planning", "nassau-ida", "suffolk-ida"]);
+    ]).map(source => source.id)).toEqual(AUTOMATED_SOURCE_DEFINITIONS.slice(1).map(source => source.id));
   });
 
   it("rejects unsupported IDs and request objects before a collector can run", async () => {

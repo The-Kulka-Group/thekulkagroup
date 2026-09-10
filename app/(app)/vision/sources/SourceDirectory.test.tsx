@@ -11,9 +11,9 @@ describe("Vision source directory view", () => {
 
     expect(html).toContain("<strong>111</strong><span>local jurisdictions</span>");
     expect(html).toContain("Nassau has 69, and Suffolk has 42.");
-    expect(html).toContain("There are 5 county sources and 134 local sources.");
-    expect(html).toContain("<strong>139</strong><span>directory sources</span>");
-    expect(html).toContain("<strong>4</strong><span>collectable sources</span>");
+    expect(html).toContain("There are 5 county sources and 135 local sources.");
+    expect(html).toContain("<strong>140</strong><span>directory sources</span>");
+    expect(html).toContain("<strong>7</strong><span>collectable sources</span>");
     expect(html).toContain("What this source publishes");
     expect(html).toContain("Vision can retrieve");
     expect(html).toContain("Fields available from source");

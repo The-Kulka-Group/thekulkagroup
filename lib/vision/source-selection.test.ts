@@ -2,6 +2,8 @@ import {describe,expect,it} from "vitest";
 import {checkSelectedSources,DEFAULT_SOURCE_IDS,parseSelectedSources,readSourcePreference,sourcePreferenceValue,type SourceCheckResult} from "./source-selection";
 describe("source preference",()=>{
   it("defaults all catalog sources on and preserves the intentional empty selection",()=>{
+    expect(DEFAULT_SOURCE_IDS).toHaveLength(7);
+    expect(DEFAULT_SOURCE_IDS).toEqual(expect.arrayContaining(["nassau-village-hempstead-records","nassau-village-hempstead-zoning-records","nassau-village-garden-city-records"]));
     expect(readSourcePreference(undefined)).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference("broken")).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference(sourcePreferenceValue([]))).toEqual([]);
@@ -9,7 +11,7 @@ describe("source preference",()=>{
   });
   it("does not add IDA sources to an existing browser choice",()=>{
     expect(readSourcePreference("v1:nassau-applications,suffolk-planning")).toEqual(["nassau-applications","suffolk-planning"]);
-    expect(readSourcePreference(undefined)).toEqual(["nassau-applications","suffolk-planning","nassau-ida","suffolk-ida"]);
+    expect(readSourcePreference(undefined)).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference(sourcePreferenceValue(["nassau-ida","suffolk-ida"]))).toEqual(["nassau-ida","suffolk-ida"]);
   });
   it("allows only catalog IDs, deduplicates and keeps catalog order",()=>{

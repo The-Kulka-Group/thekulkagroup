@@ -26,7 +26,9 @@ export type AutomatedSourceDefinition = {
     maxResponseBytes: number;
     maxDurationMs: number;
     maxDocuments?: number;
+    maxMeetings?: number;
     maxPages?: number;
+    maxYears?: number;
     maxTotalResponseBytes?: number;
   };
   identityRule: string;
@@ -71,6 +73,12 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
     async collect() {
       const { fetchSuffolkIdaRecords } = await import("./ida-source");
       return { records: await fetchSuffolkIdaRecords(), coverage: null };
+    },
+  },
+  "civicplus-agenda-center": {
+    async collect(source) {
+      const { fetchCivicPlusRecords } = await import("./civicplus-source");
+      return fetchCivicPlusRecords(source);
     },
   },
 };
@@ -151,6 +159,63 @@ const SOURCE_DEFINITION_INPUTS: AutomatedSourceDefinition[] = [
     identityRule: "Vision uses the official linked document URL hash.",
     evidenceRule: "Evidence includes the official resource index label, meeting date and linked PDF URL. The collector does not read PDF contents.",
     coverage: "Checks named applications, abstracts and project hearing links in the first 15 resource entries. Older archive pages and the separate hearings tab are excluded. Dates are index meeting dates, not filing dates. PDF contents and project locations require review.",
+    schedule: { cadence: "daily" },
+    enabled: true,
+  },
+  {
+    id: "nassau-village-hempstead-records",
+    name: "Hempstead Village Planning Board records",
+    officialAgency: "Village of Hempstead Planning Board",
+    jurisdiction: "Hempstead",
+    county: "Nassau",
+    adapterKey: "civicplus-agenda-center",
+    directoryUrl: "https://www.villageofhempstead.org/AgendaCenter/Planning-Board-3",
+    endpoint: {
+      url: "https://www.villageofhempstead.org/AgendaCenter/Planning-Board-3",
+      allowedOrigins: ["https://www.villageofhempstead.org"],
+    },
+    limits: { maxRequests: 13, maxRecords: 200, maxResponseBytes: 5_000_000, maxDurationMs: 90_000, maxDocuments: 12, maxMeetings: 12, maxPages: 240, maxYears: 2, maxTotalResponseBytes: 40_000_000 },
+    identityRule: "Vision joins CivicPlus category 3 to a published case number. Records without a case number and address remain unresolved under their meeting and document identity.",
+    evidenceRule: "Evidence includes the official agenda or minutes URL, document kind, meeting date, CivicPlus meeting ID, SHA-256 checksum, page number and bounded PDF text.",
+    coverage: "Checks up to 12 Planning Board agendas or minutes from the current and prior year. Vision reads embedded PDF text only. Other files remain unresolved, and published records do not prove permit approval or current construction status.",
+    schedule: { cadence: "daily" },
+    enabled: true,
+  },
+  {
+    id: "nassau-village-hempstead-zoning-records",
+    name: "Hempstead Village Zoning Board records",
+    officialAgency: "Village of Hempstead Board of Zoning Appeals",
+    jurisdiction: "Hempstead",
+    county: "Nassau",
+    adapterKey: "civicplus-agenda-center",
+    directoryUrl: "https://www.villageofhempstead.org/AgendaCenter/Zoning-Board-of-Appeals-5",
+    endpoint: {
+      url: "https://www.villageofhempstead.org/AgendaCenter/Zoning-Board-of-Appeals-5",
+      allowedOrigins: ["https://www.villageofhempstead.org"],
+    },
+    limits: { maxRequests: 13, maxRecords: 200, maxResponseBytes: 5_000_000, maxDurationMs: 90_000, maxDocuments: 12, maxMeetings: 12, maxPages: 240, maxYears: 2, maxTotalResponseBytes: 40_000_000 },
+    identityRule: "Vision joins CivicPlus category 5 to a published zoning case number. Repeated numbers for different matters remain unresolved.",
+    evidenceRule: "Evidence includes the official agenda or minutes URL, document kind, meeting date, CivicPlus meeting ID, SHA-256 checksum, page number and bounded PDF text.",
+    coverage: "Checks up to 12 Board of Zoning Appeals agendas or minutes from the current and prior year. Vision reads embedded PDF text only. Microsoft Word files remain unresolved, and board records do not prove permit approval or construction status.",
+    schedule: { cadence: "daily" },
+    enabled: true,
+  },
+  {
+    id: "nassau-village-garden-city-records",
+    name: "Garden City Zoning Board records",
+    officialAgency: "Village of Garden City Zoning Board of Appeals",
+    jurisdiction: "Garden City",
+    county: "Nassau",
+    adapterKey: "civicplus-agenda-center",
+    directoryUrl: "https://www.gardencityny.net/AgendaCenter/Zoning-Board-of-Appeals-9",
+    endpoint: {
+      url: "https://www.gardencityny.net/AgendaCenter/Zoning-Board-of-Appeals-9",
+      allowedOrigins: ["https://www.gardencityny.net"],
+    },
+    limits: { maxRequests: 13, maxRecords: 200, maxResponseBytes: 5_000_000, maxDurationMs: 90_000, maxDocuments: 12, maxMeetings: 12, maxPages: 240, maxYears: 2, maxTotalResponseBytes: 40_000_000 },
+    identityRule: "Vision joins CivicPlus category 9 to the published Building Department application number. Records without that number and an address remain unresolved.",
+    evidenceRule: "Evidence includes the official agenda or minutes URL, document kind, meeting date, CivicPlus meeting ID, SHA-256 checksum, page number and bounded PDF text.",
+    coverage: "Checks up to 12 Zoning Board of Appeals agendas or minutes from the current and prior year. Vision reads embedded PDF text only. Board records do not prove permit approval or current construction status.",
     schedule: { cadence: "daily" },
     enabled: true,
   },

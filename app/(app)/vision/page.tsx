@@ -41,6 +41,9 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
     meta={<><span>Construction and development opportunities</span><Sep /><span className="num">{candidates.length} discoveries shown · {opportunities.length} tracked opportunities shown</span></>}>
     <SavedSourceSelection initialSources={selectedSources}/>
     {Object.entries(discovery.sourceErrors).map(([source,message])=><p className="input-error" role="alert" key={source}>{DISCOVERY_SOURCES.find(item=>item.id===source)?.name}: {message}</p>)}
+    {error ? <p role="alert" className="input-error">{error}</p> : null}
+    {discoveryError ? <p role="alert" className="input-error">{discoveryError} Discovery results are hidden until you correct the filters.</p> : selectedSources.length > 0 && candidates.length === 0 ? <p role="status" className="vision-map-notice">{discoveryFiltered ? "No discoveries match these filters. Clear or widen the filters to see more opportunities." : "There are no discoveries awaiting review. Open Discover opportunities to collect source records."}</p> : null}
+    <OpportunityMap workflowDecisions={workflows ? Object.fromEntries(Object.entries(workflows).map(([id,workflow])=>[id,workflow.decision])) : undefined} opportunities={opportunities.filter(item=>workflows?.[item.id]?.classification!=="policy")} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
     <form className="vision-map-filters" action="/vision" key={params.toString()}>
       <fieldset className="vision-filter-group"><legend>Discoveries awaiting review</legend><div className="vision-filters">
         <label>Application type<AutoSubmitSelect className="input" name="applicationType" defaultValue={params.get("applicationType") ?? ""} aria-label="Application type, applies when selected"><option value="">All application types</option>{[...new Set([...discovery.applicationTypes,...(discoveryFilters.applicationType?[discoveryFilters.applicationType]:[])])].sort().map(type => <option key={type}>{type}</option>)}</AutoSubmitSelect></label>
@@ -56,9 +59,6 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
       </div></details>
       <div className="vision-filter-footer"><p>Menu choices apply at once. Use this button after typing a location or search.</p><div className="vision-form-actions"><button className="btn btn--secondary" type="submit">Apply text</button><Link className="btn btn--quiet" href="/vision">Clear filters</Link></div></div>
     </form>
-    {error ? <p role="alert" className="input-error">{error}</p> : null}
-    {discoveryError ? <p role="alert" className="input-error">{discoveryError} Discovery results are hidden until you correct the filters.</p> : selectedSources.length > 0 && candidates.length === 0 ? <p role="status" className="vision-map-notice">{discoveryFiltered ? "No discoveries match these filters. Clear or widen the filters to see more opportunities." : "There are no discoveries awaiting review. Open Discover opportunities to collect source records."}</p> : null}
-    <OpportunityMap workflowDecisions={workflows ? Object.fromEntries(Object.entries(workflows).map(([id,workflow])=>[id,workflow.decision])) : undefined} opportunities={opportunities.filter(item=>workflows?.[item.id]?.classification!=="policy")} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
     <h2 className="t-2">Tracked opportunities</h2>
     <OpportunityList workflows={workflows} opportunities={opportunities} filtered={Boolean(filters.search || filters.county || filters.status)} />
   </Sheet>;

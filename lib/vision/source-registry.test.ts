@@ -49,7 +49,7 @@ beforeEach(() => {
     fetcher.mockResolvedValue([record]);
   }
   fetchOysterBayZba.mockReset();
-  fetchOysterBayZba.mockResolvedValue([record]);
+  fetchOysterBayZba.mockResolvedValue({records: [record], coverage: {year: 2026, documents: []}});
   fetchCivicPlus.mockReset();
   fetchCivicPlus.mockResolvedValue({records: [record], coverage: {year: 2026, documents: [record.sourceUrl]}});
 });
@@ -104,6 +104,7 @@ describe("Vision automated source registry", () => {
     expect(fetchNassauIda).toHaveBeenCalledOnce();
     expect(fetchSuffolkIda).toHaveBeenCalledOnce();
     expect(fetchOysterBayZba).toHaveBeenCalledOnce();
+    expect(fetchOysterBayZba).toHaveBeenCalledWith(AUTOMATED_SOURCE_DEFINITIONS.find(source => source.id === "nassau-town-oyster-bay-records"));
     expect(fetchCivicPlus).toHaveBeenCalledTimes(3);
     expect(fetchSmartGov).toHaveBeenCalledOnce();
   });

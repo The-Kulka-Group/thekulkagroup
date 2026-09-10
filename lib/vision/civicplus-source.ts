@@ -1,7 +1,7 @@
 import {createHash} from "node:crypto";
 
 import type {DiscoveredRecord} from "./discovery-source";
-import type {AutomatedSourceDefinition, SourceCollectionResult} from "./source-registry";
+import {SourceCollectionFailure, type AutomatedSourceDefinition, type SourceCollectionResult} from "./source-registry";
 
 export type CivicPlusDocument = {
   categoryId: number;
@@ -96,7 +96,7 @@ export function parseCivicPlusCategory(html: string, source: AutomatedSourceDefi
     right.meetingDate.localeCompare(left.meetingDate)
     || right.meetingId - left.meetingId
     || left.kind.localeCompare(right.kind));
-  if (!rows.length) throw new Error("The CivicPlus category had no supported recent meeting documents. Earlier finds have been kept.");
+  if (!rows.length) throw new Error("The CivicPlus category had no supported recent meeting documents. Earlier source records remain available.");
   const meetings = new Set<string>();
   const selected: CivicPlusDocument[] = [];
   for (const row of rows) {
@@ -164,7 +164,7 @@ function resolvedRecord(source: AutomatedSourceDefinition, document: CivicPlusDo
 }): DiscoveredRecord {
   const page = evidence[input.page - 1] ? [evidence[input.page - 1]] : evidence.slice(0, 1);
   return {
-    externalId: `${input.prefix}:${document.categoryId}:${input.sourceCaseId.toLowerCase()}`,
+    externalId: `${input.prefix}:${document.categoryId}:${document.meetingDate}:${document.meetingId}:${input.sourceCaseId.toLowerCase()}`,
     sourceCaseId: input.sourceCaseId,
     name: input.name,
     town: source.jurisdiction,
@@ -354,9 +354,9 @@ async function read(source: AutomatedSourceDefinition, url: string, accept: stri
     cache: "no-store",
     headers: {"User-Agent": "Mozilla/5.0 (compatible; KulkaVision public-record collector)", Accept: accept},
   });
-  if (!response.ok) throw new Error(`The CivicPlus source returned HTTP ${response.status}. Earlier finds have been kept.`);
+  if (!response.ok) throw new Error(`The CivicPlus source returned HTTP ${response.status}. Earlier source records remain available.`);
   const type = (response.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase();
-  if (!types.has(type)) throw new Error("The CivicPlus source returned an unexpected content type. Earlier finds have been kept.");
+  if (!types.has(type)) throw new Error("The CivicPlus source returned an unexpected content type. Earlier source records remain available.");
   return {bytes: await responseBytes(response, source.limits.maxResponseBytes), type};
 }
 
@@ -405,35 +405,52 @@ export async function extractCivicPlusPages(bytes: Uint8Array, maxPages: number,
 export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, options: CollectionOptions = {}): Promise<SourceCollectionResult> {
   const deadline = AbortSignal.timeout(source.limits.maxDurationMs);
   const currentYear = options.year ?? Number(new Intl.DateTimeFormat("en", {timeZone: "America/New_York", year: "numeric"}).format(new Date()));
-  const category = await read(source, source.endpoint.url, "text/html,application/xhtml+xml", HTML_TYPES, deadline);
-  let totalBytes = category.bytes.length;
-  const documents = parseCivicPlusCategory(new TextDecoder().decode(category.bytes), source, currentYear);
-  if (documents.length + 1 > source.limits.maxRequests) throw new Error("The CivicPlus source exceeded its request limit.");
   const records: DiscoveredRecord[] = [];
-  let totalPages = 0;
-  for (const document of documents) {
-    deadline.throwIfAborted();
-    const response = await read(source, document.url, `${PDF_TYPE},${WORD_TYPE}`, new Set([PDF_TYPE, WORD_TYPE]), deadline);
-    totalBytes += response.bytes.length;
-    if (totalBytes > (source.limits.maxTotalResponseBytes ?? source.limits.maxResponseBytes)) throw new Error("The CivicPlus source exceeded its total response size limit.");
-    const checksum = hash(response.bytes);
-    if (response.type === WORD_TYPE) {
-      const note = `CivicPlus category ${document.categoryId}. ${document.kind} for ${document.meetingDate}. Meeting ID ${document.meetingId}. Vision did not extract application facts from the Microsoft Word file.`;
-      records.push(unresolvedDocument(source, document, pageEvidence(document, [note], checksum), "Microsoft Word"));
-      continue;
+  const checkedDocuments: string[] = [];
+  let receivedSourceUnit = false;
+  try {
+    const category = await read(source, source.endpoint.url, "text/html,application/xhtml+xml", HTML_TYPES, deadline);
+    receivedSourceUnit = true;
+    let totalBytes = category.bytes.length;
+    const documents = parseCivicPlusCategory(new TextDecoder().decode(category.bytes), source, currentYear);
+    if (documents.length + 1 > source.limits.maxRequests) throw new Error("The CivicPlus source exceeded its request limit.");
+    let totalPages = 0;
+    for (const document of documents) {
+      deadline.throwIfAborted();
+      receivedSourceUnit = false;
+      const response = await read(source, document.url, `${PDF_TYPE},${WORD_TYPE}`, new Set([PDF_TYPE, WORD_TYPE]), deadline);
+      receivedSourceUnit = true;
+      totalBytes += response.bytes.length;
+      if (totalBytes > (source.limits.maxTotalResponseBytes ?? source.limits.maxResponseBytes)) throw new Error("The CivicPlus source exceeded its total response size limit.");
+      const checksum = hash(response.bytes);
+      if (response.type === WORD_TYPE) {
+        const note = `CivicPlus category ${document.categoryId}. ${document.kind} for ${document.meetingDate}. Meeting ID ${document.meetingId}. Vision did not extract application facts from the Microsoft Word file.`;
+        records.push(unresolvedDocument(source, document, pageEvidence(document, [note], checksum), "Microsoft Word"));
+        checkedDocuments.push(document.url);
+        continue;
+      }
+      const remainingPages = (source.limits.maxPages ?? 0) - totalPages;
+      if (remainingPages < 1) throw new Error("The CivicPlus source exceeded its page limit.");
+      const pages = await (options.extractPdf ?? extractCivicPlusPages)(response.bytes, remainingPages, deadline);
+      if (!pages.length) {
+        const note = `CivicPlus category ${document.categoryId}. ${document.kind} for ${document.meetingDate}. Meeting ID ${document.meetingId}. The PDF had no readable embedded text, so Vision did not extract application facts.`;
+        records.push(unresolvedDocument(source, document, pageEvidence(document, [note], checksum), "PDF without readable text"));
+        checkedDocuments.push(document.url);
+        continue;
+      }
+      totalPages += pages.length;
+      records.push(...parseCivicPlusDocument(source, document, pages, checksum));
+      checkedDocuments.push(document.url);
     }
-    const remainingPages = (source.limits.maxPages ?? 0) - totalPages;
-    if (remainingPages < 1) throw new Error("The CivicPlus source exceeded its page limit.");
-    const pages = await (options.extractPdf ?? extractCivicPlusPages)(response.bytes, remainingPages, deadline);
-    if (!pages.length) {
-      const note = `CivicPlus category ${document.categoryId}. ${document.kind} for ${document.meetingDate}. Meeting ID ${document.meetingId}. The PDF had no readable embedded text, so Vision did not extract application facts.`;
-      records.push(unresolvedDocument(source, document, pageEvidence(document, [note], checksum), "PDF without readable text"));
-      continue;
-    }
-    totalPages += pages.length;
-    records.push(...parseCivicPlusDocument(source, document, pages, checksum));
+    const merged = mergeCivicPlusRecords(records);
+    if (merged.length > source.limits.maxRecords) throw new Error("The CivicPlus source exceeded its record limit.");
+    return {records: merged, coverage: {year: currentYear, documents: checkedDocuments.sort()}};
+  } catch (error) {
+    if (!receivedSourceUnit && !checkedDocuments.length && !records.length) throw error;
+    throw new SourceCollectionFailure("The CivicPlus check stopped before it read every document.", {
+      coverage: {year: currentYear, documents: checkedDocuments.sort()},
+      fetched: records.length,
+      rejected: receivedSourceUnit ? 1 : 0,
+    }, {cause: error});
   }
-  const merged = mergeCivicPlusRecords(records);
-  if (merged.length > source.limits.maxRecords) throw new Error("The CivicPlus source exceeded its record limit.");
-  return {records: merged, coverage: {year: currentYear, documents: documents.map(document => document.url).sort()}};
 }

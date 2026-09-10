@@ -4,7 +4,7 @@ import type { DiscoveredRecord } from "./discovery-source";
 import { isUuid } from "@/lib/uuid";
 import { parseVisionDraft, safeSourceUrl, InvalidVisionInput } from "./input";
 import { parseDiscoveryFilters, type DiscoveryFilters } from "./discovery-filters";
-import { automatedSourceDefinition, collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, discoverySourceId, enabledAutomatedSourceDefinitions } from "./source-registry";
+import { automatedSourceDefinition, collectAutomatedSource, DEFAULT_AUTOMATED_SOURCE_ID, discoverySourceId, enabledAutomatedSourceDefinitions, SourceCollectionFailure, type AutomatedSourceCoverage } from "./source-registry";
 
 export type DiscoveryCandidate = { id:string; source_id:string; snapshot:DiscoveredRecord; revision:number; review_state:"new"|"dismissed"|"accepted"; opportunity_id:string|null; first_seen_at:string; last_seen_at:string; changed_at:string };
 export type DiscoveryRunOutcome = "completed"|"completed_empty"|"skipped"|"blocked"|"failed";
@@ -62,7 +62,7 @@ function coverageDates(records:DiscoveredRecord[]) {
   return {start:dates[0]??null,end:dates.at(-1)??null};
 }
 function elapsed(started:number){return Math.max(0,Math.min(2_147_483_647,Date.now()-started));}
-const FAILED_SUMMARY="The source check failed. Coverage is incomplete. Saved records remain available. Try again later.";
+const FAILED_SUMMARY="The source check failed. Coverage is incomplete. Earlier source records remain available. Try again later.";
 async function recordRun(db:Db,input:{sourceId:string;startedAt:string;durationMs:number;outcome:DiscoveryRunOutcome;coverage:unknown;coverageStart:string|null;coverageEnd:string|null;fetched:number;inserted:number;updated:number;unchanged:number;rejected:number;error:string|null}) {
   await db.query(`insert into vision_discovery_sources(id) values($1) on conflict(id) do nothing`,[input.sourceId]);
   await db.query(`insert into vision_discovery_runs(source_id,started_at,duration_ms,outcome,coverage,coverage_start_date,coverage_end_date,fetched_count,inserted_count,updated_count,unchanged_count,rejected_count,error_summary)
@@ -84,12 +84,14 @@ async function collectDiscoveryAttempt(db:Db,sourceId:string):Promise<DiscoveryR
     await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"blocked",coverage:null,coverageStart:null,coverageEnd:null,fetched:0,inserted:0,updated:0,unchanged:0,rejected:0,error:null});
     return {sourceId,outcome:"blocked",count:0,coverage:null,fetched:0,inserted:0,updated:0,unchanged:0,rejected:0,error:"A check is running or ran within the last five minutes. Wait five minutes between source checks."};
   }
-  let fetched=0,rejected=0;
+  let fetched=0,rejected=0,coverage:AutomatedSourceCoverage=null,coverageStart:string|null=null,coverageEnd:string|null=null;
   try {
     const existing=await db.query<{external_id:string;snapshot:DiscoveredRecord}>("select external_id,snapshot from vision_discovery_candidates where source_id=$1",[sourceId]);
     const existingRecords=new Map(existing.rows.map(row=>[row.external_id,row.snapshot]));
-    const collected=await collectAutomatedSource(sourceId,{existingRecords});fetched=Array.isArray(collected.records)?collected.records.length:0;validateRecords(collected.records,source.limits.maxRecords);
-    const records=collected.records,coverage=collected.coverage,{start:coverageStart,end:coverageEnd}=coverageDates(records),outcome:DiscoveryRunOutcome=records.length?"completed":"completed_empty";
+    const collected=await collectAutomatedSource(sourceId,{existingRecords,reportProgress:progress=>{coverage=progress.coverage;fetched=progress.fetched;rejected=progress.rejected;}});fetched=Array.isArray(collected.records)?collected.records.length:0;coverage=collected.coverage;
+    if(Array.isArray(collected.records)){const dates=coverageDates(collected.records);coverageStart=dates.start;coverageEnd=dates.end;}
+    validateRecords(collected.records,source.limits.maxRecords);
+    const records=collected.records,outcome:DiscoveryRunOutcome=records.length?"completed":"completed_empty";
     const result=await db.query<{inserted_count:number;updated_count:number;unchanged_count:number}>(`with owned as (
       update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,last_outcome=$9,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null
       where id=$1 and lease_token=$2 and lease_until>clock_timestamp() returning id
@@ -120,10 +122,11 @@ async function collectDiscoveryAttempt(db:Db,sourceId:string):Promise<DiscoveryR
       return {sourceId,outcome:"blocked",count:0,coverage:null,fetched,inserted:0,updated:0,unchanged:0,rejected:0,error:error.message};
     }
     if(error instanceof SourceValidationError){fetched=error.fetched;rejected=error.rejected;}
+    if(error instanceof SourceCollectionFailure){coverage=error.progress.coverage;fetched=error.progress.fetched;rejected=error.progress.rejected;}
     console.error("Vision source collection failed.",{sourceId,message:FAILED_SUMMARY});
     await db.query(`update vision_discovery_sources set last_error=$3,last_outcome='failed',lease_token=null,lease_until=null where id=$1 and lease_token=$2`,[sourceId,token,FAILED_SUMMARY]);
-    await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"failed",coverage:null,coverageStart:null,coverageEnd:null,fetched,inserted:0,updated:0,unchanged:0,rejected,error:FAILED_SUMMARY});
-    return {sourceId,outcome:"failed",count:0,coverage:null,fetched,inserted:0,updated:0,unchanged:0,rejected,error:FAILED_SUMMARY};
+    await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"failed",coverage,coverageStart,coverageEnd,fetched,inserted:0,updated:0,unchanged:0,rejected,error:FAILED_SUMMARY});
+    return {sourceId,outcome:"failed",count:0,coverage,fetched,inserted:0,updated:0,unchanged:0,rejected,error:FAILED_SUMMARY};
   }
 }
 export async function collectDiscovery(db:Db,sourceId=DEFAULT_AUTOMATED_SOURCE_ID) {

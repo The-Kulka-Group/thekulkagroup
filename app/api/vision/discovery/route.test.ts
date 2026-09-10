@@ -17,6 +17,7 @@ vi.mock("@/lib/vision/smartgov-source",()=>({fetchSmartGovRecords:fetchSmartGov}
 vi.mock("@/lib/db",()=>({getDb:()=>db as Db}));
 vi.mock("@/lib/vision/discovery-source",()=>({DISCOVERY_SOURCE:{id:"nassau-applications"},fetchDiscoveryRecords:fetchRecords}));
 const inbox=await import("./route");const refresh=await import("./refresh/route");const detail=await import("./[id]/route");const cron=await import("./cron/route");
+const {SourceCollectionFailure}=await import("@/lib/vision/source-registry");
 const source={externalId:"zoning/test-1",name:"Synthetic development record",town:"Test town",county:"Nassau",address:"Test address",latitude:null,longitude:null,sourceTitle:"Synthetic planning record",sourceUrl:"https://example.org/test",sourceDate:"2026-08-01",sourceDateLabel:"Referral date",details:{Type:"Synthetic zoning"}};
 const req=(body?:unknown,auth?:string)=>new Request("http://localhost/api/vision/discovery",{method:body===undefined?"GET":"POST",body:body===undefined?undefined:JSON.stringify(body),headers:auth?{"x-kulka-test-auth":auth}:{}});
 const ctx=(id:string)=>({params:Promise.resolve({id})});
@@ -25,7 +26,7 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchCivicPlus.mockReset();fetchSmartGov.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue([{...source,externalId:"oyster-bay-appeal"}]);fetchCivicPlus.mockResolvedValue({records:[{...source,externalId:"civicplus-case"}],coverage:{year:2026,documents:["https://example.org/agenda.pdf"]}});fetchSmartGov.mockResolvedValue([{...source,externalId:"permit:00000000-0000-4000-8000-000000000001",sourceCaseId:"PERMIT-1",sourceTitle:"Village of Hempstead SmartGov permit search",sourceUrl:"https://vlg-hempstead-ny.smartgovcommunity.com/PermittingPublic/PermitLandingPagePublic/Index/00000000-0000-4000-8000-000000000001"}]);});
+beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchCivicPlus.mockReset();fetchSmartGov.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue({records:[{...source,externalId:"oyster-bay-appeal"}],coverage:{year:2026,documents:[]}});fetchCivicPlus.mockResolvedValue({records:[{...source,externalId:"civicplus-case"}],coverage:{year:2026,documents:["https://example.org/agenda.pdf"]}});fetchSmartGov.mockResolvedValue([{...source,externalId:"permit:00000000-0000-4000-8000-000000000001",sourceCaseId:"PERMIT-1",sourceTitle:"Village of Hempstead SmartGov permit search",sourceUrl:"https://vlg-hempstead-ny.smartgovcommunity.com/PermittingPublic/PermitLandingPagePublic/Index/00000000-0000-4000-8000-000000000001"}]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
  it("collects a CivicPlus source through the shared flow and keeps unresolved document revisions in review",async()=>{
@@ -199,6 +200,15 @@ describe("Vision discovery API",()=>{
   await age();fetchRecords.mockRejectedValue(new Error("Private upstream error"));expect((await check()).status).toBe(502);
  });
  it("records an empty result without deleting previous candidates",async()=>{await check();await age();fetchRecords.mockResolvedValue([]);const response=await check();expect(response.status).toBe(200);expect((await response.json()).outcome).toBe("completed_empty");const result=await (await inbox.GET(req())).json();expect(result.candidates).toHaveLength(1);expect(result.source.record_count).toBe(0);});
+ it("records bounded adapter progress when a source fails partway",async()=>{
+  const sourceId="nassau-village-hempstead-records";
+  const coverage={year:2026,documents:["https://www.villageofhempstead.org/AgendaCenter/ViewFile/Agenda/_07202026-1174"]};
+  fetchCivicPlus.mockRejectedValue(new SourceCollectionFailure("The source document changed.",{coverage,fetched:7,rejected:1}));
+  const response=await refresh.POST(new Request(`http://localhost/api/vision/discovery/refresh?source=${sourceId}`,{method:"POST"}));
+  expect(response.status).toBe(502);
+  const run=(await db.query<{coverage:unknown;fetched_count:number;rejected_count:number}>("select coverage,fetched_count,rejected_count from vision_discovery_runs where source_id=$1",[sourceId])).rows[0];
+  expect(run).toEqual({coverage,fetched_count:7,rejected_count:1});
+ });
  it("shares an expiring lease, rate limits checks and protects against an old run overwriting a newer lease",async()=>{
   let release!:(records:typeof source[])=>void;fetchRecords.mockImplementation(()=>new Promise(resolve=>{release=resolve;}));const first=check();
   for(let attempt=0;attempt<100 && !release;attempt++)await new Promise(resolve=>setTimeout(resolve,1));

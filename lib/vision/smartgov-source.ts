@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import type {DiscoveredRecord} from "./discovery-source";
-import type {AutomatedSourceDefinition} from "./source-registry";
+import type {AutomatedSourceDefinition, SourceCollectionProgress} from "./source-registry";
 
 type SearchPage = {records: DiscoveredRecord[]; total: number; page: number};
 type RequestBudget = {requests: number; bytes: number};
@@ -51,20 +51,20 @@ function evidence(record: DiscoveredRecord) {
 
 /** Parse one public search page. SmartGov page numbers are zero based. */
 export function parseSmartGovSearchPage(html: string, expectedPage: number): SearchPage {
-  if (!/<div\b[^>]*id=["']search-results["']/i.test(html) && !/\bsearch-result-item\b/i.test(html)) throw new Error("The SmartGov search results are missing. Earlier finds have been kept.");
+  if (!/<div\b[^>]*id=["']search-results["']/i.test(html) && !/\bsearch-result-item\b/i.test(html)) throw new Error("The SmartGov search results are missing. Earlier source records remain available.");
   const totalMatch = html.match(/(?:Page\s+(\d+)\s+of\s+)?(\d+)\s+results/i);
   if (!totalMatch) {
     if (/No results found/i.test(html) && expectedPage === 0) return {records: [], total: 0, page: 0};
-    throw new Error("The SmartGov result count is missing. Earlier finds have been kept.");
+    throw new Error("The SmartGov result count is missing. Earlier source records remain available.");
   }
   const page = totalMatch[1] ? Number(totalMatch[1]) - 1 : 0;
   const total = Number(totalMatch[2]);
-  if (!Number.isSafeInteger(total) || total < 1 || page !== expectedPage) throw new Error("The SmartGov result count or page number is invalid. Earlier finds have been kept.");
+  if (!Number.isSafeInteger(total) || total < 1 || page !== expectedPage) throw new Error("The SmartGov result count or page number is invalid. Earlier source records remain available.");
   const hiddenPage = html.match(/id=["']_applicationSearchPage["'][^>]*value=["'](\d+)["']/i)?.[1];
-  if (hiddenPage === undefined || Number(hiddenPage) !== expectedPage) throw new Error("The SmartGov page marker is missing or invalid. Earlier finds have been kept.");
+  if (hiddenPage === undefined || Number(hiddenPage) !== expectedPage) throw new Error("The SmartGov page marker is missing or invalid. Earlier source records remain available.");
 
   const parts = html.split(/<div\b[^>]*class=["'][^"']*\bsearch-result-item\b[^"']*["'][^>]*>/i).slice(1);
-  if (!parts.length || parts.length > SEARCH_PAGE_SIZE || parts.length !== Math.min(SEARCH_PAGE_SIZE, total - expectedPage * SEARCH_PAGE_SIZE)) throw new Error("The SmartGov result rows do not match the published count. Earlier finds have been kept.");
+  if (!parts.length || parts.length > SEARCH_PAGE_SIZE || parts.length !== Math.min(SEARCH_PAGE_SIZE, total - expectedPage * SEARCH_PAGE_SIZE)) throw new Error("The SmartGov result rows do not match the published count. Earlier source records remain available.");
   const origin = "https://vlg-hempstead-ny.smartgovcommunity.com";
   const records = parts.map(part => {
     const action = part.match(/submitAction\(\s*["']Detail\/([0-9a-f-]+)["']\s*\)/i);
@@ -75,14 +75,14 @@ export function parseSmartGovSearchPage(html: string, expectedPage: number): Sea
     if (!recordNumber) throw new Error("The SmartGov source returned an invalid record number.");
     const values = [...part.matchAll(/<div\b[^>]*>([^<]*)<\/div>/gi)].map(match => text(match[1], "published field", 200)).filter(Boolean);
     const statusIndex = values.findIndex(value => /^.+,\s*\d{1,2}\/\d{1,2}\/\d{4}$/.test(value));
-    if (statusIndex < 1 || !values[statusIndex + 1]) throw new Error("The SmartGov source omitted expected permit fields. Earlier finds have been kept.");
+    if (statusIndex < 1 || !values[statusIndex + 1]) throw new Error("The SmartGov source omitted expected permit fields. Earlier source records remain available.");
     const permitType = values[statusIndex - 1];
     const statusAndDate = values[statusIndex].match(/^(.+),\s*(\d{1,2}\/\d{1,2}\/\d{4})$/);
     if (!statusAndDate) throw new Error("The SmartGov source returned an invalid status date.");
     const status = text(statusAndDate[1], "status", 120);
     const street = values[statusIndex + 1];
     const locality = values[statusIndex + 2] ?? "";
-    if (!permitType || !status || !street || (locality && !/^HEMPSTEAD,\s*NY(?:\s+\d{5})?$/i.test(locality))) throw new Error("The SmartGov source omitted expected permit fields. Earlier finds have been kept.");
+    if (!permitType || !status || !street || (locality && !/^HEMPSTEAD,\s*NY(?:\s+\d{5})?$/i.test(locality))) throw new Error("The SmartGov source omitted expected permit fields. Earlier source records remain available.");
     const record: DiscoveredRecord = {
       externalId: `permit:${guid}`,
       sourceCaseId: recordNumber,
@@ -123,18 +123,18 @@ function headerField(html: string, label: string) {
 export function parseSmartGovDetail(html: string, record: DiscoveredRecord): DiscoveredRecord {
   const guid = record.details["Portal record ID"];
   const pageId = html.match(/<input\b[^>]*id=["']Id["'][^>]*value=["']([^"']+)["']/i)?.[1]?.toLowerCase();
-  if (pageId !== guid) throw new Error("The SmartGov detail page returned a different record identifier. Earlier finds have been kept.");
+  if (pageId !== guid) throw new Error("The SmartGov detail page returned a different record identifier. Earlier source records remain available.");
   const permitType = text(html.match(/<td\b[^>]*class=["'][^"']*case-header-title[^"']*["'][^>]*>([\s\S]*?)<\/td>/i)?.[1] ?? "", "permit type", 200);
-  if (permitType !== record.details["Record type"]) throw new Error("The SmartGov detail page returned a different permit type. Earlier finds have been kept.");
+  if (permitType !== record.details["Record type"]) throw new Error("The SmartGov detail page returned a different permit type. Earlier source records remain available.");
   const recordCell = headerField(html, "Record Number");
   const recordNumber = text(recordCell.match(/<span\b[^>]*>([\s\S]*?)<\/span>/i)?.[1] ?? "", "record number", 100);
-  if (recordNumber !== record.sourceCaseId) throw new Error("The SmartGov detail page returned a different record number. Earlier finds have been kept.");
+  if (recordNumber !== record.sourceCaseId) throw new Error("The SmartGov detail page returned a different record number. Earlier source records remain available.");
   const status = text(recordCell.match(/<div\b[^>]*class=["'][^"']*case-header-status-badge[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? "", "status", 120);
-  if (!status || status !== record.details["Published status"]) throw new Error("The SmartGov detail page returned a different status. Earlier finds have been kept.");
+  if (!status || status !== record.details["Published status"]) throw new Error("The SmartGov detail page returned a different status. Earlier source records remain available.");
   const referenceNumber = text(headerField(html, "Reference Number"), "reference number", 100);
 
   const section = html.match(/<section\b[^>]*id=["']projectsection-section["'][^>]*>([\s\S]*?)<\/section>/i)?.[1];
-  if (!section) throw new Error("The SmartGov detail page omitted project information. Earlier finds have been kept.");
+  if (!section) throw new Error("The SmartGov detail page omitted project information. Earlier source records remain available.");
   const left = section.match(/<table\b[^>]*class=["'][^"']*case-main-section-table-left[^"']*["'][^>]*>([\s\S]*?)<\/table>/i)?.[1] ?? "";
   const rows = [...left.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map(match => match[1]);
   const locationRow = rows.findIndex(row => /project-section-field-label/i.test(row) && />\s*Location\s*</i.test(row));
@@ -143,7 +143,7 @@ export function parseSmartGovDetail(html: string, record: DiscoveredRecord): Dis
   const localityCells = locationRow >= 0 ? valueCells(rows[locationRow + 2] ?? "") : [];
   const locality = localityCells[0] ?? "";
   const parcel = localityCells[1] ?? "";
-  if (!street || !/^HEMPSTEAD,\s*NY(?:\s+\d{5})?$/i.test(locality)) throw new Error("The SmartGov detail page returned an invalid location. Earlier finds have been kept.");
+  if (!street || !/^HEMPSTEAD,\s*NY(?:\s+\d{5})?$/i.test(locality)) throw new Error("The SmartGov detail page returned an invalid location. Earlier source records remain available.");
 
   let latitude: number | null = null;
   let longitude: number | null = null;
@@ -219,10 +219,10 @@ async function request(source: AutomatedSourceDefinition, value: string, deadlin
   if (++budget.requests > source.limits.maxRequests) throw new Error("The SmartGov source exceeded the request limit.");
   const url = allowedUrl(source, value);
   const response = await fetch(url.href, {signal: AbortSignal.any([deadline, AbortSignal.timeout(30_000)]), redirect: "error", cache: "no-store", ...init});
-  if (!response.ok) throw new Error(`The SmartGov source returned HTTP ${response.status}. Earlier finds have been kept.`);
+  if (!response.ok) throw new Error(`The SmartGov source returned HTTP ${response.status}. Earlier source records remain available.`);
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (expected === "html" ? !contentType.startsWith("text/html") : !contentType.startsWith("application/json") && !contentType.startsWith("text/html")) throw new Error(`The SmartGov source returned an unexpected ${expected === "html" ? "page" : "validation response"}. Earlier finds have been kept.`);
-  if (!response.body) throw new Error("The SmartGov source returned an empty body. Earlier finds have been kept.");
+  if (expected === "html" ? !contentType.startsWith("text/html") : !contentType.startsWith("application/json") && !contentType.startsWith("text/html")) throw new Error(`The SmartGov source returned an unexpected ${expected === "html" ? "page" : "validation response"}. Earlier source records remain available.`);
+  if (!response.body) throw new Error("The SmartGov source returned an empty body. Earlier source records remain available.");
   const chunks: Uint8Array[] = [];
   const reader = response.body.getReader();
   let responseBytes = 0;
@@ -250,7 +250,7 @@ function sameListFacts(left: DiscoveredRecord, right: DiscoveredRecord) {
 }
 
 /** Collect the public 30-day permit window. Existing unchanged records skip detail requests. */
-export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, existingRecords: ReadonlyMap<string, DiscoveredRecord> = new Map(), now = new Date()) {
+export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, existingRecords: ReadonlyMap<string, DiscoveredRecord> = new Map(), now = new Date(), reportProgress?: (progress: SourceCollectionProgress) => void) {
   const deadline = AbortSignal.timeout(source.limits.maxDurationMs);
   const budget: RequestBudget = {requests: 0, bytes: 0};
   const start = await request(source, source.endpoint.url, deadline, budget, {headers: {Accept: "text/html"}});
@@ -262,20 +262,22 @@ export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, ex
   const validation = await request(source, "/ApplicationPublic/ApplicationSearchAdvanced/ValidateFormEntries", deadline, budget, {method: "POST", headers: {...headers, Accept: "application/json"}, body: validate.toString()}, "json");
   let validationResult: unknown;
   try { validationResult = JSON.parse(validation.body); } catch { throw new Error("The SmartGov source returned an unreadable validation response."); }
-  if (!validationResult || typeof validationResult !== "object" || (validationResult as Record<string, unknown>).status !== "success") throw new Error("The SmartGov source rejected the fixed public permit search. Earlier finds have been kept.");
+  if (!validationResult || typeof validationResult !== "object" || (validationResult as Record<string, unknown>).status !== "success") throw new Error("The SmartGov source rejected the fixed public permit search. Earlier source records remain available.");
   const first = await request(source, "/ApplicationPublic/ApplicationSearchAdvanced/Search", deadline, budget, {method: "POST", headers, body: body.toString()});
   const initial = parseSmartGovSearchPage(first.body, 0);
   const records = [...initial.records];
+  reportProgress?.({coverage: null, fetched: records.length, rejected: 0});
   const pages = Math.min(source.limits.maxPages ?? 1, Math.ceil(initial.total / SEARCH_PAGE_SIZE), Math.ceil(source.limits.maxRecords / SEARCH_PAGE_SIZE));
   for (let page = 1; page < pages; page++) {
     const pageBody = new URLSearchParams(body); pageBody.set("_applicationSearchPage", String(page)); pageBody.set("ILS-Ajax", "Y");
     const response = await request(source, "/ApplicationPublic/ApplicationSearchAdvanced/SearchPage", deadline, budget, {method: "POST", headers, body: pageBody.toString()});
     const parsed = parseSmartGovSearchPage(response.body, page);
-    if (parsed.total !== initial.total) throw new Error("The SmartGov result count changed during collection. Earlier finds have been kept.");
+    if (parsed.total !== initial.total) throw new Error("The SmartGov result count changed during collection. Earlier source records remain available.");
     records.push(...parsed.records);
+    reportProgress?.({coverage: null, fetched: records.length, rejected: 0});
   }
   const bounded = records.slice(0, source.limits.maxRecords);
-  if (new Set(bounded.map(record => record.externalId)).size !== bounded.length || new Set(bounded.map(record => record.sourceCaseId)).size !== bounded.length) throw new Error("The SmartGov search repeated a record identity. Earlier finds have been kept.");
+  if (new Set(bounded.map(record => record.externalId)).size !== bounded.length || new Set(bounded.map(record => record.sourceCaseId)).size !== bounded.length) throw new Error("The SmartGov search repeated a record identity. Earlier source records remain available.");
   const output = new Array<DiscoveredRecord>(bounded.length);
   let next = 0;
   await Promise.all(Array.from({length: Math.min(DETAIL_WORKERS, bounded.length)}, async () => {
@@ -284,9 +286,10 @@ export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, ex
       if (index >= bounded.length) return;
       const listed = bounded[index];
       const previous = existingRecords.get(listed.externalId);
-      if (previous && sameListFacts(previous, listed)) { output[index] = previous; continue; }
+      if (previous && sameListFacts(previous, listed)) { output[index] = previous; reportProgress?.({coverage: null, fetched: records.length, rejected: 0}); continue; }
       const detail = await request(source, listed.sourceUrl, deadline, budget, {headers: {Accept: "text/html", ...(session ? {Cookie: session} : {})}});
       output[index] = parseSmartGovDetail(detail.body, listed);
+      reportProgress?.({coverage: null, fetched: records.length, rejected: 0});
     }
   }));
   return output;

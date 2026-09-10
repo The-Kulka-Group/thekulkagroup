@@ -8,8 +8,23 @@ export type SourceCollectionResult = {
   coverage: AutomatedSourceCoverage;
 };
 
+export type SourceCollectionProgress = {
+  coverage: AutomatedSourceCoverage;
+  fetched: number;
+  rejected: number;
+};
+
+/** Lets a bounded adapter retain the work it measured before a failed run. */
+export class SourceCollectionFailure extends Error {
+  constructor(message: string, readonly progress: SourceCollectionProgress, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SourceCollectionFailure";
+  }
+}
+
 export type SourceCollectionContext = {
   existingRecords?: ReadonlyMap<string, DiscoveredRecord>;
+  reportProgress?: (progress: SourceCollectionProgress) => void;
 };
 
 export type AutomatedSourceDefinition = {
@@ -80,17 +95,9 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
     },
   },
   "oyster-bay-zba-documents": {
-    async collect() {
+    async collect(source) {
       const { fetchOysterBayZbaRecords } = await import("./oyster-bay-zba-source");
-      const records = await fetchOysterBayZbaRecords();
-      const fallbackYear = Number(new Intl.DateTimeFormat("en", { timeZone: "America/New_York", year: "numeric" }).format(new Date()));
-      return {
-        records,
-        coverage: {
-          year: Number(records[0]?.details["Collection year"] || fallbackYear),
-          documents: [...new Set(records.flatMap(record => record.evidence?.map(page => page.url.split("#")[0]) ?? []))].sort(),
-        },
-      };
+      return fetchOysterBayZbaRecords(source);
     },
   },
   "civicplus-agenda-center": {
@@ -102,7 +109,7 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
   "smartgov-public-permits": {
     async collect(source, context) {
       const { fetchSmartGovRecords } = await import("./smartgov-source");
-      return { records: await fetchSmartGovRecords(source, context?.existingRecords), coverage: null };
+      return { records: await fetchSmartGovRecords(source, context?.existingRecords, new Date(), context?.reportProgress), coverage: null };
     },
   },
 };

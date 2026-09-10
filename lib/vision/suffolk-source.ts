@@ -59,7 +59,7 @@ export function parseSuffolkIndex(html: string, year: number): SuffolkDocument[]
     }
   }
   const unique = [...new Map(docs.map(d => [d.url, d])).values()].sort((a, b) => a.url.localeCompare(b.url));
-  if (!unique.length || unique.length > MAX_DOCUMENTS) throw new Error("The Suffolk document list is empty or exceeds the 80-document limit. Earlier finds have been kept.");
+  if (!unique.length || unique.length > MAX_DOCUMENTS) throw new Error("The Suffolk document list is empty or exceeds the 80-document limit. Earlier source records remain available.");
   return unique;
 }
 
@@ -96,7 +96,7 @@ export async function extractSuffolkPages(bytes: Uint8Array, signal?: AbortSigna
       pages.push(text);
       page.cleanup();
     }
-    if (pages.join("").trim().length < 80) throw new Error("The Suffolk PDF has no usable embedded text. Earlier finds have been kept.");
+    if (pages.join("").trim().length < 80) throw new Error("The Suffolk PDF has no usable embedded text. Earlier source records remain available.");
     return pages;
   } finally { signal?.removeEventListener("abort", abort); await task.destroy(); }
 }

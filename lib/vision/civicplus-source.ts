@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 
+import {readBoundedPdfText} from "./bounded-pdf-reader";
 import type {DiscoveredRecord} from "./discovery-source";
 import {SourceCollectionFailure, type AutomatedSourceDefinition, type SourceCollectionResult} from "./source-registry";
 
@@ -361,45 +362,18 @@ async function read(source: AutomatedSourceDefinition, url: string, accept: stri
 }
 
 export async function extractCivicPlusPages(bytes: Uint8Array, maxPages: number, signal: AbortSignal) {
-  if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("The CivicPlus source returned an unreadable PDF.");
-  const {getDocument} = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const task = getDocument({data: bytes, useSystemFonts: true, disableFontFace: true, verbosity: 0});
-  const abort = () => { void task.destroy(); };
-  signal.throwIfAborted();
-  signal.addEventListener("abort", abort, {once: true});
-  try {
-    const pdf = await task.promise;
-    if (!pdf.numPages || pdf.numPages > maxPages) throw new Error("The CivicPlus document exceeded its page limit.");
-    const pages: string[] = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-      signal.throwIfAborted();
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const items = content.items.filter((item): item is Extract<typeof item, {str: string}> => "str" in item).filter(item => item.str.trim());
-      items.sort((left, right) => Math.abs(left.transform[5] - right.transform[5]) < 2 ? left.transform[4] - right.transform[4] : right.transform[5] - left.transform[5]);
-      let y: number | undefined;
-      let line = "";
-      const lines: string[] = [];
-      for (const item of items) {
-        if (y !== undefined && Math.abs(item.transform[5] - y) >= 2) {
-          lines.push(clean(line));
-          line = "";
-        }
-        line += ` ${item.str}`;
-        y = item.transform[5];
-      }
-      if (line) lines.push(clean(line));
-      const text = lines.join("\n");
-      if (text.length > MAX_PAGE_TEXT) throw new Error("A CivicPlus document page exceeded its text limit.");
-      pages.push(text);
-      page.cleanup();
-    }
-    if (pages.join("").trim().length < 40) return [];
-    return pages;
-  } finally {
-    signal.removeEventListener("abort", abort);
-    await task.destroy();
-  }
+  return readBoundedPdfText(bytes, {
+    maxPages,
+    maxPageCharacters: MAX_PAGE_TEXT,
+    minimumDocumentCharacters: 40,
+    shortDocument: {behavior: "empty"},
+    signal,
+    errors: {
+      invalidPdf: "The CivicPlus source returned an unreadable PDF.",
+      pageLimit: "The CivicPlus document exceeded its page limit.",
+      pageTextLimit: "A CivicPlus document page exceeded its text limit.",
+    },
+  });
 }
 
 export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, options: CollectionOptions = {}): Promise<SourceCollectionResult> {

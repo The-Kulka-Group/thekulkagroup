@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 
+import {readBoundedPdfText} from "./bounded-pdf-reader";
 import type {DiscoveredRecord} from "./discovery-source";
 import {readPublicSource} from "./source-fetch";
 import {SourceCollectionFailure, type AutomatedSourceDefinition, type SourceCollectionResult} from "./source-registry";
@@ -56,44 +57,21 @@ export function parseOysterBayZbaIndex(html: string, year: number, source: Autom
 }
 
 export async function extractOysterBayZbaPages(bytes: Uint8Array, maxPages: number, signal?: AbortSignal): Promise<string[]> {
-  const {getDocument} = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const task = getDocument({data: bytes, useSystemFonts: true, disableFontFace: true, verbosity: 0});
-  const abort = () => { void task.destroy(); };
-  signal?.throwIfAborted();
-  signal?.addEventListener("abort", abort, {once: true});
-  try {
-    const pdf = await task.promise;
-    if (!pdf.numPages || pdf.numPages > maxPages) throw new Error("An Oyster Bay Zoning Board PDF exceeds its reviewed page limit.");
-    const pages: string[] = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-      signal?.throwIfAborted();
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const items = content.items.filter((item): item is Extract<typeof item, {str: string}> => "str" in item).filter(item => item.str.trim());
-      items.sort((left, right) => Math.abs(left.transform[5] - right.transform[5]) < 2 ? left.transform[4] - right.transform[4] : right.transform[5] - left.transform[5]);
-      let y: number | undefined;
-      let line = "";
-      const lines: string[] = [];
-      for (const item of items) {
-        if (y !== undefined && Math.abs(item.transform[5] - y) >= 2) {
-          if (clean(line)) lines.push(clean(line));
-          line = "";
-        }
-        line += ` ${item.str}`;
-        y = item.transform[5];
-      }
-      if (clean(line)) lines.push(clean(line));
-      const text = lines.join("\n");
-      if (text.length > MAX_PAGE_TEXT) throw new Error("An Oyster Bay Zoning Board PDF page exceeds the text limit.");
-      pages.push(text);
-      page.cleanup();
-    }
-    if (pages.join("").trim().length < 80) throw new Error("An Oyster Bay Zoning Board PDF has no usable embedded text. Earlier source records remain available.");
-    return pages;
-  } finally {
-    signal?.removeEventListener("abort", abort);
-    await task.destroy();
-  }
+  return readBoundedPdfText(bytes, {
+    maxPages,
+    maxPageCharacters: MAX_PAGE_TEXT,
+    minimumDocumentCharacters: 80,
+    shortDocument: {
+      behavior: "error",
+      message: "An Oyster Bay Zoning Board PDF has no usable embedded text. Earlier source records remain available.",
+    },
+    signal,
+    errors: {
+      invalidPdf: "The Oyster Bay Zoning Board source returned a non-PDF document. Earlier source records remain available.",
+      pageLimit: "An Oyster Bay Zoning Board PDF exceeds its reviewed page limit.",
+      pageTextLimit: "An Oyster Bay Zoning Board PDF page exceeds the text limit.",
+    },
+  });
 }
 
 type PageRange = {page: number; start: number; end: number; text: string};
@@ -247,7 +225,6 @@ export async function fetchOysterBayZbaRecords(source: AutomatedSourceDefinition
         const bytes = await read(source, document.url, deadline, "pdf");
         totalBytes += bytes.length;
         if (totalBytes > (source.limits.maxTotalResponseBytes ?? source.limits.maxResponseBytes)) throw new Error("The Oyster Bay Zoning Board scan exceeded the total download limit. Earlier source records remain available.");
-        if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("The Oyster Bay Zoning Board source returned a non-PDF document. Earlier source records remain available.");
         const pages = await extractOysterBayZbaPages(bytes, source.limits.maxPages ?? 0, deadline);
         batches[index] = parseOysterBayZbaDocument(document, pages, hash(bytes), source);
         checkedDocuments[index] = document.url;

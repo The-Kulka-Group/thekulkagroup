@@ -1,5 +1,19 @@
+import type {DiscoveryRunOutcome} from "./discovery";
+
 const DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 export function visionDate(value: string) { return DATE.format(new Date(value)); }
+
+export const SOURCE_RUN_OUTCOME_LABELS: Readonly<Record<DiscoveryRunOutcome, string>> = {
+  completed: "Completed",
+  completed_empty: "Completed with no records",
+  skipped: "Skipped",
+  blocked: "Blocked",
+  failed: "Failed",
+};
+
+export function sourceRunCheckedTime(value: string | null | undefined) {
+  return value ? new Date(value).toLocaleString() : "Not checked yet";
+}
 
 export const WORKFLOW_LABELS = {undecided:"Needs a decision",watching:"Watching",pursuing:"Pursuing",passed:"Passed",won:"Won",lost:"Lost"} as const;
 export function visionToday(now = new Date()) {

@@ -2,14 +2,16 @@ import {describe,expect,it} from "vitest";
 import {checkSelectedSources,DEFAULT_SOURCE_IDS,parseSelectedSources,readSourcePreference,sourcePreferenceValue,type SourceCheckResult} from "./source-selection";
 describe("source preference",()=>{
   it("defaults all catalog sources on and preserves the intentional empty selection",()=>{
+    expect(DEFAULT_SOURCE_IDS).toHaveLength(9);
+    expect(DEFAULT_SOURCE_IDS).toEqual(expect.arrayContaining(["nassau-town-oyster-bay-records","nassau-village-hempstead-records","nassau-village-hempstead-zoning-records","nassau-village-garden-city-records","hempstead-village-smartgov"]));
     expect(readSourcePreference(undefined)).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference("broken")).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference(sourcePreferenceValue([]))).toEqual([]);
     expect(readSourcePreference(sourcePreferenceValue(["suffolk-planning"]))).toEqual(["suffolk-planning"]);
   });
-  it("does not add IDA sources to an existing browser choice",()=>{
+  it("does not add sources to an existing browser choice",()=>{
     expect(readSourcePreference("v1:nassau-applications,suffolk-planning")).toEqual(["nassau-applications","suffolk-planning"]);
-    expect(readSourcePreference(undefined)).toEqual(["nassau-applications","suffolk-planning","nassau-ida","suffolk-ida"]);
+    expect(readSourcePreference(undefined)).toEqual(DEFAULT_SOURCE_IDS);
     expect(readSourcePreference(sourcePreferenceValue(["nassau-ida","suffolk-ida"]))).toEqual(["nassau-ida","suffolk-ida"]);
   });
   it("allows only catalog IDs, deduplicates and keeps catalog order",()=>{

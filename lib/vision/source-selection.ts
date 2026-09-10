@@ -16,7 +16,10 @@ export function readSourcePreference(value:string|undefined):string[] {
   return ids.length ? DEFAULT_SOURCE_IDS.filter(id=>ids.includes(id)) : [...DEFAULT_SOURCE_IDS];
 }
 export function sourcePreferenceValue(ids:string[]) {return `v1:${parseSelectedSources(ids.join(",")).join(",")}`;}
-export type SourceCheckResult = {status:"running"}|{status:"success";count:number}|{status:"error";error:string};
+export type SourceCheckResult =
+  | {status:"running"}
+  | {status:"success";count:number;outcome?:"completed"|"completed_empty"}
+  | {status:"error";error:string;outcome?:"skipped"|"blocked"|"failed"};
 export async function checkSelectedSources(ids:string[],check:(id:string)=>Promise<{count:number}>,onResult:(id:string,result:SourceCheckResult)=>void) {
   const selected=parseSelectedSources(ids.join(","));
   await Promise.all(selected.map(async id=>{

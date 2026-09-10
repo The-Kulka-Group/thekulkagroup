@@ -96,7 +96,7 @@ export function parseNassauIdaPage(html: string, pageUrl = NASSAU_IDA_SOURCE.url
     next = url.href;
   }
   const range = text(html).match(/(\d+) - (\d+) of (\d+) results/);
-  if (!range || Number(range[1]) < 1 || Number(range[2]) > Number(range[3]) || Number(range[2]) - Number(range[1]) + 1 !== records.length || (Number(range[2]) < Number(range[3])) !== Boolean(next)) throw new Error("The Nassau IDA result count and pagination disagree. Earlier finds have been kept.");
+  if (!range || Number(range[1]) < 1 || Number(range[2]) > Number(range[3]) || Number(range[2]) - Number(range[1]) + 1 !== records.length || (Number(range[2]) < Number(range[3])) !== Boolean(next)) throw new Error("The Nassau IDA result count and pagination disagree. Earlier source records remain available.");
   return { records, next, start: Number(range[1]), end: Number(range[2]), total: Number(range[3]) };
 }
 
@@ -160,7 +160,7 @@ export async function fetchNassauIdaRecords(): Promise<DiscoveredRecord[]> {
   let next: string | null = NASSAU_IDA_SOURCE.url;
   let total: number | null = null;
   while (next) {
-    if (visited.has(next) || visited.size >= MAX_NASSAU_PAGES) throw new Error("The Nassau IDA index repeated a page or exceeded the 30-page limit. Earlier finds have been kept.");
+    if (visited.has(next) || visited.size >= MAX_NASSAU_PAGES) throw new Error("The Nassau IDA index repeated a page or exceeded the 30-page limit. Earlier source records remain available.");
     visited.add(next);
     const parsed = parseNassauIdaPage(await readIndex(next, deadline), next);
     if (parsed.start !== records.length + 1 || (total !== null && parsed.total !== total)) throw new Error("The Nassau IDA pages skipped records or changed during collection. Try again later.");

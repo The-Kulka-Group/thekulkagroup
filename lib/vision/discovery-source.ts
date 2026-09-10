@@ -1,15 +1,12 @@
+export { DISCOVERY_SOURCE } from "./discovery-catalog";
+
 /** Nassau's official Planning page links the map backed by this public service. */
 const SERVICE = "https://services1.arcgis.com/rsOafHhKLHpnpr4t/arcgis/rest/services/NCPC_Cases_Map/FeatureServer";
 const RECORD_LIMIT = 100;
 const RESPONSE_LIMIT = 1_000_000;
-export const DISCOVERY_SOURCE = {
-  id: "nassau-applications",
-  name: "Nassau planning applications",
-  url: "https://www.nassaucountyny.gov/Planning",
-  coverage: "Checks up to 100 records per category: Nassau zoning, major subdivisions and minor subdivisions, ordered by the county’s record number. These records can include older applications and zoning policy changes. Local records outside these categories require manual review.",
-};
 export type DiscoveredRecord = {
   evidence?: Array<{ kind?: "index-link"; url: string; title: string; checksum: string; page: number; text: string }>;
+  /** Classifies this source record as project-like or policy. It does not create an opportunity. */
   classification?: "opportunity" | "policy";
   identityStatus?: "resolved" | "unresolved";
   sourceCaseId?: string;
@@ -45,7 +42,7 @@ function date(value: unknown): string | null {
 function parseFeature(value: unknown, layer: typeof LAYERS[number]): DiscoveredRecord {
   const feature = object(value);
   const attributes = object(feature.attributes);
-  if (layer.fields.split(",").some(key => !Object.hasOwn(attributes, key))) throw new Error("The Nassau source omitted expected fields. Earlier finds have been kept.");
+  if (layer.fields.split(",").some(key => !Object.hasOwn(attributes, key))) throw new Error("The Nassau source omitted expected fields. Earlier source records remain available.");
   const globalId = field(attributes, "GlobalID", true).replace(/[{}]/g, "").toLowerCase();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(globalId)) throw new Error("The Nassau source returned an invalid record identifier.");
   const objectId = attributes.OBJECTID;
@@ -108,7 +105,7 @@ export async function fetchDiscoveryRecords(): Promise<DiscoveredRecord[]> {
     const url = new URL(`${SERVICE}/${layer.id}/query`);
     url.search = new URLSearchParams({ f: "json", where: "1=1", outFields: layer.fields, outSR: "4326", returnGeometry: "true", orderByFields: "OBJECTID DESC", resultRecordCount: String(RECORD_LIMIT) }).toString();
     const result = object(await readSource(url));
-    if (result.error || !Array.isArray(result.features) || result.features.length === 0 || result.features.length > RECORD_LIMIT) throw new Error("The Nassau source returned an empty or unexpected result. Earlier finds have been kept.");
+    if (result.error || !Array.isArray(result.features) || result.features.length === 0 || result.features.length > RECORD_LIMIT) throw new Error("The Nassau source returned an empty or unexpected result. Earlier source records remain available.");
     if (object(result.spatialReference).wkid !== 4326) throw new Error("The Nassau source returned an unexpected coordinate system.");
     records.push(...result.features.map(feature => parseFeature(feature, layer)));
   }

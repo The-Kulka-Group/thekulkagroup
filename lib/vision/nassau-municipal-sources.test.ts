@@ -41,15 +41,22 @@ describe("Nassau municipal source coverage", () => {
     expect(oysterBay?.limits).toContain("requires an account");
   });
 
-  it("states source capabilities and limits without exposing manual sources as collectable", () => {
+  it("states source capabilities and limits without exposing other manual sources as collectable", () => {
     for (const source of NASSAU_MUNICIPAL_SOURCES) {
       expect(source.checkedAt).toBe("2026-09-09");
       expect(source.recordFamilies.length).toBeGreaterThan(0);
       expect(source.availableFields.length).toBeGreaterThan(0);
       expect(source.manualSteps.length).toBeGreaterThan(0);
       expect(source.limits.length).toBeGreaterThan(0);
-      expect(source.accessMode).not.toBe("automated");
-      expect(source.collectionState).not.toBe("collectable");
+      if (source.id === "nassau-town-oyster-bay-records") {
+        expect(source).toMatchObject({accessMode: "automated", collectionState: "collectable", url: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/"});
+        expect(source.coverage).toContain("Zoning Board of Appeals");
+      } else if (source.id === "hempstead-village-smartgov") {
+        expect(source).toMatchObject({accessMode: "automated", collectionState: "collectable"});
+      } else {
+        expect(source.accessMode).not.toBe("automated");
+        expect(source.collectionState).not.toBe("collectable");
+      }
       if (source.accessMode === "no-public-feed") {
         expect(source.coverage).toContain("No public project feed was found");
         expect(source.recordFamilies).toEqual(["Building records", "Permit records", "Planning records", "Zoning records"]);
@@ -165,5 +172,10 @@ describe("Nassau municipal source coverage", () => {
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-site-plan-files")?.accessMode).toBe("public-online");
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "freeport-online-permitting")?.accessMode).toBe("request-or-contact");
     expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "lynbrook-board-minutes")?.collectionState).toBe("manual");
+    expect(NASSAU_MUNICIPAL_SOURCES.find(source => source.id === "hempstead-village-smartgov")).toMatchObject({
+      accessMode: "automated",
+      collectionState: "collectable",
+      url: "https://vlg-hempstead-ny.smartgovcommunity.com/ApplicationPublic/ApplicationSearchAdvanced",
+    });
   });
 });

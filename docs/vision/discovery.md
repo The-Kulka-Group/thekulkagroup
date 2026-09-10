@@ -57,11 +57,12 @@ live verification under separate production approval.
 
 For an approved release, configure a random `VISION_DISCOVERY_CRON_SECRET` of at
 least 32 characters in server and scheduler secrets. The scheduler sends POST to
-`/api/vision/discovery/cron` with `Authorization: Bearer <secret>`. Use a daily
-schedule; this build does not configure one. A five-minute database lease and
-check interval cover both manual and scheduled collection. Missing or incorrect
-credentials return 401. The inbox reports the last check, last completed check,
-and a failed check while retaining prior records.
+`/api/vision/discovery/cron?source=all` with `Authorization: Bearer <secret>`.
+The inactive config in `config/vision-source-schedule.json` records this one
+daily job. A separate release must activate it. A five-minute database lease and
+check interval apply to each source. Missing or incorrect credentials return
+401. The source directory and inbox report the schedule, latest outcome, record
+count, last completed check, and error state while retaining prior records.
 
 ## Source verification
 
@@ -73,8 +74,9 @@ synthetic responses that never enter application data.
 ## Suffolk collection and filing links
 
 LA-236 and LA-237 extend this flow with a separately checked Suffolk source.
-The source selector controls the inbox and manual check. Each source has its own
-lease, cooldown, last success and error. The cron route remains Nassau-only.
+The source selector controls the inbox. Each source has its own manual check,
+lease, cooldown, last success and error. One protected cron request runs every
+enabled source and keeps each result separate.
 Suffolk coverage records the year and every document URL in a completed check.
 A failed batch leaves the preceding coverage and candidate records intact.
 

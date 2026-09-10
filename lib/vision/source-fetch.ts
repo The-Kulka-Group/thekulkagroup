@@ -1,7 +1,9 @@
-type SourceFetchOptions = { accept: string; userAgent?: string };
+type SourceFetchOptions = { accept: string; userAgent?: string; contentTypes?: readonly string[] };
 async function readAttempt(url: string, max: number, deadline: AbortSignal, options: SourceFetchOptions): Promise<Uint8Array> {
   const response = await fetch(url, { signal: AbortSignal.any([deadline, AbortSignal.timeout(30_000)]), redirect: "error", cache: "no-store", headers: { "User-Agent": options.userAgent ?? "Mozilla/5.0 (compatible; KulkaVision public-record collector)", Accept: options.accept } });
-  if (!response.ok) throw new Error(`The public source returned HTTP ${response.status}. Earlier finds have been kept.`);
+  if (!response.ok) throw new Error(`The public source returned HTTP ${response.status}. Earlier source records remain available.`);
+  const contentType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase();
+  if (options.contentTypes?.length && (!contentType || !options.contentTypes.includes(contentType))) throw new Error("The public source returned an unexpected content type. Earlier source records remain available.");
   if (!response.body) throw new Error("The public source returned an empty body.");
   const chunks: Uint8Array[] = [];
   const reader = response.body.getReader();

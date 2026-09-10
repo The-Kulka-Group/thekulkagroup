@@ -2,9 +2,9 @@ import {describe, expect, it} from "vitest";
 import {DISCOVERY_SOURCES} from "./discovery-catalog";
 import {filterMunicipalSources, sourceCoverageSummary, sourceJurisdictions, sourceRecordFamilies, validateMunicipalSources, type MunicipalSource} from "./source-directory";
 import {AUTOMATED_SOURCE_DEFINITIONS} from "./source-registry";
-import {joinAutomatedSourceDirectory, VISION_SOURCES} from "./sources";
-import {NASSAU_AUTHORITATIVE_JURISDICTIONS} from "./nassau-municipal-sources";
-import {SUFFOLK_TOWN_JURISDICTIONS, SUFFOLK_VILLAGE_JURISDICTIONS} from "./suffolk-municipal-sources";
+import {AUTOMATED_COUNTY_SOURCE_RESEARCH, joinAutomatedSourceDirectory, VISION_SOURCES} from "./sources";
+import {NASSAU_AUTHORITATIVE_JURISDICTIONS, NASSAU_MUNICIPAL_SOURCE_INPUTS} from "./nassau-municipal-sources";
+import {SUFFOLK_MUNICIPAL_SOURCES, SUFFOLK_TOWN_JURISDICTIONS, SUFFOLK_VILLAGE_JURISDICTIONS} from "./suffolk-municipal-sources";
 
 const source = (overrides: Partial<MunicipalSource> = {}): MunicipalSource => ({
   id: "source-one",
@@ -57,6 +57,43 @@ describe("Vision municipal source directory", () => {
         collectionState: "collectable",
       });
     }
+  });
+
+  it("keeps automated directory inputs limited to research fields", () => {
+    const automatedIds = new Set(AUTOMATED_SOURCE_DEFINITIONS.map(item => item.id));
+    const inputs = [
+      ...AUTOMATED_COUNTY_SOURCE_RESEARCH,
+      ...NASSAU_MUNICIPAL_SOURCE_INPUTS.filter(item => automatedIds.has(item.id)),
+    ];
+
+    expect(inputs).toHaveLength(9);
+    for (const input of inputs) {
+      expect(Object.keys(input).sort()).toEqual([
+        "availableFields",
+        "checkedAt",
+        "id",
+        "jurisdictionType",
+        "manualSteps",
+        "recordFamilies",
+      ]);
+    }
+  });
+
+  it("keeps automated municipal routes in registry order without adapter-based placement", () => {
+    const localDirectoryIds = VISION_SOURCES
+      .filter(item => item.jurisdictionType !== "county")
+      .map(item => item.id);
+    const municipalInputIds = new Set([
+      ...NASSAU_MUNICIPAL_SOURCE_INPUTS.map(item => item.id),
+      ...SUFFOLK_MUNICIPAL_SOURCES.map(item => item.id),
+    ]);
+    const automatedMunicipalIds = AUTOMATED_SOURCE_DEFINITIONS
+      .map(item => item.id)
+      .filter(id => municipalInputIds.has(id));
+
+    expect(localDirectoryIds.slice(0, automatedMunicipalIds.length)).toEqual(automatedMunicipalIds);
+    expect(localDirectoryIds).toHaveLength(municipalInputIds.size);
+    expect(new Set(localDirectoryIds)).toEqual(municipalInputIds);
   });
 
   it("rejects missing, duplicate and unregistered collectable directory joins", () => {

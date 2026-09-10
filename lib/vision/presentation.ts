@@ -11,7 +11,7 @@ export const SOURCE_RUN_OUTCOME_LABELS: Readonly<Record<DiscoveryRunOutcome, str
   failed: "Failed",
 };
 
-export function sourceRunCheckedTime(value: string | null | undefined) {
+export function visionDateTime(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString() : "Not checked yet";
 }
 

@@ -6,7 +6,7 @@ import {ACCESS_MODES, COLLECTION_STATE_LABELS, JURISDICTION_TYPES, SOURCE_ACCESS
 import {SourceBrand} from "../SourceBrand";
 import {AUTOMATED_SOURCE_DEFINITIONS} from "@/lib/vision/source-registry";
 import type {DiscoveryState} from "@/lib/vision/discovery";
-import {SOURCE_RUN_OUTCOME_LABELS, sourceRunCheckedTime} from "@/lib/vision/presentation";
+import {SOURCE_RUN_OUTCOME_LABELS, visionDateTime} from "@/lib/vision/presentation";
 
 const formatEnumLabel = (value: string) => value.replaceAll("-", " ").replace(/^./, letter => letter.toUpperCase());
 
@@ -70,7 +70,7 @@ export function SourceDirectoryResults({sources,health={}}: {sources: MunicipalS
             <span className="chip chip--neutral">Daily schedule</span>
             <span className="chip chip--neutral">Latest outcome: {status?.last_outcome?SOURCE_RUN_OUTCOME_LABELS[status.last_outcome]:"Not checked"}</span>
             <span className="chip chip--neutral">{status?.record_count??0} records</span>
-            <p className="t-meta">Last completed: {sourceRunCheckedTime(status?.last_success_at)}.</p>
+            <p className="t-meta">Last completed: {visionDateTime(status?.last_success_at)}.</p>
             {status?.last_error?<p className="input-error">{status.last_error}</p>:null}
           </div>:null}
           <div className="vision-source-actions">

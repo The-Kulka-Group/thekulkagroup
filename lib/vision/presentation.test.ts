@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {SOURCE_RUN_OUTCOME_LABELS, sourceRunCheckedTime} from "./presentation";
+import {SOURCE_RUN_OUTCOME_LABELS, visionDateTime} from "./presentation";
 
 describe("Vision source run presentation", () => {
   it("uses the completed outcome label shown on both source screens", () => {
@@ -8,7 +8,7 @@ describe("Vision source run presentation", () => {
   });
 
   it("uses the same fallback when a source has not been checked", () => {
-    expect(sourceRunCheckedTime(null)).toBe("Not checked yet");
-    expect(sourceRunCheckedTime(undefined)).toBe("Not checked yet");
+    expect(visionDateTime(null)).toBe("Not checked yet");
+    expect(visionDateTime(undefined)).toBe("Not checked yet");
   });
 });

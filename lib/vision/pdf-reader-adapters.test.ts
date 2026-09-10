@@ -22,6 +22,25 @@ function mockDocument(text: string) {
   } as never);
 }
 
+function mockPageCount(numPages: number) {
+  const destroy = vi.fn();
+  vi.mocked(getDocument).mockReturnValue({
+    promise: Promise.resolve({numPages, getPage: vi.fn()}),
+    destroy,
+  } as never);
+  return destroy;
+}
+
+function mockPendingDocument(reason: Error) {
+  let rejectDocument!: (error: unknown) => void;
+  const destroy = vi.fn(() => rejectDocument(reason));
+  vi.mocked(getDocument).mockReturnValue({
+    promise: new Promise((_, reject) => { rejectDocument = reject; }),
+    destroy,
+  } as never);
+  return destroy;
+}
+
 afterEach(() => vi.clearAllMocks());
 
 describe("collector PDF rules", () => {
@@ -55,5 +74,33 @@ describe("collector PDF rules", () => {
       "The Oyster Bay Zoning Board source returned a non-PDF document. Earlier source records remain available.",
     );
     expect(getDocument).not.toHaveBeenCalled();
+  });
+
+  it("passes each adapter's page bound to the shared reader", async () => {
+    const civicDestroy = mockPageCount(2);
+    await expect(extractCivicPlusPages(bytes, 1, new AbortController().signal)).rejects.toThrow(
+      "The CivicPlus document exceeded its page limit.",
+    );
+    expect(civicDestroy).toHaveBeenCalledOnce();
+
+    const oysterDestroy = mockPageCount(2);
+    await expect(extractOysterBayZbaPages(bytes, 1)).rejects.toThrow(
+      "An Oyster Bay Zoning Board PDF exceeds its reviewed page limit.",
+    );
+    expect(oysterDestroy).toHaveBeenCalledOnce();
+  });
+
+  it("passes abort signals from both adapter exports to the shared reader", async () => {
+    for (const extract of [extractCivicPlusPages, extractOysterBayZbaPages]) {
+      const controller = new AbortController();
+      const reason = new Error("adapter abort");
+      const destroy = mockPendingDocument(reason);
+      const pending = extract(bytes, 1, controller.signal);
+
+      controller.abort(reason);
+
+      await expect(pending).rejects.toBe(reason);
+      expect(destroy).toHaveBeenCalledOnce();
+    }
   });
 });

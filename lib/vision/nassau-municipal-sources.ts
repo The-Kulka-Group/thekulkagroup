@@ -1,5 +1,4 @@
-import {MUNICIPAL_SOURCE_CHECKED_AT, type JurisdictionType, type MunicipalSource} from "./source-directory";
-import {HEMPSTEAD_SMARTGOV_SOURCE} from "./discovery-catalog";
+import {MUNICIPAL_SOURCE_CHECKED_AT, type AutomatedSourceDirectoryResearch, type JurisdictionType, type MunicipalSource, type MunicipalSourceInput} from "./source-directory";
 
 type NassauJurisdiction = {
   jurisdiction: string;
@@ -102,26 +101,48 @@ const publicMeetings = (name: string, officialAgency: string, url: string, recor
 
 const sourceProfileKey = (jurisdictionType: Exclude<JurisdictionType, "county">, jurisdiction: string) => `${jurisdictionType}:${jurisdiction}`;
 
+const automatedResearch = (
+  id: string,
+  jurisdictionType: Exclude<JurisdictionType, "county">,
+  recordFamilies: readonly string[],
+  availableFields: readonly string[],
+  manualSteps = AUTOMATED_SOURCE_REVIEW_STEPS,
+): AutomatedSourceDirectoryResearch => ({
+  id,
+  jurisdictionType,
+  recordFamilies,
+  availableFields,
+  manualSteps,
+  checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
+});
+
+const AUTOMATED_JURISDICTION_RESEARCH: Readonly<Record<string, AutomatedSourceDirectoryResearch>> = {
+  [sourceProfileKey("town", "Oyster Bay")]: automatedResearch(
+    "nassau-town-oyster-bay-records",
+    "town",
+    ["Zoning appeals", "Public hearings", "Meeting documents"],
+    ["Hearing date", "Appeal number", "Applicant", "Locality", "Address", "Requested relief", "Tax section, block and lot", "Zone", "Official document page and checksum"],
+  ),
+  [sourceProfileKey("village", "Garden City")]: automatedResearch(
+    "nassau-village-garden-city-records",
+    "village",
+    ["Zoning appeals", "Meeting documents"],
+    ["Meeting date", "Building application number", "Applicant", "Address", "Proposed work", "Agenda", "Minutes"],
+  ),
+  [sourceProfileKey("village", "Hempstead")]: automatedResearch(
+    "nassau-village-hempstead-records",
+    "village",
+    ["Planning applications", "Meeting documents"],
+    ["Meeting date", "Case number", "Address", "Proposed work", "Tax parcel", "Agenda", "Minutes"],
+  ),
+};
+
 const PUBLIC_SOURCE_PROFILES: Record<string, SourceProfile> = {
   [sourceProfileKey("city", "Glen Cove")]: publicMeetings("Glen Cove Planning Board", "City of Glen Cove Planning Board", "https://glencoveny.gov/planning-board", ["Planning applications", "Planning Board meetings"], ["Meeting date", "Agenda", "Applicant", "Application or affidavit link"], "Planning Board agendas, applications and affidavits published by the city."),
   [sourceProfileKey("city", "Long Beach")]: publicMeetings("Long Beach Planning Board", "City of Long Beach Planning Board", "https://www.longbeachny.gov/planning", ["Planning applications", "Site plans", "Subdivisions", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Application type", "Published address"], "Planning Board and Architectural Review Board agendas, minutes and linked meeting files."),
   [sourceProfileKey("village", "Floral Park")]: publicMeetings("Floral Park Board of Trustees minutes", "Incorporated Village of Floral Park", "https://floralparkny.gov/board-of-trustees-meeting-minutes/", ["Board of Trustees minutes", "Building Department project updates", "Building permits", "Zoning applications"], ["Meeting date", "Street address", "Project or proposed work", "Published construction status", "Permit or application status", "Board review", "Next step"], "Board minutes with a Building Department report that names properties, construction work, permits, zoning applications and next board steps."),
   [sourceProfileKey("town", "Hempstead")]: publicMeetings("Hempstead Agenda Center", "Town of Hempstead", "https://hempsteadny.gov/AgendaCenter", ["Town Board matters", "Building and zoning matters", "Meeting documents"], ["Meeting date", "Agenda", "Resolution", "Published permit or application number", "Published address"], "Town agendas and packets that may name building permits, zoning matters and site addresses."),
-  [sourceProfileKey("village", "Hempstead")]: {...publicMeetings("Hempstead Village Planning Board records", "Village of Hempstead Planning Board", "https://www.villageofhempstead.org/AgendaCenter/Planning-Board-3", ["Planning applications", "Meeting documents"], ["Meeting date", "Case number", "Address", "Proposed work", "Tax parcel", "Agenda", "Minutes"], "Planning Board agendas and minutes published through CivicPlus Agenda Center."), manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS},
-  [sourceProfileKey("town", "Oyster Bay")]: {
-    name: "Oyster Bay Zoning Board hearing calendars",
-    officialAgency: "Town of Oyster Bay Zoning Board of Appeals",
-    recordFamilies: ["Zoning appeals", "Public hearings", "Meeting documents"],
-    availableFields: ["Hearing date", "Appeal number", "Applicant", "Locality", "Address", "Requested relief", "Tax section, block and lot", "Zone", "Official document page and checksum"],
-    accessMode: "automated",
-    collectionState: "collectable",
-    manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS,
-    limits: "Vision checks up to 26 linked current-year Zoning Board hearing calendars, 20 pages per PDF and 500 appeals. Planning Advisory Board files, decisions, permits, project value and map coordinates are excluded.",
-    coverage: "Current-year Town of Oyster Bay Zoning Board of Appeals public hearing calendars with text-readable appeal details.",
-    url: "https://oysterbaytown.com/calendars/zoning-board-of-appeals/",
-  },
   [sourceProfileKey("village", "Freeport")]: publicMeetings("Freeport Zoning Board files", "Village of Freeport Zoning Board of Appeals", "https://www.freeportny.gov/999/Zoning-Board-AgendasMinutes-2026", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Calendar", "Application", "Transcript", "Minutes"], "Zoning Board calendars, applications, transcripts and minutes."),
-  [sourceProfileKey("village", "Garden City")]: {...publicMeetings("Garden City Zoning Board records", "Village of Garden City Zoning Board of Appeals", "https://www.gardencityny.net/AgendaCenter/Zoning-Board-of-Appeals-9", ["Zoning appeals", "Meeting documents"], ["Meeting date", "Building application number", "Applicant", "Address", "Proposed work", "Agenda", "Minutes"], "Zoning Board of Appeals agendas and minutes published through CivicPlus Agenda Center."), manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS},
   [sourceProfileKey("village", "Great Neck Plaza")]: publicMeetings("Great Neck Plaza board records", "Village of Great Neck Plaza", "https://www.greatneckplaza.net/", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda or notice", "Application detail", "Minutes"], "Planning, zoning and board records published by the village."),
   [sourceProfileKey("village", "Baxter Estates")]: publicMeetings("Baxter Estates public notices", "Village of Baxter Estates", "https://www.baxterestates.org/", ["Planning notices", "Zoning notices", "Public hearings"], ["Notice date", "Hearing date", "Board", "Published matter or address"], "Public notices published by the village."),
   [sourceProfileKey("village", "Bayville")]: publicMeetings("Bayville meeting agendas and minutes", "Village of Bayville", "https://bayvilleny.gov/about-us/meeting-agendas-meeting-minutes", ["Planning applications", "Zoning appeals", "Meeting documents"], ["Meeting date", "Agenda", "Minutes", "Case number", "Published address and tax lot"], "Planning Board, Zoning Board and Board of Trustees agendas and minutes."),
@@ -245,8 +266,11 @@ function noPublicFeedSource(item: NassauJurisdiction): MunicipalSource {
   };
 }
 
-const JURISDICTION_SOURCES: MunicipalSource[] = NASSAU_AUTHORITATIVE_JURISDICTIONS.map(item => {
-  const profile = PUBLIC_SOURCE_PROFILES[sourceProfileKey(item.jurisdictionType, item.jurisdiction)];
+const JURISDICTION_SOURCES: MunicipalSourceInput[] = NASSAU_AUTHORITATIVE_JURISDICTIONS.map(item => {
+  const key = sourceProfileKey(item.jurisdictionType, item.jurisdiction);
+  const automated = AUTOMATED_JURISDICTION_RESEARCH[key];
+  if (automated) return automated;
+  const profile = PUBLIC_SOURCE_PROFILES[key];
   if (profile) {
     return {
       id: `nassau-${item.jurisdictionType}-${slug(item.jurisdiction)}-records`,
@@ -261,7 +285,7 @@ const JURISDICTION_SOURCES: MunicipalSource[] = NASSAU_AUTHORITATIVE_JURISDICTIO
   return noPublicFeedSource(item);
 });
 
-const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
+const ACCOUNT_PORTAL_SOURCES: MunicipalSourceInput[] = [
   {
     id: "hempstead-online-permit-center",
     name: "Hempstead Online Permit Center",
@@ -365,18 +389,11 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
-    ...HEMPSTEAD_SMARTGOV_SOURCE,
     id: "hempstead-village-smartgov",
-    jurisdiction: "Hempstead",
     jurisdictionType: "village",
-    county: "Nassau",
-    officialAgency: "Village of Hempstead Building Department",
     recordFamilies: ["Building permits", "Permit applications"],
     availableFields: ["Record number", "Portal record ID", "Permit type", "Published status and status date", "Site address", "Public detail fields", "Published map coordinates"],
-    accessMode: "automated",
-    collectionState: "collectable",
     manualSteps: "Review the public SmartGov record before saving or linking an opportunity.",
-    limits: HEMPSTEAD_SMARTGOV_SOURCE.coverage,
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
   {
@@ -398,22 +415,13 @@ const ACCOUNT_PORTAL_SOURCES: MunicipalSource[] = [
   },
 ];
 
-const ADDITIONAL_PUBLIC_SOURCES: MunicipalSource[] = [{
+const ADDITIONAL_PUBLIC_SOURCES: MunicipalSourceInput[] = [{
   id: "nassau-village-hempstead-zoning-records",
-  name: "Hempstead Village Zoning Board records",
-  jurisdiction: "Hempstead",
   jurisdictionType: "village",
-  county: "Nassau",
-  officialAgency: "Village of Hempstead Board of Zoning Appeals",
   recordFamilies: ["Zoning appeals", "Meeting documents"],
   availableFields: ["Meeting date", "Case number", "Applicant", "Address", "Proposed work", "Tax parcel", "Agenda", "Minutes"],
-  accessMode: "public-online",
-  collectionState: "manual",
   manualSteps: AUTOMATED_SOURCE_REVIEW_STEPS,
-  limits: "Published files may omit a reliable case number or use a format that Vision cannot read. Board records do not prove permit approval or construction status.",
-  coverage: "Board of Zoning Appeals agendas and minutes published through CivicPlus Agenda Center.",
-  url: "https://www.villageofhempstead.org/AgendaCenter/Zoning-Board-of-Appeals-5",
   checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
 }];
 
-export const NASSAU_MUNICIPAL_SOURCES: MunicipalSource[] = [...JURISDICTION_SOURCES, ...ADDITIONAL_PUBLIC_SOURCES, ...ACCOUNT_PORTAL_SOURCES];
+export const NASSAU_MUNICIPAL_SOURCE_INPUTS: MunicipalSourceInput[] = [...JURISDICTION_SOURCES, ...ADDITIONAL_PUBLIC_SOURCES, ...ACCOUNT_PORTAL_SOURCES];

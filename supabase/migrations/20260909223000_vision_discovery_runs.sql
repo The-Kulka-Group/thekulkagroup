@@ -30,6 +30,7 @@ alter table vision_discovery_runs enable row level security;
 create function reject_vision_discovery_run_changes()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   raise exception 'Vision discovery runs are immutable';

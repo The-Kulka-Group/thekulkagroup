@@ -80,6 +80,7 @@
      400 reads, 600 acts (buttons, labels, chips), 700 heads sections,
      800 is the Kulka voice: wordmark and sheet titles only. */
   --family: var(--font-open-sans), "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif;
+  --family-mono: "SF Mono", "Cascadia Code", ui-monospace, monospace;
 
   /* One scale, seven steps, each with its own line-height and tracking.
      Set 2026-08-26 after a gauntlet critic counted thirteen ad-hoc sizes

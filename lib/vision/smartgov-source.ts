@@ -279,6 +279,7 @@ export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, ex
   const bounded = records.slice(0, source.limits.maxRecords);
   if (new Set(bounded.map(record => record.externalId)).size !== bounded.length || new Set(bounded.map(record => record.sourceCaseId)).size !== bounded.length) throw new Error("The SmartGov search repeated a record identity. Earlier source records remain available.");
   const output = new Array<DiscoveredRecord>(bounded.length);
+  let rejected = 0;
   let next = 0;
   await Promise.all(Array.from({length: Math.min(DETAIL_WORKERS, bounded.length)}, async () => {
     for (;;) {
@@ -286,11 +287,18 @@ export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, ex
       if (index >= bounded.length) return;
       const listed = bounded[index];
       const previous = existingRecords.get(listed.externalId);
-      if (previous && sameListFacts(previous, listed)) { output[index] = previous; reportProgress?.({coverage: null, fetched: records.length, rejected: 0}); continue; }
-      const detail = await request(source, listed.sourceUrl, deadline, budget, {headers: {Accept: "text/html", ...(session ? {Cookie: session} : {})}});
-      output[index] = parseSmartGovDetail(detail.body, listed);
-      reportProgress?.({coverage: null, fetched: records.length, rejected: 0});
+      if (previous && sameListFacts(previous, listed)) {
+        output[index] = previous;
+      } else {
+        try {
+          const detail = await request(source, listed.sourceUrl, deadline, budget, {headers: {Accept: "text/html", ...(session ? {Cookie: session} : {})}});
+          output[index] = parseSmartGovDetail(detail.body, listed);
+        } catch {
+          rejected++;
+        }
+      }
+      reportProgress?.({coverage: null, fetched: records.length, rejected});
     }
   }));
-  return output;
+  return output.filter((record): record is DiscoveredRecord => Boolean(record));
 }

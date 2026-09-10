@@ -6,6 +6,8 @@ export type AutomatedSourceCoverage = { year: number; documents: string[] } | nu
 export type SourceCollectionResult = {
   records: DiscoveredRecord[];
   coverage: AutomatedSourceCoverage;
+  fetched: number;
+  rejected: number;
 };
 
 export type SourceCollectionProgress = {
@@ -65,7 +67,8 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
   "arcgis-feature-layers": {
     async collect() {
       const { fetchDiscoveryRecords } = await import("./discovery-source");
-      return { records: await fetchDiscoveryRecords(), coverage: null };
+      const records = await fetchDiscoveryRecords();
+      return {records, coverage: null, fetched: records.length, rejected: 0};
     },
   },
   "suffolk-planning-documents": {
@@ -79,19 +82,23 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
           year: Number(records[0]?.details["Collection year"] || fallbackYear),
           documents: [...new Set(records.flatMap(record => record.evidence?.map(page => page.url.split("#")[0]) ?? []))].sort(),
         },
+        fetched: records.length,
+        rejected: 0,
       };
     },
   },
   "nassau-ida-project-table": {
     async collect() {
       const { fetchNassauIdaRecords } = await import("./ida-source");
-      return { records: await fetchNassauIdaRecords(), coverage: null };
+      const records = await fetchNassauIdaRecords();
+      return {records, coverage: null, fetched: records.length, rejected: 0};
     },
   },
   "suffolk-ida-resource-index": {
     async collect() {
       const { fetchSuffolkIdaRecords } = await import("./ida-source");
-      return { records: await fetchSuffolkIdaRecords(), coverage: null };
+      const records = await fetchSuffolkIdaRecords();
+      return {records, coverage: null, fetched: records.length, rejected: 0};
     },
   },
   "oyster-bay-zba-documents": {
@@ -109,7 +116,12 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
   "smartgov-public-permits": {
     async collect(source, context) {
       const { fetchSmartGovRecords } = await import("./smartgov-source");
-      return { records: await fetchSmartGovRecords(source, context?.existingRecords, new Date(), context?.reportProgress), coverage: null };
+      let progress: SourceCollectionProgress = {coverage: null, fetched: 0, rejected: 0};
+      const records = await fetchSmartGovRecords(source, context?.existingRecords, new Date(), value => {
+        progress = value;
+        context?.reportProgress?.(value);
+      });
+      return {records, coverage: null, fetched: Math.max(progress.fetched, records.length), rejected: progress.rejected};
     },
   },
 };

@@ -88,7 +88,7 @@ async function collectDiscoveryAttempt(db:Db,sourceId:string):Promise<DiscoveryR
   try {
     const existing=await db.query<{external_id:string;snapshot:DiscoveredRecord}>("select external_id,snapshot from vision_discovery_candidates where source_id=$1",[sourceId]);
     const existingRecords=new Map(existing.rows.map(row=>[row.external_id,row.snapshot]));
-    const collected=await collectAutomatedSource(sourceId,{existingRecords,reportProgress:progress=>{coverage=progress.coverage;fetched=progress.fetched;rejected=progress.rejected;}});fetched=Array.isArray(collected.records)?collected.records.length:0;coverage=collected.coverage;
+    const collected=await collectAutomatedSource(sourceId,{existingRecords,reportProgress:progress=>{coverage=progress.coverage;fetched=progress.fetched;rejected=progress.rejected;}});fetched=collected.fetched??(Array.isArray(collected.records)?collected.records.length:0);rejected=collected.rejected??0;coverage=collected.coverage;
     if(Array.isArray(collected.records)){const dates=coverageDates(collected.records);coverageStart=dates.start;coverageEnd=dates.end;}
     validateRecords(collected.records,source.limits.maxRecords);
     const records=collected.records,outcome:DiscoveryRunOutcome=records.length?"completed":"completed_empty";
@@ -111,11 +111,11 @@ async function collectDiscoveryAttempt(db:Db,sourceId:string):Promise<DiscoveryR
       select count(*) filter(where change='inserted')::integer as inserted_count,count(*) filter(where change='updated')::integer as updated_count,count(*) filter(where change='unchanged')::integer as unchanged_count from classified
     ), run as (
       insert into vision_discovery_runs(source_id,started_at,duration_ms,outcome,coverage,coverage_start_date,coverage_end_date,fetched_count,inserted_count,updated_count,unchanged_count,rejected_count)
-      select owned.id,$6::timestamptz,greatest(0,floor(extract(epoch from (clock_timestamp()-$6::timestamptz))*1000))::integer,$9,$5::jsonb,$7::date,$8::date,$3,counts.inserted_count,counts.updated_count,counts.unchanged_count,0 from owned cross join counts
-    ) select counts.* from owned cross join counts`,[sourceId,token,records.length,JSON.stringify(records),JSON.stringify(coverage),startedAt,coverageStart,coverageEnd,outcome]);
+      select owned.id,$6::timestamptz,greatest(0,floor(extract(epoch from (clock_timestamp()-$6::timestamptz))*1000))::integer,$9,$5::jsonb,$7::date,$8::date,$11,counts.inserted_count,counts.updated_count,counts.unchanged_count,$10 from owned cross join counts
+    ) select counts.* from owned cross join counts`,[sourceId,token,records.length,JSON.stringify(records),JSON.stringify(coverage),startedAt,coverageStart,coverageEnd,outcome,rejected,fetched]);
     if(!result.rows.length)throw new DiscoveryConflict("The source check expired. Start a new check.");
     const counts=result.rows[0];
-    return {sourceId,outcome,count:records.length,coverage,fetched,inserted:counts.inserted_count,updated:counts.updated_count,unchanged:counts.unchanged_count,rejected:0,error:null};
+    return {sourceId,outcome,count:records.length,coverage,fetched,inserted:counts.inserted_count,updated:counts.updated_count,unchanged:counts.unchanged_count,rejected,error:null};
   } catch(error) {
     if(error instanceof DiscoveryConflict){
       await recordRun(db,{sourceId,startedAt,durationMs:elapsed(started),outcome:"blocked",coverage:null,coverageStart:null,coverageEnd:null,fetched,inserted:0,updated:0,unchanged:0,rejected:0,error:null});

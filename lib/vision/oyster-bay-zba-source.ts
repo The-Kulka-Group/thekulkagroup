@@ -246,5 +246,5 @@ export async function fetchOysterBayZbaRecords(source: AutomatedSourceDefinition
     row.details["Collection year"] = String(year);
     row.details["Documents checked"] = String(documents.length);
   }
-  return {records, coverage: {year, documents: checkedDocuments.filter(Boolean).sort()}};
+  return {records, coverage: {year, documents: checkedDocuments.filter(Boolean).sort()}, fetched: records.length, rejected: 0};
 }

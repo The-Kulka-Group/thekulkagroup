@@ -60,6 +60,34 @@ describe("Vision discovery API",()=>{
   expect(stable.candidate).toMatchObject({review_state:"accepted",revision:1});
   expect(stable.history).toHaveLength(1);
  });
+ it("stores valid SmartGov permits with fetched and rejected run counts, then retries the rejected permit",async()=>{
+  const sourceId="hempstead-village-smartgov";
+  const first={...source,externalId:"permit:00000000-0000-4000-8000-000000000001",sourceCaseId:"PERMIT-1",sourceTitle:"Village of Hempstead SmartGov permit search",sourceUrl:"https://vlg-hempstead-ny.smartgovcommunity.com/PermittingPublic/PermitLandingPagePublic/Index/00000000-0000-4000-8000-000000000001"};
+  const recovered={...first,externalId:"permit:00000000-0000-4000-8000-000000000002",sourceCaseId:"PERMIT-2",sourceUrl:"https://vlg-hempstead-ny.smartgovcommunity.com/PermittingPublic/PermitLandingPagePublic/Index/00000000-0000-4000-8000-000000000002"};
+  fetchSmartGov.mockImplementationOnce(async(_definition:unknown,_existing:Map<string,typeof source>,_now:Date,reportProgress:(progress:{coverage:null;fetched:number;rejected:number})=>void)=>{
+   reportProgress({coverage:null,fetched:2,rejected:1});
+   return [first];
+  });
+  const run=()=>refresh.POST(new Request(`http://localhost?source=${sourceId}`,{method:"POST"}));
+
+  const partial=await run();
+  expect(partial.status).toBe(200);
+  expect((await partial.json()).counts).toEqual({fetched:2,inserted:1,updated:0,unchanged:0,rejected:1});
+  expect((await db.query("select external_id from vision_discovery_candidates where source_id=$1 order by external_id",[sourceId])).rows).toEqual([{external_id:first.externalId}]);
+  expect((await db.query("select fetched_count,inserted_count,unchanged_count,rejected_count from vision_discovery_runs where source_id=$1",[sourceId])).rows[0]).toEqual({fetched_count:2,inserted_count:1,unchanged_count:0,rejected_count:1});
+
+  await age();
+  fetchSmartGov.mockImplementationOnce(async(_definition:unknown,existing:Map<string,typeof source>,_now:Date,reportProgress:(progress:{coverage:null;fetched:number;rejected:number})=>void)=>{
+   expect(existing.has(first.externalId)).toBe(true);
+   expect(existing.has(recovered.externalId)).toBe(false);
+   reportProgress({coverage:null,fetched:2,rejected:0});
+   return [first,recovered];
+  });
+  const retried=await run();
+  expect(retried.status).toBe(200);
+  expect((await retried.json()).counts).toEqual({fetched:2,inserted:1,updated:0,unchanged:1,rejected:0});
+  expect((await db.query("select external_id from vision_discovery_candidates where source_id=$1 order by external_id",[sourceId])).rows).toEqual([{external_id:first.externalId},{external_id:recovered.externalId}]);
+ });
  it("collects both IDA sources independently and retains reviews, evidence and history on stable refresh",async()=>{
   const evidence={kind:"index-link",url:"https://suffolkida.org/wp-content/uploads/test.pdf",title:"Index link metadata",page:1,checksum:"a".repeat(64),text:"Synthetic index metadata. PDF contents were not read."};
   fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk",evidence:[evidence]}]);

@@ -418,7 +418,7 @@ export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, o
     }
     const merged = mergeCivicPlusRecords(records);
     if (merged.length > source.limits.maxRecords) throw new Error("The CivicPlus source exceeded its record limit.");
-    return {records: merged, coverage: {year: currentYear, documents: checkedDocuments.sort()}};
+    return {records: merged, coverage: {year: currentYear, documents: checkedDocuments.sort()}, fetched: merged.length, rejected: 0};
   } catch (error) {
     if (!receivedSourceUnit && !checkedDocuments.length && !records.length) throw error;
     throw new SourceCollectionFailure("The CivicPlus check stopped before it read every document.", {

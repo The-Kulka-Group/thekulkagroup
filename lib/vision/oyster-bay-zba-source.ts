@@ -2,19 +2,11 @@ import {createHash} from "node:crypto";
 
 import type {DiscoveredRecord} from "./discovery-source";
 import {readPublicSource} from "./source-fetch";
-
-export const OYSTER_BAY_ZBA_URL = "https://oysterbaytown.com/calendars/zoning-board-of-appeals/";
+import {SourceCollectionFailure, type AutomatedSourceDefinition, type SourceCollectionResult} from "./source-registry";
 
 export type OysterBayZbaDocument = {meetingDate: string; url: string};
 
-const OFFICIAL_ORIGIN = "https://oysterbaytown.com";
-const MAX_DOCUMENTS = 26;
-const MAX_DOCUMENT_BYTES = 2_000_000;
-const MAX_INDEX_BYTES = 1_000_000;
-const MAX_TOTAL_BYTES = 30_000_000;
-const MAX_PAGES = 20;
 const MAX_PAGE_TEXT = 50_000;
-const MAX_RECORDS = 500;
 
 const hash = (value: string | Uint8Array) => createHash("sha256").update(value).digest("hex");
 const clean = (value: string) => value.replace(/[\u0000-\u0008\u000b\u000e-\u001f]/g, "").replace(/[ \t]+/g, " ").trim();
@@ -34,16 +26,16 @@ function dateFromLabel(value: string, expectedYear: number): string | null {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === valueDate ? valueDate : null;
 }
 
-function safeDocumentUrl(raw: string): string {
-  const url = new URL(raw.replace(/&amp;/gi, "&"), OYSTER_BAY_ZBA_URL);
-  if (url.origin !== OFFICIAL_ORIGIN || url.username || url.password || url.port || url.search || !/^\/wp-content\/uploads\/[^/]+\.pdf$/i.test(decodeURIComponent(url.pathname))) {
+function safeDocumentUrl(raw: string, source: AutomatedSourceDefinition): string {
+  const url = new URL(raw.replace(/&amp;/gi, "&"), source.endpoint.url);
+  if (!source.endpoint.allowedOrigins.includes(url.origin) || url.username || url.password || url.port || url.search || !/^\/wp-content\/uploads\/[^/]+\.pdf$/i.test(decodeURIComponent(url.pathname))) {
     throw new Error("The Oyster Bay Zoning Board page linked an unexpected document address.");
   }
   url.hash = "";
   return url.toString();
 }
 
-export function parseOysterBayZbaIndex(html: string, year: number): OysterBayZbaDocument[] {
+export function parseOysterBayZbaIndex(html: string, year: number, source: AutomatedSourceDefinition): OysterBayZbaDocument[] {
   const stripped = html.replace(/<!--[\s\S]*?-->/g, "");
   const heading = new RegExp(`<h2\\b[^>]*>[\\s\\S]*?ZONING BOARD OF APPEALS\\s+${year}\\s+MEETING DATES[\\s\\S]*?<\\/h2>`, "i").exec(stripped);
   if (!heading) throw new Error(`The Oyster Bay Zoning Board page has no ${year} meeting section.`);
@@ -55,14 +47,15 @@ export function parseOysterBayZbaIndex(html: string, year: number): OysterBayZba
     if (!link || !/\.pdf(?:$|[#?])/i.test(link[1])) continue;
     const meetingDate = dateFromLabel(htmlText(link[2]), year);
     if (!meetingDate) throw new Error("The Oyster Bay Zoning Board page has an unreadable hearing date.");
-    documents.push({meetingDate, url: safeDocumentUrl(link[1])});
+    documents.push({meetingDate, url: safeDocumentUrl(link[1], source)});
   }
   const unique = [...new Map(documents.map(document => [document.url, document])).values()].sort((left, right) => left.meetingDate.localeCompare(right.meetingDate) || left.url.localeCompare(right.url));
-  if (!unique.length || unique.length > MAX_DOCUMENTS) throw new Error("The Oyster Bay Zoning Board document list is empty or exceeds the 26-document limit. Earlier finds have been kept.");
+  if (!unique.length) throw new Error("The Oyster Bay Zoning Board document list is empty. Earlier source records remain available.");
+  if (unique.length > (source.limits.maxDocuments ?? 0)) throw new Error("The Oyster Bay Zoning Board document list exceeds its reviewed document limit. Earlier source records remain available.");
   return unique;
 }
 
-export async function extractOysterBayZbaPages(bytes: Uint8Array, signal?: AbortSignal): Promise<string[]> {
+export async function extractOysterBayZbaPages(bytes: Uint8Array, maxPages: number, signal?: AbortSignal): Promise<string[]> {
   const {getDocument} = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const task = getDocument({data: bytes, useSystemFonts: true, disableFontFace: true, verbosity: 0});
   const abort = () => { void task.destroy(); };
@@ -70,7 +63,7 @@ export async function extractOysterBayZbaPages(bytes: Uint8Array, signal?: Abort
   signal?.addEventListener("abort", abort, {once: true});
   try {
     const pdf = await task.promise;
-    if (!pdf.numPages || pdf.numPages > MAX_PAGES) throw new Error("An Oyster Bay Zoning Board PDF exceeds the 20-page limit.");
+    if (!pdf.numPages || pdf.numPages > maxPages) throw new Error("An Oyster Bay Zoning Board PDF exceeds its reviewed page limit.");
     const pages: string[] = [];
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       signal?.throwIfAborted();
@@ -95,7 +88,7 @@ export async function extractOysterBayZbaPages(bytes: Uint8Array, signal?: Abort
       pages.push(text);
       page.cleanup();
     }
-    if (pages.join("").trim().length < 80) throw new Error("An Oyster Bay Zoning Board PDF has no usable embedded text. Earlier finds have been kept.");
+    if (pages.join("").trim().length < 80) throw new Error("An Oyster Bay Zoning Board PDF has no usable embedded text. Earlier source records remain available.");
     return pages;
   } finally {
     signal?.removeEventListener("abort", abort);
@@ -121,17 +114,17 @@ function detail(block: string, pattern: RegExp): string {
   return clean(pattern.exec(block)?.[1] ?? "");
 }
 
-export function parseOysterBayZbaDocument(document: OysterBayZbaDocument, pages: string[], checksum: string): DiscoveredRecord[] {
-  if (!pages.length || pages.length > MAX_PAGES || pages.some(page => page.length > MAX_PAGE_TEXT)) throw new Error("The Oyster Bay Zoning Board document exceeds its page or text limit.");
+export function parseOysterBayZbaDocument(document: OysterBayZbaDocument, pages: string[], checksum: string, source: AutomatedSourceDefinition): DiscoveredRecord[] {
+  if (!pages.length || pages.length > (source.limits.maxPages ?? 0) || pages.some(page => page.length > MAX_PAGE_TEXT)) throw new Error("The Oyster Bay Zoning Board document exceeds its page or text limit.");
   const joined = joinedPages(pages);
-  if (!/PUBLIC HEARING CALENDAR/i.test(joined.text) || !/ZONING BOARD OF APPEALS/i.test(joined.text)) throw new Error("The Oyster Bay Zoning Board document has an unexpected appeal structure. Earlier finds have been kept.");
+  if (!/PUBLIC HEARING CALENDAR/i.test(joined.text) || !/ZONING BOARD OF APPEALS/i.test(joined.text)) throw new Error("The Oyster Bay Zoning Board document has an unexpected appeal structure. Earlier source records remain available.");
   const dateText = joined.text.match(/\bon\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/i)?.[0].replace(/^on\s+/i, "") ?? "";
   if (dateFromLabel(dateText, Number(document.meetingDate.slice(0, 4))) !== document.meetingDate) throw new Error("The Oyster Bay Zoning Board document date does not match its index date.");
 
   const pattern = /\bHEARING\s+NO\.?\s*(\d+)\s+APPEAL\s+NO\.?\s*([0-9]{2,4}-[A-Z0-9-]+)(?:\s+-\s+(AMENDMENT|RE-HEARING|EXTENSION OF TIME))?[ \t]+([A-Z][A-Z .'-]{1,80})(?=\n)/gi;
   const matches = [...joined.text.matchAll(pattern)];
   const hearingCount = [...joined.text.matchAll(/\bHEARING\s+NO\.?\s*\d+/gi)].length;
-  if (!matches.length || matches.length !== hearingCount) throw new Error(`The Oyster Bay Zoning Board document has an unreadable appeal structure (${matches.length} of ${hearingCount}). Earlier finds have been kept.`);
+  if (!matches.length || matches.length !== hearingCount) throw new Error(`The Oyster Bay Zoning Board document has an unreadable appeal structure (${matches.length} of ${hearingCount}). Earlier source records remain available.`);
 
   return matches.map((match, index) => {
     const start = match.index!;
@@ -142,13 +135,13 @@ export function parseOysterBayZbaDocument(document: OysterBayZbaDocument, pages:
     const qualifier = clean(match[3] ?? "");
     const locality = titleCase(match[4]);
     const applicantLine = /(?:^|\n)([^\n:]{1,160}):\s*/m.exec(block);
-    if (!applicantLine) throw new Error("The Oyster Bay Zoning Board document has an unreadable appeal structure. Earlier finds have been kept.");
+    if (!applicantLine) throw new Error("The Oyster Bay Zoning Board document has an unreadable appeal structure. Earlier source records remain available.");
     const applicant = titleCase(applicantLine[1]);
     const afterApplicant = applicantLine.index + applicantLine[0].length;
     const addressLine = /(?:^|\n)([^\n]*?\ba\/k\/a\s+([^\n]+))/im.exec(block.slice(afterApplicant));
     const reliefEnd = addressLine ? afterApplicant + addressLine.index : block.length;
     const relief = clean(block.slice(afterApplicant, reliefEnd).replace(/\n/g, " "));
-    if (!relief) throw new Error("The Oyster Bay Zoning Board document has an unreadable appeal structure. Earlier finds have been kept.");
+    if (!relief) throw new Error("The Oyster Bay Zoning Board document has an unreadable appeal structure. Earlier source records remain available.");
     const publishedLocation = clean(addressLine?.[1] ?? "");
     const address = clean(addressLine?.[2] ?? "");
     const details: Record<string, string> = {
@@ -181,11 +174,11 @@ export function parseOysterBayZbaDocument(document: OysterBayZbaDocument, pages:
       externalId: `town-of-oyster-bay:appeal:${appealNumber.toLowerCase()}`,
       name: applicant ? `${applicant}: Appeal ${appealNumber}` : `Appeal ${appealNumber}`,
       town: locality,
-      county: "Nassau",
+      county: source.county,
       address,
       latitude: null,
       longitude: null,
-      sourceTitle: "Town of Oyster Bay Zoning Board of Appeals",
+      sourceTitle: source.officialAgency,
       sourceUrl: document.url,
       sourceDate: document.meetingDate,
       sourceDateLabel: "Hearing date",
@@ -198,7 +191,7 @@ export function parseOysterBayZbaDocument(document: OysterBayZbaDocument, pages:
   });
 }
 
-export function mergeOysterBayAppeals(records: DiscoveredRecord[]): DiscoveredRecord[] {
+export function mergeOysterBayAppeals(records: DiscoveredRecord[], source: AutomatedSourceDefinition): DiscoveredRecord[] {
   const grouped = new Map<string, DiscoveredRecord>();
   const dates = new Map<string, Set<string>>();
   for (const row of [...records].sort((left, right) => (right.sourceDate ?? "").localeCompare(left.sourceDate ?? "") || left.sourceUrl.localeCompare(right.sourceUrl))) {
@@ -214,54 +207,67 @@ export function mergeOysterBayAppeals(records: DiscoveredRecord[]): DiscoveredRe
   }
   for (const [externalId, row] of grouped) {
     row.evidence = [...new Map((row.evidence ?? []).map(item => [`${item.url}:${item.checksum}:${item.page}`, item])).values()].sort((left, right) => left.url.localeCompare(right.url) || left.page - right.page || left.checksum.localeCompare(right.checksum));
-    if (row.evidence.length > MAX_DOCUMENTS * MAX_PAGES) throw new Error("An Oyster Bay appeal exceeds the evidence limit.");
+    if (row.evidence.length > (source.limits.maxDocuments ?? 0) * (source.limits.maxPages ?? 0)) throw new Error("An Oyster Bay appeal exceeds the evidence limit.");
     row.details["Hearing dates"] = [...dates.get(externalId)!].sort().join(", ");
     row.details["Evidence pages"] = String(row.evidence.length);
   }
   const merged = [...grouped.values()].sort((left, right) => left.externalId.localeCompare(right.externalId));
-  if (merged.length > MAX_RECORDS) throw new Error("The Oyster Bay Zoning Board source exceeds the 500-record limit. Earlier finds have been kept.");
+  if (merged.length > source.limits.maxRecords) throw new Error("The Oyster Bay Zoning Board source exceeds its reviewed record limit. Earlier source records remain available.");
   return merged;
 }
 
-function read(url: string, maxBytes: number, deadline: AbortSignal, kind: "html" | "pdf") {
-  return readPublicSource(url, maxBytes, deadline, {
+function read(source: AutomatedSourceDefinition, url: string, deadline: AbortSignal, kind: "html" | "pdf") {
+  const parsed = new URL(url);
+  if (!source.endpoint.allowedOrigins.includes(parsed.origin) || parsed.username || parsed.password) throw new Error("The Oyster Bay request was outside its fixed origin.");
+  return readPublicSource(url, source.limits.maxResponseBytes, deadline, {
     accept: kind === "html" ? "text/html" : "application/pdf",
     contentTypes: kind === "html" ? ["text/html"] : ["application/pdf"],
   });
 }
 
-export async function fetchOysterBayZbaRecords(): Promise<DiscoveredRecord[]> {
+export async function fetchOysterBayZbaRecords(source: AutomatedSourceDefinition): Promise<SourceCollectionResult> {
   const controller = new AbortController();
-  const deadline = AbortSignal.any([controller.signal, AbortSignal.timeout(120_000)]);
+  const deadline = AbortSignal.any([controller.signal, AbortSignal.timeout(source.limits.maxDurationMs)]);
   const year = Number(new Intl.DateTimeFormat("en", {timeZone: "America/New_York", year: "numeric"}).format(new Date()));
-  const htmlBytes = await read(OYSTER_BAY_ZBA_URL, MAX_INDEX_BYTES, deadline, "html");
-  const documents = parseOysterBayZbaIndex(new TextDecoder().decode(htmlBytes), year);
+  const htmlBytes = await read(source, source.endpoint.url, deadline, "html");
+  const documents = parseOysterBayZbaIndex(new TextDecoder().decode(htmlBytes), year, source);
+  if (documents.length + 1 > source.limits.maxRequests) throw new Error("The Oyster Bay Zoning Board source exceeds its reviewed request limit.");
   let next = 0;
   let totalBytes = htmlBytes.length;
   const batches: DiscoveredRecord[][] = [];
-  await Promise.all(Array.from({length: 3}, async () => {
+  const checkedDocuments: string[] = [];
+  try {
+    await Promise.all(Array.from({length: Math.min(3, documents.length)}, async () => {
     try {
       for (;;) {
         const index = next++;
         if (index >= documents.length) return;
         deadline.throwIfAborted();
         const document = documents[index];
-        const bytes = await read(document.url, MAX_DOCUMENT_BYTES, deadline, "pdf");
+        const bytes = await read(source, document.url, deadline, "pdf");
         totalBytes += bytes.length;
-        if (totalBytes > MAX_TOTAL_BYTES) throw new Error("The Oyster Bay Zoning Board scan exceeded the total download limit. Earlier finds have been kept.");
-        if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("The Oyster Bay Zoning Board source returned a non-PDF document. Earlier finds have been kept.");
-        const pages = await extractOysterBayZbaPages(bytes, deadline);
-        batches[index] = parseOysterBayZbaDocument(document, pages, hash(bytes));
+        if (totalBytes > (source.limits.maxTotalResponseBytes ?? source.limits.maxResponseBytes)) throw new Error("The Oyster Bay Zoning Board scan exceeded the total download limit. Earlier source records remain available.");
+        if (new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") throw new Error("The Oyster Bay Zoning Board source returned a non-PDF document. Earlier source records remain available.");
+        const pages = await extractOysterBayZbaPages(bytes, source.limits.maxPages ?? 0, deadline);
+        batches[index] = parseOysterBayZbaDocument(document, pages, hash(bytes), source);
+        checkedDocuments[index] = document.url;
       }
     } catch (error) {
       controller.abort(error);
       throw error;
     }
-  }));
-  const records = mergeOysterBayAppeals(batches.flat());
+    }));
+  } catch (error) {
+    throw new SourceCollectionFailure("The Oyster Bay Zoning Board check stopped before it read every document.", {
+      coverage: {year, documents: checkedDocuments.filter(Boolean).sort()},
+      fetched: batches.flat().length,
+      rejected: 1,
+    }, {cause: error});
+  }
+  const records = mergeOysterBayAppeals(batches.flat(), source);
   for (const row of records) {
     row.details["Collection year"] = String(year);
     row.details["Documents checked"] = String(documents.length);
   }
-  return records;
+  return {records, coverage: {year, documents: checkedDocuments.filter(Boolean).sort()}};
 }

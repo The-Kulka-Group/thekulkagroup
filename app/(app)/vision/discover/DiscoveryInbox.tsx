@@ -16,6 +16,12 @@ function when(value:string|null) {return value?new Date(value).toLocaleString():
 const REVIEW_STATES = {new:{label:"Needs review",Glyph:Clock},accepted:{label:"Saved to Vision",Glyph:Check},dismissed:{label:"Dismissed",Glyph:MinusCircle}};
 const RUN_OUTCOMES={completed:"Completed",completed_empty:"Completed with no records",skipped:"Skipped",blocked:"Blocked",failed:"Failed"} as const;
 function ReviewState({state}:{state:DiscoveryCandidate["review_state"]}) {const {label,Glyph}=REVIEW_STATES[state];return <span className={`status-block discovery-state discovery-state--${state}`}><Glyph size={14} aria-hidden="true" />{label}</span>;}
+function sourceCheckMessage(result:SourceCheckResult) {
+  if(result.status==="running")return "Checking this source…";
+  if(result.status==="success")return result.outcome==="completed_empty"?"The check completed with no records. Earlier source records remain available.":`The check returned ${result.count} records. Existing review choices stay unchanged.`;
+  if(result.outcome==="skipped")return "The source check was skipped.";
+  return result.error;
+}
 const EMPTY_FILTERS={applicationType:"",location:"",dateMode:"all",from:"",to:""};
 export function DiscoveryInbox({initialRecord,initialSources}:{initialRecord?:string;initialSources:string[]}) {
   const {selected,change,pending,error:selectionError}=useSourceSelection(initialSources);
@@ -54,10 +60,10 @@ export function DiscoveryInbox({initialRecord,initialSources}:{initialRecord?:st
   },[initialRecord]);
   useEffect(()=>{if(detail?.candidate.id)document.getElementById("vision-source-record")?.scrollIntoView({block:"start"});},[detail?.candidate.id]);
   function showRun(result:{sourceId:string;outcome:keyof typeof RUN_OUTCOMES;count:number;error:string|null}){
-    setChecks(current=>({...current,[result.sourceId]:result.outcome==="completed"||result.outcome==="completed_empty"?{status:"success",count:result.count}:{status:"error",error:result.error??RUN_OUTCOMES[result.outcome]}}));
+    setChecks(current=>({...current,[result.sourceId]:result.outcome==="completed"||result.outcome==="completed_empty"?{status:"success",count:result.count,outcome:result.outcome}:{status:"error",error:result.error??RUN_OUTCOMES[result.outcome],outcome:result.outcome}}));
   }
   async function refreshAll(){
-    setBusy(true);setError("");setNotice("");setChecks({});
+    setBusy(true);setError("");setNotice("");setChecks(Object.fromEntries(DISCOVERY_SOURCES.map(source=>[source.id,{status:"running" as const}])));
     try {const result=await api("/refresh?source=all",{});for(const run of result.results)showRun(run);setNotice("The enabled source checks finished with separate results.");await load();}
     catch(cause){setError((cause as Error).message);}
     finally {setBusy(false);}
@@ -86,7 +92,7 @@ export function DiscoveryInbox({initialRecord,initialSources}:{initialRecord?:st
     <div className="discovery-source-checks">{DISCOVERY_SOURCES.filter(item=>selected.includes(item.id)).map(source=>{
       const status=sources[source.id],result=checks[source.id];
       return <section className="discovery-source-check" key={source.id}><h2><SourceBrand id={source.id} name={source.name}/></h2><p>{source.coverage}</p><div className="vision-source-health"><span className="chip chip--neutral">Daily schedule</span><span className="chip chip--neutral">Latest outcome: {status?.last_outcome?RUN_OUTCOMES[status.last_outcome]:"Not checked"}</span><span className="chip chip--neutral">{status?.record_count??0} records</span></div><div className="vision-inline-actions"><button className="btn btn--primary" type="button" disabled={busy||pending} onClick={()=>void refreshOne(source.id)}>Check this source</button><a className="btn btn--quiet" href={source.url} target="_blank" rel="noopener noreferrer">Open source</a></div><p className="t-meta">Last check: {when(status?.last_checked_at??null)} · Last completed check: {when(status?.last_success_at??null)}</p>
-        {result?<p role={result.status==="error"?"alert":"status"} className={result.status==="error"?"input-error":undefined}>{result.status==="running"?"Checking this source…":result.status==="success"?`The check returned ${result.count} records. Existing review choices stay unchanged.`:result.error}</p>:status?.running?<p role="status">A source check is running. Reload to see its result.</p>:status?.last_error?<p className="input-error">{status.last_error}</p>:null}
+        {result?<p role={result.status==="error"?"alert":"status"} className={result.status==="error"?"input-error":undefined}>{sourceCheckMessage(result)}</p>:status?.running?<p role="status">A source check is running. Reload to see its result.</p>:status?.last_error?<p className="input-error">{status.last_error}</p>:null}
         {sourceErrors[source.id]?<p role="alert" className="input-error">{sourceErrors[source.id]}</p>:null}
         {status?.coverage?<details><summary>Last completed coverage: {status.coverage.documents.length} documents from {status.coverage.year}</summary><ul>{status.coverage.documents.map(url=><li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{decodeURIComponent(url.split("/").pop()||url)}</a></li>)}</ul></details>:null}
       </section>;

@@ -73,7 +73,7 @@ describe("CivicPlus Agenda Center source", () => {
     const [record] = parseCivicPlusDocument(planningSource, agenda, pages, evidenceChecksum);
 
     expect(record).toMatchObject({
-      externalId: "case:3:2026-29",
+      externalId: "case:3:2026-07-20:1174:2026-29",
       sourceCaseId: "2026-29",
       identityStatus: "resolved",
       town: "Hempstead",
@@ -110,7 +110,7 @@ describe("CivicPlus Agenda Center source", () => {
     const [record] = parseCivicPlusDocument(gardenSource, gardenDoc, pages, evidenceChecksum);
 
     expect(record).toMatchObject({
-      externalId: "application:9:2026-180",
+      externalId: "application:9:2026-08-04:597:2026-180",
       sourceCaseId: "2026-180",
       identityStatus: "resolved",
       town: "Garden City",
@@ -127,12 +127,26 @@ describe("CivicPlus Agenda Center source", () => {
     const minutes = parseCivicPlusDocument(planningSource, {...agenda, kind: "Minutes"}, ["CASE 2026-29: 247 Greenwich Street\nPropose: Revised Signage\nSec. 34 Blk. 369 Lot.159"], "c".repeat(64));
     const [record] = mergeCivicPlusRecords([...first, ...revised, ...minutes]);
 
-    expect(record.externalId).toBe("case:3:2026-29");
+    expect(record.externalId).toBe("case:3:2026-07-20:1174:2026-29");
     expect(record.evidence?.map(item => `${item.title}:${item.checksum}`)).toEqual([
       `Agenda: Planning Board Agenda:${"a".repeat(64)}`,
       `Agenda: Planning Board Agenda:${"b".repeat(64)}`,
       `Minutes: Planning Board Agenda:${"c".repeat(64)}`,
     ]);
+  });
+
+  it("keeps a reused case number in separate meeting records", () => {
+    const first = parseCivicPlusDocument(planningSource, agenda, ["CASE 2026-29: 247 Greenwich Street\nPropose: New Signage"], "a".repeat(64));
+    const laterDocument = {...agenda, meetingDate: "2026-08-17", meetingId: 1201, url: "https://www.villageofhempstead.org/AgendaCenter/ViewFile/Agenda/_08172026-1201"};
+    const later = parseCivicPlusDocument(planningSource, laterDocument, ["CASE 2026-29: 12 Main Street\nPropose: New Apartments"], "b".repeat(64));
+    const records = mergeCivicPlusRecords([...first, ...later]);
+
+    expect(records).toHaveLength(2);
+    expect(records.map(record => record.externalId)).toEqual([
+      "case:3:2026-07-20:1174:2026-29",
+      "case:3:2026-08-17:1201:2026-29",
+    ]);
+    expect(records.map(record => record.address)).toEqual(["247 Greenwich Street", "12 Main Street"]);
   });
 
   it("collects PDF facts and leaves a public non-PDF meeting document unresolved", async () => {

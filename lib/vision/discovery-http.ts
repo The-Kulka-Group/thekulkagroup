@@ -13,5 +13,5 @@ export function collectionTarget(request:Request, defaultTarget?:string) {
 
 export async function runCollection(sourceId?:string) {
   try {return NextResponse.json(sourceId==="all" ? await collectAllDiscovery(getDb()) : await collectDiscovery(getDb(),sourceId));}
-  catch(error) {return NextResponse.json({error:error instanceof DiscoveryConflict || error instanceof InvalidVisionInput?error.message:"The source check failed. Saved records remain available. Try again later."},{status:error instanceof DiscoveryConflict?409:error instanceof InvalidVisionInput?400:502});}
+  catch(error) {return NextResponse.json({error:error instanceof DiscoveryConflict || error instanceof InvalidVisionInput?error.message:"The source check failed. Earlier source records remain available. Try again later."},{status:error instanceof DiscoveryConflict?409:error instanceof InvalidVisionInput?400:502});}
 }

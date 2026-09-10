@@ -10,10 +10,16 @@ test("shows joined source coverage and filters to a clear empty result", async (
   const coverage = page.getByLabel("Long Island source coverage");
   await expect(coverage).toContainText("111local jurisdictionsNassau has 69, and Suffolk has 42.");
   await expect(coverage).toContainText("139directory sourcesThere are 5 county sources and 134 local sources.");
-  await expect(coverage).toContainText("4collectable sources");
+  await expect(coverage).toContainText("5collectable sources");
   await expect(page.getByText(/official source routes, not projects/i)).toBeVisible();
   await expect(page.locator(".vision-directory-card")).toHaveCount(139);
   await expect(page.locator(".vision-source-checked")).toHaveCount(139);
+  await expect(page.getByRole("switch")).toHaveCount(5);
+  const smartGov = page.locator(".vision-directory-card").filter({hasText: "Hempstead Village permits"});
+  await expect(smartGov).toHaveCount(1);
+  await expect(smartGov.getByText("Collectable")).toBeVisible();
+  await expect(smartGov).toContainText("permit applications submitted in the last 30 days");
+  await expect(smartGov.getByRole("link", {name: "Open official source"})).toHaveAttribute("href", "https://vlg-hempstead-ny.smartgovcommunity.com/ApplicationPublic/ApplicationSearchAdvanced");
   const sourceAccess = page.locator(".vision-source-access").first();
   await expect(sourceAccess).toHaveCSS("min-width", "112px");
   await expect(sourceAccess).toHaveCSS("color", "rgb(50, 51, 56)");
@@ -93,7 +99,7 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
     await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({accessMode: mode}));
   }
   await access.selectOption("automated");
-  await expect(page.getByText("The directory shows 4 of 139 sources.")).toBeVisible();
+  await expect(page.getByText("The directory shows 5 of 139 sources.")).toBeVisible();
   await access.selectOption("");
 
   await location.selectOption("Suffolk:village:Poquott");

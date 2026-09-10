@@ -86,7 +86,9 @@ async function collectDiscoveryAttempt(db:Db,sourceId:string):Promise<DiscoveryR
   }
   let fetched=0,rejected=0;
   try {
-    const collected=await collectAutomatedSource(sourceId);fetched=Array.isArray(collected.records)?collected.records.length:0;validateRecords(collected.records,source.limits.maxRecords);
+    const existing=await db.query<{external_id:string;snapshot:DiscoveredRecord}>("select external_id,snapshot from vision_discovery_candidates where source_id=$1",[sourceId]);
+    const existingRecords=new Map(existing.rows.map(row=>[row.external_id,row.snapshot]));
+    const collected=await collectAutomatedSource(sourceId,{existingRecords});fetched=Array.isArray(collected.records)?collected.records.length:0;validateRecords(collected.records,source.limits.maxRecords);
     const records=collected.records,coverage=collected.coverage,{start:coverageStart,end:coverageEnd}=coverageDates(records),outcome:DiscoveryRunOutcome=records.length?"completed":"completed_empty";
     const result=await db.query<{inserted_count:number;updated_count:number;unchanged_count:number}>(`with owned as (
       update vision_discovery_sources set last_success_at=clock_timestamp(),last_error=null,last_outcome=$9,record_count=$3,coverage=$5::jsonb,lease_token=null,lease_until=null

@@ -9,7 +9,7 @@ describe("source preference",()=>{
   });
   it("does not add IDA sources to an existing browser choice",()=>{
     expect(readSourcePreference("v1:nassau-applications,suffolk-planning")).toEqual(["nassau-applications","suffolk-planning"]);
-    expect(readSourcePreference(undefined)).toEqual(["nassau-applications","suffolk-planning","nassau-ida","suffolk-ida"]);
+    expect(readSourcePreference(undefined)).toEqual(["nassau-applications","suffolk-planning","nassau-ida","suffolk-ida","hempstead-village-smartgov"]);
     expect(readSourcePreference(sourcePreferenceValue(["nassau-ida","suffolk-ida"]))).toEqual(["nassau-ida","suffolk-ida"]);
   });
   it("allows only catalog IDs, deduplicates and keeps catalog order",()=>{

@@ -8,6 +8,10 @@ export type SourceCollectionResult = {
   coverage: AutomatedSourceCoverage;
 };
 
+export type SourceCollectionContext = {
+  existingRecords?: ReadonlyMap<string, DiscoveredRecord>;
+};
+
 export type AutomatedSourceDefinition = {
   id: string;
   name: string;
@@ -37,7 +41,7 @@ export type AutomatedSourceDefinition = {
 };
 
 type SourceAdapter = {
-  collect(source: AutomatedSourceDefinition): Promise<SourceCollectionResult>;
+  collect(source: AutomatedSourceDefinition, context?: SourceCollectionContext): Promise<SourceCollectionResult>;
 };
 
 const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
@@ -71,6 +75,12 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
     async collect() {
       const { fetchSuffolkIdaRecords } = await import("./ida-source");
       return { records: await fetchSuffolkIdaRecords(), coverage: null };
+    },
+  },
+  "smartgov-public-permits": {
+    async collect(source, context) {
+      const {fetchSmartGovRecords} = await import("./smartgov-source");
+      return {records: await fetchSmartGovRecords(source, context?.existingRecords), coverage: null};
     },
   },
 };
@@ -154,6 +164,25 @@ const SOURCE_DEFINITION_INPUTS: AutomatedSourceDefinition[] = [
     schedule: { cadence: "daily" },
     enabled: true,
   },
+  {
+    id: "hempstead-village-smartgov",
+    name: "Hempstead Village permits",
+    officialAgency: "Village of Hempstead Building Department",
+    jurisdiction: "Hempstead",
+    county: "Nassau",
+    adapterKey: "smartgov-public-permits",
+    directoryUrl: "https://vlg-hempstead-ny.smartgovcommunity.com/ApplicationPublic/ApplicationSearchAdvanced",
+    endpoint: {
+      url: "https://vlg-hempstead-ny.smartgovcommunity.com/ApplicationPublic/ApplicationSearchAdvanced",
+      allowedOrigins: ["https://vlg-hempstead-ny.smartgovcommunity.com"],
+    },
+    limits: {maxRequests: 112, maxRecords: 100, maxResponseBytes: 1_000_000, maxDurationMs: 180_000, maxPages: 10, maxTotalResponseBytes: 20_000_000},
+    identityRule: "Vision joins SmartGov's portal GUID to its published permit record number and keeps both source-owned identifiers.",
+    evidenceRule: "Evidence includes the official public detail link and the permit fields published by SmartGov during collection.",
+    coverage: "Checks permit applications submitted in the last 30 days, limited to the first 100 results in SmartGov order. Older records and changes outside that submitted-date window are excluded. SmartGov status is not a claim about construction progress or bid availability.",
+    schedule: {cadence: "daily"},
+    enabled: true,
+  },
 ];
 
 function freezeDefinition(source: AutomatedSourceDefinition): AutomatedSourceDefinition {
@@ -218,7 +247,7 @@ export function automatedSourceDefinition(value: unknown = DEFAULT_AUTOMATED_SOU
   return AUTOMATED_SOURCE_DEFINITIONS.find(source => source.id === id)!;
 }
 
-export async function collectAutomatedSource(value: unknown = DEFAULT_AUTOMATED_SOURCE_ID): Promise<SourceCollectionResult> {
+export async function collectAutomatedSource(value: unknown = DEFAULT_AUTOMATED_SOURCE_ID, context?: SourceCollectionContext): Promise<SourceCollectionResult> {
   const source = automatedSourceDefinition(value);
-  return SOURCE_ADAPTERS[source.adapterKey].collect(source);
+  return SOURCE_ADAPTERS[source.adapterKey].collect(source, context);
 }

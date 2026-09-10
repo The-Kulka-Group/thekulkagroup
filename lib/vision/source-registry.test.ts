@@ -5,6 +5,7 @@ const fetchNassauPlanning = vi.hoisted(() => vi.fn());
 const fetchSuffolkPlanning = vi.hoisted(() => vi.fn());
 const fetchNassauIda = vi.hoisted(() => vi.fn());
 const fetchSuffolkIda = vi.hoisted(() => vi.fn());
+const fetchSmartGov = vi.hoisted(() => vi.fn());
 
 vi.mock("./discovery-source", () => ({ fetchDiscoveryRecords: fetchNassauPlanning }));
 vi.mock("./suffolk-source", () => ({ fetchSuffolkRecords: fetchSuffolkPlanning }));
@@ -12,6 +13,7 @@ vi.mock("./ida-source", () => ({
   fetchNassauIdaRecords: fetchNassauIda,
   fetchSuffolkIdaRecords: fetchSuffolkIda,
 }));
+vi.mock("./smartgov-source", () => ({fetchSmartGovRecords: fetchSmartGov}));
 
 const {
   AUTOMATED_SOURCE_DEFINITIONS,
@@ -38,7 +40,7 @@ const record: DiscoveredRecord = {
 };
 
 beforeEach(() => {
-  for (const fetcher of [fetchNassauPlanning, fetchSuffolkPlanning, fetchNassauIda, fetchSuffolkIda]) {
+  for (const fetcher of [fetchNassauPlanning, fetchSuffolkPlanning, fetchNassauIda, fetchSuffolkIda, fetchSmartGov]) {
     fetcher.mockReset();
     fetcher.mockResolvedValue([record]);
   }
@@ -51,6 +53,7 @@ describe("Vision automated source registry", () => {
       "suffolk-planning",
       "nassau-ida",
       "suffolk-ida",
+      "hempstead-village-smartgov",
     ]);
 
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
@@ -71,7 +74,7 @@ describe("Vision automated source registry", () => {
     }
   });
 
-  it("runs all four collectors through one adapter result contract", async () => {
+  it("runs every collector through one adapter result contract", async () => {
     fetchSuffolkPlanning.mockResolvedValue([{ ...record, details: { "Collection year": "2026" } }]);
 
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
@@ -88,13 +91,14 @@ describe("Vision automated source registry", () => {
     expect(fetchSuffolkPlanning).toHaveBeenCalledOnce();
     expect(fetchNassauIda).toHaveBeenCalledOnce();
     expect(fetchSuffolkIda).toHaveBeenCalledOnce();
+    expect(fetchSmartGov).toHaveBeenCalledOnce();
   });
 
   it("selects enabled source definitions without changing registry order", () => {
     expect(enabledAutomatedSourceDefinitions([
       {...AUTOMATED_SOURCE_DEFINITIONS[0], enabled: false},
       ...AUTOMATED_SOURCE_DEFINITIONS.slice(1),
-    ]).map(source => source.id)).toEqual(["suffolk-planning", "nassau-ida", "suffolk-ida"]);
+    ]).map(source => source.id)).toEqual(["suffolk-planning", "nassau-ida", "suffolk-ida", "hempstead-village-smartgov"]);
   });
 
   it("rejects unsupported IDs and request objects before a collector can run", async () => {
@@ -105,6 +109,7 @@ describe("Vision automated source registry", () => {
     expect(fetchSuffolkPlanning).not.toHaveBeenCalled();
     expect(fetchNassauIda).not.toHaveBeenCalled();
     expect(fetchSuffolkIda).not.toHaveBeenCalled();
+    expect(fetchSmartGov).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate sources, unknown adapters and endpoint origins outside the fixed allowlist", () => {

@@ -19,7 +19,7 @@ export default async function VisionSources() {
       actions={<><Link className="btn btn--primary" href="/vision/discover">Discovery inbox</Link><Link className="btn btn--quiet" href="/vision">Back to Vision</Link></>}>
       <div className="vision-source-intro">
         <h2>Start with the public record.</h2>
-        <p>The discovery inbox collects four county planning and IDA sources. The directory also lists public sources that require manual review, a record request or direct contact.</p>
+        <p>The discovery inbox collects the public sources marked as collectable below. The directory also lists sources that require manual review, a record request or direct contact.</p>
       </div>
       <SavedSourceSelection initialSources={selectedSources}/>
       <SourceDirectory sources={[...VISION_SOURCES]} health={health}/>

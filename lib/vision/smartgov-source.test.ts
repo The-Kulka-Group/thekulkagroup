@@ -181,6 +181,25 @@ describe("Village of Hempstead SmartGov source", () => {
     expect(progress.at(-1)).toEqual({coverage: null, fetched: 2, rejected: 1});
   });
 
+  it("keeps a valid permit when another detail request fails", async () => {
+    const source = automatedSourceDefinition("hempstead-village-smartgov");
+    const first = result(firstGuid, "SOLAR2025-0035", "Solar Permit", "Closed", "9/9/2026", "147 CROWELL ST");
+    const second = result(secondGuid, "COMMERCIALBUILDINGPERMIT2026-0026", "Commercial Building Permit", "Issued", "9/9/2026", "51 MAIN ST");
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+      if (url.pathname === "/ApplicationPublic/ApplicationSearchAdvanced" && !init?.method) return new Response("<html>Advanced Search</html>", {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith("/ValidateFormEntries")) return Response.json({status: "success"});
+      if (url.pathname.endsWith("/Search")) return new Response(searchPage(first + second, 2), {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith(firstGuid)) return new Response("Unavailable", {status: 503, headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith(secondGuid)) return new Response(detail(secondGuid, "COMMERCIALBUILDINGPERMIT2026-0026", "Commercial Building Permit", "Issued", "51 MAIN ST"), {headers: {"content-type": "text/html"}});
+      throw new Error(`Unexpected request: ${url.href}`);
+    }));
+
+    const records = await fetchSmartGovRecords(source, new Map(), new Date("2026-09-09T16:00:00Z"));
+
+    expect(records.map(record => record.externalId)).toEqual([`permit:${secondGuid}`]);
+  });
+
   it("fails the collection when the search result set is malformed", async () => {
     const source = automatedSourceDefinition("hempstead-village-smartgov");
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

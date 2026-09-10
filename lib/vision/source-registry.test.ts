@@ -6,6 +6,7 @@ const fetchSuffolkPlanning = vi.hoisted(() => vi.fn());
 const fetchNassauIda = vi.hoisted(() => vi.fn());
 const fetchSuffolkIda = vi.hoisted(() => vi.fn());
 const fetchOysterBayZba = vi.hoisted(() => vi.fn());
+const fetchCivicPlus = vi.hoisted(() => vi.fn());
 
 vi.mock("./discovery-source", () => ({ fetchDiscoveryRecords: fetchNassauPlanning }));
 vi.mock("./suffolk-source", () => ({ fetchSuffolkRecords: fetchSuffolkPlanning }));
@@ -14,6 +15,7 @@ vi.mock("./ida-source", () => ({
   fetchSuffolkIdaRecords: fetchSuffolkIda,
 }));
 vi.mock("./oyster-bay-zba-source", () => ({ fetchOysterBayZbaRecords: fetchOysterBayZba }));
+vi.mock("./civicplus-source", () => ({ fetchCivicPlusRecords: fetchCivicPlus }));
 
 const {
   AUTOMATED_SOURCE_DEFINITIONS,
@@ -44,6 +46,8 @@ beforeEach(() => {
     fetcher.mockReset();
     fetcher.mockResolvedValue([record]);
   }
+  fetchCivicPlus.mockReset();
+  fetchCivicPlus.mockResolvedValue({records: [record], coverage: {year: 2026, documents: [record.sourceUrl]}});
 });
 
 describe("Vision automated source registry", () => {
@@ -54,6 +58,9 @@ describe("Vision automated source registry", () => {
       "nassau-ida",
       "suffolk-ida",
       "nassau-town-oyster-bay-records",
+      "nassau-village-hempstead-records",
+      "nassau-village-hempstead-zoning-records",
+      "nassau-village-garden-city-records",
     ]);
 
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
@@ -82,7 +89,7 @@ describe("Vision automated source registry", () => {
       expect(result.records).toHaveLength(1);
       if (source.id === "suffolk-planning" || source.id === "nassau-town-oyster-bay-records") {
         expect(result.coverage).toEqual({ year: 2026, documents: [] });
-      } else {
+      } else if (source.adapterKey !== "civicplus-agenda-center") {
         expect(result.coverage).toBeNull();
       }
     }
@@ -92,13 +99,14 @@ describe("Vision automated source registry", () => {
     expect(fetchNassauIda).toHaveBeenCalledOnce();
     expect(fetchSuffolkIda).toHaveBeenCalledOnce();
     expect(fetchOysterBayZba).toHaveBeenCalledOnce();
+    expect(fetchCivicPlus).toHaveBeenCalledTimes(3);
   });
 
   it("selects enabled source definitions without changing registry order", () => {
     expect(enabledAutomatedSourceDefinitions([
       {...AUTOMATED_SOURCE_DEFINITIONS[0], enabled: false},
       ...AUTOMATED_SOURCE_DEFINITIONS.slice(1),
-    ]).map(source => source.id)).toEqual(["suffolk-planning", "nassau-ida", "suffolk-ida", "nassau-town-oyster-bay-records"]);
+    ]).map(source => source.id)).toEqual(AUTOMATED_SOURCE_DEFINITIONS.slice(1).map(source => source.id));
   });
 
   it("rejects unsupported IDs and request objects before a collector can run", async () => {
@@ -110,6 +118,7 @@ describe("Vision automated source registry", () => {
     expect(fetchNassauIda).not.toHaveBeenCalled();
     expect(fetchSuffolkIda).not.toHaveBeenCalled();
     expect(fetchOysterBayZba).not.toHaveBeenCalled();
+    expect(fetchCivicPlus).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate sources, unknown adapters and endpoint origins outside the fixed allowlist", () => {

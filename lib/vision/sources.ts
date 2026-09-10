@@ -2,6 +2,32 @@ import {DISCOVERY_SOURCE, NASSAU_IDA_SOURCE, SUFFOLK_IDA_SOURCE, SUFFOLK_SOURCE}
 import {NASSAU_MUNICIPAL_SOURCES} from "./nassau-municipal-sources";
 import {MUNICIPAL_SOURCE_CHECKED_AT, validateMunicipalSources, type MunicipalSource} from "./source-directory";
 import {SUFFOLK_MUNICIPAL_SOURCES} from "./suffolk-municipal-sources";
+import {AUTOMATED_SOURCE_DEFINITIONS} from "./source-registry";
+
+const MUNICIPAL_SOURCES = [...NASSAU_MUNICIPAL_SOURCES, ...SUFFOLK_MUNICIPAL_SOURCES];
+const AUTOMATED_MUNICIPAL_SOURCE_IDS = [
+  "nassau-town-oyster-bay-records",
+  "nassau-village-hempstead-records",
+  "nassau-village-hempstead-zoning-records",
+  "nassau-village-garden-city-records",
+] as const;
+
+function automatedMunicipalSource(id: typeof AUTOMATED_MUNICIPAL_SOURCE_IDS[number]): MunicipalSource {
+  const source = MUNICIPAL_SOURCES.find(item => item.id === id);
+  const definition = AUTOMATED_SOURCE_DEFINITIONS.find(item => item.id === id);
+  if (!source || !definition) throw new Error(`Missing automated municipal source: ${id}`);
+  return {
+    ...source,
+    name: definition.name,
+    officialAgency: definition.officialAgency,
+    accessMode: "automated",
+    collectionState: "collectable",
+    manualSteps: "Review the source record and official meeting document before saving or linking an opportunity.",
+    limits: definition.coverage,
+    coverage: definition.coverage,
+    url: definition.directoryUrl,
+  };
+}
 
 export const VISION_SOURCES = validateMunicipalSources([
   {
@@ -60,6 +86,7 @@ export const VISION_SOURCES = validateMunicipalSources([
     limits: SUFFOLK_IDA_SOURCE.coverage,
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
+  ...AUTOMATED_MUNICIPAL_SOURCE_IDS.map(automatedMunicipalSource),
   {
     id: "nassau-hearings",
     name: "Nassau Planning Commission hearings",
@@ -77,6 +104,5 @@ export const VISION_SOURCES = validateMunicipalSources([
     url: "https://www.nassaucountyny.gov/5697/Planning-Commission",
     checkedAt: MUNICIPAL_SOURCE_CHECKED_AT,
   },
-  ...NASSAU_MUNICIPAL_SOURCES,
-  ...SUFFOLK_MUNICIPAL_SOURCES,
+  ...MUNICIPAL_SOURCES.filter(source => !AUTOMATED_MUNICIPAL_SOURCE_IDS.includes(source.id as typeof AUTOMATED_MUNICIPAL_SOURCE_IDS[number])),
 ] satisfies MunicipalSource[]);

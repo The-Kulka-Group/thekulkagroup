@@ -7,9 +7,11 @@ const fetchSuffolk=vi.hoisted(()=>vi.fn());
 const fetchNassauIda=vi.hoisted(()=>vi.fn());
 const fetchSuffolkIda=vi.hoisted(()=>vi.fn());
 const fetchOysterBayZba=vi.hoisted(()=>vi.fn());
+const fetchCivicPlus=vi.hoisted(()=>vi.fn());
 vi.mock("@/lib/vision/ida-source",()=>({fetchNassauIdaRecords:fetchNassauIda,fetchSuffolkIdaRecords:fetchSuffolkIda}));
 vi.mock("@/lib/vision/suffolk-source",()=>({fetchSuffolkRecords:fetchSuffolk}));
 vi.mock("@/lib/vision/oyster-bay-zba-source",()=>({fetchOysterBayZbaRecords:fetchOysterBayZba}));
+vi.mock("@/lib/vision/civicplus-source",()=>({fetchCivicPlusRecords:fetchCivicPlus}));
 vi.mock("@/lib/db",()=>({getDb:()=>db as Db}));
 vi.mock("@/lib/vision/discovery-source",()=>({DISCOVERY_SOURCE:{id:"nassau-applications"},fetchDiscoveryRecords:fetchRecords}));
 const inbox=await import("./route");const refresh=await import("./refresh/route");const detail=await import("./[id]/route");const cron=await import("./cron/route");
@@ -21,9 +23,24 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue([{...source,externalId:"oyster-bay-appeal"}]);});
+beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchCivicPlus.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue([{...source,externalId:"oyster-bay-appeal"}]);fetchCivicPlus.mockResolvedValue({records:[{...source,externalId:"civicplus-case"}],coverage:{year:2026,documents:["https://example.org/agenda.pdf"]}});});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
+ it("collects a CivicPlus source through the shared flow and keeps unresolved document revisions in review",async()=>{
+  const sourceId="nassau-village-hempstead-records";
+  const evidence={url:"https://www.villageofhempstead.org/AgendaCenter/ViewFile/Agenda/_07202026-1174",title:"Agenda: Planning Board Agenda",page:1,checksum:"a".repeat(64),text:"CASE 2026-29: 247 Greenwich Street"};
+  const unresolved={...source,externalId:"document:3:2026-07-20:1174:agenda",sourceUrl:evidence.url,identityStatus:"unresolved" as const,evidence};
+  fetchCivicPlus.mockResolvedValue({records:[{...unresolved,evidence:[evidence]}],coverage:{year:2026,documents:[evidence.url]}});
+  const run=()=>refresh.POST(new Request(`http://localhost?source=${sourceId}`,{method:"POST"}));
+  expect((await run()).status).toBe(200);
+  const first=await (await inbox.GET(new Request(`http://localhost?source=${sourceId}`))).json();
+  expect(first.candidates).toHaveLength(1);expect(first.source.coverage.documents).toEqual([evidence.url]);
+  expect((await review(first.candidates[0].id)).status).toBe(400);
+  await age();fetchCivicPlus.mockResolvedValue({records:[{...unresolved,evidence:[{...evidence,checksum:"b".repeat(64),text:"Revised agenda"}]}],coverage:{year:2026,documents:[evidence.url]}});
+  expect((await run()).status).toBe(200);
+  const changed=await (await detail.GET(req(),ctx(first.candidates[0].id))).json();
+  expect(changed.candidate.revision).toBe(2);expect(changed.history).toHaveLength(2);expect(changed.candidate.review_state).toBe("new");
+ });
  it("collects both IDA sources independently and retains reviews, evidence and history on stable refresh",async()=>{
   const evidence={kind:"index-link",url:"https://suffolkida.org/wp-content/uploads/test.pdf",title:"Index link metadata",page:1,checksum:"a".repeat(64),text:"Synthetic index metadata. PDF contents were not read."};
   fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk",evidence:[evidence]}]);
@@ -191,6 +208,10 @@ describe("Vision discovery API",()=>{
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));
   fetchSuffolk.mockRejectedValue(new Error("authorization: Bearer private-upstream-token"));
   fetchNassauIda.mockResolvedValue([]);
+  fetchCivicPlus.mockImplementation(async sourceDefinition=>{
+   if(sourceDefinition.id==="nassau-village-hempstead-zoning-records")throw new Error("private CivicPlus response body");
+   return {records:[{...source,externalId:"civicplus-case"}],coverage:{year:2026,documents:["https://example.org/agenda.pdf"]}};
+  });
   const response=await cron.POST(new Request("http://localhost?source=all",{method:"POST",headers:{authorization:`Bearer ${"a".repeat(32)}`}}));
   expect(response.status).toBe(200);
   const body=await response.json();
@@ -200,13 +221,17 @@ describe("Vision discovery API",()=>{
    ["nassau-ida","completed_empty"],
    ["suffolk-ida","completed"],
    ["nassau-town-oyster-bay-records","completed"],
+   ["nassau-village-hempstead-records","completed"],
+   ["nassau-village-hempstead-zoning-records","failed"],
+   ["nassau-village-garden-city-records","completed"],
   ]);
-  expect(fetchRecords).toHaveBeenCalledTimes(1);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect(fetchNassauIda).toHaveBeenCalledTimes(1);expect(fetchSuffolkIda).toHaveBeenCalledTimes(1);expect(fetchOysterBayZba).toHaveBeenCalledTimes(1);
+  expect(fetchRecords).toHaveBeenCalledTimes(1);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect(fetchNassauIda).toHaveBeenCalledTimes(1);expect(fetchSuffolkIda).toHaveBeenCalledTimes(1);expect(fetchOysterBayZba).toHaveBeenCalledTimes(1);expect(fetchCivicPlus).toHaveBeenCalledTimes(3);
   const runs=(await db.query<{source_id:string;outcome:string;fetched_count:number;error_summary:string|null}>("select source_id,outcome,fetched_count,error_summary from vision_discovery_runs order by started_at,source_id")).rows;
-  expect(runs).toHaveLength(5);
+  expect(runs).toHaveLength(8);
   expect(runs.find(run=>run.source_id==="nassau-ida")).toMatchObject({outcome:"completed_empty",fetched_count:0,error_summary:null});
   expect(runs.find(run=>run.source_id==="suffolk-planning")?.error_summary).not.toContain("private-upstream-token");
-  expect((await db.query("select * from vision_discovery_candidates")).rows).toHaveLength(3);
+  expect(runs.find(run=>run.source_id==="nassau-village-hempstead-zoning-records")?.error_summary).not.toContain("private CivicPlus response body");
+  expect((await db.query("select * from vision_discovery_candidates")).rows).toHaveLength(5);
  });
  it("records insert, unchanged, update, failure, and blocked attempts without changing prior records",async()=>{
   expect((await check()).status).toBe(200);

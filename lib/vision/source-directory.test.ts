@@ -29,6 +29,9 @@ describe("Vision municipal source directory", () => {
     const collectableIds = VISION_SOURCES.filter(item => item.collectionState === "collectable").map(item => item.id);
     expect(collectableIds).toEqual(DISCOVERY_SOURCES.map(item => item.id));
     expect(VISION_SOURCES.find(item => item.id === "huntington-meetings")?.collectionState).toBe("manual");
+    for (const id of ["nassau-village-hempstead-records", "nassau-village-hempstead-zoning-records", "nassau-village-garden-city-records"]) {
+      expect(VISION_SOURCES.find(item => item.id === id)).toMatchObject({accessMode: "automated", collectionState: "collectable"});
+    }
   });
 
   it("filters source capabilities by county, jurisdiction, record family and access mode", () => {
@@ -59,16 +62,16 @@ describe("Vision municipal source directory", () => {
       .map(item => `${item.county}:${item.jurisdictionType}:${item.jurisdiction}`);
 
     expect(new Set(actual)).toEqual(new Set([...nassauExpected, ...suffolkExpected]));
-    expect(actual).toHaveLength(134);
+    expect(actual).toHaveLength(135);
     expect(summary.localJurisdictions).toEqual({total: 111, Nassau: 69, Suffolk: 42});
     expect(summary.countySources).toBe(5);
-    expect(summary.directorySources).toBe(139);
-    expect(summary.collectableSources).toBe(5);
-    expect(Object.values(summary.accessModes).reduce((total, count) => total + count, 0)).toBe(139);
+    expect(summary.directorySources).toBe(140);
+    expect(summary.collectableSources).toBe(8);
+    expect(Object.values(summary.accessModes).reduce((total, count) => total + count, 0)).toBe(140);
   });
 
   it("keeps a current date and official HTTPS link on every directory entry", () => {
-    expect(VISION_SOURCES).toHaveLength(139);
+    expect(VISION_SOURCES).toHaveLength(140);
     for (const item of VISION_SOURCES) {
       expect(item.checkedAt).toBe("2026-09-09");
       expect(item.url).toMatch(/^https:\/\//);

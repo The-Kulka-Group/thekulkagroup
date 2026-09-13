@@ -58,7 +58,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
       </div></details>
       <div className="vision-filter-footer"><p>Dates use each source record’s date label. Clear both date bounds to include unknown dates. Menu choices apply at once. Use Apply text after typing.</p><div className="vision-form-actions"><button className="btn btn--secondary" type="submit">Apply text</button><Link className="btn btn--quiet" href="/vision">Clear filters</Link></div></div>
     </form>
-    <OpportunityMap workflowDecisions={workflows ? Object.fromEntries(Object.entries(workflows).map(([id,workflow])=>[id,workflow.decision])) : undefined} opportunities={opportunities.filter(item=>workflows?.[item.id]?.classification!=="policy")} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
+    <OpportunityMap workflowDecisions={workflows ? Object.fromEntries(Object.entries(workflows).map(([id,workflow])=>[id,workflow.decision])) : undefined} opportunities={opportunities.filter(item=>workflows?.[item.id]?.classification!=="policy")} discoveries={candidates.map(item=>({id:item.id,name:item.snapshot.name,address:item.snapshot.address,town:item.snapshot.town,county:item.snapshot.county,latitude:item.snapshot.latitude,longitude:item.snapshot.longitude}))} />
     <h2 className="t-2">Tracked opportunities</h2>
     <OpportunityList workflows={workflows} opportunities={opportunities} filtered={Boolean(filters.search || filters.county || filters.status)} />
   </Sheet>;

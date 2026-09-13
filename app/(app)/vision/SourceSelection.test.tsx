@@ -3,7 +3,7 @@ import {renderToStaticMarkup} from "react-dom/server";
 import {describe, expect, it, vi} from "vitest";
 
 import {DISCOVERY_SOURCES} from "@/lib/vision/discovery-catalog";
-import {SourceSelection, SourceSelectionPanel} from "./SourceSelection";
+import {sourceSelectionPreset, SourceSelection, SourceSelectionPanel} from "./SourceSelection";
 
 describe("Vision source picker", () => {
   const selected = DISCOVERY_SOURCES.slice(0, 3).map(source => source.id);
@@ -11,7 +11,7 @@ describe("Vision source picker", () => {
   it("renders one collapsed summary without laying out source rows", () => {
     const html = renderToStaticMarkup(createElement(SourceSelection, {selected, onChange: vi.fn()}));
 
-    expect(html).toContain(`Sources</span><span class="vision-source-count">${selected.length} of ${DISCOVERY_SOURCES.length}</span>`);
+    expect(html).toContain(`Sources</span><span class="vision-source-count">${selected.length} on</span>`);
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('aria-controls="vision-source-picker-panel"');
     expect(html).toContain('id="vision-source-picker-feedback"');
@@ -38,7 +38,15 @@ describe("Vision source picker", () => {
     expect((html.match(/class="vision-source-option"/g) ?? [])).toHaveLength(DISCOVERY_SOURCES.length);
     expect((html.match(/role="switch"/g) ?? [])).toHaveLength(DISCOVERY_SOURCES.length);
     expect((html.match(/checked=""/g) ?? [])).toHaveLength(selected.length);
+    expect(html).toContain('class="btn btn--quiet vision-source-preset"');
+    expect(html).toContain(">All</button>");
+    expect(html).toContain(">None</button>");
     for (const source of DISCOVERY_SOURCES) expect(html).toContain(source.name);
+  });
+
+  it("builds the All and None source selections from the catalog", () => {
+    expect(sourceSelectionPreset("all")).toEqual(DISCOVERY_SOURCES.map(source => source.id));
+    expect(sourceSelectionPreset("none")).toEqual([]);
   });
 
   it("keeps one stable live feedback region next to the closed trigger", () => {

@@ -47,6 +47,8 @@
   --working:       #FF9500;                              --working-tint: #FFE8CC;
   --stuck:         #CE3350;  --stuck-bright:   #E2445C;  --stuck-tint:   #FFDEE3;
   --neutral-fill:  #EDEEF2;
+  --approximate:   #C06A00;
+  --approximate-ink:#754000;
 
   /* Redlines keep their name and run Monday-red at full strength. */
   --redline:        #CE3350;

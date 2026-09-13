@@ -50,6 +50,7 @@
 .vision-filter-group .t-meta { margin:0; }
 .vision-tracked-filters .vision-filters { margin:var(--s3) 0 0; grid-template-columns:minmax(260px,1fr) repeat(2,minmax(180px,.55fr)); }
 .vision-filter-footer { display:flex;flex:1 0 100%;align-items:center;justify-content:space-between;gap:var(--s3);padding-top:var(--s1);border-top:1px solid var(--border-light); }
+.vision-map-filters:not(:has(details[open])) .vision-filter-footer { display:none; }
 .vision-filter-footer p { margin:0; color:var(--ink-2); font-size:var(--meta-size); }
 .vision-filter-footer .vision-form-actions { margin-top:0; flex:none; }
 

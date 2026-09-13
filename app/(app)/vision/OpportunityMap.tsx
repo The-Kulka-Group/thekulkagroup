@@ -31,8 +31,8 @@ type MapLayerKey = keyof MapLayerVisibility;
 
 export function selectVisibleMapLayers(discoveryPoints: PartitionedMapPoints, trackedPoints: PartitionedMapPoints, visibility: MapLayerVisibility) {
   const approximate: ApproximateAreaItem[] = visibility.approximate ? [
-    ...trackedPoints.approximate.map(point => ({kind: "tracked" as const, point})),
-    ...discoveryPoints.approximate.map(point => ({kind: "source-record" as const, point})),
+    ...(visibility.tracked ? trackedPoints.approximate.map(point => ({kind: "tracked" as const, point})) : []),
+    ...(visibility.discoveries ? discoveryPoints.approximate.map(point => ({kind: "source-record" as const, point})) : []),
   ] : [];
   return {
     discoveries: visibility.discoveries ? discoveryPoints.source : [],
@@ -56,7 +56,6 @@ export function MapLayerControls({counts, visibility, onToggle}: {counts: Record
       aria-pressed={visibility[layer]}
       onClick={() => onToggle(layer)}
     >
-      <span className="vision-layer-mark" aria-hidden="true">{layer === "discoveries" ? "◆" : layer === "approximate" ? "≈" : "●"}</span>
       <span>{LAYER_LABELS[layer]}</span>
       <span className="vision-layer-count">{counts[layer]}</span>
       <span className="vision-layer-state">{visibility[layer] ? "On" : "Off"}</span>
@@ -258,7 +257,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
         </div>
       </div>
       <div className="vision-map-toolbar">
-        <MapLayerControls counts={{discoveries:sourceRecordPoints.source.length,approximate,tracked:trackedPoints.source.length}} visibility={visibility} onToggle={toggleLayer}/>
+        <MapLayerControls counts={{discoveries:sourceRecordPoints.source.length+sourceRecordPoints.approximate.length,approximate,tracked:trackedPoints.source.length+trackedPoints.approximate.length}} visibility={visibility} onToggle={toggleLayer}/>
         <details className="vision-status-key">
           <summary>Tracked states</summary>
           <div className="vision-status-key-options" aria-label="Tracked opportunity states">

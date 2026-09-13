@@ -70,19 +70,23 @@ describe("Vision opportunity map", () => {
       tracked({id: "tracked-approximate", town: "Hauppauge"}),
     ]);
 
-    expect(selectVisibleMapLayers(discoveryPoints, trackedPoints, {discoveries: false, approximate: true, tracked: false})).toEqual({
-      discoveries: [],
-      approximate: [
-        {kind: "tracked", point: trackedPoints.approximate[0]},
-        {kind: "source-record", point: discoveryPoints.approximate[0]},
-      ],
-      tracked: [],
-    });
-    expect(selectVisibleMapLayers(discoveryPoints, trackedPoints, {discoveries: true, approximate: false, tracked: true})).toEqual({
-      discoveries: discoveryPoints.source,
-      approximate: [],
-      tracked: trackedPoints.source,
-    });
+    const cases = [
+      {visibility:{discoveries:false,approximate:false,tracked:false},discoveryIds:[],approximateKinds:[],trackedIds:[]},
+      {visibility:{discoveries:true,approximate:false,tracked:false},discoveryIds:["discovery-located"],approximateKinds:[],trackedIds:[]},
+      {visibility:{discoveries:false,approximate:false,tracked:true},discoveryIds:[],approximateKinds:[],trackedIds:["tracked-located"]},
+      {visibility:{discoveries:false,approximate:true,tracked:false},discoveryIds:[],approximateKinds:[],trackedIds:[]},
+      {visibility:{discoveries:true,approximate:true,tracked:false},discoveryIds:["discovery-located"],approximateKinds:["source-record:discovery-approximate"],trackedIds:[]},
+      {visibility:{discoveries:false,approximate:true,tracked:true},discoveryIds:[],approximateKinds:["tracked:tracked-approximate"],trackedIds:["tracked-located"]},
+      {visibility:{discoveries:true,approximate:false,tracked:true},discoveryIds:["discovery-located"],approximateKinds:[],trackedIds:["tracked-located"]},
+      {visibility:{discoveries:true,approximate:true,tracked:true},discoveryIds:["discovery-located"],approximateKinds:["tracked:tracked-approximate","source-record:discovery-approximate"],trackedIds:["tracked-located"]},
+    ] as const;
+
+    for (const item of cases) {
+      const visible = selectVisibleMapLayers(discoveryPoints, trackedPoints, item.visibility);
+      expect(visible.discoveries.map(point=>point.id)).toEqual(item.discoveryIds);
+      expect(visible.approximate.map(entry=>`${entry.kind}:${entry.point.id}`)).toEqual(item.approximateKinds);
+      expect(visible.tracked.map(point=>point.id)).toEqual(item.trackedIds);
+    }
   });
 
   it("shows compact approximate counts without adding a directory below the map", () => {

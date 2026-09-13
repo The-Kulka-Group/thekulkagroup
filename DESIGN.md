@@ -23,11 +23,13 @@ use judgment and match the shipped screens.
 - 2026-08-25: the Blackline doctrine is retired; this document replaces it.
 - 2026-09-03: Home is the first rail item and sits outside the business sections.
   Its label is Home, not Homepage. The empty Operations section is hidden.
-- 2026-08-25: final element picks from the chooser. Buttons stay rounded 8 (a
-  same-day pill trial was reverted). Board rows are 40px. Inputs are 36px tall with
+- 2026-08-25: final element picks from the chooser. Buttons were rounded 8 until the
+  owner replaced that rule on 2026-09-12. Board rows are 40px. Inputs are 36px tall with
   a 10px radius and a light border. The active rail item fills Kulka black with
   white text. Attention rows are tinted washes of their severity color instead of
   cards. Status treatment and the two-tier header stay as shipped.
+- 2026-09-12: every clickable site control uses a full pill shape. Static chips and
+  badges keep the same shape but must not look clickable without an action.
 - 2026-08-25: avatars are solid vivid circles, one bright color per person, stable
   for life, assigned by hashing the user id. Hues rotated in the craft pass so the
   people spectrum never overlaps the status or action hues, and no red-family hue
@@ -101,6 +103,7 @@ use judgment and match the shipped screens.
 | ink-3 | `#9699A6` | Placeholders, row numbers |
 | brand | `#1D1D1F` | Wordmark, sheet badges, sheet titles |
 | primary | `#0073EA` | Actions, links, active nav (hover `#0060B9`, tint `#EAF3FE`) |
+| approximate | `#C06A00` | Approximate-location borders and marks (text `#754000`) |
 
 Status, one treatment everywhere:
 
@@ -129,7 +132,7 @@ voice and appears on the wordmark and sheet titles. UI base is 14px; sheet title
 
 ## Shape and elevation
 
-Radius scale 4 / 8 / 12, pills for chips and badges, buttons at 8, inputs at 10.
+Radius scale 4 / 8 / 12, full pills for clickable controls, chips, and badges, inputs at 10.
 Sheets are white cards on the canvas with the soft resting shadow in
 `daylight.css`. Motion stays quick and interruptible (150/200/250ms tokens) and
 respects reduced motion.

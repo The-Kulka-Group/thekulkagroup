@@ -16,6 +16,7 @@ import type { VisionFilters } from "@/lib/vision/types";
 import { OpportunityList } from "./OpportunityList";
 import { OpportunityMap } from "./OpportunityMap";
 import { AutoSubmitSelect } from "./AutoSubmitSelect";
+import { DiscoveryFilterDisclosure } from "./DiscoveryFilterDisclosure";
 import "./vision.css";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   let discoveryError: string | undefined;
   try { discoveryFilters = parseDiscoveryFilters(params); } catch (cause) { if (cause instanceof InvalidVisionInput) discoveryError = cause.message; else throw cause; }
   const discoveryFiltered = Boolean(discoveryFilters.applicationType || discoveryFilters.location || discoveryFilters.dateMode !== "all" || discoveryFilters.from || discoveryFilters.to);
+  const discoveryFilterCount = ["applicationType","location","from","to"].filter(key=>Boolean(params.get(key))).length + (params.get("dateMode") && params.get("dateMode") !== "all" ? 1 : 0);
   const selectedSources=readSourcePreference((await cookies()).get(SOURCE_SELECTION_COOKIE)?.value);
   const [saved,counties,discovery] = await Promise.all([listVisionOpportunities(getDb(), filters),listVisionCounties(getDb()),selectedDiscoveryInbox(getDb(),selectedSources,"new",discoveryFilters)]);
   const opportunities = error ? [] : saved;
@@ -44,13 +46,13 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
     {error ? <p role="alert" className="input-error">{error}</p> : null}
     {discoveryError ? <p role="alert" className="input-error">{discoveryError} Discovery results are hidden until you correct the filters.</p> : selectedSources.length > 0 && candidates.length === 0 ? <p role="status" className="vision-map-notice">{discoveryFiltered ? "No discoveries match these filters. Clear or widen the filters to see more opportunities." : "There are no discoveries awaiting review. Open Discover opportunities to collect source records."}</p> : null}
     <form className="vision-map-filters" action="/vision" key={params.toString()}>
-      <fieldset className="vision-filter-group"><legend>Discoveries awaiting review</legend><div className="vision-filters">
+      <DiscoveryFilterDisclosure activeCount={discoveryFilterCount} invalid={Boolean(discoveryError)}><fieldset className="vision-filter-group"><legend>Discoveries awaiting review</legend><div className="vision-filters">
         <label>Application type<AutoSubmitSelect className="input" name="applicationType" defaultValue={params.get("applicationType") ?? ""} aria-label="Application type, applies when selected"><option value="">All application types</option>{[...new Set([...discovery.applicationTypes,...(discoveryFilters.applicationType?[discoveryFilters.applicationType]:[])])].sort().map(type => <option key={type}>{type}</option>)}</AutoSubmitSelect></label>
         <label>Location<input className="input" type="search" name="location" maxLength={400} defaultValue={params.get("location") ?? ""} placeholder="Town, county or address" /></label>
         <label>Source dates<AutoSubmitSelect className="input" name="dateMode" defaultValue={params.get("dateMode") || "all"} aria-label="Source dates, applies when selected"><option value="all">All dates</option><option value="known">Known dates</option><option value="unknown">Unknown dates</option></AutoSubmitSelect></label>
         <label>From<input className="input" type="date" name="from" defaultValue={params.get("from") ?? ""} /></label>
         <label>Through<input className="input" type="date" name="to" defaultValue={params.get("to") ?? ""} /></label>
-      </div></fieldset>
+      </div></fieldset></DiscoveryFilterDisclosure>
       <details className="vision-tracked-filters" open={Boolean(filters.search || filters.county || filters.status || error)}><summary>Tracked opportunity filters</summary><div className="vision-filters">
       <label>Search<input className="input" type="search" name="search" maxLength={200} defaultValue={filters.search} placeholder="Name, place, source or notes" /></label>
       <label>County<AutoSubmitSelect className="input" name="county" defaultValue={filters.county ?? ""} aria-label="County, applies when selected"><option value="">All counties</option>{counties.map(county => <option key={county}>{county}</option>)}</AutoSubmitSelect></label>

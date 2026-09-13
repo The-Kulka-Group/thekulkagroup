@@ -4,7 +4,7 @@ import {describe, expect, it, vi} from "vitest";
 
 import {groupApproximateAreaPoints, partitionMapPoints, type DiscoveryMapPoint} from "@/lib/vision/map-points";
 import type {VisionOpportunity} from "@/lib/vision/types";
-import {ApproximateAreaPopup, OpportunityMap} from "./OpportunityMap";
+import {ApproximateAreaPopup, MapLayerControls, OpportunityMap, selectVisibleMapLayers} from "./OpportunityMap";
 
 vi.mock("next/navigation", () => ({useRouter: () => ({push: vi.fn()})}));
 
@@ -40,6 +40,51 @@ const discovery = (overrides: Partial<DiscoveryMapPoint>): DiscoveryMapPoint => 
 });
 
 describe("Vision opportunity map", () => {
+  it("renders compact layer pills with counts and clear pressed state", () => {
+    const html = renderToStaticMarkup(createElement(MapLayerControls, {
+      counts: {discoveries: 12, approximate: 4, tracked: 3},
+      visibility: {discoveries: true, approximate: false, tracked: true},
+      onToggle: vi.fn(),
+    }));
+
+    expect(html.match(/class="vision-layer-pill/g)).toHaveLength(3);
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain("Discoveries");
+    expect(html).toContain("12");
+    expect(html).toContain("On");
+    expect(html).toContain("Approximate areas");
+    expect(html).toContain("4");
+    expect(html).toContain("Off");
+    expect(html).toContain("Tracked opportunities");
+    expect(html).toContain("3");
+  });
+
+  it("filters discoveries, approximate areas, and tracked records independently", () => {
+    const discoveryPoints = partitionMapPoints([
+      discovery({id: "discovery-located", latitude: 40.8, longitude: -73.4}),
+      discovery({id: "discovery-approximate", town: "Hauppauge"}),
+    ]);
+    const trackedPoints = partitionMapPoints([
+      tracked({id: "tracked-located", latitude: 40.81, longitude: -73.41}),
+      tracked({id: "tracked-approximate", town: "Hauppauge"}),
+    ]);
+
+    expect(selectVisibleMapLayers(discoveryPoints, trackedPoints, {discoveries: false, approximate: true, tracked: false})).toEqual({
+      discoveries: [],
+      approximate: [
+        {kind: "tracked", point: trackedPoints.approximate[0]},
+        {kind: "source-record", point: discoveryPoints.approximate[0]},
+      ],
+      tracked: [],
+    });
+    expect(selectVisibleMapLayers(discoveryPoints, trackedPoints, {discoveries: true, approximate: false, tracked: true})).toEqual({
+      discoveries: discoveryPoints.source,
+      approximate: [],
+      tracked: trackedPoints.source,
+    });
+  });
+
   it("shows compact approximate counts without adding a directory below the map", () => {
     const html = renderToStaticMarkup(createElement(OpportunityMap, {
       discoveries: [
@@ -53,8 +98,8 @@ describe("Vision opportunity map", () => {
     }));
 
     expect(html).toContain("1 source or saved · 2 approximate · 1 unmapped");
-    expect(html).not.toContain("Approximate areas");
-    expect(html).toContain("Gold ≈ pills place records at a named area center because project coordinates are not known.");
+    expect(html).not.toContain("<h2>Approximate areas</h2>");
+    expect(html).toContain("Gold ≈ pills use a named area center, not a project coordinate.");
     expect(html).toContain("1 record remains unmapped.");
     expect(html).toContain('href="/vision/unknown#location"');
   });

@@ -7,7 +7,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { useRouter } from "next/navigation";
 import type { Map as LeafletMap } from "leaflet";
-import { groupApproximateAreaPoints, groupSourceMapPoints, partitionMapPoints, type ApproximateAreaGroup, type DiscoveryMapPoint } from "@/lib/vision/map-points";
+import { groupApproximateAreaPoints, groupSourceMapPoints, partitionMapPoints, type ApproximateAreaGroup, type ApproximateAreaItem, type DiscoveryMapPoint } from "@/lib/vision/map-points";
 import type { VisionOpportunity } from "@/lib/vision/types";
 import { WORKFLOW_LABELS } from "@/lib/vision/presentation";
 import { STATUS_LABEL } from "@/lib/data";
@@ -19,6 +19,50 @@ type ApproximatePopupRecord = {
   href: string;
   label: string;
 };
+
+export type MapLayerVisibility = {
+  discoveries: boolean;
+  approximate: boolean;
+  tracked: boolean;
+};
+
+type PartitionedMapPoints = ReturnType<typeof partitionMapPoints>;
+type MapLayerKey = keyof MapLayerVisibility;
+
+export function selectVisibleMapLayers(discoveryPoints: PartitionedMapPoints, trackedPoints: PartitionedMapPoints, visibility: MapLayerVisibility) {
+  const approximate: ApproximateAreaItem[] = visibility.approximate ? [
+    ...trackedPoints.approximate.map(point => ({kind: "tracked" as const, point})),
+    ...discoveryPoints.approximate.map(point => ({kind: "source-record" as const, point})),
+  ] : [];
+  return {
+    discoveries: visibility.discoveries ? discoveryPoints.source : [],
+    approximate,
+    tracked: visibility.tracked ? trackedPoints.source : [],
+  };
+}
+
+const LAYER_LABELS: Record<MapLayerKey, string> = {
+  discoveries: "Discoveries",
+  approximate: "Approximate areas",
+  tracked: "Tracked opportunities",
+};
+
+export function MapLayerControls({counts, visibility, onToggle}: {counts: Record<MapLayerKey, number>; visibility: MapLayerVisibility; onToggle: (layer: MapLayerKey) => void}) {
+  return <div className="vision-layer-controls" role="group" aria-label="Map layers">
+    {(Object.keys(LAYER_LABELS) as MapLayerKey[]).map(layer => <button
+      key={layer}
+      type="button"
+      className={`vision-layer-pill vision-layer-pill--${layer}`}
+      aria-pressed={visibility[layer]}
+      onClick={() => onToggle(layer)}
+    >
+      <span className="vision-layer-mark" aria-hidden="true">{layer === "discoveries" ? "◆" : layer === "approximate" ? "≈" : "●"}</span>
+      <span>{LAYER_LABELS[layer]}</span>
+      <span className="vision-layer-count">{counts[layer]}</span>
+      <span className="vision-layer-state">{visibility[layer] ? "On" : "Off"}</span>
+    </button>)}
+  </div>;
+}
 
 export function ApproximateAreaPopup({group, trackedById}: {group: ApproximateAreaGroup; trackedById: ReadonlyMap<string, VisionOpportunity>}) {
   const records = popupRecords(group, trackedById);
@@ -53,12 +97,12 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
   const router = useRouter();
   const [failure, setFailure] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [showDiscoveries,setShowDiscoveries]=useState(true);
-  const [showTracked,setShowTracked]=useState(true);
+  const [visibility,setVisibility]=useState<MapLayerVisibility>({discoveries:true,approximate:true,tracked:true});
   const sourceRecordPoints = useMemo(() => partitionMapPoints(discoveries), [discoveries]);
   const trackedPoints = useMemo(() => partitionMapPoints(opportunities), [opportunities]);
   const sourceLocated = sourceRecordPoints.source.length + trackedPoints.source.length;
   const approximate = sourceRecordPoints.approximate.length + trackedPoints.approximate.length;
+  const visibleLayers = useMemo(() => selectVisibleMapLayers(sourceRecordPoints, trackedPoints, visibility), [sourceRecordPoints, trackedPoints, visibility]);
   const unmappedTracked = useMemo(() => {
     const mappedIds = new Set([...trackedPoints.source, ...trackedPoints.approximate].map(point => point.id));
     return opportunities.filter(record => !mappedIds.has(record.id));
@@ -93,7 +137,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
         tiles.addTo(map);
         const bounds = L.latLngBounds([]);
         const trackedById = new Map(opportunities.map(record => [record.id, record]));
-        for (const displayPoint of showTracked ? trackedPoints.source : []) {
+        for (const displayPoint of visibleLayers.tracked) {
           const record = trackedById.get(displayPoint.id)!;
           const point = L.latLng(displayPoint.displayLatitude, displayPoint.displayLongitude);
           bounds.extend(point);
@@ -125,11 +169,7 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
             }
           });
         }
-        const approximateItems = [
-          ...(showTracked ? trackedPoints.approximate.map(point => ({kind: "tracked" as const, point})) : []),
-          ...(showDiscoveries ? sourceRecordPoints.approximate.map(point => ({kind: "source-record" as const, point})) : []),
-        ];
-        for (const group of groupApproximateAreaPoints(approximateItems)) {
+        for (const group of groupApproximateAreaPoints(visibleLayers.approximate)) {
           bounds.extend([group.latitude, group.longitude]);
           const pin = document.createElement("span");
           pin.className = "vision-approximate-pin";
@@ -160,11 +200,10 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
           });
         }
         const sourceRecordLayer=L.layerGroup().addTo(map);
-        if(showDiscoveries)for(const point of sourceRecordPoints.source)bounds.extend([point.displayLatitude,point.displayLongitude]);
+        for(const point of visibleLayers.discoveries)bounds.extend([point.displayLatitude,point.displayLongitude]);
         function drawSourceRecords(){
           sourceRecordLayer.clearLayers();
-          if(!showDiscoveries)return;
-          for(const group of groupSourceMapPoints(sourceRecordPoints.source,(lat,lng)=>map.project([lat,lng],map.getZoom()))){
+          for(const group of groupSourceMapPoints(visibleLayers.discoveries,(lat,lng)=>map.project([lat,lng],map.getZoom()))){
             const {latitude,longitude}=group;
             const pin=document.createElement("span");pin.className="vision-discovery-pin";
             pin.textContent=group.points.length===1?"◆":String(group.points.length);
@@ -199,7 +238,11 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [opportunities, showDiscoveries, showTracked, router, sourceRecordPoints, trackedPoints, workflowDecisions]);
+  }, [opportunities, router, visibleLayers, workflowDecisions]);
+
+  function toggleLayer(layer: MapLayerKey) {
+    setVisibility(current => ({...current, [layer]: !current[layer]}));
+  }
 
   return (
     <section className="vision-map-section" aria-label="Opportunity map">
@@ -214,16 +257,19 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
           <button type="button" className="btn btn--quiet" disabled={!ready} onClick={() => mapRef.current?.setView([40.85, -73.05], 9, { animate: false })}>Long Island</button>
         </div>
       </div>
-      <div className="vision-map-legend">
-        <label><input type="checkbox" checked={showDiscoveries} onChange={e=>setShowDiscoveries(e.target.checked)} /><span className="vision-legend-discovery">◆</span> Source records awaiting review</label>
-        <label><input type="checkbox" checked={showTracked} onChange={e=>setShowTracked(e.target.checked)} /> Tracked opportunities</label>
-        <span className="vision-approximate-pin vision-approximate-pin--legend" aria-label="Approximate area marker">≈ Approximate area</span>
-        {Object.entries(workflowDecisions ? {working:"Pursuing",done:"Won",open:"Other decisions"} : STATUS_LABEL).map(([state,label])=><span key={state} className={`vision-map-pin vision-map-pin--${state}`}><span className="vision-map-state" aria-hidden="true" />{label}</span>)}
+      <div className="vision-map-toolbar">
+        <MapLayerControls counts={{discoveries:sourceRecordPoints.source.length,approximate,tracked:trackedPoints.source.length}} visibility={visibility} onToggle={toggleLayer}/>
+        <details className="vision-status-key">
+          <summary>Tracked states</summary>
+          <div className="vision-status-key-options" aria-label="Tracked opportunity states">
+            {Object.entries(workflowDecisions ? {working:"Pursuing",done:"Won",open:"Other"} : STATUS_LABEL).map(([state,label])=><span key={state} className={`vision-map-pin vision-map-pin--${state}`}><span className="vision-map-state" aria-hidden="true" />{label}</span>)}
+          </div>
+        </details>
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
       {unmappedTracked.length>0?<details className="vision-off-map" open><summary>{unmappedTracked.length} tracked {unmappedTracked.length===1?"opportunity needs":"opportunities need"} a location</summary><ul>{unmappedTracked.map(item=><li key={item.id}><Link className="vision-link-pill" href={`/vision/${item.id}#location`}>{item.name}: resolve map location</Link></li>)}</ul></details>:null}
-      <p className="vision-map-caption">Blue markers show source records with coordinates. Gold ≈ pills place records at a named area center because project coordinates are not known. Source-located and approximate records stay in separate groups. Open a marker to review each record. Policy context stays in the list. The map shows up to 500 matching source records per source; {unmapped} {unmapped===1?"record remains":"records remain"} unmapped.</p>
+      <p className="vision-map-caption"><strong>Location note</strong><span>Blue diamonds use source coordinates. Gold ≈ pills use a named area center, not a project coordinate. {unmapped} {unmapped===1?"record remains":"records remain"} unmapped.</span></p>
     </section>
   );
 }

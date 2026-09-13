@@ -1,4 +1,7 @@
 import {expect, test} from "@playwright/test";
+import {DISCOVERY_SOURCES} from "../lib/vision/discovery-catalog";
+
+const sourceCount=DISCOVERY_SOURCES.length;
 
 test("keeps one live source feedback region mounted while the picker opens and closes", async ({page}) => {
   await page.goto("/vision");
@@ -30,20 +33,20 @@ test("supports source presets, an individual switch, Escape, and focus return", 
   const trigger = page.getByRole("button", {name: /Sources/});
   await trigger.click();
   const switches = page.getByRole("switch");
-  await expect(switches).toHaveCount(9);
+  await expect(switches).toHaveCount(sourceCount);
 
   await page.getByRole("button", {name:"None"}).click();
   await expect(trigger).toContainText("0 on");
   await expect(page.getByRole("button", {name:"None"})).toHaveAttribute("aria-pressed","true");
-  for (let index=0;index<9;index++) await expect(switches.nth(index)).not.toBeChecked();
+  for (let index=0;index<sourceCount;index++) await expect(switches.nth(index)).not.toBeChecked();
 
   await page.getByRole("button", {name:"All"}).click();
-  await expect(trigger).toContainText("9 on");
+  await expect(trigger).toContainText(`${sourceCount} on`);
   await expect(page.getByRole("button", {name:"All"})).toHaveAttribute("aria-pressed","true");
-  for (let index=0;index<9;index++) await expect(switches.nth(index)).toBeChecked();
+  for (let index=0;index<sourceCount;index++) await expect(switches.nth(index)).toBeChecked();
 
   await switches.first().click();
-  await expect(trigger).toContainText("8 on");
+  await expect(trigger).toContainText(`${sourceCount-1} on`);
   await expect(switches.first()).not.toBeChecked();
 
   await page.keyboard.press("Escape");

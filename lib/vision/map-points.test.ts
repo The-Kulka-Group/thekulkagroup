@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {buildMapPoint, groupMapPoints, type MapRecord} from "./map-points";
+import {buildMapPoint, groupApproximateAreaPoints, groupSourceMapPoints, partitionMapPoints, type MapRecord} from "./map-points";
 
 const record = (overrides: Partial<MapRecord> = {}): MapRecord => ({
   id: "record-1",
@@ -68,6 +68,43 @@ describe("Vision map point builder", () => {
     expect(buildMapPoint(record({town}))).toMatchObject({precision: "approximate", area});
   });
 
+  it.each([
+    ["Bethpage", "Nassau"],
+    ["Farmingdale", "Nassau"],
+    ["Garden City", "Nassau"],
+    ["Glen Cove", "Nassau"],
+    ["Great Neck", "Nassau"],
+    ["Hempstead", "Nassau"],
+    ["Jericho", "Nassau"],
+    ["Massapequa Park", "Nassau"],
+    ["Mineola", "Nassau"],
+    ["Oceanside", "Nassau"],
+    ["Port Washington", "Nassau"],
+    ["Uniondale", "Nassau"],
+    ["Westbury", "Nassau"],
+    ["Brookhaven", "Suffolk"],
+    ["Huntington", "Suffolk"],
+    ["Islandia", "Suffolk"],
+    ["Riverhead", "Suffolk"],
+    ["Southold", "Suffolk"],
+  ])("covers the automated-source fixture area %s", (area, county) => {
+    expect(buildMapPoint(record({town: area, county}))).toMatchObject({precision: "approximate", area});
+  });
+
+  it("uses the Elwood hamlet named by the Suffolk fixture before its town", () => {
+    expect(buildMapPoint(record({
+      address: "n/s of Jericho Turnpike & 212 ft east of Manor Rd, Hamlet of Elwood",
+      town: "Town of Huntington",
+    }))).toMatchObject({precision: "approximate", area: "Elwood"});
+  });
+
+  it("does not treat an area name in a road as the project locality", () => {
+    expect(buildMapPoint(record({
+      address: "n/s of Jericho Turnpike & 212 ft east of Manor Road",
+      town: "Town of Huntington",
+    }))).toMatchObject({precision: "approximate", area: "Huntington"});
+  });
+
   it("keeps county-only and unknown records unmapped", () => {
     expect(buildMapPoint(record({town: "Suffolk County", address: "Suffolk County"}))).toBeNull();
     expect(buildMapPoint(record({town: "Unknown Place", address: "100 Unlisted Road"}))).toBeNull();
@@ -75,28 +112,33 @@ describe("Vision map point builder", () => {
 });
 
 describe("Vision map grouping", () => {
-  it("keeps every located record, including applications at one area center", () => {
-    const records = [
-      record({id: "a", town: "Village of Islandia"}),
-      record({id: "b", town: "Islandia"}),
+  it("keeps each source-located record in its screen-cell group", () => {
+    const {source} = partitionMapPoints([
+      record({id: "a", latitude: 1, longitude: 1}),
+      record({id: "b", latitude: 1, longitude: 1}),
       record({id: "missing", town: "Unknown Place"}),
-    ];
-    const groups = groupMapPoints(records, (latitude, longitude) => ({x: latitude, y: longitude}));
+    ]);
+    const groups = groupSourceMapPoints(source, (latitude, longitude) => ({x: latitude, y: longitude}));
 
     expect(groups).toHaveLength(1);
     expect(groups[0].points.map(point => point.id)).toEqual(["a", "b"]);
-    expect(groups[0]).toMatchObject({precision: "approximate", area: "Islandia"});
   });
 
-  it("separates source and approximate records in the same screen cell", () => {
-    const groups = groupMapPoints([
-      record({id: "source", latitude: 40.8257, longitude: -73.2026}),
-      record({id: "approximate", town: "Hauppauge"}),
-    ], () => ({x: 10, y: 10}));
+  it("puts tracked and source records for one approximate area in one group", () => {
+    const {approximate} = partitionMapPoints([
+      record({id: "source-record", town: "Hauppauge"}),
+      record({id: "tracked", address: "35 Adams Avenue, Hauppauge, NY"}),
+    ]);
+    const groups = groupApproximateAreaPoints([
+      {kind: "source-record", point: approximate[0]},
+      {kind: "tracked", point: approximate[1]},
+    ]);
 
-    expect(groups.map(group => [group.precision, group.points.map(point => point.id)])).toEqual([
-      ["source", ["source"]],
-      ["approximate", ["approximate"]],
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({area: "Hauppauge"});
+    expect(groups[0].items.map(item => [item.kind, item.point.id])).toEqual([
+      ["source-record", "source-record"],
+      ["tracked", "tracked"],
     ]);
   });
 
@@ -105,7 +147,8 @@ describe("Vision map grouping", () => {
       record({id: "a", latitude: 1, longitude: 1}),
       record({id: "b", latitude: 2, longitude: 2}),
     ];
-    expect(groupMapPoints(records, (latitude, longitude) => ({x: latitude, y: longitude}))).toHaveLength(1);
-    expect(groupMapPoints(records, (latitude, longitude) => ({x: latitude * 100, y: longitude * 100}))).toHaveLength(2);
+    const {source} = partitionMapPoints(records);
+    expect(groupSourceMapPoints(source, (latitude, longitude) => ({x: latitude, y: longitude}))).toHaveLength(1);
+    expect(groupSourceMapPoints(source, (latitude, longitude) => ({x: latitude * 100, y: longitude * 100}))).toHaveLength(2);
   });
 });

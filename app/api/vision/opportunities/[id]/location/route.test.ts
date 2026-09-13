@@ -1,6 +1,6 @@
 import {afterAll,afterEach,beforeAll,beforeEach,describe,expect,it,vi} from "vitest";
 import {seededDatabase} from "@/test/database";
-import {groupMapPoints} from "@/lib/vision/map-points";
+import {groupSourceMapPoints, partitionMapPoints} from "@/lib/vision/map-points";
 import type {Db} from "@/lib/db";
 import {createVisionOpportunity,getVisionOpportunity} from "@/lib/vision/opportunities";
 let db:Awaited<ReturnType<typeof seededDatabase>>;
@@ -22,7 +22,7 @@ describe("location review",()=>{
     const location={address:"1 Test St, Test Town, NY",latitude:40.8,longitude:-73.4,expectedRevision:original.revision};
     const response=await PATCH(request(location),context(original.id));expect(response.status).toBe(200);
     const saved=(await response.json()).opportunity;expect(saved).toMatchObject({...draft,address:location.address,latitude:location.latitude,longitude:location.longitude,revision:2,notes:draft.notes,status:"open",sourceUrl:original.sourceUrl});
-    expect(groupMapPoints([saved],()=>({x:0,y:0}))[0]).toMatchObject({precision:"source",points:[expect.objectContaining(saved)]});
+    expect(groupSourceMapPoints(partitionMapPoints([saved]).source,()=>({x:0,y:0}))[0]).toMatchObject({points:[expect.objectContaining(saved)]});
     expect((await PATCH(request(location),context(original.id))).status).toBe(409);
     expect((await detail.PATCH(request({...draft,status:"open",expectedRevision:1}),context(original.id))).status).toBe(409);
     expect((await db.query("select * from vision_workflows where opportunity_id=$1",[original.id])).rows).toEqual(workflowBefore);

@@ -28,5 +28,61 @@ async function createBrowserTestDatabase() {
       await database.exec(readFileSync(join(migrations, file), "utf8"));
     }
   }
+  await seedVisionMapFixtures(database);
   return database;
+}
+
+/** Give browser tests one source and one area marker for each record type. */
+async function seedVisionMapFixtures(database: PGlite) {
+  await database.exec(`
+    insert into vision_opportunities
+      (id, name, town, county, address, latitude, longitude, source_title, source_url, source_date, notes)
+    values
+      ('10000000-0000-4000-8000-000000000001', 'Tracked exact location', 'Islip', 'Suffolk', '100 Main Street, Islip, NY', 40.7298, -73.2104, 'Browser test source', 'https://example.test/tracked-exact', '2026-09-10', 'Synthetic browser test record.'),
+      ('10000000-0000-4000-8000-000000000002', 'Tracked approximate area', 'Smithtown', 'Suffolk', '', null, null, 'Browser test source', 'https://example.test/tracked-approximate', '2026-09-11', 'Synthetic browser test record.');
+
+    insert into vision_discovery_sources (id, record_count)
+    values ('nassau-applications', 2);
+
+    insert into vision_discovery_candidates (id, source_id, external_id, snapshot)
+    values
+      (
+        '20000000-0000-4000-8000-000000000001',
+        'nassau-applications',
+        'browser-test-exact',
+        jsonb_build_object(
+          'externalId', 'browser-test-exact',
+          'name', 'Discovery exact location',
+          'town', 'Uniondale',
+          'county', 'Nassau',
+          'address', '200 Charles Lindbergh Boulevard, Uniondale, NY',
+          'latitude', 40.7004,
+          'longitude', -73.5929,
+          'sourceTitle', 'Browser test source',
+          'sourceUrl', 'https://example.test/discovery-exact',
+          'sourceDate', '2026-09-10',
+          'sourceDateLabel', 'Filed',
+          'details', jsonb_build_object('Record type', 'Planning application')
+        )
+      ),
+      (
+        '20000000-0000-4000-8000-000000000002',
+        'nassau-applications',
+        'browser-test-approximate',
+        jsonb_build_object(
+          'externalId', 'browser-test-approximate',
+          'name', 'Discovery approximate area',
+          'town', 'Hauppauge',
+          'county', 'Suffolk',
+          'address', '',
+          'latitude', null,
+          'longitude', null,
+          'sourceTitle', 'Browser test source',
+          'sourceUrl', 'https://example.test/discovery-approximate',
+          'sourceDate', '2026-09-11',
+          'sourceDateLabel', 'Filed',
+          'details', jsonb_build_object('Record type', 'Planning application')
+        )
+      );
+  `);
 }

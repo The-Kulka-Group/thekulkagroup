@@ -233,7 +233,9 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
       disposed = true;
       window.clearTimeout(timeout);
       resize?.disconnect();
-      for (const root of popupRoots) root.unmount();
+      queueMicrotask(() => {
+        for (const root of popupRoots) root.unmount();
+      });
       mapRef.current?.remove();
       mapRef.current = null;
     };

@@ -60,24 +60,33 @@ test("changes each map layer from a pressed On pill to an Off pill", async ({pag
   const discoveries = page.getByRole("button", {name:/^Discoveries \d+/});
   const approximate = page.getByRole("button", {name:/^Approximate areas \d+/});
   const tracked = page.getByRole("button", {name:/^Tracked opportunities \d+/});
+  const discoveryPins = page.locator(".vision-map-canvas .vision-discovery-pin");
+  const approximatePins = page.locator(".vision-map-canvas .vision-approximate-pin");
+  const trackedPins = page.locator(".vision-map-canvas .vision-map-pin");
   await expect(discoveries).toHaveAttribute("aria-pressed","true");
   await expect(approximate).toHaveAttribute("aria-pressed","true");
   await expect(tracked).toHaveAttribute("aria-pressed","true");
+  await expect(discoveryPins).toHaveCount(1);
+  await expect(approximatePins).toHaveCount(2);
+  await expect(trackedPins).toHaveCount(1);
 
   await approximate.click();
   await expect(approximate).toHaveAttribute("aria-pressed","false");
   await expect(approximate).toContainText("Off");
-  await expect(page.locator(".vision-map-canvas .vision-approximate-pin")).toHaveCount(0);
+  await expect(approximatePins).toHaveCount(0);
+  await expect(discoveryPins).toHaveCount(1);
+  await expect(trackedPins).toHaveCount(1);
 
   await discoveries.click();
   await expect(discoveries).toHaveAttribute("aria-pressed","false");
   await expect(discoveries).toContainText("Off");
-  await expect(page.locator(".vision-map-canvas .vision-discovery-pin")).toHaveCount(0);
+  await expect(discoveryPins).toHaveCount(0);
+  await expect(trackedPins).toHaveCount(1);
 
   await tracked.click();
   await expect(tracked).toHaveAttribute("aria-pressed","false");
   await expect(tracked).toContainText("Off");
-  await expect(page.locator(".vision-map-canvas .vision-map-pin")).toHaveCount(0);
+  await expect(trackedPins).toHaveCount(0);
 });
 
 test("keeps discovery filters collapsed until a filter is active", async ({page}) => {
@@ -89,4 +98,28 @@ test("keeps discovery filters collapsed until a filter is active", async ({page}
   await expect(page.locator(".vision-discovery-filters")).toHaveAttribute("open","");
   await expect(page.locator(".vision-discovery-filters > summary .vision-filter-count")).toHaveText("2");
   await expect(page.locator(".vision-filter-footer")).toBeVisible();
+});
+
+test("keeps the map in view without horizontal overflow on desktop and mobile", async ({page}) => {
+  await page.setViewportSize({width:1280,height:760});
+  await page.goto("/vision");
+
+  const desktop = await page.locator(".vision-map-canvas").evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return {top:box.top,height:box.height,innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth};
+  });
+  expect(desktop.scrollWidth).toBe(desktop.innerWidth);
+  expect(desktop.top).toBeLessThan(500);
+  expect(desktop.height).toBeGreaterThanOrEqual(500);
+
+  await page.setViewportSize({width:375,height:812});
+  await page.reload();
+
+  const mobile = await page.locator(".vision-map-canvas").evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return {top:box.top,height:box.height,innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth};
+  });
+  expect(mobile.scrollWidth).toBe(mobile.innerWidth);
+  expect(mobile.top).toBeLessThan(812);
+  expect(mobile.height).toBeGreaterThanOrEqual(440);
 });

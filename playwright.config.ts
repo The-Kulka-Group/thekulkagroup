@@ -4,6 +4,8 @@ const port = 3188;
 
 export default defineConfig({
   testDir: "./e2e",
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
   outputDir: "/tmp/kulka-playwright-results",

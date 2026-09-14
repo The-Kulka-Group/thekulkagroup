@@ -14,7 +14,9 @@ test("shows joined source coverage and filters to a clear empty result", async (
   await expect(page.getByText(/official source routes, not projects/i)).toBeVisible();
   await expect(page.locator(".vision-directory-card")).toHaveCount(140);
   await expect(page.locator(".vision-source-checked")).toHaveCount(140);
+  await page.getByRole("button", {name: /Sources/}).click();
   await expect(page.getByRole("switch")).toHaveCount(9);
+  await page.getByRole("button", {name: "Done"}).click();
   const smartGov = page.locator(".vision-directory-card").filter({hasText: "Hempstead Village permits"});
   await expect(smartGov).toHaveCount(1);
   await expect(smartGov.getByText("Collectable")).toBeVisible();

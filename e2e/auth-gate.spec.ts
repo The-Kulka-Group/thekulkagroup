@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { AUTH_ROUTES, AUTH_SECURITY_HEADERS } from "../lib/auth/routes";
 
 const authStates = [
   { path: "/login", title: "Sign In" },
@@ -16,11 +17,31 @@ const authStates = [
   { path: "/update-password?flow=recovery", title: "Reset Password" },
 ] as const;
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function expectAuthCardFits(page: Page, viewport: { width: number; height: number }, label: string) {
+  const card = page.locator(".auth-card");
+  await expect(card).toBeVisible();
+  const box = await card.boundingBox();
+  expect(box, label).not.toBeNull();
+  expect(box!.x, label).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width, label).toBeLessThanOrEqual(viewport.width);
+  expect(box!.y, label).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height, label).toBeLessThanOrEqual(viewport.height);
+}
+
 function expectPrivateAuthHeaders(headers: Record<string, string>) {
-  expect(headers["cache-control"]).toMatch(/no-store|no-cache/);
-  expect(headers["cdn-cache-control"]).toBe("no-store");
-  expect(headers["vercel-cdn-cache-control"]).toBe("no-store");
-  expect(headers["referrer-policy"]).toBe("no-referrer");
+  for (const [name, value] of Object.entries(AUTH_SECURITY_HEADERS)) {
+    if (name === "Cache-Control") {
+      expect(headers[name.toLowerCase()]).toMatch(/no-store|no-cache/);
+    } else {
+      expect(headers[name.toLowerCase()]).toBe(value);
+    }
+  }
 }
 
 test("redirects, signs in to a safe return path, and signs out", async ({ page, context }) => {
@@ -60,6 +81,18 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
   await expect(page).toHaveURL(/\/login\?next=%2Fpursuits$/);
 });
 
+test("stops a signed-out page request at the proxy boundary", async ({ request }) => {
+  const response = await request.get("/pursuits?view=mine", {
+    headers: { Cookie: "kulka-test-auth=signed-out" },
+    maxRedirects: 0,
+  });
+
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toMatch(/\/login\?next=%2Fpursuits%3Fview%3Dmine$/);
+  expectPrivateAuthHeaders(response.headers());
+  expect((await response.body()).toString()).toBe("/login?next=%2Fpursuits%3Fview%3Dmine");
+});
+
 for (const viewport of [
   { name: "phone", width: 375, height: 667 },
   { name: "desktop", width: 1440, height: 900 },
@@ -69,15 +102,36 @@ for (const viewport of [
     for (const state of authStates) {
       await page.goto(state.path);
       await expect(page.getByRole("heading", { name: state.title })).toBeVisible();
-      const card = page.locator(".auth-card");
-      await expect(card).toBeVisible();
-      const box = await card.boundingBox();
-      expect(box, state.path).not.toBeNull();
-      expect(box!.x, state.path).toBeGreaterThanOrEqual(0);
-      expect(box!.x + box!.width, state.path).toBeLessThanOrEqual(viewport.width);
-      expect(box!.y, state.path).toBeGreaterThanOrEqual(0);
-      expect(box!.y + box!.height, state.path).toBeLessThanOrEqual(viewport.height);
+      await expectAuthCardFits(page, viewport, state.path);
     }
+  });
+
+  test(`keeps recovery pending and success states usable at ${viewport.name} width`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/forgot-password?next=%2Funderwriting");
+
+    const requestHeld = deferred();
+    const releaseRequest = deferred();
+    await page.route("**/forgot-password*", async (route) => {
+      if (route.request().method() === "POST") {
+        requestHeld.resolve();
+        await releaseRequest.promise;
+      }
+      await route.continue();
+    });
+
+    await page.getByLabel("Email").fill("browser-test@kulka.invalid");
+    const click = page.getByRole("button", { name: "Send Reset Link" }).click();
+    await requestHeld.promise;
+    await expect(page.getByRole("button", { name: "Sending..." })).toBeDisabled();
+    await expectAuthCardFits(page, viewport, "recovery pending");
+
+    releaseRequest.resolve();
+    await click;
+    await expect(page.getByRole("status")).toHaveText(
+      "If the address has access, a password reset email is on the way.",
+    );
+    await expectAuthCardFits(page, viewport, "recovery success");
   });
 }
 
@@ -211,7 +265,22 @@ test("shows a generic error for an invalid account link", async ({ page }) => {
   await expect(page.locator(".auth-card")).toHaveCount(1);
 });
 
+test("keeps the invalid link next step tied to its email flow", async ({ page }) => {
+  await page.goto("/auth/continue?token_hash=bad-browser-token&type=invite");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/auth\/continue\?error=invalid&type=invite$/);
+  await expect(page.getByText("Ask a Kulka owner to send a new invitation.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Request a New Link" })).toHaveCount(0);
+
+  await page.goto("/auth/continue?token_hash=bad-browser-token&type=recovery");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/auth\/continue\?error=invalid&type=recovery$/);
+  await expect(page.getByRole("link", { name: "Request a New Link" })).toBeVisible();
+});
+
 test("keeps every public auth page out of browser and CDN caches", async ({ page }) => {
+  const coveredRoutes = new Set(authStates.map((state) => new URL(state.path, "https://kulka.invalid").pathname));
+  expect([...coveredRoutes].sort()).toEqual([...AUTH_ROUTES].sort());
   for (const state of authStates) {
     const response = await page.goto(state.path);
     expect(response, state.path).not.toBeNull();

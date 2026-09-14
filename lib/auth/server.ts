@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import type { User } from "@supabase/supabase-js";
 
-import { allowedEmailsFrom, authConfiguration, normalizeEmail } from "./policy";
+import { allowedEmailsFrom, authConfiguration, verifiedAllowedEmail } from "./policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AuthorizedUser = { id: string; email: string };
@@ -9,7 +10,8 @@ export type Authorization =
   | { ok: true; user: AuthorizedUser }
   | { ok: false; status: 401 | 403 | 503; error: string };
 
-type VerifyUser = () => Promise<{ id: string; email?: string } | null>;
+type VerifiedEmailUser = Pick<User, "id" | "email" | "email_confirmed_at">;
+type VerifyUser = () => Promise<VerifiedEmailUser | null>;
 
 export async function authorizeVerifiedUser(
   verifyUser: VerifyUser,
@@ -22,8 +24,8 @@ export async function authorizeVerifiedUser(
   try {
     const user = await verifyUser();
     if (!user) return { ok: false, status: 401, error: "Sign in to continue." };
-    const email = normalizeEmail(user.email ?? "");
-    if (!allowlist.has(email)) {
+    const email = verifiedAllowedEmail(user, allowlist);
+    if (!email) {
       return { ok: false, status: 403, error: "This account does not have access." };
     }
     return { ok: true, user: { id: user.id, email } };
@@ -63,7 +65,7 @@ export async function authorizeRequest(request?: Request): Promise<Authorization
     const { data, error } = await supabase.auth.getUser();
     if (!data.user) return null;
     if (error) throw error;
-    return { id: data.user.id, email: data.user.email };
+    return data.user;
   }, process.env.KULKA_AUTH_ALLOWED_EMAILS);
 }
 

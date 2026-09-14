@@ -1,3 +1,5 @@
+import type { User } from "@supabase/supabase-js";
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const AUTH_TOKEN_HASH = /^[A-Za-z0-9_-]{16,512}$/;
 
@@ -20,6 +22,15 @@ export function allowedEmailsFrom(value: string | undefined): ReadonlySet<string
     return null;
   }
   return unique;
+}
+
+export function verifiedAllowedEmail(
+  user: Pick<User, "email" | "email_confirmed_at">,
+  allowedEmails: ReadonlySet<string>,
+) {
+  if (!user.email_confirmed_at) return null;
+  const email = normalizeEmail(user.email ?? "");
+  return allowedEmails.has(email) ? email : null;
 }
 
 export function authConfiguration(

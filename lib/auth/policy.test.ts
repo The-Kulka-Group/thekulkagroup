@@ -9,6 +9,7 @@ import {
   safeAuthTokenHash,
   safeReturnPath,
   siteUrlFrom,
+  verifiedAllowedEmail,
 } from "./policy";
 
 describe("allowedEmailsFrom", () => {
@@ -48,6 +49,28 @@ describe("authConfiguration", () => {
     const values: [string | undefined, string | undefined, string | undefined] = [...valid];
     values[index] = undefined;
     expect(authConfiguration(...values)).toBeNull();
+  });
+});
+
+describe("verifiedAllowedEmail", () => {
+  const allowed = new Set(["matt@kulka.com"]);
+
+  it("returns a normalized allowlisted email only when Supabase verified it", () => {
+    expect(verifiedAllowedEmail({
+      email: " MATT@KULKA.COM ",
+      email_confirmed_at: "2026-09-14T12:00:00Z",
+    }, allowed)).toBe("matt@kulka.com");
+  });
+
+  it("rejects an allowlisted but unverified email claim", () => {
+    expect(verifiedAllowedEmail({ email: "matt@kulka.com" }, allowed)).toBeNull();
+  });
+
+  it("rejects a verified email outside the allowlist", () => {
+    expect(verifiedAllowedEmail({
+      email: "other@kulka.com",
+      email_confirmed_at: "2026-09-14T12:00:00Z",
+    }, allowed)).toBeNull();
   });
 });
 

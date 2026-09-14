@@ -19,12 +19,15 @@ export default async function ContinueAuthPage({
   const title = type === "recovery" ? "Reset Your Password" : "Finish Account Setup";
 
   if (invalid) {
+    const footer = type === "invite"
+      ? <p className="auth-help">Ask a Kulka owner to send a new invitation.</p>
+      : <Link className="auth-link" href="/forgot-password">Request a New Link</Link>;
     return (
       <AuthShell
         title={title}
         description="This account link is invalid or has expired."
         descriptionRole="alert"
-        footer={<Link className="auth-link" href="/forgot-password">Request a New Link</Link>}
+        footer={footer}
       />
     );
   }

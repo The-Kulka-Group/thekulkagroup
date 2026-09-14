@@ -1153,7 +1153,7 @@ textarea.input { border-radius: var(--r-lg); }
   margin-left: var(--s2);
   background: var(--primary); color: #FFFFFF;
   font-size: 13px; line-height: 1; font-weight: 800; letter-spacing: 0.04em;
-  padding: 6px var(--s2); border-radius: 6px;
+  padding: 6px var(--s2); border-radius: 999px;
 }
 .auth-header { margin-bottom: var(--s6); }
 .auth-header h1 {
@@ -1168,8 +1168,8 @@ textarea.input { border-radius: var(--r-lg); }
 .auth-field { margin-bottom: var(--s4); }
 .auth-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
 .auth-label-row .field-label { margin-bottom: var(--s1); }
-.auth-link { color: var(--primary-hover); font-size: var(--meta-size); line-height: var(--meta-line); font-weight: 600; text-decoration: none; }
-.auth-link:hover { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.auth-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 var(--s3); border-radius: 999px; color: var(--primary-hover); font-size: var(--meta-size); line-height: var(--meta-line); font-weight: 600; text-decoration: none; }
+.auth-link:hover { color: var(--primary); background: var(--primary-tint); }
 .auth-message { margin-top: var(--s3); padding: var(--s3); border-radius: var(--r-md); }
 .auth-message--error { color: var(--stuck); background: var(--stuck-tint); }
 .auth-message--status { color: var(--ink); background: var(--primary-tint); }

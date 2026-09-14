@@ -1,13 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { authConfiguration, normalizeEmail } from "@/lib/auth/policy";
+import { authConfiguration, verifiedAllowedEmail } from "@/lib/auth/policy";
+import { AUTH_SECURITY_HEADERS, isAuthRoute, isPublicAuthRoute } from "@/lib/auth/routes";
 
 function protectAuthResponse(response: NextResponse) {
-  response.headers.set("Cache-Control", "private, no-store");
-  response.headers.set("CDN-Cache-Control", "no-store");
-  response.headers.set("Vercel-CDN-Cache-Control", "no-store");
-  response.headers.set("Referrer-Policy", "no-referrer");
+  Object.entries(AUTH_SECURITY_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
   return response;
 }
 
@@ -42,14 +40,12 @@ export async function proxy(request: NextRequest) {
     user = result.data.user;
   }
 
-  const isPublicAuthRoute = request.nextUrl.pathname === "/login"
-    || request.nextUrl.pathname === "/forgot-password"
-    || request.nextUrl.pathname === "/auth/continue";
-  const isAuthPage = isPublicAuthRoute || request.nextUrl.pathname === "/update-password";
+  const publicAuthRoute = isPublicAuthRoute(request.nextUrl.pathname);
+  const authRoute = isAuthRoute(request.nextUrl.pathname);
   const authorized = browserTest
     ? browserTestState !== "signed-out" && browserTestState !== "forbidden"
-    : Boolean(user?.email && configured?.allowedEmails.has(normalizeEmail(user.email)));
-  if (!authorized && !isPublicAuthRoute) {
+    : Boolean(user && configured && verifiedAllowedEmail(user, configured.allowedEmails));
+  if (!authorized && !publicAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
@@ -58,7 +54,7 @@ export async function proxy(request: NextRequest) {
     response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
     return protectAuthResponse(redirectResponse);
   }
-  if (isAuthPage) {
+  if (authRoute) {
     return protectAuthResponse(response);
   }
   return response;

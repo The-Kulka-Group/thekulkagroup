@@ -34,7 +34,7 @@ export async function signIn(_state: LoginState, formData: FormData): Promise<Lo
   if (result.error || !result.data.user) return { error: "The email or password is incorrect." };
 
   const authorization = await authorizeVerifiedUser(
-    async () => ({ id: result.data.user!.id, email: result.data.user!.email }),
+    async () => result.data.user,
     process.env.KULKA_AUTH_ALLOWED_EMAILS,
   );
   if (!authorization.ok) {

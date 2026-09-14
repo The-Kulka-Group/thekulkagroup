@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
+  type AuthEmailType,
   authConfiguration,
   safeAuthEmailType,
   safeAuthTokenHash,
@@ -12,7 +13,11 @@ import {
 import { authorizeVerifiedUser } from "@/lib/auth/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const invalidLink = "/auth/continue?error=invalid";
+function invalidLink(type: AuthEmailType | null) {
+  return type
+    ? `/auth/continue?error=invalid&type=${type}`
+    : "/auth/continue?error=invalid";
+}
 
 function passwordPage(next: string, type: "invite" | "recovery") {
   return `/update-password?next=${encodeURIComponent(next)}&flow=${type}`;
@@ -23,10 +28,10 @@ export async function confirmAuthLink(formData: FormData) {
   const type = safeAuthEmailType(String(formData.get("type") ?? ""));
   const next = safeReturnPath(String(formData.get("next") ?? "/"));
 
-  if (!tokenHash || !type) redirect(invalidLink);
+  if (!tokenHash || !type) redirect(invalidLink(type));
 
   if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
-    if (tokenHash !== "browser-test-token") redirect(invalidLink);
+    if (tokenHash !== "browser-test-token") redirect(invalidLink(type));
     (await cookies()).set("kulka-test-auth", "allowed", { httpOnly: true, sameSite: "lax" });
     redirect(passwordPage(next, type));
   }
@@ -36,19 +41,19 @@ export async function confirmAuthLink(formData: FormData) {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     process.env.KULKA_AUTH_ALLOWED_EMAILS,
   );
-  if (!configured) redirect(invalidLink);
+  if (!configured) redirect(invalidLink(type));
 
   const supabase = await createSupabaseServerClient();
   const result = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
-  if (result.error || !result.data.user) redirect(invalidLink);
+  if (result.error || !result.data.user) redirect(invalidLink(type));
 
   const authorization = await authorizeVerifiedUser(
-    async () => ({ id: result.data.user!.id, email: result.data.user!.email }),
+    async () => result.data.user,
     process.env.KULKA_AUTH_ALLOWED_EMAILS,
   );
   if (!authorization.ok) {
     await supabase.auth.signOut();
-    redirect(invalidLink);
+    redirect(invalidLink(type));
   }
 
   redirect(passwordPage(next, type));

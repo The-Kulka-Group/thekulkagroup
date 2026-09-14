@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { AUTH_ROUTES, AUTH_SECURITY_HEADERS } from "./lib/auth/routes";
 
 const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source, so Next compiles them itself.
@@ -23,13 +24,8 @@ const nextConfig: NextConfig = {
   turbopack: { root: import.meta.dirname },
 
   async headers() {
-    const authHeaders = [
-      { key: "Cache-Control", value: "private, no-store" },
-      { key: "CDN-Cache-Control", value: "no-store" },
-      { key: "Vercel-CDN-Cache-Control", value: "no-store" },
-      { key: "Referrer-Policy", value: "no-referrer" },
-    ];
-    return ["/login", "/forgot-password", "/auth/continue", "/update-password"].map((source) => ({
+    const authHeaders = Object.entries(AUTH_SECURITY_HEADERS).map(([key, value]) => ({ key, value }));
+    return AUTH_ROUTES.map((source) => ({
       source,
       headers: authHeaders,
     }));

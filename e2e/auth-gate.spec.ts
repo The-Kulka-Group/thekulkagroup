@@ -1,5 +1,28 @@
 import { expect, test } from "@playwright/test";
 
+const authStates = [
+  { path: "/login", title: "Sign In" },
+  { path: "/forgot-password", title: "Reset Password" },
+  {
+    path: "/auth/continue?token_hash=browser-test-token&type=invite",
+    title: "Finish Account Setup",
+  },
+  {
+    path: "/auth/continue?token_hash=browser-test-token&type=recovery",
+    title: "Reset Your Password",
+  },
+  { path: "/auth/continue?error=invalid", title: "Finish Account Setup" },
+  { path: "/update-password?flow=invite", title: "Create Password" },
+  { path: "/update-password?flow=recovery", title: "Reset Password" },
+] as const;
+
+function expectPrivateAuthHeaders(headers: Record<string, string>) {
+  expect(headers["cache-control"]).toMatch(/no-store|no-cache/);
+  expect(headers["cdn-cache-control"]).toBe("no-store");
+  expect(headers["vercel-cdn-cache-control"]).toBe("no-store");
+  expect(headers["referrer-policy"]).toBe("no-referrer");
+}
+
 test("redirects, signs in to a safe return path, and signs out", async ({ page, context }) => {
   await context.addCookies([{
     name: "kulka-test-auth",
@@ -17,27 +40,50 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
   await expect(page.getByText(/sign up|create account/i)).toHaveCount(0);
   await page.getByLabel("Email").fill("browser-test@kulka.invalid");
   await page.getByLabel("Password").fill("local-browser-test-password");
+  const signInResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Sign In" }).click();
+  const signInResponse = await signInResponsePromise;
+  expectPrivateAuthHeaders(signInResponse.headers());
   await expect(page).toHaveURL(/\/pursuits$/);
   await expect(page.getByText("browser-test@kulka.invalid")).toBeVisible();
 
+  const signOutResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Sign Out" }).click();
+  const signOutResponse = await signOutResponsePromise;
+  expectPrivateAuthHeaders(signOutResponse.headers());
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/pursuits");
   await expect(page).toHaveURL(/\/login\?next=%2Fpursuits$/);
 });
 
-test("keeps the shared auth card usable at phone width with keyboard focus", async ({ page }) => {
+for (const viewport of [
+  { name: "phone", width: 375, height: 667 },
+  { name: "desktop", width: 1440, height: 900 },
+] as const) {
+  test(`keeps every shared auth state usable at ${viewport.name} width`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    for (const state of authStates) {
+      await page.goto(state.path);
+      await expect(page.getByRole("heading", { name: state.title })).toBeVisible();
+      const card = page.locator(".auth-card");
+      await expect(card).toBeVisible();
+      const box = await card.boundingBox();
+      expect(box, state.path).not.toBeNull();
+      expect(box!.x, state.path).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width, state.path).toBeLessThanOrEqual(viewport.width);
+      expect(box!.y, state.path).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height, state.path).toBeLessThanOrEqual(viewport.height);
+    }
+  });
+}
+
+test("keeps the sign-in form in logical keyboard order", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto("/login?next=%2Fpursuits");
-
-  const card = page.locator(".auth-card");
-  await expect(card).toBeVisible();
-  const box = await card.boundingBox();
-  expect(box).not.toBeNull();
-  expect(box!.x).toBeGreaterThanOrEqual(0);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(375);
-
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Email")).toBeFocused();
   await page.keyboard.press("Tab");
@@ -46,6 +92,26 @@ test("keeps the shared auth card usable at phone width with keyboard focus", asy
   await expect(page.getByLabel("Password")).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Sign In" })).toBeFocused();
+});
+
+test("rejects bad credentials without revealing account status", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("unknown@example.com");
+  await page.getByLabel("Password").fill("wrong-password");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page.locator('.auth-message[role="alert"]')).toHaveText(
+    "The email or password is incorrect.",
+  );
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("falls back to app home for an unsafe return path", async ({ page }) => {
+  await page.goto("/login?next=https%3A%2F%2Fevil.test%2Foutside");
+  await expect(page.locator('input[name="next"]')).toHaveValue("/");
+  await page.getByLabel("Email").fill("browser-test@kulka.invalid");
+  await page.getByLabel("Password").fill("local-browser-test-password");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page).toHaveURL("http://127.0.0.1:3188/");
 });
 
 test("turns away an authenticated browser identity outside the allowlist", async ({ page, context }) => {
@@ -74,9 +140,7 @@ test("returns distinct API responses for signed-out and forbidden users", async 
 
 test("requests password recovery without revealing account status", async ({ page }) => {
   const response = await page.goto("/forgot-password?next=%2Funderwriting");
-  expect(response?.headers()["cache-control"]).toContain("no-cache");
-  expect(response?.headers()["vercel-cdn-cache-control"]).toBe("no-store");
-  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+  expectPrivateAuthHeaders(response!.headers());
   await page.getByLabel("Email").fill("browser-test@kulka.invalid");
   await page.getByRole("button", { name: "Send Reset Link" }).click();
   await expect(page.getByRole("status")).toHaveText(
@@ -102,7 +166,12 @@ test("confirms an invite, validates the password, and returns safely", async ({ 
     "/auth/continue?token_hash=browser-test-token&type=invite&next=%2Fpursuits",
   );
   await expect(page.getByRole("heading", { name: "Finish Account Setup" })).toBeVisible();
+  const confirmResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Continue" }).click();
+  const confirmResponse = await confirmResponsePromise;
+  expectPrivateAuthHeaders(confirmResponse.headers());
   await expect(page).toHaveURL(/\/update-password\?next=%2Fpursuits&flow=invite$/);
 
   await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
@@ -118,8 +187,34 @@ test("confirms an invite, validates the password, and returns safely", async ({ 
   await expect(page).toHaveURL(/\/pursuits$/);
 });
 
+test("confirms a recovery link, updates the password, and returns safely", async ({ page, context }) => {
+  await context.addCookies([{
+    name: "kulka-test-auth",
+    value: "signed-out",
+    url: "http://127.0.0.1:3188",
+  }]);
+  await page.goto(
+    "/auth/continue?token_hash=browser-test-token&type=recovery&next=%2Funderwriting",
+  );
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/update-password\?next=%2Funderwriting&flow=recovery$/);
+  await expect(page.getByRole("heading", { name: "Reset Password" })).toBeVisible();
+  await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
+  await page.getByLabel("Confirm Password").fill("a long passphrase 42");
+  await page.getByRole("button", { name: "Save Password" }).click();
+  await expect(page).toHaveURL(/\/underwriting$/);
+});
+
 test("shows a generic error for an invalid account link", async ({ page }) => {
   await page.goto("/auth/continue?token_hash=bad&type=signup");
   await expect(page.locator('.auth-description[role="alert"]')).toHaveText("This account link is invalid or has expired.");
   await expect(page.locator(".auth-card")).toHaveCount(1);
+});
+
+test("keeps every public auth page out of browser and CDN caches", async ({ page }) => {
+  for (const state of authStates) {
+    const response = await page.goto(state.path);
+    expect(response, state.path).not.toBeNull();
+    expectPrivateAuthHeaders(response!.headers());
+  }
 });

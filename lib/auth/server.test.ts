@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { authorizeRequest, authorizeVerifiedUser } from "./server";
+import { authorizeVerifiedUser } from "./server";
 
 afterEach(() => vi.unstubAllEnvs());
 

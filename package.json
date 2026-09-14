@@ -13,7 +13,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "test:browser:temporary-access": "KULKA_AUTH_BYPASS=1 playwright test e2e/temporary-auth-bypass.spec.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

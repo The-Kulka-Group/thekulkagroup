@@ -1,20 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { authConfiguration, normalizeEmail, temporaryAuthBypass } from "@/lib/auth/policy";
+import { authConfiguration, verifiedAllowedEmail } from "@/lib/auth/policy";
+import { AUTH_SECURITY_HEADERS, isAuthRoute, isPublicAuthRoute } from "@/lib/auth/routes";
+
+function protectAuthResponse(response: NextResponse) {
+  Object.entries(AUTH_SECURITY_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
-  // LA-173: remove KULKA_AUTH_BYPASS from Vercel and redeploy to restore LA-13.
-  if (temporaryAuthBypass(process.env.KULKA_AUTH_BYPASS)) {
-    if (request.nextUrl.pathname === "/login") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/";
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next({ request });
-  }
-
   const browserTest = process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1";
   const browserTestState = request.cookies.get("kulka-test-auth")?.value;
   let response = NextResponse.next({ request });
@@ -32,10 +27,11 @@ export async function proxy(request: NextRequest) {
       {
         cookies: {
           getAll: () => request.cookies.getAll(),
-          setAll: (items) => {
+          setAll: (items, headers) => {
             items.forEach(({ name, value }) => request.cookies.set(name, value));
             response = NextResponse.next({ request });
             items.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+            Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
           },
         },
       },
@@ -44,16 +40,22 @@ export async function proxy(request: NextRequest) {
     user = result.data.user;
   }
 
-  const isLogin = request.nextUrl.pathname === "/login";
+  const publicAuthRoute = isPublicAuthRoute(request.nextUrl.pathname);
+  const authRoute = isAuthRoute(request.nextUrl.pathname);
   const authorized = browserTest
     ? browserTestState !== "signed-out" && browserTestState !== "forbidden"
-    : Boolean(user?.email && configured?.allowedEmails.has(normalizeEmail(user.email)));
-  if (!authorized && !isLogin) {
+    : Boolean(user && configured && verifiedAllowedEmail(user, configured.allowedEmails));
+  if (!authorized && !publicAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
     url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return protectAuthResponse(redirectResponse);
+  }
+  if (authRoute) {
+    return protectAuthResponse(response);
   }
   return response;
 }

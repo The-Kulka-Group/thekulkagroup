@@ -37,7 +37,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   const opportunities = error ? [] : saved;
   const candidates = discoveryError ? [] : discovery.candidates;
   const auth = await authorizeRequest();
-  const workflowRows = auth.ok && !auth.user.temporary ? await listWorkflowSummaries(getDb(),opportunities.map(item=>item.id)) : undefined;
+  const workflowRows = auth.ok ? await listWorkflowSummaries(getDb(),opportunities.map(item=>item.id)) : undefined;
   const workflows = workflowRows ? Object.fromEntries(workflowRows.map(item=>[item.opportunityId,{decision:item.decision,classification:item.classification,nextAction:item.nextAction,reviewDate:item.reviewDate}])) : undefined;
   return <Sheet number="V-100" title="Vision" bodyClass="vision-workspace" actions={<><Link className="btn btn--quiet" href="/vision/discover">Discover</Link><Link className="btn btn--primary" href="/vision/new">New opportunity</Link></>}
     meta={<><span>Construction and development opportunities</span><Sep /><span className="num">{candidates.length} discoveries shown · {opportunities.length} tracked opportunities shown</span></>}>

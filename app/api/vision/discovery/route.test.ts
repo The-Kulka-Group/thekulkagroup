@@ -26,7 +26,7 @@ const listed=async()=> (await (await inbox.GET(req())).json()).candidates;
 const age=()=>db.query("update vision_discovery_sources set last_checked_at=clock_timestamp()-interval '6 minutes'");
 const review=(id:string,action="accept",revision=1)=>detail.POST(req({action,expectedRevision:revision,notes:"Reviewed by a person.",town:"Test town"}),ctx(id));
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchCivicPlus.mockReset();fetchSmartGov.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue({records:[{...source,externalId:"oyster-bay-appeal"}],coverage:{year:2026,documents:[]}});fetchCivicPlus.mockResolvedValue({records:[{...source,externalId:"civicplus-case"}],coverage:{year:2026,documents:["https://example.org/agenda.pdf"]}});fetchSmartGov.mockResolvedValue([{...source,externalId:"permit:00000000-0000-4000-8000-000000000001",sourceCaseId:"PERMIT-1",sourceTitle:"Village of Hempstead SmartGov permit search",sourceUrl:"https://vlg-hempstead-ny.smartgovcommunity.com/PermittingPublic/PermitLandingPagePublic/Index/00000000-0000-4000-8000-000000000001"}]);});
+beforeEach(async()=>{await db.query("truncate vision_discovery_runs,vision_discovery_history,vision_discovery_candidates,vision_discovery_sources,vision_opportunities restart identity cascade");fetchRecords.mockReset();fetchRecords.mockResolvedValue([source]);fetchSuffolk.mockReset();fetchSuffolk.mockResolvedValue([{...source,county:"Suffolk"}]);fetchNassauIda.mockReset();fetchSuffolkIda.mockReset();fetchOysterBayZba.mockReset();fetchCivicPlus.mockReset();fetchSmartGov.mockReset();fetchNassauIda.mockResolvedValue([{...source,externalId:"ida-project"}]);fetchSuffolkIda.mockResolvedValue([{...source,externalId:"ida-document",county:"Suffolk"}]);fetchOysterBayZba.mockResolvedValue({records:[{...source,externalId:"oyster-bay-appeal"}],coverage:{year:2026,documents:[]}});fetchCivicPlus.mockResolvedValue({records:[{...source,externalId:"civicplus-case"}],coverage:{year:2026,documents:["https://example.org/agenda.pdf"]}});fetchSmartGov.mockResolvedValue([{...source,externalId:"permit:00000000-0000-4000-8000-000000000001",sourceCaseId:"PERMIT-1",sourceTitle:"Village of Hempstead SmartGov permit search",sourceUrl:"https://vlg-hempstead-ny.smartgovcommunity.com/PermittingPublic/PermitLandingPagePublic/Index/00000000-0000-4000-8000-000000000001"}]);});
 afterEach(()=>vi.unstubAllEnvs());afterAll(async()=>db?.close());
 describe("Vision discovery API",()=>{
  it("collects a CivicPlus source through the shared flow and keeps unresolved document revisions in review",async()=>{
@@ -83,7 +83,6 @@ describe("Vision discovery API",()=>{
   const after=await (await inbox.GET(new Request("http://localhost?sources=nassau-ida,suffolk-ida&state=all"))).json();
   expect(after.candidates).toHaveLength(2);expect(after.sources["nassau-ida"].last_error).toContain("incomplete");expect(after.sources["suffolk-ida"].last_error).toBeNull();
   expect((await db.query<{notes:string}>("select notes from vision_opportunities where id=$1",[saved.opportunity_id])).rows[0].notes).toBe("Keep reviewed notes");
-  vi.stubEnv("KULKA_AUTH_BYPASS","1");expect((await run("nassau-ida")).status).toBe(403);expect((await run("suffolk-ida")).status).toBe(403);
  });
  it("collects and filters Suffolk independently while keeping Nassau unchanged",async()=>{
   await check();
@@ -222,12 +221,11 @@ describe("Vision discovery API",()=>{
   expect((await detail.POST(new Request("http://localhost",{method:"POST",body:"{"}),ctx(item.id))).status).toBe(400);
   expect((await inbox.GET(new Request("http://localhost?state=bad"))).status).toBe(400);
  });
- it("rejects unauthorized users and temporary writes",async()=>{
+ it("rejects unauthorized users",async()=>{
   for(const [auth,status] of [["signed-out",401],["forbidden",403]] as const){expect((await inbox.GET(req(undefined,auth))).status).toBe(status);expect((await refresh.POST(req({},auth))).status).toBe(status);expect((await detail.POST(req({},auth),ctx("bad"))).status).toBe(status);expect((await detail.GET(req(undefined,auth),ctx("bad"))).status).toBe(status);}
-  vi.stubEnv("KULKA_AUTH_BYPASS","1");expect((await inbox.GET(req())).status).toBe(200);expect((await refresh.POST(req({}))).status).toBe(403);expect((await detail.POST(req({}),ctx("bad"))).status).toBe(403);expect(fetchRecords).not.toHaveBeenCalled();
  });
  it("requires a long matching cron secret independent of user access",async()=>{
-  vi.stubEnv("KULKA_AUTH_BYPASS","1");const call=(token:string,sourceId?:string)=>cron.POST(new Request(`http://localhost${sourceId?`?source=${sourceId}`:""}`,{method:"POST",headers:{authorization:`Bearer ${token}`}}));
+  const call=(token:string,sourceId?:string)=>cron.POST(new Request(`http://localhost${sourceId?`?source=${sourceId}`:""}`,{method:"POST",headers:{authorization:`Bearer ${token}`}}));
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","");expect((await call("")).status).toBe(401);vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","short");expect((await call("short")).status).toBe(401);
   vi.stubEnv("VISION_DISCOVERY_CRON_SECRET","a".repeat(32));expect((await call("b".repeat(32))).status).toBe(401);expect((await call("é".repeat(32))).status).toBe(401);expect((await call("a".repeat(32),"nassau-applications")).status).toBe(200);
   expect(fetchRecords).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"suffolk-planning")).status).toBe(200);expect(fetchSuffolk).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"nassau-town-oyster-bay-records")).status).toBe(200);expect(fetchOysterBayZba).toHaveBeenCalledTimes(1);expect((await call("a".repeat(32),"unsupported")).status).toBe(400);

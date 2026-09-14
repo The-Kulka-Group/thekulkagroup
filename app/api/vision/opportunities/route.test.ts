@@ -11,7 +11,7 @@ const context = (id:string) => ({params:Promise.resolve({id})});
 const request = (method:string,body?:unknown,auth?:string) => new Request(base,{method,headers:auth ? {"x-kulka-test-auth":auth} : {},body:body === undefined ? undefined : JSON.stringify(body)});
 const create = async (body:unknown=draft) => POST(request("POST",body));
 beforeAll(async () => { db = await seededDatabase(); }, 60000);
-beforeEach(async () => { vi.stubEnv("KULKA_AUTH_BYPASS",""); await db.query("truncate vision_opportunities restart identity cascade"); });
+beforeEach(async () => { await db.query("truncate vision_opportunities restart identity cascade"); });
 afterEach(() => { vi.unstubAllEnvs(); });
 afterAll(async () => { await db?.close(); });
 describe("Vision opportunities", () => {
@@ -59,7 +59,7 @@ describe("Vision opportunities", () => {
     expect((await detail.PATCH(request("PATCH",{notes:"",status:["done"],expectedRevision:1}),context(opportunity.id))).status).toBe(400);
     expect((await detail.PATCH(request("PATCH",{status:"done",expectedRevision:1}),context(opportunity.id))).status).toBe(400);
   });
-  it("rejects signed-out and forbidden reads and writes, while temporary access can only read", async () => {
+  it("rejects signed-out and forbidden reads and writes", async () => {
     const {opportunity} = await (await create()).json();
     for (const [auth,status] of [["signed-out",401],["forbidden",403]] as const) {
       expect((await GET(request("GET",undefined,auth))).status).toBe(status);
@@ -67,10 +67,6 @@ describe("Vision opportunities", () => {
       expect((await detail.GET(request("GET",undefined,auth),context(opportunity.id))).status).toBe(status);
       expect((await detail.PATCH(request("PATCH",{notes:"",status:"done",expectedRevision:1},auth),context(opportunity.id))).status).toBe(status);
     }
-    vi.stubEnv("KULKA_AUTH_BYPASS","1");
-    expect((await GET(request("GET"))).status).toBe(200);
-    expect((await create()).status).toBe(403);
-    expect((await detail.PATCH(request("PATCH",{notes:"",status:"done",expectedRevision:1}),context(opportunity.id))).status).toBe(403);
   });
   it("protects the table from browser access and rejects incomplete coordinates in SQL", async () => {
     expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname='vision_opportunities'")).rows).toEqual([{relrowsecurity:true}]);

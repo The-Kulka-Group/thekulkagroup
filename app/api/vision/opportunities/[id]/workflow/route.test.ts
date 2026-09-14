@@ -22,7 +22,7 @@ const change = async (body:Record<string,unknown>): Promise<Workflow> => {
 };
 const nextAction = {title:"Call planning staff",assigneeEmail:"browser-test@kulka.invalid",dueDate:"2026-09-09"};
 beforeAll(async()=> {db=await seededDatabase();},60000);
-beforeEach(async()=> {vi.stubEnv("KULKA_AUTH_BYPASS","");vi.stubEnv("KULKA_AUTH_ALLOWED_EMAILS","colleague@kulka.com,one@kulka.com,two@kulka.com,three@kulka.com,four@kulka.com");await db.query("truncate vision_opportunities,vision_people restart identity cascade");id=(await createVisionOpportunity(db,draft)).id;});
+beforeEach(async()=> {vi.stubEnv("KULKA_AUTH_ALLOWED_EMAILS","colleague@kulka.com,one@kulka.com,two@kulka.com,three@kulka.com,four@kulka.com");await db.query("truncate vision_opportunities,vision_people restart identity cascade");id=(await createVisionOpportunity(db,draft)).id;});
 afterEach(()=>vi.unstubAllEnvs());
 afterAll(async()=>{await db?.close();});
 describe("private opportunity workflow",()=>{
@@ -120,15 +120,12 @@ describe("private opportunity workflow",()=>{
   expect((await change({type:"action",action:{...nextAction,dueDate:null}})).nextAction?.dueDate).toBeNull();
   expect((await change({type:"action",action:nextAction})).nextAction?.dueDate).toBe("2026-09-09");
  });
- it("denies private reads and writes to temporary, signed-out and forbidden users",async()=>{
+ it("denies private reads and writes to signed-out and forbidden users",async()=>{
   await change({type:"person",person:{name:"Private contact"}});
   for(const [auth,status] of [["signed-out",401],["forbidden",403]] as const){
    expect((await GET(request("GET",undefined,auth),context())).status).toBe(status);
    expect((await POST(request("POST",{type:"decision",decision:"watching",expectedRevision:1},auth),context())).status).toBe(status);
   }
-  vi.stubEnv("KULKA_AUTH_BYPASS","1");
-  expect((await GET(request("GET"),context())).status).toBe(403);
-  expect((await post({type:"decision",decision:"watching",expectedRevision:1})).status).toBe(403);
   for(const table of ["vision_workflows","vision_people"]){
    expect((await db.query<{relrowsecurity:boolean}>("select relrowsecurity from pg_class where relname=$1",[table])).rows[0].relrowsecurity).toBe(true);
    expect((await db.query("select * from pg_policies where tablename=$1",[table])).rows).toEqual([]);

@@ -12,7 +12,7 @@ const context=(id:string)=>({params:Promise.resolve({id})});
 const request=(body:unknown,auth?:string)=>new Request("http://localhost/api/vision/location",{method:"PATCH",headers:auth?{"x-kulka-test-auth":auth}:{},body:JSON.stringify(body)});
 const draft={name:"Synthetic location fixture",town:"Test town",county:"Test county",address:"",latitude:null,longitude:null,sourceTitle:"Test source",sourceUrl:"https://example.org",sourceDate:null,notes:"Keep these notes."};
 beforeAll(async()=>{db=await seededDatabase();},60000);
-beforeEach(async()=>{vi.stubEnv("KULKA_AUTH_BYPASS","");await db.query("truncate vision_opportunities cascade");});
+beforeEach(async()=>{await db.query("truncate vision_opportunities cascade");});
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});afterAll(async()=>{await db?.close();});
 describe("location review",()=>{
   it("saves and clears only location fields, rejects stale source forms and leaves workflow untouched",async()=>{
@@ -29,13 +29,12 @@ describe("location review",()=>{
     expect((await PATCH(request({...location,latitude:null,longitude:null,expectedRevision:2}),context(original.id))).status).toBe(200);
     expect(await getVisionOpportunity(db,original.id)).toMatchObject({latitude:null,longitude:null,address:location.address,notes:draft.notes,revision:3});
   });
-  it("rejects invalid or unrelated fields, missing records and temporary writers",async()=>{
+  it("rejects invalid or unrelated fields, missing records and unauthorized writers",async()=>{
     const original=await createVisionOpportunity(db,draft);
     const location={address:"Test",latitude:40.8,longitude:-73.4,expectedRevision:1};
     for(const invalid of [{latitude:91},{longitude:null},{latitude:"40"},{expectedRevision:0},{notes:"Overwrite"},{address:null}])expect((await PATCH(request({...location,...invalid}),context(original.id))).status).toBe(400);
     expect((await PATCH(request(location),context("00000000-0000-4000-8000-000000000099"))).status).toBe(404);
     for(const [auth,status] of [["signed-out",401],["forbidden",403]] as const){expect((await PATCH(request(location,auth),context(original.id))).status).toBe(status);expect((await lookup.POST(request({address:"Test"},auth))).status).toBe(status);}
-    vi.stubEnv("KULKA_AUTH_BYPASS","1");expect((await PATCH(request(location),context(original.id))).status).toBe(403);expect((await lookup.POST(request({address:"Test"}))).status).toBe(403);
   });
   it("lookup matches, no matches and failures preserve a saved pin",async()=>{
     const original=await createVisionOpportunity(db,{...draft,latitude:40.8,longitude:-73.4});

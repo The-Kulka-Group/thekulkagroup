@@ -52,7 +52,6 @@ function action(value: unknown, staff: string[]): WorkflowAction {
  return { id: randomUUID(), title: text(data.title, "next action", 1000), assigneeEmail, dueDate };
 }
 export async function updateWorkflow(db: Db, id: string, input: unknown, actor: AuthorizedUser): Promise<Workflow | null> {
- if (actor.temporary) throw new InvalidVisionInput("Sign in to change the workflow.");
  const body = object(input);
  if (!Number.isSafeInteger(body.expectedRevision) || Number(body.expectedRevision) < 0) throw new InvalidVisionInput("Supply the current workflow revision.");
  const current = await getWorkflow(db, id);

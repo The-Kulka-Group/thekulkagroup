@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { AuthShell } from "@/components/auth/AuthShell";
 import { safeReturnPath } from "@/lib/auth/policy";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
@@ -13,16 +14,12 @@ export default async function ForgotPasswordPage({
   const next = safeReturnPath((await searchParams).next);
 
   return (
-    <div className="login">
-      <div className="login-column">
-        <div className="login-mark">Kulka<span className="logo-ai">AI</span></div>
-        <h1>Reset Password</h1>
-        <p className="t-meta sub">Enter your approved work email.</p>
-        <ForgotPasswordForm next={next} />
-        <p className="login-foot">
-          <Link className="login-link" href={`/login?next=${encodeURIComponent(next)}`}>Back to Sign In</Link>
-        </p>
-      </div>
-    </div>
+    <AuthShell
+      title="Reset Password"
+      description="Enter your approved work email."
+      footer={<Link className="auth-link" href={`/login?next=${encodeURIComponent(next)}`}>Back to Sign In</Link>}
+    >
+      <ForgotPasswordForm next={next} />
+    </AuthShell>
   );
 }

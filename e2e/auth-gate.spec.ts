@@ -3,19 +3,18 @@ import { AUTH_ROUTES, AUTH_SECURITY_HEADERS } from "../lib/auth/routes";
 
 const authStates = [
   { path: "/login", title: "Sign In" },
-  { path: "/forgot-password", title: "Reset Password" },
   {
     path: "/auth/continue?token_hash=browser-test-token&type=invite",
     title: "Finish Account Setup",
   },
   {
-    path: "/auth/continue?token_hash=browser-test-token&type=recovery",
-    title: "Reset Your Password",
+    path: "/auth/continue?token_hash=browser-test-token&type=magiclink",
+    title: "Finish Account Setup",
   },
   { path: "/auth/continue?error=invalid", title: "Finish Account Setup" },
-  { path: "/update-password?flow=invite", title: "Create Password" },
-  { path: "/update-password?flow=recovery", title: "Reset Password" },
 ] as const;
+
+const SENT_MESSAGE = "If that address has access, a sign-in link is on the way.";
 
 function deferred() {
   let resolve!: () => void;
@@ -54,17 +53,14 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
   await expect(page).toHaveURL(/\/login\?next=%2Fpursuits$/);
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
-  await expect(page.getByLabel("Password")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Forgot password?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send Sign-In Link" })).toBeVisible();
   await expect(page.locator(".auth-card")).toHaveCount(1);
   await expect(page.getByText(/sign up|create account/i)).toHaveCount(0);
   await page.getByLabel("Email").fill("browser-test@kulka.invalid");
-  await page.getByLabel("Password").fill("local-browser-test-password");
   const signInResponsePromise = page.waitForResponse((response) =>
     response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "Sign In" }).click();
+  await page.getByRole("button", { name: "Send Sign-In Link" }).click();
   const signInResponse = await signInResponsePromise;
   expectPrivateAuthHeaders(signInResponse.headers());
   await expect(page).toHaveURL(/\/pursuits$/);
@@ -106,13 +102,13 @@ for (const viewport of [
     }
   });
 
-  test(`keeps recovery pending and success states usable at ${viewport.name} width`, async ({ page }) => {
+  test(`keeps sign-in pending and success states usable at ${viewport.name} width`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await page.goto("/forgot-password?next=%2Funderwriting");
+    await page.goto("/login?next=%2Funderwriting");
 
     const requestHeld = deferred();
     const releaseRequest = deferred();
-    await page.route("**/forgot-password*", async (route) => {
+    await page.route("**/login*", async (route) => {
       if (route.request().method() === "POST") {
         requestHeld.resolve();
         await releaseRequest.promise;
@@ -120,18 +116,16 @@ for (const viewport of [
       await route.continue();
     });
 
-    await page.getByLabel("Email").fill("browser-test@kulka.invalid");
-    const click = page.getByRole("button", { name: "Send Reset Link" }).click();
+    await page.getByLabel("Email").fill("outside@kulka.com");
+    const click = page.getByRole("button", { name: "Send Sign-In Link" }).click();
     await requestHeld.promise;
     await expect(page.getByRole("button", { name: "Sending..." })).toBeDisabled();
-    await expectAuthCardFits(page, viewport, "recovery pending");
+    await expectAuthCardFits(page, viewport, "sign-in pending");
 
     releaseRequest.resolve();
     await click;
-    await expect(page.getByRole("status")).toHaveText(
-      "If the address has access, a password reset email is on the way.",
-    );
-    await expectAuthCardFits(page, viewport, "recovery success");
+    await expect(page.getByRole("status")).toHaveText(SENT_MESSAGE);
+    await expectAuthCardFits(page, viewport, "sign-in success");
   });
 }
 
@@ -141,21 +135,14 @@ test("keeps the sign-in form in logical keyboard order", async ({ page }) => {
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Email")).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Forgot password?" })).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Password")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Sign In" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Send Sign-In Link" })).toBeFocused();
 });
 
-test("rejects bad credentials without revealing account status", async ({ page }) => {
+test("shows the same message for an email outside the allowlist", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill("unknown@example.com");
-  await page.getByLabel("Password").fill("wrong-password");
-  await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page.locator('.auth-message[role="alert"]')).toHaveText(
-    "The email or password is incorrect.",
-  );
+  await page.getByRole("button", { name: "Send Sign-In Link" }).click();
+  await expect(page.locator('.auth-message[role="status"]')).toHaveText(SENT_MESSAGE);
   await expect(page).toHaveURL(/\/login$/);
 });
 
@@ -163,8 +150,7 @@ test("falls back to app home for an unsafe return path", async ({ page }) => {
   await page.goto("/login?next=https%3A%2F%2Fevil.test%2Foutside");
   await expect(page.locator('input[name="next"]')).toHaveValue("/");
   await page.getByLabel("Email").fill("browser-test@kulka.invalid");
-  await page.getByLabel("Password").fill("local-browser-test-password");
-  await page.getByRole("button", { name: "Sign In" }).click();
+  await page.getByRole("button", { name: "Send Sign-In Link" }).click();
   await expect(page).toHaveURL("http://127.0.0.1:3188/");
 });
 
@@ -192,25 +178,7 @@ test("returns distinct API responses for signed-out and forbidden users", async 
   expect(forbidden.status()).toBe(403);
 });
 
-test("requests password recovery without revealing account status", async ({ page }) => {
-  const response = await page.goto("/forgot-password?next=%2Funderwriting");
-  expectPrivateAuthHeaders(response!.headers());
-  await page.getByLabel("Email").fill("browser-test@kulka.invalid");
-  await page.getByRole("button", { name: "Send Reset Link" }).click();
-  await expect(page.getByRole("status")).toHaveText(
-    "If the address has access, a password reset email is on the way.",
-  );
-  await expect(page.locator('input[name="next"]')).toHaveValue("/underwriting");
-  await expect(page.locator(".auth-card")).toHaveCount(1);
-});
-
-test("uses reset wording for a recovery link", async ({ page }) => {
-  await page.goto("/auth/continue?token_hash=browser-test-token&type=recovery");
-  await expect(page.getByRole("heading", { name: "Reset Your Password" })).toBeVisible();
-  await expect(page.locator(".auth-card")).toHaveCount(1);
-});
-
-test("confirms an invite, validates the password, and returns safely", async ({ page, context }) => {
+test("confirms an invite and returns straight to the safe path", async ({ page, context }) => {
   await context.addCookies([{
     name: "kulka-test-auth",
     value: "signed-out",
@@ -226,36 +194,20 @@ test("confirms an invite, validates the password, and returns safely", async ({ 
   await page.getByRole("button", { name: "Continue" }).click();
   const confirmResponse = await confirmResponsePromise;
   expectPrivateAuthHeaders(confirmResponse.headers());
-  await expect(page).toHaveURL(/\/update-password\?next=%2Fpursuits&flow=invite$/);
-
-  await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
-  await page.getByLabel("Confirm Password").fill("a different passphrase 43");
-  await page.getByRole("button", { name: "Save Password" }).click();
-  await expect(page.getByText("The passwords do not match.", { exact: true })).toBeVisible();
-  await expect(page.locator('.auth-message[role="alert"]')).toHaveText("The passwords do not match.");
-  await expect(page.getByLabel("New Password", { exact: true })).toHaveAttribute("aria-invalid", "true");
-
-  await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
-  await page.getByLabel("Confirm Password").fill("a long passphrase 42");
-  await page.getByRole("button", { name: "Save Password" }).click();
   await expect(page).toHaveURL(/\/pursuits$/);
 });
 
-test("confirms a recovery link, updates the password, and returns safely", async ({ page, context }) => {
+test("confirms a magic link and returns straight to the safe path", async ({ page, context }) => {
   await context.addCookies([{
     name: "kulka-test-auth",
     value: "signed-out",
     url: "http://127.0.0.1:3188",
   }]);
   await page.goto(
-    "/auth/continue?token_hash=browser-test-token&type=recovery&next=%2Funderwriting",
+    "/auth/continue?token_hash=browser-test-token&type=magiclink&next=%2Funderwriting",
   );
+  await expect(page.getByRole("heading", { name: "Finish Account Setup" })).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/update-password\?next=%2Funderwriting&flow=recovery$/);
-  await expect(page.getByRole("heading", { name: "Reset Password" })).toBeVisible();
-  await page.getByLabel("New Password", { exact: true }).fill("a long passphrase 42");
-  await page.getByLabel("Confirm Password").fill("a long passphrase 42");
-  await page.getByRole("button", { name: "Save Password" }).click();
   await expect(page).toHaveURL(/\/underwriting$/);
 });
 
@@ -272,9 +224,9 @@ test("keeps the invalid link next step tied to its email flow", async ({ page })
   await expect(page.getByText("Ask a Kulka owner to send a new invitation.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Request a New Link" })).toHaveCount(0);
 
-  await page.goto("/auth/continue?token_hash=bad-browser-token&type=recovery");
+  await page.goto("/auth/continue?token_hash=bad-browser-token&type=magiclink");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/auth\/continue\?error=invalid&type=recovery$/);
+  await expect(page).toHaveURL(/\/auth\/continue\?error=invalid&type=magiclink$/);
   await expect(page.getByRole("link", { name: "Request a New Link" })).toBeVisible();
 });
 

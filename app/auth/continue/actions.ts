@@ -19,10 +19,6 @@ function invalidLink(type: AuthEmailType | null) {
     : "/auth/continue?error=invalid";
 }
 
-function passwordPage(next: string, type: "invite" | "recovery") {
-  return `/update-password?next=${encodeURIComponent(next)}&flow=${type}`;
-}
-
 export async function confirmAuthLink(formData: FormData) {
   const tokenHash = safeAuthTokenHash(String(formData.get("token_hash") ?? ""));
   const type = safeAuthEmailType(String(formData.get("type") ?? ""));
@@ -33,7 +29,7 @@ export async function confirmAuthLink(formData: FormData) {
   if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
     if (tokenHash !== "browser-test-token") redirect(invalidLink(type));
     (await cookies()).set("kulka-test-auth", "allowed", { httpOnly: true, sameSite: "lax" });
-    redirect(passwordPage(next, type));
+    redirect(next);
   }
 
   const configured = authConfiguration(
@@ -56,5 +52,5 @@ export async function confirmAuthLink(formData: FormData) {
     redirect(invalidLink(type));
   }
 
-  redirect(passwordPage(next, type));
+  redirect(next);
 }

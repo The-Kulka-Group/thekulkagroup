@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const AUTH_TOKEN_HASH = /^[A-Za-z0-9_-]{16,512}$/;
 
-export type AuthEmailType = "invite" | "recovery";
+export type AuthEmailType = "invite" | "magiclink";
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -67,12 +67,12 @@ export function safeReturnPath(value: string | null | undefined) {
     return "/";
   }
   const firstSegment = target.pathname.split("/")[1];
-  if (["login", "forgot-password", "update-password", "auth"].includes(firstSegment)) return "/";
+  if (["login", "auth"].includes(firstSegment)) return "/";
   return `${target.pathname}${target.search}${target.hash}`;
 }
 
 export function safeAuthEmailType(value: string | null | undefined): AuthEmailType | null {
-  return value === "invite" || value === "recovery" ? value : null;
+  return value === "invite" || value === "magiclink" ? value : null;
 }
 
 export function safeAuthTokenHash(value: string | null | undefined) {
@@ -90,11 +90,4 @@ export function siteUrlFrom(value: string | undefined) {
     return null;
   }
   return url.origin;
-}
-
-export function passwordValidationError(password: string, confirmation: string) {
-  if (password.length < 12) return "Use at least 12 characters.";
-  if (password.length > 128) return "Use no more than 128 characters.";
-  if (password !== confirmation) return "The passwords do not match.";
-  return null;
 }

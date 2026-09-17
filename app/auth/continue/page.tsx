@@ -16,12 +16,12 @@ export default async function ContinueAuthPage({
   const type = safeAuthEmailType(params.type);
   const next = safeReturnPath(params.next);
   const invalid = params.error === "invalid" || !tokenHash || !type;
-  const title = type === "recovery" ? "Reset Your Password" : "Finish Account Setup";
+  const title = "Finish Account Setup";
 
   if (invalid) {
     const footer = type === "invite"
       ? <p className="auth-help">Ask a Kulka owner to send a new invitation.</p>
-      : <Link className="auth-link" href="/forgot-password">Request a New Link</Link>;
+      : <Link className="auth-link" href="/login">Request a New Link</Link>;
     return (
       <AuthShell
         title={title}
@@ -35,9 +35,7 @@ export default async function ContinueAuthPage({
   return (
     <AuthShell
       title={title}
-      description={type === "recovery"
-        ? "Continue to choose a new password for Kulka AI."
-        : "Confirm that you want to continue to Kulka AI."}
+      description="Confirm that you want to continue to Kulka AI."
     >
       <form className="auth-form" action={confirmAuthLink}>
         <input name="token_hash" type="hidden" value={tokenHash} />

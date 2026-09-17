@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   allowedEmailsFrom,
   authConfiguration,
-  passwordValidationError,
   safeAuthEmailType,
   safeAuthEmail,
   safeAuthTokenHash,
@@ -90,8 +89,6 @@ describe("safeReturnPath", () => {
     "/%5Cevil.test",
     "/login",
     "/login?next=/",
-    "/forgot-password",
-    "/update-password",
     "/auth/continue",
   ])(
     "sends an unsafe return path to the homepage: %s",
@@ -100,11 +97,11 @@ describe("safeReturnPath", () => {
 });
 
 describe("safeAuthEmailType", () => {
-  it.each(["invite", "recovery"])("accepts %s links", (value) => {
+  it.each(["invite", "magiclink"])("accepts %s links", (value) => {
     expect(safeAuthEmailType(value)).toBe(value);
   });
 
-  it.each([undefined, "", "signup", "magiclink", "email_change"])(
+  it.each([undefined, "", "signup", "recovery", "email_change"])(
     "rejects %s links",
     (value) => expect(safeAuthEmailType(value)).toBeNull(),
   );
@@ -142,22 +139,4 @@ describe("siteUrlFrom", () => {
     "rejects an unsafe site URL: %s",
     (value) => expect(siteUrlFrom(value)).toBeNull(),
   );
-});
-
-describe("passwordValidationError", () => {
-  it("accepts matching passwords with at least 12 characters", () => {
-    expect(passwordValidationError("a long passphrase 42", "a long passphrase 42")).toBeNull();
-  });
-
-  it("rejects a short password", () => {
-    expect(passwordValidationError("short123", "short123")).toBe(
-      "Use at least 12 characters.",
-    );
-  });
-
-  it("rejects passwords that do not match", () => {
-    expect(passwordValidationError("a long passphrase 42", "a long passphrase 43")).toBe(
-      "The passwords do not match.",
-    );
-  });
 });

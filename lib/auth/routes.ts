@@ -1,10 +1,9 @@
 export const PUBLIC_AUTH_ROUTES = [
   "/login",
-  "/forgot-password",
   "/auth/continue",
 ] as const;
 
-export const AUTH_ROUTES = [...PUBLIC_AUTH_ROUTES, "/update-password"] as const;
+export const AUTH_ROUTES = PUBLIC_AUTH_ROUTES;
 
 export const AUTH_SECURITY_HEADERS = {
   "Cache-Control": "private, no-store",

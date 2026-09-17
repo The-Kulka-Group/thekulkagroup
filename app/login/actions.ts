@@ -3,49 +3,43 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
-import { authorizeVerifiedUser } from "@/lib/auth/server";
-import { authConfiguration, safeReturnPath } from "@/lib/auth/policy";
+import { allowedEmailsFrom, safeAuthEmail, safeReturnPath, siteUrlFrom } from "@/lib/auth/policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type LoginState = { error: string | null };
+export type LoginState = { error: string | null; message: string | null };
+
+const SENT_MESSAGE = "If that address has access, a sign-in link is on the way.";
 
 export async function signIn(_state: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
+  const email = safeAuthEmail(String(formData.get("email") ?? ""));
   const next = safeReturnPath(String(formData.get("next") ?? "/"));
-  if (!email || !password) return { error: "Enter your email and password." };
 
   if (process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1") {
-    if (email !== "browser-test@kulka.invalid" || password !== "local-browser-test-password") {
-      return { error: "The email or password is incorrect." };
+    if (email === "browser-test@kulka.invalid") {
+      (await cookies()).set("kulka-test-auth", "allowed", { httpOnly: true, sameSite: "lax" });
+      redirect(next);
     }
-    (await cookies()).set("kulka-test-auth", "allowed", { httpOnly: true, sameSite: "lax" });
-    redirect(next);
+    return { error: null, message: SENT_MESSAGE };
   }
 
-  if (!authConfiguration(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    process.env.KULKA_AUTH_ALLOWED_EMAILS,
-  )) return { error: "Sign-in is not configured." };
-
-  const supabase = await createSupabaseServerClient();
-  const result = await supabase.auth.signInWithPassword({ email, password });
-  if (result.error || !result.data.user) return { error: "The email or password is incorrect." };
-
-  const authorization = await authorizeVerifiedUser(
-    async () => result.data.user,
-    process.env.KULKA_AUTH_ALLOWED_EMAILS,
-  );
-  if (!authorization.ok) {
-    await supabase.auth.signOut();
-    return {
-      error: authorization.status === 503
-        ? authorization.error
-        : "The email or password is incorrect.",
-    };
+  const allowedEmails = allowedEmailsFrom(process.env.KULKA_AUTH_ALLOWED_EMAILS);
+  const siteUrl = siteUrlFrom(process.env.KULKA_SITE_URL);
+  if (!allowedEmails || !siteUrl) {
+    return { error: "Sign-in is not configured.", message: null };
   }
-  redirect(next);
+  if (!email || !allowedEmails.has(email)) return { error: null, message: SENT_MESSAGE };
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${siteUrl}/auth/continue?next=${encodeURIComponent(next)}` },
+    });
+  } catch {
+    // The response stays the same so callers cannot infer account membership.
+  }
+
+  return { error: null, message: SENT_MESSAGE };
 }
 
 export async function signOut() {

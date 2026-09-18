@@ -1,0 +1,240 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kulka AI Weekly 02</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #FFFFFF;
+    --ink: #0B0C09;
+    --ink-2: #5A5F52;
+    --line: #D3D7CA;
+    --track: #6E7365;
+    --lime: #8FE800;
+    --green: #2F7200;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 0 20px; }
+  footer.wrap { padding-bottom: 56px; }
+  main.wrap { padding-bottom: 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .mast, .asks, .step-bar, .check, .who {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+
+  /* Masthead */
+  .mast { background: var(--ink); color: #FFFFFF; }
+  .mast-in {
+    max-width: 700px; margin: 0 auto; padding: 18px 20px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .wordmark { font-weight: 900; font-size: 17px; letter-spacing: .16em; white-space: nowrap; }
+  .wordmark .labs { color: var(--lime); }
+  .mast-meta { font-family: var(--mono); font-size: 11px; line-height: 1.6; text-align: right; color: #C9CDBF; }
+  .mast-meta strong { color: #FFFFFF; font-weight: 600; }
+
+  /* Hero */
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--green);
+    margin: 40px 0 14px;
+  }
+  h1 {
+    font-size: clamp(34px, 8vw, 52px);
+    font-weight: 900; line-height: 1.02; letter-spacing: -0.02em;
+    margin: 0 0 16px; text-wrap: balance;
+  }
+  .lede { font-size: 18px; line-height: 1.55; color: var(--ink); max-width: 60ch; margin: 0 0 40px; }
+  .lede strong { font-weight: 700; }
+
+  /* Sections share one header voice */
+  .section { margin-bottom: 40px; }
+  .rule { border: 0; border-top: 2px solid var(--ink); margin: 0 0 16px; }
+  h2 {
+    font-size: 14px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  /* Tracker: fill + outline encode state, so it survives grayscale.
+     Done = full lime, current = half lime, not started = hollow. */
+  .steps { display: flex; gap: 6px; margin-top: 12px; }
+  .step { flex: 1; min-width: 0; }
+  .step-bar { height: 8px; margin-bottom: 8px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--track); }
+  .step.done .step-bar { background: var(--lime); box-shadow: inset 0 0 0 1px var(--ink); }
+  .step.now .step-bar { background: linear-gradient(90deg, var(--lime) 50%, var(--paper) 50%); box-shadow: inset 0 0 0 2px var(--ink); }
+  .step-name {
+    font-family: var(--mono); font-size: 11px; line-height: 1.4; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ink-2); min-height: 2.8em; padding-right: 4px;
+  }
+  .step.done .step-name, .step.now .step-name { color: var(--ink); font-weight: 600; }
+  .step-name .due { display: block; color: var(--green); }
+  @media (max-width: 560px) {
+    .step-name { letter-spacing: 0; min-height: 4.2em; font-size: 10px; }
+  }
+
+  /* Scoreboard */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid var(--ink); margin-top: 12px; }
+  .stat { padding: 16px 14px 14px; border-left: 2px solid var(--ink); }
+  .stat:first-child { border-left: none; }
+  .stat-n { font-family: var(--mono); font-size: clamp(26px, 5.5vw, 34px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+  .stat-l { font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); margin-top: 8px; line-height: 1.4; min-height: 2.8em; }
+  @media (max-width: 620px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat:nth-child(3) { border-left: none; }
+    .stat:nth-child(n+3) { border-top: 2px solid var(--ink); }
+  }
+
+  /* Done list */
+  .done-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  .done-list li {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .done-list li:last-child { border-bottom: none; }
+  .check {
+    flex: none; width: 22px; height: 22px; margin-top: 1px;
+    background: var(--lime); box-shadow: inset 0 0 0 1px var(--ink);
+    display: grid; place-items: center;
+  }
+  .check svg { display: block; }
+  .done-list .t { font-size: 16px; line-height: 1.5; max-width: 60ch; }
+  .done-list .t strong { font-weight: 700; }
+  .done-list .t .sub { color: var(--ink-2); }
+
+  /* Ahead list */
+  .ahead-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  .ahead-list li { display: flex; gap: 14px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .ahead-list li:last-child { border-bottom: none; }
+  .when {
+    flex: none; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--green);
+    width: 108px;
+  }
+  .ahead-list .t { font-size: 16px; line-height: 1.5; max-width: 60ch; }
+  .ahead-list .t strong { font-weight: 700; }
+
+  /* Asks: the black card */
+  .asks { background: var(--ink); color: #FFFFFF; padding: 24px 22px; margin-bottom: 40px; }
+  .asks h2 { color: var(--lime); margin-bottom: 16px; }
+  .ask { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; border-top: 1px solid #2A2C26; }
+  .ask:first-child { border-top: none; padding-top: 0; }
+  .ask:last-child { padding-bottom: 2px; }
+  .who {
+    flex: none; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; background: var(--lime); color: var(--ink);
+    padding: 3px 8px; margin-top: 2px; min-width: 56px; text-align: center;
+  }
+  .ask .t { font-size: 16px; line-height: 1.55; color: #F2F4EC; max-width: 60ch; }
+  .ask .t strong { color: #FFFFFF; font-weight: 700; }
+  .ask .t .why { color: #A9AE9E; }
+  .ask .t a { color: #FFFFFF; text-decoration: underline; text-decoration-color: #A9AE9E; text-underline-offset: 2px; }
+
+  /* Footer */
+  .foot { margin-bottom: 0; }
+  .foot-in { display: flex; flex-wrap: wrap; gap: 10px 28px; justify-content: space-between; align-items: baseline; }
+  .foot p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-2); max-width: 46ch; }
+  .foot .sig { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+  .foot .sig .dot { color: var(--green); }
+
+  @media (max-width: 560px) { .when { width: 96px; } }
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="wordmark">BLDG&nbsp;<span class="labs">LABS</span></div>
+    <div class="mast-meta"><strong>KULKA AI · WEEKLY 02</strong><br>Aug 29 to Sep 4, 2026</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="eyebrow">For Kulka leadership</p>
+  <h1>We released the first underwriting&nbsp;pilot.</h1>
+  <p class="lede"><strong>Claude is locked as the company standard</strong> for Kulka, and ChatGPT stays for quick day&#8209;to&#8209;day work. The read&#8209;only Claude path into SharePoint for the ProEst square&#8209;footage gap is <strong>blocked by IT</strong>, not a build failure; Matt meets Gina on Tue Sep 9 to clear it. Your team is in Las Vegas Sep 7 to 13; if we cannot meet, work continues on Kulka Vision. The three things we need from your team are at the bottom.</p>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Where the build stands</h2>
+    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, confirm costs. Last step: in your hands.</p>
+    <div class="steps" aria-hidden="true">
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Decision</div></div>
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Setup</div></div>
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Sample budget</div></div>
+      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">Confirm costs</span></div></div>
+      <div class="step"><div class="step-bar"></div><div class="step-name">In your hands</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>What we counted</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-n">1</div><div class="stat-l">Underwriting pilot released</div></div>
+      <div class="stat"><div class="stat-n">58</div><div class="stat-l">Code changes shipped</div></div>
+      <div class="stat"><div class="stat-n">9</div><div class="stat-l">Tickets closed</div></div>
+      <div class="stat"><div class="stat-n">1</div><div class="stat-l">Meeting held</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Done this week</h2>
+    <ul class="done-list">
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Locked Claude as the company standard on Monday.</strong> <span class="sub">ChatGPT stays for quick day&#8209;to&#8209;day work across the team.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Chose a read&#8209;only Claude path into SharePoint for the square&#8209;footage gap.</strong> <span class="sub">IT instructions went out the same day. IT has since blocked the path.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Received the Cost Export from Rob on Monday.</strong></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Released the first ground&#8209;up multifamily underwriting pilot for test.</strong> <span class="sub">You can create, save, edit, and calculate a case start to finish.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Emailed Underwriting First Test Build to Devin and Rob on Wednesday.</strong> <span class="sub">Devin and Rob can run their first pass from that email.</span></div></li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Coming up</h2>
+    <ul class="ahead-list">
+      <li><span class="when">Sep 7 to 13</span><div class="t">Kulka team in <strong>Las Vegas</strong>. If there is no working session, build continues on Kulka Vision.</div></li>
+      <li><span class="when">Tue Sep 9</span><div class="t">Matt meets <strong>Gina</strong> to unblock IT on the Claude&#8209;SharePoint path.</div></li>
+      <li><span class="when">Week of Sep 14</span><div class="t">Once IT clears, the five SharePoint confirms and the cost path resume.</div></li>
+    </ul>
+  </section>
+
+  <section class="asks">
+    <h2>We need three things from your team</h2>
+    <div class="ask">
+      <span class="who">DEVIN</span>
+      <div class="t"><strong>Create the Claude team under a work email and invite Devin, Jesse, Liam, Rob, and Matthew.</strong> Email Matt at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Tue Sep 9. <span class="why">The company standard cannot ship without the team account.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Confirm the Cost Export is the multifamily Autodesk Cost actuals set, or send the correct one.</strong> Email Matt at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Tue Sep 9. <span class="why">We cannot price against the wrong export.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">DEVIN</span>
+      <div class="t"><strong>Tell Matt which ProEst jobs are clean enough to use.</strong> Email the list to Matt at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Tue Sep 9. <span class="why">Still open from last week; those jobs are the history we price from.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap section foot">
+  <hr class="rule">
+  <h2>How we work</h2>
+  <div class="foot-in">
+    <p>Takeoff stays human and you own the code. No AI output reaches your team until I have checked it and hit send.</p>
+    <p class="sig">Matt Nicosia <span class="dot">·</span> BLDG Labs</p>
+  </div>
+</footer>

@@ -1,0 +1,240 @@
+<title>Kulka AI Weekly 03</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #FFFFFF;
+    --ink: #0B0C09;
+    --ink-2: #5A5F52;
+    --line: #D3D7CA;
+    --track: #6E7365;
+    --lime: #8FE800;
+    --green: #2F7200;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 0 20px; }
+  footer.wrap { padding-bottom: 56px; }
+  main.wrap { padding-bottom: 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .mast, .asks, .step-bar, .check, .who {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+
+  /* Masthead */
+  .mast { background: var(--ink); color: #FFFFFF; }
+  .mast-in {
+    max-width: 700px; margin: 0 auto; padding: 18px 20px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .wordmark { font-weight: 900; font-size: 17px; letter-spacing: .16em; white-space: nowrap; }
+  .wordmark .labs { color: var(--lime); }
+  .mast-meta { font-family: var(--mono); font-size: 11px; line-height: 1.6; text-align: right; color: #C9CDBF; }
+  .mast-meta strong { color: #FFFFFF; font-weight: 600; }
+
+  /* Hero */
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--green);
+    margin: 40px 0 14px;
+  }
+  h1 {
+    font-size: clamp(34px, 8vw, 52px);
+    font-weight: 900; line-height: 1.02; letter-spacing: -0.02em;
+    margin: 0 0 16px; text-wrap: balance;
+  }
+  .lede { font-size: 18px; line-height: 1.55; color: var(--ink); max-width: 60ch; margin: 0 0 40px; }
+  .lede strong { font-weight: 700; }
+
+  /* Sections share one header voice */
+  .section { margin-bottom: 40px; }
+  .rule { border: 0; border-top: 2px solid var(--ink); margin: 0 0 16px; }
+  h2 {
+    font-size: 14px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  /* Tracker: fill + outline encode state, so it survives grayscale.
+     Done = full lime, current = half lime, not started = hollow. */
+  .steps { display: flex; gap: 6px; margin-top: 12px; }
+  .step { flex: 1; min-width: 0; }
+  .step-bar { height: 8px; margin-bottom: 8px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--track); }
+  .step.done .step-bar { background: var(--lime); box-shadow: inset 0 0 0 1px var(--ink); }
+  .step.now .step-bar { background: linear-gradient(90deg, var(--lime) 50%, var(--paper) 50%); box-shadow: inset 0 0 0 2px var(--ink); }
+  .step-name {
+    font-family: var(--mono); font-size: 11px; line-height: 1.4; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ink-2); min-height: 2.8em; padding-right: 4px;
+  }
+  .step.done .step-name, .step.now .step-name { color: var(--ink); font-weight: 600; }
+  .step-name .due { display: block; color: var(--green); }
+  @media (max-width: 560px) {
+    .step-name { letter-spacing: 0; min-height: 4.2em; font-size: 10px; }
+  }
+
+  /* Scoreboard */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid var(--ink); margin-top: 12px; }
+  .stat { padding: 16px 14px 14px; border-left: 2px solid var(--ink); }
+  .stat:first-child { border-left: none; }
+  .stat-n { font-family: var(--mono); font-size: clamp(26px, 5.5vw, 34px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+  .stat-l { font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); margin-top: 8px; line-height: 1.4; min-height: 2.8em; }
+  @media (max-width: 620px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat:nth-child(3) { border-left: none; }
+    .stat:nth-child(n+3) { border-top: 2px solid var(--ink); }
+  }
+
+  /* Done list */
+  .done-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  .done-list li {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .done-list li:last-child { border-bottom: none; }
+  .check {
+    flex: none; width: 22px; height: 22px; margin-top: 1px;
+    background: var(--lime); box-shadow: inset 0 0 0 1px var(--ink);
+    display: grid; place-items: center;
+  }
+  .check svg { display: block; }
+  .done-list .t { font-size: 16px; line-height: 1.5; max-width: 60ch; }
+  .done-list .t strong { font-weight: 700; }
+  .done-list .t .sub { color: var(--ink-2); }
+
+  /* Ahead list */
+  .ahead-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  .ahead-list li { display: flex; gap: 14px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .ahead-list li:last-child { border-bottom: none; }
+  .when {
+    flex: none; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--green);
+    width: 108px;
+  }
+  .ahead-list .t { font-size: 16px; line-height: 1.5; max-width: 60ch; }
+  .ahead-list .t strong { font-weight: 700; }
+
+  /* Asks: the black card */
+  .asks { background: var(--ink); color: #FFFFFF; padding: 24px 22px; margin-bottom: 40px; }
+  .asks h2 { color: var(--lime); margin-bottom: 16px; }
+  .ask { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; border-top: 1px solid #2A2C26; }
+  .ask:first-child { border-top: none; padding-top: 0; }
+  .ask:last-child { padding-bottom: 2px; }
+  .who {
+    flex: none; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; background: var(--lime); color: var(--ink);
+    padding: 3px 8px; margin-top: 2px; min-width: 56px; text-align: center;
+  }
+  .ask .t { font-size: 16px; line-height: 1.55; color: #F2F4EC; max-width: 60ch; }
+  .ask .t strong { color: #FFFFFF; font-weight: 700; }
+  .ask .t .why { color: #A9AE9E; }
+  .ask .t a { color: #FFFFFF; text-decoration: underline; text-decoration-color: #A9AE9E; text-underline-offset: 2px; }
+
+  /* Footer */
+  .foot { margin-bottom: 0; }
+  .foot-in { display: flex; flex-wrap: wrap; gap: 10px 28px; justify-content: space-between; align-items: baseline; }
+  .foot p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-2); max-width: 46ch; }
+  .foot .sig { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+  .foot .sig .dot { color: var(--green); }
+
+  @media (max-width: 560px) { .when { width: 96px; } }
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="wordmark">BLDG&nbsp;<span class="labs">LABS</span></div>
+    <div class="mast-meta"><strong>KULKA AI · WEEKLY 03</strong><br>Sep 5 to Sep 11, 2026</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="eyebrow">For Kulka leadership</p>
+  <h1>IT still has us blocked after a&nbsp;week.</h1>
+  <p class="lede"><strong>We are still blocked by IT.</strong> That block has already cost over a week of progress. Matt met Liam on Thu Sep 10, but the session did not unblock work because Liam still needs a seat on the Claude team plan. Matt did teach Liam how to record and create skills for repeatable process, and Liam will start looking for opportunities. By next week we need both the Claude team seat and the Solarus remotes cleared. The three things we need from your team are at the bottom.</p>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Where the build stands</h2>
+    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, confirm costs. Last step: in your hands.</p>
+    <div class="steps" aria-hidden="true">
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Decision</div></div>
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Setup</div></div>
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Sample budget</div></div>
+      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">Confirm costs</span></div></div>
+      <div class="step"><div class="step-bar"></div><div class="step-name">In your hands</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>What we counted</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-n">91</div><div class="stat-l">Code changes shipped</div></div>
+      <div class="stat"><div class="stat-n">29</div><div class="stat-l">Tickets closed</div></div>
+      <div class="stat"><div class="stat-n">2</div><div class="stat-l">County source maps</div></div>
+      <div class="stat"><div class="stat-n">1</div><div class="stat-l">Meeting held</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Done this week</h2>
+    <ul class="done-list">
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Scaled Kulka Vision municipal discovery across Long Island.</strong> <span class="sub">Nassau and Suffolk municipal source maps are in the product, with Industrial Development Agency (IDA) project sources marked on the map.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Shipped a map&#8209;first source picker and a shared municipal source registry.</strong> <span class="sub">Reviewers choose sources from a compact control on the map, and town permit and planning records pull through one shared path.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Taught Liam how to record and create skills for repeatable process.</strong> <span class="sub">Liam will start looking for opportunities to use that workflow.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Held a Matt and Liam working session on Thursday that did not unblock Claude work.</strong> <span class="sub">Kulka still needs to add Liam as a seat on the Claude team plan before he can work in Claude.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Claude&#8209;SharePoint remotes remain in Solarus scheduling with Gina.</strong> <span class="sub">Liam is complete; the remaining users are not scheduled yet, and the IT block is ongoing.</span></div></li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Coming up</h2>
+    <ul class="ahead-list">
+      <li><span class="when">Through Sep 13</span><div class="t">Kulka team wraps <strong>Las Vegas</strong> travel. Build continues on Kulka Vision.</div></li>
+      <li><span class="when">By Fri Sep 18</span><div class="t">Clear both blockers: add Liam as a seat on the Claude team plan, and schedule remaining Solarus remotes for Claude&#8209;SharePoint.</div></li>
+      <li><span class="when">After Fri Sep 18</span><div class="t">Once the seat and remotes clear, SharePoint confirms and the Cost Export path resume.</div></li>
+    </ul>
+  </section>
+
+  <section class="asks">
+    <h2>We need three things from your team</h2>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Add Liam as a seat on the Claude team plan.</strong> Email Matt at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Fri Sep 18. <span class="why">Liam cannot work in Claude until he has a seat. The Thursday session failed for this reason.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">GINA</span>
+      <div class="t"><strong>Confirm Solarus has scheduled remotes for the remaining users on the Claude&#8209;SharePoint setup.</strong> Email Matt at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Fri Sep 18. <span class="why">The IT block has already cost over a week of progress.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Confirm the Cost Export is the multifamily Autodesk Cost actuals set, or send the correct one.</strong> Email Matt at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Fri Sep 18. <span class="why">We cannot price against the wrong export.</span></div>
+    </div>
+
+  </section>
+
+</main>
+
+<footer class="wrap section foot">
+  <hr class="rule">
+  <h2>How we work</h2>
+  <div class="foot-in">
+    <p>Takeoff stays human and you own the code. No AI output reaches your team until I have checked it and hit send.</p>
+    <p class="sig">Matt Nicosia <span class="dot">·</span> BLDG Labs</p>
+  </div>
+</footer>

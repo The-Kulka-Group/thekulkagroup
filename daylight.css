@@ -1690,3 +1690,59 @@ textarea.input { border-radius: var(--r-lg); }
   .underwriting-assumptions { min-width: 680px; }
   .record-section:has(.underwriting-assumptions) { overflow-x: auto; }
 }
+
+/* --- 24. Estimating -------------------------------------------------------- */
+
+.estimating-record { max-width: calc(var(--margin-col) + var(--gutter) + var(--measure-rec)); }
+
+.estimating-summary-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+  margin-bottom: var(--s6);
+}
+.estimating-summary-band > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+}
+.estimating-summary-band .t-label { display: block; }
+.estimating-summary-band .band-note { font-size: var(--meta-size); color: var(--ink-2); }
+
+.estimating-board-wrap { overflow-x: auto; }
+.estimating-board {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 760px;
+}
+.estimating-board th,
+.estimating-board td {
+  height: var(--row-h);
+  padding: 0 var(--cell-pad-x);
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+  white-space: nowrap;
+}
+.estimating-board th {
+  color: var(--ink-2);
+  font-size: var(--label-size);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+}
+.estimating-board th.right,
+.estimating-board td.right { text-align: right; }
+.estimating-board tbody tr:hover { background: var(--hover); }
+.estimating-board tbody td:nth-child(2) { font-weight: 600; }
+.estimating-board a { color: var(--primary); text-decoration: none; }
+.estimating-board a:hover { text-decoration: underline; }
+.estimating-board td.due--soon { color: var(--stuck-bright); font-weight: 600; }
+
+@media (max-width: 700px) {
+  .estimating-summary-band { grid-template-columns: minmax(0, 1fr); }
+}

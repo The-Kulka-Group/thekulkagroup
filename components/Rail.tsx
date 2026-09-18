@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars } from "@phosphor-icons/react";
+import { House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
@@ -23,7 +23,10 @@ const NAV_GROUPS = [
   },
   {
     label: "Pre-Construction",
-    items: [{ href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator }],
+    items: [
+      { href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator },
+      { href: "/estimating", label: "Estimating", count: undefined, Icon: ChartBar },
+    ],
   },
   {
     label: "Development",

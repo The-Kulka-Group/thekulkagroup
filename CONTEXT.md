@@ -140,6 +140,12 @@ owner buys direct. Land, financing, and other soft costs are out of scope and ar
 folded into this figure; they may become their own add-on section later.
 _Avoid_: project cost, total cost, all-in cost
 
+**Admin permission**:
+The one exception to no-roles-in-v1: a flag on an account, not a roles system, that
+gates promoting a judgment rule into a reusable benchmark. Tied to the permission, never
+to a named person.
+_Avoid_: admin role, superuser, Devin and Rob's decision
+
 **Living proposal**:
 The HTML-style client-facing document planned to follow the branded PDF. A later, separate
 deliverable, not part of v1.

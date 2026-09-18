@@ -31,9 +31,40 @@ takes what it wants later by copy or fork. The tool stays off the public website
   trail.
 - No generic skills platform until a second skill exists.
 - Auth: Supabase, five named accounts, with no roles or self-serve signup in v1
-  later.
+  later. One exception: an admin permission, a flag on an account rather than a roles
+  system, gates promoting a judgment rule into a reusable benchmark. Approval authority
+  is tied to the permission, never to a named person, so it survives who currently holds
+  it (LA-722).
 - Database: Kulka's own Supabase account. Matt's access is set up. Schema managed by
   migrations from this repo.
+
+## Chat surface (MCP)
+
+- In v1, generated from the engine's one API rather than a hand-maintained second
+  layer, so the tool surface cannot drift from what the API actually does. ChatGPT
+  stays deferred per the architecture note above; this covers Claude only.
+- Internal only: an estimator's faster interface onto their own job, not a
+  client-facing surface. A developer does not chat with the budget directly.
+- Draft and propose only. It can never issue a ROM; issuing stays a deliberate action
+  in the web surface, same as every other send/post/spend action in this project.
+- Five tools: `read_rom` (full state, one call, not several granular reads),
+  `web_search` (real research, scoped in practice to what the task needs but not
+  allowlisted, since an allowlist recreates the licensing problem this project has
+  already avoided elsewhere), `propose_line` (one general action covering both an
+  override to an existing canonical item and scope that is not in the canonical list
+  yet, carrying quantity, unit, cost, basis, and its sources), `answer_gate`,
+  `adjust_dial`. Proposals (GSF-per-unit, duration) are not tools; they are automatic
+  engine behavior already visible in `read_rom`'s output.
+- `propose_line`'s sources are a required field, not optional metadata, but "sources"
+  means the same thing provenance always means in this project: a project, an export,
+  a citation, or reviewed judgment. A researched material cost needs a real citation; a
+  trade-judgment call with no web lookup still qualifies, stated as judgment, same as
+  any other judgment rule.
+- Using researched or judgment-based data on a single draft ROM needs no sign-off
+  beyond the estimator's own action, the same as any other override. Promoting it into
+  a reusable benchmark for future ROMs requires admin permission (LA-722).
+- This ticket produced a design, not a build. The engine's one API does not exist yet
+  (LA-12); the tool surface above is what gets generated from it once it does.
 
 ## Data rules
 
@@ -45,7 +76,10 @@ takes what it wants later by copy or fork. The tool stays off the public website
 - Provenance is a hard requirement: every number traces to the projects, export, or
   reviewed judgment that produced it, with names and dates.
 - Estimator judgment rules are allowed as data, flagged as judgment, replaced by
-  actuals as they arrive. Who approves a judgment rule is Devin and Rob's decision.
+  actuals as they arrive. Promoting a judgment rule into a reusable benchmark requires
+  admin permission (see Architecture). Using researched or judgment-based data on a
+  single draft ROM does not; the estimator's own action is the approval, same as any
+  other override.
 - Incomplete projects contribute if flagged (Fieldstone at ~56 percent is usable).
 - Ingestion goes through an approval gate. Nobody feeds the database from a chat.
 

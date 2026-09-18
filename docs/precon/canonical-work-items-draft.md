@@ -1,11 +1,47 @@
 # Canonical work items — first-pass PROPOSED list
 
-**Status: DRAFT, partially reviewed.** Proposed by a model, not a decision. Matt has
-resolved three items so far (the shell-framing grouping in item 8, MEP's dollars-per-GSF
-basis, and the amenity lump-sum basis in item 25 — see each item's "Resolved" note).
-Everything else below still needs estimating team review before it is used to build the
-`budget_lines` importer or feed a benchmark. Per the repo's standing pattern, the model
-proposes and a human approves.
+**Status: DRAFT, review pass two complete.** Proposed by a model, not a decision. Matt has
+resolved four items so far (the shell-framing grouping in item 8, MEP's dollars-per-GSF
+basis, the amenity lump-sum basis in item 25, and the elevator per-stop rate in item 26 —
+see each item's "Resolved" note). This pass closed every flag that was a mechanical
+data-handling question (a role-flag or a netting rule already established by the repo's
+own conventions, not a new judgment call) — see each item's "Closed" note. Nine flags
+remain genuinely open because they turn on facts about Kulka's actual subcontracts and
+bid books that only the estimating team can supply. They are collected in one list under
+"Open — needs Matt or the estimating team" right after this status line, so they can be
+worked without hunting through the rest of the file. Once those nine close, this list is
+ready to freeze. Per the repo's standing pattern, the model proposes and a human approves.
+
+## Open — needs Matt or the estimating team
+
+1. **Item 3, elevated slabs (Flag M1):** does the deck pour and gypcrete belong to the
+   concrete contract or the framing contract? Needs a subcontract scope sheet; the swing
+   is 40% high to 43% low on the concrete-vs-buyout comparison depending on the answer.
+2. **Item 4, precast concrete panels:** is West Shore's $2.88M "Precast Panel" line
+   facade cladding or structural precast? Confirm before it gets a scaling denominator.
+3. **Item 10, millwork:** are VA's $0 cabinet/vanity lines (r51–r52) an unfinished second
+   pass at scope already priced in item 24's $1.2M cabinet line, or genuinely separate?
+   Needs someone who can read VA's bid book.
+4. **Item 11, decking/balconies:** are VA's two balcony deck/railing entries (r69–r72 and
+   r316–r317) two different floors, or the same scope priced twice?
+5. **Item 20, painting:** does VR's -3,000 SF paint line (r165) correct a duplicate
+   elsewhere in the file, or flag a takeoff error nobody fixed?
+6. **Item 34, excavation:** is $300,000 the right final number for VA's excavation line
+   after its propose/deduct/re-price sequence (r264–r266)? The netting mechanic is
+   settled (see the item's "Closed" note); the dollar figure itself still needs sign-off.
+7. **Unmapped, V64/VR's "97.00000 Allowances" bucket:** what did the $500,000 "Amenity
+   Allowance" line actually cover? Left unassigned to any canonical item until answered.
+8. **Unmapped, VA's leftover Division 95 lines:** retail core-and-shell ($291,400), road
+   work ($250,000), security ($400,000), and the pergola ($120,000) — confirm these stay
+   as their own flagged allowance lines rather than folding into items 2 through 39.
+9. **Item 8 (Flag M4), shell framing:** should drywall install (item 17) join this
+   canonical item, or does the buyout-package boundary belong above the canonical work
+   item level entirely? Already named in `rom-system-design.md` as a working-session
+   question, restated here so it is not lost among the closed items.
+
+Everything else below is closed: either by Matt's judgment (see each item's "Resolved"
+note) or by a data-handling convention already established elsewhere in the repo (see
+each item's "Closed" note), needing no new decision.
 
 Built by reading every row of all six ProEst unit-cost exports in `CostExports/`, using
 python3 and openpyxl. File short names used throughout, all citing the `Sheet0` sheet
@@ -200,6 +236,8 @@ precast) before it can be assigned a scaling denominator.
 **Flag:** VA's paired add/deduct lines (r20–r21) net to zero and exist only to isolate a
 sub-scope for internal takeoff purposes. They should be role-flagged `takeoff_helper`,
 not counted as real scope, or they will double the CMU total if summed naively.
+**Closed:** role `takeoff_helper` per CONTEXT.md's existing line-role taxonomy. No new
+decision needed, the convention already covers this case.
 
 ### 6. Brick and masonry veneer
 
@@ -218,6 +256,9 @@ brick veneer is new-construction cladding, not restoration work, but it is filed
 code whose own name says "Masonry Restoration." This is a code/description mismatch
 worth adding to the known-drift list alongside the demolition and elevator cases the
 docs already track.
+**Closed:** finding stands as documentation, added to the drift list. No decision is
+pending on it, since the canonical item mapping (item 6) already reads past the code
+name to the description.
 
 ---
 
@@ -319,6 +360,10 @@ not zero-cost scope, and should not be treated as "no cabinetry" when this file 
 imported. Compare against item 24 (Cabinetry & countertops), which does carry real dollars
 for kitchen/vanity cabinets on the same job — VA may be double-tracking cabinetry across
 two codes, one filled in and one not.
+**Closed (data-quality half only):** a real quantity at a $0 rate is an incomplete row,
+not priced-at-zero scope — role it `incomplete`, excluded from any per-LF cabinetry
+benchmark built from this file. Whether it double-tracks item 24's cabinet line is still
+open item 3 above; that needs someone who can read VA's bid book, not a data rule.
 
 ### 11. Decking, exterior stairs, and balcony railings
 
@@ -699,6 +744,8 @@ experience, superseding the file's varying rates. Assumed to be per stop, matchi
 per-stop granularity, not per whole elevator — flag for correction if per-elevator was
 meant instead. This makes "per stop" the quantity driver for this item, not per-elevator
 or per-building, which also answers part of LA-720 for this specific item.
+**Closed:** VA's paired breakout/deduct lines (r200–r202) net to zero the same way as the
+CMU pair in item 5. Role `takeoff_helper`, same convention, no new decision needed.
 
 ---
 
@@ -880,6 +927,11 @@ flagged rather than folded silently into a generic excavation rate. VA's excavat
 add/deduct/re-price sequence (r264–r266) should be reviewed by an estimator before
 import; it is unclear from the file alone whether the net effect is $300,000 or some
 other figure.
+**Closed (mechanic only):** a propose/deduct/re-price sequence nets to its final stated
+line, the same pattern as the CMU and elevator add/deduct pairs in items 5 and 26 — the
+first two lines role-flag as superseded, the third stands. This settles how the importer
+reads the sequence. It does not settle whether $300,000 is the right number for this job;
+that confirmation is open item 6 above.
 
 ### 35. Site drainage and stormwater
 
@@ -935,6 +987,10 @@ list. Also confirms the exact stale-duplicate defect already documented: West Sh
 "Sanitary Sewer Allowance" lines (r4–r5, $125 and $125,000 for the identical description
 and quantity) should be role-flagged, with the $125 line almost certainly the stale one
 nobody deleted.
+**Closed:** Division 33 drift added to the known-drift list alongside demolition,
+elevators, and item 6's masonry-restoration mismatch. The duplicate lines role-flag as
+`duplicate`, with the $125 line excluded from every total — same convention already
+applied to the CMU and elevator takeoff-helper pairs, just a different role value.
 
 ### 37. Site grading, topsoil, and landscaping/irrigation
 
@@ -959,6 +1015,8 @@ division-drift instance, smaller in dollars than the sewer/utility one above but
 pattern: where the site-scope/building-scope line falls between Division 31 and 32 is not
 consistent across files, consistent with `rom-system-design.md`'s general note that
 "codes split" across the building/site boundary.
+**Closed:** added to the drift list as a fourth confirmed instance. No decision pending;
+the canonical item mapping already reads past the division code to the description.
 
 ---
 

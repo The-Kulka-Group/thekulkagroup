@@ -1,47 +1,27 @@
 # Canonical work items — first-pass PROPOSED list
 
-**Status: DRAFT, review pass two complete.** Proposed by a model, not a decision. Matt has
-resolved four items so far (the shell-framing grouping in item 8, MEP's dollars-per-GSF
-basis, the amenity lump-sum basis in item 25, and the elevator per-stop rate in item 26 —
-see each item's "Resolved" note). This pass closed every flag that was a mechanical
-data-handling question (a role-flag or a netting rule already established by the repo's
-own conventions, not a new judgment call) — see each item's "Closed" note. Nine flags
-remain genuinely open because they turn on facts about Kulka's actual subcontracts and
-bid books that only the estimating team can supply. They are collected in one list under
-"Open — needs Matt or the estimating team" right after this status line, so they can be
-worked without hunting through the rest of the file. Once those nine close, this list is
-ready to freeze. Per the repo's standing pattern, the model proposes and a human approves.
+**Status: DRAFT, review pass three complete. One question left.** Proposed by a model, not
+a decision. Matt has now resolved every flag except one (see each item's "Resolved" note):
+the shell-framing grouping (item 8), MEP's dollars-per-GSF basis, the amenity lump-sum
+basis (items 25 and its V64/VR "Amenity Allowance" source), the elevator per-stop rate
+(item 26), the deck-pour/gypcrete split (items 3 and 3a), West Shore's precast as
+structure not facade (item 4, renamed "Precast concrete structure"), VA's $0 cabinet line
+(item 10, ignore it), VR's negative paint line (item 20, intentional software behavior,
+not an error), VA's excavation net figure (item 34, $300,000 confirmed), and VA's leftover
+Division 95 lines (broken into their real sub-line items rather than kept as lump
+allowances — decomposition follow-on work, not a blocker). Everything else that was a
+mechanical data-handling question (a role-flag or a netting rule already established by
+the repo's own conventions) closed on its own in the prior pass — see each item's
+"Closed" note.
 
 ## Open — needs Matt or the estimating team
 
-1. **Item 3, elevated slabs (Flag M1):** does the deck pour and gypcrete belong to the
-   concrete contract or the framing contract? Needs a subcontract scope sheet; the swing
-   is 40% high to 43% low on the concrete-vs-buyout comparison depending on the answer.
-2. **Item 4, precast concrete panels:** is West Shore's $2.88M "Precast Panel" line
-   facade cladding or structural precast? Confirm before it gets a scaling denominator.
-3. **Item 10, millwork:** are VA's $0 cabinet/vanity lines (r51–r52) an unfinished second
-   pass at scope already priced in item 24's $1.2M cabinet line, or genuinely separate?
-   Needs someone who can read VA's bid book.
-4. **Item 11, decking/balconies:** are VA's two balcony deck/railing entries (r69–r72 and
-   r316–r317) two different floors, or the same scope priced twice?
-5. **Item 20, painting:** does VR's -3,000 SF paint line (r165) correct a duplicate
-   elsewhere in the file, or flag a takeoff error nobody fixed?
-6. **Item 34, excavation:** is $300,000 the right final number for VA's excavation line
-   after its propose/deduct/re-price sequence (r264–r266)? The netting mechanic is
-   settled (see the item's "Closed" note); the dollar figure itself still needs sign-off.
-7. **Unmapped, V64/VR's "97.00000 Allowances" bucket:** what did the $500,000 "Amenity
-   Allowance" line actually cover? Left unassigned to any canonical item until answered.
-8. **Unmapped, VA's leftover Division 95 lines:** retail core-and-shell ($291,400), road
-   work ($250,000), security ($400,000), and the pergola ($120,000) — confirm these stay
-   as their own flagged allowance lines rather than folding into items 2 through 39.
-9. **Item 8 (Flag M4), shell framing:** should drywall install (item 17) join this
-   canonical item, or does the buyout-package boundary belong above the canonical work
-   item level entirely? Already named in `rom-system-design.md` as a working-session
-   question, restated here so it is not lost among the closed items.
+1. **Item 11, decking/balconies:** are VA's two balcony deck/railing entries (r69–r72 and
+   r316–r317) two different floors, or the same scope priced twice? Matt was not sure on
+   this one; needs someone who can read VA's bid book directly.
 
-Everything else below is closed: either by Matt's judgment (see each item's "Resolved"
-note) or by a data-handling convention already established elsewhere in the repo (see
-each item's "Closed" note), needing no new decision.
+Once that closes, this list is ready to freeze and LA-720 (quantity driver per canonical
+item) can start. Per the repo's standing pattern, the model proposes and a human approves.
 
 Built by reading every row of all six ProEst unit-cost exports in `CostExports/`, using
 python3 and openpyxl. File short names used throughout, all citing the `Sheet0` sheet
@@ -58,7 +38,7 @@ unless noted:
 
 ## Summary
 
-**39 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
+**40 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
 09, 10, 11, 12, 13, 14, 21, 22, 23, 26, 28, 31, 32). Division 01 General Requirements has
 no line-item data in any file — see the flag under "Markups, not line items" below.
 
@@ -184,35 +164,47 @@ foundation/slab volume. VA is the one file that prices this as two lump sums ins
 worth asking whether VA's LS figures were ever broken into a CY-equivalent rate for
 comparison.
 
-### 3. Elevated slabs, podium deck, and topping
+### 3. Elevated slabs and podium deck
 
 **Sources:**
-- JF: "Cast-In-Place Concrete - on Deck" 18,000 SF $10.00 (r17, code 03.00000);
-  "Gypcrete 3000psi" 15,200 SF $4.50 (r20, code 03.05300). Total $248,400.
+- JF: "Cast-In-Place Concrete - on Deck" 18,000 SF $10.00 (r17, code 03.00000). $180,000.
 - VA: "L2 Podium, 12" avg assumed" 1.00 LS $1,395,525 (r11).
 - WS, V64, VR, VG: no equivalent line.
 
 **Unit/quantity signal:** SF at JF, scaling with deck area; LS at VA.
 
-**Flag M1 (carried from `jeffersons-ferry-scope-comparison.md`):** whether the deck pour
-and gypcrete belong in the concrete contract or the framing contract is unresolved. That
-note found the concrete-vs-buyout comparison flips from 40% high to 43% low depending on
-the answer. Same ambiguity applies to VA's podium line. Needs a subcontract scope sheet
-to settle, not something this draft can resolve.
+**Resolved (Matt, 2026-09-18): the deck pour is concrete's scope, gypcrete is not.**
+Gypcrete is bought out as its own separate subcontract, not part of concrete and not part
+of framing. It no longer belongs in this canonical item; see item 3a below, split out on
+that basis. This also answers Flag M1 for the deck pour half: it stays with concrete.
 
-### 4. Precast concrete panels
+### 3a. Gypcrete topping
+
+Split from item 3 once gypcrete was confirmed as its own subcontract, not part of the
+concrete deck pour or the framing package.
+
+**Sources:**
+- JF: "Gypcrete 3000psi" 15,200 SF $4.50 (r20, code 03.05300). $68,400.
+- V64, VA, VR, WS, VG: no dedicated gypcrete line found under Division 03; may be buried
+  in another line on those files and needs a pass to confirm.
+
+**Unit/quantity signal:** SF, scaling with floor area receiving the topping.
+
+### 4. Precast concrete structure
 
 **Sources:**
 - WS: "Precast Panel" 90,553.45 SF $31.81 = $2,880,505 (r14, code 03.03400). This one line
   is 43% of West Shore's entire base cost.
 - No other file has a precast concrete line.
 
-**Unit/quantity signal:** SF, likely scaling with building envelope/facade area, not GSF —
-this looks like an exterior-wall precast panel system rather than a structural deck.
+**Unit/quantity signal:** SF, scaling with building floor area, not facade area.
 
-**Flag:** one-off, but too large a dollar figure to fold into another bucket. Needs
-confirmation of what "Precast Panel" actually covers (facade cladding vs. structural
-precast) before it can be assigned a scaling denominator.
+**Resolved (Matt, 2026-09-18): this is structural, not facade cladding.** West Shore uses
+precast concrete slabs for the structure everywhere except the foundation, which is
+poured in place. Renamed from "Precast concrete panels" to "Precast concrete structure"
+to reflect this. West Shore is a different structural system from the other five jobs
+(which frame in wood and cold-formed metal, item 8), not a comparable line item, so this
+stays its own canonical item rather than merging with item 8 or with any facade item.
 
 ---
 
@@ -319,6 +311,12 @@ canonical item should include drywall install (item 17 below) as well, or whethe
 package boundary is better drawn at the buyout-package level instead of the canonical
 work item level, is unresolved and flagged for the working session per the "three axes"
 section of `rom-system-design.md`.
+**Resolved (Matt, 2026-09-18): depends, it varies job to job.** Framing and drywall are
+not always bought as one package, so this canonical item keeps its cross-division flag as
+drafted but does not fold drywall (item 17) in permanently. The buyout package boundary
+belongs on the per-job import record, not baked into the canonical item definition —
+whichever subcontract a given job actually used should be recorded there, not assumed
+from a fixed rule.
 
 ### 9. Finish carpentry — trim, casing, molding, interior door install
 
@@ -360,10 +358,9 @@ not zero-cost scope, and should not be treated as "no cabinetry" when this file 
 imported. Compare against item 24 (Cabinetry & countertops), which does carry real dollars
 for kitchen/vanity cabinets on the same job — VA may be double-tracking cabinetry across
 two codes, one filled in and one not.
-**Closed (data-quality half only):** a real quantity at a $0 rate is an incomplete row,
-not priced-at-zero scope — role it `incomplete`, excluded from any per-LF cabinetry
-benchmark built from this file. Whether it double-tracks item 24's cabinet line is still
-open item 3 above; that needs someone who can read VA's bid book, not a data rule.
+**Resolved (Matt, 2026-09-18): ignore the $0 line.** It does not double-track item 24's
+cabinet line, it is simply not real scope. Role it `incomplete`, excluded from every
+total and from any per-LF cabinetry benchmark built from this file.
 
 ### 11. Decking, exterior stairs, and balcony railings
 
@@ -587,6 +584,12 @@ interior packages priced consistently high by quantity takeoff (+70% against buy
 VR's negative-quantity line (r165) should be checked before this file is imported — a
 negative SF quantity on a paint line either corrects a prior duplicate or signals a
 takeoff error, and nothing in the file says which.
+**Resolved (Matt, 2026-09-18): intentional, not an error.** This is how the estimating
+software handles a wall that has tile or another finish on part of it: it prices the
+full wall for paint, then subtracts the area covered by the other finish so that area
+isn't double-charged for paint and tile both. Negative paint lines of this kind should be
+imported as-is and netted against their matching wall line, not stripped out or
+flagged as a data-entry error.
 
 ---
 
@@ -694,6 +697,9 @@ knowing what is and is not inside VA's cabinet LS number.
 - VA: **no line under Division 13 at all.** Instead, indoor/outdoor amenity scope is
   priced under the Division 95 "Ammenities" allowance bucket: "Indoor Amenities" 3,700 SF
   $400 = $1,480,000 and "Outdoor amenities" 1,328.77 SF $350 = $465,070 (r320, r324).
+- V64's "97.00000 Allowances" bucket also carries "Amenity Allowance" 1.00 LS $500,000
+  (r298), zeroed at VR's equivalent row (r303). Confirmed (Matt, 2026-09-18) as a lump-sum
+  budget for the amenity package generally, mapped here rather than left unmapped.
 - JF, WS: no line.
 
 **Unit/quantity signal:** LS for pool/fitness/sauna packages, not scaling cleanly with
@@ -927,11 +933,9 @@ flagged rather than folded silently into a generic excavation rate. VA's excavat
 add/deduct/re-price sequence (r264–r266) should be reviewed by an estimator before
 import; it is unclear from the file alone whether the net effect is $300,000 or some
 other figure.
-**Closed (mechanic only):** a propose/deduct/re-price sequence nets to its final stated
-line, the same pattern as the CMU and elevator add/deduct pairs in items 5 and 26 — the
-first two lines role-flag as superseded, the third stands. This settles how the importer
-reads the sequence. It does not settle whether $300,000 is the right number for this job;
-that confirmation is open item 6 above.
+**Resolved (Matt, 2026-09-18): $300,000 is correct.** A propose/deduct/re-price sequence
+nets to its final stated line, the same pattern as the CMU and elevator add/deduct pairs
+in items 5 and 26 — the first two lines role-flag as superseded, the third stands.
 
 ### 35. Site drainage and stormwater
 
@@ -1089,21 +1093,25 @@ Per the task's instruction to note rather than force these into a bucket:
   item 10, restated here because a $0 unit cost on a line with a real quantity is a gap
   in the source file, not evidence the scope was priced at zero.
 - **VR's negative-quantity paint line** (`Sheet0` r165, "Paint GWB Walls" -3,000 SF =
-  -$3,750) — already covered under item 20. Likely a correction, but the file gives no
-  narrative to confirm it.
+  -$3,750) — already covered under item 20. **Resolved (Matt, 2026-09-18): intentional**,
+  the estimating software's normal way of netting tile or another finish out of a wall's
+  paintable area, not a correction or an error.
 - **VA's "97/95 Ammenities" allowance bucket beyond what is already mapped above**: "Retail
   Core and shell - Retail A/B" (2,600 SF + 2,100 SF at $62/SF = $291,400, `Sheet0`
   r318–r319) and "Road Work - Lane Expansion" (1.00 LS $250,000, r321), "Security
   allowance (200k SF +)" (1.00 LS $400,000, r322), and "Pergola Allowance (over 6,000 sf)"
-  (1.00 LS $120,000, r323) do not cleanly fit any canonical item above — retail
-  core-and-shell spans structure, envelope, and finishes at once; road work belongs with
-  site paving but is priced as a fixed allowance unrelated to any paving quantity;
-  security and the pergola are genuinely new scope types with no counterpart on any other
-  file. Recommend these stay as their own flagged allowance-role lines rather than being
-  forced into items 2–39, pending an estimator's read on what each one actually covers.
+  (1.00 LS $120,000, r323) do not cleanly fit any canonical item above.
+  **Resolved (Matt, 2026-09-18): no, these do not stay as lump allowance lines.** Kulka
+  needs the ROM to show these by their real sub-line items, not as one flagged allowance
+  each. Retail core-and-shell needs to be broken into its structure, envelope, and finish
+  components and folded into the matching canonical items; road work needs to be tracked
+  under paving (item 38) rather than as a standalone allowance; security and the pergola
+  need their own sub-line breakdown once that detail exists, rather than one lump figure
+  apiece. This is follow-on decomposition work for the importer, not a blocker on
+  freezing the canonical item list itself.
 - **V64/VR's "97.00000 Allowances" bucket**: "Amenity Allowance" 1.00 LS $500,000 (V64
   `Sheet0` r298) and the same line zeroed at VR (r303). Confirms the code drift
   `rom-system-design.md` names (allowances at 97 on one job, 95 "Ammenities" on another).
-  Given its vague description, this is left unmapped rather than guessed into item 25 or
-  elsewhere — an estimator should say what "Amenity Allowance" was meant to cover before
-  it is assigned a canonical item.
+  **Resolved (Matt, 2026-09-18): it was a budget for all amenities.** Maps to item 25
+  (Amenity special construction — pools, fitness, sauna) as a lump-sum figure, the same
+  basis already settled for that item, rather than staying unmapped.

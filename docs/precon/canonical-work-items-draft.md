@@ -1,27 +1,26 @@
 # Canonical work items — first-pass PROPOSED list
 
-**Status: DRAFT, review pass three complete. One question left.** Proposed by a model, not
-a decision. Matt has now resolved every flag except one (see each item's "Resolved" note):
-the shell-framing grouping (item 8), MEP's dollars-per-GSF basis, the amenity lump-sum
-basis (items 25 and its V64/VR "Amenity Allowance" source), the elevator per-stop rate
-(item 26), the deck-pour/gypcrete split (items 3 and 3a), West Shore's precast as
-structure not facade (item 4, renamed "Precast concrete structure"), VA's $0 cabinet line
-(item 10, ignore it), VR's negative paint line (item 20, intentional software behavior,
-not an error), VA's excavation net figure (item 34, $300,000 confirmed), and VA's leftover
-Division 95 lines (broken into their real sub-line items rather than kept as lump
-allowances — decomposition follow-on work, not a blocker). Everything else that was a
-mechanical data-handling question (a role-flag or a netting rule already established by
-the repo's own conventions) closed on its own in the prior pass — see each item's
-"Closed" note.
+**Status: DRAFT, every flag closed. Ready to freeze.** Proposed by a model, not a decision
+in itself, but nothing is left open. Matt resolved: the shell-framing grouping (item 8),
+MEP's dollars-per-GSF basis, the amenity lump-sum basis (items 25 and its V64/VR "Amenity
+Allowance" source), the elevator per-stop rate (item 26), the deck-pour/gypcrete split
+(items 3 and 3a), West Shore's precast as structure not facade (item 4, renamed "Precast
+concrete structure"), VA's $0 cabinet line (item 10, ignore it), VR's negative paint line
+(item 20, intentional software behavior, not an error), VA's excavation net figure
+(item 34, $300,000 confirmed), and VA's leftover Division 95 lines (broken into their real
+sub-line items rather than kept as lump allowances — decomposition follow-on work, not a
+freeze blocker). The last open flag, VA's two balcony deck/railing entries (item 11),
+closed by checking the source file directly: different quantities, a 7x gap in the railing
+rate, and a distinct "Fifth Floor Balcony" name filed with the job's other one-off
+allowances all point to genuinely separate scope, not the same balconies counted twice.
+Everything that was a mechanical data-handling question (a role-flag or a netting rule
+already established by the repo's own conventions) closed on its own in an earlier pass —
+see each item's "Closed" note.
 
-## Open — needs Matt or the estimating team
-
-1. **Item 11, decking/balconies:** are VA's two balcony deck/railing entries (r69–r72 and
-   r316–r317) two different floors, or the same scope priced twice? Matt was not sure on
-   this one; needs someone who can read VA's bid book directly.
-
-Once that closes, this list is ready to freeze and LA-720 (quantity driver per canonical
-item) can start. Per the repo's standing pattern, the model proposes and a human approves.
+LA-720 (quantity driver per canonical item) can start now. Per the repo's standing
+pattern, the model proposes and a human approves; Matt's approval to actually freeze this
+list as the canonical work item table is still the next step, not something a review pass
+can grant on its own.
 
 Built by reading every row of all six ProEst unit-cost exports in `CostExports/`, using
 python3 and openpyxl. File short names used throughout, all citing the `Sheet0` sheet
@@ -380,11 +379,17 @@ total and from any per-LF cabinetry benchmark built from this file.
 **Unit/quantity signal:** SF for decking (scales with deck/balcony area), LF for railing
 (scales with balcony perimeter).
 
-**Flag:** VA prices balcony deck/soffit and posts/railing twice over, once under this
-item's normal Division 06 codes (r69–r72) and once again under the "95 Ammenities"
-allowance bucket (r316–r317, a different floor's balconies, but the same scope type).
-Confirm with the estimator whether these are genuinely different balconies (5th floor
-vs. others) or an accidental split of one scope across two codes.
+**Resolved (checked against the source file, 2026-09-18): genuinely different scope, not
+the same balconies priced twice.** Three things confirm it. The quantities don't match
+(11,036 SF of decking at r69–r72 against 2,750 SF at r316–r317). The railing rate doesn't
+match either ($40.75/LF against $300/LF, a 7x gap too large to be the same railing type
+counted twice). And the two groups sit in different parts of the file for a reason: r69–72
+is general amenity decking and standard unit railings in the normal framing takeoff; r316–
+317 is a named "Fifth Floor Balcony" assembly with posts and a soffit finish, filed in the
+allowance bucket next to the job's other late-added, one-off scope (retail build-out,
+security, the pergola). Read as a distinct fifth-floor balcony system added after the main
+takeoff, not a re-entry of the same balconies. Both stay mapped to this canonical item;
+neither should be excluded or netted against the other.
 
 ---
 

@@ -153,11 +153,11 @@ None of the three sources can serve as the spine. ProEst codes are finest but dr
 between jobs. Autodesk groups are coarser and do not subdivide cleanly into ProEst codes.
 Packages cut across both.
 
-So Kulka owns a list of roughly thirty to forty canonical work items. Each ProEst code maps
-to exactly one. Each Autodesk group maps to exactly one. Each contract package maps to one
-or more, carrying a stated allocation when it maps to several. Divisions and elements both
-roll up from the canonical item. The list is built once from these ten files and approved
-in the working session.
+So Kulka owns a list of canonical work items. Each ProEst code maps to exactly one. Each
+Autodesk group maps to exactly one. Each contract package maps to one or more, carrying a
+stated allocation when it maps to several. Divisions and elements both roll up from the
+canonical item. The frozen list of 40 items lives in `canonical-work-items.md`, built from
+the ProEst exports in `CostExports/` and approved by Matt on 2026-09-19.
 
 ## 4. Schema
 

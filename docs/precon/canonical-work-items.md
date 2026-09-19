@@ -1,26 +1,27 @@
-# Canonical work items — first-pass PROPOSED list
+# Canonical work items — approved list
 
-**Status: DRAFT, every flag closed. Ready to freeze.** Proposed by a model, not a decision
-in itself, but nothing is left open. Matt resolved: the shell-framing grouping (item 8),
-MEP's dollars-per-GSF basis, the amenity lump-sum basis (items 25 and its V64/VR "Amenity
+**Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
+named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 40 items below.
+Renaming, splitting, or merging an item after this point is a change to the spine itself,
+not a review comment, and should reopen a ticket rather than edit this file quietly.
+
+Matt resolved every flag raised in review: the shell-framing grouping (item 8), MEP's
+dollars-per-GSF basis, the amenity lump-sum basis (items 25 and its V64/VR "Amenity
 Allowance" source), the elevator per-stop rate (item 26), the deck-pour/gypcrete split
-(items 3 and 3a), West Shore's precast as structure not facade (item 4, renamed "Precast
-concrete structure"), VA's $0 cabinet line (item 10, ignore it), VR's negative paint line
-(item 20, intentional software behavior, not an error), VA's excavation net figure
-(item 34, $300,000 confirmed), and VA's leftover Division 95 lines (broken into their real
-sub-line items rather than kept as lump allowances — decomposition follow-on work, not a
-freeze blocker). The last open flag, VA's two balcony deck/railing entries (item 11),
-closed by checking the source file directly: different quantities, a 7x gap in the railing
-rate, and a distinct "Fifth Floor Balcony" name filed with the job's other one-off
-allowances all point to genuinely separate scope, not the same balconies counted twice.
-Everything that was a mechanical data-handling question (a role-flag or a netting rule
-already established by the repo's own conventions) closed on its own in an earlier pass —
-see each item's "Closed" note.
+(items 3 and 3a), West Shore's precast as structure not facade (item 4, "Precast concrete
+structure"), VA's $0 cabinet line (item 10, ignored), VR's negative paint line (item 20,
+intentional software behavior, not an error), VA's excavation net figure (item 34,
+$300,000), and VA's leftover Division 95 lines (item 8's note on shell framing, and the
+retail/road/security/pergola lines flagged as decomposition follow-on work for the
+importer, not a spine change). The last flag, VA's two balcony deck/railing entries
+(item 11), closed by checking the source file directly: different quantities, a 7x gap in
+the railing rate, and a distinct "Fifth Floor Balcony" name filed with the job's other
+one-off allowances, confirming genuinely separate scope. Everything that was a mechanical
+data-handling question (a role-flag or a netting rule already established elsewhere in the
+repo) closed on its own in an earlier review pass — see each item's "Closed" note.
 
-LA-720 (quantity driver per canonical item) can start now. Per the repo's standing
-pattern, the model proposes and a human approves; Matt's approval to actually freeze this
-list as the canonical work item table is still the next step, not something a review pass
-can grant on its own.
+LA-720 (quantity driver per canonical item) is unblocked and can start.
 
 Built by reading every row of all six ProEst unit-cost exports in `CostExports/`, using
 python3 and openpyxl. File short names used throughout, all citing the `Sheet0` sheet

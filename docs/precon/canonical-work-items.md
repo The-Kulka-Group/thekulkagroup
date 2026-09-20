@@ -1200,6 +1200,26 @@ composition before proposing.**
 **Unit/quantity signal:** EA, scaling with building count (compactor) or trash-room count
 (chutes).
 
+**Containers (Matt, 2026-09-20), checked against trash chute system code requirements
+before proposing.**
+
+1. **Trash Compactor.** Required. Real evidence, one per building.
+2. **Trash Chute, Vertical Shaft and Intake Doors.** Required. Real evidence, $12,500
+   per chute. Unclear whether that rate already includes the fire-rated intake door on
+   every floor, or just the vertical chute run — intake doors are priced per floor in
+   the trade, not per chute, worth confirming before this becomes a benchmark.
+3. **Recycling Chute.** Conditional, spec-driven, increasingly required by local
+   recycling ordinances as a parallel system to the trash chute. Zero evidence anywhere.
+
+**Two real findings that belong to other items, the same breakout logic already used
+for the elevator and pit sump elsewhere on this list, not new containers here.** Code
+requires the chute run through a fire-rated shaft with self-closing, fire-rated doors at
+each floor — that's framing and drywall construction, items 8 and 17's scope, not the
+chute manufacturer's. NFPA 13 also requires a dedicated sprinkler head at the chute's top
+service opening and another in the hopper or discharge area — that's item 27's scope,
+specific enough that LA-774's sprinkler design pass should know about it directly rather
+than infer it.
+
 **Flag M7 (carried from `jeffersons-ferry-scope-comparison.md`):** trash compactors and
 chutes have no Autodesk group counterpart at all on the one job checked against buyout
 data. This canonical item may be real scope that Autodesk simply never separates from

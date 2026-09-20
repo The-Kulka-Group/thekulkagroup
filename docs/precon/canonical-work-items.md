@@ -780,6 +780,35 @@ in the importer.
 **Unit/quantity signal:** SF for walls/ceilings, LF for molding/casing trim, EA for
 door/frame paint — scales with interior surface area.
 
+**Containers (Matt, 2026-09-20), checked against trade practice before proposing.**
+Multi-family painting splits into new-construction interior coating, exterior coating,
+specialty/wet-area coating, and punch-list work. Every file here prices walls and
+ceilings as one blended rate per square foot with no separate primer line, which is
+correct standard practice, primer plus finish coats bid as one system price, not itemized
+by coat, not a gap.
+
+1. **Interior Wall and Ceiling Painting.** Required. The dominant scope everywhere.
+2. **Interior Trim and Casing Painting.** Required.
+3. **Door and Frame Paint/Stain.** Required. VA's walk-in closet door prices at $300
+   against $175 for the other two door types, the same spec driver already established
+   for that door in item 9.
+4. **Wet-Area Specialty Coating.** Likely missing, not just conditional. Bathrooms and
+   kitchens standardly get a moisture-resistant primer and a higher-sheen finish system at
+   a premium over the general wall rate. None of the six files price this separately —
+   either silently blended into the general wall rate, understating true wet-area cost, or
+   genuinely omitted.
+5. **Exterior Painting.** Conditional on siding material. Zero evidence across every file.
+   Ties to item 14: painting the siding is this trade's scope even though it's applied to
+   a different item's substrate, the same logic already used for drywall against framing.
+   The likelier explanation for the total absence is pre-finished siding that never needs
+   field paint, but that's unconfirmed.
+6. **Garage Floor Coating.** Likely missing. VA and West Shore both have structured
+   parking, and neither prices a floor sealer or epoxy coating, a real and sometimes
+   code-required scope for dusting control on exposed structural concrete. No other item
+   would plausibly absorb this cost, so its absence reads as a gap, not a bundle.
+7. **Punch List and Touch-Up Painting.** Not its own container. Standard practice folds
+   this into the main contract price rather than billing it separately.
+
 **Flag:** `jeffersons-ferry-scope-comparison.md` names painting as one of the three
 interior packages priced consistently high by quantity takeoff (+70% against buyout).
 VR's negative-quantity line (r165) should be checked before this file is imported — a

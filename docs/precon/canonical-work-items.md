@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 46 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 47 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -648,8 +648,14 @@ at a real premium, the industry drawing exactly this line already.
 3. **Entry Doors, Unit to Corridor.** Required, code-rated. A 20-minute fire-rated
    assembly by code, already priced as its own subtype in every file that separates door
    types.
-4. **Exterior and Sliding Glass or French Doors.** Required. Real evidence, high
-   per-unit cost, $1,800–2,537 each.
+4. **Exterior and Sliding Glass or French Doors.** Required, narrowed (Matt, 2026-09-20)
+   to doors bought through the door and millwork channel. A sliding or French door from
+   the same manufacturer as the building's residential windows is a fenestration
+   product, not a door-supplier product, and belongs in item 16a instead, furnished and
+   installed the same way the windows are. The three real lines currently sitting here,
+   V64 and VR's "Exterior Sliding French Door Pair" and VA's "Sliding Glass Doors,"
+   $1,800–2,537 each, don't name a manufacturer, so they stay here unconfirmed rather
+   than being moved on a guess. Check manufacturer at import time going forward.
 5. **Entry Door Hardware, Grade 1.** Required, code-driven, not a spec choice. The
    container carrying the $300–$1,548 variance across files.
 6. **Interior Door Hardware, Grade 2/3.** Required. Standard passage and privacy sets.
@@ -679,26 +685,94 @@ apparently do not.
 
 **Unit/quantity signal:** EA, scaling with garage-bay count.
 
-### 16. Windows, storefront glazing, and shower enclosures
+### 16. Arch. Metal & Glass
+
+**Amended (Matt, 2026-09-20): renamed from "Windows, storefront glazing, and shower
+enclosures," residential windows split out to item 16a.** This item now holds the
+storefront and glazing fabricator's own scope, adopting the trade's own name for it,
+already the ProEst code name in the source files, 08.08200. Entrance doors, storefront
+and curtain wall glazing, and shower enclosures are one subcontractor's buyout, and none
+of them are residential windows.
+
+**Sources:**
+- V64: "Kawneer 190 Series Narrow Stile" 4.00 EA $4,000 and 12.00 EA $400, plus "Standard
+  Hardware" 16.00 EA $1,200 (r123–r125, code 08.04000, Aluminum & Glass) — previously
+  uncited in this item; "Interior Storefront" 88.92 SF $105 and "Exterior Glass
+  Storefront System" 4,068.74 SF $85 (r133–r134, code 08.08200); "Shower Enclosure"
+  83.00 EA $2,250 (r137, code 08.08500).
+- VA: "Exterior Glass Storefront System" 7,037.73 SF $75 (r134); "Shower Enclosure"
+  158.00 EA $2,250 (r137).
+- VR: same Aluminum & Glass and Arch. Metal & Glass codes, zeroed (r127–r131, r138–r139);
+  "Shower Enclosure" 83.00 EA $2,250 (r142).
+- JF, WS, VG: no line.
+
+**Unit/quantity signal:** EA for entrance doors and shower enclosures, SF for storefront
+and curtain wall glazing.
+
+**Containers (Matt, 2026-09-20), checked against aluminum entrance system trade
+practice before proposing.** Narrow stile is specifically an entrance door product,
+distinct from both a punched window and a fixed glazing wall, used where a controlled,
+code-compliant entry is needed rather than a view — a real third category this item was
+missing entirely before this pass.
+
+1. **Aluminum Entrance Doors.** Required wherever the building has a storefront-style
+   entry rather than a standard swinging door. V64: 16 EA total, $40,000.
+2. **Storefront and Curtain Wall Glazing.** Required. Priced by square foot of glazed
+   area, a different driver from the door container above it.
+3. **Shower Enclosures.** Required. All three files that price this land on the
+   identical $2,250 per unit rate, the second item after Wood Flooring where every
+   source agrees on the same number.
+
+### 16a. Residential windows
+
+Split from item 16 (Matt, 2026-09-20): residential windows are a different product, a
+different buyout pattern, and often a different structural class from the glazing
+fabricator's scope above, so they don't belong in the same item just because both
+involve glass.
+
+**The buyout pattern is structure-type driven, not a spec preference.** On a wood-framed
+building, the GC furnishes the windows and the wood framing subcontractor installs them,
+the same crew already priced in item 8's Exterior Wall Framing and Sheathing Labor
+container — installing a vinyl or wood-clad window is part of that sequence, since it's
+built with a nailing fin designed to attach to wood sheathing. On a concrete or masonry
+building, one dedicated window subcontractor furnishes and installs as a single turnkey
+scope, anchoring the frame into concrete or CMU with clips rather than a nailing fin.
+
+**Why the structure type forces this, not just explains it.** The IBC caps combustible
+exterior wall coverings, which includes vinyl window frames, at 40 feet above grade for
+Types I through IV construction, roughly three to four stories. Above that line, vinyl
+isn't a worse choice, it's not a legal one, and aluminum becomes the code-compliant
+answer, engineered for the higher wind pressure and structural spans that come with
+height anyway. Untreated aluminum also needs a thermal break to meet energy code
+U-factor targets, which vinyl doesn't require. One structure-type fact, three downstream
+consequences: this same fact already drives item 8a's Gypcrete container and item 2's
+Slab-on-Grade container.
+
+**Also holds exterior sliding and patio doors from the same manufacturer as the
+windows** (Matt, 2026-09-20), per the amendment to item 15's door container — a
+fenestration-line product, furnished and installed the same way as the windows on that
+job.
 
 **Sources:**
 - JF: "Vinyl Single Hung Window," "Mulled Twin," "Mulled Triple" (r91–r93, code 08.05000).
   Total $31,500.
-- V64: "Windows 10860/3636/3678" (r128–r130); "Interior Storefront" and "Exterior Glass
-  Storefront System" (r133–r134, code 08.08200); "Shower Enclosure" 83.00 EA $2,250
-  (r137, code 08.08500).
-- VA: same window/storefront/shower structure, larger counts (r127–r137).
-- VR: same structure, higher per-unit window rates (r133–r142).
+- V64: "Windows 10860/3636/3678" (r128–r130).
+- VA: same structure, larger counts (r127–r130).
+- VR: same structure, higher per-unit rates (r133–r136).
 - WS, VG: no line.
 
-**Unit/quantity signal:** EA for windows and shower enclosures (scales with unit count/
-opening count); SF for storefront glazing (scales with facade glazed area).
+**Unit/quantity signal:** EA, scaling with opening count.
 
 **Flag:** `jeffersons-ferry-scope-comparison.md` found JF priced 54 window openings at
 $583 average against Pella windows actually bought at $1,648 per opening (+183%) — a
-specification gap (vinyl assumed, brand bought), not a quantity or code error. Worth
-keeping windows separate from storefront/shower in any downstream benchmark even though
-they are grouped here as one canonical item, since their unit economics differ sharply.
+specification gap (vinyl assumed, brand bought), not a quantity or code error.
+
+**Note:** egress code requires at least one compliant opening per bedroom, minimum 5.7
+square feet of clear opening, sill no higher than 44 inches. None of the files
+distinguish an egress-compliant bedroom window from any other window, but the different
+nominal sizes already priced in each file, "10860," "3636," "3678," may already
+correspond to bedroom versus other-room sizing rather than being a gap. Worth checking
+against the actual specs before assuming anything's missing here.
 
 ---
 

@@ -476,6 +476,31 @@ different vendor and a different product entirely from a shelf and a rod.
 **Unit/quantity signal:** LF, scaling with cabinet run length or built-in closet system
 perimeter.
 
+**Containers (Matt, 2026-09-20), reworked after checking against the AWI Architectural
+Woodwork Standards.** AWI's own standard splits this trade into named sections, casework,
+countertops, paneling, stairwork, and doors. Cross-checking that against what's already
+decided elsewhere confirms this item was never supposed to be a catch-all: countertops
+already live in item 24, stairwork in item 8a, doors across items 9 and 15. What's left
+here is casework and paneling.
+
+1. **Custom Closet Systems.** Required wherever a unit has a built-out walk-in. VA:
+   960.00 LF at $350.00.
+2. **Architectural Wall and Ceiling Paneling.** Wainscoting, accent walls, reception desk
+   paneling, media walls. AWI treats paneling as its own standard section because it
+   prices by square foot of surface, not linear foot of cabinet run — a different driver
+   from the container above it. Nothing in any file prices this yet.
+3. **Amenity and Common-Area Casework.** Reception desk base cabinetry, mailroom parcel
+   locker surrounds, coffee bar or media wall boxes. A real boundary worth stating
+   plainly: a reception desk's built cabinet is this container's scope, but its stone or
+   laminate top is item 24's, the same countertop trade that prices kitchens and vanities
+   — two genuinely different vendors on one piece of furniture, not a double price by
+   accident.
+4. **Amenity Space Millwork, General Allowance.** Conditional, reuses the Amenity Scope
+   gate. V64 and VR's undifferentiated $55,000 lump. Kept explicitly as a known-thin
+   bucket rather than force-decomposed into containers 2 and 3 above, since one flat
+   number can't say how much of it is paneling versus casework. Likely `fixed` rather
+   than scaled to GSF or unit count, the same call already made for item 25.
+
 **Flag:** VA's "Upper and lower cabinets" and "Vanities" lines carry a real quantity
 (2,181 LF and 513.50 LF) but a $0 unit cost — this looks like an incomplete estimate row,
 not zero-cost scope, and should not be treated as "no cabinetry" when this file is

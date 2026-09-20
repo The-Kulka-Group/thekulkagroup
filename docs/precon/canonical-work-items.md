@@ -2,9 +2,18 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 40 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 42 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
+
+**Amended, 2026-09-19, during LA-720's quantity-driver work:** item 31 split into three.
+Low voltage (31a) and the furnish cost of lighting fixtures (31b) came out as their own
+items, on Matt's direction, because they are bought and priced separately from the rest
+of electrical on a real job even though none of the six source files show that split yet.
+Item 31 itself narrowed to service, distribution, branch power, installation labor, and
+the generator. See each item's own note below. Numbering after item 32 is unchanged,
+letters were used instead of a renumber so every other item keeps the number already
+referenced elsewhere.
 
 Matt resolved every flag raised in review: the shell-framing grouping (item 8), MEP's
 dollars-per-GSF basis, the amenity lump-sum basis (items 25 and its V64/VR "Amenity
@@ -38,7 +47,7 @@ unless noted:
 
 ## Summary
 
-**40 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
+**42 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
 09, 10, 11, 12, 13, 14, 21, 22, 23, 26, 28, 31, 32). Division 01 General Requirements has
 no line-item data in any file — see the flag under "Markups, not line items" below.
 
@@ -849,30 +858,79 @@ what this job type actually bought out for.
 
 ## Division 26 — Electrical
 
-### 31. Electrical system — power, lighting, low voltage, generator
+### 31. Electrical system — service, distribution, branch power, installation, generator
+
+**Amended (Matt, 2026-09-19): narrowed to exclude low voltage and the furnish cost of
+lighting fixtures, both split out below as their own items.** This item now covers
+service and distribution, branch power and devices, the installation labor for lighting
+fixtures (wiring, mounting, connecting fixtures furnished under item 31b), emergency and
+egress lighting installation, elevator and equipment feed conductors, and the emergency
+generator. None of the six source files actually separate installation labor from a
+fixture's own cost, so every dollar figure below is still the old blended number; the
+narrower scope description is a statement of intent for future imports, not something
+today's numbers already reflect.
 
 **Sources:**
 - JF: "Electrical Budget Allowance" 22,800 SF $28.00 (r173). Total $638,400.
 - V64: "Electrical (non-union residential budget w/ fire alarm)" 101,200 SF $22.00
-  (r242); "Tele/Data/Low Voltage Allowance" 101,200 SF $2.00 (r245). Total $2,428,800.
+  (r242). Total $2,226,400.
 - VA: "Electrical - Garage level breakout" 40,894 SF $18.00 = $736,092; "Electrical
   (non-union residential budget allowance)" 203,658 SF $24.00 = $4,887,792 (r245–r246);
   "ALLOWANCE FOR 400 KW, DIESEL POWERED GENERATOR" 1.00 LS $160,000 (r249, code
   26.05630) — no generator line on any other file.
 - VR: "Electrical (non-union residential budget w/ fire alarm)" 101,200 SF $23.00
-  (r247); low voltage same as V64 (r250). Total $2,530,000.
+  (r247). Total $2,327,600.
 - VG: "EX1 Interior LED Exit Sign + 2-Head EM Combo" 5.00 EA $170 (r45, code 26.05000) —
-  Villa's only electrical line.
+  Villa's only electrical line, and the closest thing to a real fixture number in any
+  file, though it is a blended furnish-and-install price like everything else here, not
+  a furnish-only one.
 - WS: no line.
 
 **Unit/quantity signal:** SF for the main power/lighting allowance, scaling with gross
-square feet; EA for low-voltage devices and exit signs; one LS for the VA generator.
+square feet; EA for exit signs; one LS for the VA generator.
 
 **Flag:** V64's and VR's electrical descriptions both say "w/ fire alarm" in plain text,
 meaning fire alarm cost is bundled into this SF rate rather than broken out — see item 32
 below for why that matters. VA's generator is a genuine scope difference (this job has
 a backup generator; none of the others price one), not a pricing inconsistency, and
 should stay flagged rather than be treated as a missing line on the other five files.
+
+### 31a. Low voltage
+
+Split from item 31 (Matt, 2026-09-19). Tele and data allowance: structured cabling and
+related low-voltage rough-in. Not yet a canonical item before this split; the dollars were
+sitting inside item 31's own source list.
+
+**Sources:**
+- V64: "Tele/Data/Low Voltage Allowance" 101,200 SF $2.00 (r245). Total $202,400.
+- VR: same line, same rate (r250). Total $202,400.
+- JF, VA, WS, VG: no line.
+
+**Unit/quantity signal:** SF, scaling with gross square feet. Only two of six files price
+it at all.
+
+**Flag:** thin evidence for a standalone item, one rate confirmed on two files that share
+the same source lineage (both Vue budgets). Treat the $2.00/SF figure as provisional until
+a third, independent job confirms it.
+
+### 31b. Lighting fixtures, furnish only
+
+Split from item 31 (Matt, 2026-09-19), on the reasoning that furnish and install are
+routinely bought from two different parties on a real job: an owner or designer often
+selects and purchases fixtures directly, and the electrician only installs them. That
+split is a real buyout pattern, not something any of Kulka's six files actually show.
+
+**Sources:** none. No file carries a distinct lighting fixture allowance separate from
+installation labor. Villa's exit sign line (item 31, $170/EA) is the nearest real number
+in the data, and it is a blended furnish-and-install price, not a furnish-only one, so it
+overstates what this item should show once real furnish-only pricing exists.
+
+**Unit/quantity signal:** proposed at unit count or fixture count once a benchmark exists.
+No signal today.
+
+**Flag:** this item exists because it matches how the trade actually buys the work, not
+because Kulka's data proves it yet. Its first few benchmark numbers should be treated as
+unconfirmed until a real job's buyout shows the furnish and install numbers separately.
 
 ---
 
@@ -884,8 +942,8 @@ should stay flagged rather than be treated as a missing line on the other five f
 - JF: "Nurse Call Allowance" 1.00 ALLW $125,000 (r178, code 28.00000); "Fire Alarm Budget
   Allowance" 22,800 SF $7.00 = $159,600 (r181, code 28.04600).
 - V64, VA, VR: **no Division 28 line at all.** Fire alarm cost is folded into the
-  Division 26 electrical allowance description ("...w/ fire alarm," see item 31) with no
-  dollar figure broken out.
+  Division 26 electrical allowance description ("...w/ fire alarm," see item 31, not
+  items 31a or 31b) with no dollar figure broken out.
 - WS, VG: no line.
 
 **Unit/quantity signal:** SF for fire alarm at JF (scales with gross square feet); one

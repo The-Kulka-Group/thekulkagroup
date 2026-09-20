@@ -492,6 +492,17 @@ labor split cleanly into four real scopes by square footage.
 3. **Interior Wall Framing Labor.** Required. V64: 108,839.76 SF at $4.50/SF.
 4. **Floor Framing Labor, Joists and Subfloor.** Required. V64: 104,360.73 SF at $4.50/SF.
 5. **House Wrap and Weather Barrier Labor.** Required. V64: 54,290.84 SF at $0.65/SF.
+6. **Fire Blocking.** Required, added (Matt, 2026-09-20), found cross-checking fire
+   alarm and sprinkler against remaining items. Genuinely distinct from item 14a's
+   Firestopping: IBC 718 requires blocking material stuffed into concealed stud
+   cavities at intervals not exceeding 10 feet, and at every floor and ceiling level, to
+   keep fire from racing unimpeded up a wood-framed wall, a different code section from
+   item 14a's through-penetration requirement, and a different trade, this is standard
+   framing labor as the wall goes up, not a specialty subcontract. The exact requirement
+   for the larger-space version, draftstopping in an attic or floor cavity, is real and
+   directly tied to whether the building is sprinklered, per IBC 718.3 and 718.4, worth
+   confirming against item 27 rather than assuming the same detail applies regardless of
+   sprinkler protection. Zero evidence in any file.
 
 **Flag M4 (carried from `jeffersons-ferry-scope-comparison.md`):** on Jefferson's Ferry,
 Autodesk's "Metal Framing" group contains part of a structural-steel subcontract that
@@ -2258,10 +2269,20 @@ so every container below leans on trade practice rather than file data.
    holder: a maglock holds a door locked and must release to unlock on alarm, a door
    holder holds a door open and releases to let it close on alarm. Both need a fire
    alarm interface, but they are not the same device and shouldn't be priced as one
-   line. Zero evidence of either coordination in any file.
+   line. Zero evidence of either coordination in any file. Access control existing at
+   all also triggers item 32's new Fire Department Key Box container, a Knox Box, since
+   the fire code treats a secured entrance as needing an emergency override regardless
+   of which lock mechanism secures it.
 6. **Testing, Inspection, and Commissioning.** Required. Per building. Final test, fire
    marshal witness, certification. Often its own line on a real quote even though no
    file here isolates it.
+7. **Fire Department Key Box.** Required whenever item 31a's Access Control sub-scope
+   restricts entry, added (Matt, 2026-09-20). IFC 506.1 requires a Knox Box wherever
+   access to a building is restricted by secured openings, exterior-mounted at the
+   main entrance, holding master keys to every entrance including mechanical,
+   electrical, and fire riser rooms, along with the fire alarm panel key itself. A
+   small, real hardware item, currently priced nowhere, that exists specifically
+   because access control exists.
 
 ### 32a. Emergency responder radio coverage
 

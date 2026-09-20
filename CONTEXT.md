@@ -22,11 +22,20 @@ owners, or everything before ground-break. Never use it unqualified in docs; say
 sense you mean or use a precise term instead.
 
 **Branch gate**:
-A question whose answer decides whether a whole section of the intake appears, such as
-whether the site has existing structures to demolish. It takes three answers: yes, no, or
-don't know. A "no" prices that section at zero. A "don't know" shows TBD on the schedule
-of values and is left out of the total.
+A question whose answer decides whether a whole section of the intake appears, or which
+form a required item prices under, such as whether the site has existing structures to
+demolish. It takes three answers: yes, no, or don't know. A "no" prices that section at
+zero. A "don't know" shows TBD on the schedule of values and is left out of the total.
 _Avoid_: conditional question, skip logic, gate question
+
+**Code lookup**:
+How a branch gate gets its answer when the answer turns on a code requirement specific
+to the project's municipality and authority having jurisdiction, such as emergency
+responder radio coverage or fire alarm notification type, rather than on a fact the
+estimator can state from memory or one the tool can derive from another captured field.
+Jev looks it up from the project's address and jurisdiction. Falls back to asked outright
+until that lookup exists.
+_Avoid_: code check, jurisdiction check, AHJ lookup
 
 **Tier**:
 The depth of questioning the user chose for a ROM. Deeper tiers ask more questions and

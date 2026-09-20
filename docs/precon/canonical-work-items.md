@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 42 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 43 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -11,9 +11,14 @@ Low voltage (31a) and the furnish cost of lighting fixtures (31b) came out as th
 items, on Matt's direction, because they are bought and priced separately from the rest
 of electrical on a real job even though none of the six source files show that split yet.
 Item 31 itself narrowed to service, distribution, branch power, installation labor, and
-the generator. See each item's own note below. Numbering after item 32 is unchanged,
-letters were used instead of a renumber so every other item keeps the number already
-referenced elsewhere.
+the generator. A fourth new item, emergency responder radio coverage (32a), split out of
+the low-voltage review as licensed, code-triggered work, not a tele/data preference, next
+to Fire Alarm rather than next to Low Voltage. Four other candidate splits, video intercom,
+access control, CCTV, and cable and satellite backbone, were reviewed and rejected: thin
+evidence and low individual dollar risk, the same bar that already kept the emergency
+generator out of the gate list. They stay informal sub-scopes of item 31a. See each item's
+own note below. Numbering after item 32 is unchanged, letters were used instead of a
+renumber so every other item keeps the number already referenced elsewhere.
 
 Matt resolved every flag raised in review: the shell-framing grouping (item 8), MEP's
 dollars-per-GSF basis, the amenity lump-sum basis (items 25 and its V64/VR "Amenity
@@ -47,7 +52,7 @@ unless noted:
 
 ## Summary
 
-**42 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
+**43 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
 09, 10, 11, 12, 13, 14, 21, 22, 23, 26, 28, 31, 32). Division 01 General Requirements has
 no line-item data in any file — see the flag under "Markups, not line items" below.
 
@@ -913,6 +918,17 @@ it at all.
 the same source lineage (both Vue budgets). Treat the $2.00/SF figure as provisional until
 a third, independent job confirms it.
 
+**Amended (Matt, 2026-09-19): stays one item, not five.** Structured cabling and data is
+the only piece this figure actually supports. Video intercom and entry, access control,
+CCTV, and cable and satellite TV backbone are real sub-scopes with no evidence behind any
+of them, and giving each its own canonical item was rejected on the same logic that kept
+the emergency generator (item 31, container level) out of the branch gate list: thin
+evidence and low individual dollar risk do not clear the bar for a structural split. They
+stay informal sub-scopes of this item until a real job's buyout gives one of them a real
+number. Emergency Responder Radio Coverage did clear the bar and is split out below as
+item 32a, next to Fire Alarm rather than here, because it is licensed, code-triggered
+life-safety work, not a spec preference.
+
 ### 31b. Lighting fixtures, furnish only
 
 Split from item 31 (Matt, 2026-09-19), on the reasoning that furnish and install are
@@ -955,6 +971,27 @@ Electronic Safety and Security" generally. Because the three Vue files bury fire
 inside the electrical rate with no separate dollar figure, this canonical item cannot be
 benchmarked consistently across files today; only JF and, eventually, an Autodesk import
 can supply a real fire-alarm-only number.
+
+### 32a. Emergency responder radio coverage
+
+New item (Matt, 2026-09-19), split out of the low-voltage review rather than found in a
+source file. Licensed radio-coverage work: in-building antennas, amplifiers, and a
+monitored panel, driven by a code trigger (building size and a measured signal survey)
+rather than a spec choice, sold as its own subcontract with its own permit and test.
+Grouped under Division 28 with Fire Alarm rather than under item 31a's low-voltage
+grouping, because it is life-safety and code work, not a tele/data preference.
+
+**Sources:** none. No file carries this scope, which is expected: it is a recent and
+still-inconsistently-enforced code requirement, and none of the six jobs on hand are
+recent enough or in a jurisdiction confirmed to require it.
+
+**Unit/quantity signal:** none yet. Likely gross square feet or building count once real
+jobs supply it, whichever the first closed number actually tracks.
+
+**Flag:** whether this applies to a given job is a jurisdiction question, not something an
+estimator should be expected to know from memory or something the tool should ask outright
+without help. See the new gate for this item in `rom-spec.md` and the Jev research ticket
+that answers it from the project's own code jurisdiction.
 
 ---
 

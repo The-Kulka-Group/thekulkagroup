@@ -136,6 +136,21 @@ takes what it wants later by copy or fork. The tool stays off the public website
     trigger, so this may be derivable from stories rather than asked outright, the same
     way elevator stops derive from stories rather than getting their own question; worth
     checking before it becomes a real question in the built intake.
+  - **Emergency responder radio coverage**: yes, no, don't know. Gates item 32a, split
+    out during the same review as its own canonical item rather than left a low-voltage
+    sub-scope, because it is licensed, code-triggered work. No data on any of the six
+    files.
+  A gate can be answered three ways, and which way applies is worth stating per gate
+  rather than assuming. The estimator states it outright, the way gas building or roof
+  type work today. The tool derives it from another captured fact, the way elevator
+  stops derive from stories. Or the tool looks it up from the project's own code
+  jurisdiction, which neither of the first two can do for a gate like emergency
+  responder radio coverage or fire alarm notification: both trigger off a building code
+  amendment specific to the project's municipality and AHJ, not off anything Kulka
+  captures today or could reasonably ask an estimator to know from memory. Jev is the
+  tool for that lookup, given the project's address and jurisdiction; the research and
+  build for it is its own ticket, not assumed to exist yet. Until it does, these two
+  gates fall back to asked outright, same as any other gate.
   A gate earns a permanent place if it appears in at least a third of Kulka's own past
   jobs, or Matt says from the trade that it comes up on most calls regardless of what
   the thin dataset shows. Anything below that bar stays in the assumed bucket, asked

@@ -747,6 +747,31 @@ total as comparable to the other two files' itemized approach.
 **Unit/quantity signal:** SF, scaling with tiled wall/floor area; EA for mud-job shower
 prep, scaling with bathroom count.
 
+**Containers (Matt, 2026-09-20), checked against TCNA's own shower waterproofing
+methods before proposing.** VA's "Mud Job at Shower" turns out to be a real, named
+industry method, the traditional mortar-bed shower pan, not a generic allowance — one of
+two standard approaches, the other being a sheet membrane system like Schluter.
+
+1. **Wall Tile.** Required. Bathroom walls and kitchen backsplash areas. Real evidence in
+   every priced file.
+2. **Floor Tile.** Conditional, and this is a real spec fork against item 19 rather than
+   a documentation gap. JF is the only file that tiles bathroom floors, $19.70/SF. The
+   three Vue files price "Bathroom Resilient Flooring" instead, item 19's own premium
+   container, $26–37/SF — a genuine material choice between jobs, not missing data.
+3. **Backsplash Tile.** Conditional, kitchen-specific. JF only, self-performed.
+4. **Shower Waterproofing System.** Likely missing on three of four files. VA's mud-pan
+   line is real evidence this scope exists. JF, V64, and VR all price wall tile in
+   bathrooms with no corresponding waterproofing or pan line at all — either bundled
+   into the wall tile rate, or priced without it.
+5. **Saddles and Thresholds.** Required. The stone or marble piece set at a doorway or
+   shower curb where tile meets another flooring material, distinct from item 19's
+   Transition Strips, which are resilient-to-resilient vinyl or metal strips. Zero
+   evidence in any file, and no plausible reading where this is bundled elsewhere.
+
+**Flag:** cement backer board, the wet-area substrate tile is actually set on, isn't
+standard drywall, and neither this item nor item 17's Gypsum Wall Board Installation
+container prices it separately anywhere. Worth a look when item 17 comes back up.
+
 ### 19. Flooring — resilient and carpet
 
 **Amended (Matt, 2026-09-20): Wood Flooring split out to item 19a.** The source files

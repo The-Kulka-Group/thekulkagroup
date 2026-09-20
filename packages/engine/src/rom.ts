@@ -11,6 +11,19 @@ export type ConstructionKind = "new" | "renovation";
 export type ConfidenceFlag = "high" | "medium" | "low";
 
 /**
+ * Building work or site work (CONTEXT.md: Scope side). Every canonical work
+ * item carries a default (LA-677, LA-679); this is that default or a line's
+ * own override, carried onto the priced line.
+ */
+export type ScopeSide = "building" | "site";
+
+/**
+ * Kulka's own contract or bought by the owner direct, such as appliances or a
+ * trash compactor (CONTEXT.md: Contract side). LA-679.
+ */
+export type ContractSide = "kulka" | "owner";
+
+/**
  * Where a benchmark's number came from. Required on every benchmark.
  *
  * Test-only values never enter the production schema or the product surface.
@@ -39,6 +52,8 @@ export type Benchmark = {
   /** How many comparables stand behind the value. Drives the confidence flag. */
   comparableCount: number;
   provenance: Provenance;
+  scopeSide: ScopeSide;
+  contractSide: ContractSide;
 };
 
 /** Everything the engine is allowed to read. The caller loads it; the engine does not. */
@@ -61,11 +76,25 @@ export type RomLine = {
   /** True holds the line back from leaving the building unexamined (LA-9). */
   heldForReview: boolean;
   provenance: Provenance;
+  scopeSide: ScopeSide;
+  contractSide: ContractSide;
 };
 
 export type Rom = {
   lines: RomLine[];
+  /**
+   * Total project cost: Kulka's contract plus whatever construction-trade
+   * scope the owner buys direct (CONTEXT.md: Total project cost). This is
+   * every line, the same sum this field always computed before contract side
+   * existed.
+   */
   total: { low: number; high: number };
+  /**
+   * Kulka's own contract only, excluding owner-direct lines such as
+   * appliances or a trash compactor (LA-679: "The ROM shows two totals on
+   * screen at all times: Kulka's contract and total project cost.").
+   */
+  kulkaContractTotal: { low: number; high: number };
   assumptions: string[];
 };
 
@@ -110,12 +139,17 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     .sort((a, b) => a.costCode.localeCompare(b.costCode));
 
   const lines = matched.map((b) => toLine(b, answers.grossSquareFeet));
+  const kulkaLines = lines.filter((l) => l.contractSide === "kulka");
 
   return {
     lines,
     total: {
       low: lines.reduce((sum, l) => sum + l.low, 0),
       high: lines.reduce((sum, l) => sum + l.high, 0),
+    },
+    kulkaContractTotal: {
+      low: kulkaLines.reduce((sum, l) => sum + l.low, 0),
+      high: kulkaLines.reduce((sum, l) => sum + l.high, 0),
     },
     assumptions: assumptionsFor(answers, lines),
   };
@@ -134,6 +168,8 @@ function toLine(benchmark: Benchmark, grossSquareFeet: number): RomLine {
     confidence,
     heldForReview: confidence === "low",
     provenance: benchmark.provenance,
+    scopeSide: benchmark.scopeSide,
+    contractSide: benchmark.contractSide,
   };
 }
 
@@ -166,6 +202,16 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   if (held.length > 0) {
     assumptions.push(
       `${held.length} of ${lines.length} lines are low confidence and are held for review before this ROM goes anywhere.`,
+    );
+  }
+
+  // LA-679: owner-direct lines stay in total project cost but come out of
+  // Kulka's own contract total, so the gap between the two totals needs its
+  // own stated reason rather than silently appearing on screen.
+  const ownerDirect = lines.filter((l) => l.contractSide === "owner");
+  if (ownerDirect.length > 0) {
+    assumptions.push(
+      `${ownerDirect.length} of ${lines.length} lines are owner-direct scope, included in total project cost and excluded from Kulka's contract total.`,
     );
   }
 

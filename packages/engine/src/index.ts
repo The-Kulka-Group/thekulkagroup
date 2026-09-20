@@ -7,13 +7,30 @@ export {
   type Benchmark,
   type ConfidenceFlag,
   type ConstructionKind,
+  type ContractSide,
   type DataSnapshot,
   type ProjectType,
   type Provenance,
   type ProvenanceKind,
   type Rom,
   type RomLine,
+  type ScopeSide,
 } from "./rom";
+
+export {
+  priceBranchGatedSection,
+  priceParking,
+  proposeGrossSquareFeet,
+  scoreClosingComparison,
+  type BranchGateAnswer,
+  type BranchGateResult,
+  type ClosingComparisonScore,
+  type GrossSquareFeetProposal,
+  type ParkingPricing,
+  type ParkingRate,
+  type ParkingType,
+  type Phasing,
+} from "./rom-intake";
 
 export {
   computePreliminaryUnderwriting,

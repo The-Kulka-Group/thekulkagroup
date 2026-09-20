@@ -22,6 +22,8 @@ function benchmark(over: Partial<Benchmark> = {}): Benchmark {
       recordedBy: "automated test",
       recordedAt: "2026-08-27",
     },
+    scopeSide: "building",
+    contractSide: "kulka",
     ...over,
   };
 }
@@ -180,5 +182,50 @@ describe("computeRom", () => {
   it("refuses a negative floor area", () => {
     expect(() => computeRom({ ...ANSWERS, grossSquareFeet: -1 }, snapshot(benchmark())))
       .toThrow(/gross square feet/i);
+  });
+
+  it("carries each benchmark's scope side and contract side through to its line", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(benchmark({ scopeSide: "site", contractSide: "owner" })),
+    );
+
+    expect(rom.lines[0].scopeSide).toBe("site");
+    expect(rom.lines[0].contractSide).toBe("owner");
+  });
+
+  it("sums the Kulka contract total from Kulka-side lines only", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(
+        benchmark({ costCode: "TEST-A", contractSide: "kulka" }),
+        benchmark({ costCode: "TEST-B", contractSide: "owner" }),
+      ),
+    );
+
+    expect(rom.kulkaContractTotal.low).toBe(rom.lines[0].low);
+    expect(rom.kulkaContractTotal.high).toBe(rom.lines[0].high);
+    expect(rom.total.low).toBe(rom.lines[0].low + rom.lines[1].low);
+  });
+
+  it("makes the Kulka contract total equal the total when every line is Kulka's", () => {
+    const rom = computeRom(ANSWERS, snapshot(benchmark(), benchmark({ costCode: "TEST-B" })));
+
+    expect(rom.kulkaContractTotal).toEqual(rom.total);
+  });
+
+  it("states owner-direct scope as its own assumption", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(benchmark({ costCode: "TEST-A", contractSide: "owner" })),
+    );
+
+    expect(rom.assumptions.join(" ")).toContain("owner-direct");
+  });
+
+  it("says nothing about owner-direct scope when there is none", () => {
+    const rom = computeRom(ANSWERS, snapshot(benchmark()));
+
+    expect(rom.assumptions.join(" ")).not.toContain("owner-direct");
   });
 });

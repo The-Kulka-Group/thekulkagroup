@@ -59,6 +59,8 @@ type BenchmarkRow = {
   provenance_export_label: string | null;
   provenance_recorded_by: string;
   provenance_recorded_at: Date | string;
+  scope_side: Benchmark["scopeSide"];
+  contract_side: Benchmark["contractSide"];
 };
 
 /**
@@ -102,7 +104,7 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
                   '{}'::uuid[]
                 ) as provenance_source_project_ids,
                 b.provenance_export_label, b.provenance_recorded_by,
-                b.provenance_recorded_at
+                b.provenance_recorded_at, b.scope_side, b.contract_side
            from benchmarks b
           where b.project_type = $1 and b.construction_kind = $2
           order by b.cost_code`,
@@ -204,5 +206,7 @@ function toBenchmark(row: BenchmarkRow): Benchmark {
           ? recordedAt.toISOString().slice(0, 10)
           : String(recordedAt).slice(0, 10),
     },
+    scopeSide: row.scope_side,
+    contractSide: row.contract_side,
   };
 }

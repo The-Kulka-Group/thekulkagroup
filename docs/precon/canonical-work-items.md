@@ -215,6 +215,16 @@ item 3a, stays its own item, not a container here.
      a genuinely different system handling a different kind of water, worth keeping
      separate rather than conflating the two just because both are called "sump."
    - **Slab Vapor Barrier.** Real evidence above, VA's $204,470 line.
+   - **Exterior Stair Areaway Drain, added (Matt, 2026-09-20), cross-checked against
+     doors, windows, and elevators before proposing.** Conditional, wherever an exterior
+     stair descends below grade to an entry, parking garage pedestrian access or a
+     basement-level door. Its own point-source drain, tied to a sealed sump pit or
+     positive gravity discharge, a real code-driven detail distinct from every other
+     drainage item on this list: not the continuous perimeter footing drain above, not
+     item 26's elevator pit sump, and not item 28's sewage ejector sump. Four real
+     systems on this document now share the word "sump" or "drain"; worth keeping them
+     named separately rather than letting one stand in for all of them. Zero evidence
+     in any file.
 5. **Equipment Pads and Misc. Concrete.** Required. Housekeeping pads for mechanical and
    electrical equipment, dumpster pads, stoops. No file has a line for this at all; unlike
    the containers above, this one starts with zero evidence, proposed only because a
@@ -999,6 +1009,14 @@ job.
 - WS, VG: no line.
 
 **Unit/quantity signal:** EA, scaling with opening count.
+
+**Cross-checked against elevators and stairs (Matt, 2026-09-20).** Code permits
+exterior windows in an enclosed exit stairway's exterior wall, and where a stairwell has
+one, it's still a window and needs the same three-part flashing sequence already
+required at item 14, sill pan, jamb, then head, no new scope, just confirming the
+existing container's coverage extends here. Nothing comparable applies at elevators;
+those openings are interior lobby doors, not exterior windows, so this cross-check found
+nothing new on that side.
 
 **Flag:** `jeffersons-ferry-scope-comparison.md` found JF priced 54 window openings at
 $583 average against Pella windows actually bought at $1,648 per opening (+183%) — a

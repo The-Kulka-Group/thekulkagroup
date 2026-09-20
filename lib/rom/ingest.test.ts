@@ -33,6 +33,11 @@ afterEach(async () => {
 // overlap heuristic scores it 1 -- deterministically above MATCH_THRESHOLD.
 // "Totally unrelated widget nonsense" shares no tokens with any of the 54
 // canonical items, so it deterministically scores 0.
+//
+// The header is line 1, so its two data rows are lines 2 and 3 --
+// row_number is the row's real physical line in the file (fixed in code
+// review 2026-09-20; see lib/rom/cost-file-parse.test.ts for the dedicated
+// coverage of that fix).
 const CSV_TEXT = [
   "description,division,value",
   '"Foundations, footings, and slab-on-grade",03,42.50',
@@ -53,18 +58,27 @@ function benchmarks(db: Db) {
   return db.query<{ cost_code: string }>(`select cost_code from benchmarks`).then((r) => r.rows);
 }
 
+function countBenchmarksFor(db: Db, costCode: string) {
+  return db
+    .query<{ count: string }>(`select count(*)::text as count from benchmarks where cost_code = $1`, [costCode])
+    .then((r) => Number(r.rows[0].count));
+}
+
 describe("stageCostImport", () => {
   it("matches a confident line and leaves an unrelated one unmapped (AC1, AC4)", async () => {
     const costImport = await stagedImport(db as Db);
 
     expect(costImport.status).toBe("staged");
     expect(costImport.lines).toHaveLength(2);
+    expect(costImport.skippedRows).toEqual([]);
 
     const [mapped, unmapped] = costImport.lines;
+    expect(mapped.rowNumber).toBe(2);
     expect(mapped.status).toBe("staged");
     expect(mapped.candidateCanonicalItem.itemNumber).toBe("2");
     expect(mapped.candidateScore).toBe(1);
 
+    expect(unmapped.rowNumber).toBe(3);
     expect(unmapped.status).toBe("unmapped");
     expect(unmapped.candidateScore).toBe(0);
   });
@@ -101,13 +115,88 @@ describe("stageCostImport", () => {
     const { rows } = await db.query(`select 1 from cost_imports`);
     expect(rows).toEqual([]);
   });
+
+  it("stages every valid row and reports a bad row instead of rejecting the whole file over it (fixed in code review, finding #4)", async () => {
+    const csv = [
+      "description,division,value",
+      '"Foundations, footings, and slab-on-grade",03,42.50',
+      "Missing a description,03,",
+      "VE credit,03,0",
+    ].join("\n");
+
+    const staged = await stageCostImport(db as Db, {
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Example export",
+      provenanceKind: "actuals",
+      uploadedBy: "reviewer@kulka.com",
+      fileText: csv,
+    });
+
+    expect(staged.lines).toHaveLength(2);
+    expect(staged.lines.map((line) => line.rawDescription)).toEqual([
+      "Foundations, footings, and slab-on-grade",
+      "VE credit",
+    ]);
+    expect(staged.skippedRows).toEqual([{ rowNumber: 3, reason: '"value" is required.' }]);
+  });
+
+  it("lands a confidently-matched line in the unmapped bucket when its rate is a magnitude outlier against the canonical item's existing benchmark data (fixed in code review, finding #2)", async () => {
+    // Simulates prior, normal benchmark data already on record for
+    // canonical item 2's cost code ("2") -- real numbers in a plausible
+    // range, entered directly the way an earlier approved import would
+    // have left them.
+    await db.query(
+      `insert into benchmarks
+         (cost_code, label, unit, value, project_type, construction_kind, comparable_count,
+          provenance_kind, provenance_recorded_by, provenance_recorded_at)
+       values
+         ('2', 'Prior comparable A', 'usd_per_gsf', 20, 'multifamily', 'new', 1, 'reviewed_judgment', 'seed', date '2026-08-01'),
+         ('2', 'Prior comparable B', 'usd_per_gsf', 24, 'multifamily', 'new', 1, 'reviewed_judgment', 'seed', date '2026-08-02')`,
+    );
+
+    // Same ADR-0003 story this ticket's own docs describe: a confident text
+    // match ("Foundations, footings, and slab-on-grade" scores 1) with a
+    // rate two orders of magnitude off the item's real existing data.
+    const outlierCsv = [
+      "description,division,value",
+      '"Foundations, footings, and slab-on-grade",03,250.00',
+    ].join("\n");
+
+    const staged = await stageCostImport(db as Db, {
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Outlier example",
+      provenanceKind: "actuals",
+      uploadedBy: "reviewer@kulka.com",
+      fileText: outlierCsv,
+    });
+
+    expect(staged.lines[0].candidateScore).toBe(1);
+    expect(staged.lines[0].status).toBe("unmapped");
+  });
+
+  it("does not flag a rate close to a canonical item's existing benchmark data", async () => {
+    await db.query(
+      `insert into benchmarks
+         (cost_code, label, unit, value, project_type, construction_kind, comparable_count,
+          provenance_kind, provenance_recorded_by, provenance_recorded_at)
+       values
+         ('2', 'Prior comparable A', 'usd_per_gsf', 20, 'multifamily', 'new', 1, 'reviewed_judgment', 'seed', date '2026-08-01'),
+         ('2', 'Prior comparable B', 'usd_per_gsf', 24, 'multifamily', 'new', 1, 'reviewed_judgment', 'seed', date '2026-08-02')`,
+    );
+
+    const staged = await stagedImport(db as Db);
+    expect(staged.lines[0].status).toBe("staged");
+  });
 });
 
 describe("getCostImport", () => {
   it("returns the staged import and its lines for review", async () => {
     const staged = await stagedImport(db as Db);
+    const { skippedRows, ...expectedSummary } = staged;
     const found = await getCostImport(db as Db, staged.id);
-    expect(found).toEqual(staged);
+
+    expect(skippedRows).toEqual([]);
+    expect(found).toEqual(expectedSummary);
   });
 
   it("refuses an import that does not exist", async () => {
@@ -214,6 +303,31 @@ describe("approveCostImport", () => {
     expect(await benchmarks(db as Db)).toEqual([{ cost_code: "TEST" }]);
   });
 
+  it("excludes a staged $0 line instead of promoting it, since benchmarks.value must be positive (fixed in code review, finding #4/#1 boundary)", async () => {
+    // The description has to match a canonical item confidently (so the
+    // line actually stages instead of landing in the unmapped bucket for an
+    // unrelated reason) -- "VE credit" itself would score 0 against every
+    // canonical item name.
+    const csv = ["description,division,value", '"Foundations, footings, and slab-on-grade",03,0'].join("\n");
+    const staged = await stageCostImport(db as Db, {
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "VE credit example",
+      provenanceKind: "actuals",
+      uploadedBy: "reviewer@kulka.com",
+      fileText: csv,
+    });
+    expect(staged.lines[0].status).toBe("staged");
+    expect(staged.lines[0].valueUsdPerGsf).toBe(0);
+
+    const summary = await approveCostImport(db as Db, staged.id, "approver@kulka.com");
+    expect(summary.approved).toBe(0);
+    expect(summary.excluded).toBe(1);
+
+    const updated = await getCostImport(db as Db, staged.id);
+    expect(updated.lines[0].status).toBe("excluded");
+    expect(updated.lines[0].benchmarkId).toBeNull();
+  });
+
   it("refuses to approve an import twice", async () => {
     const staged = await stagedImport(db as Db);
     await approveCostImport(db as Db, staged.id, "approver@kulka.com");
@@ -227,6 +341,77 @@ describe("approveCostImport", () => {
     await expect(
       approveCostImport(db as Db, "00000000-0000-4000-8000-0000000000ff", "approver@kulka.com"),
     ).rejects.toThrow(CostImportNotFound);
+  });
+
+  it("lets only one of two concurrent approve calls for the same import succeed, and the other sees it already approved (fixed in code review, finding #1 -- the reproduced double-approval race)", async () => {
+    const staged = await stagedImport(db as Db);
+
+    const results = await Promise.allSettled([
+      approveCostImport(db as Db, staged.id, "approver-a@kulka.com"),
+      approveCostImport(db as Db, staged.id, "approver-b@kulka.com"),
+    ]);
+
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    const rejected = results.filter((result) => result.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(CostImportAlreadyApproved);
+
+    // The race no longer leaves an orphaned benchmark or a doubled total:
+    // exactly one row for the one mapped line.
+    expect(await countBenchmarksFor(db as Db, "2")).toBe(1);
+  });
+
+  it("treats a re-import of the same cost code from the same source project as a duplicate rather than a second benchmark (fixed in code review, finding #1 -- the legitimate-re-import case)", async () => {
+    const first = await stagedImport(db as Db);
+    await approveCostImport(db as Db, first.id, "approver@kulka.com");
+    expect(await countBenchmarksFor(db as Db, "2")).toBe(1);
+
+    // A corrected re-upload of the same cost line, from a second, separate
+    // import against the same source project.
+    const correctedCsv = [
+      "description,division,value",
+      '"Foundations, footings, and slab-on-grade",03,45.00',
+    ].join("\n");
+    const second = await stageCostImport(db as Db, {
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Corrected re-upload",
+      provenanceKind: "actuals",
+      uploadedBy: "reviewer@kulka.com",
+      fileText: correctedCsv,
+    });
+
+    const summary = await approveCostImport(db as Db, second.id, "approver@kulka.com");
+    expect(summary).toEqual({ approved: 0, excluded: 1, unmapped: 0 });
+
+    // Still exactly one benchmark for cost code "2" -- the ROM engine would
+    // otherwise sum both and silently double the total (this is the bug
+    // ADR 0003's ingest-side fix, finding #1, exists to prevent; real
+    // blending across imports is LA-14's, not this fix's).
+    expect(await countBenchmarksFor(db as Db, "2")).toBe(1);
+
+    const reopened = await getCostImport(db as Db, second.id);
+    expect(reopened.lines[0].status).toBe("excluded");
+    expect(reopened.lines[0].benchmarkId).toBeNull();
+  });
+
+  it("also catches two lines inside the same import that map to the same cost code", async () => {
+    const csv = [
+      "description,division,value",
+      '"Foundations, footings, and slab-on-grade",03,42.50',
+      '"Foundations, footings, and slab-on-grade",03,43.00',
+    ].join("\n");
+    const staged = await stageCostImport(db as Db, {
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Two lines, one cost code",
+      provenanceKind: "actuals",
+      uploadedBy: "reviewer@kulka.com",
+      fileText: csv,
+    });
+
+    const summary = await approveCostImport(db as Db, staged.id, "approver@kulka.com");
+    expect(summary).toEqual({ approved: 1, excluded: 1, unmapped: 0 });
+    expect(await countBenchmarksFor(db as Db, "2")).toBe(1);
   });
 });
 

@@ -101,7 +101,20 @@ create table cost_import_lines (
   row_number integer not null check (row_number > 0),
   raw_description text not null check (btrim(raw_description) <> ''),
   raw_division text,
-  value_usd_per_gsf numeric not null check (value_usd_per_gsf > 0),
+  -- Fixed in code review (2026-09-20): was `> 0`. Real cost exports
+  -- routinely carry a legitimate $0 line -- an absorbed allowance, a VE
+  -- credit, a credited change order -- and rejecting the whole file over
+  -- one such row (the old behavior: lib/rom/cost-file-parse.ts threw
+  -- synchronously on the first `value <= 0` row) throws away every other
+  -- valid row in it too. `>= 0` lets a $0 row stage and stay visible for
+  -- review. It can never carry `benchmarks.value`'s own `check (value > 0)`
+  -- (20260827120000_rom_schema.sql, already applied, not this migration's
+  -- to change) forward, since a $0 rate is not a unit-cost signal a future
+  -- ROM can use -- `approveCostImport` excludes a $0 line from promotion
+  -- the same way it excludes a role-ineligible one, so this constraint
+  -- loosening only ever widens what can be staged and reviewed, never what
+  -- can become a benchmark.
+  value_usd_per_gsf numeric not null check (value_usd_per_gsf >= 0),
 
   line_role text not null default 'scope'
     check (line_role in ('scope', 'lump', 'allowance', 'takeoff_helper', 'duplicate')),

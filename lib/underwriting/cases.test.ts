@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { Db } from "@/lib/db";
 import { seededDatabase } from "@/test/database";
 import {
   createUnderwritingCase,
@@ -401,11 +402,12 @@ describe("underwriting case repository", () => {
   it("reads the case and ordered assumptions with one database statement", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     let queryCount = 0;
-    const countedDb = {
+    const countedDb: Db = {
       query: <Row>(text: string, params: unknown[] = []) => {
         queryCount += 1;
         return db.query<Row>(text, params);
       },
+      withTransaction: (fn) => fn(countedDb),
     };
 
     const reopened = await getUnderwritingCase(countedDb, created!.id);
@@ -421,11 +423,12 @@ describe("underwriting case repository", () => {
   it("returns the snapshot from the revision-controlled update without a follow-up read", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     let queryCount = 0;
-    const countedDb = {
+    const countedDb: Db = {
       query: async <Row>(text: string, params: unknown[] = []) => {
         queryCount += 1;
         return db.query<Row>(text, params);
       },
+      withTransaction: (fn) => fn(countedDb),
     };
 
     const updated = await updateUnderwritingCase(

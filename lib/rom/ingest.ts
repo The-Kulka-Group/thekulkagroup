@@ -1,7 +1,16 @@
 import type { Db } from "@/lib/db";
 
-import { bestCanonicalMatch, MATCH_THRESHOLD, type CanonicalItemCandidate } from "./canonical-item-match";
-import { CostFileParseError, parseCostFile } from "./cost-file-parse";
+import {
+  bestCanonicalMatch,
+  isRateOutlier,
+  MATCH_THRESHOLD,
+  tokenizeCanonicalItems,
+  type BenchmarkRateStats,
+  type CanonicalItemCandidate,
+  type TokenizedCanonicalItem,
+} from "./canonical-item-match";
+import { CostFileParseError, parseCostFile, type SkippedCostFileRow } from "./cost-file-parse";
+import { toDateOnly, toIso } from "./date";
 import { ProjectNotFound } from "./run";
 
 // The ingestion gate (LA-15): a signed-in user stages a cost file, its lines
@@ -63,6 +72,9 @@ export type CostImportSummary = {
 
 export type CostImportDetail = CostImportSummary & { lines: StagedLine[] };
 
+/** stageCostImport's own return shape: the staged import plus every row the parser could not use, so a caller can report both instead of the whole file failing over one bad line (fixed in code review 2026-09-20). Not part of CostImportDetail/getCostImport's shape, since skipped rows are never written anywhere and so cannot be re-fetched later. */
+export type StageCostImportResult = CostImportDetail & { skippedRows: SkippedCostFileRow[] };
+
 export type ApproveSummary = { approved: number; excluded: number; unmapped: number };
 
 export type UnmappedLine = {
@@ -77,14 +89,6 @@ export type UnmappedLine = {
   candidateCanonicalItem: { id: string; itemNumber: string; name: string };
   candidateScore: number;
 };
-
-function toIso(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function toDateOnly(value: Date | string): string {
-  return toIso(value).slice(0, 10);
-}
 
 type CostImportRow = {
   id: string;
@@ -134,10 +138,34 @@ async function readCanonicalItems(db: Db): Promise<CanonicalItemCandidate[]> {
 }
 
 /**
- * Stages an uploaded cost file (LA-15 AC1): every row is matched against the
- * canonical work items and inserted into `cost_import_lines`, visible for
- * review. Nothing here touches `benchmarks` -- that only happens once the
- * whole import is approved (AC2, AC5).
+ * The median existing rate for every canonical item that already has at
+ * least one benchmark, keyed by cost code (== the canonical item's own
+ * item number, same join key `approveCostImport` already uses). Read once
+ * before the per-row loop below, not per row -- see canonical-item-match.ts's
+ * `isRateOutlier` for what this feeds and why the check is median-based.
+ */
+async function readBenchmarkRateStatsByCostCode(db: Db): Promise<Map<string, BenchmarkRateStats>> {
+  const { rows } = await db.query<{ cost_code: string; median: string; count: string }>(
+    `select cost_code,
+            percentile_cont(0.5) within group (order by value)::text as median,
+            count(*)::text as count
+       from benchmarks
+      group by cost_code`,
+  );
+  return new Map(rows.map((row) => [row.cost_code, { median: Number(row.median), count: Number(row.count) }]));
+}
+
+/**
+ * Stages an uploaded cost file (LA-15 AC1): every usable row is matched
+ * against the canonical work items and inserted into `cost_import_lines` in
+ * one batched round trip, visible for review. Nothing here touches
+ * `benchmarks` -- that only happens once the whole import is approved (AC2,
+ * AC5).
+ *
+ * A row the parser could not use (a blank description, a missing or
+ * negative value) does not abort the file -- `parseCostFile` collects it
+ * into `skipped` instead of throwing, and every other valid row still
+ * stages (fixed in code review 2026-09-20; see cost-file-parse.ts).
  */
 export async function stageCostImport(
   db: Db,
@@ -148,7 +176,7 @@ export async function stageCostImport(
     uploadedBy: string;
     fileText: string;
   },
-): Promise<CostImportDetail> {
+): Promise<StageCostImportResult> {
   const { rows: projectRows } = await db.query<{ id: string }>(
     `select id from projects where id = $1`,
     [params.sourceProjectId],
@@ -156,9 +184,16 @@ export async function stageCostImport(
   if (!projectRows[0]) throw new ProjectNotFound(params.sourceProjectId);
 
   // Parse before writing anything, so a malformed file leaves no half-staged
-  // import behind.
-  const parsedRows = parseCostFile(params.fileText);
+  // import behind. (A malformed *file* -- missing columns, no rows at all --
+  // still throws here; only row-level problems are collected into `skipped`.)
+  const { rows: parsedRows, skipped } = parseCostFile(params.fileText);
+
+  // Both read once, up front, and reused for every row instead of once per
+  // row -- see tokenizeCanonicalItems's and readBenchmarkRateStatsByCostCode's
+  // own doc comments for why (fixed in code review 2026-09-20).
   const canonicalItems = await readCanonicalItems(db);
+  const tokenizedCanonicalItems: TokenizedCanonicalItem[] = tokenizeCanonicalItems(canonicalItems);
+  const benchmarkStats = await readBenchmarkRateStatsByCostCode(db);
 
   const { rows: importRows } = await db.query<{ id: string; uploaded_at: Date | string }>(
     `insert into cost_imports (source_project_id, export_label, provenance_kind, uploaded_by)
@@ -169,44 +204,83 @@ export async function stageCostImport(
   const costImportId = importRows[0].id;
   const uploadedAt = importRows[0].uploaded_at;
 
-  const lines: StagedLine[] = [];
-  for (const parsed of parsedRows) {
+  type Matched = {
+    rowNumber: number;
+    description: string;
+    division: string | null;
+    value: number;
+    item: CanonicalItemCandidate;
+    score: number;
+    status: LineStatus;
+  };
+
+  const matched: Matched[] = parsedRows.map((parsed) => {
     // canonicalItems always has the 54 frozen rows (LA-816's seed data), so
     // a match is never null in practice.
-    const match = bestCanonicalMatch(parsed.description, parsed.division, canonicalItems)!;
-    const status: LineStatus = match.score >= MATCH_THRESHOLD ? "staged" : "unmapped";
+    const match = bestCanonicalMatch(parsed.description, parsed.division, tokenizedCanonicalItems)!;
+    const stats = benchmarkStats.get(match.item.itemNumber);
+    // Fixed in code review (2026-09-20): a confident text match with a
+    // wildly-off rate is exactly the failure ADR 0003 exists to prevent,
+    // just triggered by a bad number instead of a bad line role -- see
+    // canonical-item-match.ts's isRateOutlier. An outlier lands in the same
+    // unmapped/review bucket a low-confidence match does, rather than being
+    // silently promotable at approval.
+    const outlier = isRateOutlier(parsed.value, stats);
+    const status: LineStatus = match.score >= MATCH_THRESHOLD && !outlier ? "staged" : "unmapped";
+    return { ...parsed, item: match.item, score: match.score, status };
+  });
 
-    const { rows } = await db.query<{ id: string }>(
+  let idByRowNumber = new Map<number, string>();
+  if (matched.length > 0) {
+    // Fixed in code review (2026-09-20): one batched multi-row INSERT
+    // instead of one awaited INSERT per row. `row_number` is unique per
+    // import (cost_import_lines' own unique constraint, and guaranteed by
+    // the parser -- every row starts on a distinct physical line), so it is
+    // returned alongside `id` and used to correlate each inserted row back
+    // to the `Matched` it came from, rather than relying on RETURNING
+    // preserving VALUES-list order.
+    const values: string[] = [];
+    const insertParams: unknown[] = [];
+    matched.forEach((row, i) => {
+      const base = i * 8;
+      values.push(
+        `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8})`,
+      );
+      insertParams.push(
+        costImportId,
+        row.rowNumber,
+        row.description,
+        row.division,
+        row.value,
+        row.item.id,
+        row.score,
+        row.status,
+      );
+    });
+
+    const { rows: insertedRows } = await db.query<{ id: string; row_number: number }>(
       `insert into cost_import_lines
          (cost_import_id, row_number, raw_description, raw_division, value_usd_per_gsf,
           candidate_canonical_item_id, candidate_score, status)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)
-       returning id`,
-      [
-        costImportId,
-        parsed.rowNumber,
-        parsed.description,
-        parsed.division,
-        parsed.value,
-        match.item.id,
-        match.score,
-        status,
-      ],
+       values ${values.join(", ")}
+       returning id, row_number`,
+      insertParams,
     );
-
-    lines.push({
-      id: rows[0].id,
-      rowNumber: parsed.rowNumber,
-      rawDescription: parsed.description,
-      rawDivision: parsed.division,
-      valueUsdPerGsf: parsed.value,
-      lineRole: "scope",
-      candidateCanonicalItem: { id: match.item.id, itemNumber: match.item.itemNumber, name: match.item.name },
-      candidateScore: match.score,
-      status,
-      benchmarkId: null,
-    });
+    idByRowNumber = new Map(insertedRows.map((row) => [row.row_number, row.id]));
   }
+
+  const lines: StagedLine[] = matched.map((row) => ({
+    id: idByRowNumber.get(row.rowNumber)!,
+    rowNumber: row.rowNumber,
+    rawDescription: row.description,
+    rawDivision: row.division,
+    valueUsdPerGsf: row.value,
+    lineRole: "scope",
+    candidateCanonicalItem: { id: row.item.id, itemNumber: row.item.itemNumber, name: row.item.name },
+    candidateScore: row.score,
+    status: row.status,
+    benchmarkId: null,
+  }));
 
   return {
     id: costImportId,
@@ -219,6 +293,7 @@ export async function stageCostImport(
     approvedBy: null,
     approvedAt: null,
     lines,
+    skippedRows: skipped,
   };
 }
 
@@ -274,117 +349,234 @@ export async function getCostImport(db: Db, costImportId: string): Promise<CostI
   return { ...toSummary(importRow), lines: lineRows.map(toStagedLine) };
 }
 
+type EligibleLineRow = {
+  id: string;
+  raw_description: string;
+  value_usd_per_gsf: string;
+  line_role: LineRole;
+  candidate_item_number: string;
+  candidate_scope_side: "building" | "site";
+  candidate_contract_side: "kulka" | "owner";
+};
+
 /**
  * Approves a staged import (LA-15 AC2, AC3, AC5): every line still in
  * 'staged' status (matched with confidence, not yet resolved) either
  * promotes into a real `benchmarks` row -- carrying the import's own
- * provenance -- or, if its line role is one ADR 0003 never lets feed a
- * benchmark, moves to 'excluded' without ever touching `benchmarks`. Lines
- * already 'unmapped' are left alone; this ticket does not build a
- * remap-and-approve flow for a single unmapped line (see the PR
- * description).
+ * provenance -- or, if it cannot or should not feed a benchmark, moves to
+ * 'excluded' without ever touching `benchmarks`. Lines already 'unmapped'
+ * are left alone; this ticket does not build a remap-and-approve flow for a
+ * single unmapped line (see the PR description).
  *
- * Not wrapped in a database transaction, matching this file's siblings
- * (lib/rom/run.ts, lib/rom/issue.ts already make multiple non-transactional
- * writes -- issue.ts's own comment on `issueRom` names the same gap and
- * accepts it). A failure partway leaves some lines approved and others
- * still staged rather than the whole import rolling back; a second call is
- * safe to make once whatever failed is fixed, since only 'staged' rows are
- * touched.
+ * Fixed in code review (2026-09-20), replacing the un-transactioned version
+ * this file originally shipped with. Two bugs, both from the same root
+ * cause (no transaction, no conflict handling), were reproduced:
+ *
+ * 1. Concurrent approval race: two simultaneous `/approve` calls for the
+ *    same import both passed a separate "is this already approved" check
+ *    before either wrote, both processed the same staged lines, and the
+ *    second write silently overwrote the first's `cost_import_lines.
+ *    benchmark_id`, orphaning the first INSERT into `benchmarks` (a real
+ *    row nothing pointed to any more).
+ * 2. Legitimate re-import: staging and approving the same cost line from
+ *    two separate imports (a corrected re-upload, say) produced two
+ *    separate `benchmarks` rows for the same cost code, and the ROM engine
+ *    (lib/rom/run.ts) sums every benchmark row it selects, silently
+ *    doubling the total.
+ *
+ * Fix for (1): the whole function runs inside one database transaction
+ * (`db.withTransaction`), and the very first write is an atomic
+ * status-transition guard -- `update cost_imports set status = 'approved'
+ * ... where status = 'staged'` -- checked by whether it returned a row,
+ * before any line is read or any benchmark is written. Only one concurrent
+ * caller's UPDATE can affect a row; the other affects zero rows and this
+ * function throws (CostImportNotFound or CostImportAlreadyApproved,
+ * whichever is true) instead of ever reading a staged line.
+ *
+ * Fix for (2), a judgment call (the brief names this one of the two real
+ * open design questions in this fix pass): a line whose matched canonical
+ * item already has a benchmark sourced from this same project -- same
+ * `source_project_id`, same `cost_code` (== the canonical item's item
+ * number) -- is treated as a re-statement of a fact already on record, not
+ * a second data point. Real blending of duplicate benchmarks is LA-14's,
+ * not this fix's (this migration's own comments already defer it); until
+ * LA-14 exists, the safest move is to skip creating the duplicate row
+ * rather than overwrite the existing one (silent data loss) or guess at how
+ * to merge two numbers. The line is marked 'excluded' -- this schema's own
+ * status already means "mapped confidently, but not promoted to a
+ * benchmark, on purpose" (see the migration's comment on 'excluded'), which
+ * fits a duplicate exactly, so this reuses that status rather than adding a
+ * new one. A second line inside the *same* import that maps to a cost code
+ * a line earlier in the same import already promoted is caught the same
+ * way (both accumulate into the same "already have this cost code" set as
+ * the loop runs), not just the cross-import case the brief calls out by
+ * name.
+ *
+ * A third case excluded here that is not one of the two bugs above: a line
+ * whose value is exactly $0 (a legitimate staged row -- see
+ * cost-file-parse.ts and this migration's comment on `value_usd_per_gsf`)
+ * can never become a `benchmarks` row, because `benchmarks.value` has its
+ * own `check (value > 0)` from an already-applied migration this fix must
+ * not touch. A $0 line is real data worth staging and seeing, but it is not
+ * a rate this system can promote, so it is excluded here rather than
+ * failing the whole approval on a database constraint violation.
  */
 export async function approveCostImport(
   db: Db,
   costImportId: string,
   approvedBy: string,
 ): Promise<ApproveSummary> {
-  const importRow = await readCostImport(db, costImportId);
-  if (importRow.status === "approved") throw new CostImportAlreadyApproved(costImportId);
+  return db.withTransaction(async (tx) => {
+    const { rows: transitioned } = await tx.query<CostImportRow>(
+      `update cost_imports
+          set status = 'approved', approved_by = $2, approved_at = now()
+        where id = $1 and status = 'staged'
+        returning id, source_project_id, export_label, provenance_kind, uploaded_by, uploaded_at,
+                  status, approved_by, approved_at`,
+      [costImportId, approvedBy],
+    );
 
-  const { rows: projectRows } = await db.query<{ project_type: string; construction_kind: string }>(
-    `select project_type, construction_kind from projects where id = $1`,
-    [importRow.source_project_id],
-  );
-  // The source project was already confirmed to exist at staging time, and
-  // `cost_imports.source_project_id` references it `on delete restrict`, so
-  // it cannot have disappeared since.
-  const project = projectRows[0];
-
-  const { rows: lineRows } = await db.query<{
-    id: string;
-    raw_description: string;
-    value_usd_per_gsf: string;
-    line_role: LineRole;
-    candidate_item_number: string;
-    candidate_scope_side: "building" | "site";
-    candidate_contract_side: "kulka" | "owner";
-  }>(
-    `select l.id, l.raw_description, l.value_usd_per_gsf, l.line_role,
-            c.item_number as candidate_item_number,
-            c.scope_side as candidate_scope_side, c.contract_side as candidate_contract_side
-       from cost_import_lines l
-       join canonical_work_items c on c.id = l.candidate_canonical_item_id
-      where l.cost_import_id = $1 and l.status = 'staged'
-      order by l.row_number`,
-    [costImportId],
-  );
-
-  const recordedAt = toDateOnly(importRow.uploaded_at);
-  let approved = 0;
-  let excluded = 0;
-
-  for (const line of lineRows) {
-    if (!BENCHMARK_ELIGIBLE_ROLES.includes(line.line_role)) {
-      await db.query(`update cost_import_lines set status = 'excluded' where id = $1`, [line.id]);
-      excluded++;
-      continue;
+    const importRow = transitioned[0];
+    if (!importRow) {
+      // The UPDATE's WHERE clause can't tell us *why* it matched no row --
+      // ask directly so the right typed error reaches the caller.
+      const { rows: existing } = await tx.query<{ id: string }>(
+        `select id from cost_imports where id = $1`,
+        [costImportId],
+      );
+      if (!existing[0]) throw new CostImportNotFound(costImportId);
+      throw new CostImportAlreadyApproved(costImportId);
     }
 
-    const { rows: benchmarkRows } = await db.query<{ id: string }>(
-      `insert into benchmarks
-         (cost_code, label, unit, value, project_type, construction_kind, comparable_count,
-          provenance_kind, provenance_export_label, provenance_recorded_by, provenance_recorded_at,
-          scope_side, contract_side)
-       values ($1, $2, 'usd_per_gsf', $3, $4, $5, 1, $6, $7, $8, $9, $10, $11)
-       returning id`,
-      [
-        line.candidate_item_number,
-        line.raw_description,
-        line.value_usd_per_gsf,
-        project.project_type,
-        project.construction_kind,
-        importRow.provenance_kind,
-        importRow.export_label,
-        importRow.uploaded_by,
-        recordedAt,
-        line.candidate_scope_side,
-        line.candidate_contract_side,
-      ],
+    const { rows: projectRows } = await tx.query<{ project_type: string; construction_kind: string }>(
+      `select project_type, construction_kind from projects where id = $1`,
+      [importRow.source_project_id],
     );
-    const benchmarkId = benchmarkRows[0].id;
+    // The source project was already confirmed to exist at staging time, and
+    // `cost_imports.source_project_id` references it `on delete restrict`, so
+    // it cannot have disappeared since.
+    const project = projectRows[0];
 
-    await db.query(
-      `insert into benchmark_source_projects (benchmark_id, project_id) values ($1, $2)`,
-      [benchmarkId, importRow.source_project_id],
+    const { rows: lineRows } = await tx.query<EligibleLineRow>(
+      `select l.id, l.raw_description, l.value_usd_per_gsf, l.line_role,
+              c.item_number as candidate_item_number,
+              c.scope_side as candidate_scope_side, c.contract_side as candidate_contract_side
+         from cost_import_lines l
+         join canonical_work_items c on c.id = l.candidate_canonical_item_id
+        where l.cost_import_id = $1 and l.status = 'staged'
+        order by l.row_number`,
+      [costImportId],
     );
-    await db.query(
-      `update cost_import_lines set status = 'approved', benchmark_id = $2 where id = $1`,
-      [line.id, benchmarkId],
+
+    const recordedAt = toDateOnly(importRow.uploaded_at);
+
+    const { rows: existingBenchmarkRows } = await tx.query<{ cost_code: string }>(
+      `select distinct b.cost_code
+         from benchmarks b
+         join benchmark_source_projects bsp on bsp.benchmark_id = b.id
+        where bsp.project_id = $1`,
+      [importRow.source_project_id],
     );
-    approved++;
-  }
+    // Seeded with every cost code this project already has a benchmark for,
+    // then grown as this loop promotes lines -- see the "Fix for (2)"
+    // section of this function's own doc comment.
+    const costCodesAlreadyBenchmarked = new Set(existingBenchmarkRows.map((row) => row.cost_code));
 
-  await db.query(
-    `update cost_imports set status = 'approved', approved_by = $2, approved_at = now() where id = $1`,
-    [costImportId, approvedBy],
-  );
+    const toPromote: EligibleLineRow[] = [];
+    const excludedIds: string[] = [];
 
-  const { rows: unmappedRows } = await db.query<{ count: string }>(
-    `select count(*)::text as count from cost_import_lines
-      where cost_import_id = $1 and status = 'unmapped'`,
-    [costImportId],
-  );
+    for (const line of lineRows) {
+      if (!BENCHMARK_ELIGIBLE_ROLES.includes(line.line_role)) {
+        excludedIds.push(line.id);
+        continue;
+      }
+      if (Number(line.value_usd_per_gsf) <= 0) {
+        excludedIds.push(line.id);
+        continue;
+      }
+      if (costCodesAlreadyBenchmarked.has(line.candidate_item_number)) {
+        excludedIds.push(line.id);
+        continue;
+      }
+      costCodesAlreadyBenchmarked.add(line.candidate_item_number);
+      toPromote.push(line);
+    }
 
-  return { approved, excluded, unmapped: Number(unmappedRows[0].count) };
+    let approved = 0;
+    if (toPromote.length > 0) {
+      // Fixed in code review (2026-09-20): one batched multi-row INSERT for
+      // every promoted line's benchmark, instead of one INSERT per line.
+      const values: string[] = [];
+      const insertParams: unknown[] = [];
+      toPromote.forEach((line, i) => {
+        const base = i * 11;
+        values.push(
+          `($${base + 1}, $${base + 2}, 'usd_per_gsf', $${base + 3}, $${base + 4}, $${base + 5}, 1, ` +
+            `$${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11})`,
+        );
+        insertParams.push(
+          line.candidate_item_number,
+          line.raw_description,
+          line.value_usd_per_gsf,
+          project.project_type,
+          project.construction_kind,
+          importRow.provenance_kind,
+          importRow.export_label,
+          importRow.uploaded_by,
+          recordedAt,
+          line.candidate_scope_side,
+          line.candidate_contract_side,
+        );
+      });
+
+      const { rows: benchmarkRows } = await tx.query<{ id: string }>(
+        `insert into benchmarks
+           (cost_code, label, unit, value, project_type, construction_kind, comparable_count,
+            provenance_kind, provenance_export_label, provenance_recorded_by, provenance_recorded_at,
+            scope_side, contract_side)
+         values ${values.join(", ")}
+         returning id`,
+        insertParams,
+      );
+
+      // Fixed in code review (2026-09-20): the source-project link and each
+      // line's own status update are independent once the new benchmark
+      // row's id is known, so they run concurrently instead of one after
+      // another. `benchmarkRows` preserves VALUES-list order for a single
+      // multi-row INSERT ... RETURNING, so `benchmarkRows[i]` is `toPromote[i]`'s
+      // own new row.
+      await Promise.all([
+        tx.query(
+          `insert into benchmark_source_projects (benchmark_id, project_id)
+           select id, $2::uuid from unnest($1::uuid[]) as t(id)`,
+          [benchmarkRows.map((row) => row.id), importRow.source_project_id],
+        ),
+        tx.query(
+          `update cost_import_lines as l
+              set status = 'approved', benchmark_id = data.benchmark_id
+             from unnest($1::uuid[], $2::uuid[]) as data(line_id, benchmark_id)
+            where l.id = data.line_id`,
+          [toPromote.map((line) => line.id), benchmarkRows.map((row) => row.id)],
+        ),
+      ]);
+
+      approved = toPromote.length;
+    }
+
+    if (excludedIds.length > 0) {
+      await tx.query(`update cost_import_lines set status = 'excluded' where id = any($1::uuid[])`, [
+        excludedIds,
+      ]);
+    }
+
+    const { rows: unmappedRows } = await tx.query<{ count: string }>(
+      `select count(*)::text as count from cost_import_lines
+        where cost_import_id = $1 and status = 'unmapped'`,
+      [costImportId],
+    );
+
+    return { approved, excluded: excludedIds.length, unmapped: Number(unmappedRows[0].count) };
+  });
 }
 
 type UnmappedLineRow = {

@@ -76,11 +76,35 @@ export type CanonicalMatch = {
 };
 
 /**
+ * A canonical item with its name's tokens computed once. Fixed in code
+ * review (2026-09-20): `bestCanonicalMatch` used to call `tokenize(item.name)`
+ * inside its own per-item loop, and it runs once per imported row against
+ * the same fixed 54-item list -- a 500-row file re-tokenized all 54
+ * canonical names 27,000 times instead of 54. `tokenizeCanonicalItems`
+ * tokenizes the list once; a caller matching many rows against the same
+ * list (lib/rom/ingest.ts's stageCostImport) calls it once up front and
+ * reuses the result for every row.
+ */
+export type TokenizedCanonicalItem = {
+  item: CanonicalItemCandidate;
+  tokens: ReadonlySet<string>;
+};
+
+export function tokenizeCanonicalItems(
+  items: readonly CanonicalItemCandidate[],
+): TokenizedCanonicalItem[] {
+  return items.map((item) => ({ item, tokens: tokenize(item.name) }));
+}
+
+/**
  * The best-scoring canonical item for one imported line, and its score.
  * Callers decide "mapped" vs "unmapped" by comparing the score against
  * `MATCH_THRESHOLD` -- kept as a named export rather than inlined so a
  * caller can state why the cut lands where it does instead of repeating a
  * magic number.
+ *
+ * Takes pre-tokenized items (`tokenizeCanonicalItems`) rather than raw
+ * `CanonicalItemCandidate`s -- see that function's doc comment.
  *
  * Returns null only when `items` is empty, which does not happen in
  * practice: the 54 canonical work items are frozen seed data every
@@ -89,14 +113,14 @@ export type CanonicalMatch = {
 export function bestCanonicalMatch(
   description: string,
   division: string | null,
-  items: readonly CanonicalItemCandidate[],
+  items: readonly TokenizedCanonicalItem[],
 ): CanonicalMatch | null {
   const descriptionTokens = tokenize(description);
   const normalizedDivision = normalizeDivision(division);
   let best: CanonicalMatch | null = null;
 
-  for (const item of items) {
-    let score = jaccard(descriptionTokens, tokenize(item.name));
+  for (const { item, tokens } of items) {
+    let score = jaccard(descriptionTokens, tokens);
     if (normalizedDivision && normalizedDivision === item.masterformatDivision) {
       score = Math.min(1, score + DIVISION_MATCH_BONUS);
     }
@@ -104,4 +128,58 @@ export function bestCanonicalMatch(
   }
 
   return best;
+}
+
+// ---------------------------------------------------------------------
+// PLACEHOLDER HEURISTIC #2, isolated the same way MATCH_THRESHOLD is above.
+//
+// ADR 0003 (docs/adr/0003-every-imported-budget-line-carries-a-role.md)
+// exists because a real file once priced wall-area rows at a flat
+// $250/sqft and corrupted a benchmark by two orders of magnitude. That ADR
+// is about *line role* (scope vs. takeoff helper vs. duplicate); nothing in
+// this ingestion pipeline checked the imported *rate itself* against any
+// plausible magnitude, so the exact failure mode ADR 0003 describes could
+// still happen today through a line that carries an eligible role and a
+// confident text match but a wildly wrong number. Fixed in code review
+// (2026-09-20).
+//
+// This is a magnitude sanity check, not real outlier statistics: when a
+// canonical item already has one or more benchmark rows, a newly imported
+// rate for that same item is flagged when it sits more than
+// `OUTLIER_MULTIPLIER` times above or below the *median* of the existing
+// rows (median, not mean, so one existing outlier does not itself drag the
+// bar to a bad number). `OUTLIER_MULTIPLIER = 5` is arbitrary but stated,
+// same spirit as `MATCH_THRESHOLD` and `DIVISION_MATCH_BONUS` above --
+// chosen to comfortably catch a ADR-0003-sized (two-orders-of-magnitude)
+// error while tolerating the real variance construction cost data has
+// (site conditions, market, scope granularity) without flagging every
+// normal import.
+//
+// Judgment call: when a canonical item has *no* existing benchmark rows
+// yet, there is nothing to compare a new rate against, so this check
+// cannot run -- it returns `false` (not an outlier) rather than guessing at
+// a universal dollar range, and the caller is expected to know that "not
+// flagged" and "checked and passed" are different things for a brand-new
+// item. This mirrors this module's own established pattern of disclosing
+// what it can't yet do (see MATCH_THRESHOLD's comment) rather than
+// papering over the gap with an invented absolute threshold.
+export const OUTLIER_MULTIPLIER = 5;
+
+export type BenchmarkRateStats = {
+  /** The median of every existing benchmarks.value for this canonical item's cost code. */
+  median: number;
+  /** How many existing rows the median was computed from. */
+  count: number;
+};
+
+/**
+ * True when `value` sits more than `OUTLIER_MULTIPLIER` times above or
+ * below the median of a canonical item's existing benchmark data --
+ * see the block comment above for what this does and does not check.
+ * `stats` is `undefined` when the item has no existing benchmarks yet, in
+ * which case this always returns `false` (see the "Judgment call" above).
+ */
+export function isRateOutlier(value: number, stats: BenchmarkRateStats | undefined): boolean {
+  if (!stats || stats.count === 0 || stats.median <= 0) return false;
+  return value > stats.median * OUTLIER_MULTIPLIER || value < stats.median / OUTLIER_MULTIPLIER;
 }

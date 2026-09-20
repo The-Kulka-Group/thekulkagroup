@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { bestCanonicalMatch, MATCH_THRESHOLD } from "./canonical-item-match";
+import {
+  bestCanonicalMatch,
+  isRateOutlier,
+  MATCH_THRESHOLD,
+  OUTLIER_MULTIPLIER,
+  tokenizeCanonicalItems,
+} from "./canonical-item-match";
 
-const ITEMS = [
+const CANDIDATES = [
   { id: "item-1", itemNumber: "2", name: "Foundations, footings, and slab-on-grade", masterformatDivision: "03" },
   { id: "item-2", itemNumber: "26", name: "Elevators", masterformatDivision: "14" },
   { id: "item-3", itemNumber: "30", name: "HVAC system", masterformatDivision: "23" },
 ];
+const ITEMS = tokenizeCanonicalItems(CANDIDATES);
 
 describe("bestCanonicalMatch", () => {
   it("scores an exact (punctuation aside) description match at 1", () => {
@@ -42,13 +49,49 @@ describe("bestCanonicalMatch", () => {
   });
 
   it("normalizes a single-digit division before comparing", () => {
-    const match = bestCanonicalMatch("Elevator", "3", [
-      { id: "item-4", itemNumber: "2", name: "Foundations", masterformatDivision: "03" },
-    ])!;
+    const match = bestCanonicalMatch(
+      "Elevator",
+      "3",
+      tokenizeCanonicalItems([{ id: "item-4", itemNumber: "2", name: "Foundations", masterformatDivision: "03" }]),
+    )!;
     expect(match.score).toBeGreaterThan(0);
   });
 
   it("returns null only when there are no candidates at all", () => {
     expect(bestCanonicalMatch("Anything", null, [])).toBeNull();
+  });
+});
+
+describe("tokenizeCanonicalItems", () => {
+  it("tokenizes each item's name once, keeping the original item alongside its tokens", () => {
+    const tokenized = tokenizeCanonicalItems(CANDIDATES);
+    expect(tokenized).toHaveLength(CANDIDATES.length);
+    expect(tokenized[1].item).toEqual(CANDIDATES[1]);
+    expect(tokenized[1].tokens.has("elevators")).toBe(true);
+  });
+});
+
+describe("isRateOutlier", () => {
+  it("never flags a rate when the item has no existing benchmark data", () => {
+    expect(isRateOutlier(250, undefined)).toBe(false);
+    expect(isRateOutlier(250, { median: 10, count: 0 })).toBe(false);
+  });
+
+  it("does not flag a rate within a normal range of the existing median", () => {
+    expect(isRateOutlier(12, { median: 10, count: 5 })).toBe(false);
+    expect(isRateOutlier(8, { median: 10, count: 5 })).toBe(false);
+  });
+
+  it("flags a rate more than OUTLIER_MULTIPLIER above the existing median (the ADR 0003 story: $250/sqft against real data around $20-30/sqft)", () => {
+    expect(isRateOutlier(250, { median: 22, count: 12 })).toBe(true);
+    expect(OUTLIER_MULTIPLIER).toBeGreaterThan(1);
+  });
+
+  it("flags a rate more than OUTLIER_MULTIPLIER below the existing median", () => {
+    expect(isRateOutlier(1, { median: 22, count: 12 })).toBe(true);
+  });
+
+  it("treats a single existing benchmark as a valid comparison baseline", () => {
+    expect(isRateOutlier(250, { median: 20, count: 1 })).toBe(true);
   });
 });

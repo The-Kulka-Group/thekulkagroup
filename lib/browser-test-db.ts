@@ -17,6 +17,25 @@ export function getBrowserTestDb(): Db {
       const { rows } = await database.query<Row>(text, params as never[]);
       return { rows };
     },
+    // PGlite is one in-process connection with its own internal exclusivity
+    // lock, so its own `.transaction()` (real BEGIN/COMMIT/ROLLBACK) is
+    // enough -- no client checkout needed the way lib/db.ts's pool-backed
+    // implementation does.
+    withTransaction: async <T>(fn: (tx: Db) => Promise<T>): Promise<T> => {
+      const database = await globalThis.kulkaBrowserTestDatabase!;
+      return database.transaction(async (pgliteTx) => {
+        const tx: Db = {
+          query: async <Row>(text: string, params: unknown[] = []) => {
+            const { rows } = await pgliteTx.query<Row>(text, params as never[]);
+            return { rows };
+          },
+          withTransaction: () => {
+            throw new Error("Nested transactions are not supported.");
+          },
+        };
+        return fn(tx);
+      });
+    },
   };
 }
 

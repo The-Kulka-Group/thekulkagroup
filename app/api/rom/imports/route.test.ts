@@ -88,4 +88,20 @@ describe("POST /api/rom/imports", () => {
     });
     expect(response.status).toBe(400);
   });
+
+  it("stages every valid row and reports a bad row instead of failing the whole file (fixed in code review, finding #4)", async () => {
+    const response = await post({
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Example",
+      provenanceKind: "actuals",
+      fileText: ["description,value", '"Foundations, footings, and slab-on-grade",42.50', "Missing a value,"].join(
+        "\n",
+      ),
+    });
+    expect(response.status).toBe(201);
+
+    const { costImport } = await response.json();
+    expect(costImport.lines).toHaveLength(1);
+    expect(costImport.skippedRows).toEqual([{ rowNumber: 3, reason: '"value" is required.' }]);
+  });
 });

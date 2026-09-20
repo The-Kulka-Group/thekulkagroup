@@ -249,6 +249,22 @@ traffic-bearing membrane system, heavier-duty than a standard roof membrane. VA'
 "L2 Podium, 12" avg assumed" describes slab thickness, concrete volume, not a
 waterproofing system, and nothing else in this file or any other prices one.
 
+**Garage-level waterproofing, checked separately (Matt, 2026-09-20), because a parking
+level itself needs a genuinely different product from the pedestrian podium membrane
+above it, not the same line at a different height.**
+
+**Vehicular Traffic Coating.** Likely missing, on any exposed or upper parking level.
+A durable, skid-resistant polymeric coating rated for vehicle traffic, distinct from
+the pedestrian-rated podium membrane above, and distinct from the structural slab
+itself. Upper parking levels exposed to weather have zero protection without it. Zero
+evidence in any file.
+
+**Expansion and Control Joint Sealant Systems.** Likely missing. Parking structures
+need real movement joints given their size and traffic load, and a proper joint here is
+a watertight, traffic-durable, joint-face-adhered system, not a simple bead of caulk,
+a real and often sizable line item on its own. Control joints for shrinkage cracking
+need a lighter sealant by comparison. Neither is priced in any file.
+
 ### 3a. Gypcrete topping
 
 Split from item 3 once gypcrete was confirmed as its own subcontract, not part of the

@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 45 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 46 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -617,7 +617,9 @@ judgment call, not a settled fact, when this draft is approved.
 
 ## Division 08 — Openings
 
-### 15. Doors, frames, and hardware — interior, exterior, and garage
+### 15. Doors, frames, and hardware — interior, exterior, and entry
+
+**Amended (Matt, 2026-09-20): garage and overhead doors split out to item 15a.**
 
 **Sources:**
 - JF: HM frames/doors, wood doors, hardware, specialty doors (r73–r89, codes 08.01100,
@@ -627,18 +629,55 @@ judgment call, not a settled fact, when this draft is approved.
 - VA: same structure, larger unit counts and a "6x7 closet" door subtype (r101–r125).
   Total $1,352,096.
 - VR: same structure, higher per-door rates than V64/VA (r109–r126). Total $1,354,364.
-- WS: **"Overhead garage door 12'X 12'"** 18.00 EA $4,520.30 = $81,365 (r32, code
-  **08.34001 SPECIAL DOORS**) — a distinct scope, garage doors for a building with
-  attached/detached garages, not present on any other file.
-- VG: no line.
+- WS, VG: no line.
 
 **Unit/quantity signal:** EA, scaling with door count (interior) or unit count
-(entry doors); garage doors scale with garage-bay count.
+(entry doors).
 
-**Flag:** West Shore's garage doors are a real, one-off scope difference (this job has
-garages; the others apparently do not), not a pricing inconsistency. Keep it inside this
-item rather than force a separate canonical item, but flag it so a reviewer does not read
-it as an estimating outlier.
+**Containers (Matt, 2026-09-20), checked against ANSI/BHMA hardware grades and
+multifamily fire-door code requirements before proposing.** The wide swing in entry-door
+hardware rates across files, $300 to $1,548 per door, isn't inconsistency between jobs.
+Grade 1 commercial hardware at a unit entry door is the correct code requirement, not a
+spec upgrade, one source states it plainly: "Grade 3 on a multi-family unit entry is a
+liability." Every file already prices entry hardware separately from interior hardware
+at a real premium, the industry drawing exactly this line already.
+
+1. **Hollow Metal Frames and Doors.** Required. Rated openings, mechanical and utility
+   rooms.
+2. **Interior Wood Doors and Frames.** Required. Unrated, standard within-unit doors.
+3. **Entry Doors, Unit to Corridor.** Required, code-rated. A 20-minute fire-rated
+   assembly by code, already priced as its own subtype in every file that separates door
+   types.
+4. **Exterior and Sliding Glass or French Doors.** Required. Real evidence, high
+   per-unit cost, $1,800–2,537 each.
+5. **Entry Door Hardware, Grade 1.** Required, code-driven, not a spec choice. The
+   container carrying the $300–$1,548 variance across files.
+6. **Interior Door Hardware, Grade 2/3.** Required. Standard passage and privacy sets.
+7. **Self-Closing Devices and Smoke Gasketing.** Likely missing, and likely the reason
+   for container 5's variance. Every unit entry door onto a corridor legally requires a
+   self-closing device and positive latching to maintain its fire rating. No file prices
+   this as its own line, so the wide swing in entry hardware rates probably reflects some
+   files bundling a closer in and others not, rather than four jobs genuinely pricing
+   hardware that differently.
+8. **Stairwell Doors and Panic Hardware.** Likely missing entirely, the bigger finding
+   here. Stairwell doors need a 60 to 90 minute rating and panic exit hardware by code,
+   often electrified and tied into the fire alarm system, item 32a, so stairwell doors
+   unlock automatically on alarm. Zero evidence of any stairwell door pricing across all
+   six files, despite every one of these being a multi-story building that legally
+   requires one.
+
+### 15a. Garage and overhead doors
+
+Split from item 15 (Matt, 2026-09-20). A real, one-off scope difference, not a pricing
+inconsistency: West Shore has attached or detached garages, the other five jobs
+apparently do not.
+
+**Sources:**
+- WS: "Overhead garage door 12'X 12'" 18.00 EA $4,520.30 = $81,365 (r32, code 08.34001
+  SPECIAL DOORS).
+- No other file has this line.
+
+**Unit/quantity signal:** EA, scaling with garage-bay count.
 
 ### 16. Windows, storefront glazing, and shower enclosures
 

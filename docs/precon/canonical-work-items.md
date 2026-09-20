@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 49 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 50 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -901,6 +901,46 @@ the weather barrier are taped as part of the framing crew's install, not missing
 System" line ($30,224, r65) is filed under the siding code but is not siding — the prior
 note reassigned it to face Autodesk's Screened Balconies group instead. Treat it as a
 judgment call, not a settled fact, when this draft is approved.
+
+### 14a. Firestopping
+
+New item (Matt, 2026-09-20), split out during the fire alarm and sprinkler cross-check
+against remaining trades. CSI MasterFormat already codes this at 07 84 00, its own
+section under Division 07, which is precedent enough on its own for treating it as a
+distinct trade rather than folding it into whichever item happens to create the
+penetration. In real construction it's commonly bought as its own licensed specialty
+subcontract, the same reasoning that already split off item 32a, ERRCS, rather than
+leaving it a container of one trade's item.
+
+**Sources:** none. No file prices firestopping as its own line anywhere, and given how
+commonly it's missed in the field, per the research below, that's a real gap, not a sign
+these six jobs didn't need it.
+
+**Unit/quantity signal:** none yet. Likely EA or LF per penetration, or a per-building
+allowance, whichever the first real quote actually tracks.
+
+**Researched before writing this item, since it touches almost every other trade on
+this list rather than belonging to one.** IBC Section 714 requires a listed firestop
+system, tested to restore the assembly's original fire rating, at every through-
+penetration in a fire-rated wall or floor, not just the large or obvious ones. The
+research names plastic pipe as the single most common source of firestop failure,
+since it melts away in a fire and leaves an open hole, and is explicit that even a
+drill hole for a single low-voltage cable needs sealing if the hole is larger than the
+cable itself, no penetration is too small to matter.
+
+**Every trade whose scope crosses a rated wall or floor has real exposure here, none of
+it currently priced:**
+- Plumbing (items 28/29), pipe penetrations through corridor and unit demising walls,
+  the highest-risk case per the research given how common plastic pipe is in
+  residential plumbing.
+- Electrical (item 31) and Low Voltage (item 31a), conduit and cable penetrations
+  through the same rated walls.
+- HVAC (item 30), duct penetrations beyond the damper itself, item 30's own container 8
+  covers the damper, this covers sealing the annular gap around it and around any
+  smaller duct or pipe that isn't large enough to need one.
+- Drywall and Carpentry (item 17), since this is the trade that closes up the wall
+  around every one of the penetrations above, and is often the first to notice, or
+  miss, a gap.
 
 ---
 
@@ -1964,7 +2004,9 @@ whole item; every other container leans on trade practice, not file data.
    dampers are additionally required on larger systems, and a duct-mounted smoke
    detector automatically stops the fan and closes the damper on activation, a real,
    direct fire-alarm interface currently missing from item 32's System Interfaces
-   container. Zero evidence of any damper line in any file.
+   container. Zero evidence of any damper line in any file. Sealing the annular gap
+   around the duct at that same penetration is item 14a's scope, Firestopping, not this
+   container's.
 9. **Fire Pump Room Heating.** Required whenever item 27's Fire Pump and Pump Room
    container applies, added (Matt, 2026-09-20). NFPA 20 sets a minimum room
    temperature, roughly 40°F for an electric pump, higher for a diesel engine-driven

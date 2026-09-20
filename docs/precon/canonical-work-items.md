@@ -1771,7 +1771,10 @@ evidence and lean on real trade practice instead, flagged plainly.
    room itself be maintained at a minimum temperature, roughly 40°F for an electric
    pump, higher for a diesel engine-driven one due to the battery and block heater, a
    real, room-specific heating requirement belonging to item 30, HVAC, not general
-   building heat.
+   building heat. A third finding, this time on fire alarm: the pump controller's own
+   supervisory signals, pump running, power failure, phase reversal, and transfer to
+   alternate power, are a distinct monitoring set from general sprinkler flow and
+   tamper monitoring, detailed on item 32's System Interfaces container.
 5. **Dry System and Freeze Protection.** Conditional, for unheated spaces, garages,
    attics, exterior breezeways. Ties to the Parking Type gate already in the intake
    rather than needing a new one, since structured and underground parking already
@@ -2131,6 +2134,19 @@ so every container below leans on trade practice rather than file data.
    activate item 30's stair pressurization fans on high-rise buildings, detailed on
    item 15. Also carries the duct-mounted smoke detectors that stop HVAC fans and close
    fire and smoke dampers, detailed on item 30's new container 8.
+
+   **Cross-checked against the fire pump specifically (Matt, 2026-09-20), a distinct
+   signal set from the general sprinkler flow and tamper monitoring already named
+   above.** NFPA 20 requires the fire pump controller itself to report a real,
+   specific set of supervisory signals through the fire alarm system: pump running,
+   pump power failure or loss of phase, phase reversal, and transfer to alternate
+   power source. That last signal ties directly to item 31's new Fire Pump Dedicated
+   Power Supply container, since a pump running on generator or an alternate service
+   has to report that transfer, not just that the pump is running. These come off the
+   fire pump controller's own supervisory outputs, a different piece of equipment from
+   the sprinkler system's flow and tamper switches, even though both terminate at the
+   same fire alarm panel. Detailed on item 27. Zero evidence of any pump monitoring
+   circuit in any file.
 
    **Cross-checked against all remaining trades (Matt, 2026-09-20), one more real,
    currently uncoordinated interface, distinct from the magnetic door holders already

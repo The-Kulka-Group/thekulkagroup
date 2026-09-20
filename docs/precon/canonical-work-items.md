@@ -244,6 +244,20 @@ item 3a, stays its own item, not a container here.
    commercial concrete-filled pan stairs and usually its own material and labor line,
    distinct from the fill itself, based on general trade knowledge rather than a source
    this specific search confirmed directly.
+   **Cross-checked against remaining trades (Matt, 2026-09-20), two more findings, one
+   of them jurisdiction-dependent.** The nosing strip above needs to do double duty and
+   should be confirmed as such, not assumed: federal ADA treats a visually contrasting
+   nosing stripe as recommended, not mandatory, but California's Title 24 and comparable
+   state-level codes make it a hard requirement, 2 to 4 inches wide, a contrasting color
+   from the tread itself. Whether Kulka's own jurisdictions require it needs a real
+   answer, not an assumption either way, and if they do, the nosing strip spec'd needs
+   to satisfy both slip resistance and visual contrast in one product, not treated as two
+   separate line items. Separately, and distinct from the nosing itself: a full tread and
+   riser covering, commonly rubber, is standard practice on concrete pan stairs
+   specifically because they see months of construction foot and equipment traffic
+   before the building is finished, protecting the fill and nosing from damage. That's
+   real scope belonging to item 19, Flooring, not this item, cross-referenced here rather
+   than priced twice.
 7. **Construction Joint Waterstops.** Likely missing, added (Matt, 2026-09-20). Any
    below-grade or podium concrete pour done in stages needs a waterstop, a PVC or rubber
    strip embedded across the joint, to stop water migrating through the cold joint
@@ -1231,6 +1245,12 @@ paint's primer-plus-finish pricing — not a gap.
    on concrete slab construction. Zero evidence in any file.
 9. **Transition Strips and Stair Nosing.** Likely missing. Standard accessory scope at
    every material boundary and interior stair edge. Zero evidence anywhere.
+10. **Concrete Pan Stair Tread and Riser Covering.** Likely missing, added (Matt,
+    2026-09-20), cross-referenced from item 2's concrete infill finding. Wherever item
+    2's concrete infill applies, a full tread and riser covering, commonly rubber, is
+    standard practice, protecting the fill and nosing from months of construction foot
+    and equipment traffic before the building is finished. Distinct from container 9's
+    nosing, this is a full surface covering, not just the leading edge.
 
 ### 19a. Wood flooring
 

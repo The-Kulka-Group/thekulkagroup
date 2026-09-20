@@ -1740,6 +1740,31 @@ inside the electrical rate with no separate dollar figure, this canonical item c
 benchmarked consistently across files today; only JF and, eventually, an Autodesk import
 can supply a real fire-alarm-only number.
 
+**Containers (Matt, 2026-09-20), finally written in.** Sketched in chat during the
+original fire alarm review but never actually committed here until now, the same gap
+just closed on items 27, 28, 29, and 31. JF's one flat number is the only real evidence
+in the whole item; nothing here separates a fire alarm system into its real components,
+so every container below leans on trade practice rather than file data.
+
+1. **Panel and Power Supply.** Required. Per building. The fire alarm control panel, its
+   power supply and battery backup. No file isolates a number.
+2. **Initiating Devices.** Required. Smoke detectors, heat detectors, pull stations.
+   Smoke detectors are a per-unit life-safety requirement; heat detectors and pull
+   stations are per building or per common area. No file isolates a number.
+3. **Notification Devices.** Required. Horns and strobes, or speakers if the building
+   uses voice evacuation, per the Fire Alarm Notification Type gate already in
+   `rom-spec.md`. Per unit and per common area.
+4. **Monitoring and Communication.** Required. Per building. The line or cellular link
+   to a central station.
+5. **System Interfaces.** Required whenever the building has elevators, sprinklers, or
+   door hold-opens. Elevator recall, sprinkler flow and tamper monitoring, magnetic door
+   holders. A breakout of Notification Devices or Panel and Power Supply, the fire alarm
+   sub wires and monitors these, but the device itself belongs to a different trade's
+   canonical item, the same shape as item 26's elevator cross-references.
+6. **Testing, Inspection, and Commissioning.** Required. Per building. Final test, fire
+   marshal witness, certification. Often its own line on a real quote even though no
+   file here isolates it.
+
 ### 32a. Emergency responder radio coverage
 
 New item (Matt, 2026-09-19), split out of the low-voltage review rather than found in a

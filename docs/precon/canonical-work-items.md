@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 47 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 49 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -1231,25 +1231,69 @@ dropped.
 
 ## Division 12 — Furnishings
 
-### 24. Cabinetry, countertops, and window treatments
+### 24. Cabinetry
+
+**Amended (Matt, 2026-09-20): narrowed to cabinetry only.** Countertops and Window
+Treatments split out to items 24a and 24b, renamed from "Cabinetry, countertops, and
+window treatments" to reflect the narrower scope.
 
 **Sources:**
-- JF: "Unit Kitchen Cabinets and Countertops" 15.00 EA $6,500 (r148, code 12.03800);
-  "Window Treatments" 1.00 ALLW $35,000 (r145, code 12.02000).
-- V64: "Kitchen & Vanity cabinets & SS Countertops" 75.00 EA $11,000 (r194).
-- VA: "Solid Surface Countertops" 1,027.00 SF $100; "Stone Countertops (From Elevations)"
-  5,958.40 SF $120 (r191–r192, code 12.03600); "Kitchen & Vanity cabinets" 1.00 LS
-  $1,200,000 (r195, code 12.03800).
+- JF: "Unit Kitchen Cabinets and Countertops" 15.00 EA $6,500 (r148, code 12.03800) —
+  bundles countertop cost into this cabinet line rather than separating it, so JF's
+  figure here includes countertop scope too, not a comparable cabinet-only number
+  against the other files.
+- V64: "Kitchen & Vanity cabinets & SS Countertops" 75.00 EA $11,000 (r194) — same
+  bundling issue as JF.
+- VA: "Kitchen & Vanity cabinets" 1.00 LS $1,200,000 (r195, code 12.03800).
 - VR: same cabinetry line as V64 (r199).
 - WS, VG: no line.
 
-**Unit/quantity signal:** EA scaling with unit count (JF, V64, VR); SF scaling with
-countertop area (VA's countertops); one LS at VA for cabinets specifically.
+**Unit/quantity signal:** EA scaling with unit count (JF, V64, VR); one LS at VA.
 
-**Flag:** VA is the only file that separates countertops (priced by SF, real material
-takeoff) from cabinets (priced as one LS). The other files bundle cabinets and
-countertops into one per-unit EA rate. These are not directly comparable rates without
-knowing what is and is not inside VA's cabinet LS number.
+**Containers (Matt, 2026-09-20).**
+
+1. **Kitchen Cabinets.** Required.
+2. **Vanity Cabinets.** Required. Every file that prices this actually bundles kitchen
+   and vanity into one line, "Kitchen & Vanity cabinets," so this split isn't evidenced
+   yet — the two containers share one number until a file separates them.
+3. **Cabinet Hardware.** Likely missing. Pulls, knobs, soft-close hinges, and
+   full-extension slides are a real, separately specified line in the trade, distinct
+   from the cabinet box price. Zero evidence in any file.
+
+### 24a. Countertops
+
+Split from item 24 (Matt, 2026-09-20).
+
+**Sources:**
+- VA: "Solid Surface Countertops" 1,027.00 SF $100; "Stone Countertops (From
+  Elevations)" 5,958.40 SF $120 (r191–r192, code 12.03600).
+- JF and V64 bundle countertop cost into item 24's cabinet line rather than pricing it
+  separately (see the note there).
+- VR, WS, VG: no line.
+
+**Unit/quantity signal:** SF, scaling with countertop area, covering both kitchen and
+bath vanity tops as one trade scope per real installation practice (templating,
+fabrication, seaming, and cutouts together). Two material tiers already evidenced,
+Solid Surface and Stone, a real spec driver worth keeping visible rather than blending
+into one rate.
+
+### 24b. Window treatments
+
+Split from item 24 (Matt, 2026-09-20).
+
+**Sources:**
+- JF: "Window Treatments" 1.00 ALLW $35,000 (r145, code 12.02000).
+- V64, VA, VR, WS, VG: no line.
+
+**Unit/quantity signal:** unclear from the one data point available — JF's number is one
+lump sum with no unit count given, so it's unclear whether it's a per-unit blinds package
+for the whole building or a common-area-only allowance.
+
+**Flag:** likely a real gap on the other three priced files rather than a genuine
+conditional difference. Basic blinds are close to a universal expectation in US
+apartments, not an upgrade feature some jobs skip, so V64, VA, and VR pricing nothing
+here is more likely a documentation gap than evidence the scope doesn't exist on those
+jobs.
 
 ---
 

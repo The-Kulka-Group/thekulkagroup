@@ -859,6 +859,14 @@ ground-floor/breakout quantity from the main building quantity.
 actual bought rate of $18.64/SF — consistent with VA/V64's lower rates being closer to
 what this job type actually bought out for.
 
+**Amended (Matt, 2026-09-19): the spread above is not explained by anything in this
+data, because no file says which HVAC system that job used.** PTAC, ducted split, and
+central plant price very differently, and Kulka does not choose the system, the
+architect and mechanical engineer do. See the HVAC System Type gate in `rom-spec.md`.
+Until enough closed jobs are tagged by known system type, all three gate answers price
+off this same blended rate, flagged low confidence, rather than three invented numbers
+with no evidence behind any of them.
+
 ---
 
 ## Division 26 — Electrical

@@ -140,6 +140,17 @@ takes what it wants later by copy or fork. The tool stays off the public website
     out during the same review as its own canonical item rather than left a low-voltage
     sub-scope, because it is licensed, code-triggered work. No data on any of the six
     files.
+  - **HVAC system type**: PTAC, ducted split, central plant, don't know. All required
+    scope; the gate picks which form item 30 prices under, not whether HVAC exists.
+    Kulka does not choose the system, the architect and mechanical engineer do, so this
+    is a fact to state, not a fact to derive. No file names which system any of the five
+    priced jobs actually used, so all four answers, including don't know, price off the
+    same blended rate today, flagged low confidence, until enough closed jobs are tagged
+    by known system type to separate them. Every future imported HVAC line should carry
+    its system type once the job's drawings say what it was, even while the price stays
+    blended, so the benchmark can split on its own later without a redesign. Matt's own
+    read from the trade, PTAC less common than the other two, belongs on the estimator
+    questionnaire (LA-687) as a real question, not assumed here.
   A gate can be answered three ways, and which way applies is worth stating per gate
   rather than assuming. The estimator states it outright, the way gas building or roof
   type work today. The tool derives it from another captured fact, the way elevator

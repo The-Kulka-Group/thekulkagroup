@@ -1943,6 +1943,14 @@ so every container below leans on trade practice rather than file data.
 2. **Initiating Devices.** Required. Smoke detectors, heat detectors, pull stations.
    Smoke detectors are a per-unit life-safety requirement; heat detectors and pull
    stations are per building or per common area. No file isolates a number.
+   **Cross-checked against Sprinkler (Matt, 2026-09-20).** NFPA 72 prohibits smoke
+   detectors anywhere ambient temperature can drop below 40°F or exceed 100°F, garages,
+   attics, unheated exterior breezeways, requiring heat detectors instead. That's the
+   same unheated-space condition already gating item 27's Dry System and Freeze
+   Protection container off the Parking Type gate, not a new fact to capture, just a
+   second consequence of the one already in the intake. Also real: the fire alarm
+   control panel's own location needs a detector matched to its own ambient condition,
+   smoke or heat, the same rule applied to itself.
 3. **Notification Devices.** Required. Horns and strobes, or speakers if the building
    uses voice evacuation, per the Fire Alarm Notification Type gate already in
    `rom-spec.md`. Per unit and per common area.

@@ -318,7 +318,8 @@ stairs and canopies, one LS allowance at VA.
 
 **Flag:** see Flag M4 under item 8 — this item's boundary with the framing package below
 is not clean, because cold-formed metal panel/decking work is also priced under Division
-05 codes at JF (see item 8), not under this railings-and-stairs bucket.
+05 codes at JF. That work now lives in item 17, Drywall and Carpentry, per the 2026-09-20
+amendment there, not under this railings-and-stairs bucket or under item 8.
 
 **Flag (Matt, 2026-09-20):** JF's "Metal Pan Stairs" line above ($6,500 EA) doesn't say
 whether it includes the concrete infill poured into each pan tread, which is Concrete's
@@ -330,45 +331,60 @@ which side of the boundary that $6,500 actually falls on.
 
 ## Division 06 — Wood, Plastics and Composites
 
-### 8. Shell framing — wood and cold-formed metal structure
+### 8. Shell framing — wood structure
 
-The largest and most cross-division item in this draft. Combines wood framing materials
-and labor, cold-formed metal panel/truss systems, and structural sheathing, because
-`jeffersons-ferry-scope-comparison.md`'s Flag M4 found these buy out together as one
-subcontract even though ProEst spreads them across Divisions 05, 06, and 07.
+**Amended (Matt, 2026-09-20): narrowed to wood only.** All cold-formed metal framing,
+regardless of whether it's an exterior wall system or an interior partition, moves to
+item 17, Drywall and Carpentry, on the reasoning that a light-gauge metal framing crew
+and a drywall crew buy out as one subcontract in practice. This finally resolves Flag M4
+below with a firm rule instead of the earlier "depends" answer. Renamed from "Shell
+framing — wood and cold-formed metal structure" to reflect the narrower scope.
 
 **Sources:**
-- JF: "Cold Formed Exterior Panel & Sheerwall" 9,500 SF $18.00 (r35, **code 05.04400**);
-  "Floor Joists & Decking - Comslab" 18,000 SF $10.00 (r36, same code); "Wood Trusses"
-  9,000 SF $11.00 (r50, code 06.04001).
+- JF: "Wood Trusses" 9,000 SF $11.00 (r50, code 06.04001). JF's cold-formed metal lines,
+  "Cold Formed Exterior Panel & Sheerwall" and "Floor Joists & Decking - Comslab" (r35–r36,
+  code 05.04400, formerly cited here), moved to item 17 per the amendment above.
 - V64: "2x4 PT/DF/Studs," "2x6 PT/DF/Studs," "2x8 DF," "2x10 DF," sheathing and plywood
   materials (r43–r59, code 06.04001, total $1,472,926); framing labor lines (r62–r65,
-  code 06.04002, total $1,472,039).
-- VA: "Framing and Trusses (Davinci)" 1.00 LS $3,685,600 (r60, code 06.04001); labor lines
-  zeroed (r63–r66).
+  code 06.04002, total $1,472,039). Also "Wood Stairs & Railings" 1.00 LS $75,000 (r68,
+  code 06.04300) — see the open boundary question below.
+- VA: "Framing and Trusses (Davinci)" 1.00 LS $3,685,600 (r60, code 06.04001). Davinci
+  reads as an actual framing subcontractor's name, and the number is an all-in wood
+  material-and-labor quote, not a materials-only figure with labor missing — the zeroed
+  labor lines below it (r63–r66) are correctly zero, not a gap.
 - VR: sheathing line only, "4x8x1/2" LP Flame Block Sheathing" 58,342.54 SF $2.44 =
   $142,548 (r56); rest of framing materials and all labor zeroed.
 - WS, VG: no framing line (VG's wall-area pricing likely stands in for this — see the
   top-level flag).
 
-**Unit/quantity signal:** SF at JF (per-panel/per-floor area); LF at V64's material
-takeoff granularity; one LS at VA. Likely scales with gross square feet or wall/floor
-area depending on sub-line.
+**Unit/quantity signal:** SF at V64's labor lines (per-wall/per-floor area); LF at V64's
+material takeoff granularity; one LS at VA (Davinci, all-in) and JF (Wood Trusses is SF,
+not LS — corrected).
 
-**Flag M4 (carried from `jeffersons-ferry-scope-comparison.md`, restated here because it
-is this draft's biggest single judgment call):** on Jefferson's Ferry, Autodesk's "Metal
-Framing" group contains part of a structural-steel subcontract that ProEst prices
-partly under Division 05 and partly folded into Division 09 drywall. Whether this
-canonical item should include drywall install (item 17 below) as well, or whether the
-package boundary is better drawn at the buyout-package level instead of the canonical
-work item level, is unresolved and flagged for the working session per the "three axes"
-section of `rom-system-design.md`.
-**Resolved (Matt, 2026-09-18): depends, it varies job to job.** Framing and drywall are
-not always bought as one package, so this canonical item keeps its cross-division flag as
-drafted but does not fold drywall (item 17) in permanently. The buyout package boundary
-belongs on the per-job import record, not baked into the canonical item definition —
-whichever subcontract a given job actually used should be recorded there, not assumed
-from a fixed rule.
+**Containers (Matt, 2026-09-20).** V64 is the most granular file in the whole draft here,
+labor split cleanly into four real scopes by square footage.
+
+1. **Framing Materials.** Required. Dimensional lumber by size and grade, sheathing,
+   housewrap, sill seal, termite shield, fasteners. V64: $1,472,926 total.
+2. **Exterior Wall Framing and Sheathing Labor.** Required. V64: 53,038.67 SF at $9.00/SF,
+   double the interior rate — exterior walls carry structural sheathing and a weather
+   barrier the interior walls don't.
+3. **Interior Wall Framing Labor.** Required. V64: 108,839.76 SF at $4.50/SF.
+4. **Floor Framing Labor, Joists and Subfloor.** Required. V64: 104,360.73 SF at $4.50/SF.
+5. **House Wrap and Weather Barrier Labor.** Required. V64: 54,290.84 SF at $0.65/SF.
+
+**Open boundary question, not yet resolved:** V64's "Wood Stairs and Railings" ($75,000
+LS, code 06.04300) reads as interior finish carpentry work sitting inside this division's
+code range. Does it belong here or in item 9, Finish Carpentry, where the rest of the
+interior trim lives?
+
+**Flag M4 (carried from `jeffersons-ferry-scope-comparison.md`):** on Jefferson's Ferry,
+Autodesk's "Metal Framing" group contains part of a structural-steel subcontract that
+ProEst prices partly under Division 05 and partly folded into Division 09 drywall.
+**Resolved (Matt, 2026-09-18, superseded 2026-09-20): metal framing lives in item 17,
+wood framing lives here, regardless of interior or exterior.** The 2026-09-18 note left
+this as a per-job judgment call; the 2026-09-20 amendment above replaces that with a firm
+rule.
 
 ### 9. Finish carpentry — trim, casing, molding, interior door install
 
@@ -570,11 +586,20 @@ they are grouped here as one canonical item, since their unit economics differ s
 
 ### 17. Drywall, interior framing install, and ceilings (including acoustical)
 
+**Amended (Matt, 2026-09-20): now also holds all cold-formed metal framing, moved from
+item 8.** JF's "Cold Formed Exterior Panel & Sheerwall" 9,500 SF $18.00 = $171,000 and
+"Floor Joists & Decking - Comslab" 18,000 SF $10.00 = $180,000 (r35–r36, code 05.04400)
+now live here. Worth flagging plainly: both of those are exterior wall and floor systems,
+not interior partition framing, which sits a little oddly next to this item's own title.
+The rule from item 8 is metal framing lives here regardless of interior or exterior, so
+they're included on that basis, not because they fit the "interior" half of the name.
+
 **Sources:**
 - JF: "1/2" GWB Ceilings & Soffits" 22,800 SF $6; "Interior Framing 3 5/8 gyp ea side
   R-19" 2,777.34 LF $14; "Wood Blocking" 831.26 LF $11.76; "Drywall & Carpentry" 1.00 LS
   $350,000 (r101–r104, code 09.02300). Also "2'x2' ACT (Acoustical Ceiling Tile)"
-  1,580.03 SF $3.30 = $5,214 (r98, code 09.00951).
+  1,580.03 SF $3.30 = $5,214 (r98, code 09.00951). Plus the two cold-formed metal lines
+  above, moved from item 8.
 - V64: "1/2" GWB Walls," "1/2" GWB Ceilings," "Install Bath Accessories," "Install
   Interior Door, Frame & HW" (r142–r145).
 - VA: same structure at larger scale, plus a common-area door-install line (r142–r147).
@@ -582,14 +607,15 @@ they are grouped here as one canonical item, since their unit economics differ s
   install lines priced (r147–r150).
 - WS, VG: no line.
 
-**Unit/quantity signal:** SF for GWB walls/ceilings (scales with wall/ceiling area), LF
-for framing, EA/BATH for accessory and door install (scales with unit or bathroom count).
+**Unit/quantity signal:** SF for GWB walls/ceilings (scales with wall/ceiling area) and
+for the cold-formed metal lines above, LF for framing, EA/BATH for accessory and door
+install (scales with unit or bathroom count).
 
 **Flag:** shares Flag M4 with item 8 — this is the fourth division (09) that
 `jeffersons-ferry-scope-comparison.md` found folded into the same buyout package as wood
-and cold-formed framing. Acoustical ceiling tile is small ($5,214, JF only) and easy to
-overlook; it is included here rather than given its own item because no other file prices
-it separately.
+and cold-formed framing, now resolved: metal framing lives here, wood framing lives in
+item 8. Acoustical ceiling tile is small ($5,214, JF only) and easy to overlook; it is
+included here rather than given its own item because no other file prices it separately.
 
 ### 18. Tile and stone
 

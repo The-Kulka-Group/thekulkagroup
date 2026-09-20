@@ -52,9 +52,13 @@ unless noted:
 
 ## Summary
 
-**43 canonical work items across 20 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
-09, 10, 11, 12, 13, 14, 21, 22, 23, 26, 28, 31, 32). Division 01 General Requirements has
-no line-item data in any file — see the flag under "Markups, not line items" below.
+**54 canonical work items across 19 MasterFormat divisions** (02, 03, 04, 05, 06, 07, 08,
+09, 10, 12, 13, 14, 21, 22, 23, 26, 28, 31, 32), recounted 2026-09-20; this line had
+drifted stale across several rounds of item splits since the freeze. Items 22 and 23
+carry Division 11 Equipment codes in the source files but sit under the Division 10
+heading below, grouped with Specialties rather than broken out under their own division
+heading. Division 01 General Requirements has no line-item data in any file — see the
+flag under "Markups, not line items" below.
 
 ### What a reviewer most needs to sanity-check
 

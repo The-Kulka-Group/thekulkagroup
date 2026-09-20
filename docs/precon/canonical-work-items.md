@@ -1168,6 +1168,24 @@ per-unit allowance; V64/VA/VR break it into four separate appliance types at the
 unit count — a difference in estimating grain, not scope, worth normalizing in the
 importer.
 
+**Containers (Matt, 2026-09-20), checked against standard multifamily appliance package
+composition before proposing.**
+
+1. **Kitchen Appliance Package (Refrigerator, Dishwasher, Range).** Required. Real
+   evidence in all four priced files, one per unit.
+2. **Range Hood or Microwave-Hood Combo.** Likely missing. Standard appliance packages
+   now commonly include this as a fifth appliance, an over-the-range microwave often
+   doing double duty as the exhaust hood. Zero evidence in any file.
+3. **In-Unit Washer and Dryer.** Conditional on unit design. Real evidence in three
+   files, priced per unit.
+4. **Common Laundry Equipment.** Likely missing, and a genuinely different scope from
+   container 3, not a variant of it. Where a building doesn't do full in-unit laundry,
+   industry practice sizes commercial-grade machines at roughly one washer and dryer
+   pair per 8 to 12 units, a different driver entirely, plus real infrastructure cost on
+   top of the machines, commercial plumbing and mechanical permits, dedicated exhaust,
+   sometimes separate metering. Plumbing's own Common Laundry hookup scope, already
+   noted elsewhere in this review, has no matching equipment cost anywhere.
+
 ### 23. Trash compactors and chutes
 
 **Sources:**

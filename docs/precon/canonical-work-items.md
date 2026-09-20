@@ -630,6 +630,34 @@ read JF's $0 here as "no insulation was priced."
 
 **Unit/quantity signal:** SF, scaling with roof area.
 
+**Containers (Matt, 2026-09-20), checked against TPO system components before
+proposing.** A TPO or EPDM roof is never just field membrane; every penetration and wall
+termination needs its own flashing, and this item's existing sources show membrane,
+primer, and crew labor only. Several containers reuse the Roof Type gate already doing
+work on Plumbing's Interior Storm Drainage and Building Insulation's roof containers.
+
+1. **Pitched Roof Shingle System.** Required, gated by Roof Type: pitched. One blended
+   installed rate in every file, felt underlayment and basic flashing included, the same
+   system-pricing convention already confirmed for paint and carpet. Includes ice and
+   water shield at eaves and valleys and ridge or soffit ventilation — the same roofing
+   crew installs all three in one sequence, not separate scopes.
+2. **Flat Roof Membrane System.** Required, gated by Roof Type: flat. TPO or EPDM plus
+   primer and crew labor, real evidence in three files.
+3. **Roof Flashing, Edge Metal, and Coping.** Likely missing, gated by Roof Type: flat.
+   Flashing at every rooftop equipment penetration, HVAC curbs, exhaust fans, plumbing
+   vent stacks, electrical conduit, plus termination bar and edge metal at the roof
+   perimeter, plus metal coping capping the parapet walls. Zero evidence for any of it in
+   any file, despite being unavoidable on a real membrane roof with rooftop equipment.
+4. **Gutters and Leaders.** Required, gated by Roof Type: pitched. JF's real evidence,
+   $15/LF. This is the pitched-roof answer to where roof water goes, the same question
+   Plumbing's Interior Storm Drainage answers for a flat roof.
+5. **Roof Pavers.** Conditional, amenity-driven, gated by Roof Type: flat, since pavers
+   need a flat deck to sit on. Real evidence in two files.
+6. **Roof Accessories.** Partial evidence, not a full gap. Walking pads are already real,
+   V64 prices 40 EA at $95. Roof hatches, safety tie-off anchors, and roof ladders have
+   zero evidence anywhere, worth naming since a flat roof with rooftop mechanical
+   equipment almost always needs a hatch for access.
+
 **Flag:** confirms the exact importer trap `rom-system-design.md` names — "30 Year
 Asphalt Shingles" (V64 r87, VA r86, VR r92) begins with two digits and will misparse as a
 division header under a naive rule. Also found the second named example, "18 Ga. SS

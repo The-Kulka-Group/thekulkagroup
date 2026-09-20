@@ -1247,6 +1247,28 @@ per-SF allowance approach is the wrong basis, not evidence of a genuinely larger
 package. Treat V64/VR's lump-sum lines as the pattern to follow; VA's figure should not be
 read as a higher comparable without re-pricing it as a lump sum first.
 
+**Containers (Matt, 2026-09-20): Site Furnishings added, filling a real gap in the
+canonical list.** Benches, grills, bollards, planters, shade structures, and outdoor
+trash and recycling receptacles at grade had no home anywhere in this list until now —
+distinct from item 21's Trash Receptacles container, which is the indoor equivalent, same
+object, different location, different trade. VA's "Pergola Allowance (over 6,000 sf)"
+1.00 LS $120,000 (r323), already flagged elsewhere in this document as needing its own
+sub-line breakdown rather than a lump figure, is the real evidence anchoring this
+container and belongs here rather than staying an orphaned allowance line.
+
+1. **Pool, Fitness, and Sauna.** Required per the Amenity Scope gate. Real evidence as
+   documented above.
+2. **Site Furnishings.** Required per the Amenity Scope gate. Benches, grills, bollards,
+   planters, shade structures (VA's pergola), outdoor trash and recycling receptacles.
+   Real evidence only for the pergola; the rest starts with zero evidence, proposed
+   because a real amenity courtyard always carries some of this scope.
+
+**Flagged for a future pass, not resolved here (Matt, 2026-09-20): dog-specific
+amenities.** Dog parks, pet washing or spa stations, waste stations, synthetic turf.
+Common and growing enough in multifamily to deserve its own container set and its own
+look at real cost drivers rather than folding it into Site Furnishings as an afterthought.
+Likely gated by the same Amenity Scope gate once scoped.
+
 ---
 
 ## Division 14 — Conveying Systems
@@ -1752,7 +1774,9 @@ Per the task's instruction to note rather than force these into a bucket:
   Core and shell - Retail A/B" (2,600 SF + 2,100 SF at $62/SF = $291,400, `Sheet0`
   r318–r319) and "Road Work - Lane Expansion" (1.00 LS $250,000, r321), "Security
   allowance (200k SF +)" (1.00 LS $400,000, r322), and "Pergola Allowance (over 6,000 sf)"
-  (1.00 LS $120,000, r323) do not cleanly fit any canonical item above.
+  (1.00 LS $120,000, r323) do not cleanly fit any canonical item above. **Update (Matt,
+  2026-09-20): the pergola now has a home, item 25's Site Furnishings container**, so only
+  retail, road work, and security remain genuinely orphaned here.
   **Resolved (Matt, 2026-09-18): no, these do not stay as lump allowance lines.** Kulka
   needs the ROM to show these by their real sub-line items, not as one flagged allowance
   each. Retail core-and-shell needs to be broken into its structure, envelope, and finish

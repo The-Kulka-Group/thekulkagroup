@@ -942,6 +942,21 @@ it currently priced:**
   around every one of the penetrations above, and is often the first to notice, or
   miss, a gap.
 
+**Cross-checked against remaining trades (Matt, 2026-09-20), four more real penetration
+sources missed on the first pass:**
+- Fire Sprinkler (item 27), branch piping running from the riser through every corridor
+  and demising wall to reach each unit. Metal, not plastic, so a lower failure risk than
+  domestic plumbing, but still a real penetration needing the same sealed system.
+- Fire Alarm (item 32), initiating and notification circuit wiring and conduit crossing
+  the same rated walls, its own distinct circuit from general electrical and low
+  voltage.
+- Elevators (item 26), the hoistway itself is a rated shaft, and the equipment feeds,
+  and on a hydraulic system the piston piping running from the machine room into the
+  hoistway and pit, all penetrate that shaft's rated enclosure.
+- Trash Compactors and Chutes (item 23), whose own entry already names the chute
+  running through a fire-rated shaft with a rated door at each floor, that entry never
+  connected the chute's own floor penetration to this requirement until now.
+
 ---
 
 ## Division 08 — Openings
@@ -1491,6 +1506,8 @@ before proposing.**
    per chute. Unclear whether that rate already includes the fire-rated intake door on
    every floor, or just the vertical chute run — intake doors are priced per floor in
    the trade, not per chute, worth confirming before this becomes a benchmark.
+   Firestopping the chute's own floor penetration at every level, distinct from the
+   intake door itself, is item 14a's scope.
 3. **Recycling Chute.** Conditional, spec-driven, increasingly required by local
    recycling ordinances as a parallel system to the trash chute. Zero evidence anywhere.
 
@@ -1688,7 +1705,9 @@ differently. See LA-784, opened to derive elevator type from building height.
 machine room instead of a small ground-level one, a real construction cost on items 2,
 8, and 13 that none of them currently name as its own line. An elevator pit below the
 sewer invert also needs a sewage ejector and sump, item 28's Specialties container,
-closed there rather than duplicated as a container of this item.
+closed there rather than duplicated as a container of this item. The hoistway is
+itself a rated shaft, and firestopping every feed and, on a hydraulic system, piston
+piping that penetrates it, is item 14a's scope.
 
 **Fire alarm and sprinkler cross-checked against elevators (Matt, 2026-09-20), a real
 three-trade coordination point currently priced nowhere.** NFPA 13 requires sprinklers
@@ -1777,7 +1796,9 @@ evidence and lean on real trade practice instead, flagged plainly.
    item 26, not the pit head already exempt from it there. Also picks up under-stair
    coverage wherever item 8a's wood stairs apply, detailed on item 15. Also picks up
    sidewall sprinklers required under exterior balconies extending more than 4 feet on
-   Type V construction, per NFPA 13 Section 9.3.20.1, detailed on item 11.
+   Type V construction, per NFPA 13 Section 9.3.20.1, detailed on item 11. Firestopping
+   the branch piping's own penetrations through rated walls is item 14a's scope, not
+   this one.
 2. **Water Supply, Backflow, and FDC.** Required. Per building. No file isolates it.
 3. **Standpipe System.** Required above a height threshold, derived from stories the
    same way elevator stops already are, rather than needing its own question.
@@ -2178,7 +2199,9 @@ in the whole item; nothing here separates a fire alarm system into its real comp
 so every container below leans on trade practice rather than file data.
 
 1. **Panel and Power Supply.** Required. Per building. The fire alarm control panel, its
-   power supply and battery backup. No file isolates a number.
+   power supply and battery backup. No file isolates a number. Firestopping this
+   circuit's own wiring and conduit penetrations through rated walls is item 14a's
+   scope, distinct from general electrical and low voltage.
 2. **Initiating Devices.** Required. Smoke detectors, heat detectors, pull stations.
    Smoke detectors are a per-unit life-safety requirement; heat detectors and pull
    stations are per building or per common area. No file isolates a number.

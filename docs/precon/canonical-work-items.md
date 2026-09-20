@@ -604,27 +604,56 @@ The rule from item 8 is metal framing lives here regardless of interior or exter
 they're included on that basis, not because they fit the "interior" half of the name.
 
 **Sources:**
-- JF: "1/2" GWB Ceilings & Soffits" 22,800 SF $6; "Interior Framing 3 5/8 gyp ea side
-  R-19" 2,777.34 LF $14; "Wood Blocking" 831.26 LF $11.76; "Drywall & Carpentry" 1.00 LS
-  $350,000 (r101–r104, code 09.02300). Also "2'x2' ACT (Acoustical Ceiling Tile)"
-  1,580.03 SF $3.30 = $5,214 (r98, code 09.00951). Plus the two cold-formed metal lines
-  above, moved from item 8.
-- V64: "1/2" GWB Walls," "1/2" GWB Ceilings," "Install Bath Accessories," "Install
-  Interior Door, Frame & HW" (r142–r145).
-- VA: same structure at larger scale, plus a common-area door-install line (r142–r147).
-- VR: same structure, GWB wall/ceiling quantities zeroed but bath accessory and door
-  install lines priced (r147–r150).
+- JF: "5/8" GWB Ceilings & Soffits" 22,800 SF $6.00 (r102, corrected from "1/2"" in an
+  earlier pass — the thicker, fire-rated board is the reason for the higher rate against
+  V64 and VA below, not an error); "Interior Framing 3 5/8 gyp ea side R-19" 2,777.34 LF
+  $14.00 (r101); "Wood Blocking (for Corridor Chair Rail)" 831.26 LF $11.76 (r103);
+  "Drywall & Carpentry" 1.00 LS $350,000 (r104, code 09.02300). Also "2'x2' ACT
+  (Acoustical Ceiling Tile)" 1,580.03 SF $3.30 = $5,214 (r98, code 09.00951). Plus the two
+  cold-formed metal lines noted above, moved from item 8.
+- V64: "1/2" GWB Walls (Plan View)" 298,524.08 SF $2.00 (r142); "1/2" GWB Ceilings"
+  112,967.77 SF $2.00 (r143); "Install Bath Accessories" 105.00 BATH $600 (r144);
+  "Install Interior Door, Frame & HW" 425.00 EA $225 (r145).
+- VA: "1/2" GWB Walls (Plan View)" 214,634.80 SF $2.00 (r142); "1/2" GWB Ceilings"
+  179,365.17 SF $2.00 (r143); "Install Bath Accessories" 158.00 BATH $600 (r144); door
+  install split three ways by type, standard 22.00 EA, common-area 20.00 EA, entry-wood
+  133.00 EA, all at the same $225 rate (r145–r147) — the split reveals a quantity
+  breakdown, not a price difference between door types.
+- VR: same structure as V64, GWB wall/ceiling quantities zeroed but bath accessory (105
+  BATH) and door install (375 EA) lines priced (r147–r150).
 - WS, VG: no line.
 
 **Unit/quantity signal:** SF for GWB walls/ceilings (scales with wall/ceiling area) and
 for the cold-formed metal lines above, LF for framing, EA/BATH for accessory and door
 install (scales with unit or bathroom count).
 
+**Containers (Matt, 2026-09-20).**
+
+1. **Interior Metal Framing.** Required. Moved from item 8. JF's framing line plus the
+   two cold-formed exterior/floor lines noted above.
+2. **Gypsum Wall Board Installation.** Required. V64: 298,524.08 SF at $2.00. VA:
+   214,634.80 SF at $2.00. JF has no wall board line at all — see the flag below.
+3. **Gypsum Ceiling Installation.** Required. V64: 112,967.77 SF at $2.00. VA:
+   179,365.17 SF at $2.00. JF: 22,800 SF at $6.00, three times the rate, explained by the
+   5/8" fire-rated board against 1/2" standard on the other two.
+4. **Bath Accessory Installation.** Required. Scales with bathroom count, the same
+   fixture-point driver already established for plumbing. V64 and VR: 105 BATH at $600.
+   VA: 158 BATH at $600.
+5. **Interior Door, Frame, and Hardware Installation.** Required. Scales with door count.
+6. **Wood Blocking and Miscellaneous Carpentry.** Required, small. JF only, $9,776.
+
 **Flag:** shares Flag M4 with item 8 — this is the fourth division (09) that
 `jeffersons-ferry-scope-comparison.md` found folded into the same buyout package as wood
 and cold-formed framing, now resolved: metal framing lives here, wood framing lives in
 item 8. Acoustical ceiling tile is small ($5,214, JF only) and easy to overlook; it is
 included here rather than given its own item because no other file prices it separately.
+
+**Flag (Matt, 2026-09-20):** JF has no Gypsum Wall Board Installation line at all, only
+ceilings, framing, and blocking are itemized, yet it carries a flat $350,000 "Drywall &
+Carpentry" lump sum on top of those. That number most likely stands in for the missing
+wall install plus general rough carpentry that V64 and VA itemize separately, not a
+duplicate of the lines already listed above it — worth confirming before treating JF's
+total as comparable to the other two files' itemized approach.
 
 ### 18. Tile and stone
 

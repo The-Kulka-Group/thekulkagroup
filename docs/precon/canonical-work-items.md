@@ -682,6 +682,26 @@ design doc cites are real, not hypothetical.
 **Unit/quantity signal:** SF (and LF for soffit trim), scaling with building envelope/
 elevation area.
 
+**Containers (Matt, 2026-09-20), checked against siding installation trade practice
+before proposing.** V64 and VA both use two to four different siding materials on the
+same building, James Hardie, cedar, vinyl, sometimes all three, and wherever two
+materials meet on one elevation there's always a transition detail. Neither file prices
+one.
+
+1. **Field Cladding Material.** Required. Rich real evidence across four files.
+2. **Trim and Accessories.** Likely missing. Corner boards, J-channel, and starter strip
+   are unavoidable parts of any siding install, standard scope on every job, not an
+   upgrade. Zero evidence in any file.
+3. **Soffit and Fascia.** Partial evidence, not a full gap. JF prices vinyl soffit at
+   $18/LF. Fascia trim along the roof edge isn't priced separately anywhere.
+4. **Window and Door Opening Flashing.** Likely missing. The siding sub's own flashing
+   tape at a window's rough opening, a real boundary against item 16a's window install,
+   not the same scope — the window sub sets the unit, the siding sub flashes and laps the
+   cladding around it. Zero evidence.
+5. **Material Transition Trim.** Likely missing, the strongest finding here. Every
+   multi-material elevation needs a transition detail where one cladding type ends and
+   another begins. Neither V64 nor VA prices it despite both needing it.
+
 **Flag M2 (carried from `jeffersons-ferry-scope-comparison.md`):** JF's "Screen Enclosure
 System" line ($30,224, r65) is filed under the siding code but is not siding — the prior
 note reassigned it to face Autodesk's Screened Balconies group instead. Treat it as a

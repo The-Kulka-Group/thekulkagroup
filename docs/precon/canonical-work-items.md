@@ -220,10 +220,19 @@ item 3a, stays its own item, not a container here.
    the containers above, this one starts with zero evidence, proposed only because a
    concrete sub always carries some of this scope on a real job.
 6. **Concrete Infill for Steel Pan Stairs.** Required wherever the building uses steel pan
-   stairs rather than precast or poured stairs. No file separates this out. JF's "Metal Pan
-   Stairs" line under item 7 (r39, $6,500 EA) doesn't say whether infill is included — a
-   real double-count or undercount risk sitting in the data right now, worth checking the
-   first time a real quote comes in for either line.
+   stairs rather than precast or poured stairs. No file separates this out.
+   **Researched (Matt, 2026-09-20), checked against steel pan stair trade practice
+   before resolving.** The fill is standard practice for the concrete sub or GC's own
+   forces, not the steel fabricator's scope; one industry source calls this handoff "the
+   single most common scope gap on pan stair packages." That means JF's "Metal Pan
+   Stairs" line under item 7 (r39, $6,500 EA), the fabricator's own price, almost
+   certainly doesn't include the fill — this reads as a likely undercount, not an even
+   double-count risk, and the infill should be priced as its own real line whenever a
+   quote comes in for either item. **Abrasive Nosing Strips**, a slip-resistant insert
+   embedded at the tread edge when the pan is poured, likely also missing — standard on
+   commercial concrete-filled pan stairs and usually its own material and labor line,
+   distinct from the fill itself, based on general trade knowledge rather than a source
+   this specific search confirmed directly.
 7. **Construction Joint Waterstops.** Likely missing, added (Matt, 2026-09-20). Any
    below-grade or podium concrete pour done in stages needs a waterstop, a PVC or rubber
    strip embedded across the joint, to stop water migrating through the cold joint
@@ -389,11 +398,12 @@ is not clean, because cold-formed metal panel/decking work is also priced under 
 05 codes at JF. That work now lives in item 17, Drywall and Carpentry, per the 2026-09-20
 amendment there, not under this railings-and-stairs bucket or under item 8.
 
-**Flag (Matt, 2026-09-20):** JF's "Metal Pan Stairs" line above ($6,500 EA) doesn't say
-whether it includes the concrete infill poured into each pan tread, which is Concrete's
-scope, not this trade's — see item 2's Containers, Concrete Infill for Steel Pan Stairs.
-A real double-count or undercount risk between the two items until a real quote confirms
-which side of the boundary that $6,500 actually falls on.
+**Flag (Matt, 2026-09-20), resolved by research the same day.** JF's "Metal Pan Stairs"
+line above ($6,500 EA) doesn't say whether it includes the concrete infill poured into
+each pan tread, which is Concrete's scope, not this trade's — see item 2's Containers,
+Concrete Infill for Steel Pan Stairs. Standard practice puts the fill with the concrete
+sub or GC, not the steel fabricator, so this $6,500 reads as a likely undercount of the
+stair's true installed cost, not an even double-count risk.
 
 ---
 

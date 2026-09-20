@@ -258,6 +258,17 @@ item 3a, stays its own item, not a container here.
    before the building is finished, protecting the fill and nosing from damage. That's
    real scope belonging to item 19, Flooring, not this item, cross-referenced here rather
    than priced twice.
+   **One more cross-check against all other trades (Matt, 2026-09-20).** Where item 7's
+   railing posts land on the concrete-filled tread, the anchor method is a genuine
+   design and sequencing decision, not a fixed detail: either a sleeve or core-drilled
+   pocket embedded in the concrete during the pour, which means the concrete and
+   railing subs have to coordinate on placement before the pour happens, or a
+   surface-mounted base plate installed after the concrete cures, which lets the
+   railing sub work independently. On an exterior stair specifically, this reconnects
+   to the same concern already flagged on item 11's balconies: a surface-mounted base
+   exists in part to keep the post's steel out of the wet zone, the embedment method
+   puts it in direct, harder-to-inspect contact with the concrete. Neither method is
+   priced or specified in any file.
 7. **Construction Joint Waterstops.** Likely missing, added (Matt, 2026-09-20). Any
    below-grade or podium concrete pour done in stages needs a waterstop, a PVC or rubber
    strip embedded across the joint, to stop water migrating through the cold joint
@@ -429,6 +440,12 @@ each pan tread, which is Concrete's scope, not this trade's — see item 2's Con
 Concrete Infill for Steel Pan Stairs. Standard practice puts the fill with the concrete
 sub or GC, not the steel fabricator, so this $6,500 reads as a likely undercount of the
 stair's true installed cost, not an even double-count risk.
+
+**Cross-checked against remaining trades (Matt, 2026-09-20).** Where this item's
+railing posts land on a concrete-filled tread from item 2, the anchor method, embedded
+sleeve versus surface-mounted base plate, is a real coordination point between this
+trade and Concrete, detailed on item 2. Neither method is priced or specified in any
+file.
 
 ---
 

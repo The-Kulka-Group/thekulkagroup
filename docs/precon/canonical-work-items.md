@@ -1447,6 +1447,29 @@ proposal to have Jev reason through hazard classification, standpipe, and fire p
 internally to get a better pricing quantity than flat square feet, never as an engineered
 system shown to anyone. Until that lands, this item stays one blended rate.
 
+**Containers (Matt, 2026-09-20), finally written in.** Sketched in chat during the
+LA-774 discussion but never actually committed here until now, the same gap just closed
+on item 28. No file separates any of this internal structure, every dollar in every file
+sits in one blended SF rate, so all five containers below start with zero direct
+evidence and lean on real trade practice instead, flagged plainly.
+
+1. **Sprinkler Piping and Heads.** Required. The base wet-pipe coverage through units and
+   common areas. Every dollar in every file sits here today, undifferentiated. Also
+   picks up item 23's trash chute sprinkler heads at the top service opening and hopper,
+   per NFPA 13, already noted directly on LA-774.
+2. **Water Supply, Backflow, and FDC.** Required. Per building. No file isolates it.
+3. **Standpipe System.** Required above a height threshold, derived from stories the
+   same way elevator stops already are, rather than needing its own question.
+4. **Fire Pump and Pump Room.** Conditional, driven by hydraulic demand, whether the
+   city main can supply enough pressure and flow for the building's height and area.
+   Less certain this derives cleanly from stories alone the way Standpipe does; it also
+   depends on local water main capacity, which Kulka's estimators may know cold for its
+   usual submarkets even without a site-specific test.
+5. **Dry System and Freeze Protection.** Conditional, for unheated spaces, garages,
+   attics, exterior breezeways. Ties to the Parking Type gate already in the intake
+   rather than needing a new one, since structured and underground parking already
+   flags exactly this condition.
+
 ---
 
 ## Division 22 — Plumbing

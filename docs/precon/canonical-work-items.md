@@ -1057,6 +1057,12 @@ existing container's coverage extends here. Nothing comparable applies at elevat
 those openings are interior lobby doors, not exterior windows, so this cross-check found
 nothing new on that side.
 
+**Cross-checked against sprinkler (Matt, 2026-09-20).** How close a wall sits to a
+property line, and whether the building carries full NFPA 13 or the simpler NFPA 13R,
+directly caps how much window area that wall can even have, detailed on item 27. Not a
+cost line here, a real design constraint worth knowing before assuming a job's window
+count and area are purely an architectural choice.
+
 **Flag:** `jeffersons-ferry-scope-comparison.md` found JF priced 54 window openings at
 $583 average against Pella windows actually bought at $1,648 per opening (+183%) — a
 specification gap (vinyl assumed, brand bought), not a quantity or code error.
@@ -1662,6 +1668,23 @@ square foot than a residential corridor (Light Hazard), not the same. See LA-774
 proposal to have Jev reason through hazard classification, standpipe, and fire pump
 internally to get a better pricing quantity than flat square feet, never as an engineered
 system shown to anyone. Until that lands, this item stays one blended rate.
+
+**Cross-checked against windows (Matt, 2026-09-20), and it surfaces a real fact this
+item has never captured: full NFPA 13 versus NFPA 13R.** IBC ties allowable window and
+opening area directly to sprinkler protection near a property line — under 3 feet of
+fire separation distance, no windows at all regardless of sprinklers; under 5 feet, no
+unprotected windows unless the building has automatic sprinklers, capped around 15% of
+that wall's area even then. Only full NFPA 13 counts toward this allowance, not NFPA
+13R, the simpler system most garden-style wood-frame buildings under four stories
+actually use. This item has never distinguished which system type any of these jobs
+carries, and it plausibly explains part of the rate spread above, not just JF's known
+takeoff error: 13R exempts many spaces closets, small bathrooms, some attics and
+garages from coverage entirely, which would genuinely lower its per-square-foot cost
+against a full 13 system, not just look like a benchmarking mistake. Worth confirming
+system type on future imports rather than assuming every job carries the same one.
+Cross-referenced into item 16a, since it's a real constraint on window design near a
+property line, not a cost line on this item, and fire alarm side comes up empty here,
+this is specifically a sprinkler-and-openings provision.
 
 **Containers (Matt, 2026-09-20), finally written in.** Sketched in chat during the
 LA-774 discussion but never actually committed here until now, the same gap just closed

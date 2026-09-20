@@ -694,6 +694,13 @@ work on Plumbing's Interior Storm Drainage and Building Insulation's roof contai
    V64 prices 40 EA at $95. Roof hatches, safety tie-off anchors, and roof ladders have
    zero evidence anywhere, worth naming since a flat roof with rooftop mechanical
    equipment almost always needs a hatch for access.
+7. **Kick-Out Flashing.** Likely missing (Matt, 2026-09-20), checked against wall
+   water-management trade practice. Diverts roof runoff away from the wall wherever a
+   roof edge terminates into a sidewall, most common where a secondary roof plane meets
+   a taller wall, but not tied to either Roof Type answer specifically. Flashing
+   failures at exactly these transitions are the single most common source of water
+   intrusion in a building, and this is one of the most frequently omitted details in
+   real construction. Zero evidence anywhere.
 
 **Flag:** confirms the exact importer trap `rom-system-design.md` names — "30 Year
 Asphalt Shingles" (V64 r87, VA r86, VR r92) begins with two digits and will misparse as a
@@ -738,6 +745,21 @@ one.
 5. **Material Transition Trim.** Likely missing, the strongest finding here. Every
    multi-material elevation needs a transition detail where one cladding type ends and
    another begins. Neither V64 nor VA prices it despite both needing it.
+6. **Rainscreen Drainage Gap.** Likely missing (Matt, 2026-09-20), checked against wall
+   water-management trade practice. Furring strips creating a ventilated air gap behind
+   the cladding, letting bulk water that gets past the field material drain down and
+   dry out rather than sitting against the weather barrier. This is the siding
+   installer's own scope, attached right before the cladding goes up, not item 8's
+   house wrap step. Zero evidence in any file.
+7. **Weep Screed.** Likely missing. The drainage exit at the base of the wall, required
+   at a minimum height above grade so trapped water can escape to the exterior. The
+   water-management counterpart to the starter strip already flagged in container 2,
+   not the same thing, a starter strip positions the first course, a weep screed
+   drains it. Zero evidence in any file.
+
+**Confirmed correct, not a gap: WRB seam taping.** V64's Framing Materials container
+(item 8) already prices "Tyvek Tape," 54,290.84 SF at $0.14, real evidence the seams in
+the weather barrier are taped as part of the framing crew's install, not missing.
 
 **Flag M2 (carried from `jeffersons-ferry-scope-comparison.md`):** JF's "Screen Enclosure
 System" line ($30,224, r65) is filed under the siding code but is not siding — the prior

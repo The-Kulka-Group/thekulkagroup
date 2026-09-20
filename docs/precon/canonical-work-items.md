@@ -2479,6 +2479,18 @@ only. Fire Line or Hydrant, likely missing, a water service specifically for fir
 protection, distinct from the domestic water service already priced, tying to item 27's
 Water Supply, Backflow, and FDC container.
 
+**Underground Fire Main Thrust Blocking and PIV Footing, added (Matt, 2026-09-20),
+found cross-checking fire alarm and sprinkler against foundations, though it turned out
+to be site utility scope, not the building's own foundation.** NFPA 24 requires a
+specific concrete mix, poured against undisturbed soil, at every bend, tee, and
+dead-end on the underground fire main to resist the hydraulic thrust of pressurized
+water, and it has to be cured and visible before the line can even be hydrostatically
+tested, a real sequencing dependency, not just a material spec. The post-indicator
+valve controlling that main into the building needs its own concrete footing with
+restraining rods. Both belong here, on the Fire Line container above, not on item 2's
+foundation work, since this concrete sits along the underground main's route, not at
+the building itself.
+
 ### 37. Site grading, topsoil, and landscaping/irrigation
 
 **Sources:**

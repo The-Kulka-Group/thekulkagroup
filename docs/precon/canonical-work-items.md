@@ -911,10 +911,34 @@ at a real premium, the industry drawing exactly this line already.
    hardware that differently.
 8. **Stairwell Doors and Panic Hardware.** Likely missing entirely, the bigger finding
    here. Stairwell doors need a 60 to 90 minute rating and panic exit hardware by code,
-   often electrified and tied into the fire alarm system, item 32a, so stairwell doors
-   unlock automatically on alarm. Zero evidence of any stairwell door pricing across all
-   six files, despite every one of these being a multi-story building that legally
-   requires one.
+   often electrified and tied into the fire alarm system, item 32 (corrected 2026-09-20,
+   was miscited as item 32a, which is Emergency Responder Radio Coverage, not fire
+   alarm), so stairwell doors unlock automatically on alarm. Zero evidence of any
+   stairwell door pricing across all six files, despite every one of these being a
+   multi-story building that legally requires one.
+
+   **Fire alarm and sprinkler cross-checked against stairs (Matt, 2026-09-20), two real
+   findings, currently priced nowhere.**
+
+   **Stair pressurization.** Required on any building where an occupied floor sits more
+   than 75 feet above grade, roughly the same high-rise threshold already relevant to
+   items 26 and 32a. Mechanical fans pressurize the stair enclosure to keep smoke out,
+   and code is explicit that activation runs through the fire alarm system, smoke
+   detectors positioned at each floor's stairwell entrance trigger the fans. That's a
+   real system spanning two items neither currently names: the fans and ductwork
+   themselves are item 30's scope, HVAC, and the dedicated activation detectors are item
+   32's System Interfaces container, alongside elevator recall and sprinkler monitoring.
+   None of Kulka's six sample jobs read as true high-rises, so this likely doesn't apply
+   to any of them today, but it's a real gap worth having named before the first
+   high-rise job comes through.
+
+   **Under-stair sprinkler coverage.** NFPA 13 requires sprinkler coverage beneath any
+   stair of combustible construction, not just above it, meaning item 8a's wood stairs
+   specifically trigger an additional sprinkler head location that a non-combustible
+   stair wouldn't need. Sprinkler heads within the stair run also have to align their
+   deflector with the slope of the stair, not sit level the way a normal ceiling head
+   does. Added to item 27's Sprinkler Piping and Heads container, cross-referenced to
+   item 8a rather than treated as generic coverage.
 
 ### 15a. Garage and overhead doors
 
@@ -1636,7 +1660,8 @@ evidence and lean on real trade practice instead, flagged plainly.
    picks up item 23's trash chute sprinkler heads at the top service opening and hopper,
    per NFPA 13, already noted directly on LA-774. Also picks up the machine room and
    hoistway heads required by NFPA 13, part of the shunt trip coordination detailed on
-   item 26, not the pit head already exempt from it there.
+   item 26, not the pit head already exempt from it there. Also picks up under-stair
+   coverage wherever item 8a's wood stairs apply, detailed on item 15.
 2. **Water Supply, Backflow, and FDC.** Required. Per building. No file isolates it.
 3. **Standpipe System.** Required above a height threshold, derived from stories the
    same way elevator stops already are, rather than needing its own question.
@@ -1814,6 +1839,12 @@ whole item; every other container leans on trade practice, not file data.
 6. **Central Plant Equipment.** Conditional, gated by HVAC System Type above. Chillers,
    boilers, cooling towers. Only real if the building uses a central system rather than
    per-unit equipment.
+7. **Stair Pressurization Fans and Ductwork.** Conditional on building height, added
+   (Matt, 2026-09-20), cross-checked against fire alarm and item 15's stairs. Required
+   above roughly 75 feet of occupied floor height, the same high-rise threshold relevant
+   elsewhere on this list. Fire-alarm activated, detailed on item 15. None of the six
+   sample jobs read as true high-rises, so likely not applicable today, but a real gap
+   worth naming before one comes through.
 
 ---
 
@@ -1984,7 +2015,9 @@ so every container below leans on trade practice rather than file data.
    the dedicated heat detector required at each machine room and hoistway sprinkler head
    to trip the shunt trip breaker before water discharges, detailed on item 26 — its own
    device, more sensitive than the sprinkler itself, not the same thing as general
-   Initiating Devices above.
+   Initiating Devices above. Also carries the stairwell-entrance smoke detectors that
+   activate item 30's stair pressurization fans on high-rise buildings, detailed on
+   item 15.
 6. **Testing, Inspection, and Commissioning.** Required. Per building. Final test, fire
    marshal witness, certification. Often its own line on a real quote even though no
    file here isolates it.

@@ -23,9 +23,11 @@ export {
   proposeGrossSquareFeet,
   scoreClosingComparison,
   type BranchGateAnswer,
+  type BranchGateResult,
   type ClosingComparisonScore,
   type GrossSquareFeetProposal,
   type ParkingPricing,
+  type ParkingRate,
   type ParkingType,
   type Phasing,
 } from "./rom-intake";

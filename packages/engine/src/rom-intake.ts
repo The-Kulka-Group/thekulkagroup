@@ -162,12 +162,28 @@ export function scoreClosingComparison(
   predictedTradeCost: { low: number; high: number },
   actualTradeCost: number,
 ): ClosingComparisonScore {
-  if (!(actualTradeCost > 0)) {
-    throw new Error("Actual trade cost must be above zero to score a closing comparison.");
+  if (!(actualTradeCost >= 0)) {
+    throw new Error("Actual trade cost must not be negative.");
   }
 
   const midpoint = (predictedTradeCost.low + predictedTradeCost.high) / 2;
-  const percentError = ((midpoint - actualTradeCost) / actualTradeCost) * 100;
+
+  // Fixed in code review (2026-09-20): this used to throw on exactly zero,
+  // but closing_comparisons.actual_trade_cost allows it (`>= 0`). A zero
+  // actual is division by zero for a relative percent error. When the ROM
+  // also predicted zero, that is a perfect match. When it predicted
+  // anything above zero, the relative error is mathematically infinite and
+  // `numeric` cannot store Infinity or NaN, so this stores the largest
+  // finite percent error the column will ever see as an explicit sentinel
+  // rather than crash or silently invent a smaller, misleadingly precise
+  // number. What a zero actual import really means in practice is real
+  // import data LA-15 hasn't supplied yet, not something to settle here.
+  const percentError =
+    actualTradeCost === 0
+      ? midpoint === 0
+        ? 0
+        : Number.MAX_SAFE_INTEGER
+      : ((midpoint - actualTradeCost) / actualTradeCost) * 100;
 
   return {
     percentError,

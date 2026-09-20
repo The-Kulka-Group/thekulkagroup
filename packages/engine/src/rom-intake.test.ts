@@ -150,9 +150,25 @@ describe("scoreClosingComparison", () => {
     expect(score.percentError).toBe(0);
   });
 
-  it("refuses an actual trade cost of zero", () => {
-    expect(() => scoreClosingComparison({ low: 100, high: 200 }, 0)).toThrow(
+  it("refuses a negative actual trade cost", () => {
+    expect(() => scoreClosingComparison({ low: 100, high: 200 }, -1)).toThrow(
       /actual trade cost/i,
     );
+  });
+
+  it("accepts a zero actual trade cost, matching the schema's own check (>= 0)", () => {
+    expect(() => scoreClosingComparison({ low: 100, high: 200 }, 0)).not.toThrow();
+  });
+
+  it("scores a zero actual against a zero prediction as a perfect match", () => {
+    const score = scoreClosingComparison({ low: 0, high: 0 }, 0);
+    expect(score.percentError).toBe(0);
+    expect(score.withinTenPercent).toBe(true);
+  });
+
+  it("scores a zero actual against any nonzero prediction as the largest finite miss, not a crash", () => {
+    const score = scoreClosingComparison({ low: 100, high: 200 }, 0);
+    expect(score.percentError).toBe(Number.MAX_SAFE_INTEGER);
+    expect(score.withinTenPercent).toBe(false);
   });
 });

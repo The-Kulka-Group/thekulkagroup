@@ -80,7 +80,14 @@ export async function issueRom(db: Db, runId: string): Promise<{ issuedAt: strin
     `update runs set issued_at = coalesce(issued_at, now()) where id = $1 returning issued_at`,
     [runId],
   );
-  return { issuedAt: toIso(rows[0].issued_at) };
+  // Fixed in code review (2026-09-20): readRun above and this update are two
+  // separate queries with no transaction between them. runs.project_id is
+  // `on delete cascade`, so a project deleted in that gap would cascade this
+  // run away too, leaving rows empty. Throwing the same typed error readRun
+  // already uses beats an unhandled TypeError on rows[0].
+  const updated = rows[0];
+  if (!updated) throw new RunNotFound(runId);
+  return { issuedAt: toIso(updated.issued_at) };
 }
 
 /**

@@ -171,9 +171,17 @@ alter table projects
   add column amenity_scope_gate text
     check (amenity_scope_gate in ('yes', 'no', 'dont_know'));
 
+-- Fixed in code review (2026-09-20): `demolition_gate = 'yes'` evaluates to
+-- NULL, not false, when demolition_gate is itself unanswered, and a CHECK
+-- only rejects a row on false -- Postgres treats NULL as passing. That let
+-- demolition_abatement_needed be set while demolition_gate was still
+-- unasked, exactly the state this constraint exists to block. Guarding with
+-- `demolition_gate is not null and ...` forces the right-hand side to a real
+-- false in that case instead of an unknown.
 alter table projects
   add constraint projects_abatement_needs_demolition check (
-    demolition_abatement_needed is null or demolition_gate = 'yes'
+    demolition_abatement_needed is null
+    or (demolition_gate is not null and demolition_gate = 'yes')
   );
 
 -- =====================================================================

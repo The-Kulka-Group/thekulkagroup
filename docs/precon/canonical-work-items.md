@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 44 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 45 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -747,22 +747,67 @@ total as comparable to the other two files' itemized approach.
 **Unit/quantity signal:** SF, scaling with tiled wall/floor area; EA for mud-job shower
 prep, scaling with bathroom count.
 
-### 19. Flooring — resilient, wood, and carpet
+### 19. Flooring — resilient and carpet
+
+**Amended (Matt, 2026-09-20): Wood Flooring split out to item 19a.** The source files
+already carry it under its own ProEst code, 09.06400, distinct from this item's 09.06000,
+so the split matches how the data was already organized, not a new distinction.
 
 **Sources:**
 - JF: "Sealed Concrete," "Luxury Vinyl Plank," "4" Rubber Cove Base," "Broadloom Carpet,"
   "Walk-Off Mat" (r112–r116, code 09.06000).
 - V64: "LVT - Corridor," "Luxury Vinyl Plank," "Johnsonite Rubber Flooring," "Bathroom
-  Resilient Flooring" (r151–r154); "Wood Flooring (High End)" 5,958.89 SF $20 (r157, code
-  09.06400).
-- VA: "VCT," "Luxury Vinyl Plank," "Bathroom Resilient Flooring" (r154–r156); wood
-  flooring (r159).
-- VR: same structure as V64 (r156–r159, r162).
+  Resilient Flooring" (r151–r154, code 09.06000).
+- VA: "VCT," "Luxury Vinyl Plank," "Bathroom Resilient Flooring" (r154–r156, code
+  09.06000).
+- VR: same structure as V64 (r156–r159, code 09.06000).
 - WS, VG: no line.
 
 **Unit/quantity signal:** SF for sheet/plank flooring, LF for cove base, SY for carpet —
 all scaling with floor area, one true unit-rate mismatch between SF and SY to watch for
 in the importer.
+
+**Containers (Matt, 2026-09-20), checked against trade practice before proposing.**
+JF's Broadloom Carpet at $55/SY is almost certainly an all-in rate, carpet, pad, and
+install priced as one system number, the same convention already confirmed for
+paint's primer-plus-finish pricing — not a gap.
+
+1. **Unit Interior Resilient Flooring.** Required. The dominant scope: V64/VR at
+   75,972 SF, VA at 99,750 SF.
+2. **Corridor and Common-Area Resilient Flooring.** Required, a distinct material from
+   unit flooring. V64: 11,687.63 SF at $7.00, heavier commercial-grade LVT against the
+   residential LVP in units.
+3. **Wet-Area Resilient Flooring.** Required. Already priced at a real premium in every
+   file, $26–37/SF against $5–7.50/SF general LVP, a genuine waterproof product
+   distinction, not an error.
+4. **Carpet, Including Pad.** Conditional. JF only, bundled system pricing per the note
+   above.
+5. **Utility and Back-of-House Flooring.** Required. JF's Sealed Concrete and VA's VCT
+   serve the same functional role, mechanical rooms and storage, with different
+   materials, worth one container rather than two.
+6. **Resilient Base.** Required. JF: 756.16 LF at $3.00.
+7. **Walk-Off Mats.** Required, small. JF only.
+8. **Subfloor Preparation and Moisture Testing.** Likely missing, not just conditional.
+   Industry sources call this the most underestimated line item in flooring, moisture
+   testing per ASTM F2170/F1869, flatness correction, self-leveling compound, especially
+   on concrete slab construction. Zero evidence in any file.
+9. **Transition Strips and Stair Nosing.** Likely missing. Standard accessory scope at
+   every material boundary and interior stair edge. Zero evidence anywhere.
+
+### 19a. Wood flooring
+
+Split from item 19 (Matt, 2026-09-20). A conditional, spec-driven upgrade over resilient
+flooring, not a required base scope.
+
+**Sources:**
+- V64: "Wood Flooring (High End)" 5,958.89 SF $20.00 (r157, code 09.06400).
+- VA: "Wood Flooring (High End)" 5,417.17 SF $20.00 (r159, code 09.06400).
+- VR: "Wood Flooring (High End)" 5,958.89 SF $20.00 (r162, code 09.06400).
+- JF, WS, VG: no line.
+
+**Unit/quantity signal:** SF, scaling with floor area receiving the upgrade. All three
+priced files land at the identical $20.00 rate, the closest thing to a confirmed rate
+found on any conditional item so far.
 
 ### 20. Painting
 

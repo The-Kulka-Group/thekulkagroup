@@ -178,6 +178,33 @@ foundation/slab volume. VA is the one file that prices this as two lump sums ins
 worth asking whether VA's LS figures were ever broken into a CY-equivalent rate for
 comparison.
 
+**Containers (Matt, 2026-09-20).** Items 2 and 3 together make up one subcontractor's
+scope, cast-in-place concrete start to finish, priced through six containers. Gypcrete,
+item 3a, stays its own item, not a container here.
+
+1. **Footings and Foundation Walls.** Required. The CY lines above.
+2. **Slab-on-Grade.** Conditional. Real CY at JF and V64 (as "Cast-In-Place Concrete -
+   Slab"/"- SOG"); zeroed out entirely on VR's revised budget, which is a podium building
+   with no true slab at grade, not missing data. Likely derivable from Parking Type
+   (structured or underground parking implies a podium, implies no slab-on-grade) rather
+   than needing its own question — unconfirmed, worth checking against Kulka's own jobs.
+3. **Elevated Slabs and Podium Deck.** Item 3 below. Conditional, the other side of the
+   Slab-on-Grade fact.
+4. **Foundation Waterproofing.** Conditional. VA prices "Foundation Waterproofing" $110,000
+   ALLW and "Slab Vapor Barrier Upgrade" 40,894 SF $5.00 = $204,470 (r77, r80), both filed
+   under Division 07 rather than Division 03. Real foundation-scope work sitting under a
+   different division's code — a breakout, not an add-on, the same shape as the elevator
+   wiring and pit sump breakouts elsewhere on this list.
+5. **Equipment Pads and Misc. Concrete.** Required. Housekeeping pads for mechanical and
+   electrical equipment, dumpster pads, stoops. No file has a line for this at all; unlike
+   the containers above, this one starts with zero evidence, proposed only because a
+   concrete sub always carries some of this scope on a real job.
+6. **Concrete Infill for Steel Pan Stairs.** Required wherever the building uses steel pan
+   stairs rather than precast or poured stairs. No file separates this out. JF's "Metal Pan
+   Stairs" line under item 7 (r39, $6,500 EA) doesn't say whether infill is included — a
+   real double-count or undercount risk sitting in the data right now, worth checking the
+   first time a real quote comes in for either line.
+
 ### 3. Elevated slabs and podium deck
 
 **Sources:**
@@ -203,6 +230,11 @@ concrete deck pour or the framing package.
   in another line on those files and needs a pass to confirm.
 
 **Unit/quantity signal:** SF, scaling with floor area receiving the topping.
+
+**Note (Matt, 2026-09-20): kept as its own item, not folded into Concrete's containers.**
+Likely derivable from Structure Type rather than needing its own question — gypcrete is
+close to universal over wood-framed floors for sound separation between units, and close
+to absent over concrete or steel structures. Unconfirmed against Kulka's own jobs.
 
 ### 4. Precast concrete structure
 
@@ -287,6 +319,12 @@ stairs and canopies, one LS allowance at VA.
 **Flag:** see Flag M4 under item 8 — this item's boundary with the framing package below
 is not clean, because cold-formed metal panel/decking work is also priced under Division
 05 codes at JF (see item 8), not under this railings-and-stairs bucket.
+
+**Flag (Matt, 2026-09-20):** JF's "Metal Pan Stairs" line above ($6,500 EA) doesn't say
+whether it includes the concrete infill poured into each pan tread, which is Concrete's
+scope, not this trade's — see item 2's Containers, Concrete Infill for Steel Pan Stairs.
+A real double-count or undercount risk between the two items until a real quote confirms
+which side of the boundary that $6,500 actually falls on.
 
 ---
 

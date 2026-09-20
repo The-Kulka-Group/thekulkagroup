@@ -201,6 +201,14 @@ the six files, design contingency runs 3 to 5 percent, general conditions and re
 7 to 8 percent or a lump sum, insurance 2.5 to 3.5 percent, and fee 3 to 4 percent. That
 range is itself a benchmark, and today nobody can quote it.
 
+Kulka's own bottom-up General Conditions staffing and field-office rates, per LA-688,
+live at `docs/precon/kulka-gc-rate-card.md`: a weekly rate per staff role and a monthly or
+lump-sum rate per field-office cost, sourced from one real job (117 N. Long Beach Rd,
+estimate C-00379), a warehouse, not multifamily. This is the input Decision 14's
+duration-driven General Conditions proposal actually needs, staffed weeks times a weekly
+rate, not the top-down percent range above. The two don't blend into one number; the
+percent range is a sanity check on the total, the rate card is what computes it.
+
 **benchmarks.** As specified, with the denominator named on every row: dollars per gross
 square foot, per unit, or a true unit rate where the line carried a quantity. Parking prices
 on gross square feet like everything else rather than a per-stall figure; no Kulka job has

@@ -2535,6 +2535,18 @@ likely missing, code-required and distinct from the general striping already pri
 Wheel Stops, likely missing, standard in surface parking areas. Zero evidence for either
 in any file.
 
+**Fire Apparatus Access Road, added (Matt, 2026-09-20), found cross-checking fire alarm
+and sprinkler against remaining trades.** IFC requires a fire lane wide enough and
+strong enough for a loaded fire truck, not just wide enough for a passenger car: 20 feet
+minimum width, 26 feet where the building's height requires aerial apparatus access,
+roughly the same height threshold already relevant to elevator type and stair
+pressurization elsewhere on this list, plus 13'6" of vertical clearance and a turnaround
+on any dead-end run over 150 feet. The real cost driver here isn't the width alone, it's
+that the pavement section under a fire lane has to carry a fire truck's load, heavier
+than the base course and wearing course thickness already priced for standard parking
+paving above. None of the base course or wearing course quantities in this item
+distinguish a fire lane's structural section from general parking paving.
+
 ### 39. Site concrete, hardscape, and retaining structures
 
 **Sources:**

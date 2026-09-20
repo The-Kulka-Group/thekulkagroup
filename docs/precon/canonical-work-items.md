@@ -190,13 +190,31 @@ item 3a, stays its own item, not a container here.
    than needing its own question — unconfirmed, worth checking against Kulka's own jobs.
 3. **Elevated Slabs and Podium Deck.** Item 3 below. Conditional, the other side of the
    Slab-on-Grade fact.
-4. **Foundation Waterproofing.** Conditional. VA prices "Foundation Waterproofing" $110,000
-   ALLW and "Slab Vapor Barrier Upgrade" 40,894 SF $5.00 = $204,470 (r77, r80), both filed
-   under Division 07 rather than Division 03. Real foundation-scope work sitting under a
+4. **Foundation Waterproofing.** VA prices "Foundation Waterproofing" $110,000 ALLW and
+   "Slab Vapor Barrier Upgrade" 40,894 SF $5.00 = $204,470 (r77, r80), both filed under
+   Division 07 rather than Division 03. Real foundation-scope work sitting under a
    different division's code — a breakout, not an add-on, the same shape as the elevator
    wiring and pit sump breakouts elsewhere on this list. Confirmed (Matt, 2026-09-20): the
    vapor barrier is laid by the concrete crew before the pour, not installed afterward by
    an insulation sub, so it belongs here rather than in item 12.
+   **Expanded (Matt, 2026-09-20), checked against foundation waterproofing code
+   requirements before proposing.** VA's one lump sum flattens a real code fork and
+   several real sub-components, none of which any file separates.
+   - **Dampproofing, Code Minimum.** Required on every foundation wall regardless of
+     site conditions, the baseline the code requires everywhere.
+   - **Waterproofing Membrane, Hydrostatic Pressure Condition.** Conditional, gated by
+     the existing Site Conditions gate, groundwater. A more robust membrane system that
+     replaces dampproofing, not an upgrade layered on top of it, required specifically
+     where a high water table creates hydrostatic pressure against the wall.
+   - **Perimeter Footing Drain.** Required wherever there's a below-grade foundation,
+     paired with either dampproofing or waterproofing above.
+   - **Drainage Board or Sheet Drain.** Conditional, same groundwater gate as the
+     membrane. Relieves hydrostatic pressure and channels water to the footing drain.
+   - **Foundation Drainage Sump Pit and Pump.** Conditional, same groundwater gate.
+     Collects and discharges groundwater. Distinct from item 28's sewage ejector sump,
+     a genuinely different system handling a different kind of water, worth keeping
+     separate rather than conflating the two just because both are called "sump."
+   - **Slab Vapor Barrier.** Real evidence above, VA's $204,470 line.
 5. **Equipment Pads and Misc. Concrete.** Required. Housekeeping pads for mechanical and
    electrical equipment, dumpster pads, stoops. No file has a line for this at all; unlike
    the containers above, this one starts with zero evidence, proposed only because a

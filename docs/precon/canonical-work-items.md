@@ -798,6 +798,14 @@ line (also seen in HVAC and electrical below) looks like a ground-floor/garage-v
 split unique to that file; confirm before assuming it is additive with the other files'
 single-line approach.
 
+**Amended (Matt, 2026-09-19): VA's own numbers name a real gap, not just an unexplained
+spread.** Its garage-level line and its tower line price at the identical $6.00/SF, but
+NFPA 13 hazard classification says a garage (Ordinary Hazard) should cost more per
+square foot than a residential corridor (Light Hazard), not the same. See LA-774 for the
+proposal to have Jev reason through hazard classification, standpipe, and fire pump
+internally to get a better pricing quantity than flat square feet, never as an engineered
+system shown to anyone. Until that lands, this item stays one blended rate.
+
 ---
 
 ## Division 22 — Plumbing

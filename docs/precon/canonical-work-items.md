@@ -221,6 +221,16 @@ Gypcrete is bought out as its own separate subcontract, not part of concrete and
 of framing. It no longer belongs in this canonical item; see item 3a below, split out on
 that basis. This also answers Flag M1 for the deck pour half: it stays with concrete.
 
+**Container added (Matt, 2026-09-20), checked against building envelope waterproofing
+categories before proposing:**
+
+**Podium Waterproofing Membrane.** Likely missing, and this is a real gap, not just a
+proposed line. A podium deck functions as both a floor and a roof, it sits over occupied
+or parked space below, and the trade treats it as critical to waterproof, its own
+traffic-bearing membrane system, heavier-duty than a standard roof membrane. VA's
+"L2 Podium, 12" avg assumed" describes slab thickness, concrete volume, not a
+waterproofing system, and nothing else in this file or any other prices one.
+
 ### 3a. Gypcrete topping
 
 Split from item 3 once gypcrete was confirmed as its own subcontract, not part of the
@@ -542,6 +552,15 @@ allowance bucket next to the job's other late-added, one-off scope (retail build
 security, the pergola). Read as a distinct fifth-floor balcony system added after the main
 takeoff, not a re-entry of the same balconies. Both stay mapped to this canonical item;
 neither should be excluded or netted against the other.
+
+**Container added (Matt, 2026-09-20), checked against building envelope waterproofing
+categories before proposing:**
+
+**Balcony Waterproofing Membrane.** Likely missing, and worth taking seriously: a
+balcony sitting over conditioned space below needs a real waterproofing membrane
+beneath the decking surface, and balcony waterproofing failure is one of the most
+common sources of construction defect litigation in multifamily. None of the decking
+lines above, Trex, wood decking, railings, mention a membrane component underneath.
 
 ---
 

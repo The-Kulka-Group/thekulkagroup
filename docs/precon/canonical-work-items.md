@@ -1646,6 +1646,28 @@ below for why that matters. VA's generator is a genuine scope difference (this j
 a backup generator; none of the others price one), not a pricing inconsistency, and
 should stay flagged rather than be treated as a missing line on the other five files.
 
+**Containers (Matt, 2026-09-20), finally written in.** Sketched in chat during the
+original electrical review but never actually committed here until now, the same gap
+just closed on items 27, 28, and 29.
+
+1. **Service and Distribution.** Required. Per building. Utility service entry, main
+   switchgear, panels, feeders to sub-panels. No file isolates a dollar figure. Always
+   inside the main lump above.
+2. **Branch Power and Devices.** Required. Per square foot. The bulk of the money
+   everywhere: JF $28/SF, V64 $22, VR $23, VA $18 to $24 split by garage and tower.
+3. **Lighting Fixtures, Installation Only.** Required. Furnish cost lives in item 31b.
+   No file isolates a number for installation labor alone; every dollar sits inside
+   Branch Power and Devices until a real quote separates it.
+4. **Emergency and Egress Lighting.** Required by code. Villa isolates it, the only real
+   number in the whole item: 5 EA at $170 each.
+5. **Elevator and Equipment Feeds.** Required whenever the building has elevators. A
+   breakout of Branch Power and Devices, not an add-on, the same shape as item 26's
+   elevator wiring cross-reference. No file isolates it.
+6. **Emergency Generator.** Conditional, defaults to absent per the frequency-bar test
+   that already excluded this from being a formal intake gate. Only VA prices one,
+   $160,000 lump sum, a real scope difference rather than a pricing gap on the other
+   files.
+
 ### 31a. Low voltage
 
 Split from item 31 (Matt, 2026-09-19). Tele and data allowance: structured cabling and

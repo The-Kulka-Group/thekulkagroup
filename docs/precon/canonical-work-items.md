@@ -1129,6 +1129,30 @@ fragmented across files (10.02600, 10.02800, 10.02900, 10.04400, 10.05000, 10.05
 count depending on sub-item; LF for storage gates and corner guards, scaling with
 corridor length.
 
+**Containers (Matt, 2026-09-20), checked against CSI Division 10's own category list and
+ADA/FHA signage rules before proposing.**
+
+1. **Toilet and Bath Accessories.** Required. Real evidence in four files.
+2. **Signage.** Likely missing, the strongest finding here. Tactile unit ID and ADA
+   accessible-route signage, legally required on every job regardless of size or product
+   type, unlike most other findings in this review this one has no real-world exception.
+   Zero evidence across all six files.
+3. **Fire Protection Specialties.** Required by code — NFPA 10 mandates extinguisher
+   cabinets at set corridor intervals. Only Villa prices this, and Villa is already the
+   file whose wall-area pricing is weighted low elsewhere in this list. Five of six jobs
+   show nothing for a universal life-safety requirement.
+4. **Postal Specialties.** Required. USPS centralized mail delivery rules apply to
+   essentially every multifamily building. Real evidence in three files.
+5. **Corner Guards.** Conditional, corridor-driven. JF only.
+6. **Lockers.** Conditional, amenity or storage-driven. V64 and Villa.
+7. **Storage Gates and Cages.** Conditional, storage-amenity driven. JF only.
+8. **Trash Receptacles.** Conditional, small. V64 only.
+9. **Bike Storage, Indoor.** Conditional, increasingly code-required on transit-oriented
+   sites. The same storage-assembly category as Lockers and Storage Gates above it, a
+   dedicated room with wall-mounted or floor-anchored racks. Zero evidence in any file.
+   Outdoor surface bike racks are a different thing, site furnishings at the same level
+   as benches and trash receptacles at grade, and belong with the site items, not here.
+
 ### 22. Residential appliances
 
 **Sources:**

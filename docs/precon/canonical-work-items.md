@@ -194,7 +194,9 @@ item 3a, stays its own item, not a container here.
    ALLW and "Slab Vapor Barrier Upgrade" 40,894 SF $5.00 = $204,470 (r77, r80), both filed
    under Division 07 rather than Division 03. Real foundation-scope work sitting under a
    different division's code — a breakout, not an add-on, the same shape as the elevator
-   wiring and pit sump breakouts elsewhere on this list.
+   wiring and pit sump breakouts elsewhere on this list. Confirmed (Matt, 2026-09-20): the
+   vapor barrier is laid by the concrete crew before the pour, not installed afterward by
+   an insulation sub, so it belongs here rather than in item 12.
 5. **Equipment Pads and Misc. Concrete.** Required. Housekeeping pads for mechanical and
    electrical equipment, dumpster pads, stoops. No file has a line for this at all; unlike
    the containers above, this one starts with zero evidence, proposed only because a
@@ -551,9 +553,11 @@ neither should be excluded or netted against the other.
 - V64: "Roxul Sound Deadening Insulation" 119,723.77 SF $1.50; "R-21 Fiberglass Batt" 
   58,342.54 SF $1.25 (r77–r78, code 07.02000); roof/deck iso board and Densdeck air
   barrier (r81, r84).
-- VA: "Slab Vapor Barrier Upgrade" 40,894 SF $5.00; "Roxul Sound Deadening Insulation"
-  85,914.51 SF $1.50; "R-21 Fiberglass Batt" 71,180.05 SF $1.50; "R-49 Spray-Foam"
-  34,308.47 SF $8.50 (r80–r83). Total $731,734.
+- VA: "Roxul Sound Deadening Insulation" 85,914.51 SF $1.50; "R-21 Fiberglass Batt"
+  71,180.05 SF $1.50; "R-49 Spray-Foam" 34,308.47 SF $8.50 (r81–r83). Total $527,264.
+  ("Slab Vapor Barrier Upgrade," r80, moved to item 2's Foundation Waterproofing
+  container, Matt 2026-09-20 — it's the concrete subcontractor's scope, not insulation's,
+  since it's laid before the pour, not installed afterward.)
 - VR: roof/deck iso board and air-barrier lines only, rest zeroed (r86, r89).
 - JF: **no dedicated insulation code at all.** R-19 batt is folded into the interior
   framing unit rate (r101, "Interior Framing 3 5/8 gyp ea side R-19") and 2" rigid
@@ -562,6 +566,48 @@ neither should be excluded or netted against the other.
 - WS, VG: no line.
 
 **Unit/quantity signal:** SF, scaling with wall/roof/slab area.
+
+**Containers (Matt, 2026-09-20), checked against IECC compliance paths and IBC sound
+transmission requirements before proposing.** This item turns out to be two different
+code regimes sharing one line: acoustic insulation between units, driven by the sound
+transmission code, and thermal insulation in the envelope, driven by the energy code.
+Slab vapor barrier, once in scope here, moved to item 2 as the concrete subcontractor's
+scope, not this trade's.
+
+1. **Acoustic Insulation (Interior Demising and Partition Walls).** Required. "Roxul
+   Sound Deadening Insulation" in two files. The IBC sets STC 50 as the minimum between
+   dwelling units, and standard multifamily essentially never deviates from it — the
+   quantity is already known from item 17's wall board containers, no new fact needed.
+2. **Thermal Envelope Insulation, Walls.** Required. R-21 batt evidence in two files.
+   Derivable from climate zone under the energy code's prescriptive path, which is the
+   most common path for standard production housing, but a job could instead use the
+   performance path, a UA trade-off verified by an energy model rather than a fixed
+   table — worth flagging as an assumption, not treating as certain.
+3. **Continuous Insulation.** Conditional on Structure Type. Steel-framed and mass-wall
+   assemblies need it on top of cavity insulation for thermal bridging; properly
+   detailed wood framing usually doesn't. No evidence in any file, since all six jobs
+   read as wood-framed.
+4. **Pitched Roof Insulation (Attic/Rafter Cavity).** Conditional, gated by Roof Type:
+   pitched, the same gate already used for Plumbing's Interior Storm Drainage. Installed
+   below the deck. VA's R-49 Spray-Foam is this container, not container 2.
+5. **Flat Roof Insulation (Tapered Polyiso Above Deck).** Conditional, gated by Roof
+   Type: flat, the same gate. V64 and VR's "2.6" Iso Board," matching their TPO roofing
+   membrane's square footage exactly, both real evidence of a flat-roof section on a
+   building that also has a pitched, shingled section elsewhere. Serves double duty,
+   thermal value and slope-to-drain, which pitched insulation never needs to do.
+6. **Tub Insulation, Exterior Wall-Set Tubs.** Required wherever a bathtub sits against
+   an exterior wall. The tub itself displaces the stud cavity where wall insulation would
+   normally go, so it needs its own rigid-foam wrap to avoid a real gap in the envelope.
+   No evidence in any file.
+7. **Window and Door Perimeter Insulation.** Required wherever item 16a's residential
+   windows apply (Matt, 2026-09-20). Low-expansion foam sealing the gap between the
+   rough opening and the window frame, done by the same wood framing crew that installs
+   the window per item 16a's buyout logic, not a separate trade, but the material and
+   labor are this item's scope, not the framer's blended rate. On item 16's aluminum
+   systems (concrete or masonry buildings) this is typically backer rod and sealant
+   instead of foam, done by the window subcontractor as part of its own turnkey scope —
+   worth keeping that distinction in mind once this gets a real quantity driver, since
+   it's not the same material or the same installer either way.
 
 **Flag M3 (carried from `jeffersons-ferry-scope-comparison.md`):** JF shows $0 for this
 canonical item, which understates the gap against Autodesk's $87,829 insulation group —

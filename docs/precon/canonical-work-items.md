@@ -738,10 +738,22 @@ one.
    upgrade. Zero evidence in any file.
 3. **Soffit and Fascia.** Partial evidence, not a full gap. JF prices vinyl soffit at
    $18/LF. Fascia trim along the roof edge isn't priced separately anywhere.
-4. **Window and Door Opening Flashing.** Likely missing. The siding sub's own flashing
-   tape at a window's rough opening, a real boundary against item 16a's window install,
-   not the same scope — the window sub sets the unit, the siding sub flashes and laps the
-   cladding around it. Zero evidence.
+4. **Window and Door Opening Flashing.** Likely missing, and expanded (Matt, 2026-09-20)
+   after checking against the real installation sequence rather than treating this as
+   one line. Code (IRC R703.4) and ASTM E2112 both require a specific three-part
+   sequence, sill pan first, then jambs lapped over the sill pan, then head flashing
+   lapped over both the jambs and the weather barrier, shingle-fashion so each layer
+   sheds water onto the one below it. Skipping the sill pan or installing head flashing
+   first, out of sequence, is named directly in the research as one of the most common
+   and most litigated window installation defects. A real boundary against item 16a's
+   window install either way, not the same scope — the window sub sets the unit, the
+   siding sub flashes and laps the cladding around it. Zero evidence of any of the three
+   components in any file.
+   - **Sill Pan Flashing.** The most critical piece. Catches water that gets past the
+     window and directs it back out over the weather barrier rather than into the wall.
+   - **Jamb Flashing.** Installed second, lapping over the sill pan.
+   - **Head Flashing.** Installed last, lapping over the jambs and the weather barrier,
+     directing water around and away from the top of the opening.
 5. **Material Transition Trim.** Likely missing, the strongest finding here. Every
    multi-material elevation needs a transition detail where one cladding type ends and
    another begins. Neither V64 nor VA prices it despite both needing it.

@@ -1815,7 +1815,11 @@ evidence and lean on real trade practice instead, flagged plainly.
    this one.
 2. **Water Supply, Backflow, and FDC.** Required. Per building. No file isolates it.
 3. **Standpipe System.** Required above a height threshold, derived from stories the
-   same way elevator stops already are, rather than needing its own question.
+   same way elevator stops already are, rather than needing its own question. Also
+   carries a recessed hose valve cabinet at every floor landing, added (Matt,
+   2026-09-20): NFPA 14 and NFPA 1 both require it recessed in a finished corridor
+   specifically to satisfy ADA's protruding-object rule, a real fire-protection and
+   accessibility interaction, not just a mounting preference.
 4. **Fire Pump and Pump Room.** Conditional, driven by hydraulic demand, whether the
    city main can supply enough pressure and flow for the building's height and area.
    Less certain this derives cleanly from stories alone the way Standpipe does; it also

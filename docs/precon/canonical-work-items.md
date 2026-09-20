@@ -1378,8 +1378,32 @@ description, but expressed as a different unit of quantity).
 **Flag:** confirms the code drift `rom-system-design.md` already names (14.02000 vs
 14.21001). Beyond the code, the unit rate itself is not close: $190,000/elevator (JF,
 V64), $33,000/stop × 6 stops = $198,000/elevator-equivalent (VA, roughly consistent),
-versus $271,858.84/elevator at West Shore — 43% above the others even before accounting
-for West Shore's higher rated speed (250 fpm vs. 100 fpm on the JF/V64 description).
+versus $271,858.84/elevator at West Shore — 43% above the others.
+**Corrected (Matt, 2026-09-20): this is very likely a technology difference, not a rate
+inconsistency.** Hydraulic elevators top out around 150 FPM and roughly five to six
+stories of travel; above that, traction is the only real option. JF and V64's 100 FPM is
+squarely hydraulic. West Shore's 250 FPM is traction speed. West Shore's higher number
+most likely reflects a different elevator type entirely, not the same product priced
+differently. See LA-784, opened to derive elevator type from building height.
+
+**Containers (Matt, 2026-09-20).**
+
+1. **Elevator Cab and Hoist Mechanism.** Required. The $41,000/stop trade number above.
+2. **Cab Interior Finish Package.** Likely missing. In Class A multifamily especially,
+   the cab's interior finish, upgraded wall panels, flooring, mirrors, handrails, is
+   commonly its own selection distinct from the base mechanical unit. No file shows this
+   split out.
+3. **Elevator Pit Waterproofing.** Conditional, derivable from Levels Below Grade,
+   already a captured field. The pit is below-grade construction; if a job already needs
+   Foundation Waterproofing, item 2's container, the pit is one more below-grade area
+   needing the same treatment. No new question needed.
+4. **Elevator Pit Ladder.** Required wherever an elevator exists. Code requires a fixed
+   means of access into every pit for mechanics, the same near-universal, small-dollar
+   shape as door saddles or self-closing devices found elsewhere in this review.
+
+**Cross-item flags, not resolved here:** a traction elevator (LA-784) needs a penthouse
+machine room instead of a small ground-level one, a real construction cost on items 2,
+8, and 13 that none of them currently name as its own line.
 **Resolved (Matt, 2026-09-18): $41,000 per stop is the trade number to use**, from
 experience, superseding the file's varying rates. Assumed to be per stop, matching VA's
 per-stop granularity, not per whole elevator — flag for correction if per-elevator was

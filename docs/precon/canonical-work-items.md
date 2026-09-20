@@ -401,15 +401,54 @@ with stair count per building rather than gross square feet.
 - JF: "Casement Molding" 5,235.81 LF $12; "Crown Molding" 1,508.40 LF $15; "Base Molding"
   6,212.00 LF $8; "Chair Rail Molding" 5,364.42 LF $18 (r44–r47, code 06.02000). Total
   $231,711.
-- V64: "Install & Trim Interior Wood Door" 406.00 EA $175; window stools, base molding,
-  door/window casing (r30–r37). Total $217,107.
-- VA: similar door-install-and-trim lines plus window stools/base/casing (r39–r48). Total
-  $689,368.
+- V64: "Install & Trim Interior Wood Door [Subcontractor]" 406.00 EA $175 (r30); "5/4"
+  Window Stools" 932.50 LF $3.50 plus a 72.00 LF sub-line (r31–r32); "Base Molding"
+  14,362.66 LF $5.00 (r33); "Door Casing" 9,744.00 LF $6.00 (r34); "Window Casing"
+  238.00 LF $6.00 plus two size-specific sub-lines, 150.00 LF and 1,656.00 LF, all at the
+  same $6.00 rate (r35–r37). Total $217,107.
+- VA: door install split by type, all under "Install & Trim Interior Wood Door" — BD/Bath
+  doors 567.00 EA $175, standard closet doors 158.00 EA $175, walk-in closet doors
+  133.00 EA $300 (r39–r41); "5/4" Window Stools" 15,828.00 LF $4.50 (r42); "Base Molding"
+  14,092.95 LF $7.00 (r43); door casing matched to the same three door types, $6.00/LF on
+  the two standard doors and $8.00/LF on the walk-in closet door (r44–r46); window casing
+  27,444.00 LF $7.00 plus 5,112.00 LF $6.00 (r47–r48). Total $689,368. Also picks up VA's
+  "Closet Interiors (Hat Shelf & Rod)" 1,596.00 LF $95 (r55, moved from item 10 — see the
+  amendment there), $151,620.
 - VR: same line set as V64, partly zeroed. Total $145,294.
 - WS, VG: no line.
 
 **Unit/quantity signal:** mostly LF (moldings scale with perimeter of rooms/units), EA
 for door install/trim (scales with door count or unit count).
+
+**Containers (Matt, 2026-09-20).**
+
+1. **Interior Door Install and Trim.** Required. Includes basic closet shelf-and-rod work
+   moved from item 10, since it's the same trade and the same visit in real practice. VA's
+   rate difference on walk-in closet doors, $300 install and $8/LF casing against $175 and
+   $6/LF on the other two door types, tracks real hardware complexity, not error.
+2. **Window Stools.** Required.
+3. **Base Molding.** Required.
+4. **Door and Window Casing.** Required. VA's window casing lines split by nominal window
+   size ("3636," "3678") price at the identical rate across sub-lines — a takeoff tool
+   quantifying each unique size, not a real cost driver, and already treated as one line
+   here rather than three.
+5. **Crown Molding and Chair Rail.** Conditional, spec-driven. JF only. Neither Vue job
+   has either line, a real finish-level difference, not a gap.
+
+**Resolved (Matt, 2026-09-20): item 17's door install line was likely a double count,
+dropped.** V64 carried both this item's "Install & Trim Interior Wood Door" (406 EA,
+$175) and item 17's "Install Interior Door, Frame & HW" (425 EA, $225) on the same job. A
+finish carpenter hangs the slab, sets the hardware, and trims the casing as one visit, not
+two separate subcontracts — see item 17 for the removal.
+
+**Missing, not priced in any file:** shoe molding, the trim piece at the base-to-floor
+line on hard-surface flooring, most likely folded silently into the Base Molding rate
+rather than genuinely absent, which means that rate isn't comparable between a carpet job
+and an LVP job. Cabinet scribe and filler trim, closing the gap between cabinetry and an
+out-of-square wall, small dollars but a real line on an actual bid.
+
+**Optional, correctly absent from every file here:** wainscoting or raised-panel wall
+systems, a step up from chair rail alone, common in amenity spaces on jobs that spec it.
 
 **Flag:** JF's finish carpentry ($231,711 against a $125,000 Autodesk buyout, +85%) is
 one of the three interior packages `jeffersons-ferry-scope-comparison.md` already flags
@@ -418,16 +457,24 @@ into any benchmark built from this item.
 
 ### 10. Millwork and closet interiors
 
+**Amended (Matt, 2026-09-20): basic closet shelving split out to item 9.** VA's "Closet
+Interiors (Hat Shelf & Rod)" line, $95/LF, is field-installed wire or wood shelf-and-rod
+work, the same trade and the same visit as base molding and door trim in real practice,
+not shop-built millwork. It moved to item 9's Interior Door Install and Trim container
+family. "Closet Interiors (Master WIC)" stays here at $350/LF, nearly four times the
+rate, because a built-out custom walk-in system genuinely is millwork's scope, a
+different vendor and a different product entirely from a shelf and a rod.
+
 **Sources:**
 - V64: "Amenity Area Millwork" 1.00 LS $55,000 (r40, code 06.02200).
 - VA: "Upper and lower cabinets (Mid-Grade)" 2,181.00 LF and "Vanities" 513.50 LF, both
   priced at $0 (r51–r52, code 06.02300 — looks like a placeholder quantity with no rate
-  entered yet); "Closet Interiors (Hat Shelf & Rod)" 1,596.00 LF $95; "Closet Interiors
-  (Master WIC)" 960.00 LF $350 (r55–r56). Total $487,620.
+  entered yet); "Closet Interiors (Master WIC)" 960.00 LF $350 (r56). Total $336,000.
 - VR: same amenity millwork line as V64, $55,000 (r45).
 - JF, WS, VG: no line.
 
-**Unit/quantity signal:** LF, scaling with cabinet run length or closet perimeter.
+**Unit/quantity signal:** LF, scaling with cabinet run length or built-in closet system
+perimeter.
 
 **Flag:** VA's "Upper and lower cabinets" and "Vanities" lines carry a real quantity
 (2,181 LF and 513.50 LF) but a $0 unit cost — this looks like an incomplete estimate row,
@@ -639,7 +686,14 @@ install (scales with unit or bathroom count).
 4. **Bath Accessory Installation.** Required. Scales with bathroom count, the same
    fixture-point driver already established for plumbing. V64 and VR: 105 BATH at $600.
    VA: 158 BATH at $600.
-5. **Interior Door, Frame, and Hardware Installation.** Required. Scales with door count.
+5. ~~Interior Door, Frame, and Hardware Installation.~~ **Removed (Matt, 2026-09-20),
+   likely a double count.** V64's "Install Interior Door, Frame & HW" here (425 EA at
+   $225) and item 9's "Install & Trim Interior Wood Door" (406 EA at $175) describe
+   overlapping work on the same job. A finish carpenter hangs the slab, sets the hardware,
+   and trims the casing as one visit in real practice, not as two separate subcontracts.
+   This line most likely exists twice because ProEst's own cost code library carries a
+   Division 06 and a Division 09 default for door install, and both got populated. Door
+   install and trim now lives only in item 9's Interior Door Install and Trim container.
 6. **Wood Blocking and Miscellaneous Carpentry.** Required, small. JF only, $9,776.
 
 **Flag:** shares Flag M4 with item 8 — this is the fourth division (09) that

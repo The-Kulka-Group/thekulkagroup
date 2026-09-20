@@ -1568,6 +1568,22 @@ machine room instead of a small ground-level one, a real construction cost on it
 8, and 13 that none of them currently name as its own line. An elevator pit below the
 sewer invert also needs a sewage ejector and sump, item 28's Specialties container,
 closed there rather than duplicated as a container of this item.
+
+**Fire alarm and sprinkler cross-checked against elevators (Matt, 2026-09-20), a real
+three-trade coordination point currently priced nowhere.** NFPA 13 requires sprinklers
+in the elevator machine room and at the top of the hoistway, but ASME A17.1 requires
+elevator power to shut off before that sprinkler discharges. A dedicated heat detector,
+more sensitive than the sprinkler head and distinct from it, sits within 24 inches of
+each of those heads specifically to trip that shutoff first, sometimes with a short
+delay to let the car return to the designated floor before power actually cuts. Three
+separate items, three separate scopes, one physical requirement: item 27's Sprinkler
+Piping and Heads container needs the machine room and hoistway heads named, item 32's
+System Interfaces container needs the dedicated heat detector named as its own device,
+not folded into general Initiating Devices, and item 31's Elevator and Equipment Feeds
+container needs the shunt trip breaker itself. One real exception worth keeping:
+sprinkler heads in the pit are exempt from this requirement entirely if placed within 2
+feet of the pit floor, so this applies to the machine room and hoistway only, not the
+pit already covered by container 3 above.
 **Resolved (Matt, 2026-09-18): $41,000 per stop is the trade number to use**, from
 experience, superseding the file's varying rates. Assumed to be per stop, matching VA's
 per-stop granularity, not per whole elevator — flag for correction if per-elevator was
@@ -1618,7 +1634,9 @@ evidence and lean on real trade practice instead, flagged plainly.
 1. **Sprinkler Piping and Heads.** Required. The base wet-pipe coverage through units and
    common areas. Every dollar in every file sits here today, undifferentiated. Also
    picks up item 23's trash chute sprinkler heads at the top service opening and hopper,
-   per NFPA 13, already noted directly on LA-774.
+   per NFPA 13, already noted directly on LA-774. Also picks up the machine room and
+   hoistway heads required by NFPA 13, part of the shunt trip coordination detailed on
+   item 26, not the pit head already exempt from it there.
 2. **Water Supply, Backflow, and FDC.** Required. Per building. No file isolates it.
 3. **Standpipe System.** Required above a height threshold, derived from stories the
    same way elevator stops already are, rather than needing its own question.
@@ -1854,7 +1872,9 @@ just closed on items 27, 28, and 29.
    number in the whole item: 5 EA at $170 each.
 5. **Elevator and Equipment Feeds.** Required whenever the building has elevators. A
    breakout of Branch Power and Devices, not an add-on, the same shape as item 26's
-   elevator wiring cross-reference. No file isolates it.
+   elevator wiring cross-reference. No file isolates it. Also carries the shunt trip
+   breaker required by ASME A17.1 at any elevator with machine room or hoistway
+   sprinklers, detailed on item 26, its own dedicated device, not general wiring.
 6. **Emergency Generator.** Conditional, defaults to absent per the frequency-bar test
    that already excluded this from being a formal intake gate. Only VA prices one,
    $160,000 lump sum, a real scope difference rather than a pricing gap on the other
@@ -1960,7 +1980,11 @@ so every container below leans on trade practice rather than file data.
    door hold-opens. Elevator recall, sprinkler flow and tamper monitoring, magnetic door
    holders. A breakout of Notification Devices or Panel and Power Supply, the fire alarm
    sub wires and monitors these, but the device itself belongs to a different trade's
-   canonical item, the same shape as item 26's elevator cross-references.
+   canonical item, the same shape as item 26's elevator cross-references. Also carries
+   the dedicated heat detector required at each machine room and hoistway sprinkler head
+   to trip the shunt trip breaker before water discharges, detailed on item 26 — its own
+   device, more sensitive than the sprinkler itself, not the same thing as general
+   Initiating Devices above.
 6. **Testing, Inspection, and Commissioning.** Required. Per building. Final test, fire
    marshal witness, certification. Often its own line on a real quote even though no
    file here isolates it.

@@ -832,17 +832,41 @@ allowance/adjustment lump sum and a full fixture-by-fixture breakout. These are 
 same level of estimating grain and should not be blended into one rate without
 normalizing first.
 
+**Amended (Matt, 2026-09-19, during LA-720): same driver split as item 29.** Bath
+connections (lav, bathtub) price on fixture points; kitchen and appliance connections
+(sink, dishwasher, refrigerator) price on unit count. `canonical-work-items.md`'s
+plumbing container review folds this item's rough-in into the same per-fixture number
+as item 29's furnish-and-set cost, one all-in figure per fixture point, the way a
+plumber actually quotes it, rather than pricing rough-in and fixtures separately.
+
 ### 29. Plumbing fixtures
 
 **Sources:**
 - V64: "Kitchen Sink," "Kitchen Faucet," "Lav Sink," "Lav Faucet," "Standard Bathtub,"
-  "Hot Water Heater," "Standard Shower Kit" (r226–r232, code 22.04000).
+  "Standard Shower Kit" (r226, r227, r229–r232, code 22.04000).
 - VA: same fixture list plus "Residential Toilet" (r227–r233).
-- VR: same fixture list as V64 (r231–r237).
+- VR: same fixture list as V64 (r231, r232, r234–r237).
 - JF, WS, VG: no separate fixtures code — folded into item 28 at JF (see the flag above).
 
-**Unit/quantity signal:** EA, scaling with unit count (kitchen fixtures) or bathroom
-count (lav/tub/shower fixtures).
+**Unit/quantity signal:** EA, splitting cleanly along the Bathroom and Kitchen grouping
+already drawn in the plumbing container review — fixture points for toilet, lav, and
+tub-or-shower; unit count for kitchen sink and faucet, one kitchen per unit.
+
+**Amended (Matt, 2026-09-19, during LA-720): the driver for this item is fixture points
+for bath fixtures and unit count for kitchen fixtures, not one driver for the whole
+item.** Also corrected: V64 (r231) and VR (r236) both list "Hot Water Heater" under this
+item's own fixture code, but a water heater is plumbing equipment, not a fixture, and it
+is the per-unit fork of Water Heating, the container split out during the same review.
+This is in fact the real evidence behind that fork, one heater per unit at one EA each
+($187,500 and $88,500), and it should be re-homed to Water Heating on import rather than
+counted inside this item's own fixture benchmark.
+
+**A second finding worth carrying into the Water Heating gate: VA has no Hot Water
+Heater line anywhere in its Plumbing Fixtures list** (r227–r233, seven other fixtures,
+no heater), unlike V64 and VR, which both price one per unit. That is plausible real
+evidence VA used a central plant rather than per-unit heaters, on a job roughly twice
+V64 and VR's scale by most other line items. Worth checking directly rather than assumed,
+but it is the first concrete lead either side of that gate has had.
 
 ---
 

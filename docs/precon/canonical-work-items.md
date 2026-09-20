@@ -380,6 +380,28 @@ not counted as real scope, or they will double the CMU total if summed naively.
 **Closed:** role `takeoff_helper` per CONTEXT.md's existing line-role taxonomy. No new
 decision needed, the convention already covers this case.
 
+**Steel Lintels Over Masonry Openings, added (Matt, 2026-09-20), checked against NCMA
+trade practice before proposing.** Every door, window, and mechanical louver opening in
+a CMU wall needs something to carry the block above it, a steel angle lintel on most
+openings, a precast or reinforced CMU bond-beam lintel on wider spans. This is standard
+masonry-trade scope, priced and installed by the mason, not the steel fabricator in item
+7 or the door and window trades in items 15 and 16a. None of the six files isolate a
+lintel line anywhere; on the two jobs with real CMU evidence (JF, VA) it most likely
+sits buried inside the blended per-BLOCK or per-SF rate above, unconfirmed either way.
+
+**Stair and Elevator Shaft Wall Construction, added (Matt, 2026-09-20), the real gap
+Matt flagged reviewing this item.** JF's and VA's "Fire Separation Wall" and "2hr rated
+CMU" lines above are filed as one undifferentiated wall-area quantity, with no way to
+tell how much of that area is actually the rated shaft enclosure around a stair or
+elevator versus a corridor or unit demising wall priced at the same 2-hour rating. CMU
+is one real way to build that shaft; the other, at least as common at this scale of
+building, is a lightweight gypsum shaft wall system, shaft liner panel in a steel-stud
+track, built by the drywall sub rather than the mason, and neither item 17 nor anywhere
+else on this list prices that alternative today. This needs the same kind of
+construction-method gate already used elsewhere in `rom-spec.md` (Roof Type, Structure
+Type), CMU shaft versus gypsum shaft wall, before either side of it can be benchmarked,
+and right now it can't even be told apart from the rest of this item's number.
+
 ### 6. Brick and masonry veneer
 
 **Sources:**
@@ -446,6 +468,28 @@ railing posts land on a concrete-filled tread from item 2, the anchor method, em
 sleeve versus surface-mounted base plate, is a real coordination point between this
 trade and Concrete, detailed on item 2. Neither method is priced or specified in any
 file.
+
+### 7a. Structural steel framing
+
+**Added (Matt, 2026-09-20).** None of the six source jobs is steel-framed, wood framing
+over a concrete or precast podium, per items 4 and 8, covers all six, so this item has
+zero evidence and zero dollars behind it today. It belongs on the list anyway:
+`rom-spec.md`'s own Structure Type gate already offers steel-framed as a real answer,
+the same gate that decides continuous insulation and the IBC combustible-height cap
+elsewhere in this file, and until this item exists there's nowhere for a steel-framed
+answer to actually price. Columns, beams, steel deck, and the connections between them,
+distinct from the light-gauge cold-formed metal framing already priced in item 17, which
+is non-structural stud and track, not a building's primary frame.
+
+**Unit/quantity signal:** proposed at tonnage (TN) or building gross square feet once a
+benchmark exists. No file gives a signal either way.
+
+1. **Structural Steel Erection.** Conditional on Structure Type = steel-framed. Columns,
+   beams, girders, steel deck, and connections. Zero evidence in any file.
+2. **Fireproofing.** Required whenever container 1 applies. Spray-applied or intumescent
+   fireproofing on structural steel to meet its required fire-resistance rating, a
+   distinct trade from the steel erection itself and easy to leave out of a first-pass
+   steel number. Zero evidence in any file.
 
 ---
 
@@ -1002,6 +1046,17 @@ at a real premium, the industry drawing exactly this line already.
 
 1. **Hollow Metal Frames and Doors.** Required. Rated openings, mechanical and utility
    rooms.
+
+   **Scope boundary, added (Matt, 2026-09-20), the point Matt raised reviewing this
+   item.** Where the opening lands in a CMU wall rather than a framed one, the frame is
+   still furnished through this item's channel, but a punched-and-dimpled
+   masonry-application frame is set and braced by the mason as the block coursing goes
+   up around it, anchored into the mortar joints at each course, not installed into a
+   finished rough opening by this item's door and hardware installer the way a
+   framed-wall opening works. That installation labor is item 5's masonry scope, not
+   this item's, wherever the wall type is CMU. No file separates furnish from install
+   cleanly enough to isolate this today, so it can't be split out as its own dollar
+   figure yet, only flagged as the real trade boundary.
 2. **Interior Wood Doors and Frames.** Required. Unrated, standard within-unit doors.
 3. **Entry Doors, Unit to Corridor.** Required, code-rated. A 20-minute fire-rated
    assembly by code, already priced as its own subtype in every file that separates door
@@ -1066,6 +1121,13 @@ apparently do not.
 - No other file has this line.
 
 **Unit/quantity signal:** EA, scaling with garage-bay count.
+
+**Loading Dock Equipment, added (Matt, 2026-09-20), checked before proposing rather than
+assumed.** Conditional, and probably the exception rather than the rule on a typical
+multifamily podium building, a leasing office or ground-floor retail component with real
+delivery volume is the realistic trigger, not every job. Dock leveler, bumpers, and a
+dock seal, distinct from the overhead door above, which this item already prices. Zero
+evidence in any file, consistent with none of the six jobs actually needing it.
 
 ### 16. Arch. Metal & Glass
 
@@ -1246,6 +1308,14 @@ Carpentry" lump sum on top of those. That number most likely stands in for the m
 wall install plus general rough carpentry that V64 and VA itemize separately, not a
 duplicate of the lines already listed above it — worth confirming before treating JF's
 total as comparable to the other two files' itemized approach.
+
+**Gypsum Shaft Wall System, added (Matt, 2026-09-20), the other half of item 5's new
+Stair and Elevator Shaft Wall Construction finding.** A lightweight alternative to CMU
+for a stair or elevator shaft enclosure: shaft liner panel set in a steel-stud track,
+built by this item's drywall sub rather than the mason. Neither this container nor item
+5's carries a real number yet; the two need the same construction-method gate before
+either one can be benchmarked, CMU versus gypsum shaft wall, not priced twice as if a
+job does both. Zero evidence in any file.
 
 ### 18. Tile and stone
 
@@ -1448,7 +1518,9 @@ ADA/FHA signage rules before proposing.**
 2. **Signage.** Likely missing, the strongest finding here. Tactile unit ID and ADA
    accessible-route signage, legally required on every job regardless of size or product
    type, unlike most other findings in this review this one has no real-world exception.
-   Zero evidence across all six files.
+   Zero evidence across all six files. Code-required life-safety and accessibility
+   signage only, narrowed (Matt, 2026-09-20) now that container 10 below covers the
+   marketing and wayfinding side of signage as its own, non-code-driven scope.
 3. **Fire Protection Specialties.** Required by code — NFPA 10 mandates extinguisher
    cabinets at set corridor intervals. Only Villa prices this, and Villa is already the
    file whose wall-area pricing is weighted low elsewhere in this list. Five of six jobs
@@ -1464,6 +1536,12 @@ ADA/FHA signage rules before proposing.**
    dedicated room with wall-mounted or floor-anchored racks. Zero evidence in any file.
    Outdoor surface bike racks are a different thing, site furnishings at the same level
    as benches and trash receptacles at grade, and belong with the site items, not here.
+10. **Wayfinding and Building Identification Signage, added (Matt, 2026-09-20).**
+    Distinct from container 2 above: a monument or building-identification sign, interior
+    wayfinding and directory signage, leasing office signage. Not code-driven, a real
+    line on essentially every developer's budget regardless, and easy to lose once it's
+    lumped in with the ADA signage container above rather than kept separate. Zero
+    evidence in any file.
 
 ### 22. Residential appliances
 
@@ -1664,6 +1742,15 @@ amenities.** Dog parks, pet washing or spa stations, waste stations, synthetic t
 Common and growing enough in multifamily to deserve its own container set and its own
 look at real cost drivers rather than folding it into Site Furnishings as an afterthought.
 Likely gated by the same Amenity Scope gate once scoped.
+
+**Flagged for a future pass, not resolved here (Matt, 2026-09-20): roof-deck amenity as
+an alternate to grade-level.** A tighter Long Island infill site that can't fit a real
+courtyard sometimes moves the pool, fitness, or lounge program to the roof instead. Same
+Amenity Scope gate, but a real structural and waterproofing cost this item doesn't carry
+today, on top of the roofing containers already priced in item 13: a heavier structural
+deck to carry amenity live loads, and a pedestrian traffic-rated roof membrane instead of
+a standard low-slope one. Zero evidence in any file, all six jobs use grade-level
+amenity space.
 
 ---
 
@@ -2167,6 +2254,13 @@ number. Emergency Responder Radio Coverage did clear the bar and is split out be
 item 32a, next to Fire Alarm rather than here, because it is licensed, code-triggered
 life-safety work, not a spec preference.
 
+**Telecom/IT Room Build-Out, added (Matt, 2026-09-20).** The room itself, not the
+cabling already priced above: backboards, bonding and grounding per the telecom
+industry's own grounding standard, dedicated power, and often dedicated cooling once
+network equipment density in the room warrants it. Real construction scope, plywood
+backboard and conduit sleeves land on item 17 or item 5 depending on wall type, that
+today has no container anywhere on this list to collect it. Zero evidence in any file.
+
 ### 31b. Lighting fixtures, furnish only
 
 Split from item 31 (Matt, 2026-09-19), on the reasoning that furnish and install are
@@ -2185,6 +2279,59 @@ No signal today.
 **Flag:** this item exists because it matches how the trade actually buys the work, not
 because Kulka's data proves it yet. Its first few benchmark numbers should be treated as
 unconfirmed until a real job's buyout shows the furnish and install numbers separately.
+
+### 31c. Site and exterior lighting
+
+**Added (Matt, 2026-09-20).** Parking lot pole lights, walkway and bollard lighting,
+building-mounted exterior fixtures, and their circuits. Distinct from item 31's Branch
+Power, which is building-interior only, and not covered by anything in Division 32's
+sitework items either, paving and drainage are priced there, lighting never is. Zero
+evidence in any file, a real subcontract on essentially every job with surface parking
+or a site beyond the building footprint.
+
+**Unit/quantity signal:** proposed at EA per pole/fixture or LF of site perimeter, once a
+benchmark exists. No file gives a signal.
+
+### 31d. EV charging infrastructure
+
+**Added (Matt, 2026-09-20), checked against the current New York State mandate before
+proposing, not assumed.** New York's EV-ready building code, folded into the 2025
+Uniform Fire Prevention and Building Code update effective 2026-12-31, requires new
+multifamily construction with off-street parking to deliver a real share of spaces
+EV-capable and a smaller share with an actual Level 2 charger installed; NYSERDA's own
+EV-ready guidance cites 20 percent installed and 60 percent capable as the working
+figures. The exact percentage and how it's measured is a jurisdiction question, the same
+kind of fact LA-771 already exists to resolve by project address, not something to
+hard-code here. What's certain regardless of the exact number: this is code-driven scope
+on new construction with parking, not an owner amenity choice, and it prices nowhere
+today. Zero evidence in any file, none of the six jobs price it.
+
+1. **Make-Ready Infrastructure.** Required wherever the jurisdiction's EV-ready
+   percentage applies. Conduit, panel capacity, and junction boxes at each EV-capable
+   stall, sized for a future charger even where one isn't installed on day one.
+2. **Level 2 Charging Equipment.** Required at the smaller, actually-installed share.
+   The charger itself and its final connection, on top of the make-ready infrastructure
+   above.
+
+### 31e. Solar-ready provisions
+
+**Added (Matt, 2026-09-20), checked against the current New York energy code before
+proposing.** The 2025 energy code's solar-ready roof requirement, effective 2026-12-31,
+is clearly written for one- and two-family homes and townhouses; multifamily's own scope
+under NYStretch's broader solar-ready-zone language is less settled from a general
+search, a real jurisdiction question that belongs with LA-771 rather than a guess here.
+What's asked for where it applies is a designated roof or site area with structural and
+electrical capacity for a future system, not an installed array, a "ready" provision,
+not a build. Zero evidence in any file, and worth keeping distinct from an actual
+installed photovoltaic system, which is an owner or design choice with its own real
+cost, not a code minimum.
+
+1. **Solar-Ready Roof Area and Structural Allowance.** Conditional on jurisdiction.
+   Reserved, unobstructed roof area plus the structural capacity to carry a future
+   array, coordinated with item 13's roofing containers rather than duplicating them.
+2. **Solar-Ready Electrical Provisions.** Conditional on jurisdiction. Conduit stub-ups
+   and reserved panel capacity for a future interconnection, distinct from container 1's
+   structural side.
 
 ---
 
@@ -2494,6 +2641,22 @@ valve controlling that main into the building needs its own concrete footing wit
 restraining rods. Both belong here, on the Fire Line container above, not on item 2's
 foundation work, since this concrete sits along the underground main's route, not at
 the building itself.
+
+**Electric Utility Service, added (Matt, 2026-09-20), the site-electrical gap Matt
+flagged.** Distinct from this item's own Dry Utility Trenching above, which is the GC's
+conduit trench only, and from item 31's Service and Distribution, which starts at the
+building's own switchgear. This is what sits between the two: the utility's transformer
+pad or vault, the primary duct bank from the utility's point of connection to that
+transformer, and the utility company's own connection charges, a real, often
+six-figure cost on a job with underground primary service, and currently priced on none
+of the six files.
+
+**Gas Utility Service, added (Matt, 2026-09-20), same gap, second utility.** A gas main
+extension and meter bank from the utility's connection point to the building, distinct
+from any interior gas piping and distribution, which has no container anywhere on this
+list either and depends on whether the building's domestic hot water or any other system
+is gas-fired at all, itself an unanswered question in every file. Zero evidence of
+either in any file.
 
 ### 37. Site grading, topsoil, and landscaping/irrigation
 

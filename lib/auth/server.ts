@@ -5,6 +5,13 @@ import type { User } from "@supabase/supabase-js";
 import { allowedEmailsFrom, authConfiguration, verifiedAllowedEmail } from "./policy";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+// This checks who is signed in, not what they're allowed to touch. There is
+// no project-membership or ownership concept anywhere in this codebase: any
+// allowlisted user can act on any project id. Deliberate (Matt, 2026-09-20,
+// during LA-15's code review): the allowlist is small and internal at this
+// stage, so per-project scoping isn't worth the complexity yet. If the user
+// base grows past a small internal allowlist, this is the place a real
+// project-membership check belongs.
 export type AuthorizedUser = { id: string; email: string };
 export type Authorization =
   | { ok: true; user: AuthorizedUser }

@@ -606,6 +606,16 @@ water entry points into the band joist behind it. This is a distinct scope from 
 walking-surface membrane above and item 8's structural framing connection, its own
 flashing detail at the ledger-to-wall joint. Zero evidence in any file.
 
+**Guardrail Post Penetration Waterproofing, added (Matt, 2026-09-20), and named in the
+research as the single most common balcony leak point, more often the cause than the
+field membrane itself.** Every guardrail post bolted through the deck surface creates a
+hole in the waterproofing membrane, one for each post along the railing, and each one is
+a potential leak path into the structural framing below unless it's sealed with membrane
+and sealant at the base, or better, mounted to a base plate set during construction so
+the membrane terminates around the anchor rather than being penetrated by it. A real,
+distinct detail from the field membrane and the ledger flashing above, not the same
+scope repeated. Zero evidence in any file.
+
 ---
 
 ## Division 07 — Thermal and Moisture Protection

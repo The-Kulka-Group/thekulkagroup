@@ -580,6 +580,16 @@ beneath the decking surface, and balcony waterproofing failure is one of the mos
 common sources of construction defect litigation in multifamily. None of the decking
 lines above, Trex, wood decking, railings, mention a membrane component underneath.
 
+**Ledger Flashing, checked against deck ledger failure research and added separately
+(Matt, 2026-09-20) because it's more serious than the membrane above, not a duplicate
+of it.** Wherever a balcony attaches to the building structure with a ledger board, the
+American Wood Council's own construction guide, DCA 6, names the ledger connection as
+one of the most common points of deck structural failure in the country, and a properly
+bolted ledger still rots without flashing, because the fastener holes themselves become
+water entry points into the band joist behind it. This is a distinct scope from both the
+walking-surface membrane above and item 8's structural framing connection, its own
+flashing detail at the ledger-to-wall joint. Zero evidence in any file.
+
 ---
 
 ## Division 07 — Thermal and Moisture Protection

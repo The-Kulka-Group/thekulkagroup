@@ -1605,6 +1605,26 @@ Until enough closed jobs are tagged by known system type, all three gate answers
 off this same blended rate, flagged low confidence, rather than three invented numbers
 with no evidence behind any of them.
 
+**Containers (Matt, 2026-09-20), finally written in.** Sketched in chat during the
+original HVAC review but never actually committed here until now, the same gap just
+closed on items 27, 28, 29, 31, and 32. VA's louver line is the only real number in the
+whole item; every other container leans on trade practice, not file data.
+
+1. **In-Unit Equipment.** Required. The condensing unit, heat pump, or PTAC itself, per
+   unit. No file isolates it; all four price it inside one blended allowance.
+2. **Distribution.** Required. Ductwork and refrigerant piping, or hydronic piping if the
+   system is central. No file isolates it either.
+3. **Ventilation and Louvers.** Required. Outside air intake and exhaust. The only
+   container with a real number: VA, 18 units at $2,500 each.
+4. **Controls.** Required. Thermostats, and a building management system if the plant
+   is central.
+5. **Common Area and Amenity HVAC.** Conditional, reuses the Amenity Scope gate.
+   Clubhouse, gym, corridors, and lobby need their own systems, separate from unit
+   equipment.
+6. **Central Plant Equipment.** Conditional, gated by HVAC System Type above. Chillers,
+   boilers, cooling towers. Only real if the building uses a central system rather than
+   per-unit equipment.
+
 ---
 
 ## Division 26 — Electrical

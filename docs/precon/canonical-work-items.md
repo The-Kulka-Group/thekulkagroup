@@ -224,6 +224,18 @@ item 3a, stays its own item, not a container here.
    Stairs" line under item 7 (r39, $6,500 EA) doesn't say whether infill is included — a
    real double-count or undercount risk sitting in the data right now, worth checking the
    first time a real quote comes in for either line.
+7. **Construction Joint Waterstops.** Likely missing, added (Matt, 2026-09-20). Any
+   below-grade or podium concrete pour done in stages needs a waterstop, a PVC or rubber
+   strip embedded across the joint, to stop water migrating through the cold joint
+   itself, distinct from the wall's exterior waterproofing membrane in container 4,
+   since that membrane doesn't reach the interior of a joint the wall was poured in two
+   pieces around. Zero evidence anywhere.
+8. **Foundation Wall Pipe Penetration Seals.** Likely missing. Every sanitary, water, or
+   electrical conduit that passes through a foundation wall needs its own seal, typically
+   a mechanical wall sleeve and link seal, at the exact point the pipe crosses the
+   waterproofing plane. A distinct, small detail from both the wall's general membrane
+   and item 36's manhole and pipe joint sealing, which is the site side of the same
+   pipe run, not the building wall side. Zero evidence anywhere.
 
 ### 3. Elevated slabs and podium deck
 
@@ -343,6 +355,16 @@ docs already track.
 **Closed:** finding stands as documentation, added to the drift list. No decision is
 pending on it, since the canonical item mapping (item 6) already reads past the code
 name to the description.
+
+**Through-Wall Flashing and Weep Holes, added (Matt, 2026-09-20), checked against
+brick veneer code requirements before proposing.** Code requires flashing at the base
+of every brick veneer wall, above and below every opening, at shelf angles and lintels,
+at the tops of walls, and beneath coping, paired with weep holes spaced every 24 inches
+directly above each flashing line. The air gap behind the brick, the flashing, and the
+weep holes have to all work together, and a documented, subtle, common defect is
+installing the weeps one or two courses above the flashing rather than right at it,
+which defeats the whole system even though every component is technically present.
+None of the three files with real brick veneer evidence mention any of it.
 
 ---
 
@@ -919,7 +941,11 @@ missing entirely before this pass.
 1. **Aluminum Entrance Doors.** Required wherever the building has a storefront-style
    entry rather than a standard swinging door. V64: 16 EA total, $40,000.
 2. **Storefront and Curtain Wall Glazing.** Required. Priced by square foot of glazed
-   area, a different driver from the door container above it.
+   area, a different driver from the door container above it. Likely missing within it,
+   added (Matt, 2026-09-20): the weep and drainage system at the sill and glazing
+   pockets, a real, distinct detail from the punched-window flashing sequence in item
+   14, since a storefront system manages water inside its own frame rather than relying
+   on the wall's weather barrier. Zero evidence in any file.
 3. **Shower Enclosures.** Required. All three files that price this land on the
    identical $2,250 per unit rate, the second item after Wood Flooring where every
    source agrees on the same number.

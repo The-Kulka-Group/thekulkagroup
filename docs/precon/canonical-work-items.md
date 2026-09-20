@@ -1956,6 +1956,17 @@ that answers it from the project's own code jurisdiction.
 **Unit/quantity signal:** LF for silt fence (scales with site perimeter), EA for inlet
 protection and construction entrance (scales with count of site entrances/inlets).
 
+**Containers added (Matt, 2026-09-20), checked against SWPPP/NPDES requirements before
+proposing.**
+
+1. **Perimeter Silt Fence and Inlet Protection.** Required. Real evidence in three files.
+2. **Construction Entrance.** Required. Real evidence in three files.
+3. **Concrete Washout Area.** Likely missing. NPDES/SWPPP requires a designated
+   containment area so trucks don't wash out directly onto soil. Zero evidence in any
+   file.
+4. **Stockpile Erosion Control.** Likely missing. Silt sock or fence around soil
+   stockpiles during construction, standard SWPPP scope. Zero evidence in any file.
+
 ### 34. Excavation, backfill, foundation prep, and deep foundations
 
 **Sources:**
@@ -1984,6 +1995,15 @@ other figure.
 nets to its final stated line, the same pattern as the CMU and elevator add/deduct pairs
 in items 5 and 26 — the first two lines role-flag as superseded, the third stands.
 
+**Containers added (Matt, 2026-09-20).** Rock Excavation, conditional on site condition,
+not currently covered by the Site Conditions gate at all — that gate today covers only
+groundwater and poor soils, rock is explicitly excluded, worth reconsidering given this
+is a real and sometimes expensive condition. Dewatering, conditional, gated by the same
+Site Conditions groundwater answer already in the intake, well points and pumping when
+excavation hits water table — real gate, zero evidence connecting to it in any file.
+Contaminated or Excess Soil Export/Import, likely missing, a real and sometimes large
+cost especially relevant on Long Island sites, zero evidence in any file.
+
 ### 35. Site drainage and stormwater
 
 **Sources:**
@@ -2005,6 +2025,20 @@ per-project allowance, not a clean quantity in most files.
 
 **Flag:** confirmed defect, do not import West Shore's r74 as a real per-LF rate — role
 it as a data-entry error, not scope, when it reaches `budget_lines`.
+
+**Containers added (Matt, 2026-09-20), checked against site development stormwater
+practice before proposing.**
+
+1. **Storm Drain Piping and Structures.** Required. JF's real pipe-and-manhole detail.
+2. **Detention or Retention Storage.** Likely missing, and the strongest finding in this
+   whole sitework pass. Zero evidence in any of the six files. Detention or retention
+   storage commonly consumes 15 to 20 percent of a site's buildable area and runs
+   $50,000 to well over $200,000 on a project this size — standard scope on virtually
+   every site development project subject to stormwater regulation, not an edge case.
+   Its total absence across every file is a real gap, not a sign these jobs didn't need
+   it.
+3. **Stormwater Quality Structures.** Likely missing. Oil/water separators for parking
+   lot runoff, code-required in many jurisdictions. Zero evidence in any file.
 
 ### 36. Sanitary sewer, water service, and site utilities
 
@@ -2053,6 +2087,15 @@ sanitary system, a real code-driven requirement, not an upgrade. Most likely bun
 into the LS/ALLW lump sums above rather than genuinely absent, but no file separates it
 out, so it can't be confirmed either way.
 
+**Two more containers added (Matt, 2026-09-20).** Dry Utility Trenching, likely missing
+and a genuinely distinct scope from everything else on this item: conduit for electric,
+gas, and telecom is the GC's trenching scope, with the utility company only pulling
+cable through after, confirmed as standard practice, not a Kulka-specific choice. Zero
+evidence in any file — every source line on this item covers sanitary or domestic water
+only. Fire Line or Hydrant, likely missing, a water service specifically for fire
+protection, distinct from the domestic water service already priced, tying to item 27's
+Water Supply, Backflow, and FDC container.
+
 ### 37. Site grading, topsoil, and landscaping/irrigation
 
 **Sources:**
@@ -2079,6 +2122,11 @@ consistent across files, consistent with `rom-system-design.md`'s general note t
 **Closed:** added to the drift list as a fourth confirmed instance. No decision pending;
 the canonical item mapping already reads past the division code to the description.
 
+**Containers added (Matt, 2026-09-20).** Erosion Control Blankets on Slopes, likely
+missing, distinct from item 33's perimeter silt fence, a slope-stabilization matting
+product. Tree Protection Fencing, conditional on existing trees required to remain, a
+common code requirement during construction. Zero evidence for either in any file.
+
 ---
 
 ## Division 32 — Exterior Improvements
@@ -2098,6 +2146,11 @@ the canonical item mapping already reads past the division code to the descripti
 
 **Unit/quantity signal:** CY for base course, TN for wearing course (both scale with
 paved area and thickness), LS for striping/paving subcontracts.
+
+**Containers added (Matt, 2026-09-20).** ADA Accessible Route Striping and Signage,
+likely missing, code-required and distinct from the general striping already priced.
+Wheel Stops, likely missing, standard in surface parking areas. Zero evidence for either
+in any file.
 
 ### 39. Site concrete, hardscape, and retaining structures
 
@@ -2128,6 +2181,14 @@ wall holds back soil on one face and needs a dampproof or waterproof coating on 
 backfill side, the same logic as item 2's foundation waterproofing, to keep water from
 migrating through the wall. West Shore's $456,304 retaining wall line doesn't mention
 one, and nothing else in this file prices it separately.
+
+**Retaining Wall Drainage, added (Matt, 2026-09-20), part of the same sitework pass.**
+Likely missing, and distinct from the waterproof coating above. Every retaining wall
+needs a drainage system, a French drain or weep holes behind the wall, to relieve
+hydrostatic pressure building up behind it — the same principle as item 2's footing
+drain at a foundation wall. Missing even on West Shore's real retaining wall line.
+**Retaining Wall Guardrail.** Conditional, code-required wherever a retaining wall
+creates a fall-hazard height differential. Zero evidence anywhere.
 
 **Permeable Pavement Recharge Bed, checked separately (Matt, 2026-09-20), since surface
 parking has no real membrane analog to a structured garage.** There's no waterproofing

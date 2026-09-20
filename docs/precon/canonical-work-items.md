@@ -124,6 +124,88 @@ No canonical work item below carries General Requirements cost, because no file 
 a separable number. This is the same import problem the design doc already names; this
 draft just confirms it against the source files rather than re-deriving it.
 
+## Quantity drivers (LA-720)
+
+Decided 2026-09-20. One driver per item, following the same rule that already held for
+parking (LA-682) and unit-to-GSF (LA-678): the single quantity it scales with when a
+project's basics change after first pass, checked against the six files rather than
+assumed. Full rationale sits with each item below, under its own "Quantity driver" line.
+Three items, 7, 9, and 21, carry one dominant driver at the item level with a real second
+unit inside a named sub-container, noted there rather than split at the item level, the
+same treatment already applied to fire sprinkler's standpipe and fire pump containers.
+Two items, 28 and 29, are genuine two-way splits, plumbing's bath-versus-kitchen fork,
+decided by Matt on 2026-09-19 before this pass and carried forward unchanged here.
+
+| # | Item | Driver |
+| --- | --- | --- |
+| 1 | Demolition | Fixed lump sum |
+| 2 | Foundations, footings, slab-on-grade | Gross square feet |
+| 3 | Elevated slabs and podium deck | Gross square feet |
+| 3a | Gypcrete topping | Gross square feet |
+| 4 | Precast concrete structure | Gross square feet |
+| 5 | CMU / concrete block walls | SF of rated wall area |
+| 6 | Brick and masonry veneer | SF of veneer area |
+| 7 | Structural and misc. metals | LF of railing/guardrail run |
+| 7a | Structural steel framing | Gross square feet |
+| 8 | Shell framing — wood structure | Gross square feet |
+| 8a | Wood stairs and railings | EA, stair count per building |
+| 9 | Finish carpentry | Unit count (door install) / LF (trim) |
+| 10 | Millwork and closet interiors | LF of closet/cabinet run |
+| 11 | Decking, exterior stairs, balcony rail | SF of deck/balcony area |
+| 12 | Building insulation | Gross square feet |
+| 13 | Roofing, gutters, roof pavers | Gross square feet |
+| 14 | Siding and exterior wall cladding | Gross square feet |
+| 14a | Firestopping | EA per rated-wall/floor penetration |
+| 15 | Doors, frames, and hardware | Unit count |
+| 15a | Garage and overhead doors | EA, garage-bay count |
+| 16 | Arch. Metal & Glass | SF of storefront/curtain wall glazing |
+| 16a | Residential windows | EA, window opening count |
+| 17 | Drywall, framing install, ceilings | Gross square feet |
+| 18 | Tile and stone | Bathroom count |
+| 19 | Flooring — resilient and carpet | Gross square feet |
+| 19a | Wood flooring | Gross square feet |
+| 20 | Painting | Gross square feet |
+| 21 | Specialties | Bathroom count |
+| 22 | Residential appliances | Unit count |
+| 23 | Trash compactors and chutes | EA per building |
+| 24 | Cabinetry | Unit count |
+| 24a | Countertops | SF of countertop area |
+| 24b | Window treatments | Unit count |
+| 25 | Amenity special construction | Fixed lump sum |
+| 26 | Elevators | Per stop |
+| 27 | Fire sprinkler system | Gross square feet |
+| 28 | Plumbing rough-in and piping | Bathroom count / unit count, split |
+| 29 | Plumbing fixtures | Bathroom count / unit count, split |
+| 30 | HVAC system | Gross square feet |
+| 31 | Electrical system | Gross square feet |
+| 31a | Low voltage | Gross square feet |
+| 31b | Lighting fixtures, furnish only | Unit count |
+| 31c | Site and exterior lighting | EA per pole/fixture |
+| 31d | EV charging infrastructure | EA per EV-capable stall |
+| 31e | Solar-ready provisions | Gross square feet |
+| 32 | Fire alarm and nurse call | Gross square feet |
+| 32a | Emergency responder radio coverage | Gross square feet |
+| 33 | Erosion and sedimentation control | LF of site perimeter |
+| 34 | Excavation, backfill, deep foundations | CY of excavated volume |
+| 35 | Site drainage and stormwater | Fixed lump sum |
+| 36 | Sanitary sewer, water, site utilities | Fixed lump sum |
+| 37 | Site grading, topsoil, landscaping | SF of disturbed site area |
+| 38 | Paving and base courses | SF of paved area |
+| 39 | Site concrete, hardscape, retaining | SF of hardscape/paver area |
+
+Six drivers, demolition (1), amenity special construction (25), site drainage (35),
+sanitary/water/site utilities (36), plus 28 and 29's non-GSF halves, are deliberately not
+gross square feet even though GSF is the ROM's best-populated intake fact, because the
+evidence says the real cost doesn't move with building size: demolition and the two site
+utility items are dominated by flat LS/ALLW lines across every file that prices them,
+existing-site and utility-run conditions, not the new building, and amenity space is a
+program choice, not an area ratio, the same reasoning already settled for it on
+2026-09-18. Twenty-three drivers are measured quantities, LF, SF-of-a-named-surface, CY,
+EA, per stop, rather than GSF or unit count directly, because that's the real quantity a
+trade quotes against; each converts to GSF or unit count only through a further benchmark
+ratio (a wall-area-to-GSF ratio, a stalls-to-unit-count ratio) that is a benchmark-quality
+question, not a driver-identity one, and stays open rather than assumed here.
+
 ---
 
 ## Division 02 — Existing Conditions
@@ -150,6 +232,12 @@ building demolition separately with a real quantity.
 **Unit/quantity signal:** mostly LS (one number for the whole job); JF is the only file
 with a real quantity (CF, building volume). VA's asphalt-removal line scales with SF of
 existing pavement. Clearing scales with site ACRE.
+
+**Quantity driver (LA-720, 2026-09-20): fixed lump sum.** Five of six files price this as
+one flat number regardless of building size; JF's real CF quantity is specific to the one
+existing structure being removed on that site, not a ratio the new building's own GSF
+predicts. What has to come down depends on what's already on the site, not on what gets
+built there.
 
 **Flags:**
 - Code drift confirmed exactly as `rom-system-design.md` names it: demolition lands at
@@ -181,6 +269,12 @@ existing pavement. Clearing scales with site ACRE.
 foundation/slab volume. VA is the one file that prices this as two lump sums instead —
 worth asking whether VA's LS figures were ever broken into a CY-equivalent rate for
 comparison.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** CY is the real trade
+quantity on four of five files, but CY isn't a fact the ROM's own intake captures, GSF
+is; concrete volume converts from GSF through a footprint-and-depth benchmark ratio, the
+same shape as container 2's own Slab-on-Grade fact, already gated off Parking Type rather
+than asked outright.
 
 **Containers (Matt, 2026-09-20).** Items 2 and 3 together make up one subcontractor's
 scope, cast-in-place concrete start to finish, priced through six containers. Gypcrete,
@@ -295,6 +389,11 @@ item 3a, stays its own item, not a container here.
 
 **Unit/quantity signal:** SF at JF, scaling with deck area; LS at VA.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on Parking Type =
+structured or underground.** JF prices this directly at a $/SF deck rate; VA's LS figure
+is a real quantity note, "12" avg assumed," describing slab thickness over a known deck
+area, not evidence against GSF as the driver.
+
 **Resolved (Matt, 2026-09-18): the deck pour is concrete's scope, gypcrete is not.**
 Gypcrete is bought out as its own separate subcontract, not part of concrete and not part
 of framing. It no longer belongs in this canonical item; see item 3a below, split out on
@@ -338,6 +437,10 @@ concrete deck pour or the framing package.
 
 **Unit/quantity signal:** SF, scaling with floor area receiving the topping.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on Structure Type
+= wood-framed.** JF's rate is a direct $/SF figure; the item's own note below already
+ties presence of this scope to Structure Type, not to a separate quantity question.
+
 **Note (Matt, 2026-09-20): kept as its own item, not folded into Concrete's containers.**
 Likely derivable from Structure Type rather than needing its own question — gypcrete is
 close to universal over wood-framed floors for sound separation between units, and close
@@ -351,6 +454,11 @@ to absent over concrete or steel structures. Unconfirmed against Kulka's own job
 - No other file has a precast concrete line.
 
 **Unit/quantity signal:** SF, scaling with building floor area, not facade area.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on Structure Type
+= precast.** West Shore's own rate is already a direct $/SF-of-floor-area figure, per the
+signal above, not a facade-area rate, so no conversion is needed beyond the structure
+type gate itself.
 
 **Resolved (Matt, 2026-09-18): this is structural, not facade cladding.** West Shore uses
 precast concrete slabs for the structure everywhere except the foundation, which is
@@ -377,6 +485,13 @@ stays its own canonical item rather than merging with item 8 or with any facade 
 - WS, VR, VG: no CMU line.
 
 **Unit/quantity signal:** BLOCK or SF depending on file, scaling with wall area.
+
+**Quantity driver (LA-720, 2026-09-20): SF of rated/CMU wall area, not gross square
+feet.** Wall area here depends on how many fire-separation and shaft walls a layout
+actually has, a function of corridor and unit-demising design, not building footprint
+alone, so it doesn't scale cleanly with GSF the way a floor-area item does. This is also
+exactly why the CMU-versus-gypsum-shaft-wall gate above matters: once it exists, this
+driver splits by construction method rather than staying one blended SF rate.
 
 **Flag:** VA's paired add/deduct lines (r20–r21) net to zero and exist only to isolate a
 sub-scope for internal takeoff purposes. They should be role-flagged `takeoff_helper`,
@@ -418,6 +533,11 @@ and right now it can't even be told apart from the rest of this item's number.
 
 **Unit/quantity signal:** SF, scaling with wall/elevation area.
 
+**Quantity driver (LA-720, 2026-09-20): SF of veneer/elevation area.** Which walls carry
+brick versus siding is a facade-design choice, not a fact GSF or unit count predicts,
+consistent with V64 and VA both pricing this per SF of actual veneer coverage rather than
+as a building-wide allowance.
+
 **Flag — new, not previously named in ADR 0004 or `rom-system-design.md`:** West Shore's
 brick veneer is new-construction cladding, not restoration work, but it is filed under a
 code whose own name says "Masonry Restoration." This is a code/description mismatch
@@ -455,6 +575,13 @@ None of the three files with real brick veneer evidence mention any of it.
 **Unit/quantity signal:** LF for railings (scales with balcony/deck perimeter), EA for
 stairs and canopies, one LS allowance at VA.
 
+**Quantity driver (LA-720, 2026-09-20): LF of railing/guardrail run.** The richest,
+most-consistent evidence across three files (V64, VA, VR all price the Juliet rail per
+LF), and this item's dominant real scope. Stair count (EA) and VA's misc. metals
+allowance (LS) stay real sub-container detail rather than a second item-level driver, the
+same treatment already applied to fire sprinkler's standpipe and fire pump containers
+under one blended item driver.
+
 **Flag:** see Flag M4 under item 8 — this item's boundary with the framing package below
 is not clean, because cold-formed metal panel/decking work is also priced under Division
 05 codes at JF. That work now lives in item 17, Drywall and Carpentry, per the 2026-09-20
@@ -487,6 +614,13 @@ is non-structural stud and track, not a building's primary frame.
 
 **Unit/quantity signal:** proposed at tonnage (TN) or building gross square feet once a
 benchmark exists. No file gives a signal either way.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on Structure Type
+= steel-framed.** Tonnage is the real trade-quote unit, but it converts to GSF through a
+$/TN-per-GSF ratio once a real benchmark exists, the same relationship item 8's own
+framing containers already have to GSF. Picking GSF here keeps this item consistent with
+items 4 and 8, its two structure-type alternatives, rather than tracking a different
+captured fact for the same structural-system fork.
 
 1. **Structural Steel Erection.** Conditional on Structure Type = steel-framed. Columns,
    beams, girders, steel deck, and connections. Zero evidence in any file.
@@ -528,6 +662,13 @@ framing — wood and cold-formed metal structure" to reflect the narrower scope.
 **Unit/quantity signal:** SF at V64's labor lines (per-wall/per-floor area); LF at V64's
 material takeoff granularity; one LS at VA (Davinci, all-in) and JF (Wood Trusses is SF,
 not LS — corrected).
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** V64's four labor containers
+each price a different surface, exterior wall SF, interior wall SF, floor SF, house wrap
+SF, but every one of them is a knowable ratio of GSF for a given Structure Type and unit
+mix, not a separately captured intake fact the way bathroom count or unit count are. GSF
+is the one real project basic all four containers ultimately convert from, so it stays
+the single item-level driver rather than four competing surface-area drivers.
 
 **Containers (Matt, 2026-09-20).** V64 is the most granular file in the whole draft here,
 labor split cleanly into four real scopes by square footage.
@@ -574,6 +715,11 @@ since a wood stair builder and a metal stair fabricator are different vendors en
 **Unit/quantity signal:** LS, one data point. Likely EA once more jobs are in, scaling
 with stair count per building rather than gross square feet.
 
+**Quantity driver (LA-720, 2026-09-20): EA, stair count per building.** One LS data point
+today, but a wood stair run is a discrete, counted assembly the way item 8a's metal
+counterpart (item 7) already is, not a quantity that scales continuously with GSF or
+unit count.
+
 ### 9. Finish carpentry — trim, casing, molding, interior door install
 
 **Sources:**
@@ -598,6 +744,14 @@ with stair count per building rather than gross square feet.
 
 **Unit/quantity signal:** mostly LF (moldings scale with perimeter of rooms/units), EA
 for door install/trim (scales with door count or unit count).
+
+**Quantity driver (LA-720, 2026-09-20): split, the same shape as items 28/29's plumbing
+fork.** Interior Door Install and Trim (container 1) on unit count, door count itself
+tracks unit count closely and V64's own EA evidence is priced per door, not per room.
+Window Stools, Base Molding, Door and Window Casing, and Crown Molding/Chair Rail
+(containers 2 through 5) on LF of room and unit perimeter, the real quantity every file
+prices these against. Both halves carry real, comparable dollar weight on the two files
+that separate them (V64, VA), not a token secondary driver.
 
 **Containers (Matt, 2026-09-20).**
 
@@ -655,6 +809,11 @@ different vendor and a different product entirely from a shelf and a rod.
 **Unit/quantity signal:** LF, scaling with cabinet run length or built-in closet system
 perimeter.
 
+**Quantity driver (LA-720, 2026-09-20): LF of closet/cabinet run, for containers 1
+through 3.** VA's own $350/LF closet-system rate is direct evidence. Container 4, Amenity
+Space Millwork General Allowance, is its own exception, already decided fixed lump sum
+below, the same basis as item 25.
+
 **Containers (Matt, 2026-09-20), reworked after checking against the AWI Architectural
 Woodwork Standards.** AWI's own standard splits this trade into named sections, casework,
 countertops, paneling, stairwork, and doors. Cross-checking that against what's already
@@ -707,6 +866,11 @@ total and from any per-LF cabinetry benchmark built from this file.
 
 **Unit/quantity signal:** SF for decking (scales with deck/balcony area), LF for railing
 (scales with balcony perimeter).
+
+**Quantity driver (LA-720, 2026-09-20): SF of deck/balcony area.** The dominant dollar
+evidence across every file, Trex and wood decking priced per SF. Railing LF is real,
+correlated sub-container detail, since railing run tracks deck perimeter once deck area
+and unit mix are known, not a competing item-level driver.
 
 **Resolved (checked against the source file, 2026-09-18): genuinely different scope, not
 the same balconies priced twice.** Three things confirm it. The quantities don't match
@@ -787,6 +951,12 @@ finding specific to balconies.
 
 **Unit/quantity signal:** SF, scaling with wall/roof/slab area.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** Both dominant containers,
+acoustic and thermal envelope, price against wall/roof/slab area driven by code minimums
+(STC 50, the energy code's prescriptive R-value table), and container 1 already states
+its quantity is "already known from item 17's wall board containers," itself a GSF-tied
+figure, not a separate captured fact.
+
 **Containers (Matt, 2026-09-20), checked against IECC compliance paths and IBC sound
 transmission requirements before proposing.** This item turns out to be two different
 code regimes sharing one line: acoustic insulation between units, driven by the sound
@@ -850,6 +1020,11 @@ read JF's $0 here as "no insulation was priced."
 
 **Unit/quantity signal:** SF, scaling with roof area.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet, gated by Roof Type for which
+container applies.** Roof area is a footprint-and-stories ratio of GSF, consistent with
+how every priced file quotes the shingle and membrane systems. Gutters (container 4) are
+real sub-container detail measured in LF of eave, not a competing driver.
+
 **Containers (Matt, 2026-09-20), checked against TPO system components before
 proposing.** A TPO or EPDM roof is never just field membrane; every penetration and wall
 termination needs its own flashing, and this item's existing sources show membrane,
@@ -908,6 +1083,10 @@ design doc cites are real, not hypothetical.
 
 **Unit/quantity signal:** SF (and LF for soffit trim), scaling with building envelope/
 elevation area.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** Field cladding, the
+dominant, richly evidenced container across four files, prices per SF of envelope area, a
+footprint-and-stories ratio of GSF.
 
 **Containers (Matt, 2026-09-20), checked against siding installation trade practice
 before proposing.** V64 and VA both use two to four different siding materials on the
@@ -978,6 +1157,12 @@ these six jobs didn't need it.
 **Unit/quantity signal:** none yet. Likely EA or LF per penetration, or a per-building
 allowance, whichever the first real quote actually tracks.
 
+**Quantity driver (LA-720, 2026-09-20): EA per rated-wall/floor penetration.** No
+benchmark exists yet, but the code basis itself, IBC 714, a listed system at every
+individual penetration, points to a counted quantity, not an area or allowance; the nine
+trades named below each contribute a real, countable number of penetrations once a job's
+plumbing, electrical, and duct runs are known.
+
 **Researched before writing this item, since it touches almost every other trade on
 this list rather than belonging to one.** IBC Section 714 requires a listed firestop
 system, tested to restore the assembly's original fire rating, at every through-
@@ -1039,6 +1224,11 @@ sources missed on the first pass:**
 
 **Unit/quantity signal:** EA, scaling with door count (interior) or unit count
 (entry doors).
+
+**Quantity driver (LA-720, 2026-09-20): unit count.** Interior and entry door count both
+track unit count closely on a residential floor plan, more units means proportionally
+more interior doors and exactly one more entry door each, so unit count is the one
+captured intake fact both sides of this item's EA evidence convert from cleanly.
 
 **Containers (Matt, 2026-09-20), checked against ANSI/BHMA hardware grades and
 multifamily fire-door code requirements before proposing.** The wide swing in entry-door
@@ -1126,6 +1316,10 @@ apparently do not.
 
 **Unit/quantity signal:** EA, scaling with garage-bay count.
 
+**Quantity driver (LA-720, 2026-09-20): EA, garage-bay count, conditional on Parking
+Type.** West Shore's own rate is a direct per-door figure; whether this item applies at
+all is a Parking Type fact, not a scaling question.
+
 **Loading Dock Equipment, added (Matt, 2026-09-20), checked before proposing rather than
 assumed.** Conditional, and probably the exception rather than the rule on a typical
 multifamily podium building, a leasing office or ground-floor retail component with real
@@ -1156,6 +1350,12 @@ of them are residential windows.
 
 **Unit/quantity signal:** EA for entrance doors and shower enclosures, SF for storefront
 and curtain wall glazing.
+
+**Quantity driver (LA-720, 2026-09-20): SF of storefront/curtain wall glazing.** The
+largest dollar container on the two files that price it (V64: $4,068.74 SF; VA: $7,037.73
+SF). Entrance doors and shower enclosures stay real EA sub-container detail, shower
+enclosures in particular already landing on one confirmed rate across all three files
+that price them, not a competing item-level driver.
 
 **Containers (Matt, 2026-09-20), checked against aluminum entrance system trade
 practice before proposing.** Narrow stile is specifically an entrance door product,
@@ -1214,6 +1414,11 @@ job.
 - WS, VG: no line.
 
 **Unit/quantity signal:** EA, scaling with opening count.
+
+**Quantity driver (LA-720, 2026-09-20): EA, window opening count.** Every priced file
+quotes per-opening rates by nominal size; opening count itself derives from unit mix and
+egress requirements rather than from GSF directly, so EA stays the driver rather than a
+GSF conversion.
 
 **Cross-checked against elevators and stairs (Matt, 2026-09-20).** Code permits
 exterior windows in an enclosed exit stairway's exterior wall, and where a stairwell has
@@ -1278,6 +1483,12 @@ they're included on that basis, not because they fit the "interior" half of the 
 for the cold-formed metal lines above, LF for framing, EA/BATH for accessory and door
 install (scales with unit or bathroom count).
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** Wall and ceiling board
+installation, the item's two dominant containers (V64: 298,524 SF and 112,968 SF), both
+price against surface area that converts from GSF at a Structure Type-specific ratio.
+Bath Accessory Installation (container 4) is real bathroom-count-driven sub-container
+detail, matching plumbing's own fixture-point logic, not a competing item-level driver.
+
 **Containers (Matt, 2026-09-20).**
 
 1. **Interior Metal Framing.** Required. Moved from item 8. JF's framing line plus the
@@ -1334,6 +1545,12 @@ job does both. Zero evidence in any file.
 **Unit/quantity signal:** SF, scaling with tiled wall/floor area; EA for mud-job shower
 prep, scaling with bathroom count.
 
+**Quantity driver (LA-720, 2026-09-20): bathroom count.** Wall tile, the required,
+best-evidenced container, is bathroom-and-kitchen-backsplash scope, the same fixture-point
+logic already established for plumbing and item 17's bath accessories, and correlates far
+more tightly with bathroom count than with raw GSF. Floor tile stays a real spec fork
+against item 19, not a driver question.
+
 **Containers (Matt, 2026-09-20), checked against TCNA's own shower waterproofing
 methods before proposing.** VA's "Mud Job at Shower" turns out to be a real, named
 industry method, the traditional mortar-bed shower pan, not a generic allowance — one of
@@ -1378,6 +1595,10 @@ so the split matches how the data was already organized, not a new distinction.
 **Unit/quantity signal:** SF for sheet/plank flooring, LF for cove base, SY for carpet —
 all scaling with floor area, one true unit-rate mismatch between SF and SY to watch for
 in the importer.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** Unit Interior Resilient
+Flooring, the dominant container on every file (V64/VR 75,972 SF, VA 99,750 SF), prices
+against floor area, a GSF-derived ratio once unit mix is known.
 
 **Containers (Matt, 2026-09-20), checked against trade practice before proposing.**
 JF's Broadloom Carpet at $55/SY is almost certainly an all-in rate, carpet, pad, and
@@ -1427,6 +1648,10 @@ flooring, not a required base scope.
 priced files land at the identical $20.00 rate, the closest thing to a confirmed rate
 found on any conditional item so far.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on finish-level
+spec.** Same driver as item 19, since this is a material upgrade over the same floor
+area, not a different scope of area.
+
 ### 20. Painting
 
 **Sources:**
@@ -1442,6 +1667,11 @@ found on any conditional item so far.
 
 **Unit/quantity signal:** SF for walls/ceilings, LF for molding/casing trim, EA for
 door/frame paint — scales with interior surface area.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet.** Interior Wall and Ceiling
+Painting, the dominant scope everywhere, prices per SF of surface, itself a GSF-derived
+ratio. Trim and door paint stay real, smaller sub-container detail keyed to items 9 and
+15's own EA/LF counts, not a competing item-level driver.
 
 **Containers (Matt, 2026-09-20), checked against trade practice before proposing.**
 Multi-family painting splits into new-construction interior coating, exterior coating,
@@ -1515,6 +1745,12 @@ fragmented across files (10.02600, 10.02800, 10.02900, 10.04400, 10.05000, 10.05
 count depending on sub-item; LF for storage gates and corner guards, scaling with
 corridor length.
 
+**Quantity driver (LA-720, 2026-09-20): bathroom count.** Toilet and Bath Accessories
+(container 1) is the one container with real evidence in four files, the richest
+evidence on this item, and it's a per-bathroom fixture-point quantity, the same logic
+already established for plumbing, item 17, and item 18. Postal Specialties and other EA
+containers stay unit-count-driven sub-detail rather than competing item-level drivers.
+
 **Containers (Matt, 2026-09-20), checked against CSI Division 10's own category list and
 ADA/FHA signage rules before proposing.**
 
@@ -1562,6 +1798,10 @@ per-unit allowance; V64/VA/VR break it into four separate appliance types at the
 unit count — a difference in estimating grain, not scope, worth normalizing in the
 importer.
 
+**Quantity driver (LA-720, 2026-09-20): unit count.** Every file, whichever estimating
+grain it uses, prices this at the same unit count; the cleanest single-driver evidence on
+the whole list, all four sources agree.
+
 **Containers (Matt, 2026-09-20), checked against standard multifamily appliance package
 composition before proposing.**
 
@@ -1593,6 +1833,11 @@ composition before proposing.**
 
 **Unit/quantity signal:** EA, scaling with building count (compactor) or trash-room count
 (chutes).
+
+**Quantity driver (LA-720, 2026-09-20): EA per building.** One compactor and a small,
+step-wise count of chutes serves a building regardless of size within the ranges these
+six jobs show, not a quantity that scales continuously with GSF or unit count. Worth
+confirming this holds at a genuinely larger building before treating it as settled.
 
 **Containers (Matt, 2026-09-20), checked against trash chute system code requirements
 before proposing.**
@@ -1646,6 +1891,10 @@ window treatments" to reflect the narrower scope.
 
 **Unit/quantity signal:** EA scaling with unit count (JF, V64, VR); one LS at VA.
 
+**Quantity driver (LA-720, 2026-09-20): unit count.** Kitchen and vanity cabinetry is a
+per-unit fixture package on the three files that separate EA pricing; VA's LS figure is
+the exception, not counter-evidence.
+
 **Containers (Matt, 2026-09-20).**
 
 1. **Kitchen Cabinets.** Required.
@@ -1673,6 +1922,10 @@ fabrication, seaming, and cutouts together). Two material tiers already evidence
 Solid Surface and Stone, a real spec driver worth keeping visible rather than blending
 into one rate.
 
+**Quantity driver (LA-720, 2026-09-20): SF of countertop area.** VA's own two material
+tiers both price per SF; countertop run length tracks kitchen and vanity layout, not a
+clean GSF or unit-count ratio on its own.
+
 ### 24b. Window treatments
 
 Split from item 24 (Matt, 2026-09-20).
@@ -1684,6 +1937,10 @@ Split from item 24 (Matt, 2026-09-20).
 **Unit/quantity signal:** unclear from the one data point available — JF's number is one
 lump sum with no unit count given, so it's unclear whether it's a per-unit blinds package
 for the whole building or a common-area-only allowance.
+
+**Quantity driver (LA-720, 2026-09-20): unit count, the working assumption pending real
+evidence.** A basic blinds package is standard trade practice priced per unit, not per
+building; flagged low-confidence since JF's one data point can't itself confirm this.
 
 **Flag:** likely a real gap on the other three priced files rather than a genuine
 conditional difference. Basic blinds are close to a universal expectation in US
@@ -1714,6 +1971,9 @@ jobs.
 **Unit/quantity signal:** LS for pool/fitness/sauna packages, not scaling cleanly with
 any single quantity — these read as fixed per-building or per-project allowances rather
 than per-SF or per-unit scope.
+
+**Quantity driver (LA-720, 2026-09-20): fixed lump sum**, already decided below on
+2026-09-18: a program choice, not an area or unit ratio.
 
 **Flag:** the same real-world amenity scope is priced as normal Division 13 line items on
 V64 and VR but folded into an omnibus Division 95 allowance on VA, at a per-SF rate
@@ -1779,6 +2039,9 @@ amenity space.
 **Unit/quantity signal:** EA (per elevator) at JF/V64/WS; VA instead prices per stop
 (12 stops ÷ 2 elevators = 6 stops each, consistent with the other files' "6-stop"
 description, but expressed as a different unit of quantity).
+
+**Quantity driver (LA-720, 2026-09-20): per stop**, already decided below on 2026-09-18,
+derived from Stories rather than needing its own question.
 
 **Flag:** confirms the code drift `rom-system-design.md` already names (14.02000 vs
 14.21001). Beyond the code, the unit rate itself is not close: $190,000/elevator (JF,
@@ -1853,6 +2116,13 @@ CMU pair in item 5. Role `takeoff_helper`, same convention, no new decision need
 
 **Unit/quantity signal:** SF, apparently scaling with gross square feet (or, at VA, with
 a ground-floor/upper-floor split — see the flag below).
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet**, per the Summary's own
+2026-09-18 resolution: "dollars per gross square foot stands as the basis for now," an
+accepted known limitation rather than a silent assumption. Standpipe (stories-derived)
+and Fire Pump (hydraulic-demand-conditional) stay real sub-container exceptions inside
+this one blended item driver, not competing drivers, until LA-774 gives this item a
+better internal quantity than flat square feet.
 
 **Flag:** the per-SF rate spans $3.30 to $11.00 across four files with no stated reason
 for the difference. `jeffersons-ferry-scope-comparison.md` already found JF's $11.00/SF
@@ -1986,6 +2256,10 @@ evidence and lean on real trade practice instead, flagged plainly.
 with bathroom/unit count; one LS "adjustment" or "allowance" line at V64 and VA layered
 on top of the per-fixture detail.
 
+**Quantity driver (LA-720, 2026-09-20): split, bathroom count / unit count**, decided
+below on 2026-09-19, item 29's own split and item 9's finish carpentry split both follow
+the same shape.
+
 **Flag:** JF is the only file that prices plumbing as a single coarse SF allowance with
 no fixture-level detail at all, while the three Vue files price both a piping
 allowance/adjustment lump sum and a full fixture-by-fixture breakout. These are not the
@@ -2050,6 +2324,9 @@ trade with several containers.
 already drawn in the plumbing container review — fixture points for toilet, lav, and
 tub-or-shower; unit count for kitchen sink and faucet, one kitchen per unit.
 
+**Quantity driver (LA-720, 2026-09-20): split, bathroom count / unit count**, decided
+immediately below on 2026-09-19, same split as item 28.
+
 **Amended (Matt, 2026-09-19, during LA-720): the driver for this item is fixture points
 for bath fixtures and unit count for kitchen fixtures, not one driver for the whole
 item.** Also corrected: V64 (r231) and VR (r236) both list "Hot Water Heater" under this
@@ -2087,6 +2364,10 @@ Heating).
 
 **Unit/quantity signal:** SF, scaling with gross square feet; VA again splits a
 ground-floor/breakout quantity from the main building quantity.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet**, per the Summary's own
+2026-09-18 resolution, the same accepted-limitation basis as item 27. HVAC System Type
+(PTAC, ducted split, central plant) gates which rate applies, not which driver applies.
 
 **Flag:** rate spans $18.00 to $30.00/SF across three priced files.
 `jeffersons-ferry-scope-comparison.md` already found JF's $30.00/SF rate was 61% over the
@@ -2178,6 +2459,12 @@ today's numbers already reflect.
 **Unit/quantity signal:** SF for the main power/lighting allowance, scaling with gross
 square feet; EA for exit signs; one LS for the VA generator.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet**, per the Summary's own
+2026-09-18 resolution. Branch Power and Devices, the dominant container everywhere,
+prices per SF in every file that shows it. Emergency Generator (container 6) and Fire
+Pump Dedicated Power Supply (container 7) stay conditional, zero-or-real sub-containers,
+not a scaling question.
+
 **Flag:** V64's and VR's electrical descriptions both say "w/ fire alarm" in plain text,
 meaning fire alarm cost is bundled into this SF rate rather than broken out — see item 32
 below for why that matters. VA's generator is a genuine scope difference (this job has
@@ -2243,6 +2530,9 @@ sitting inside item 31's own source list.
 **Unit/quantity signal:** SF, scaling with gross square feet. Only two of six files price
 it at all.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet**, matching both files that
+price it, V64 and VR, at the identical $2.00/SF rate.
+
 **Flag:** thin evidence for a standalone item, one rate confirmed on two files that share
 the same source lineage (both Vue budgets). Treat the $2.00/SF figure as provisional until
 a third, independent job confirms it.
@@ -2280,6 +2570,10 @@ overstates what this item should show once real furnish-only pricing exists.
 **Unit/quantity signal:** proposed at unit count or fixture count once a benchmark exists.
 No signal today.
 
+**Quantity driver (LA-720, 2026-09-20): unit count.** A furnish-only fixture package is a
+per-unit selection the same way item 24's cabinetry and item 22's appliances are, even
+with no real number to confirm it yet.
+
 **Flag:** this item exists because it matches how the trade actually buys the work, not
 because Kulka's data proves it yet. Its first few benchmark numbers should be treated as
 unconfirmed until a real job's buyout shows the furnish and install numbers separately.
@@ -2296,6 +2590,9 @@ or a site beyond the building footprint.
 **Unit/quantity signal:** proposed at EA per pole/fixture or LF of site perimeter, once a
 benchmark exists. No file gives a signal.
 
+**Quantity driver (LA-720, 2026-09-20): EA per pole/fixture.** A counted quantity tied to
+site layout, fixture spacing and site perimeter, not to building GSF or unit count.
+
 ### 31d. EV charging infrastructure
 
 **Added (Matt, 2026-09-20), checked against the current New York State mandate before
@@ -2309,6 +2606,11 @@ kind of fact LA-771 already exists to resolve by project address, not something 
 hard-code here. What's certain regardless of the exact number: this is code-driven scope
 on new construction with parking, not an owner amenity choice, and it prices nowhere
 today. Zero evidence in any file, none of the six jobs price it.
+
+**Quantity driver (LA-720, 2026-09-20): EA per EV-capable/installed stall.** Both
+containers below scale with a real, counted stall quantity derived from the parking count
+Parking Type already establishes, gated by the jurisdiction's own EV-ready percentage,
+not by GSF or unit count directly.
 
 1. **Make-Ready Infrastructure.** Required wherever the jurisdiction's EV-ready
    percentage applies. Conduit, panel capacity, and junction boxes at each EV-capable
@@ -2329,6 +2631,11 @@ electrical capacity for a future system, not an installed array, a "ready" provi
 not a build. Zero evidence in any file, and worth keeping distinct from an actual
 installed photovoltaic system, which is an owner or design choice with its own real
 cost, not a code minimum.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on jurisdiction.**
+Both containers below reserve area and capacity proportional to roof area and building
+electrical service size, both GSF-derived ratios, gated on whether the jurisdiction's
+solar-ready rule actually reaches multifamily.
 
 1. **Solar-Ready Roof Area and Structural Allowance.** Conditional on jurisdiction.
    Reserved, unobstructed roof area plus the structural capacity to carry a future
@@ -2353,6 +2660,10 @@ cost, not a code minimum.
 
 **Unit/quantity signal:** SF for fire alarm at JF (scales with gross square feet); one
 ALLW for nurse call, likely a fixed per-building cost rather than scaling with area.
+
+**Quantity driver (LA-720, 2026-09-20): gross square feet**, matching the Summary's
+2026-09-18 MEP resolution and JF's own real $/SF evidence, the only real number on this
+item. Nurse Call stays its own conditional fixed-allowance sub-case, not the item driver.
 
 **Flag:** JF is the only file that isolates fire alarm as its own Division 28 line — a
 division ADR 0004 already notes Autodesk uses for fire alarm alone, "when 28 is
@@ -2455,6 +2766,10 @@ recent enough or in a jurisdiction confirmed to require it.
 **Unit/quantity signal:** none yet. Likely gross square feet or building count once real
 jobs supply it, whichever the first closed number actually tracks.
 
+**Quantity driver (LA-720, 2026-09-20): gross square feet, conditional on jurisdiction.**
+The code trigger itself is building-size-based, consistent with pricing the antenna and
+amplifier system against GSF once real evidence exists.
+
 **Flag:** whether this applies to a given job is a jurisdiction question, not something an
 estimator should be expected to know from memory or something the tool should ask outright
 without help. See the new gate for this item in `rom-spec.md` and the Jev research ticket
@@ -2494,6 +2809,10 @@ this item's BDA monitoring signal, above, already ties it to item 32.
 **Unit/quantity signal:** LF for silt fence (scales with site perimeter), EA for inlet
 protection and construction entrance (scales with count of site entrances/inlets).
 
+**Quantity driver (LA-720, 2026-09-20): LF of site perimeter.** Silt fence, the dominant
+container with real evidence in three files, prices per LF of perimeter, a site-shape
+fact independent of building GSF.
+
 **Containers added (Matt, 2026-09-20), checked against SWPPP/NPDES requirements before
 proposing.**
 
@@ -2522,6 +2841,11 @@ proposing.**
 
 **Unit/quantity signal:** SF for most sub-lines (scales with foundation footprint), CY
 for bulk excavation and crushed stone, one LS for West Shore's pile allowance.
+
+**Quantity driver (LA-720, 2026-09-20): CY of excavated volume.** V64's real bulk
+"Excavation" line prices directly per CY; volume converts from footprint and depth, the
+same relationship item 2's foundation CY has to GSF. West Shore's pile allowance stays
+its own flagged site-condition exception, not evidence against this driver.
 
 **Flag:** West Shore's pile allowance is a real, one-off scope difference (poor bearing
 soil or a structural condition requiring deep foundations), not an error — keep it
@@ -2560,6 +2884,12 @@ cost especially relevant on Long Island sites, zero evidence in any file.
 **Unit/quantity signal:** LS/ALLW at every file except West Shore's defective LF line;
 EA/LF for JF's real pipe-and-manhole detail. Likely scales with site area or a fixed
 per-project allowance, not a clean quantity in most files.
+
+**Quantity driver (LA-720, 2026-09-20): fixed lump sum.** Four of five priced files carry
+a flat LS/ALLW figure; what a site actually needs for storm drainage depends on
+topography, soil, and detention requirements, not on the new building's GSF or unit
+count. JF's real pipe-and-manhole detail is the more granular alternative once real site
+civil plans exist, not evidence the driver should be something else by default.
 
 **Flag:** confirmed defect, do not import West Shore's r74 as a real per-LF rate — role
 it as a data-entry error, not scope, when it reaches `budget_lines`.
@@ -2600,6 +2930,11 @@ practice before proposing.**
 **Unit/quantity signal:** mostly LS/ALLW (fixed per-project allowances); JF has real LF/EA
 detail. Likely does not scale cleanly with GSF or unit count — probably scales with linear
 feet of utility run or is treated as a flat site-condition allowance.
+
+**Quantity driver (LA-720, 2026-09-20): fixed lump sum.** Same reasoning as item 35 and
+item 1: nearly every file prices this flat, and utility run length depends on where the
+site's connection points sit relative to the building, a site-condition fact, not
+something GSF or unit count predicts.
 
 **Flag — new, not previously named in ADR 0004 or `rom-system-design.md`:** West Shore
 files this entire scope at **Division 33 Utilities**, its own MasterFormat division, while
@@ -2679,6 +3014,10 @@ either in any file.
 **Unit/quantity signal:** SF for seeding/grading (scales with disturbed site area), EA
 for trees/planters, LS for planting/irrigation allowances.
 
+**Quantity driver (LA-720, 2026-09-20): SF of disturbed site area.** The dominant,
+best-evidenced quantity (JF, V64, VA all price seeding/grading per SF); disturbed area is
+a site-layout fact, not a building GSF ratio.
+
 **Flag:** JF files landscaping at Division 32 (32.09300) while V64 files its
 functionally similar topsoil/seeding line at Division 31 (31.02200 Grading) — a third
 division-drift instance, smaller in dollars than the sewer/utility one above but the same
@@ -2712,6 +3051,11 @@ common code requirement during construction. Zero evidence for either in any fil
 
 **Unit/quantity signal:** CY for base course, TN for wearing course (both scale with
 paved area and thickness), LS for striping/paving subcontracts.
+
+**Quantity driver (LA-720, 2026-09-20): SF of paved area.** Base course and wearing
+course quantities both derive from paved area and thickness; paved area itself scales
+with Parking Type and stall count, not building GSF, the same relationship item 34's
+excavation CY has to footprint.
 
 **Containers added (Matt, 2026-09-20).** ADA Accessible Route Striping and Signage,
 likely missing, code-required and distinct from the general striping already priced.
@@ -2747,6 +3091,11 @@ distinguish a fire lane's structural section from general parking paving.
 
 **Unit/quantity signal:** SF for pavers/sidewalks (scales with hardscape area), LF for
 curb (scales with curb run length), SF for retaining wall (scales with wall face area).
+
+**Quantity driver (LA-720, 2026-09-20): SF of hardscape/paver area.** The
+best-and-most-consistently-evidenced quantity, priced across five of six files at
+identical or near-identical $15/SF paver rates. Curb LF and West Shore's retaining wall
+SF stay real, flagged site-specific exceptions, not competing item-level drivers.
 
 **Flag:** West Shore's retaining wall is a genuine site-condition-driven scope item
 (likely a grade change or property-line constraint specific to that site), not

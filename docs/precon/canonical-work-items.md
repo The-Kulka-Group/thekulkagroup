@@ -2103,6 +2103,18 @@ backfill side, the same logic as item 2's foundation waterproofing, to keep wate
 migrating through the wall. West Shore's $456,304 retaining wall line doesn't mention
 one, and nothing else in this file prices it separately.
 
+**Permeable Pavement Recharge Bed, checked separately (Matt, 2026-09-20), since surface
+parking has no real membrane analog to a structured garage.** There's no waterproofing
+membrane question here, asphalt and pavers don't get one, the real question is whether
+the water-management function is actually priced at all. VA's "Permeable pavers,"
+3,311.89 SF at $15.00, most likely prices the paver units themselves. A permeable
+pavement system only actually manages stormwater because of what's underneath, an
+open-graded stone reservoir layer and often an underdrain, and without that layer the
+pavers are just a surface, not a working system. Nothing in this file prices the
+recharge bed separately, so it's either bundled into the $15/SF rate or genuinely
+missing, and $15/SF reads low for a paver rate that also includes several feet of stone
+base beneath it.
+
 ---
 
 ## Lines that do not fit any canonical item

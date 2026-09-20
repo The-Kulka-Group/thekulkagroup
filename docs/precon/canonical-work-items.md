@@ -2035,6 +2035,21 @@ just closed on items 27, 28, and 29.
    that already excluded this from being a formal intake gate. Only VA prices one,
    $160,000 lump sum, a real scope difference rather than a pricing gap on the other
    files.
+
+   **Cross-checked against fire alarm and sprinkler (Matt, 2026-09-20), and the honest
+   result is thinner than the fire pump's equivalent check.** NFPA 110 requires a
+   remote annunciator outside the generator room, but doesn't clearly mandate fire
+   detection or suppression inside the room itself, a more permissive area than the
+   fire pump's explicit supervisory signal list, so this isn't the same strong finding
+   as item 27's. What did surface, real and worth adding regardless: a fire-rated room
+   separation, 1-hour under NFPA 37's baseline for any engine room, potentially 2-hour
+   under NFPA 110 where the generator serves life-safety loads like this one likely
+   does if it's backing up the fire pump or elevators. Same construction-method
+   dependency as the fire pump room, concrete or CMU lands on items 2 or 5, drywall and
+   metal stud lands on item 17, the door itself is item 15's scope. Also mandatory and
+   currently unpriced: fuel spill containment for the day tank, a wall, curb, or dike
+   sized to hold the full capacity of the largest tank present, likely item 2's scope
+   as a concrete containment structure. Zero evidence of either in any file.
 7. **Fire Pump Dedicated Power Supply.** Required whenever item 27's Fire Pump and Pump
    Room container applies, added (Matt, 2026-09-20). Not the same thing as container 6
    above and doesn't share its default: a dedicated service, a tap ahead of the main

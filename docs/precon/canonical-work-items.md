@@ -2177,7 +2177,8 @@ so every container below leans on trade practice rather than file data.
    fire pump controller's own supervisory outputs, a different piece of equipment from
    the sprinkler system's flow and tamper switches, even though both terminate at the
    same fire alarm panel. Detailed on item 27. Zero evidence of any pump monitoring
-   circuit in any file.
+   circuit in any file. Also carries a BDA failure signal from item 32a's Emergency
+   Responder Radio Coverage system, required by NFPA 72, detailed there.
 
    **Cross-checked against all remaining trades (Matt, 2026-09-20), one more real,
    currently uncoordinated interface, distinct from the magnetic door holders already
@@ -2214,6 +2215,17 @@ jobs supply it, whichever the first closed number actually tracks.
 estimator should be expected to know from memory or something the tool should ask outright
 without help. See the new gate for this item in `rom-spec.md` and the Jev research ticket
 that answers it from the project's own code jurisdiction.
+
+**Cross-checked against fire alarm and sprinkler, against low voltage (Matt, 2026-09-20),
+a real interface between two items already split apart on this list but never connected
+to each other.** Research states plainly that the bidirectional amplifier at the heart
+of this system "is classified as a life safety system and monitored by a fire alarm
+system," and NFPA 72 requires any BDA failure to alert the fire control panel directly.
+That's a required signal into item 32's System Interfaces container, not optional
+equipment sitting on its own. Checked the other Low Voltage sub-scopes too, video
+intercom, access control (already covered separately), CCTV, cable backbone, and none
+of them show a comparable code-mandated fire alarm tie, worth saying plainly rather than
+forcing a finding where the research doesn't support one.
 
 ---
 

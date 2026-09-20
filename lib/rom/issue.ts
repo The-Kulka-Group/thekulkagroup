@@ -2,6 +2,8 @@ import { scoreClosingComparison, type Rom } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
 
+import { toIso } from "./date";
+
 // Issuing a ROM, linking it to the project it becomes, and recording a
 // closing comparison against that project's actuals (LA-680, LA-681). This
 // extends LA-12's run seam the same way lib/rom/run.ts does: the engine stays
@@ -55,10 +57,6 @@ async function readRun(db: Db, runId: string): Promise<RunRow> {
   const found = rows[0];
   if (!found) throw new RunNotFound(runId);
   return found;
-}
-
-function toIso(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 /**

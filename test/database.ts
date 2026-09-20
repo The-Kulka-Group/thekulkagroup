@@ -53,6 +53,22 @@ export async function seededDatabase(): Promise<Db & { close: () => Promise<void
   return {
     query: <Row>(text: string, params: unknown[] = []) =>
       pg.query<Row>(text, params as never[]).then(({ rows }) => ({ rows })),
+    // Same PGlite-native transaction lib/browser-test-db.ts uses -- see its
+    // comment for why a client checkout (lib/db.ts's pool-backed path) isn't
+    // needed here.
+    withTransaction: async <T>(fn: (tx: Db) => Promise<T>): Promise<T> =>
+      pg.transaction(async (pgliteTx) => {
+        const tx: Db = {
+          query: async <Row>(text: string, params: unknown[] = []) => {
+            const { rows } = await pgliteTx.query<Row>(text, params as never[]);
+            return { rows };
+          },
+          withTransaction: () => {
+            throw new Error("Nested transactions are not supported.");
+          },
+        };
+        return fn(tx);
+      }),
     close: () => pg.close(),
   };
 }

@@ -312,7 +312,7 @@ describe("combined source selection",()=>{
   await check();
   const {selectedDiscoveryInbox}=await import("@/lib/vision/selected-discovery");
   const {parseDiscoveryFilters}=await import("@/lib/vision/discovery-filters");
-  const partial:Db={query:async(text,params)=>{if(params?.includes("suffolk-planning"))throw new Error("Synthetic unavailable source");return db.query(text,params);}};
+  const partial:Db={query:async(text,params)=>{if(params?.includes("suffolk-planning"))throw new Error("Synthetic unavailable source");return db.query(text,params);},withTransaction:async(fn)=>fn(partial)};
   const result=await selectedDiscoveryInbox(partial,["nassau-applications","suffolk-planning"],"new",parseDiscoveryFilters(new URLSearchParams()));
   expect(result.candidates).toHaveLength(1);expect(result.candidates[0].source_id).toBe("nassau-applications");
   expect(result.sourceErrors["suffolk-planning"]).toBeTruthy();expect(result.sources["nassau-applications"]).not.toBeNull();

@@ -1403,7 +1403,9 @@ differently. See LA-784, opened to derive elevator type from building height.
 
 **Cross-item flags, not resolved here:** a traction elevator (LA-784) needs a penthouse
 machine room instead of a small ground-level one, a real construction cost on items 2,
-8, and 13 that none of them currently name as its own line.
+8, and 13 that none of them currently name as its own line. An elevator pit below the
+sewer invert also needs a sewage ejector and sump, item 28's Specialties container,
+closed there rather than duplicated as a container of this item.
 **Resolved (Matt, 2026-09-18): $41,000 per stop is the trade number to use**, from
 experience, superseding the file's varying rates. Assumed to be per stop, matching VA's
 per-stop granularity, not per whole elevator — flag for correction if per-elevator was
@@ -1478,6 +1480,44 @@ plumbing container review folds this item's rough-in into the same per-fixture n
 as item 29's furnish-and-set cost, one all-in figure per fixture point, the way a
 plumber actually quotes it, rather than pricing rough-in and fixtures separately.
 
+**Containers (Matt, 2026-09-20), finally written in with real evidence.** This full list
+was worked out in chat early in the session but never actually committed here until an
+elevator pit sump cross-reference surfaced the gap. Items 28 and 29 together make up one
+subcontractor's scope, cast the same way Concrete's items 2 and 3 are treated as one
+trade with several containers.
+
+1. **Plumbing Service.** Required. Per building: water service entry, meter, backflow,
+   sanitary connection at the foundation. No file isolates this from the piping
+   allowance lump sums below — V64's "Plumbing - Piping Allowance" $650,000 (r217) and
+   VA's "Plumbing Adjustment" $600,000 (r219) almost certainly bundle this scope
+   alongside the itemized connections, not a separate number anywhere.
+2. **Water Heating.** Required, forks central plant or per unit. Real evidence: V64,
+   75 EA at $2,500 = $187,500 (r231, Division 22 code, reclassified from a fixture to
+   equipment per the 2026-09-19 amendment below); VR, 75 EA at $1,180 = $88,500 (r236).
+   VA has no line at all, the lead toward a central plant already noted under item 29.
+3. **Interior Storm Drainage.** Conditional, gated by Roof Type: flat, the same gate
+   used on items 12 and 13. Real finding worth naming: V64 and VR both have a flat TPO
+   roof section per items 12 and 13's own evidence, yet neither prices anything here.
+   That's a real gap connecting three items' data together, not just an absent line.
+4. **Gas Piping.** Conditional, gated by the Gas Building gate. Thin but real evidence:
+   VA's "Disconnect Gas Meter and Pipework" 1.00 EA $300 (r216) implies a gas-fueled
+   building. V64, VR, and JF show nothing.
+5. **Fixtures and Rough-In.** Required. The dominant, richly evidenced container,
+   fixture points for bath, unit count for kitchen, per the driver amendment above and
+   under item 29. All four files' connection and fixture lines live here.
+6. **Appliance and Equipment Connections.** Required. Dishwasher and refrigerator
+   connections, real evidence in every file (V64: r221–r223; VA: r223–r224).
+7. **Common Area and Amenity Plumbing.** Conditional, reuses the Amenity Scope gate.
+   Zero evidence in Division 22 on any file, but a real, explainable reason: V64 and VR
+   both price a pool package under item 25, and the pool's own plumbing, backwash lines,
+   deck drains, equipment room floor drain, most likely bundles into that lump sum
+   rather than appearing as its own line here.
+8. **Specialties.** Conditional, item by item: ejector and sump if the lowest level
+   sits below the sewer invert, booster pump if the building is tall enough to need one,
+   grease interceptor if there's a commercial kitchen, expansion tanks, filtration. Zero
+   evidence in any file. This is where item 26's elevator pit sump belongs when a pit
+   sits below the sewer invert, closing that cross-reference.
+
 ### 29. Plumbing fixtures
 
 **Sources:**
@@ -1506,6 +1546,10 @@ no heater), unlike V64 and VR, which both price one per unit. That is plausible 
 evidence VA used a central plant rather than per-unit heaters, on a job roughly twice
 V64 and VR's scale by most other line items. Worth checking directly rather than assumed,
 but it is the first concrete lead either side of that gate has had.
+
+**See item 28's Containers for the full eight-container plumbing structure**, this item
+supplies the real evidence for containers 5 (Fixtures and Rough-In) and 2 (Water
+Heating).
 
 ---
 

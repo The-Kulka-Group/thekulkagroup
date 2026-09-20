@@ -221,10 +221,11 @@ item 3a, stays its own item, not a container here.
      basement-level door. Its own point-source drain, tied to a sealed sump pit or
      positive gravity discharge, a real code-driven detail distinct from every other
      drainage item on this list: not the continuous perimeter footing drain above, not
-     item 26's elevator pit sump, and not item 28's sewage ejector sump. Four real
-     systems on this document now share the word "sump" or "drain"; worth keeping them
-     named separately rather than letting one stand in for all of them. Zero evidence
-     in any file.
+     item 26's elevator pit sump, and not item 28's sewage ejector sump. A fifth system,
+     item 27's fire pump room flood protection, joined this list on the same day. Five
+     real systems on this document now share the word "sump" or "drain"; worth keeping
+     them named separately rather than letting one stand in for all of them. Zero
+     evidence in any file.
 5. **Equipment Pads and Misc. Concrete.** Required. Housekeeping pads for mechanical and
    electrical equipment, dumpster pads, stoops. No file has a line for this at all; unlike
    the containers above, this one starts with zero evidence, proposed only because a
@@ -1626,6 +1627,16 @@ evidence and lean on real trade practice instead, flagged plainly.
    Less certain this derives cleanly from stories alone the way Standpipe does; it also
    depends on local water main capacity, which Kulka's estimators may know cold for its
    usual submarkets even without a site-specific test.
+   **Cross-checked against Sprinkler's own scope (Matt, 2026-09-20).** NFPA 20 explicitly
+   requires a floor drain in every fire pump room, code-mandated, not optional. Where the
+   room sits below grade, NFPA 20 separately flags this with a caution and calls for
+   "additional flood protection measures such as sump pumps," a fifth distinct
+   drainage/sump system on this document, alongside item 2's foundation footing drain
+   and areaway drain, item 26's elevator pit sump, and item 28's sewage ejector sump —
+   worth keeping named separately from all four rather than assuming one covers it.
+   Also real and currently unpriced: the test header discharge piping, required by NFPA
+   20 with its own valve, and routed to either sanitary or storm depending on local
+   plumbing code, a real coordination point since IPC and NFPA 20 don't agree on which.
 5. **Dry System and Freeze Protection.** Conditional, for unheated spaces, garages,
    attics, exterior breezeways. Ties to the Parking Type gate already in the intake
    rather than needing a new one, since structured and underground parking already

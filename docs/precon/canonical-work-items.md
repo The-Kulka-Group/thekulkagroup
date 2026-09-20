@@ -1775,6 +1775,22 @@ evidence and lean on real trade practice instead, flagged plainly.
    supervisory signals, pump running, power failure, phase reversal, and transfer to
    alternate power, are a distinct monitoring set from general sprinkler flow and
    tamper monitoring, detailed on item 32's System Interfaces container.
+
+   **Cross-checked against remaining trades (Matt, 2026-09-20), two more findings, one
+   a straightforward closed loop, one a real construction gap.** The pump and its
+   controller sit on a housekeeping pad, already item 2's Equipment Pads and Misc.
+   Concrete container, just never pointed at the fire pump specifically until now, no
+   new scope, just closing the reference. Separately, and this one is real
+   construction not yet homed anywhere: NFPA 20 requires the room itself enclosed in
+   fire-rated construction, 1-hour for a non-high-rise building, 2-hour for a
+   high-rise, covering the walls, floor, ceiling, and door, plus a rated passageway if
+   the room isn't directly accessible from the exterior. Which item actually carries
+   this depends on how the enclosure is built, concrete or CMU walls land on item 2 or
+   item 5, a metal-stud and drywall rated assembly lands on item 17, and the door
+   itself, rated with a self-closing device, is item 15's scope regardless of wall
+   material. Likely also required, though this specific search didn't confirm it
+   directly: signage at the door identifying the room, worth checking against item 21
+   rather than assumed present.
 5. **Dry System and Freeze Protection.** Conditional, for unheated spaces, garages,
    attics, exterior breezeways. Ties to the Parking Type gate already in the intake
    rather than needing a new one, since structured and underground parking already

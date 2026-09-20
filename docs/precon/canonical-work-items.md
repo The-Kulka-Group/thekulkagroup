@@ -1756,6 +1756,22 @@ evidence and lean on real trade practice instead, flagged plainly.
    Also real and currently unpriced: the test header discharge piping, required by NFPA
    20 with its own valve, and routed to either sanitary or storm depending on local
    plumbing code, a real coordination point since IPC and NFPA 20 don't agree on which.
+
+   **Cross-checked against remaining trades (Matt, 2026-09-20), two more real findings,
+   the electrical one significant, not minor.** NEC 695.3 and NFPA 20 require an
+   electric fire pump's power supply to come from one of three specific
+   configurations: a dedicated service separate from the building's, a tap ahead of the
+   building's main disconnect so shutting off building power doesn't kill the fire
+   pump, or a dedicated feeder from a standby generator sized for the full fire pump
+   load plus its jockey pump plus 8 hours of continuous fuel. This is mandatory
+   whenever this container applies, unlike item 31's general Emergency Generator
+   container, which correctly defaults to no. A fire pump can trigger its own dedicated
+   power infrastructure even on a job with no general building backup power at all,
+   currently unaddressed anywhere on item 31. Separately, NFPA 20 requires the fire pump
+   room itself be maintained at a minimum temperature, roughly 40°F for an electric
+   pump, higher for a diesel engine-driven one due to the battery and block heater, a
+   real, room-specific heating requirement belonging to item 30, HVAC, not general
+   building heat.
 5. **Dry System and Freeze Protection.** Conditional, for unheated spaces, garages,
    attics, exterior breezeways. Ties to the Parking Type gate already in the intake
    rather than needing a new one, since structured and underground parking already
@@ -1930,6 +1946,11 @@ whole item; every other container leans on trade practice, not file data.
    detector automatically stops the fan and closes the damper on activation, a real,
    direct fire-alarm interface currently missing from item 32's System Interfaces
    container. Zero evidence of any damper line in any file.
+9. **Fire Pump Room Heating.** Required whenever item 27's Fire Pump and Pump Room
+   container applies, added (Matt, 2026-09-20). NFPA 20 sets a minimum room
+   temperature, roughly 40°F for an electric pump, higher for a diesel engine-driven
+   one because of the battery and block heater. A real, room-specific requirement, not
+   covered by general building heat. Zero evidence in any file.
 
 ---
 
@@ -1995,6 +2016,12 @@ just closed on items 27, 28, and 29.
    that already excluded this from being a formal intake gate. Only VA prices one,
    $160,000 lump sum, a real scope difference rather than a pricing gap on the other
    files.
+7. **Fire Pump Dedicated Power Supply.** Required whenever item 27's Fire Pump and Pump
+   Room container applies, added (Matt, 2026-09-20). Not the same thing as container 6
+   above and doesn't share its default: a dedicated service, a tap ahead of the main
+   disconnect, or its own dedicated generator sized for the fire pump load, jockey pump,
+   and 8 hours of fuel, per NEC 695.3 and NFPA 20. A job can trigger this even with no
+   general building backup power at all. Detailed on item 27. Zero evidence in any file.
 
 ### 31a. Low voltage
 

@@ -659,6 +659,20 @@ the membrane terminates around the anchor rather than being penetrated by it. A 
 distinct detail from the field membrane and the ledger flashing above, not the same
 scope repeated. Zero evidence in any file.
 
+**Fire alarm and sprinkler cross-checked against balconies (Matt, 2026-09-20).**
+Sprinkler side, real and recent code: NFPA 13 Section 9.3.20.1, added for the first time
+in the 2022 edition, requires sidewall sprinklers under exterior balconies on Type V
+construction wherever the balcony extends more than 4 feet from the building, the same
+wood-frame construction type these buildings already use per item 16a's structure-type
+work. The requirement exists because of a documented fire pattern: fire starting on one
+balcony has repeatedly traveled up through unprotected balconies above it and breached
+the attic, a real path in a building whose attic typically isn't itself sprinklered.
+Cross-referenced into item 27's Sprinkler Piping and Heads container. Fire alarm side:
+nothing new. Open exterior balconies aren't enclosed occupiable space requiring dedicated
+detection, and where any device is warranted it would follow the same heat-detector, not
+smoke-detector, rule already established for exterior and unheated locations, not a new
+finding specific to balconies.
+
 ---
 
 ## Division 07 — Thermal and Moisture Protection
@@ -1661,7 +1675,9 @@ evidence and lean on real trade practice instead, flagged plainly.
    per NFPA 13, already noted directly on LA-774. Also picks up the machine room and
    hoistway heads required by NFPA 13, part of the shunt trip coordination detailed on
    item 26, not the pit head already exempt from it there. Also picks up under-stair
-   coverage wherever item 8a's wood stairs apply, detailed on item 15.
+   coverage wherever item 8a's wood stairs apply, detailed on item 15. Also picks up
+   sidewall sprinklers required under exterior balconies extending more than 4 feet on
+   Type V construction, per NFPA 13 Section 9.3.20.1, detailed on item 11.
 2. **Water Supply, Backflow, and FDC.** Required. Per building. No file isolates it.
 3. **Standpipe System.** Required above a height threshold, derived from stories the
    same way elevator stops already are, rather than needing its own question.

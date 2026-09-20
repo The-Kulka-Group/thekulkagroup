@@ -118,10 +118,32 @@ takes what it wants later by copy or fork. The tool stays off the public website
     the five projects in the data.
   - **Parking type**: already required minimum, not assumed (LA-682); listed here for
     completeness.
+  Four more, narrower than the six above: each gates one canonical item or container
+  rather than a whole section, surfaced during LA-720's trade-by-trade review and
+  confirmed by Matt on 2026-09-19, same three-answer mechanism.
+  - **Gas building**: yes, no, don't know. Gates Plumbing's Gas Piping item and the
+    Gas Range Connection under Appliance and Equipment Connections. No data either way
+    in any of the six files; added on Matt's word from the trade.
+  - **Roof type**: flat, pitched, don't know. Gates Plumbing's Interior Storm Drainage.
+    A pitched roof routes to Division 07 gutters and leaders and site storm instead
+    (item 36).
+  - **Water heating system**: central plant, per unit, don't know. Both answers are
+    required scope; the gate picks which form Water Heating prices under, not whether
+    it exists at all.
+  - **Fire alarm notification**: voice evacuation, horn and strobe, don't know. Both
+    answers are required scope; the gate picks which form Notification Devices and
+    Panel and Power Supply price under, under item 32. Usually a building-height code
+    trigger, so this may be derivable from stories rather than asked outright, the same
+    way elevator stops derive from stories rather than getting their own question; worth
+    checking before it becomes a real question in the built intake.
   A gate earns a permanent place if it appears in at least a third of Kulka's own past
   jobs, or Matt says from the trade that it comes up on most calls regardless of what
   the thin dataset shows. Anything below that bar stays in the assumed bucket, asked
-  only when the estimator specifically knows to ask it (LA-694).
+  only when the estimator specifically knows to ask it (LA-694). The **emergency
+  generator** is the tested case: one of five priced files has one, below the bar on
+  data alone, so it stays in the assumed bucket rather than becoming a gate. It defaults
+  to absent and prices at zero silently; an estimator who knows a job has one overrides
+  it with a reason, the same as any other benchmark override.
 - A project holds a building count, not a list of buildings. Multiple buildings are a
   slight cost factor in themselves, so no benchmark is keyed to a building and no building
   record exists. What multiple buildings really move is duration and phasing, and duration

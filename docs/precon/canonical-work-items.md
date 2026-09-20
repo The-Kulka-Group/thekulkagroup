@@ -2007,6 +2007,16 @@ elevators, and item 6's masonry-restoration mismatch. The duplicate lines role-f
 `duplicate`, with the $125 line excluded from every total — same convention already
 applied to the CMU and elevator takeoff-helper pairs, just a different role value.
 
+**Container added (Matt, 2026-09-20), checked against sanitary sewer infiltration
+prevention standards before proposing.**
+
+**Manhole and Pipe Joint Sealing.** Likely missing. ASTM C478 requires gasketed,
+watertight joints at every precast manhole section and a flexible boot connection where
+a pipe enters a manhole, specifically to prevent groundwater infiltration into the
+sanitary system, a real code-driven requirement, not an upgrade. Most likely bundled
+into the LS/ALLW lump sums above rather than genuinely absent, but no file separates it
+out, so it can't be confirmed either way.
+
 ### 37. Site grading, topsoil, and landscaping/irrigation
 
 **Sources:**
@@ -2076,6 +2086,12 @@ curb (scales with curb run length), SF for retaining wall (scales with wall face
 comparable to any line on the other five jobs. Keep it inside this item but flagged, the
 same way the pile allowance in item 34 is flagged, so a benchmark built from this item
 does not accidentally price a flat site into a sloped one.
+
+**Retaining Wall Waterproofing, added (Matt, 2026-09-20).** Likely missing. A retaining
+wall holds back soil on one face and needs a dampproof or waterproof coating on that
+backfill side, the same logic as item 2's foundation waterproofing, to keep water from
+migrating through the wall. West Shore's $456,304 retaining wall line doesn't mention
+one, and nothing else in this file prices it separately.
 
 ---
 

@@ -1884,6 +1884,15 @@ whole item; every other container leans on trade practice, not file data.
    elsewhere on this list. Fire-alarm activated, detailed on item 15. None of the six
    sample jobs read as true high-rises, so likely not applicable today, but a real gap
    worth naming before one comes through.
+8. **Fire and Smoke Dampers.** Required, added (Matt, 2026-09-20), cross-checked against
+   fire alarm and sprinkler across all remaining trades. NFPA 90A requires a fire damper
+   everywhere ductwork penetrates a fire-rated wall or floor of two hours or more, and
+   any rated shaft regardless of hour rating, which in practice means every duct crossing
+   a corridor wall or floor between units, close to universal in multifamily. Smoke
+   dampers are additionally required on larger systems, and a duct-mounted smoke
+   detector automatically stops the fan and closes the damper on activation, a real,
+   direct fire-alarm interface currently missing from item 32's System Interfaces
+   container. Zero evidence of any damper line in any file.
 
 ---
 
@@ -2056,7 +2065,20 @@ so every container below leans on trade practice rather than file data.
    device, more sensitive than the sprinkler itself, not the same thing as general
    Initiating Devices above. Also carries the stairwell-entrance smoke detectors that
    activate item 30's stair pressurization fans on high-rise buildings, detailed on
-   item 15.
+   item 15. Also carries the duct-mounted smoke detectors that stop HVAC fans and close
+   fire and smoke dampers, detailed on item 30's new container 8.
+
+   **Cross-checked against all remaining trades (Matt, 2026-09-20), one more real,
+   currently uncoordinated interface, distinct from the magnetic door holders already
+   named above.** Where item 31a's informal Access Control sub-scope uses an
+   electromagnetic lock, IBC and NFPA 101 both require it to release immediately on
+   fire alarm activation, a mandatory interface one source describes plainly as "not
+   optional and not the access control contractor's call alone — it must be coordinated
+   with the fire alarm contractor." This is the opposite device from a magnetic door
+   holder: a maglock holds a door locked and must release to unlock on alarm, a door
+   holder holds a door open and releases to let it close on alarm. Both need a fire
+   alarm interface, but they are not the same device and shouldn't be priced as one
+   line. Zero evidence of either coordination in any file.
 6. **Testing, Inspection, and Commissioning.** Required. Per building. Final test, fire
    marshal witness, certification. Often its own line on a real quote even though no
    file here isolates it.

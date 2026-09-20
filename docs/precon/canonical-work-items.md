@@ -2,7 +2,7 @@
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
 named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
-defaults. Every ProEst code and Autodesk group maps to exactly one of the 43 items below.
+defaults. Every ProEst code and Autodesk group maps to exactly one of the 44 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
 
@@ -346,8 +346,8 @@ framing — wood and cold-formed metal structure" to reflect the narrower scope.
   code 05.04400, formerly cited here), moved to item 17 per the amendment above.
 - V64: "2x4 PT/DF/Studs," "2x6 PT/DF/Studs," "2x8 DF," "2x10 DF," sheathing and plywood
   materials (r43–r59, code 06.04001, total $1,472,926); framing labor lines (r62–r65,
-  code 06.04002, total $1,472,039). Also "Wood Stairs & Railings" 1.00 LS $75,000 (r68,
-  code 06.04300) — see the open boundary question below.
+  code 06.04002, total $1,472,039). V64's "Wood Stairs & Railings" line (r68, code
+  06.04300) moved to item 8a, kept separate rather than folded in here.
 - VA: "Framing and Trusses (Davinci)" 1.00 LS $3,685,600 (r60, code 06.04001). Davinci
   reads as an actual framing subcontractor's name, and the number is an all-in wood
   material-and-labor quote, not a materials-only figure with labor missing — the zeroed
@@ -373,11 +373,6 @@ labor split cleanly into four real scopes by square footage.
 4. **Floor Framing Labor, Joists and Subfloor.** Required. V64: 104,360.73 SF at $4.50/SF.
 5. **House Wrap and Weather Barrier Labor.** Required. V64: 54,290.84 SF at $0.65/SF.
 
-**Open boundary question, not yet resolved:** V64's "Wood Stairs and Railings" ($75,000
-LS, code 06.04300) reads as interior finish carpentry work sitting inside this division's
-code range. Does it belong here or in item 9, Finish Carpentry, where the rest of the
-interior trim lives?
-
 **Flag M4 (carried from `jeffersons-ferry-scope-comparison.md`):** on Jefferson's Ferry,
 Autodesk's "Metal Framing" group contains part of a structural-steel subcontract that
 ProEst prices partly under Division 05 and partly folded into Division 09 drywall.
@@ -385,6 +380,20 @@ ProEst prices partly under Division 05 and partly folded into Division 09 drywal
 wood framing lives here, regardless of interior or exterior.** The 2026-09-18 note left
 this as a per-job judgment call; the 2026-09-20 amendment above replaces that with a firm
 rule.
+
+### 8a. Wood stairs and railings
+
+Split from item 8 (Matt, 2026-09-20): kept as its own item rather than folded into item 8
+or item 9. This is the wood counterpart to item 7 (Structural and miscellaneous metals —
+railings, stairs, canopies), the same scope split by material rather than by division,
+since a wood stair builder and a metal stair fabricator are different vendors entirely.
+
+**Sources:**
+- V64: "Wood Stairs & Railings" 1.00 LS $75,000 (r68, code 06.04300).
+- No other file has this line.
+
+**Unit/quantity signal:** LS, one data point. Likely EA once more jobs are in, scaling
+with stair count per building rather than gross square feet.
 
 ### 9. Finish carpentry — trim, casing, molding, interior door install
 

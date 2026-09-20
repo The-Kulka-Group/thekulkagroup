@@ -444,6 +444,7 @@ em, .em { font-style: normal; font-weight: 600; }
   padding: var(--sheet-pad);
 }
 .sheet-body--board { padding: 0; }
+.sheet-body--record { padding: var(--sheet-pad); }
 
 .doc, .record {
   display: grid;

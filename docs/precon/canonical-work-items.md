@@ -956,6 +956,9 @@ sources missed on the first pass:**
 - Trash Compactors and Chutes (item 23), whose own entry already names the chute
   running through a fire-rated shaft with a rated door at each floor, that entry never
   connected the chute's own floor penetration to this requirement until now.
+- Emergency Responder Radio Coverage (item 32a), the coaxial cable run from the
+  amplifier to antennas on each floor, the same rated walls and floors as everything
+  else on this list.
 
 ---
 
@@ -2291,6 +2294,12 @@ equipment sitting on its own. Checked the other Low Voltage sub-scopes too, vide
 intercom, access control (already covered separately), CCTV, cable backbone, and none
 of them show a comparable code-mandated fire alarm tie, worth saying plainly rather than
 forcing a finding where the research doesn't support one.
+
+**Cross-checked against firestopping's own remaining trades (Matt, 2026-09-20).** The
+coaxial cable run from this system's amplifier to antennas on each floor crosses the
+same rated walls and floors as everything else on item 14a's list. Added there as the
+tenth trade, and it's the one that connects back most directly to fire alarm, since
+this item's BDA monitoring signal, above, already ties it to item 32.
 
 ---
 

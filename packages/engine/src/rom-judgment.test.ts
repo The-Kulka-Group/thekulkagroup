@@ -190,6 +190,58 @@ describe("judgment rules in the blend", () => {
     expect(rom.assumptions.some((a) => a.includes("approved estimator rule"))).toBe(true);
   });
 
+  // A gate the intake asks has to change what the ROM says, or the question
+  // was for nothing (CONTEXT.md: Branch gate).
+  it("states what a closed gate carries nothing for", () => {
+    const answers: Answers = { ...ANSWERS, branchGates: { demolition: "no" } };
+    const rom = computeRom(answers, snapshot([benchmark()]));
+
+    expect(rom.assumptions.some((a) => a.includes("carries nothing for: demolition"))).toBe(true);
+  });
+
+  it("states how many items sit outside the total as TBD", () => {
+    const answers: Answers = {
+      ...ANSWERS,
+      branchGates: { demolition: "dont_know", site_conditions: "dont_know" },
+    };
+    const rom = computeRom(answers, snapshot([benchmark()]));
+
+    expect(rom.assumptions.some((a) => a.includes("2 items sit outside this total as TBD"))).toBe(
+      true,
+    );
+  });
+
+  it("says nothing about gates when every one was answered yes", () => {
+    const answers: Answers = { ...ANSWERS, branchGates: { demolition: "yes" } };
+    const rom = computeRom(answers, snapshot([benchmark()]));
+
+    expect(rom.assumptions.some((a) => a.includes("carries nothing for"))).toBe(false);
+    expect(rom.assumptions.some((a) => a.includes("TBD"))).toBe(false);
+  });
+
+  // A rule's value is stored as text while a fact off a number question is a
+  // number. Comparing them raw dropped the rule without a word, and an
+  // estimator had no way to see that an approved rule did nothing.
+  it("matches a numeric fact against the text a rule was entered with", () => {
+    const answers: Answers = { ...ANSWERS, facts: { synthetic_level_count: 1 } };
+    const onNumber = rule({ condition: { fact: "synthetic_level_count", equals: "1" } });
+
+    const line = lineFor([benchmark({ kind: "proest_budget" })], [onNumber], answers);
+    expect(line.judgmentAdjustments).toHaveLength(1);
+  });
+
+  it("leaves the line alone when the fact does not read as the rule's value", () => {
+    const answers: Answers = { ...ANSWERS, facts: { synthetic_level_count: 2 } };
+    const onNumber = rule({ condition: { fact: "synthetic_level_count", equals: "1" } });
+
+    expect(lineFor([benchmark()], [onNumber], answers).judgmentAdjustments).toEqual([]);
+  });
+
+  it("leaves the line alone when the fact the rule names was never answered", () => {
+    const answers: Answers = { ...ANSWERS, facts: {} };
+    expect(lineFor([benchmark()], [rule()], answers).judgmentAdjustments).toEqual([]);
+  });
+
   it("applies two rules on one cost code in the same order whatever order they arrive in", () => {
     const first = rule({ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", adjustmentUsdPerGsf: 1 });
     const second = rule({

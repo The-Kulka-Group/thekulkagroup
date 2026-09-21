@@ -155,6 +155,43 @@ describe("branch gates", () => {
     );
   });
 
+  // A gate inside a gate. Answering the outer one "no" has to close the whole
+  // branch, or an answer left on the inner gate from an earlier pass keeps the
+  // question under it alive and its answer reaches the engine.
+  it("closes a whole nested branch when the gate above it closes", () => {
+    const file = shippedFile();
+    questionsOf(file).push(
+      {
+        id: "inner_gate",
+        prompt: "Synthetic inner gate",
+        kind: "branch_gate",
+        required: true,
+        opens: ["inner_follow_up"],
+        mapsTo: { target: "branch_gate", section: "inner_gate" },
+      },
+      {
+        id: "inner_follow_up",
+        prompt: "Synthetic follow-up",
+        kind: "number",
+        required: true,
+        mapsTo: { target: "intake_field", name: "innerFollowUp" },
+      },
+    );
+    const outer = questionsOf(file).find((q) => q.id === "demolition")!;
+    outer.opens = [...(outer.opens as string[]), "inner_gate"];
+
+    const definition = parseFlowDefinition(file);
+    const stale = { demolition: "no", inner_gate: "yes", inner_follow_up: "3" };
+
+    const asked = visibleQuestions(definition, stale).map((q) => q.id);
+    expect(asked).not.toContain("inner_gate");
+    expect(asked).not.toContain("inner_follow_up");
+
+    const { recorded } = readFlowAnswers(definition, { ...COMPLETE, ...stale });
+    const flow = (recorded as { flow: { intakeFields: Record<string, unknown> } }).flow;
+    expect(flow.intakeFields.innerFollowUp).toBeUndefined();
+  });
+
   it("keeps a follow-up out of the record when its gate closed", () => {
     const { recorded } = readFlowAnswers(tier1Flow(), {
       ...COMPLETE,
@@ -230,5 +267,20 @@ describe("a definition this code will not run", () => {
     if (!gate) throw new Error("The shipped file no longer gates demolition.");
     gate.opens = ["nothing_of_the_sort"];
     expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+
+  // Both become facts under their own names, so sharing one name would leave a
+  // gate answer sitting where an intake field's value should be, and a judgment
+  // rule reading the wrong one.
+  it("refuses an intake field named after a branch gate section", () => {
+    const file = shippedFile();
+    questionsOf(file).push({
+      id: "synthetic_clash",
+      prompt: "Synthetic clashing field",
+      kind: "number",
+      required: false,
+      mapsTo: { target: "intake_field", name: "demolition" },
+    });
+    expect(() => parseFlowDefinition(file)).toThrow(/demolition/);
   });
 });

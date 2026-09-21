@@ -1,0 +1,100 @@
+{
+  "skill": "rom_tier1",
+  "version": 1,
+  "title": "Tier-1 conceptual budget",
+  "note": "Question text here is placeholder until the working session supplies the real fields (LA-20). This file declares what is asked, in what order, and which engine input each answer feeds. It never declares what an answer costs: no rates, no multipliers, no dollar figures. Every surface, the site and the Claude wrapper alike, reads this one file.",
+  "questions": [
+    {
+      "id": "project_type",
+      "prompt": "What kind of project is this?",
+      "kind": "choice",
+      "required": true,
+      "choices": [
+        { "value": "multifamily", "label": "Multifamily" },
+        { "value": "self_storage", "label": "Self storage" }
+      ],
+      "mapsTo": { "target": "engine_input", "name": "projectType" }
+    },
+    {
+      "id": "construction_kind",
+      "prompt": "Is this new construction or a renovation?",
+      "kind": "choice",
+      "required": true,
+      "choices": [
+        { "value": "new", "label": "New construction" },
+        { "value": "renovation", "label": "Renovation" }
+      ],
+      "mapsTo": { "target": "engine_input", "name": "constructionKind" }
+    },
+    {
+      "id": "gross_square_feet",
+      "prompt": "How many gross square feet is the building?",
+      "help": "Gross building area. Not footprint, net area, or rentable area.",
+      "kind": "number",
+      "required": true,
+      "mapsTo": { "target": "engine_input", "name": "grossSquareFeet" }
+    },
+    {
+      "id": "parking_type",
+      "prompt": "What kind of parking does the project have?",
+      "help": "Required on every project. Parking is never assumed.",
+      "kind": "choice",
+      "required": true,
+      "choices": [
+        { "value": "none", "label": "None" },
+        { "value": "surface", "label": "Surface" },
+        { "value": "structured", "label": "Structured" },
+        { "value": "underground", "label": "Underground" },
+        { "value": "dont_know", "label": "Don't know" }
+      ],
+      "mapsTo": { "target": "intake_field", "name": "parkingType" }
+    },
+    {
+      "id": "demolition",
+      "prompt": "Is there anything on the site to demolish?",
+      "kind": "branch_gate",
+      "required": true,
+      "opens": ["demolition_structure_count"],
+      "mapsTo": { "target": "branch_gate", "section": "demolition" }
+    },
+    {
+      "id": "demolition_structure_count",
+      "prompt": "How many structures come down?",
+      "kind": "number",
+      "required": true,
+      "mapsTo": { "target": "intake_field", "name": "demolitionStructureCount" }
+    },
+    {
+      "id": "levels_below_grade",
+      "prompt": "Does the building go below grade?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "levels_below_grade" }
+    },
+    {
+      "id": "existing_building_tie_in",
+      "prompt": "Does the work tie in to an existing building?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "existing_building_tie_in" }
+    },
+    {
+      "id": "site_conditions",
+      "prompt": "Are there known groundwater or poor soil conditions?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "site_conditions" }
+    },
+    {
+      "id": "amenity_scope",
+      "prompt": "Does the project include amenity scope such as a pool or an activity room?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "amenity_scope" }
+    }
+  ],
+  "output": {
+    "kind": "rom",
+    "recordTbdCount": true
+  }
+}

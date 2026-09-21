@@ -14,8 +14,12 @@ import rawTier1Flow from "@/config/rom/tier1-flow.json";
 /** Where the definition sits, for error messages and for tests that edit it. */
 export const FLOW_FILE = "config/rom/tier1-flow.json";
 
-/** The engine inputs a question is allowed to feed (`Answers` in the engine). */
-export type EngineInputName = keyof Answers;
+/**
+ * The engine inputs a question is allowed to feed (`Answers` in the engine).
+ * `facts` is excluded because a question answers one value, while `facts` is the
+ * bag of project facts a judgment rule's condition reads (LA-19).
+ */
+export type EngineInputName = Exclude<keyof Answers, "facts">;
 
 export type QuestionKind = "choice" | "number" | "branch_gate";
 

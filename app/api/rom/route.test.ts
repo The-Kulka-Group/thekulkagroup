@@ -149,7 +149,8 @@ describe("POST /api/rom", () => {
       { seq: 1, name: "read_answers", status: "succeeded" },
       { seq: 2, name: "read_benchmarks", status: "succeeded" },
       { seq: 3, name: "read_parameters", status: "succeeded" },
-      { seq: 4, name: "compute_rom", status: "succeeded" },
+      { seq: 4, name: "read_judgment_rules", status: "succeeded" },
+      { seq: 5, name: "compute_rom", status: "succeeded" },
     ]);
   });
 

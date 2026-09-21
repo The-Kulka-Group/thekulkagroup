@@ -12,6 +12,7 @@ import {
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 // The run: load a snapshot, hand it to the engine, write down what happened.
@@ -19,7 +20,12 @@ import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-f
 // keeps the two testing seams of LA-9 apart.
 
 /** The steps a ROM run records, in the order they happen. */
-type StepName = "read_answers" | "read_benchmarks" | "read_parameters" | "compute_rom";
+type StepName =
+  | "read_answers"
+  | "read_benchmarks"
+  | "read_parameters"
+  | "read_judgment_rules"
+  | "compute_rom";
 
 export const ROM_SKILL = "rom_tier1";
 
@@ -153,7 +159,14 @@ export async function runRom(
       return toParameters(rows);
     });
 
-    const snapshot: DataSnapshot = { benchmarks, parameters };
+    const judgmentRules = await step(db, runId, ++seq, "read_judgment_rules", async () =>
+      readApprovedJudgmentRules(db, {
+        projectType: answers.projectType,
+        constructionKind: answers.constructionKind,
+      }),
+    );
+
+    const snapshot: DataSnapshot = { benchmarks, parameters, judgmentRules };
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),

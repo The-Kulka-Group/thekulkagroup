@@ -78,7 +78,8 @@ describe("GET /api/rom/runs/[runId]", () => {
       [1, "read_answers", "succeeded"],
       [2, "read_benchmarks", "succeeded"],
       [3, "read_parameters", "succeeded"],
-      [4, "compute_rom", "succeeded"],
+      [4, "read_judgment_rules", "succeeded"],
+      [5, "compute_rom", "succeeded"],
     ]);
 
     for (const step of run.steps) {
@@ -103,7 +104,7 @@ describe("GET /api/rom/runs/[runId]", () => {
       skill: "rom_tier1",
       status: "succeeded",
       error: null,
-      stepCount: 4,
+      stepCount: 5,
     });
     expect(run.finishedAt).not.toBeNull();
     expect(run.answers?.grossSquareFeet).toBe(1000);
@@ -153,7 +154,7 @@ describe("GET /api/rom/runs", () => {
     expect(runs[0]).toMatchObject({
       projectName: "Synthetic test project",
       status: "succeeded",
-      stepCount: 4,
+      stepCount: 5,
     });
 
     expect((await read(runs[1].id)).id).toBe(first.runId);

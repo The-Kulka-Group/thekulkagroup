@@ -21,6 +21,7 @@ const STEP_LABEL: Record<string, string> = {
   read_answers: "Read the project answers",
   read_benchmarks: "Read the benchmarks",
   read_parameters: "Read the engine parameters",
+  read_judgment_rules: "Read the approved judgment rules",
   compute_rom: "Compute the ROM",
 };
 

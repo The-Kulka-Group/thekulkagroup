@@ -429,10 +429,18 @@ export function readFlowAnswers(definition: FlowDefinition, responses: Responses
     throw new FlowAnswersInvalid("The questions the engine needs were not all answered.");
   }
 
+  // A judgment rule's condition reads a project fact (LA-19). The facts a project
+  // gives are its intake fields and its branch gate answers, so both go in under
+  // the names the definition file gave them. A gate answer stays the raw yes, no
+  // or dont_know, because a rule that turns on "don't know" is a different rule
+  // from one that turns on "no".
+  const facts: Record<string, string | number | boolean> = { ...intakeFields, ...branchGates };
+
   const answers = {
     projectType,
     constructionKind,
     grossSquareFeet,
+    facts,
   } as Answers;
 
   const record: FlowRecord = {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import type { ProvenanceKind, Rom, RomLine } from "@kulka/engine";
 
@@ -78,9 +79,13 @@ export function RomRunner({ projectId }: { projectId?: string }) {
           {state.phase === "done" ? (
             <>
               <Sep />
-              <span className="num">run {state.runId.slice(0, 8)}</span>
+              <Link className="num" href={`/rom/runs/${state.runId}`}>
+                run {state.runId.slice(0, 8)}
+              </Link>
             </>
           ) : null}
+          <Sep />
+          <Link href="/rom/runs">Past runs</Link>
         </>
       }
       needsReview={held}

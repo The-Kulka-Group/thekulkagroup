@@ -382,6 +382,7 @@ export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, o
   const records: DiscoveredRecord[] = [];
   const checkedDocuments: string[] = [];
   let receivedSourceUnit = false;
+  let rejected = 0;
   try {
     const category = await read(source, source.endpoint.url, "text/html,application/xhtml+xml", HTML_TYPES, deadline);
     receivedSourceUnit = true;
@@ -392,7 +393,17 @@ export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, o
     for (const document of documents) {
       deadline.throwIfAborted();
       receivedSourceUnit = false;
-      const response = await read(source, document.url, `${PDF_TYPE},${WORD_TYPE}`, new Set([PDF_TYPE, WORD_TYPE]), deadline);
+      let response;
+      try {
+        response = await read(source, document.url, `${PDF_TYPE},${WORD_TYPE}`, new Set([PDF_TYPE, WORD_TYPE]), deadline);
+      } catch (error) {
+        // A single document that won't fetch (removed agenda item, dead link) is that
+        // document's problem, not the whole category's. Budget/size/page limits below
+        // stay outside this catch, since those are run-level, not per-document.
+        console.error(`CivicPlus document fetch failed for ${document.url}: ${error instanceof Error ? error.message : String(error)}`);
+        rejected++;
+        continue;
+      }
       receivedSourceUnit = true;
       totalBytes += response.bytes.length;
       if (totalBytes > (source.limits.maxTotalResponseBytes ?? source.limits.maxResponseBytes)) throw new Error("The CivicPlus source exceeded its total response size limit.");
@@ -405,7 +416,14 @@ export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, o
       }
       const remainingPages = (source.limits.maxPages ?? 0) - totalPages;
       if (remainingPages < 1) throw new Error("The CivicPlus source exceeded its page limit.");
-      const pages = await (options.extractPdf ?? extractCivicPlusPages)(response.bytes, remainingPages, deadline);
+      let pages;
+      try {
+        pages = await (options.extractPdf ?? extractCivicPlusPages)(response.bytes, remainingPages, deadline);
+      } catch (error) {
+        console.error(`CivicPlus document extraction failed for ${document.url}: ${error instanceof Error ? error.message : String(error)}`);
+        rejected++;
+        continue;
+      }
       if (!pages.length) {
         const note = `CivicPlus category ${document.categoryId}. ${document.kind} for ${document.meetingDate}. Meeting ID ${document.meetingId}. The PDF had no readable embedded text, so Vision did not extract application facts.`;
         records.push(unresolvedDocument(source, document, pageEvidence(document, [note], checksum), "PDF without readable text"));
@@ -418,13 +436,14 @@ export async function fetchCivicPlusRecords(source: AutomatedSourceDefinition, o
     }
     const merged = mergeCivicPlusRecords(records);
     if (merged.length > source.limits.maxRecords) throw new Error("The CivicPlus source exceeded its record limit.");
-    return {records: merged, coverage: {year: currentYear, documents: checkedDocuments.sort()}, fetched: merged.length, rejected: 0};
+    if (documents.length > 0 && rejected === documents.length) throw new Error("The CivicPlus source rejected every document. Earlier source records remain available.");
+    return {records: merged, coverage: {year: currentYear, documents: checkedDocuments.sort()}, fetched: merged.length, rejected};
   } catch (error) {
     if (!receivedSourceUnit && !checkedDocuments.length && !records.length) throw error;
     throw new SourceCollectionFailure("The CivicPlus check stopped before it read every document.", {
       coverage: {year: currentYear, documents: checkedDocuments.sort()},
       fetched: records.length,
-      rejected: receivedSourceUnit ? 1 : 0,
+      rejected,
     }, {cause: error});
   }
 }

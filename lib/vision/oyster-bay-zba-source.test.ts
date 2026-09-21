@@ -82,17 +82,22 @@ describe("Oyster Bay Zoning Board public hearing intake", () => {
     expect(appeal.details["Hearing dates"]).toBe("2026-08-20, 2026-09-10");
   });
 
-  it("rejects unexpected content types, oversized bodies, and partial batches", async () => {
+  it("fails the run when every document has an unexpected content type", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url === source.endpoint.url) return new Response(index, {headers: {"content-type": "text/html"}});
       return new Response("not a pdf", {headers: {"content-type": "text/html"}});
     }));
+    // Every document fails the same way here, so the run correctly fails rather than
+    // reporting a quiet empty success. With more than one document there is no single
+    // triggering error left to chain as `cause`, so this checks the aggregate outcome.
     await expect(fetchOysterBayZbaRecords(source)).rejects.toMatchObject({
       name: "SourceCollectionFailure",
-      progress: {coverage: {year: expect.any(Number), documents: []}, fetched: 0, rejected: 1},
-      cause: expect.objectContaining({message: expect.stringContaining("content type")}),
+      message: expect.stringContaining("rejected every document"),
+      progress: {coverage: {year: expect.any(Number), documents: []}, fetched: 0, rejected: documents.length},
     });
+  });
 
+  it("rejects oversized bodies", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("x".repeat(source.limits.maxResponseBytes + 1), {headers: {"content-type": "text/html"}})));
     await expect(fetchOysterBayZbaRecords(source)).rejects.toThrow("size limit");
   });

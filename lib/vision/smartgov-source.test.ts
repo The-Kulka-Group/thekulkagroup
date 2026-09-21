@@ -200,6 +200,44 @@ describe("Village of Hempstead SmartGov source", () => {
     expect(records.map(record => record.externalId)).toEqual([`permit:${secondGuid}`]);
   });
 
+  it("fails the run rather than reporting a quiet empty success when every detail page fails", async () => {
+    const source = automatedSourceDefinition("hempstead-village-smartgov");
+    const first = result(firstGuid, "SOLAR2025-0035", "Solar Permit", "Closed", "9/9/2026", "147 CROWELL ST");
+    const second = result(secondGuid, "COMMERCIALBUILDINGPERMIT2026-0026", "Commercial Building Permit", "Issued", "9/9/2026", "51 MAIN ST");
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+      if (url.pathname === "/ApplicationPublic/ApplicationSearchAdvanced" && !init?.method) return new Response("<html>Advanced Search</html>", {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith("/ValidateFormEntries")) return Response.json({status: "success"});
+      if (url.pathname.endsWith("/Search")) return new Response(searchPage(first + second, 2), {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith(firstGuid) || url.pathname.endsWith(secondGuid)) return new Response("Unavailable", {status: 503, headers: {"content-type": "text/html"}});
+      throw new Error(`Unexpected request: ${url.href}`);
+    }));
+
+    // A total detail-endpoint outage must surface as a failure, not as "no permits
+    // found this cycle" — the whole point of the fix this test guards.
+    await expect(fetchSmartGovRecords(source, new Map(), new Date("2026-09-09T16:00:00Z"))).rejects.toThrow("rejected every permit");
+  });
+
+  it("fails the run instead of counting every remaining permit as rejected when the request budget runs out mid-loop", async () => {
+    const source = {...automatedSourceDefinition("hempstead-village-smartgov"), limits: {...automatedSourceDefinition("hempstead-village-smartgov").limits, maxRequests: 3}};
+    const first = result(firstGuid, "SOLAR2025-0035", "Solar Permit", "Closed", "9/9/2026", "147 CROWELL ST");
+    const second = result(secondGuid, "COMMERCIALBUILDINGPERMIT2026-0026", "Commercial Building Permit", "Issued", "9/9/2026", "51 MAIN ST");
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+      if (url.pathname === "/ApplicationPublic/ApplicationSearchAdvanced" && !init?.method) return new Response("<html>Advanced Search</html>", {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith("/ValidateFormEntries")) return Response.json({status: "success"});
+      if (url.pathname.endsWith("/Search")) return new Response(searchPage(first + second, 2), {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith(firstGuid)) return new Response(detail(firstGuid, "SOLAR2025-0035", "Solar Permit", "Closed", "147 CROWELL ST"), {headers: {"content-type": "text/html"}});
+      if (url.pathname.endsWith(secondGuid)) return new Response(detail(secondGuid, "COMMERCIALBUILDINGPERMIT2026-0026", "Commercial Building Permit", "Issued", "51 MAIN ST"), {headers: {"content-type": "text/html"}});
+      throw new Error(`Unexpected request: ${url.href}`);
+    }));
+
+    // The start, validate, and search calls already spend the entire budget of 3, so
+    // the first detail request must fail the run, not silently count as one rejected
+    // permit among otherwise-successful ones.
+    await expect(fetchSmartGovRecords(source, new Map(), new Date("2026-09-09T16:00:00Z"))).rejects.toThrow("exceeded the request limit");
+  });
+
   it("fails the collection when the search result set is malformed", async () => {
     const source = automatedSourceDefinition("hempstead-village-smartgov");
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

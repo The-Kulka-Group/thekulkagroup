@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>generate-estimate-from-unit-cost-report · process map</title>
+<style>
+  :root {
+    --paper: #FFFFFF;
+    --ink: #0B0C09;
+    --ink-2: #5A5F52;
+    --line: #D3D7CA;
+    --lime: #8FE800;
+    --green: #2F7200;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 36px 20px 56px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--green);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(28px, 6.5vw, 40px);
+    font-weight: 900; line-height: 1.05; letter-spacing: -0.02em;
+    margin: 0 0 12px; text-wrap: balance;
+  }
+  .lede {
+    font-size: 17px; line-height: 1.55; color: var(--ink);
+    max-width: 58ch; margin: 0 0 32px;
+  }
+  .flow { list-style: none; margin: 0; padding: 0; }
+  .step {
+    border: 2px solid var(--ink);
+    padding: 14px 18px;
+    background: var(--paper);
+    position: relative;
+  }
+  .step + .step { margin-top: 24px; }
+  .step + .step::before {
+    content: "";
+    position: absolute;
+    left: 30px; top: -24px;
+    width: 2px; height: 14px;
+    background: var(--ink);
+  }
+  .step + .step::after {
+    content: "";
+    position: absolute;
+    left: 26px; top: -10px;
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid var(--ink);
+  }
+  .num {
+    display: inline-block;
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    letter-spacing: .04em;
+    background: var(--lime); color: var(--ink);
+    padding: 4px 8px; margin-right: 10px;
+    vertical-align: middle;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  h2 {
+    display: inline; font-size: 16px; font-weight: 800;
+    letter-spacing: -0.01em; margin: 0; vertical-align: middle;
+  }
+  .step p {
+    margin: 8px 0 0;
+    color: var(--ink-2);
+    font-size: 14px; line-height: 1.5;
+  }
+  code {
+    font-family: var(--mono); font-size: 12.5px;
+    background: #F4F6EE; padding: 1px 5px;
+  }
+  .callout {
+    margin: 28px 0 0;
+    border: 2px solid var(--ink);
+    padding: 14px 16px;
+    background: #FAFBF7;
+  }
+  .callout .label {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--green);
+    margin: 0 0 8px;
+  }
+  .callout p { margin: 0; font-size: 14px; color: var(--ink); }
+  .rules {
+    margin: 28px 0 0;
+    border-top: 2px solid var(--ink);
+    padding-top: 18px;
+  }
+  .rules h3 {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--green); margin: 0 0 12px;
+  }
+  .rules ul { margin: 0; padding: 0 0 0 18px; font-size: 14px; }
+  .rules li { margin: 0 0 8px; }
+  footer {
+    margin-top: 40px; padding-top: 16px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 11px; line-height: 1.6;
+    color: var(--ink-2);
+  }
+  @media print {
+    body { font-size: 12px; }
+    .wrap { padding: 0; max-width: none; }
+    .step, .callout { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="eyebrow">Kulka · Claude skill</p>
+    <h1>generate-estimate-from-unit-cost-report</h1>
+    <p class="lede">ProEst Estimate Unit Totals PDF → client SOW / pricing / four-column bid-leveling workbook. No retyped quantities. No silent zeros.</p>
+
+    <ol class="flow">
+      <li class="step">
+        <span class="num">01</span><h2>CONFIRM</h2>
+        <p>Project name, job number, date, prepared-by, output folder.</p>
+      </li>
+      <li class="step">
+        <span class="num">02</span><h2>PARSE</h2>
+        <p>ProEst Estimate Unit Totals PDF → JSON via <code>scripts/parse_proest_pdf.py</code>.</p>
+      </li>
+      <li class="step">
+        <span class="num">03</span><h2>REVIEW</h2>
+        <p>Read every parser issue. Nothing ships unexplained.</p>
+      </li>
+      <li class="step">
+        <span class="num">04</span><h2>NOTES</h2>
+        <p>Add notes and markup labels to the JSON before build.</p>
+      </li>
+      <li class="step">
+        <span class="num">05</span><h2>BUILD</h2>
+        <p>Run <code>scripts/build_sow_pricing_xlsx.py</code> to the raw workbook.</p>
+      </li>
+      <li class="step">
+        <span class="num">06</span><h2>FINALIZE</h2>
+        <p>Run <code>scripts/finalize_workbook.py</code> so LibreOffice caches formula results. Never skip.</p>
+      </li>
+      <li class="step">
+        <span class="num">07</span><h2>VERIFY</h2>
+        <p>PDF spot-check: page 1, a dense page, the ladder, the SOV, and the notes sheet.</p>
+      </li>
+      <li class="step">
+        <span class="num">08</span><h2>RECONCILE</h2>
+        <p>Workbook TOTAL must match the ProEst grand total within a few cents.</p>
+      </li>
+      <li class="step">
+        <span class="num">09</span><h2>DELIVER</h2>
+        <p>Send the file, then drop it in the job folder.</p>
+      </li>
+    </ol>
+
+    <section class="rules">
+      <h3>Two hard rules</h3>
+      <ul>
+        <li><strong>Rate = report_total ÷ qty.</strong> The printed ProEst rate is display only; store the derived rate so extensions land on the report’s own total.</li>
+        <li><strong>Never skip finalize.</strong> Without the LibreOffice cache pass, money columns look blank outside Excel.</li>
+      </ul>
+    </section>
+
+    <aside class="callout">
+      <p class="label">Example only · Adjuvant Health</p>
+      <p>Workbook reconciled at $686,523.22 against ProEst $686,523.24. Labeled example — not a general claim.</p>
+    </aside>
+
+    <footer>
+      BLDG Labs · Kulka · companion to process-map.pdf · Sep 18, 2026
+    </footer>
+  </main>
+</body>
+</html>

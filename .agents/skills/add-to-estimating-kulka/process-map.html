@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>add-to-estimating-kulka · process map</title>
+<style>
+  :root {
+    --paper: #FFFFFF;
+    --ink: #0B0C09;
+    --ink-2: #5A5F52;
+    --line: #D3D7CA;
+    --lime: #8FE800;
+    --green: #2F7200;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 36px 20px 56px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--green);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(30px, 7vw, 44px);
+    font-weight: 900; line-height: 1.05; letter-spacing: -0.02em;
+    margin: 0 0 12px; text-wrap: balance;
+  }
+  .lede {
+    font-size: 17px; line-height: 1.55; color: var(--ink);
+    max-width: 58ch; margin: 0 0 32px;
+  }
+  .flow { list-style: none; margin: 0; padding: 0; }
+  .step {
+    border: 2px solid var(--ink);
+    padding: 16px 18px;
+    background: var(--paper);
+    position: relative;
+  }
+  .step + .step { margin-top: 28px; }
+  .step + .step::before {
+    content: "";
+    position: absolute;
+    left: 30px; top: -28px;
+    width: 2px; height: 16px;
+    background: var(--ink);
+  }
+  .step + .step::after {
+    content: "";
+    position: absolute;
+    left: 26px; top: -12px;
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 8px solid var(--ink);
+  }
+  .num {
+    display: inline-block;
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    letter-spacing: .04em;
+    background: var(--lime); color: var(--ink);
+    padding: 4px 8px; margin-right: 10px;
+    vertical-align: middle;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  h2 {
+    display: inline; font-size: 17px; font-weight: 800;
+    letter-spacing: -0.01em; margin: 0; vertical-align: middle;
+  }
+  .step p {
+    margin: 10px 0 0;
+    color: var(--ink-2);
+    font-size: 14px; line-height: 1.5;
+  }
+  .rules {
+    margin: 36px 0 0;
+    border-top: 2px solid var(--ink);
+    padding-top: 20px;
+  }
+  .rules h3 {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--green); margin: 0 0 12px;
+  }
+  .rules ul { margin: 0; padding: 0 0 0 18px; color: var(--ink); font-size: 14px; }
+  .rules li { margin: 0 0 8px; }
+  .rules li strong { font-weight: 700; }
+  footer {
+    margin-top: 40px; padding-top: 16px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 11px; line-height: 1.6;
+    color: var(--ink-2);
+  }
+  footer .lime { color: var(--green); }
+  @media print {
+    body { font-size: 12px; }
+    .wrap { padding: 0; max-width: none; }
+    .step { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <p class="eyebrow">Kulka · Claude skill</p>
+    <h1>add-to-estimating-kulka</h1>
+    <p class="lede">New-lead intake: cover sheet to job number to OneDrive folder to Monday / ProEst / BuildingConnected, with an explicit go-ahead before any write.</p>
+
+    <ol class="flow">
+      <li class="step">
+        <span class="num">01</span><h2>Lead arrives</h2>
+        <p>Drawing set attached, or a Dropbox / Box link. Download or unzip as needed; if several PDFs, confirm which is the drawing set.</p>
+      </li>
+      <li class="step">
+        <span class="num">02</span><h2>Read cover sheet</h2>
+        <p>Pull project name and address from the cover (typically A-001).</p>
+      </li>
+      <li class="step">
+        <span class="num">03</span><h2>Verify next project number</h2>
+        <p>Cross-check the Monday log and OneDrive folder names (C##### / D#####). If they disagree, use the higher number and flag it in the wrap-up.</p>
+      </li>
+      <li class="step">
+        <span class="num">04</span><h2>Create OneDrive project folder</h2>
+        <p>Copy from the estimating template into the right parent. Folder is always created for a live intake.</p>
+      </li>
+      <li class="step">
+        <span class="num">05</span><h2>Log the job</h2>
+        <p>Write Monday, ProEst, and/or BuildingConnected for the combination this lead needs. Default is all that apply; skip only when the requester says so.</p>
+      </li>
+      <li class="step">
+        <span class="num">06</span><h2>Safeguards</h2>
+        <p>Duplicate or partial-run check first. Show every field for go-ahead before writing. Stop and ask rather than guess on division letter, priority, or estimate type.</p>
+      </li>
+    </ol>
+
+    <section class="rules">
+      <h3>Hard stops</h3>
+      <ul>
+        <li><strong>Block:</strong> no PDF / ambiguous cover sheet, no folder, or failed verify twice.</li>
+        <li><strong>Non-blocking:</strong> number mismatch across systems, or a system skipped by choice — log and continue.</li>
+      </ul>
+    </section>
+
+    <footer>
+      BLDG Labs · Kulka · companion to process-map.pdf · Sep 18, 2026
+    </footer>
+  </main>
+</body>
+</html>

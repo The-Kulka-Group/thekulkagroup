@@ -1,0 +1,49 @@
+/* LA-18, the provenance drill-down. One expanded ROM line, showing the
+   comparables behind its number. It sits inside the board, so it borrows the
+   board's ink and meta sizes rather than setting its own. */
+
+.board--rom .line-toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.board--rom .line-toggle:hover { text-decoration: underline; }
+.board--rom .line-toggle .caret { color: var(--ink-3); margin-right: var(--s2); }
+
+.board--rom tr.row--open > td { border-bottom: 0; }
+
+.prov-cell { background: var(--neutral-fill); padding: var(--s4) var(--s4) var(--s5); }
+
+.prov-head {
+  color: var(--ink-2);
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+  margin-bottom: var(--s3);
+}
+
+.prov-table { width: 100%; border-collapse: collapse; }
+.prov-table th,
+.prov-table td {
+  text-align: left;
+  padding: var(--s2) var(--s3) var(--s2) 0;
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+  vertical-align: top;
+}
+.prov-table th { color: var(--ink-3); font-weight: 600; }
+.prov-table td { color: var(--ink); }
+.prov-table .right { text-align: right; }
+.prov-table .quiet { color: var(--ink-3); }
+.prov-table tbody tr + tr th,
+.prov-table tbody tr + tr td { border-top: 1px solid var(--border-light); }
+
+.prov-empty {
+  color: var(--ink-2);
+  font-size: var(--ui-size);
+  line-height: var(--ui-line);
+}

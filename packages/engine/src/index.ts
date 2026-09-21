@@ -12,6 +12,8 @@ export {
   type DataSnapshot,
   type EngineParameter,
   type EngineParameters,
+  type JudgmentAdjustment,
+  type JudgmentRule,
   type ParameterName,
   type ParameterProvenance,
   type ProjectType,

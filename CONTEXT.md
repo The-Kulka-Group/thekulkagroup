@@ -33,8 +33,12 @@ How a branch gate gets its answer when the answer turns on a code requirement sp
 to the project's municipality and authority having jurisdiction, such as emergency
 responder radio coverage or fire alarm notification type, rather than on a fact the
 estimator can state from memory or one the tool can derive from another captured field.
-Jev looks it up from the project's address and jurisdiction. Falls back to asked outright
-until that lookup exists.
+Two steps, not one. Something resolves the project's address to a jurisdiction and
+retrieves the current code text for that question; Jev then judges a narrow question
+against that retrieved text. Jev has no built-in web search, database, or jurisdiction
+lookup of its own, so it cannot do the first step. Falls back to asked outright until
+both steps exist. See `docs/precon/research/la-771-jurisdiction-code-gates.md`
+(research, 2026-09-20) for sourcing.
 _Avoid_: code check, jurisdiction check, AHJ lookup
 
 **Tier**:

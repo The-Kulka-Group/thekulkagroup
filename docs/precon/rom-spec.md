@@ -158,10 +158,14 @@ takes what it wants later by copy or fork. The tool stays off the public website
   jurisdiction, which neither of the first two can do for a gate like emergency
   responder radio coverage or fire alarm notification: both trigger off a building code
   amendment specific to the project's municipality and AHJ, not off anything Kulka
-  captures today or could reasonably ask an estimator to know from memory. Jev is the
-  tool for that lookup, given the project's address and jurisdiction; the research and
-  build for it is its own ticket, not assumed to exist yet. Until it does, these two
-  gates fall back to asked outright, same as any other gate.
+  captures today or could reasonably ask an estimator to know from memory. That lookup
+  is two steps, not one: something resolves the project's address to a jurisdiction and
+  retrieves the current code text, then Jev judges the narrow question against that
+  retrieved text. Jev has no built-in web search, database, or jurisdiction lookup of
+  its own (confirmed against TypeSafe's own docs, 2026-09-20; see
+  `docs/precon/research/la-771-jurisdiction-code-gates.md`), so the retrieval step is
+  still unbuilt, its own ticket. Until both steps exist, these two gates fall back to
+  asked outright, same as any other gate.
   A gate earns a permanent place if it appears in at least a third of Kulka's own past
   jobs, or Matt says from the trade that it comes up on most calls regardless of what
   the thin dataset shows. Anything below that bar stays in the assumed bucket, asked

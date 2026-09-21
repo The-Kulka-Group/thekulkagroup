@@ -2137,8 +2137,20 @@ spread.** Its garage-level line and its tower line price at the identical $6.00/
 NFPA 13 hazard classification says a garage (Ordinary Hazard) should cost more per
 square foot than a residential corridor (Light Hazard), not the same. See LA-774 for the
 proposal to have Jev reason through hazard classification, standpipe, and fire pump
-internally to get a better pricing quantity than flat square feet, never as an engineered
-system shown to anyone. Until that lands, this item stays one blended rate.
+internally to get a better pricing quantity than flat square feet. Until that lands, this
+item stays one blended rate.
+
+**Superseded (Matt, 2026-09-20): shown as an engineered design criterion, not hidden.**
+LA-774's research (`docs/precon/research/la-774-sprinkler-pricing-quantity.md`) found
+hazard classification is a national NFPA 13 table keyed to space use, not a jurisdiction
+lookup, so it does not need Jev; standpipe already derives from stories; fire pump needs
+a site water-supply flow test that does not exist at ROM intake, so it stays an
+estimator-stated gate for now. The "never as an engineered system shown to anyone" framing
+above is reversed: the new design-criteria panel ticket (parent LA-9, filed once Linear
+reconnects) shows this derived system type and hazard classification on the ROM face as
+a labeled assumption, the same treatment as electrical service size, insulation R-value,
+HVAC tonnage, and elevator type. This item's price stays the flat blended rate from the
+sources above; no specific rate is set by this amendment.
 
 **Cross-checked against windows (Matt, 2026-09-20), and it surfaces a real fact this
 item has never captured: full NFPA 13 versus NFPA 13R.** IBC ties allowable window and

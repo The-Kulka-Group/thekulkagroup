@@ -1,5 +1,16 @@
 # LA-784: elevator type, hydraulic vs traction
 
+**Superseded by the real ticket, read 2026-09-21.** This research was written while
+Linear was unreachable, inferred from the title and sibling pattern rather than LA-784's
+actual body. The real ticket already decided to use Jev, as a bounded propose-and-correct
+reasoning step (shown arithmetic, low confidence, estimator corrects) deriving elevator
+type from Stories Above Grade, not a lookup-replacement question. This document's
+underlying code fact (the hydraulic/traction FPM threshold) is still useful background.
+Separately: this document's West Shore Road "rate mislabeled as outlier" observation was
+already resolved by Matt in `canonical-work-items.md` item 26 before this research ran
+(same conclusion, technology difference not a rate error), so it wasn't new information.
+See LA-784 in Linear for the real scope.
+
 Researched 2026-09-20. Scope note up front: LA-784's own ticket body could not be
 fetched (Linear API outage while this research was queued). The scope below is
 inferred from the ticket title, the LA-771 sibling template, and two mentions of

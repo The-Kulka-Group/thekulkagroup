@@ -1,5 +1,13 @@
 # LA-775: Fixture-unit pipe sizing, Plumbing (Jev)
 
+**Superseded by the real ticket, read 2026-09-21.** This research was written while
+Linear was unreachable, inferred from the title and sibling pattern rather than LA-775's
+actual body. The real ticket already decided to use Jev, as a bounded propose-and-correct
+reasoning step (shown arithmetic, low confidence, estimator corrects), not as a
+lookup-replacement question. This document's underlying code facts (fixture-unit tables,
+etc.) are still useful background; its "Jev isn't needed" conclusion is not current
+guidance. See LA-775 in Linear for the real scope.
+
 Research only. No code was written or changed for this ticket.
 
 ## Scope note (read first)

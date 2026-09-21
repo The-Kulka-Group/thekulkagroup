@@ -1,5 +1,14 @@
 # LA-781: Insulation R-value/type from climate zone (Jev)
 
+**Superseded by the real ticket, read 2026-09-21.** This research was written while
+Linear was unreachable, inferred from the title and sibling pattern rather than LA-781's
+actual body. The real ticket already decided to use Jev, as a bounded propose-and-correct
+reasoning step (shown arithmetic, low confidence, estimator corrects), covering both
+acoustic and thermal insulation with the prescriptive-vs-performance-path choice flagged
+as its one real assumption, not a lookup-replacement question. This document's underlying
+code facts (IECC prescriptive tables, etc.) are still useful background; its "Jev isn't
+needed" conclusion is not current guidance. See LA-781 in Linear for the real scope.
+
 Research memo. No code was written or changed for this ticket. This is a design
 recommendation only.
 

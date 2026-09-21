@@ -49,18 +49,6 @@ export async function seededDatabase(): Promise<Db & { close: () => Promise<void
      values ($1, $2)`,
     [TEST_BENCHMARK_ID, TEST_PROJECT_ID],
   );
-  // The judgment and LLM blend weights are figures Matt has not stated yet, so
-  // the migration leaves them out and the engine refuses to run without them.
-  // The tests need a value to blend the synthetic judgment line above; these
-  // are synthetic too, and yield to the real rows once the migration has them.
-  await pg.query(
-    `insert into engine_parameters
-       (name, value, provenance_kind, provenance_recorded_by, provenance_recorded_at, reason)
-     values
-       ('weight.reviewed_judgment', 0.5, 'reviewed_judgment', 'automated test', date '2026-09-21', 'synthetic'),
-       ('weight.llm_proposal', 0.25, 'reviewed_judgment', 'automated test', date '2026-09-21', 'synthetic')
-     on conflict (name) do nothing`,
-  );
 
   return {
     query: <Row>(text: string, params: unknown[] = []) =>

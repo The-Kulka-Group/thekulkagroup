@@ -36,6 +36,10 @@ values
    'Devin''s anchor from the 2026-08-26 call: Autodesk Cost actuals outweigh ProEst budgets about five to one (docs/precon/direction.md; LA-9 "the blend must reflect that order, with exact weights calibrated during backtest"). Measured against a ProEst budget at weight one.'),
   ('weight.proest_budget', 1, 'reviewed_judgment', 'Matt Nicosia', date '2026-09-21',
    'The unit the actuals weight is stated against. Same source as weight.actuals.'),
+  ('weight.reviewed_judgment', 2, 'reviewed_judgment', 'Matt Nicosia', date '2026-09-21',
+   'Matt, 2026-09-21, answering a worked case (a real job at $22/SF counting 5, a ProEst budget at $26/SF counting 1, an estimator''s rule of thumb at $24/SF, a model''s figure at $30/SF): the estimator''s rule counts 2. Pending LA-23''s backtest.'),
+  ('weight.llm_proposal', 0.5, 'reviewed_judgment', 'Matt Nicosia', date '2026-09-21',
+   'Same worked case: the model''s figure counts half, the lightest signal in the blend (LA-9: "never solely determines a line"). Pending LA-23''s backtest.'),
   ('flag.high_min_comparables', 5, 'reviewed_judgment', 'Matt Nicosia', date '2026-09-21',
    'Carried over unchanged from the walking skeleton''s provisional table in rom.ts (LA-12), pending LA-23''s backtest. A high flag needs at least this many distinct Kulka projects behind the line.'),
   ('flag.medium_min_comparables', 2, 'reviewed_judgment', 'Matt Nicosia', date '2026-09-21',
@@ -46,14 +50,6 @@ values
    'Carried over unchanged from the walking skeleton''s provisional table in rom.ts (LA-12), pending LA-23''s backtest.'),
   ('spread.low', 0.35, 'reviewed_judgment', 'Matt Nicosia', date '2026-09-21',
    'Carried over unchanged from the walking skeleton''s provisional table in rom.ts (LA-12), pending LA-23''s backtest. Also the hard cap: no line is ever wider than this.');
-
--- weight.reviewed_judgment and weight.llm_proposal are deliberately not
--- seeded here. Their order is decided (actuals > ProEst > judgment > LLM,
--- Matt, 2026-09-21) but no figure for either has been stated by anyone yet,
--- and this repo does not invent a number to fill a row. The engine refuses
--- to blend a kind with no recorded weight, naming the missing parameter, so
--- the first reviewed_judgment or llm_proposal benchmark cannot silently
--- price until a real figure is recorded with its provenance.
 
 -- A model's figure for a work item with no Kulka data behind it (LA-9: "the
 -- LLM proposes a figure and it is flagged low and weighted below every

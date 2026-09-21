@@ -276,10 +276,11 @@ function blendLine(
   parameters: EngineParameters,
   tiers: Tiers,
 ): RomLine {
-  const comparables = rows
-    .map((row) => toComparable(row, weightFor(parameters, row.provenance.kind)))
-    .sort(compareComparables);
-  const lead = rows.find((row) => row.provenance.kind === comparables[0].kind)!;
+  const ranked = rows
+    .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
+    .sort((a, b) => compareComparables(a.comparable, b.comparable));
+  const comparables = ranked.map((r) => r.comparable);
+  const lead = ranked[0].row;
 
   const totalWeight = comparables.reduce((sum, c) => sum + c.weight, 0);
   const rate = comparables.reduce((sum, c) => sum + c.weight * c.rate, 0) / totalWeight;

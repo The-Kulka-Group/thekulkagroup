@@ -290,6 +290,20 @@ describe("computeRom", () => {
     expect(Object.keys(withModel.lines[0])).toEqual(Object.keys(without.lines[0]));
   });
 
+  it("takes the label from the same row whatever order two rows of one kind arrived in", () => {
+    const newer = benchmark({ label: "Newer row", project: PROJECT_A });
+    newer.provenance.recordedAt = "2026-09-01";
+    const older = benchmark({ label: "Older row", project: PROJECT_B, scopeSide: "site" });
+    older.provenance.recordedAt = "2026-08-01";
+
+    const forwards = computeRom(ANSWERS, snapshot(older, newer));
+    const backwards = computeRom(ANSWERS, snapshot(newer, older));
+
+    expect(forwards.lines[0].label).toBe("Newer row");
+    expect(forwards.lines[0].scopeSide).toBe("building");
+    expect(JSON.stringify(forwards)).toBe(JSON.stringify(backwards));
+  });
+
   it("takes the label and sides from the heaviest figure when rows disagree", () => {
     const rom = computeRom(
       ANSWERS,

@@ -3,15 +3,14 @@ import { InvalidVisionInput } from "./input";
 
 export type AutomatedSourceCoverage = { year: number; documents: string[] } | null;
 
-export type SourceCollectionResult = {
-  records: DiscoveredRecord[];
-  coverage: AutomatedSourceCoverage;
-};
-
 export type SourceCollectionProgress = {
   coverage: AutomatedSourceCoverage;
   fetched: number;
   rejected: number;
+};
+
+export type SourceCollectionResult = SourceCollectionProgress & {
+  records: DiscoveredRecord[];
 };
 
 /** Lets a bounded adapter retain the work it measured before a failed run. */
@@ -61,11 +60,16 @@ type SourceAdapter = {
   collect(source: AutomatedSourceDefinition, context?: SourceCollectionContext): Promise<SourceCollectionResult>;
 };
 
+function completedCollection(records: DiscoveredRecord[], coverage: AutomatedSourceCoverage = null): SourceCollectionResult {
+  return {records, coverage, fetched: records.length, rejected: 0};
+}
+
 const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
   "arcgis-feature-layers": {
     async collect() {
       const { fetchDiscoveryRecords } = await import("./discovery-source");
-      return { records: await fetchDiscoveryRecords(), coverage: null };
+      const records = await fetchDiscoveryRecords();
+      return completedCollection(records);
     },
   },
   "suffolk-planning-documents": {
@@ -73,25 +77,24 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
       const { fetchSuffolkRecords } = await import("./suffolk-source");
       const records = await fetchSuffolkRecords();
       const fallbackYear = Number(new Intl.DateTimeFormat("en", { timeZone: "America/New_York", year: "numeric" }).format(new Date()));
-      return {
-        records,
-        coverage: {
-          year: Number(records[0]?.details["Collection year"] || fallbackYear),
-          documents: [...new Set(records.flatMap(record => record.evidence?.map(page => page.url.split("#")[0]) ?? []))].sort(),
-        },
-      };
+      return completedCollection(records, {
+        year: Number(records[0]?.details["Collection year"] || fallbackYear),
+        documents: [...new Set(records.flatMap(record => record.evidence?.map(page => page.url.split("#")[0]) ?? []))].sort(),
+      });
     },
   },
   "nassau-ida-project-table": {
     async collect() {
       const { fetchNassauIdaRecords } = await import("./ida-source");
-      return { records: await fetchNassauIdaRecords(), coverage: null };
+      const records = await fetchNassauIdaRecords();
+      return completedCollection(records);
     },
   },
   "suffolk-ida-resource-index": {
     async collect() {
       const { fetchSuffolkIdaRecords } = await import("./ida-source");
-      return { records: await fetchSuffolkIdaRecords(), coverage: null };
+      const records = await fetchSuffolkIdaRecords();
+      return completedCollection(records);
     },
   },
   "oyster-bay-zba-documents": {
@@ -109,7 +112,12 @@ const SOURCE_ADAPTERS: Record<string, SourceAdapter> = {
   "smartgov-public-permits": {
     async collect(source, context) {
       const { fetchSmartGovRecords } = await import("./smartgov-source");
-      return { records: await fetchSmartGovRecords(source, context?.existingRecords, new Date(), context?.reportProgress), coverage: null };
+      let progress: SourceCollectionProgress = {coverage: null, fetched: 0, rejected: 0};
+      const records = await fetchSmartGovRecords(source, context?.existingRecords, new Date(), value => {
+        progress = value;
+        context?.reportProgress?.(value);
+      });
+      return {records, coverage: null, fetched: Math.max(progress.fetched, records.length), rejected: progress.rejected};
     },
   },
 };

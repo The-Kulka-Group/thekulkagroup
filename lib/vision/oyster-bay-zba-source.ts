@@ -214,6 +214,7 @@ export async function fetchOysterBayZbaRecords(source: AutomatedSourceDefinition
   let totalBytes = htmlBytes.length;
   const batches: DiscoveredRecord[][] = [];
   const checkedDocuments: string[] = [];
+  let rejected = 0;
   try {
     await Promise.all(Array.from({length: Math.min(3, documents.length)}, async () => {
     try {
@@ -222,12 +223,27 @@ export async function fetchOysterBayZbaRecords(source: AutomatedSourceDefinition
         if (index >= documents.length) return;
         deadline.throwIfAborted();
         const document = documents[index];
-        const bytes = await read(source, document.url, deadline, "pdf");
+        let bytes;
+        try {
+          bytes = await read(source, document.url, deadline, "pdf");
+        } catch (error) {
+          // One dead or removed PDF link is that document's problem, not the whole
+          // scan's. The total-download-limit check below stays outside this catch,
+          // since that is a run-level budget, not a per-document one.
+          console.error(`Oyster Bay Zoning Board document fetch failed for ${document.url}: ${error instanceof Error ? error.message : String(error)}`);
+          rejected++;
+          continue;
+        }
         totalBytes += bytes.length;
         if (totalBytes > (source.limits.maxTotalResponseBytes ?? source.limits.maxResponseBytes)) throw new Error("The Oyster Bay Zoning Board scan exceeded the total download limit. Earlier source records remain available.");
-        const pages = await extractOysterBayZbaPages(bytes, source.limits.maxPages ?? 0, deadline);
-        batches[index] = parseOysterBayZbaDocument(document, pages, hash(bytes), source);
-        checkedDocuments[index] = document.url;
+        try {
+          const pages = await extractOysterBayZbaPages(bytes, source.limits.maxPages ?? 0, deadline);
+          batches[index] = parseOysterBayZbaDocument(document, pages, hash(bytes), source);
+          checkedDocuments[index] = document.url;
+        } catch (error) {
+          console.error(`Oyster Bay Zoning Board document parse failed for ${document.url}: ${error instanceof Error ? error.message : String(error)}`);
+          rejected++;
+        }
       }
     } catch (error) {
       controller.abort(error);
@@ -238,13 +254,18 @@ export async function fetchOysterBayZbaRecords(source: AutomatedSourceDefinition
     throw new SourceCollectionFailure("The Oyster Bay Zoning Board check stopped before it read every document.", {
       coverage: {year, documents: checkedDocuments.filter(Boolean).sort()},
       fetched: batches.flat().length,
-      rejected: 1,
+      rejected: rejected || 1,
     }, {cause: error});
   }
+  if (documents.length > 0 && rejected === documents.length) throw new SourceCollectionFailure("The Oyster Bay Zoning Board scan rejected every document. Earlier source records remain available.", {
+    coverage: {year, documents: checkedDocuments.filter(Boolean).sort()},
+    fetched: 0,
+    rejected,
+  });
   const records = mergeOysterBayAppeals(batches.flat(), source);
   for (const row of records) {
     row.details["Collection year"] = String(year);
     row.details["Documents checked"] = String(documents.length);
   }
-  return {records, coverage: {year, documents: checkedDocuments.filter(Boolean).sort()}};
+  return {records, coverage: {year, documents: checkedDocuments.filter(Boolean).sort()}, fetched: records.length, rejected};
 }

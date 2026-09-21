@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>How a conceptual budget gets built</title>
+<style>
+  :root {
+    --brand: #1D1D1F;
+    --primary: #0073EA;
+    --primary-hover: #0060B9;
+    --primary-tint: #EAF3FE;
+    --ink: #323338;
+    --ink-2: #676879;
+    --ink-3: #6F7382;
+    --surface: #FFFFFF;
+    --canvas: #F6F7FB;
+    --border-light: #E6E9EF;
+    --done: #00854D;
+    --done-bright: #00C875;
+    --done-tint: #D5F6E5;
+    --working: #FF9500;
+    --working-tint: #FFE8CC;
+    --stuck: #CE3350;
+    --stuck-bright: #E2445C;
+    --stuck-tint: #FFDEE3;
+    --neutral-fill: #EDEEF2;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px; --s12: 48px; --s16: 64px;
+    --r-pill: 999px;
+    --r-8: 8px;
+    --r-12: 12px;
+    --estimator: #2E5BFF; --estimator-tint: #EAEFFF; --estimator-ink: #1F3FBF;
+    --ai: #00C7BE; --ai-tint: #DFF7F5; --ai-ink: #006B66;
+    --kulka: #7C4DFF; --kulka-tint: #EFE8FF; --kulka-ink: #5A2FD6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--canvas); }
+  body {
+    font-family: "Open Sans", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 816px;
+    margin: 0 auto;
+    background: var(--canvas);
+    padding: 40px 40px 56px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* Masthead */
+  .masthead { margin-bottom: var(--s12); }
+  .wordmark { display: flex; align-items: center; gap: 10px; margin-bottom: var(--s6); }
+  .wordmark .kulka { font-size: 15px; font-weight: 800; color: var(--brand); letter-spacing: 0.02em; }
+  .wordmark .ai-chip {
+    display: inline-flex; align-items: center; height: 22px; padding: 0 10px;
+    border-radius: var(--r-pill); background: var(--primary); color: #fff;
+    font-size: 12px; font-weight: 800; letter-spacing: 0.06em;
+  }
+  h1.title { font-size: 26px; font-weight: 800; line-height: 1.25; color: var(--brand); margin: 0 0 var(--s2); }
+  p.dek { font-size: 15px; line-height: 1.5; color: var(--ink-2); margin: 0; max-width: 62ch; }
+
+  /* Actor legend */
+  .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s4); margin-bottom: var(--s16); }
+  .actor-card {
+    background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--r-12);
+    padding: var(--s4); display: flex; gap: var(--s3); align-items: flex-start;
+  }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; flex: none; }
+  .avatar.estimator { background: var(--estimator); }
+  .avatar.ai { background: var(--ai); }
+  .avatar.kulka { background: var(--kulka); }
+  .actor-name { font-size: 14px; font-weight: 700; color: var(--brand); margin-bottom: 2px; }
+  .actor-desc { font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+
+  /* Phase sheet */
+  .sheet { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--r-12);
+    margin-bottom: var(--s8); overflow: hidden; }
+  .band { padding: 20px 24px 0; }
+  .band-top { display: flex; align-items: center; gap: 12px; }
+  .band-badge {
+    display: inline-flex; align-items: center; justify-content: center; height: 26px; padding: 0 12px;
+    background: var(--brand); color: #fff; font-size: 12px; font-weight: 800; letter-spacing: 0.04em;
+    border-radius: var(--r-8);
+  }
+  .band-name { font-size: 22px; font-weight: 800; color: var(--brand); margin: 0; flex: 1; }
+  .time-pill {
+    display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: var(--r-pill);
+    background: var(--neutral-fill); color: var(--ink-2); font-size: 12.5px; font-weight: 700;
+  }
+  .band-meta { display: flex; align-items: center; gap: var(--s3); padding: 12px 0 18px;
+    border-bottom: 1px solid var(--border-light); margin-top: 12px; flex-wrap: wrap; }
+  .band-subtitle { font-size: 13px; color: var(--ink-2); flex: 1; }
+  .actor-pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+    border-radius: var(--r-pill); font-size: 12px; font-weight: 700; }
+  .actor-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .actor-pill.estimator { background: var(--estimator-tint); color: var(--estimator-ink); }
+  .actor-pill.estimator .dot { background: var(--estimator); }
+  .actor-pill.ai { background: var(--ai-tint); color: var(--ai-ink); }
+  .actor-pill.ai .dot { background: var(--ai); }
+  .actor-pill.kulka { background: var(--kulka-tint); color: var(--kulka-ink); }
+  .actor-pill.kulka .dot { background: var(--kulka); }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+    border-radius: var(--r-pill); font-size: 12px; font-weight: 700; }
+  .status-pill .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-pill.live { background: var(--done-tint); color: var(--done); }
+  .status-pill.live .dot { background: var(--done-bright); }
+  .status-pill.working { background: var(--working-tint); color: #C06A00; }
+  .status-pill.working .dot { background: var(--working); }
+  .status-pill.coming { background: var(--neutral-fill); color: var(--ink-3); }
+  .status-pill.coming .dot { background: var(--ink-3); }
+
+  .steps { padding: var(--s4) 24px var(--s2); list-style: none; margin: 0; counter-reset: step; }
+  .steps > li { counter-increment: step; display: flex; gap: var(--s3); padding: var(--s3) 0;
+    border-bottom: 1px solid var(--border-light); }
+  .steps > li:last-child { border-bottom: none; }
+  .step-num { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--neutral-fill);
+    color: var(--ink-2); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .step-num::before { content: counter(step); }
+  .step-body .lead { font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.4; margin: 0 0 3px; }
+  .step-body .detail { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; margin: 0; }
+
+  /* Attention row */
+  .attn { margin: 0 24px var(--s3); border-radius: var(--r-8); padding: var(--s3) var(--s4);
+    display: flex; gap: var(--s3); align-items: flex-start; }
+  .attn.amber { background: var(--surface); border: 1px solid var(--border-light); }
+  .attn.red { background: var(--stuck-tint); border: none; }
+  .attn-glyph { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+  .attn.amber .attn-glyph { color: #C06A00; }
+  .attn.red .attn-glyph { color: var(--stuck); }
+  .attn-head { font-size: 12.5px; font-weight: 800; letter-spacing: 0.02em; margin: 0 0 2px; }
+  .attn.amber .attn-head { color: var(--ink); }
+  .attn.red .attn-head { color: var(--stuck); }
+  .attn-body { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; margin: 0; }
+
+  /* Produces strip */
+  .produces { background: var(--canvas); border-top: 1px solid var(--border-light);
+    padding: var(--s3) 24px; display: flex; align-items: center; gap: var(--s3); }
+  .produces .label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; color: var(--ink-3); flex: none; }
+  .produces .text { font-size: 13px; color: var(--ink); flex: 1; }
+  .produces .chips { display: flex; gap: 6px; flex: none; }
+  .chip-outline { display: inline-flex; align-items: center; height: 22px; padding: 0 9px;
+    border: 1px solid var(--border-light); border-radius: 6px; font-size: 11px; font-weight: 700;
+    color: var(--ink-2); background: var(--surface); }
+
+  /* Handoff bar */
+  .handoff { background: var(--brand); color: #fff; border-radius: var(--r-12);
+    padding: var(--s4) var(--s6); margin-bottom: var(--s8); }
+  .handoff .l1 { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+  .handoff .l2 { font-size: 13px; color: #C9CACD; margin: 0; }
+
+  /* Comparison */
+  .compare { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--r-12);
+    padding: var(--s8) var(--s6); margin-bottom: var(--s8); }
+  .compare h2 { font-size: 18px; font-weight: 800; color: var(--brand); margin: 0 0 var(--s6); }
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s8); }
+  .compare-col .big { font-size: 44px; font-weight: 800; line-height: 1; }
+  .compare-col.manual .big { color: var(--ink-3); }
+  .compare-col.ai .big { color: var(--done); }
+  .compare-col .cap { font-size: 13px; color: var(--ink-2); margin-top: var(--s2); }
+  .compare-concession { margin-top: var(--s6); padding-top: var(--s6); border-top: 1px solid var(--border-light); }
+  .compare-concession b { color: var(--ink); }
+  .compare-concession p { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin: var(--s2) 0 0; }
+
+  /* Footer */
+  .footer { display: flex; align-items: center; justify-content: space-between; padding-top: var(--s4);
+    border-top: 1px solid var(--border-light); }
+  .footer-key { display: flex; gap: var(--s6); align-items: center; }
+  .fkey-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+  .fkey-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .fkey-dot.amber { background: var(--surface); border: 1.5px solid var(--working); }
+  .fkey-dot.red { background: var(--stuck-tint); border: 1.5px solid var(--stuck); }
+  .fkey-note { font-size: 11.5px; color: var(--ink-3); }
+  .footer-range { font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+
+  @page { size: 8.5in 36.8in; margin: 0; }
+  @media print { .page { padding: 40px 40px 56px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <div class="wordmark"><span class="kulka">KULKA</span><span class="ai-chip">AI</span></div>
+    <h1 class="title">How a conceptual budget gets built</h1>
+    <p class="dek">Five phases, from an estimator's answers to a budget a client can act on &mdash; and the two that aren&rsquo;t finished yet, marked plainly.</p>
+  </div>
+
+  <div class="legend">
+    <div class="actor-card">
+      <div class="avatar estimator"></div>
+      <div><div class="actor-name">Estimator</div><div class="actor-desc">Answers what only a person at Kulka can know about the job.</div></div>
+    </div>
+    <div class="actor-card">
+      <div class="avatar ai"></div>
+      <div><div class="actor-name">AI</div><div class="actor-desc">Derives, blends, and ranges &mdash; never the only voice behind a number.</div></div>
+    </div>
+    <div class="actor-card">
+      <div class="avatar kulka"></div>
+      <div><div class="actor-name">Kulka</div><div class="actor-desc">Reviews, approves, and issues. Nothing ships without this step.</div></div>
+    </div>
+  </div>
+
+  <!-- W-100 -->
+  <section class="sheet">
+    <div class="band">
+      <div class="band-top">
+        <span class="band-badge">W-100</span>
+        <h2 class="band-name">Intake</h2>
+        <span class="time-pill">~20 min</span>
+      </div>
+      <div class="band-meta">
+        <span class="band-subtitle">The estimator answers what only a person can know</span>
+        <span class="actor-pill estimator"><span class="dot"></span>Estimator</span>
+        <span class="status-pill live"><span class="dot"></span>Live</span>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Pick the project and how deep to go.</p><p class="detail">A tier sets how many questions get asked; a fast pass for an early number, deeper tiers when more is known.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Answer the fixed set of intake questions.</p><p class="detail">Unit count, stories, construction type, parking type, and the handful of gates &mdash; gas building, roof type, HVAC system &mdash; that actually change what gets priced.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Confirm or correct what the tool already worked out.</p><p class="detail">Where a fact can be derived from another one already given &mdash; elevator stops from stories, for instance &mdash; the tool proposes it; the estimator just confirms or overrides it.</p></div></li>
+    </ol>
+    <div class="produces">
+      <span class="label">PRODUCES</span>
+      <span class="text">A dated project record &mdash; every answer, every gate, ready to price.</span>
+      <span class="chips"><span class="chip-outline">kulka-budget-questions</span></span>
+    </div>
+  </section>
+
+  <!-- W-200 -->
+  <section class="sheet">
+    <div class="band">
+      <div class="band-top">
+        <span class="band-badge">W-200</span>
+        <h2 class="band-name">Engineer</h2>
+        <span class="time-pill">seconds</span>
+      </div>
+      <div class="band-meta">
+        <span class="band-subtitle">The tool works out what a real engineer would, before one is ever on the job</span>
+        <span class="actor-pill ai"><span class="dot"></span>AI</span>
+        <span class="status-pill working"><span class="dot"></span>Building</span>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Size the real MEP and life-safety numbers.</p><p class="detail">Electrical service size off NEC load tables, insulation off IECC climate-zone tables, HVAC tonnage off a square-foot-per-ton rule, elevator type off travel distance, sprinkler system type off construction and stories.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Show the math, not just the number.</p><p class="detail">Every derived value carries the code section or method behind it, so it reads as an engineering fact, not a guess dressed up as one.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Only reach outside the building when nothing captured already answers it.</p><p class="detail">Two gates &mdash; emergency responder radio coverage, fire alarm notification type &mdash; genuinely turn on local code, not on anything the tool already knows.</p></div></li>
+    </ol>
+    <div class="attn amber">
+      <svg class="attn-glyph" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M10 6v4.5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div><p class="attn-head">A jurisdiction lookup has to run first</p><p class="attn-body">The AI judgment layer this leans on can only judge text it&rsquo;s handed &mdash; it has no lookup of its own. Until that retrieval step exists, those two gates fall back to asking the estimator outright.</p></div>
+    </div>
+    <div class="produces">
+      <span class="label">PRODUCES</span>
+      <span class="text">A labeled set of engineering criteria, dated, sourced, ready to price against.</span>
+      <span class="chips"><span class="chip-outline">design criteria panel</span></span>
+    </div>
+  </section>
+
+  <!-- W-300 -->
+  <section class="sheet">
+    <div class="band">
+      <div class="band-top">
+        <span class="band-badge">W-300</span>
+        <h2 class="band-name">Blend &amp; range</h2>
+        <span class="time-pill">seconds</span>
+      </div>
+      <div class="band-meta">
+        <span class="band-subtitle">Real cost data sets the price &mdash; nothing is priced on AI judgment alone</span>
+        <span class="actor-pill ai"><span class="dot"></span>AI</span>
+        <span class="status-pill coming"><span class="dot"></span>Not started</span>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Pull every real comparable for this line.</p><p class="detail">Actual bought costs first, vetted benchmark budgets second, an AI signal last &mdash; and only ever one voice among real data, never alone.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Tighten the range as real evidence grows.</p><p class="detail">More comparables narrow the spread and sharpen the range; few or noisy comparables keep it wide on purpose, not by accident.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Flag every line&rsquo;s confidence, and name why.</p><p class="detail">High, medium, or low &mdash; driven by comparable count, spread, and kind &mdash; and the flag names the comparables behind it, so it&rsquo;s never a black box.</p></div></li>
+    </ol>
+    <div class="attn red">
+      <svg class="attn-glyph" viewBox="0 0 20 20" fill="none"><path d="M10 2.5 18 17H2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="10" cy="14.2" r="0.9" fill="currentColor"/></svg>
+      <div><p class="attn-head">A mis-tagged cost row must never become a benchmark</p><p class="attn-body">A line that&rsquo;s really a takeoff helper or a duplicate is excluded before it can reach a benchmark. One that got through once already threw a real benchmark off by two orders of magnitude.</p></div>
+    </div>
+    <div class="produces">
+      <span class="label">PRODUCES</span>
+      <span class="text">A ranged budget, line by line, every range showing its own confidence.</span>
+      <span class="chips"><span class="chip-outline">ROM engine</span></span>
+    </div>
+  </section>
+
+  <div class="handoff">
+    <p class="l1">The range is set. Now a person checks it.</p>
+    <p class="l2">Nothing reaches a client until someone at Kulka has reviewed what the tool assumed.</p>
+  </div>
+
+  <!-- W-400 -->
+  <section class="sheet">
+    <div class="band">
+      <div class="band-top">
+        <span class="band-badge">W-400</span>
+        <h2 class="band-name">Review</h2>
+        <span class="time-pill">minutes</span>
+      </div>
+      <div class="band-meta">
+        <span class="band-subtitle">Nothing reaches a client until a person has looked at what changed</span>
+        <span class="actor-pill kulka"><span class="dot"></span>Kulka</span>
+        <span class="status-pill live"><span class="dot"></span>Live</span>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Anything imported gets staged before it counts.</p><p class="detail">A new cost file sits in a holding queue first; nothing becomes a benchmark until someone approves it, so one bad import can&rsquo;t silently corrupt a live number.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">A held line gets a second look, by name.</p><p class="detail">A low-confidence or newly-changed line is flagged right on the budget itself, not buried in a log somewhere else.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Every assumption is written in plain English, on the sheet.</p><p class="detail">If the tool assumed a rate, a system type, or a pricing driver, that assumption prints right there &mdash; not hidden inside the math.</p></div></li>
+    </ol>
+    <div class="attn amber">
+      <svg class="attn-glyph" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M10 6v4.5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div><p class="attn-head">A repeat import is skipped, not blended</p><p class="attn-body">Re-importing the same cost code doesn&rsquo;t yet blend with what&rsquo;s already there &mdash; it&rsquo;s skipped on purpose, until real blending logic exists, so a re-import can never quietly double a number.</p></div>
+    </div>
+    <div class="produces">
+      <span class="label">PRODUCES</span>
+      <span class="text">An approved, defensible ranged budget, with its assumptions in writing.</span>
+      <span class="chips"><span class="chip-outline">ingestion gate</span></span>
+    </div>
+  </section>
+
+  <!-- W-500 -->
+  <section class="sheet">
+    <div class="band">
+      <div class="band-top">
+        <span class="band-badge">W-500</span>
+        <h2 class="band-name">Issue</h2>
+        <span class="time-pill">at closing</span>
+      </div>
+      <div class="band-meta">
+        <span class="band-subtitle">The budget goes out, and the real numbers come back to make the next one better</span>
+        <span class="actor-pill kulka"><span class="dot"></span>Kulka</span>
+        <span class="status-pill working"><span class="dot"></span>Building</span>
+      </div>
+    </div>
+    <ol class="steps">
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Issue the budget against a real, named project.</p><p class="detail">The ROM is linked to the actual job it&rsquo;s for, not left floating on its own.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Compare it against what the job actually cost, once it closes.</p><p class="detail">Award-to-final and award-to-bought-out gaps get measured, not guessed at.</p></div></li>
+      <li><span class="step-num"></span><div class="step-body"><p class="lead">Feed that gap back into the tool&rsquo;s own stops.</p><p class="detail">The dial that tightens future ranges is built entirely from Kulka&rsquo;s own measured history &mdash; never a made-up fudge factor.</p></div></li>
+    </ol>
+    <div class="produces">
+      <span class="label">PRODUCES</span>
+      <span class="text">A closed loop &mdash; the next budget is provably better than the last.</span>
+      <span class="chips"><span class="chip-outline">closing comparison</span></span>
+    </div>
+  </section>
+
+  <div class="compare">
+    <h2>One conceptual budget, hands-on hours</h2>
+    <div class="compare-grid">
+      <div class="compare-col manual">
+        <div class="big num">16 hrs</div>
+        <div class="cap">By hand, today</div>
+      </div>
+      <div class="compare-col ai">
+        <div class="big num">3 hrs</div>
+        <div class="cap">With the ROM tool</div>
+      </div>
+    </div>
+    <div class="compare-concession">
+      <p><b>This counts hands-on hours only.</b> It doesn&rsquo;t count the review step above, and it doesn&rsquo;t count the trust a new tool has to earn over its first several real jobs &mdash; both take longer than any single number here shows.</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-key">
+      <span class="fkey-item"><span class="fkey-dot amber"></span>a decision is waiting</span>
+      <span class="fkey-item"><span class="fkey-dot red"></span>hard stop &mdash; do not proceed</span>
+      <span class="fkey-note">Small gray type under every step is the detail; the bold line alone tells the whole story.</span>
+    </div>
+    <span class="footer-range">W-100 &ndash; W-500</span>
+  </div>
+
+</div>
+</body>
+</html>

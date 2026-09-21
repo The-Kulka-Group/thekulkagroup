@@ -11,6 +11,8 @@
 // provenance (LA-14). The engine refuses to run without them rather than fall
 // back to a number nobody recorded.
 
+import type { BranchGateAnswer } from "./rom-intake";
+
 export type ProjectType = "multifamily" | "self_storage";
 export type ConstructionKind = "new" | "renovation";
 export type ConfidenceFlag = "high" | "medium" | "low";
@@ -118,8 +120,12 @@ export type JudgmentRule = {
   costCode: string;
   projectType: ProjectType;
   constructionKind: ConstructionKind;
-  /** The fact in the answers the rule turns on, or null when it applies to every project of this type and kind. */
-  condition: { fact: string; equals: string | number | boolean } | null;
+  /**
+   * The fact in the answers the rule turns on, or null when it applies to every
+   * project of this type and kind. The value is text because that is how a rule
+   * is entered and stored, and a fact is compared to it as text.
+   */
+  condition: { fact: string; equals: string } | null;
   /** What the rule adds to the line's rate, or takes off it when negative. */
   adjustmentUsdPerGsf: number;
   provenance: JudgmentProvenance;
@@ -152,6 +158,8 @@ export type Answers = {
   grossSquareFeet: number;
   /** The project facts a judgment rule's condition reads, such as whether the job has a basement level. */
   facts?: Record<string, string | number | boolean>;
+  /** Every branch gate the intake asked, by section (CONTEXT.md: Branch gate). */
+  branchGates?: Record<string, BranchGateAnswer>;
 };
 
 /** One figure that went into a line's blend. */
@@ -331,7 +339,11 @@ function groupJudgmentRules(rules: JudgmentRule[], answers: Answers): Map<string
     if (rule.projectType !== answers.projectType) return false;
     if (rule.constructionKind !== answers.constructionKind) return false;
     if (!rule.condition) return true;
-    return answers.facts?.[rule.condition.fact] === rule.condition.equals;
+    // A rule's value is always text, while a fact off a number question is a
+    // number, so both are read as text. Comparing them raw would drop the rule
+    // without a word.
+    const fact = answers.facts?.[rule.condition.fact];
+    return fact !== undefined && String(fact) === rule.condition.equals;
   };
 
   const byCostCode = new Map<string, JudgmentRule[]>();
@@ -536,6 +548,24 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   if (judgmentAdjusted.length > 0) {
     assumptions.push(
       `${judgmentAdjusted.length} of ${lines.length} lines carry an approved estimator rule, flagged as judgment with the person who stated it and the date. Measured Kulka figures on the same line outweigh the rule.`,
+    );
+  }
+
+  // A branch gate's answer has to show on the face of the ROM, or the intake
+  // asks a question that changes nothing (CONTEXT.md: Branch gate).
+  //
+  // Pricing a closed section's own lines at zero needs a map from a section to
+  // the cost codes it covers, and no such map exists yet in the schema. Until
+  // one does, a "no" is stated here rather than guessed at.
+  const gates = Object.entries(answers.branchGates ?? {});
+  const closed = gates.filter(([, answer]) => answer === "no").map(([section]) => section);
+  const tbd = gates.filter(([, answer]) => answer === "dont_know").map(([section]) => section);
+  if (closed.length > 0) {
+    assumptions.push(`Answered no, so this budget carries nothing for: ${closed.join(", ")}.`);
+  }
+  if (tbd.length > 0) {
+    assumptions.push(
+      `${tbd.length} ${tbd.length === 1 ? "item sits" : "items sit"} outside this total as TBD, because nobody knows the answer yet: ${tbd.join(", ")}.`,
     );
   }
 

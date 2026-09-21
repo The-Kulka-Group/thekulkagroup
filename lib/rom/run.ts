@@ -166,7 +166,11 @@ export async function runRom(
       }),
     );
 
-    const snapshot: DataSnapshot = { benchmarks, parameters, judgmentRules };
+    // Judgment rules join the snapshot only when there are some, so a project
+    // with no approved rule still fingerprints the way it did before rules
+    // existed and two runs over the same data stay comparable.
+    const snapshot: DataSnapshot =
+      judgmentRules.length > 0 ? { benchmarks, parameters, judgmentRules } : { benchmarks, parameters };
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),

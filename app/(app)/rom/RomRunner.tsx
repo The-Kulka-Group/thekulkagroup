@@ -324,6 +324,42 @@ function Provenance({
           ))}
         </tbody>
       </table>
+      {line.judgments.length > 0 ? (
+        <>
+          <p className="prov-head">
+            An approved estimator rule moved this line. The signals above do not
+            account for it on their own.
+          </p>
+          <table className="prov-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Stated</th>
+                <th className="right">Rule</th>
+                <th className="right">Moved the rate</th>
+                <th className="right">Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {line.judgments.map((judgment) => (
+                <tr key={judgment.ruleId}>
+                  <th scope="row">{KIND_LABEL.reviewed_judgment}</th>
+                  <td className="num">
+                    {judgment.recordedAt} by {judgment.recordedBy}
+                  </td>
+                  <td className="num right">
+                    {PER_SF.format(judgment.adjustmentUsdPerGsf)}/SF
+                  </td>
+                  <td className="num right">
+                    {PER_SF.format(judgment.appliedUsdPerGsf)}/SF
+                  </td>
+                  <td className="num right">{judgment.weight}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
     </>
   );
 }

@@ -7,6 +7,10 @@ import type { Db } from "@/lib/db";
 // record back, resolves the project ids the engine carried into project names,
 // and works out each signal's share of the blend.
 //
+// A line's comparables are not the whole story once an approved estimator rule
+// moves it (LA-19), so the rules that moved a line come back beside its
+// signals. Without them the figures on screen would not account for the line.
+//
 // Nothing here invents a comparable. A line with no Kulka project behind it
 // comes back with an empty project list and says so on screen.
 
@@ -29,12 +33,26 @@ export type ProvenanceSignal = {
  */
 export type ProvenanceProject = { id: string; name: string | null };
 
+/** An approved estimator rule that moved the line, so the money on screen adds up. */
+export type ProvenanceJudgment = {
+  ruleId: string;
+  /** What the rule states the condition is worth. */
+  adjustmentUsdPerGsf: number;
+  /** What it actually moved the rate, after the line's other signals had their weight. */
+  appliedUsdPerGsf: number;
+  weight: number;
+  recordedBy: string;
+  recordedAt: string;
+};
+
 export type LineProvenance = {
   costCode: string;
   label: string;
   /** Distinct Kulka projects standing behind the line. */
   comparableCount: number;
   signals: ProvenanceSignal[];
+  /** Approved rules that moved this line, empty when none did (LA-19). */
+  judgments: ProvenanceJudgment[];
 };
 
 export type RunProvenance = {
@@ -69,6 +87,14 @@ async function describeLines(db: Db, rom: Rom): Promise<LineProvenance[]> {
       costCode: line.costCode,
       label: line.label,
       comparableCount: line.comparableCount,
+      judgments: line.judgmentAdjustments.map((a) => ({
+        ruleId: a.ruleId,
+        adjustmentUsdPerGsf: a.adjustmentUsdPerGsf,
+        appliedUsdPerGsf: a.appliedUsdPerGsf,
+        weight: a.weight,
+        recordedBy: a.recordedBy,
+        recordedAt: a.recordedAt,
+      })),
       signals: line.comparables.map((c) => ({
         kind: c.kind,
         rate: c.rate,

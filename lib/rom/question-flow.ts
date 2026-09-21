@@ -16,10 +16,11 @@ export const FLOW_FILE = "config/rom/tier1-flow.json";
 
 /**
  * The engine inputs a question is allowed to feed (`Answers` in the engine).
- * `facts` is excluded because a question answers one value, while `facts` is the
- * bag of project facts a judgment rule's condition reads (LA-19).
+ * A question answers one value, so the two collections are excluded: `facts` is
+ * the bag a judgment rule's condition reads (LA-19), and `branchGates` is every
+ * gate answer keyed by section, which the flow builds rather than asks for.
  */
-export type EngineInputName = Exclude<keyof Answers, "facts">;
+export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates">;
 
 export type QuestionKind = "choice" | "number" | "branch_gate";
 
@@ -324,6 +325,22 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
     }
   }
 
+  // An intake field and a branch gate section become facts under their own
+  // names, so two that share a name would leave one silently overwriting the
+  // other and a judgment rule reading the wrong one.
+  const sections = new Set<string>();
+  for (const question of parsed) {
+    if (question.mapsTo.target === "branch_gate") sections.add(question.mapsTo.section);
+  }
+  for (const question of parsed) {
+    if (question.mapsTo.target !== "intake_field") continue;
+    if (sections.has(question.mapsTo.name)) {
+      throw new FlowDefinitionInvalid(
+        `Intake field "${question.mapsTo.name}" has the same name as a branch gate section.`,
+      );
+    }
+  }
+
   const definition: FlowDefinition = {
     skill,
     version,
@@ -361,11 +378,27 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
     for (const opened of question.opens ?? []) gateOf.set(opened, question.id);
   }
 
-  return definition.questions.filter((question) => {
-    const gateId = gateOf.get(question.id);
-    if (!gateId) return true;
-    return gateAnswerFor(gateId, responses) === "yes";
-  });
+  // Every gate above a question has to be open, not just the one directly
+  // above it. Closing an outer gate closes the whole branch under it, so a
+  // stale "yes" left on an inner gate cannot keep a grandchild alive.
+  const open = new Map<string, boolean>();
+  const isOpen = (id: string, visiting: Set<string>): boolean => {
+    const cached = open.get(id);
+    if (cached !== undefined) return cached;
+    if (visiting.has(id)) return false;
+
+    visiting.add(id);
+    const gateId = gateOf.get(id);
+    const result = !gateId
+      ? true
+      : isOpen(gateId, visiting) && gateAnswerFor(gateId, responses) === "yes";
+    visiting.delete(id);
+
+    open.set(id, result);
+    return result;
+  };
+
+  return definition.questions.filter((question) => isOpen(question.id, new Set()));
 }
 
 function readNumber(question: Question, raw: string): number {
@@ -433,7 +466,8 @@ export function readFlowAnswers(definition: FlowDefinition, responses: Responses
   // gives are its intake fields and its branch gate answers, so both go in under
   // the names the definition file gave them. A gate answer stays the raw yes, no
   // or dont_know, because a rule that turns on "don't know" is a different rule
-  // from one that turns on "no".
+  // from one that turns on "no". parseFlowDefinition refuses a definition where
+  // the two name spaces collide, so neither can quietly overwrite the other.
   const facts: Record<string, string | number | boolean> = { ...intakeFields, ...branchGates };
 
   const answers = {
@@ -441,6 +475,7 @@ export function readFlowAnswers(definition: FlowDefinition, responses: Responses
     constructionKind,
     grossSquareFeet,
     facts,
+    branchGates,
   } as Answers;
 
   const record: FlowRecord = {

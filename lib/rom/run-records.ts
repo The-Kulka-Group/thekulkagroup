@@ -1,6 +1,14 @@
 import type { Answers, Rom } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import type { FlowRecord } from "@/lib/rom/question-flow";
+
+/**
+ * What `runs.answers` actually holds. A run driven by the question flow records
+ * the answers plus the flow that produced them (LA-20); a run off the project
+ * record has no flow, so the key is absent.
+ */
+export type RecordedAnswers = Answers & { flow?: FlowRecord };
 
 // Reading side of the run record (LA-16). lib/rom/run.ts writes the run and its
 // steps; nothing here writes anything. A run that is still going reads the same
@@ -31,7 +39,7 @@ export type RunSummary = {
 };
 
 export type RunRecord = RunSummary & {
-  answers: Answers | null;
+  answers: RecordedAnswers | null;
   rom: Rom | null;
   snapshotHash: string | null;
   steps: RunStepRecord[];
@@ -58,7 +66,7 @@ type SummaryRow = {
 };
 
 type DetailRow = SummaryRow & {
-  answers: Answers | null;
+  answers: RecordedAnswers | null;
   rom: Rom | null;
   snapshot_hash: string | null;
 };

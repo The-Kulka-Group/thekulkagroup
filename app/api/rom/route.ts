@@ -5,11 +5,15 @@ import { getDb } from "@/lib/db";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 import type { Responses } from "@/lib/rom/question-flow";
 
+// An empty object is refused rather than treated as answers. It can only fail
+// once the run opens, and a run that never had a chance is noise in the audit
+// trail.
 function isResponses(value: unknown): value is Responses {
   return (
     typeof value === "object" &&
     value !== null &&
     !Array.isArray(value) &&
+    Object.keys(value).length > 0 &&
     Object.values(value).every((one) => typeof one === "string")
   );
 }

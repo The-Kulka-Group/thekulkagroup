@@ -41,9 +41,11 @@ type RunRow = {
   answers: { grossSquareFeet?: number };
   error: string | null;
   finished_at: Date | null;
+  snapshot_hash: string | null;
 };
 
-const runs = () => db.query<RunRow>(`select * from runs`).then((r) => r.rows);
+const runs = () =>
+  db.query<RunRow>(`select * from runs order by started_at`).then((r) => r.rows);
 const steps = () =>
   db
     .query<{ name: string; status: string; seq: number }>(
@@ -86,8 +88,47 @@ describe("POST /api/rom", () => {
     const [line] = rom.lines;
     expect(line.low).toBeLessThan(line.high);
     expect(["high", "medium", "low"]).toContain(line.confidence);
-    expect(line.provenance.kind).toBe("reviewed_judgment");
-    expect(line.provenance.sourceProjectIds).toEqual([TEST_PROJECT_ID]);
+    expect(line.comparableCount).toBe(1);
+    expect(line.comparables).toHaveLength(1);
+    expect(line.comparables[0].kind).toBe("reviewed_judgment");
+    expect(line.comparables[0].sourceProjectIds).toEqual([TEST_PROJECT_ID]);
+  });
+
+  it("computes with the recorded engine parameters and lists them on the ROM", async () => {
+    const { rom } = await (await post({ projectId: TEST_PROJECT_ID })).json();
+
+    expect(rom.parameters["weight.actuals"].value).toBe(5);
+    expect(rom.parameters["weight.actuals"].provenance.recordedBy).toBe("Matt Nicosia");
+    expect(rom.parameters["spread.low"].provenance.kind).toBe("reviewed_judgment");
+  });
+
+  it("records the snapshot hash on the run, the same for the same data", async () => {
+    await post({ projectId: TEST_PROJECT_ID });
+    await post({ projectId: TEST_PROJECT_ID });
+
+    const [first, second] = await runs();
+    expect(first.snapshot_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(second.snapshot_hash).toBe(first.snapshot_hash);
+  });
+
+  it("changes the snapshot hash when the data behind the ROM changes", async () => {
+    await post({ projectId: TEST_PROJECT_ID });
+    await db.query(`update engine_parameters set value = 0.11 where name = 'spread.high'`);
+    await post({ projectId: TEST_PROJECT_ID });
+
+    const [first, second] = await runs();
+    expect(second.snapshot_hash).not.toBe(first.snapshot_hash);
+  });
+
+  it("fails the run, naming the parameter, when a needed engine parameter is missing", async () => {
+    await db.query(`delete from engine_parameters where name = 'weight.reviewed_judgment'`);
+
+    const response = await post({ projectId: TEST_PROJECT_ID });
+    expect(response.status).toBe(422);
+
+    const [run] = await runs();
+    expect(run.status).toBe("failed");
+    expect(run.error).toContain("weight.reviewed_judgment");
   });
 
   it("writes a finished run record holding the ROM and the answers it used", async () => {
@@ -107,7 +148,8 @@ describe("POST /api/rom", () => {
     expect(await steps()).toEqual([
       { seq: 1, name: "read_answers", status: "succeeded" },
       { seq: 2, name: "read_benchmarks", status: "succeeded" },
-      { seq: 3, name: "compute_rom", status: "succeeded" },
+      { seq: 3, name: "read_parameters", status: "succeeded" },
+      { seq: 4, name: "compute_rom", status: "succeeded" },
     ]);
   });
 

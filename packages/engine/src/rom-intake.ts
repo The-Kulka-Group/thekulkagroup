@@ -2,9 +2,10 @@
 // to: the GSF-per-unit proposal (LA-678), parking's two benchmarks (LA-682),
 // the shared branch-gate pricing rule every permanent gate follows (LA-676,
 // LA-694), and the closing-comparison score (LA-680, ADR 0005). Each is
-// independent of `computeRom` in rom.ts, which stays the walking skeleton's
-// proven GSF-blend seam (LA-12); wiring these into a single intake pipeline
-// that reads every new project column is LA-14's job, not this ticket's.
+// independent of `computeRom` in rom.ts, which owns the blend, the ranges,
+// and the flags (LA-14); wiring these into a single intake pipeline that
+// reads every new project column belongs with the tier-1 question flow
+// (LA-20), not with either.
 //
 // Everything here is a pure function of its arguments, same rule as rom.ts:
 // nothing reads a clock, a network, or a database.

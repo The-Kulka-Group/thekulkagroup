@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Rom } from "@kulka/engine";
+import type { Rom, RomLine } from "@kulka/engine";
 
 import { Sheet, Sep } from "@/components/Sheet";
 
@@ -100,6 +100,15 @@ export function RomRunner({ projectId }: { projectId?: string }) {
   );
 }
 
+// What stands behind the flag, in the words CONTEXT.md uses. A model's figure
+// is not a comparable, so a line resting on one alone says so outright.
+function behind(line: RomLine): string {
+  if (line.comparables.every((c) => c.kind === "llm_proposal")) return "no Kulka data";
+  const jobs = line.comparableCount === 1 ? "1 job" : `${line.comparableCount} jobs`;
+  const measured = line.comparables.some((c) => c.kind === "actuals" || c.kind === "proest_budget");
+  return measured ? jobs : `${jobs}, judgment`;
+}
+
 function Result({ rom }: { rom: Rom }) {
   if (rom.lines.length === 0) {
     return <p className="empty">No benchmark matched this project, so the ROM has no lines.</p>;
@@ -138,6 +147,7 @@ function Result({ rom }: { rom: Rom }) {
                   <span className="dot" />
                   {CONFIDENCE_LABEL[line.confidence]}
                 </span>
+                <span className="behind num">{behind(line)}</span>
               </td>
             </tr>
           ))}

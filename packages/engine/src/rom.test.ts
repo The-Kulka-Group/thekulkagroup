@@ -1,12 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { computeRom, type Answers, type Benchmark, type DataSnapshot } from "./rom";
+import {
+  computeRom,
+  type Answers,
+  type Benchmark,
+  type DataSnapshot,
+  type EngineParameters,
+  type ProvenanceKind,
+} from "./rom";
 
 // The engine seam, as LA-9 defines it: answers plus a data snapshot in, ROM
 // out, with nothing read from a network, a database, or a clock. Every case
 // below fixes external behaviour rather than internal structure.
+//
+// The parameter values here are synthetic. The tests assert the order and the
+// mechanics (actuals outweigh a budget, more rows shift the blend, a model's
+// figure is the lightest), never a particular number, so they hold whatever
+// figures Kulka records in engine_parameters.
 
-function benchmark(over: Partial<Benchmark> = {}): Benchmark {
+const PROJECT_A = "11111111-1111-4111-8111-111111111111";
+const PROJECT_B = "22222222-2222-4222-8222-222222222222";
+const PROJECT_C = "33333333-3333-4333-8333-333333333333";
+const PROJECT_D = "44444444-4444-4444-8444-444444444444";
+const PROJECT_E = "55555555-5555-4555-8555-555555555555";
+const PROJECTS = [PROJECT_A, PROJECT_B, PROJECT_C, PROJECT_D, PROJECT_E];
+
+function benchmark(over: Partial<Benchmark> & { kind?: ProvenanceKind; project?: string } = {}): Benchmark {
+  const { kind = "actuals", project = PROJECT_A, ...rest } = over;
   return {
     costCode: "TEST-A",
     label: "Synthetic test line",
@@ -14,29 +34,65 @@ function benchmark(over: Partial<Benchmark> = {}): Benchmark {
     value: 1,
     projectType: "multifamily",
     constructionKind: "new",
-    comparableCount: 5,
     provenance: {
-      kind: "reviewed_judgment",
-      sourceProjectIds: ["11111111-1111-4111-8111-111111111111"],
-      exportLabel: null,
+      kind,
+      sourceProjectIds: kind === "llm_proposal" ? [] : [project],
+      exportLabel: kind === "actuals" || kind === "proest_budget" ? "synthetic export" : null,
       recordedBy: "automated test",
       recordedAt: "2026-08-27",
     },
     scopeSide: "building",
     contractSide: "kulka",
+    ...rest,
+  };
+}
+
+function parameter(value: number) {
+  return {
+    value,
+    provenance: {
+      kind: "reviewed_judgment" as const,
+      recordedBy: "automated test",
+      recordedAt: "2026-09-21",
+      reason: "synthetic",
+    },
+  };
+}
+
+function parameters(over: Partial<Record<keyof EngineParameters, number>> = {}): EngineParameters {
+  const values = {
+    "weight.actuals": 5,
+    "weight.proest_budget": 1,
+    "weight.reviewed_judgment": 0.5,
+    "weight.llm_proposal": 0.25,
+    "flag.high_min_comparables": 5,
+    "flag.medium_min_comparables": 2,
+    "spread.high": 0.1,
+    "spread.medium": 0.2,
+    "spread.low": 0.35,
     ...over,
   };
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [name, parameter(value)]),
+  ) as EngineParameters;
 }
 
 const ANSWERS: Answers = {
   projectType: "multifamily",
   constructionKind: "new",
-  grossSquareFeet: 10,
+  grossSquareFeet: 1000,
 };
 
 function snapshot(...benchmarks: Benchmark[]): DataSnapshot {
-  return { benchmarks };
+  return { benchmarks, parameters: parameters() };
 }
+
+/** Five distinct projects, one row each, all at `value`. */
+function fiveAgreeing(kind: ProvenanceKind, value = 1): Benchmark[] {
+  return PROJECTS.map((project) => benchmark({ kind, project, value }));
+}
+
+const midpoint = (line: { low: number; high: number }) => (line.low + line.high) / 2;
 
 describe("computeRom", () => {
   it("returns a ranged line, never a point", () => {
@@ -53,43 +109,204 @@ describe("computeRom", () => {
     const second = computeRom(ANSWERS, snapshot(benchmark()));
 
     expect(first).toEqual(second);
+    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
   });
 
-  it("flags a line high when many comparables stand behind it", () => {
-    const rom = computeRom(ANSWERS, snapshot(benchmark({ comparableCount: 5 })));
+  it("gives a byte-identical ROM whatever order the snapshot's rows arrived in", () => {
+    const rows = [
+      benchmark({ costCode: "TEST-B", project: PROJECT_B }),
+      benchmark({ kind: "proest_budget", value: 2 }),
+      benchmark({ kind: "llm_proposal", value: 3 }),
+      benchmark({ project: PROJECT_B, value: 1.5 }),
+      benchmark({ kind: "reviewed_judgment", value: 1.2 }),
+      benchmark(),
+    ];
+    const forwards = computeRom(ANSWERS, snapshot(...rows));
+    const backwards = computeRom(ANSWERS, snapshot(...[...rows].reverse()));
+
+    expect(JSON.stringify(forwards)).toBe(JSON.stringify(backwards));
+  });
+
+  it("makes one line per cost code however many rows stand behind it", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(benchmark({ project: PROJECT_A }), benchmark({ project: PROJECT_B })),
+    );
+
+    expect(rom.lines).toHaveLength(1);
+    expect(rom.total.low).toBe(rom.lines[0].low);
+    expect(rom.total.high).toBe(rom.lines[0].high);
+  });
+
+  it("weights actuals above a ProEst budget", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(benchmark({ value: 2 }), benchmark({ kind: "proest_budget", value: 1 })),
+    );
+
+    const mid = midpoint(rom.lines[0]);
+    expect(Math.abs(mid - 2000)).toBeLessThan(Math.abs(mid - 1000));
+  });
+
+  it("shifts the blend further toward actuals as more actuals rows arrive", () => {
+    const budget = benchmark({ kind: "proest_budget", value: 1 });
+    const one = computeRom(ANSWERS, snapshot(benchmark({ value: 2 }), budget));
+    const three = computeRom(
+      ANSWERS,
+      snapshot(
+        benchmark({ value: 2, project: PROJECT_A }),
+        benchmark({ value: 2, project: PROJECT_B }),
+        benchmark({ value: 2, project: PROJECT_C }),
+        budget,
+      ),
+    );
+
+    expect(midpoint(three.lines[0])).toBeGreaterThan(midpoint(one.lines[0]));
+  });
+
+  it("lets a model's figure move a measured line less than the lightest measured figure would", () => {
+    const alone = midpoint(computeRom(ANSWERS, snapshot(benchmark())).lines[0]);
+    const withModel = midpoint(
+      computeRom(ANSWERS, snapshot(benchmark(), benchmark({ kind: "llm_proposal", value: 10 })))
+        .lines[0],
+    );
+    const withBudget = midpoint(
+      computeRom(
+        ANSWERS,
+        snapshot(benchmark(), benchmark({ kind: "proest_budget", value: 10, project: PROJECT_B })),
+      ).lines[0],
+    );
+
+    expect(withModel - alone).toBeGreaterThan(0);
+    expect(withModel - alone).toBeLessThan(withBudget - alone);
+  });
+
+  it("prices a line resting only on a model's figure, flags it low, holds it, and says so", () => {
+    const rom = computeRom(ANSWERS, snapshot(benchmark({ kind: "llm_proposal" })));
+
+    const [line] = rom.lines;
+    expect(line.low).toBeGreaterThan(0);
+    expect(line.confidence).toBe("low");
+    expect(line.heldForReview).toBe(true);
+    expect(line.comparableCount).toBe(0);
+    expect(rom.assumptions.join(" ")).toContain("no Kulka data");
+  });
+
+  it("never lets a judgment-only line rise above medium, however many projects agree", () => {
+    const rom = computeRom(ANSWERS, snapshot(...fiveAgreeing("reviewed_judgment")));
+
+    expect(rom.lines[0].comparableCount).toBe(5);
+    expect(rom.lines[0].confidence).toBe("medium");
+    expect(rom.lines[0].heldForReview).toBe(false);
+    expect(rom.assumptions.join(" ")).toContain("estimator judgment");
+  });
+
+  it("flags a line high when enough distinct projects agree on it", () => {
+    const rom = computeRom(ANSWERS, snapshot(...fiveAgreeing("actuals")));
 
     expect(rom.lines[0].confidence).toBe("high");
     expect(rom.lines[0].heldForReview).toBe(false);
   });
 
-  it("flags a line medium on a couple of comparables", () => {
-    const rom = computeRom(ANSWERS, snapshot(benchmark({ comparableCount: 2 })));
+  it("counts a project once however many rows it contributes", () => {
+    const sameProject = PROJECTS.map(() => benchmark({ project: PROJECT_A }));
+    const rom = computeRom(ANSWERS, snapshot(...sameProject));
 
-    expect(rom.lines[0].confidence).toBe("medium");
-    expect(rom.lines[0].heldForReview).toBe(false);
+    expect(rom.lines[0].comparableCount).toBe(1);
+    expect(rom.lines[0].confidence).toBe("low");
   });
 
-  it("holds a low-confidence line for human review", () => {
-    const rom = computeRom(ANSWERS, snapshot(benchmark({ comparableCount: 1 })));
+  it("flags a line medium on a couple of projects", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(benchmark({ project: PROJECT_A }), benchmark({ project: PROJECT_B })),
+    );
 
-    expect(rom.lines[0].confidence).toBe("low");
-    expect(rom.lines[0].heldForReview).toBe(true);
+    expect(rom.lines[0].comparableCount).toBe(2);
+    expect(rom.lines[0].confidence).toBe("medium");
+  });
+
+  it("drops the flag when the comparables disagree, even with enough of them", () => {
+    const rows = fiveAgreeing("actuals");
+    rows[4] = benchmark({ project: PROJECT_E, value: 1.2 });
+    const rom = computeRom(ANSWERS, snapshot(...rows));
+
+    expect(rom.lines[0].comparableCount).toBe(5);
+    expect(rom.lines[0].confidence).toBe("medium");
+  });
+
+  it("adds no comparable for a model's figure", () => {
+    const rom = computeRom(ANSWERS, snapshot(benchmark(), benchmark({ kind: "llm_proposal" })));
+
+    expect(rom.lines[0].comparableCount).toBe(1);
   });
 
   it("widens the range as confidence drops", () => {
-    const width = (comparableCount: number) => {
-      const [line] = computeRom(ANSWERS, snapshot(benchmark({ comparableCount }))).lines;
+    const width = (rows: Benchmark[]) => {
+      const [line] = computeRom(ANSWERS, snapshot(...rows)).lines;
       return line.high - line.low;
     };
 
-    expect(width(5)).toBeLessThan(width(2));
-    expect(width(2)).toBeLessThan(width(1));
+    expect(width(fiveAgreeing("actuals"))).toBeLessThan(
+      width([benchmark({ project: PROJECT_A }), benchmark({ project: PROJECT_B })]),
+    );
+    expect(width([benchmark({ project: PROJECT_A }), benchmark({ project: PROJECT_B })])).toBeLessThan(
+      width([benchmark()]),
+    );
+  });
+
+  it("lists every comparable behind a line, heaviest first", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(
+        benchmark({ kind: "llm_proposal", value: 4 }),
+        benchmark({ kind: "reviewed_judgment", value: 3 }),
+        benchmark({ kind: "proest_budget", value: 2, project: PROJECT_B }),
+        benchmark({ kind: "actuals", value: 1 }),
+      ),
+    );
+
+    const comparables = rom.lines[0].comparables;
+    expect(comparables.map((c) => c.kind)).toEqual([
+      "actuals",
+      "proest_budget",
+      "reviewed_judgment",
+      "llm_proposal",
+    ]);
+    expect(comparables.map((c) => c.rate)).toEqual([1, 2, 3, 4]);
+    expect(comparables[0].weight).toBeGreaterThan(comparables[1].weight);
+    expect(comparables[1].weight).toBeGreaterThan(comparables[2].weight);
+    expect(comparables[2].weight).toBeGreaterThan(comparables[3].weight);
+    expect(comparables[0].sourceProjectIds).toEqual([PROJECT_A]);
+    expect(comparables[1].exportLabel).toBe("synthetic export");
+    expect(comparables[3].sourceProjectIds).toEqual([]);
+  });
+
+  it("keeps the same shape with and without a model's figure in the blend", () => {
+    const without = computeRom(ANSWERS, snapshot(benchmark()));
+    const withModel = computeRom(ANSWERS, snapshot(benchmark(), benchmark({ kind: "llm_proposal" })));
+
+    expect(Object.keys(withModel)).toEqual(Object.keys(without));
+    expect(Object.keys(withModel.lines[0])).toEqual(Object.keys(without.lines[0]));
+  });
+
+  it("takes the label and sides from the heaviest figure when rows disagree", () => {
+    const rom = computeRom(
+      ANSWERS,
+      snapshot(
+        benchmark({ kind: "llm_proposal", label: "Model's label", scopeSide: "site" }),
+        benchmark({ kind: "actuals", label: "Kulka's label", scopeSide: "building" }),
+      ),
+    );
+
+    expect(rom.lines[0].label).toBe("Kulka's label");
+    expect(rom.lines[0].scopeSide).toBe("building");
   });
 
   it("scales the line by gross square feet", () => {
     const [small] = computeRom(ANSWERS, snapshot(benchmark())).lines;
     const [large] = computeRom(
-      { ...ANSWERS, grossSquareFeet: 20 },
+      { ...ANSWERS, grossSquareFeet: 2000 },
       snapshot(benchmark()),
     ).lines;
 
@@ -100,7 +317,7 @@ describe("computeRom", () => {
   it("rounds every figure to whole dollars", () => {
     const rom = computeRom(
       { ...ANSWERS, grossSquareFeet: 13 },
-      snapshot(benchmark({ value: 1.37 })),
+      snapshot(benchmark({ value: 1.37 }), benchmark({ kind: "proest_budget", value: 1.11 })),
     );
 
     for (const line of rom.lines) {
@@ -114,10 +331,11 @@ describe("computeRom", () => {
   it("never blends renovation data into a new-construction ROM", () => {
     const rom = computeRom(
       ANSWERS,
-      snapshot(benchmark(), benchmark({ costCode: "TEST-R", constructionKind: "renovation" })),
+      snapshot(benchmark(), benchmark({ constructionKind: "renovation", value: 100 })),
     );
 
-    expect(rom.lines.map((l) => l.costCode)).toEqual(["TEST-A"]);
+    expect(rom.lines).toHaveLength(1);
+    expect(rom.lines[0].comparables).toHaveLength(1);
   });
 
   it("ignores benchmarks for another project type", () => {
@@ -127,12 +345,6 @@ describe("computeRom", () => {
     );
 
     expect(rom.lines).toEqual([]);
-  });
-
-  it("carries each benchmark's provenance through to its line", () => {
-    const rom = computeRom(ANSWERS, snapshot(benchmark()));
-
-    expect(rom.lines[0].provenance).toEqual(benchmark().provenance);
   });
 
   it("totals the lines it produced", () => {
@@ -163,7 +375,14 @@ describe("computeRom", () => {
     const rom = computeRom(ANSWERS, snapshot(benchmark()));
 
     expect(rom.assumptions.length).toBeGreaterThan(0);
-    expect(rom.assumptions.join(" ")).toContain("10");
+    expect(rom.assumptions.join(" ")).toContain("1,000");
+  });
+
+  it("echoes the parameters it computed with, provenance included", () => {
+    const rom = computeRom(ANSWERS, snapshot(benchmark()));
+
+    expect(rom.parameters).toEqual(parameters());
+    expect(rom.parameters["weight.actuals"]?.provenance.recordedBy).toBe("automated test");
   });
 
   it("says so plainly when no benchmark matched", () => {
@@ -181,6 +400,11 @@ describe("computeRom", () => {
 
   it("refuses a negative floor area", () => {
     expect(() => computeRom({ ...ANSWERS, grossSquareFeet: -1 }, snapshot(benchmark())))
+      .toThrow(/gross square feet/i);
+  });
+
+  it("refuses a floor area that is not a number", () => {
+    expect(() => computeRom({ ...ANSWERS, grossSquareFeet: Number.NaN }, snapshot(benchmark())))
       .toThrow(/gross square feet/i);
   });
 
@@ -227,5 +451,60 @@ describe("computeRom", () => {
     const rom = computeRom(ANSWERS, snapshot(benchmark()));
 
     expect(rom.assumptions.join(" ")).not.toContain("owner-direct");
+  });
+});
+
+describe("engine parameters", () => {
+  function withParameters(over: Partial<Record<keyof EngineParameters, number>>, rows = [benchmark()]) {
+    return () => computeRom(ANSWERS, { benchmarks: rows, parameters: parameters(over) });
+  }
+
+  function without(name: keyof EngineParameters, rows = [benchmark()]) {
+    const p = parameters();
+    delete p[name];
+    return () => computeRom(ANSWERS, { benchmarks: rows, parameters: p });
+  }
+
+  it("refuses to run without a parameter, naming it", () => {
+    expect(without("spread.low")).toThrow(/spread\.low/);
+    expect(without("flag.high_min_comparables")).toThrow(/flag\.high_min_comparables/);
+  });
+
+  it("refuses to blend a kind that has no recorded weight, naming it", () => {
+    expect(without("weight.llm_proposal", [benchmark({ kind: "llm_proposal" })])).toThrow(
+      /weight\.llm_proposal/,
+    );
+  });
+
+  it("needs a weight only for the kinds that are in the snapshot", () => {
+    expect(without("weight.llm_proposal", [benchmark({ kind: "actuals" })])).not.toThrow();
+  });
+
+  it("refuses a weight that is not above zero", () => {
+    expect(withParameters({ "weight.actuals": 0 })).toThrow(/weight\.actuals/);
+    expect(withParameters({ "weight.actuals": -1 })).toThrow(/weight\.actuals/);
+  });
+
+  it("refuses a spread that is not a fraction between zero and one", () => {
+    expect(withParameters({ "spread.high": 0 })).toThrow(/spread\.high/);
+    expect(withParameters({ "spread.low": 1 })).toThrow(/spread\.low/);
+  });
+
+  it("refuses spreads that narrow as confidence drops", () => {
+    expect(withParameters({ "spread.medium": 0.05 })).toThrow(/narrow/);
+  });
+
+  it("refuses a comparable minimum that is not a whole number of at least one", () => {
+    expect(withParameters({ "flag.medium_min_comparables": 0 })).toThrow(/medium_min_comparables/);
+    expect(withParameters({ "flag.medium_min_comparables": 1.5 })).toThrow(/medium_min_comparables/);
+  });
+
+  it("refuses a high minimum below the medium minimum", () => {
+    expect(withParameters({ "flag.high_min_comparables": 2, "flag.medium_min_comparables": 3 }))
+      .toThrow(/high_min_comparables/);
+  });
+
+  it("refuses a parameter that is not a finite number", () => {
+    expect(withParameters({ "spread.high": Number.NaN })).toThrow(/spread\.high/);
   });
 });

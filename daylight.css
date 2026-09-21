@@ -891,6 +891,14 @@ textarea.input { border-radius: var(--r-lg); }
 .board--rom col:nth-child(3),
 .board--rom col:nth-child(4),
 .board--rom col:nth-child(5) { width: 16%; }
+/* What stands behind a flag: the comparable count, under the chip. */
+.board--rom .behind {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+}
 .doc-section h3 { margin-bottom: var(--s2); }
 
 .doc-clause {

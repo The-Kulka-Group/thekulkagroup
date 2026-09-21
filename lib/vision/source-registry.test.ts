@@ -49,9 +49,9 @@ beforeEach(() => {
     fetcher.mockResolvedValue([record]);
   }
   fetchOysterBayZba.mockReset();
-  fetchOysterBayZba.mockResolvedValue({records: [record], coverage: {year: 2026, documents: []}});
+  fetchOysterBayZba.mockResolvedValue({records: [record], coverage: {year: 2026, documents: []}, fetched: 1, rejected: 0});
   fetchCivicPlus.mockReset();
-  fetchCivicPlus.mockResolvedValue({records: [record], coverage: {year: 2026, documents: [record.sourceUrl]}});
+  fetchCivicPlus.mockResolvedValue({records: [record], coverage: {year: 2026, documents: [record.sourceUrl]}, fetched: 1, rejected: 0});
 });
 
 describe("Vision automated source registry", () => {
@@ -92,6 +92,7 @@ describe("Vision automated source registry", () => {
     for (const source of AUTOMATED_SOURCE_DEFINITIONS) {
       const result = await collectAutomatedSource(source.id);
       expect(result.records).toHaveLength(1);
+      expect(result).toMatchObject({fetched: 1, rejected: 0});
       if (source.id === "suffolk-planning" || source.id === "nassau-town-oyster-bay-records") {
         expect(result.coverage).toEqual({ year: 2026, documents: [] });
       } else if (source.adapterKey !== "civicplus-agenda-center") {

@@ -5,6 +5,9 @@ import type {AutomatedSourceDefinition, SourceCollectionProgress} from "./source
 type SearchPage = {records: DiscoveredRecord[]; total: number; page: number};
 type RequestBudget = {requests: number; bytes: number};
 
+/** Distinguishes a run-level resource limit from an ordinary per-request failure, so the detail loop can tell them apart. */
+class SmartGovBudgetExceeded extends Error {}
+
 const SEARCH_PAGE_SIZE = 10;
 const DETAIL_WORKERS = 4;
 const entities: Record<string, string> = {amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " ", ndash: "–", mdash: "—", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“"};
@@ -216,7 +219,7 @@ function allowedUrl(source: AutomatedSourceDefinition, value: string) {
 }
 
 async function request(source: AutomatedSourceDefinition, value: string, deadline: AbortSignal, budget: RequestBudget, init: RequestInit = {}, expected: "html" | "json" = "html") {
-  if (++budget.requests > source.limits.maxRequests) throw new Error("The SmartGov source exceeded the request limit.");
+  if (++budget.requests > source.limits.maxRequests) throw new SmartGovBudgetExceeded("The SmartGov source exceeded the request limit.");
   const url = allowedUrl(source, value);
   const response = await fetch(url.href, {signal: AbortSignal.any([deadline, AbortSignal.timeout(30_000)]), redirect: "error", cache: "no-store", ...init});
   if (!response.ok) throw new Error(`The SmartGov source returned HTTP ${response.status}. Earlier source records remain available.`);
@@ -279,6 +282,7 @@ export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, ex
   const bounded = records.slice(0, source.limits.maxRecords);
   if (new Set(bounded.map(record => record.externalId)).size !== bounded.length || new Set(bounded.map(record => record.sourceCaseId)).size !== bounded.length) throw new Error("The SmartGov search repeated a record identity. Earlier source records remain available.");
   const output = new Array<DiscoveredRecord>(bounded.length);
+  let rejected = 0;
   let next = 0;
   await Promise.all(Array.from({length: Math.min(DETAIL_WORKERS, bounded.length)}, async () => {
     for (;;) {
@@ -286,11 +290,23 @@ export async function fetchSmartGovRecords(source: AutomatedSourceDefinition, ex
       if (index >= bounded.length) return;
       const listed = bounded[index];
       const previous = existingRecords.get(listed.externalId);
-      if (previous && sameListFacts(previous, listed)) { output[index] = previous; reportProgress?.({coverage: null, fetched: records.length, rejected: 0}); continue; }
-      const detail = await request(source, listed.sourceUrl, deadline, budget, {headers: {Accept: "text/html", ...(session ? {Cookie: session} : {})}});
-      output[index] = parseSmartGovDetail(detail.body, listed);
-      reportProgress?.({coverage: null, fetched: records.length, rejected: 0});
+      if (previous && sameListFacts(previous, listed)) {
+        output[index] = previous;
+      } else {
+        try {
+          const detail = await request(source, listed.sourceUrl, deadline, budget, {headers: {Accept: "text/html", ...(session ? {Cookie: session} : {})}});
+          output[index] = parseSmartGovDetail(detail.body, listed);
+        } catch (error) {
+          // A budget or deadline hit is a run-level failure, not one bad permit — let it
+          // abort the run the way it did before per-permit rejection was introduced.
+          if (error instanceof SmartGovBudgetExceeded || deadline.aborted) throw error;
+          console.error(`SmartGov detail fetch failed for permit ${listed.externalId} (${listed.sourceCaseId}): ${error instanceof Error ? error.message : String(error)}`);
+          rejected++;
+        }
+      }
+      reportProgress?.({coverage: null, fetched: records.length, rejected});
     }
   }));
-  return output;
+  if (bounded.length > 0 && rejected === bounded.length) throw new Error("The SmartGov source rejected every permit's detail page. Earlier source records remain available.");
+  return output.filter((record): record is DiscoveredRecord => Boolean(record));
 }

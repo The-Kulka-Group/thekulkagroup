@@ -1,4 +1,15 @@
-import { computeRom, type Answers, type Benchmark, type Rom } from "@kulka/engine";
+import { createHash } from "node:crypto";
+
+import {
+  computeRom,
+  type Answers,
+  type Benchmark,
+  type DataSnapshot,
+  type EngineParameter,
+  type EngineParameters,
+  type ParameterName,
+  type Rom,
+} from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
 
@@ -7,7 +18,7 @@ import type { Db } from "@/lib/db";
 // keeps the two testing seams of LA-9 apart.
 
 /** The steps a ROM run records, in the order they happen. */
-type StepName = "read_answers" | "read_benchmarks" | "compute_rom";
+type StepName = "read_answers" | "read_benchmarks" | "read_parameters" | "compute_rom";
 
 export const ROM_SKILL = "rom_tier1";
 
@@ -53,7 +64,6 @@ type BenchmarkRow = {
   value: string;
   project_type: Benchmark["projectType"];
   construction_kind: Benchmark["constructionKind"];
-  comparable_count: number;
   provenance_kind: Benchmark["provenance"]["kind"];
   provenance_source_project_ids: string[];
   provenance_export_label: string | null;
@@ -61,6 +71,15 @@ type BenchmarkRow = {
   provenance_recorded_at: Date | string;
   scope_side: Benchmark["scopeSide"];
   contract_side: Benchmark["contractSide"];
+};
+
+type ParameterRow = {
+  name: string;
+  value: string;
+  provenance_kind: EngineParameter["provenance"]["kind"];
+  provenance_recorded_by: string;
+  provenance_recorded_at: Date | string;
+  reason: string;
 };
 
 /**
@@ -94,9 +113,10 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
     await db.query(`update runs set answers = $2 where id = $1`, [runId, answers]);
 
     const benchmarks = await step(db, runId, ++seq, "read_benchmarks", async () => {
+      // The order is total so the same rows always hash the same.
       const { rows } = await db.query<BenchmarkRow>(
         `select b.cost_code, b.label, b.unit, b.value, b.project_type,
-                b.construction_kind, b.comparable_count, b.provenance_kind,
+                b.construction_kind, b.provenance_kind,
                 coalesce(
                   (select array_agg(bsp.project_id order by bsp.project_id)
                      from benchmark_source_projects bsp
@@ -107,14 +127,30 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
                 b.provenance_recorded_at, b.scope_side, b.contract_side
            from benchmarks b
           where b.project_type = $1 and b.construction_kind = $2
-          order by b.cost_code`,
+          order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
         [answers.projectType, answers.constructionKind],
       );
       return rows.map(toBenchmark);
     });
 
+    const parameters = await step(db, runId, ++seq, "read_parameters", async () => {
+      const { rows } = await db.query<ParameterRow>(
+        `select name, value, provenance_kind, provenance_recorded_by,
+                provenance_recorded_at, reason
+           from engine_parameters
+          order by name`,
+      );
+      return toParameters(rows);
+    });
+
+    const snapshot: DataSnapshot = { benchmarks, parameters };
+    await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
+      runId,
+      hashSnapshot(snapshot),
+    ]);
+
     const rom = await step(db, runId, ++seq, "compute_rom", async () =>
-      computeRom(answers, { benchmarks }),
+      computeRom(answers, snapshot),
     );
 
     await db.query(
@@ -130,6 +166,15 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
     );
     throw new RunFailed(message, runId);
   }
+}
+
+/**
+ * The snapshot's fingerprint (LA-14). `toBenchmark` and `toParameters` build
+ * every object in a fixed key order and the queries above fix row order, so
+ * the serialization, and the hash, is the same for the same data.
+ */
+export function hashSnapshot(snapshot: DataSnapshot): string {
+  return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
 
 async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
@@ -185,8 +230,11 @@ async function step<T>(
   }
 }
 
+function isoDate(value: Date | string): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+}
+
 function toBenchmark(row: BenchmarkRow): Benchmark {
-  const recordedAt = row.provenance_recorded_at;
   return {
     costCode: row.cost_code,
     label: row.label,
@@ -195,18 +243,30 @@ function toBenchmark(row: BenchmarkRow): Benchmark {
     value: Number(row.value),
     projectType: row.project_type,
     constructionKind: row.construction_kind,
-    comparableCount: row.comparable_count,
     provenance: {
       kind: row.provenance_kind,
       sourceProjectIds: row.provenance_source_project_ids,
       exportLabel: row.provenance_export_label,
       recordedBy: row.provenance_recorded_by,
-      recordedAt:
-        recordedAt instanceof Date
-          ? recordedAt.toISOString().slice(0, 10)
-          : String(recordedAt).slice(0, 10),
+      recordedAt: isoDate(row.provenance_recorded_at),
     },
     scopeSide: row.scope_side,
     contractSide: row.contract_side,
   };
+}
+
+function toParameters(rows: ParameterRow[]): EngineParameters {
+  const parameters: EngineParameters = {};
+  for (const row of rows) {
+    parameters[row.name as ParameterName] = {
+      value: Number(row.value),
+      provenance: {
+        kind: row.provenance_kind,
+        recordedBy: row.provenance_recorded_by,
+        recordedAt: isoDate(row.provenance_recorded_at),
+        reason: row.reason,
+      },
+    };
+  }
+  return parameters;
 }

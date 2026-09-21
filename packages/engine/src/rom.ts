@@ -102,16 +102,56 @@ export type ParameterName =
 
 export type EngineParameters = Partial<Record<ParameterName, EngineParameter>>;
 
+type JudgmentProvenance = Omit<Provenance, "kind"> & { kind: "reviewed_judgment" };
+
+/**
+ * An estimator's stated rule, entered and approved as data (LA-19): what one
+ * condition is worth on one cost code, in dollars per gross square foot, with
+ * the person who stated it and the date they stated it.
+ *
+ * A rule is a signal in the blend, not an override. It moves a line by its own
+ * weight's share of that line's total weight, so measured Kulka figures on the
+ * same cost code outweigh it, and outweigh it further as more of them arrive.
+ */
+export type JudgmentRule = {
+  id: string;
+  costCode: string;
+  projectType: ProjectType;
+  constructionKind: ConstructionKind;
+  /** The fact in the answers the rule turns on, or null when it applies to every project of this type and kind. */
+  condition: { fact: string; equals: string | number | boolean } | null;
+  /** What the rule adds to the line's rate, or takes off it when negative. */
+  adjustmentUsdPerGsf: number;
+  provenance: JudgmentProvenance;
+};
+
+/** One approved rule's effect on one line, carried onto the line so the ROM can flag it. */
+export type JudgmentAdjustment = {
+  ruleId: string;
+  kind: "reviewed_judgment";
+  /** What the rule states the condition is worth. */
+  adjustmentUsdPerGsf: number;
+  /** What it actually moved the line's rate, after the line's other signals had their weight. */
+  appliedUsdPerGsf: number;
+  weight: number;
+  recordedBy: string;
+  recordedAt: string;
+};
+
 /** Everything the engine is allowed to read. The caller loads it; the engine does not. */
 export type DataSnapshot = {
   benchmarks: Benchmark[];
   parameters: EngineParameters;
+  /** Approved judgment rules (LA-19). A snapshot without any behaves exactly as before. */
+  judgmentRules?: JudgmentRule[];
 };
 
 export type Answers = {
   projectType: ProjectType;
   constructionKind: ConstructionKind;
   grossSquareFeet: number;
+  /** The project facts a judgment rule's condition reads, such as whether the job has a basement level. */
+  facts?: Record<string, string | number | boolean>;
 };
 
 /** One figure that went into a line's blend. */
@@ -138,6 +178,8 @@ export type RomLine = {
   comparableCount: number;
   /** Every figure in the blend, heaviest first. The flag cites these (LA-9). */
   comparables: Comparable[];
+  /** Every approved judgment rule that moved this line, with who stated it and when (LA-19). */
+  judgmentAdjustments: JudgmentAdjustment[];
   scopeSide: ScopeSide;
   contractSide: ContractSide;
 };
@@ -184,10 +226,18 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     else byCostCode.set(benchmark.costCode, [benchmark]);
   }
 
+  const rulesByCostCode = groupJudgmentRules(snapshot.judgmentRules ?? [], answers);
+
   const lines = [...byCostCode.keys()]
     .sort((a, b) => a.localeCompare(b))
     .map((costCode) =>
-      blendLine(byCostCode.get(costCode)!, answers.grossSquareFeet, snapshot.parameters, tiers),
+      blendLine(
+        byCostCode.get(costCode)!,
+        answers.grossSquareFeet,
+        snapshot.parameters,
+        tiers,
+        rulesByCostCode.get(costCode) ?? [],
+      ),
     );
   const kulkaLines = lines.filter((l) => l.contractSide === "kulka");
 
@@ -270,11 +320,75 @@ function weightFor(parameters: EngineParameters, kind: ProvenanceKind): number {
  * any order give the same line, and the heaviest figure decides the label and
  * sides where rows disagree.
  */
+/**
+ * The rules that apply to this project, by cost code. A rule applies when its
+ * project type and construction kind match and its condition holds; a rule with
+ * no condition applies to every project of that type and kind. A rule never
+ * creates a line: it only moves a line that already has a benchmark behind it.
+ */
+function groupJudgmentRules(rules: JudgmentRule[], answers: Answers): Map<string, JudgmentRule[]> {
+  const applies = (rule: JudgmentRule) => {
+    if (rule.projectType !== answers.projectType) return false;
+    if (rule.constructionKind !== answers.constructionKind) return false;
+    if (!rule.condition) return true;
+    return answers.facts?.[rule.condition.fact] === rule.condition.equals;
+  };
+
+  const byCostCode = new Map<string, JudgmentRule[]>();
+  for (const rule of rules.filter(applies)) {
+    const group = byCostCode.get(rule.costCode);
+    if (group) group.push(rule);
+    else byCostCode.set(rule.costCode, [rule]);
+  }
+  // Sorted so two rules on one cost code apply in the same order every run,
+  // whatever order the caller read them in.
+  for (const group of byCostCode.values()) {
+    group.sort((a, b) => a.provenance.recordedAt.localeCompare(b.provenance.recordedAt) || a.id.localeCompare(b.id));
+  }
+  return byCostCode;
+}
+
+/**
+ * Each rule moves the rate by its own weight's share of the line's total
+ * weight, and then counts toward that total for the rule after it. A line
+ * standing on one budget figure moves most of the way to the rule; the same
+ * line once five real jobs back it barely moves at all, which is what LA-19
+ * means by actuals outweighing the rule.
+ */
+function applyJudgment(
+  rate: number,
+  weightSoFar: number,
+  rules: JudgmentRule[],
+  judgmentWeight: number,
+): { rate: number; adjustments: JudgmentAdjustment[] } {
+  let adjusted = rate;
+  let total = weightSoFar;
+  const adjustments: JudgmentAdjustment[] = [];
+
+  for (const rule of rules) {
+    const applied = (rule.adjustmentUsdPerGsf * judgmentWeight) / (total + judgmentWeight);
+    adjusted += applied;
+    total += judgmentWeight;
+    adjustments.push({
+      ruleId: rule.id,
+      kind: "reviewed_judgment",
+      adjustmentUsdPerGsf: rule.adjustmentUsdPerGsf,
+      appliedUsdPerGsf: applied,
+      weight: judgmentWeight,
+      recordedBy: rule.provenance.recordedBy,
+      recordedAt: rule.provenance.recordedAt,
+    });
+  }
+
+  return { rate: adjusted, adjustments };
+}
+
 function blendLine(
   rows: Benchmark[],
   grossSquareFeet: number,
   parameters: EngineParameters,
   tiers: Tiers,
+  rules: JudgmentRule[],
 ): RomLine {
   const ranked = rows
     .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
@@ -289,9 +403,15 @@ function blendLine(
   const measured = comparables.filter((c) => MEASURED_KINDS.has(c.kind));
   const comparableCount = new Set(counted.flatMap((c) => c.sourceProjectIds)).size;
 
+  // The flag stays a reading of the measured figures and how far apart they
+  // sit, so a judgment rule moves the money without moving the confidence.
   const confidence = flagFor(rate, counted, measured, comparableCount, tiers);
+  const judgment =
+    rules.length > 0
+      ? applyJudgment(rate, totalWeight, rules, weightFor(parameters, "reviewed_judgment"))
+      : { rate, adjustments: [] as JudgmentAdjustment[] };
   const half = tiers.spread[confidence];
-  const midpoint = rate * grossSquareFeet;
+  const midpoint = judgment.rate * grossSquareFeet;
 
   return {
     costCode: lead.costCode,
@@ -302,6 +422,7 @@ function blendLine(
     heldForReview: confidence === "low",
     comparableCount,
     comparables,
+    judgmentAdjustments: judgment.adjustments,
     scopeSide: lead.scopeSide,
     contractSide: lead.contractSide,
   };
@@ -408,6 +529,13 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   if (judgmentOnly.length > 0) {
     assumptions.push(
       `${judgmentOnly.length} of ${lines.length} lines rest on estimator judgment with no measured Kulka figure behind them yet.`,
+    );
+  }
+
+  const judgmentAdjusted = lines.filter((l) => l.judgmentAdjustments.length > 0);
+  if (judgmentAdjusted.length > 0) {
+    assumptions.push(
+      `${judgmentAdjusted.length} of ${lines.length} lines carry an approved estimator rule, flagged as judgment with the person who stated it and the date. Measured Kulka figures on the same line outweigh the rule.`,
     );
   }
 

@@ -39,7 +39,14 @@ export class CostImportAlreadyApproved extends Error {
 }
 
 export type LineRole = "scope" | "lump" | "allowance" | "takeoff_helper" | "duplicate";
-export type ProvenanceKind = "actuals" | "proest_budget";
+export type ProvenanceKind = "actuals" | "proest_budget" | "reviewed_judgment";
+/**
+ * What a cost *file* may claim (LA-19). An imported file is an export, and
+ * `reviewed_judgment` names a number with no export behind it, so an import
+ * can never claim it. A judgment rule is entered through its own gate instead:
+ * see lib/rom/judgment.ts.
+ */
+export type CostImportProvenanceKind = Exclude<ProvenanceKind, "reviewed_judgment">;
 export type LineStatus = "staged" | "unmapped" | "approved" | "excluded";
 
 /** ADR 0003: "Only scope, lump and allowance lines may feed a benchmark, and a takeoff helper never can." Duplicate lines are excluded the same way. */
@@ -62,7 +69,7 @@ export type CostImportSummary = {
   id: string;
   sourceProjectId: string;
   exportLabel: string;
-  provenanceKind: ProvenanceKind;
+  provenanceKind: CostImportProvenanceKind;
   uploadedBy: string;
   uploadedAt: string;
   status: "staged" | "approved";
@@ -94,7 +101,7 @@ type CostImportRow = {
   id: string;
   source_project_id: string;
   export_label: string;
-  provenance_kind: ProvenanceKind;
+  provenance_kind: CostImportProvenanceKind;
   uploaded_by: string;
   uploaded_at: Date | string;
   status: "staged" | "approved";
@@ -172,7 +179,7 @@ export async function stageCostImport(
   params: {
     sourceProjectId: string;
     exportLabel: string;
-    provenanceKind: ProvenanceKind;
+    provenanceKind: CostImportProvenanceKind;
     uploadedBy: string;
     fileText: string;
   },

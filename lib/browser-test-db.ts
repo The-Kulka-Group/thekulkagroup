@@ -48,7 +48,64 @@ async function createBrowserTestDatabase() {
     }
   }
   await seedVisionMapFixtures(database);
+  await seedRomFixtures(database);
   return database;
+}
+
+/**
+ * The project id the ROM screens run against in browser-test mode. Set
+ * `ROM_PROJECT_ID` to this to walk the ROM surface locally.
+ */
+export const BROWSER_TEST_ROM_PROJECT_ID = "30000000-0000-4000-8000-000000000001";
+
+/**
+ * Enough of a ROM to render every screen: one project, benchmarks across the
+ * source kinds so the blend and the drill-down have something to show, and one
+ * approved judgment rule so a line carries an adjustment.
+ *
+ * Every figure here is synthetic and says so in its own label. None of it is a
+ * Kulka cost, and none of it may be read as one. Real benchmarks arrive only
+ * through the ingestion gate.
+ */
+async function seedRomFixtures(database: PGlite) {
+  await database.exec(`
+    insert into projects (id, name, project_type, construction_kind, gross_square_feet, percent_complete)
+    values
+      ('${BROWSER_TEST_ROM_PROJECT_ID}', 'Synthetic browser test project', 'multifamily', 'new', 100000, null),
+      ('30000000-0000-4000-8000-000000000002', 'Synthetic past project A', 'multifamily', 'new', 90000, 100),
+      ('30000000-0000-4000-8000-000000000003', 'Synthetic past project B', 'multifamily', 'new', 120000, 56);
+
+    insert into benchmarks
+      (id, cost_code, label, unit, value, project_type, construction_kind, comparable_count,
+       provenance_kind, provenance_export_label, provenance_recorded_by, provenance_recorded_at)
+    values
+      ('40000000-0000-4000-8000-000000000001', '03-300', 'Synthetic concrete line', 'usd_per_gsf', 20,
+       'multifamily', 'new', 1, 'actuals', 'Synthetic browser test export', 'Browser test fixture', '2026-09-01'),
+      ('40000000-0000-4000-8000-000000000002', '03-300', 'Synthetic concrete line', 'usd_per_gsf', 24,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-02'),
+      ('40000000-0000-4000-8000-000000000003', '09-900', 'Synthetic finishes line', 'usd_per_gsf', 12,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-03'),
+      ('40000000-0000-4000-8000-000000000004', '31-200', 'Synthetic sitework line', 'usd_per_gsf', 8,
+       'multifamily', 'new', 0, 'llm_proposal', 'Synthetic browser test export', 'Browser test fixture', '2026-09-04');
+
+    insert into benchmark_source_projects (benchmark_id, project_id)
+    values
+      ('40000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002'),
+      ('40000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000003'),
+      ('40000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000002');
+
+    update benchmarks set scope_side = 'site' where cost_code = '31-200';
+
+    insert into judgment_rules
+      (id, cost_code, label, project_type, construction_kind, condition_fact, condition_value,
+       adjustment_usd_per_gsf, stated_by, stated_on, reason, status, approved_by, approved_at)
+    values
+      ('50000000-0000-4000-8000-000000000001', '09-900', 'Synthetic browser test rule',
+       'multifamily', 'new', 'amenity_scope', 'yes', 3,
+       'Browser test fixture', '2026-09-05',
+       'A synthetic fixture so the drill-down has a judgment row to show. Not a Kulka figure.',
+       'approved', 'Browser test fixture', now());
+  `);
 }
 
 /** Give browser tests one source and one area marker for each record type. */

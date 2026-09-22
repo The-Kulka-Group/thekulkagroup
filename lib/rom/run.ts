@@ -4,7 +4,9 @@ import {
   computeRom,
   type Answers,
   type Benchmark,
+  type BlockClassification,
   type DataSnapshot,
+  type DetailLevel,
   type EngineParameter,
   type EngineParameters,
   type ParameterName,
@@ -80,6 +82,17 @@ type BenchmarkRow = {
   contract_side: Benchmark["contractSide"];
 };
 
+type ClassificationRow = {
+  cost_code: string;
+  detail_level: number | string;
+  element: string | null;
+  breakout_of_cost_code: string | null;
+  buyout_package: string | null;
+  stated_by: string;
+  stated_on: Date | string;
+  reason: string;
+};
+
 type ParameterRow = {
   name: string;
   value: string;
@@ -128,7 +141,14 @@ export async function runRom(
     const answers = intake.answers;
     await db.query(`update runs set answers = $2 where id = $1`, [runId, intake.recorded]);
 
-    const benchmarks = await step(db, runId, ++seq, "read_benchmarks", async () => {
+    // Block classifications are read inside this step rather than in one of
+    // their own. A sixth step would change the run's recorded shape, and
+    // app/api/rom/route.test.ts, app/api/rom/flow-run.test.ts and
+    // app/api/rom/runs/route.test.ts each assert the five step names a run
+    // writes. The classification is also a property of the same benchmarks
+    // this step reads, keyed off the same cost code, so it belongs here on its
+    // own terms rather than only to spare the tests.
+    const data = await step(db, runId, ++seq, "read_benchmarks", async () => {
       // The order is total so the same rows always hash the same.
       const { rows } = await db.query<BenchmarkRow>(
         `select b.cost_code, b.label, b.unit, b.value, b.project_type,
@@ -146,8 +166,21 @@ export async function runRom(
           order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
         [answers.projectType, answers.constructionKind],
       );
-      return rows.map(toBenchmark);
+
+      const { rows: classifications } = await db.query<ClassificationRow>(
+        `select cost_code, detail_level, element, breakout_of_cost_code,
+                buyout_package, stated_by, stated_on, reason
+           from block_classification
+          order by cost_code`,
+      );
+
+      return {
+        benchmarks: rows.map(toBenchmark),
+        classifications: classifications.map(toClassification),
+      };
     });
+    const benchmarks = data.benchmarks;
+    const classifications = data.classifications;
 
     const parameters = await step(db, runId, ++seq, "read_parameters", async () => {
       const { rows } = await db.query<ParameterRow>(
@@ -166,11 +199,12 @@ export async function runRom(
       }),
     );
 
-    // Judgment rules join the snapshot only when there are some, so a project
-    // with no approved rule still fingerprints the way it did before rules
-    // existed and two runs over the same data stay comparable.
-    const snapshot: DataSnapshot =
-      judgmentRules.length > 0 ? { benchmarks, parameters, judgmentRules } : { benchmarks, parameters };
+    // Judgment rules and classifications join the snapshot only when there are
+    // some, so a project with neither still fingerprints the way it did before
+    // they existed and two runs over the same data stay comparable.
+    const snapshot: DataSnapshot = { benchmarks, parameters };
+    if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
+    if (classifications.length > 0) snapshot.classifications = classifications;
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),
@@ -279,6 +313,21 @@ function toBenchmark(row: BenchmarkRow): Benchmark {
     },
     scopeSide: row.scope_side,
     contractSide: row.contract_side,
+  };
+}
+
+function toClassification(row: ClassificationRow): BlockClassification {
+  return {
+    costCode: row.cost_code,
+    // The column is a smallint with a check between one and four, so the cast
+    // states what the schema already guarantees.
+    detailLevel: Number(row.detail_level) as DetailLevel,
+    element: row.element,
+    breakoutOfCostCode: row.breakout_of_cost_code,
+    buyoutPackage: row.buyout_package,
+    statedBy: row.stated_by,
+    statedOn: isoDate(row.stated_on),
+    reason: row.reason,
   };
 }
 

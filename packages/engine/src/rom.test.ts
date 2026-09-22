@@ -4,6 +4,7 @@ import {
   computeRom,
   type Answers,
   type Benchmark,
+  type BlockClassification,
   type DataSnapshot,
   type EngineParameters,
   type ProvenanceKind,
@@ -520,5 +521,122 @@ describe("engine parameters", () => {
 
   it("refuses a parameter that is not a finite number", () => {
     expect(withParameters({ "spread.high": Number.NaN })).toThrow(/spread\.high/);
+  });
+});
+
+describe("block classification", () => {
+  function classification(
+    over: Partial<BlockClassification> & { costCode?: string } = {},
+  ): BlockClassification {
+    return {
+      costCode: "TEST-A",
+      detailLevel: 2,
+      element: null,
+      breakoutOfCostCode: null,
+      buyoutPackage: null,
+      statedBy: "automated test",
+      statedOn: "2026-09-22",
+      reason: "synthetic",
+      ...over,
+    };
+  }
+
+  function withClassifications(
+    rows: Benchmark[],
+    classifications: BlockClassification[],
+  ) {
+    return computeRom(ANSWERS, { benchmarks: rows, parameters: parameters(), classifications });
+  }
+
+  it("carries the stated level, element and buyout package onto the line", () => {
+    const rom = withClassifications(
+      [benchmark()],
+      [
+        classification({
+          detailLevel: 3,
+          element: "Bathroom",
+          buyoutPackage: "Plumbing",
+        }),
+      ],
+    );
+
+    expect(rom.lines[0].detailLevel).toBe(3);
+    expect(rom.lines[0].element).toBe("Bathroom");
+    expect(rom.lines[0].buyoutPackage).toBe("Plumbing");
+    expect(rom.lines[0].breakoutOf).toBeNull();
+  });
+
+  it("leaves a line with no classification unclassified rather than guessing one", () => {
+    const rom = withClassifications(
+      [benchmark({ costCode: "TEST-A" }), benchmark({ costCode: "TEST-B" })],
+      [classification({ costCode: "TEST-A", detailLevel: 1 })],
+    );
+
+    expect(rom.lines[0].detailLevel).toBe(1);
+    expect(rom.lines[1].detailLevel).toBeNull();
+    expect(rom.lines[1].element).toBeNull();
+    expect(rom.lines[1].breakoutOf).toBeNull();
+    expect(rom.lines[1].buyoutPackage).toBeNull();
+  });
+
+  it("says in its own assumptions that a level is unstated", () => {
+    const rom = withClassifications([benchmark()], []);
+
+    expect(rom.assumptions.join(" ")).toContain("no stated level of detail");
+  });
+
+  it("behaves exactly as before when the snapshot carries no classifications", () => {
+    const rows = [benchmark(), benchmark({ costCode: "TEST-B" })];
+    const bare = computeRom(ANSWERS, snapshot(...rows));
+    const empty = withClassifications(rows, []);
+
+    expect(JSON.stringify(bare)).toBe(JSON.stringify(empty));
+  });
+
+  it("keeps a carved-out block out of both totals and reports it on its own", () => {
+    const rows = [
+      benchmark({ costCode: "TEST-A", value: 10 }),
+      benchmark({ costCode: "TEST-B", value: 1 }),
+    ];
+    const rom = withClassifications(rows, [
+      classification({ costCode: "TEST-A", detailLevel: 1 }),
+      classification({ costCode: "TEST-B", detailLevel: 2, breakoutOfCostCode: "TEST-A" }),
+    ]);
+
+    const [parent, carved] = rom.lines;
+    expect(carved.breakoutOf).toBe("TEST-A");
+    expect(carved.low).toBeGreaterThan(0);
+    expect(rom.total).toEqual({ low: parent.low, high: parent.high });
+    expect(rom.kulkaContractTotal).toEqual({ low: parent.low, high: parent.high });
+    expect(rom.carvedOut).toEqual({ low: carved.low, high: carved.high });
+  });
+
+  it("takes a carved-out Kulka line out of the Kulka contract total too", () => {
+    const rom = withClassifications(
+      [
+        benchmark({ costCode: "TEST-A", value: 10, contractSide: "kulka" }),
+        benchmark({ costCode: "TEST-B", value: 1, contractSide: "kulka" }),
+      ],
+      [classification({ costCode: "TEST-B", detailLevel: 2, breakoutOfCostCode: "TEST-A" })],
+    );
+
+    expect(rom.kulkaContractTotal).toEqual(rom.total);
+    expect(rom.kulkaContractTotal.low).toBe(rom.lines[0].low);
+  });
+
+  it("states the carve-out as its own assumption", () => {
+    const rom = withClassifications(
+      [benchmark({ costCode: "TEST-A" }), benchmark({ costCode: "TEST-B" })],
+      [classification({ costCode: "TEST-B", detailLevel: 2, breakoutOfCostCode: "TEST-A" })],
+    );
+
+    expect(rom.assumptions.join(" ")).toContain("carved out of a level 1 lump");
+  });
+
+  it("carves out nothing when no line names a parent", () => {
+    const rom = withClassifications([benchmark()], [classification()]);
+
+    expect(rom.carvedOut).toEqual({ low: 0, high: 0 });
+    expect(rom.assumptions.join(" ")).not.toContain("carved out");
   });
 });

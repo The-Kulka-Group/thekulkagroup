@@ -1,0 +1,255 @@
+/* LA-884, the block board. Four rows by level of detail, blocks inside each,
+   level subtotals on the right. Daylight throughout: white surfaces on the
+   canvas, one radius scale, the action blue for the element trace, and no
+   status hue doing work that is not status. */
+
+.blocks { display: flex; flex-direction: column; gap: var(--s4); }
+
+.blocks-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  align-items: center;
+}
+.blocks-bar .t-label { color: var(--ink-3); }
+
+.blocks-axis {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--surface);
+}
+.blocks-axis button {
+  font: inherit;
+  font-size: var(--meta-size);
+  font-weight: 600;
+  height: var(--control-h);
+  padding: 0 var(--s4);
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+.blocks-axis button + button { border-left: 1px solid var(--border-light); }
+.blocks-axis button:hover { color: var(--primary); background: var(--primary-tint); }
+.blocks-axis button[aria-pressed="true"] { background: var(--primary); color: #ffffff; }
+.blocks-axis button:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+
+.blocks-elements { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.blocks-element {
+  font: inherit;
+  font-size: var(--meta-size);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: var(--control-h);
+  padding: 0 var(--s4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform var(--motion-fast) var(--ease),
+    background var(--motion-fast) var(--ease),
+    border-color var(--motion-fast) var(--ease),
+    color var(--motion-fast) var(--ease);
+}
+.blocks-element span { font-size: var(--chip-size); font-weight: 400; color: var(--ink-3); }
+.blocks-element:hover { transform: translateY(-1px); border-color: var(--primary); color: var(--primary); }
+.blocks-element[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #ffffff; }
+.blocks-element[aria-pressed="true"] span { color: rgba(255, 255, 255, 0.82); }
+.blocks-element:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-tint); }
+
+.blocks-hint {
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+  color: var(--ink-2);
+  max-width: 96ch;
+  margin: 0;
+}
+
+/* --- the board ---------------------------------------------------------- */
+
+.blocks-board {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.blocks-level {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 176px;
+  border-top: 1px solid var(--border-light);
+  animation: blocks-reveal var(--motion-slow) var(--ease) backwards;
+  animation-delay: calc(var(--reveal-order, 0) * 70ms);
+}
+.blocks-level:first-child { border-top: 0; }
+
+@keyframes blocks-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.blocks-level-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s4);
+  background: var(--canvas);
+  border-right: 1px solid var(--border-light);
+}
+.blocks-level-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: #ffffff;
+  font-size: var(--chip-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.blocks-level-name { font-size: var(--t3-size); line-height: var(--t3-line); font-weight: 700; }
+.blocks-level-note { font-size: var(--meta-size); line-height: var(--meta-line); color: var(--ink-2); }
+
+.blocks-level-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  min-width: 0;
+}
+/* Division and package make many small groups, so they pack rather than stack. */
+.blocks-level-body--packed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--s3);
+  align-items: start;
+}
+
+.blocks-group {
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  padding: var(--s2) var(--s3) var(--s3);
+  background: var(--canvas);
+  min-width: 0;
+}
+.blocks-group h3 { color: var(--ink-3); margin: 0 0 var(--s2); }
+.blocks-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+.blocks-block {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 300px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition:
+    transform var(--motion-fast) var(--ease),
+    box-shadow var(--motion-base) var(--ease),
+    opacity var(--motion-base) var(--ease);
+}
+.blocks-block:hover { transform: translateY(-2px); box-shadow: var(--shadow-raised); }
+.blocks-block-top { display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
+.blocks-block-div {
+  font-size: var(--chip-size);
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--neutral-fill);
+  border-radius: var(--r-sm);
+  padding: 0 var(--s1);
+}
+.blocks-block-name { font-size: var(--ui-size); font-weight: 600; }
+.blocks-block-cost { font-size: var(--meta-size); color: var(--ink); }
+.blocks-block-meta,
+.blocks-block-carve { font-size: var(--chip-size); line-height: var(--chip-line); color: var(--ink-3); }
+
+/* A carved-out block is priced and shown, and its edge says it is not adding. */
+.blocks-block--carved { border-style: dashed; background: var(--canvas); }
+.blocks-block--carved .blocks-block-cost { color: var(--ink-2); }
+.blocks-block--carved .blocks-block-name::before { content: "\21B3\A0"; color: var(--ink-3); }
+
+.blocks-block--lit {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-tint);
+  animation: blocks-trace var(--motion-slow) var(--ease);
+}
+.blocks-block--dim { opacity: 0.28; }
+
+@keyframes blocks-trace {
+  0% { transform: none; }
+  45% { transform: scale(1.04); }
+  100% { transform: none; }
+}
+
+.blocks-level-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s4);
+  border-left: 1px solid var(--border-light);
+  background: var(--canvas);
+  text-align: right;
+}
+.blocks-level-sum .t-label { color: var(--ink-3); }
+.blocks-level-sum .num { font-size: var(--ui-size); font-weight: 600; }
+.blocks-level-sum .t-label + .num { margin-bottom: var(--s2); }
+.blocks-level-sum-carved { color: var(--ink-2); }
+
+/* --- totals ------------------------------------------------------------- */
+
+.blocks-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--s3);
+}
+.blocks-total {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.blocks-total--lead { border-color: var(--primary); }
+.blocks-total .t-label { color: var(--ink-3); }
+.blocks-total .num { font-size: var(--t2-size); line-height: var(--t2-line); font-weight: 700; }
+.blocks-note { font-size: var(--meta-size); line-height: var(--meta-line); color: var(--ink-2); }
+
+@media (max-width: 960px) {
+  .blocks-level { grid-template-columns: 1fr; }
+  .blocks-level-head,
+  .blocks-level-body { border-right: 0; }
+  .blocks-level-sum {
+    border-left: 0;
+    border-top: 1px solid var(--border-light);
+    text-align: left;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blocks-level { animation: none; opacity: 1; transform: none; }
+  .blocks-block--lit { animation: none; }
+  .blocks-axis button,
+  .blocks-element,
+  .blocks-block { transition-duration: 1ms; }
+  .blocks-block:hover,
+  .blocks-element:hover { transform: none; }
+}

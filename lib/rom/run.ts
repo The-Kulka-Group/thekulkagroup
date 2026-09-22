@@ -12,13 +12,20 @@ import {
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
+import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 // The run: load a snapshot, hand it to the engine, write down what happened.
 // The engine stays pure and this file owns every side effect, which is what
 // keeps the two testing seams of LA-9 apart.
 
 /** The steps a ROM run records, in the order they happen. */
-type StepName = "read_answers" | "read_benchmarks" | "read_parameters" | "compute_rom";
+type StepName =
+  | "read_answers"
+  | "read_benchmarks"
+  | "read_parameters"
+  | "read_judgment_rules"
+  | "compute_rom";
 
 export const ROM_SKILL = "rom_tier1";
 
@@ -88,29 +95,38 @@ type ParameterRow = {
  * The run row is written before any work starts, so a run that dies partway
  * still leaves a trace. That is the point of an audit trail.
  */
-export async function runRom(db: Db, projectId: string): Promise<RunResult> {
+export async function runRom(
+  db: Db,
+  projectId: string,
+  responses?: Responses,
+): Promise<RunResult> {
   const project = await readProject(db, projectId);
   const runId = await openRun(db, projectId);
   let seq = 0;
 
   try {
-    const answers = await step(db, runId, ++seq, "read_answers", async () => {
-      // Tier-1 questions are blocked on the working session, so the project
-      // record answers them for now. The packet that decides what those
-      // questions are is `docs/precon/working-session-packet.md` (LA-17);
-      // the question flow follows the session.
+    const intake = await step(db, runId, ++seq, "read_answers", async () => {
+      // The tier-1 questions come from `config/rom/tier1-flow.json` (LA-20).
+      // The definition says which answer feeds which engine input, so nothing
+      // here wires a question to a field.
+      if (responses) return readFlowAnswers(tier1Flow(), responses);
+
+      // A caller that asked no questions still gets a ROM off the project
+      // record, which is how the existing ROM screen runs.
       if (!project.gross_square_feet) {
         throw new Error(
           `Project ${projectId} has no gross square feet, so it cannot be budgeted.`,
         );
       }
-      return {
+      const fromProject = {
         projectType: project.project_type,
         constructionKind: project.construction_kind,
         grossSquareFeet: project.gross_square_feet,
       } satisfies Answers;
+      return { answers: fromProject, recorded: fromProject as Record<string, unknown> };
     });
-    await db.query(`update runs set answers = $2 where id = $1`, [runId, answers]);
+    const answers = intake.answers;
+    await db.query(`update runs set answers = $2 where id = $1`, [runId, intake.recorded]);
 
     const benchmarks = await step(db, runId, ++seq, "read_benchmarks", async () => {
       // The order is total so the same rows always hash the same.
@@ -143,7 +159,18 @@ export async function runRom(db: Db, projectId: string): Promise<RunResult> {
       return toParameters(rows);
     });
 
-    const snapshot: DataSnapshot = { benchmarks, parameters };
+    const judgmentRules = await step(db, runId, ++seq, "read_judgment_rules", async () =>
+      readApprovedJudgmentRules(db, {
+        projectType: answers.projectType,
+        constructionKind: answers.constructionKind,
+      }),
+    );
+
+    // Judgment rules join the snapshot only when there are some, so a project
+    // with no approved rule still fingerprints the way it did before rules
+    // existed and two runs over the same data stay comparable.
+    const snapshot: DataSnapshot =
+      judgmentRules.length > 0 ? { benchmarks, parameters, judgmentRules } : { benchmarks, parameters };
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),

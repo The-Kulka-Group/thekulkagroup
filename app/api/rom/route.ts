@@ -3,6 +3,20 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
+import type { Responses } from "@/lib/rom/question-flow";
+
+// An empty object is refused rather than treated as answers. It can only fail
+// once the run opens, and a run that never had a chance is noise in the audit
+// trail.
+function isResponses(value: unknown): value is Responses {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length > 0 &&
+    Object.values(value).every((one) => typeof one === "string")
+  );
+}
 
 // The one API the surfaces call. The site is the first; the Claude wrapper and
 // ChatGPT reach the same route later, which is what keeps the math out of a
@@ -13,8 +27,9 @@ export async function POST(request: Request) {
   if (denied) return denied;
 
   let projectId: unknown;
+  let responses: unknown;
   try {
-    ({ projectId } = await request.json());
+    ({ projectId, responses } = await request.json());
   } catch {
     return NextResponse.json({ error: "Send a JSON body." }, { status: 400 });
   }
@@ -23,8 +38,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Send a projectId." }, { status: 400 });
   }
 
+  // Answers to the tier-1 questions (LA-20). Without them the run reads what
+  // the project record already holds.
+  if (responses !== undefined && !isResponses(responses)) {
+    return NextResponse.json(
+      { error: "Send responses as text keyed by question id." },
+      { status: 400 },
+    );
+  }
+
   try {
-    const { runId, rom } = await runRom(getDb(), projectId);
+    const { runId, rom } = await runRom(getDb(), projectId, responses);
     return NextResponse.json({ runId, rom });
   } catch (cause) {
     if (cause instanceof ProjectNotFound) {

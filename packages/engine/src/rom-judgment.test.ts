@@ -199,6 +199,20 @@ describe("judgment rules in the blend", () => {
     expect(rom.assumptions.some((a) => a.includes("carries nothing for: demolition"))).toBe(true);
   });
 
+  // A section key is the definition file's own naming. A reader of a budget
+  // should be shown words, never an identifier.
+  it("never shows a raw section key on the face of the ROM", () => {
+    const answers: Answers = {
+      ...ANSWERS,
+      branchGates: { levels_below_grade: "no", existing_building_tie_in: "dont_know" },
+    };
+    const rom = computeRom(answers, snapshot([benchmark()]));
+
+    expect(rom.assumptions.some((a) => a.includes("levels below grade"))).toBe(true);
+    expect(rom.assumptions.some((a) => a.includes("existing building tie in"))).toBe(true);
+    for (const assumption of rom.assumptions) expect(assumption).not.toMatch(/_/);
+  });
+
   it("states how many items sit outside the total as TBD", () => {
     const answers: Answers = {
       ...ANSWERS,

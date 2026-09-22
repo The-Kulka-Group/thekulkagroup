@@ -503,6 +503,15 @@ const TYPE_WORDS: Record<ProjectType, string> = {
   self_storage: "self-storage",
 };
 
+/**
+ * A branch gate section reads as words on the face of the ROM. The section is a
+ * key the definition file chose, and a reader of a budget should never be shown
+ * one.
+ */
+function sectionWords(section: string): string {
+  return section.replace(/_/g, " ");
+}
+
 function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   const area = answers.grossSquareFeet.toLocaleString("en-US");
   const assumptions = [
@@ -558,8 +567,8 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   // the cost codes it covers, and no such map exists yet in the schema. Until
   // one does, a "no" is stated here rather than guessed at.
   const gates = Object.entries(answers.branchGates ?? {});
-  const closed = gates.filter(([, answer]) => answer === "no").map(([section]) => section);
-  const tbd = gates.filter(([, answer]) => answer === "dont_know").map(([section]) => section);
+  const closed = gates.filter(([, answer]) => answer === "no").map(([section]) => sectionWords(section));
+  const tbd = gates.filter(([, answer]) => answer === "dont_know").map(([section]) => sectionWords(section));
   if (closed.length > 0) {
     assumptions.push(`Answered no, so this budget carries nothing for: ${closed.join(", ")}.`);
   }

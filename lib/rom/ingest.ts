@@ -434,13 +434,16 @@ export async function remapCostImportLine(
   );
   if (!lineRows[0]) throw new CostImportLineNotFound(costImportId, lineId);
 
+  let updated: { id: string }[];
   if ("exclude" in params) {
-    await db.query(
+    ({ rows: updated } = await db.query<{ id: string }>(
       `update cost_import_lines
           set status = 'excluded', mapped_by = $3, mapped_at = now()
-        where id = $1 and cost_import_id = $2`,
+        where id = $1 and cost_import_id = $2
+          and exists (select 1 from cost_imports where id = $2 and status = 'staged')
+        returning id`,
       [lineId, costImportId, mappedBy],
-    );
+    ));
   } else {
     const { rows: itemRows } = await db.query<{ id: string }>(
       `select id from canonical_work_items where id = $1`,
@@ -448,13 +451,18 @@ export async function remapCostImportLine(
     );
     if (!itemRows[0]) throw new CanonicalWorkItemNotFound(params.canonicalItemId);
 
-    await db.query(
+    ({ rows: updated } = await db.query<{ id: string }>(
       `update cost_import_lines
           set candidate_canonical_item_id = $3, status = 'staged', mapped_by = $4, mapped_at = now()
-        where id = $1 and cost_import_id = $2`,
+        where id = $1 and cost_import_id = $2
+          and exists (select 1 from cost_imports where id = $2 and status = 'staged')
+        returning id`,
       [lineId, costImportId, params.canonicalItemId, mappedBy],
-    );
+    ));
   }
+  // The staged check above and this update are separate statements, so an
+  // approval can land between them. The update's own guard catches that.
+  if (!updated[0]) throw new CostImportAlreadyApproved(costImportId);
 
   const { rows: updatedRows } = await db.query<LineRow>(
     `select l.id, l.row_number, l.raw_description, l.raw_division, l.value_usd_per_gsf,

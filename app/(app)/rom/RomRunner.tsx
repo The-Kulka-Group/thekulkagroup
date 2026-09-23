@@ -82,6 +82,8 @@ export function RomRunner({ projectId }: { projectId?: string }) {
               <Link className="num" href={`/rom/runs/${state.runId}`}>
                 run {state.runId.slice(0, 8)}
               </Link>
+              <Sep />
+              <Link href={`/rom/blocks?run=${state.runId}`}>Block board</Link>
             </>
           ) : null}
           <Sep />

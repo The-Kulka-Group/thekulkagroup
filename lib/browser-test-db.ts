@@ -60,12 +60,14 @@ export const BROWSER_TEST_ROM_PROJECT_ID = "30000000-0000-4000-8000-000000000001
 
 /**
  * Enough of a ROM to render every screen: one project, benchmarks across the
- * source kinds so the blend and the drill-down have something to show, and one
- * approved judgment rule so a line carries an adjustment.
+ * source kinds so the blend and the drill-down have something to show, one
+ * approved judgment rule so a line carries an adjustment, and enough stated
+ * classification for the block board to show all four levels, an element
+ * reaching four divisions, and a block carved out of a level 1 lump.
  *
  * Every figure here is synthetic and says so in its own label. None of it is a
  * Kulka cost, and none of it may be read as one. Real benchmarks arrive only
- * through the ingestion gate.
+ * through the ingestion gate, and a real classification is Kulka's to state.
  */
 async function seedRomFixtures(database: PGlite) {
   await database.exec(`
@@ -86,15 +88,79 @@ async function seedRomFixtures(database: PGlite) {
       ('40000000-0000-4000-8000-000000000003', '09-900', 'Synthetic finishes line', 'usd_per_gsf', 12,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-03'),
       ('40000000-0000-4000-8000-000000000004', '31-200', 'Synthetic sitework line', 'usd_per_gsf', 8,
-       'multifamily', 'new', 0, 'llm_proposal', 'Synthetic browser test export', 'Browser test fixture', '2026-09-04');
+       'multifamily', 'new', 0, 'llm_proposal', 'Synthetic browser test export', 'Browser test fixture', '2026-09-04'),
+      ('40000000-0000-4000-8000-000000000005', '26-100', 'Synthetic electrical lump line', 'usd_per_gsf', 25,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-06'),
+      ('40000000-0000-4000-8000-000000000006', '22-100', 'Synthetic plumbing rough-in lump line', 'usd_per_gsf', 14,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-06'),
+      ('40000000-0000-4000-8000-000000000007', '14-200', 'Synthetic elevator car line', 'usd_per_gsf', 2.6,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
+      ('40000000-0000-4000-8000-000000000008', '26-200', 'Synthetic elevator wiring line', 'usd_per_gsf', 0.72,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
+      ('40000000-0000-4000-8000-000000000009', '22-300', 'Synthetic elevator pit sump line', 'usd_per_gsf', 0.26,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
+      ('40000000-0000-4000-8000-00000000000a', '28-300', 'Synthetic elevator fire alarm interface line', 'usd_per_gsf', 0.17,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
+      ('40000000-0000-4000-8000-00000000000b', '22-400', 'Synthetic bathroom fixture point line', 'usd_per_gsf', 4.4,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08'),
+      ('40000000-0000-4000-8000-00000000000c', '22-500', 'Synthetic toilet labor and material split line', 'usd_per_gsf', 0.35,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08');
 
     insert into benchmark_source_projects (benchmark_id, project_id)
     values
       ('40000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002'),
       ('40000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000003'),
-      ('40000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000002');
+      ('40000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000002'),
+      ('40000000-0000-4000-8000-000000000005', '30000000-0000-4000-8000-000000000002'),
+      ('40000000-0000-4000-8000-000000000006', '30000000-0000-4000-8000-000000000002'),
+      ('40000000-0000-4000-8000-000000000007', '30000000-0000-4000-8000-000000000003'),
+      ('40000000-0000-4000-8000-000000000008', '30000000-0000-4000-8000-000000000003'),
+      ('40000000-0000-4000-8000-000000000009', '30000000-0000-4000-8000-000000000003'),
+      ('40000000-0000-4000-8000-00000000000a', '30000000-0000-4000-8000-000000000003'),
+      ('40000000-0000-4000-8000-00000000000b', '30000000-0000-4000-8000-000000000002'),
+      ('40000000-0000-4000-8000-00000000000c', '30000000-0000-4000-8000-000000000002');
 
     update benchmarks set scope_side = 'site' where cost_code = '31-200';
+
+    -- Stated classification for the block board. Every row here is a fixture
+    -- statement, not Kulka's. '31-200' is deliberately left out so the board
+    -- has an unclassified block to show. The three elevator breakouts sit
+    -- inside level 1 lumps whose rates already cover them, so they are priced
+    -- on the board and excluded from both totals.
+    insert into block_classification
+      (cost_code, detail_level, element, breakout_of_cost_code, buyout_package,
+       stated_by, stated_on, reason)
+    values
+      ('03-300', 1, null, null, 'Concrete',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the board has a level 1 area block. Not a Kulka classification.'),
+      ('09-900', 1, null, null, 'Drywall And Finishes',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the board has a second level 1 area block. Not a Kulka classification.'),
+      ('26-100', 1, null, null, 'Electrical',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture standing in for the one electrical rate per square foot that a breakout is carved out of. Not a Kulka classification.'),
+      ('22-100', 1, null, null, 'Plumbing',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture standing in for the plumbing rough-in lump that a breakout is carved out of. Not a Kulka classification.'),
+      ('14-200', 2, 'Elevator', null, 'Elevator',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the Elevator element has a block that adds to the total. Not a Kulka classification.'),
+      ('26-200', 2, 'Elevator', '26-100', 'Electrical',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the board has a block carved out of the electrical lump. Not a Kulka classification.'),
+      ('22-300', 2, 'Elevator', '22-100', 'Plumbing',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the Elevator element reaches plumbing as a carve-out. Not a Kulka classification.'),
+      ('28-300', 2, 'Elevator', '26-100', 'Electrical',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the Elevator element reaches a fourth division. Not a Kulka classification.'),
+      ('22-400', 3, 'Bathroom', null, 'Plumbing',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the board has a level 3 block counted in fixture points. Not a Kulka classification.'),
+      ('22-500', 4, null, null, 'Plumbing',
+       'Browser test fixture', '2026-09-09',
+       'A synthetic fixture so the board has a level 4 block split between material and labor. Not a Kulka classification.');
 
     insert into judgment_rules
       (id, cost_code, label, project_type, construction_kind, condition_fact, condition_value,

@@ -240,12 +240,22 @@ takes what it wants later by copy or fork. The tool stays off the public website
   them is on Matt, same footing as the General Conditions rates and the questionnaire
   (LA-681).
 
+- Presentation format is both, decided by Matt on 2026-09-22. The ROM reads either by CSI
+  trade division or elementally, on the same lines and the same stored data, so the two are
+  views rather than two budgets. Every canonical work item already carries its MasterFormat
+  division, so the trade view needs no new data. The elemental view does: a division does
+  not decide an element on its own, because Division 03 concrete spans foundations and
+  superstructure, which are different elements. Which element each canonical item belongs to
+  is a stated mapping, on the same footing as every other stated figure, and no agent infers
+  it from a division. The backtest and the 10-percent bar are unaffected, because both views
+  sum the same lines.
+
 ## Working session agenda (Jesse and Liam, target early September 2026)
 
 1. Which multifamily jobs in ProEst are accurate enough to use.
 2. Minimum required fields per project type, worked backward into tier-1 questions
    (Rob's framework).
-3. Presentation format: CSI trade divisions, elemental, or both.
+3. ~~Presentation format~~: closed 2026-09-22, both. See the data rules above.
 4. Judgment-rule approval authority (Devin and Rob decide).
 5. Review inherited rules of thumb (floor, basement, site multipliers) and correct
    or reject them.

@@ -144,12 +144,52 @@ export type JudgmentAdjustment = {
   recordedAt: string;
 };
 
+/**
+ * Which tier of information detail a block's quantity arrived at (LA-884).
+ * These are tiers of detail, never storeys of a building.
+ *
+ * 1 is area in square feet. 2 is counts of whole objects at building or unit
+ * scale. 3 is points inside a room, or a spec choice. 4 is material and labor,
+ * below the threshold and never asked for.
+ */
+export type DetailLevel = 1 | 2 | 3 | 4;
+
+/**
+ * One physical thing that arrives as a single fact and costs across several
+ * trades. Four elevators is one number from a developer and five blocks in the
+ * budget. Text rather than a union, because which elements exist is Kulka's
+ * stated list in the database, not the engine's to fix.
+ */
+export type Element = string;
+
+/**
+ * What Kulka has stated about one cost code: its level, its element where it
+ * has one, the level 1 lump it is carved out of where it is a breakout, and the
+ * package it was bought under.
+ *
+ * The engine never infers any of this. A cost code with no row comes back on
+ * the line as nulls, and the board shows it as unclassified.
+ */
+export type BlockClassification = {
+  costCode: string;
+  detailLevel: DetailLevel;
+  element: Element | null;
+  /** The cost code of the level 1 lump that already contains this scope. */
+  breakoutOfCostCode: string | null;
+  buyoutPackage: string | null;
+  statedBy: string;
+  statedOn: string;
+  reason: string;
+};
+
 /** Everything the engine is allowed to read. The caller loads it; the engine does not. */
 export type DataSnapshot = {
   benchmarks: Benchmark[];
   parameters: EngineParameters;
   /** Approved judgment rules (LA-19). A snapshot without any behaves exactly as before. */
   judgmentRules?: JudgmentRule[];
+  /** Stated block classifications (LA-884). A snapshot without any leaves every line unclassified. */
+  classifications?: BlockClassification[];
 };
 
 export type Answers = {
@@ -190,23 +230,49 @@ export type RomLine = {
   judgmentAdjustments: JudgmentAdjustment[];
   scopeSide: ScopeSide;
   contractSide: ContractSide;
+  /**
+   * The tier of detail this block's quantity arrived at, or null when nobody
+   * has classified the cost code yet (LA-884). Null is shown as unclassified
+   * and never filled in with a guess.
+   */
+  detailLevel: DetailLevel | null;
+  /** The element this block belongs to, or null when it belongs to none. */
+  element: Element | null;
+  /**
+   * The cost code of the level 1 lump this block is carved out of, or null
+   * when the block adds to the total in the ordinary way. A block with a parent
+   * here keeps its own cost and adds nothing, because the parent rate already
+   * contains it.
+   */
+  breakoutOf: string | null;
+  /** The subcontract this scope was bought under, or null when nobody has said. */
+  buyoutPackage: string | null;
 };
 
 export type Rom = {
   lines: RomLine[];
   /**
    * Total project cost: Kulka's contract plus whatever construction-trade
-   * scope the owner buys direct (CONTEXT.md: Total project cost). This is
-   * every line, the same sum this field always computed before contract side
-   * existed.
+   * scope the owner buys direct (CONTEXT.md: Total project cost).
+   *
+   * Every line except a breakout. A breakout is carved out of a level 1 lump
+   * whose rate already contains it, so adding it here would count that scope
+   * twice (LA-884).
    */
   total: { low: number; high: number };
   /**
    * Kulka's own contract only, excluding owner-direct lines such as
    * appliances or a trash compactor (LA-679: "The ROM shows two totals on
    * screen at all times: Kulka's contract and total project cost.").
+   * Breakouts come out of this total for the same reason they come out of the
+   * one above.
    */
   kulkaContractTotal: { low: number; high: number };
+  /**
+   * What the breakouts are worth. It is not part of either total, and it is
+   * reported so a reader can see the scope was priced rather than forgotten.
+   */
+  carvedOut: { low: number; high: number };
   assumptions: string[];
   /** The parameters this ROM was computed with, provenance included, so a run record is self-describing. */
   parameters: EngineParameters;
@@ -235,6 +301,9 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   }
 
   const rulesByCostCode = groupJudgmentRules(snapshot.judgmentRules ?? [], answers);
+  const classificationsByCostCode = new Map(
+    (snapshot.classifications ?? []).map((c) => [c.costCode, c]),
+  );
 
   const lines = [...byCostCode.keys()]
     .sort((a, b) => a.localeCompare(b))
@@ -245,22 +314,30 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
         snapshot.parameters,
         tiers,
         rulesByCostCode.get(costCode) ?? [],
+        classificationsByCostCode.get(costCode) ?? null,
       ),
     );
-  const kulkaLines = lines.filter((l) => l.contractSide === "kulka");
+
+  // A breakout's parent lump already contains it, so it is priced, shown, and
+  // left out of both totals (LA-884).
+  const added = lines.filter((l) => l.breakoutOf === null);
+  const carved = lines.filter((l) => l.breakoutOf !== null);
+  const kulkaLines = added.filter((l) => l.contractSide === "kulka");
 
   return {
     lines,
-    total: {
-      low: lines.reduce((sum, l) => sum + l.low, 0),
-      high: lines.reduce((sum, l) => sum + l.high, 0),
-    },
-    kulkaContractTotal: {
-      low: kulkaLines.reduce((sum, l) => sum + l.low, 0),
-      high: kulkaLines.reduce((sum, l) => sum + l.high, 0),
-    },
+    total: sumRange(added),
+    kulkaContractTotal: sumRange(kulkaLines),
+    carvedOut: sumRange(carved),
     assumptions: assumptionsFor(answers, lines),
     parameters: snapshot.parameters,
+  };
+}
+
+function sumRange(lines: RomLine[]): { low: number; high: number } {
+  return {
+    low: lines.reduce((sum, l) => sum + l.low, 0),
+    high: lines.reduce((sum, l) => sum + l.high, 0),
   };
 }
 
@@ -401,6 +478,7 @@ function blendLine(
   parameters: EngineParameters,
   tiers: Tiers,
   rules: JudgmentRule[],
+  classification: BlockClassification | null,
 ): RomLine {
   const ranked = rows
     .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
@@ -437,6 +515,10 @@ function blendLine(
     judgmentAdjustments: judgment.adjustments,
     scopeSide: lead.scopeSide,
     contractSide: lead.contractSide,
+    detailLevel: classification?.detailLevel ?? null,
+    element: classification?.element ?? null,
+    breakoutOf: classification?.breakoutOfCostCode ?? null,
+    buyoutPackage: classification?.buyoutPackage ?? null,
   };
 }
 
@@ -575,6 +657,23 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   if (tbd.length > 0) {
     assumptions.push(
       `${tbd.length} ${tbd.length === 1 ? "item sits" : "items sit"} outside this total as TBD, because nobody knows the answer yet: ${tbd.join(", ")}.`,
+    );
+  }
+
+  // LA-884: a carved-out block is priced and shown, and it is the one kind of
+  // line a reader can see on the board that is missing from the total, so the
+  // budget has to say why in its own words.
+  const carved = lines.filter((l) => l.breakoutOf !== null);
+  if (carved.length > 0) {
+    assumptions.push(
+      `${carved.length} of ${lines.length} lines ${carved.length === 1 ? "is" : "are"} carved out of a level 1 lump whose rate already covers them, so each is priced on the board and left out of both totals.`,
+    );
+  }
+
+  const unclassified = lines.filter((l) => l.detailLevel === null);
+  if (unclassified.length > 0) {
+    assumptions.push(
+      `${unclassified.length} of ${lines.length} lines ${unclassified.length === 1 ? "has" : "have"} no stated level of detail yet, so the board shows ${unclassified.length === 1 ? "it" : "them"} as unclassified rather than placing ${unclassified.length === 1 ? "it" : "them"} at a guessed level.`,
     );
   }
 

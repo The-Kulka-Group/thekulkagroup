@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, connection } from "next/server";
 import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 
@@ -57,7 +57,20 @@ async function testAuthorization(request?: Request): Promise<Authorization | nul
   return null;
 }
 
+export const OPEN_ACCESS_USER: AuthorizedUser = {
+  id: "open-access",
+  email: "open-access@kulka.invalid",
+};
+
+export function authIsOpen() {
+  return process.env.KULKA_AUTH_OPEN === "1";
+}
+
 export async function authorizeRequest(request?: Request): Promise<Authorization> {
+  if (authIsOpen()) {
+    await connection();
+    return { ok: true, user: OPEN_ACCESS_USER };
+  }
   const testResult = await testAuthorization(request);
   if (testResult) return testResult;
   if (!authConfiguration(

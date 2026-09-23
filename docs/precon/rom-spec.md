@@ -9,7 +9,15 @@ of the decisions.
 
 Kulka's conceptual budgeting tool, owned by Kulka, first module of the system Rob
 described. It produces a ROM: a ranged budget with a confidence flag on every line
-and a plain list of assumptions. Multifamily first, self-storage second, new
+and a plain list of assumptions.
+
+**When it runs, confirmed by Matt on 2026-09-22.** An estimator builds the budget after
+the call or the email, from whatever information came in. This is not a copilot that
+listens to a live call, and it is not a form that waits for a complete set of answers. The
+information is partial by default, so the tool prices what it was told, proposes what it
+can derive, and says plainly what nobody has answered. A real-time surface is a later
+nice-to-have and must not shape the build. That means no required field may block a budget
+where the tool has another way to reach the number, or a defensible way to show it missing. Multifamily first, self-storage second, new
 construction split from renovation before anything else. No deadline job drives the
 build; the Manor project was pulled from the plan. NOVATERRA gets nothing now and
 takes what it wants later by copy or fork. The tool stays off the public website.

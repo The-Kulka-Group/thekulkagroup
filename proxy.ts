@@ -10,6 +10,15 @@ function protectAuthResponse(response: NextResponse) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (process.env.KULKA_AUTH_OPEN === "1") {
+    if (request.nextUrl.pathname === "/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
   const browserTest = process.env.NODE_ENV !== "production" && process.env.KULKA_BROWSER_TEST === "1";
   const browserTestState = request.cookies.get("kulka-test-auth")?.value;
   let response = NextResponse.next({ request });

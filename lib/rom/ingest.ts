@@ -38,6 +38,20 @@ export class CostImportAlreadyApproved extends Error {
   }
 }
 
+export class CostImportLineNotFound extends Error {
+  constructor(readonly costImportId: string, readonly lineId: string) {
+    super(`No line ${lineId} in cost import ${costImportId}.`);
+    this.name = "CostImportLineNotFound";
+  }
+}
+
+export class CanonicalWorkItemNotFound extends Error {
+  constructor(readonly canonicalItemId: string) {
+    super(`No canonical work item ${canonicalItemId}.`);
+    this.name = "CanonicalWorkItemNotFound";
+  }
+}
+
 export type LineRole = "scope" | "lump" | "allowance" | "takeoff_helper" | "duplicate";
 export type ProvenanceKind = "actuals" | "proest_budget" | "reviewed_judgment";
 /**
@@ -142,6 +156,14 @@ async function readCanonicalItems(db: Db): Promise<CanonicalItemCandidate[]> {
       order by sort_order`,
   );
   return rows;
+}
+
+/** Every canonical work item, for a reviewer's remap `<select>` (LA-978). Same rows and order `readCanonicalItems` already reads for matching, just exported under its own name so a page can list them without reaching for the matcher's internal type. */
+export async function listCanonicalItems(
+  db: Db,
+): Promise<{ id: string; itemNumber: string; name: string }[]> {
+  const items = await readCanonicalItems(db);
+  return items.map((item) => ({ id: item.id, itemNumber: item.itemNumber, name: item.name }));
 }
 
 /**
@@ -356,6 +378,96 @@ export async function getCostImport(db: Db, costImportId: string): Promise<CostI
   return { ...toSummary(importRow), lines: lineRows.map(toStagedLine) };
 }
 
+export type RemapCostImportLineParams = { canonicalItemId: string } | { exclude: true };
+
+/**
+ * Lets a person fix a line's match before the import is approved (LA-978).
+ * The automatic match `stageCostImport` writes (canonical-item-match.ts's
+ * token-overlap heuristic) is a first pass, not a decision a reviewer is
+ * stuck with -- this is the one place in the codebase where a human, not
+ * the matcher, gets the final say on which canonical item a line's cost
+ * belongs to, or whether it belongs to none. No agent or heuristic calls
+ * this function; every caller is a person acting through the review page's
+ * API route.
+ *
+ * Two things the caller can ask for:
+ * - `{ canonicalItemId }` points the line at that item and sets its status
+ *   to 'staged' -- the same status a confident automatic match gets, since
+ *   a person's own pick is at least as trustworthy. This also recovers an
+ *   'unmapped' line: pick a match by hand and it is staged for approval.
+ * - `{ exclude: true }` sets the line's status to 'excluded' without
+ *   touching its candidate match, the same status `approveCostImport`
+ *   already uses for a line it decides on its own not to promote. A
+ *   reviewer might exclude a line the matcher scored confidently but that
+ *   should not become a benchmark for some reason of their own (a bad
+ *   number, a line that belongs in a different project) -- there is no
+ *   typed reason column for this, the same way there is none for the
+ *   exclusions `approveCostImport` already makes on its own.
+ *
+ * There is no third action that reopens an excluded or staged line back to
+ * 'unmapped'. LA-978's own brief says this is not needed: a person who can
+ * already pick any canonical item, or exclude the line outright, has no
+ * remaining reason to ask for the matcher's original guess back.
+ *
+ * Refuses with `CostImportAlreadyApproved` once the import itself has moved
+ * to 'approved' -- a promoted or already-excluded line's story is over, and
+ * changing it after the fact would silently disagree with a `benchmarks`
+ * row that already exists (or, for a line skipped on purpose, with a
+ * decision already recorded). `CostImportNotFound` and
+ * `CostImportLineNotFound` cover an id that does not exist or a line that
+ * belongs to a different import -- the latter is checked by scoping the
+ * update to `cost_import_id = $1`, not by trusting the caller's URL alone.
+ */
+export async function remapCostImportLine(
+  db: Db,
+  costImportId: string,
+  lineId: string,
+  params: RemapCostImportLineParams,
+  mappedBy: string,
+): Promise<StagedLine> {
+  const importRow = await readCostImport(db, costImportId);
+  if (importRow.status !== "staged") throw new CostImportAlreadyApproved(costImportId);
+
+  const { rows: lineRows } = await db.query<{ id: string }>(
+    `select id from cost_import_lines where id = $1 and cost_import_id = $2`,
+    [lineId, costImportId],
+  );
+  if (!lineRows[0]) throw new CostImportLineNotFound(costImportId, lineId);
+
+  if ("exclude" in params) {
+    await db.query(
+      `update cost_import_lines
+          set status = 'excluded', mapped_by = $3, mapped_at = now()
+        where id = $1 and cost_import_id = $2`,
+      [lineId, costImportId, mappedBy],
+    );
+  } else {
+    const { rows: itemRows } = await db.query<{ id: string }>(
+      `select id from canonical_work_items where id = $1`,
+      [params.canonicalItemId],
+    );
+    if (!itemRows[0]) throw new CanonicalWorkItemNotFound(params.canonicalItemId);
+
+    await db.query(
+      `update cost_import_lines
+          set candidate_canonical_item_id = $3, status = 'staged', mapped_by = $4, mapped_at = now()
+        where id = $1 and cost_import_id = $2`,
+      [lineId, costImportId, params.canonicalItemId, mappedBy],
+    );
+  }
+
+  const { rows: updatedRows } = await db.query<LineRow>(
+    `select l.id, l.row_number, l.raw_description, l.raw_division, l.value_usd_per_gsf,
+            l.line_role, l.status, l.benchmark_id, l.candidate_score,
+            c.id as candidate_id, c.item_number as candidate_item_number, c.name as candidate_name
+       from cost_import_lines l
+       join canonical_work_items c on c.id = l.candidate_canonical_item_id
+      where l.id = $1`,
+    [lineId],
+  );
+  return toStagedLine(updatedRows[0]);
+}
+
 type EligibleLineRow = {
   id: string;
   raw_description: string;
@@ -372,8 +484,23 @@ type EligibleLineRow = {
  * promotes into a real `benchmarks` row -- carrying the import's own
  * provenance -- or, if it cannot or should not feed a benchmark, moves to
  * 'excluded' without ever touching `benchmarks`. Lines already 'unmapped'
- * are left alone; this ticket does not build a remap-and-approve flow for a
- * single unmapped line (see the PR description).
+ * are left alone; a reviewer resolves one by hand first, through LA-978's
+ * remapCostImportLine, if it should be part of this approval.
+ *
+ * LA-978: lines in the SAME import that map to the same canonical item are
+ * summed into one benchmark row, not treated as duplicates of each other.
+ * A real budget routinely carries several lines against one work item --
+ * Drywall and Metal Framing might both map to canonical item 17, each a
+ * real, distinct cost that belongs in that item's total -- and the
+ * approveCostImport this replaces excluded the second such line outright,
+ * silently dropping its cost from the promoted benchmark. The fix groups
+ * eligible staged lines by their matched item's cost code, sums each
+ * group's `value_usd_per_gsf`, and joins the group's descriptions (" + ")
+ * into the new benchmark's label, so the one row it writes carries the
+ * full cost and says what it is made of. Every line in a promoted group is
+ * marked 'approved' and points at that same shared benchmark row; `approved`
+ * in the returned summary still counts lines, not benchmark rows, so a
+ * two-line group reports 2, not 1.
  *
  * Fixed in code review (2026-09-20), replacing the un-transactioned version
  * this file originally shipped with. Two bugs, both from the same root
@@ -413,11 +540,12 @@ type EligibleLineRow = {
  * status already means "mapped confidently, but not promoted to a
  * benchmark, on purpose" (see the migration's comment on 'excluded'), which
  * fits a duplicate exactly, so this reuses that status rather than adding a
- * new one. A second line inside the *same* import that maps to a cost code
- * a line earlier in the same import already promoted is caught the same
- * way (both accumulate into the same "already have this cost code" set as
- * the loop runs), not just the cross-import case the brief calls out by
- * name.
+ * new one. This only ever fires for a cost code an EARLIER import already
+ * has a benchmark for -- a re-statement of a fact already on record. Two
+ * lines mapping to the same code inside the SAME import are a different
+ * case (see the LA-978 paragraph above): they are not a re-statement of
+ * anything, since neither has been promoted yet, so they sum together into
+ * one new benchmark instead of the second excluding the first's cost.
  *
  * A third case excluded here that is not one of the two bugs above: a line
  * whose value is exactly $0 (a legitimate staged row -- see
@@ -484,12 +612,20 @@ export async function approveCostImport(
         where bsp.project_id = $1`,
       [importRow.source_project_id],
     );
-    // Seeded with every cost code this project already has a benchmark for,
-    // then grown as this loop promotes lines -- see the "Fix for (2)"
-    // section of this function's own doc comment.
+    // Seeded with every cost code this project already has a benchmark for
+    // from an EARLIER import -- see the "Fix for (2)" section of this
+    // function's own doc comment. Not grown as the loop below runs: two
+    // lines in THIS SAME import that share a cost code are summed into one
+    // group instead (LA-978), so this set only ever needs to catch a code
+    // this project already settled before this approval began.
     const costCodesAlreadyBenchmarked = new Set(existingBenchmarkRows.map((row) => row.cost_code));
 
-    const toPromote: EligibleLineRow[] = [];
+    // One group per cost code this import will promote -- LA-978: several
+    // lines against the same canonical item (Drywall and Metal Framing both
+    // to item 17, say) are real, distinct costs against that one item, not
+    // duplicates of each other, so they sum into a single benchmark rather
+    // than the second silently excluding the first's cost.
+    const groupsByCostCode = new Map<string, EligibleLineRow[]>();
     const excludedIds: string[] = [];
 
     for (const line of lineRows) {
@@ -505,34 +641,46 @@ export async function approveCostImport(
         excludedIds.push(line.id);
         continue;
       }
-      costCodesAlreadyBenchmarked.add(line.candidate_item_number);
-      toPromote.push(line);
+      const group = groupsByCostCode.get(line.candidate_item_number);
+      if (group) group.push(line);
+      else groupsByCostCode.set(line.candidate_item_number, [line]);
     }
 
+    const groups = [...groupsByCostCode.values()];
+
     let approved = 0;
-    if (toPromote.length > 0) {
-      // Fixed in code review (2026-09-20): one batched multi-row INSERT for
-      // every promoted line's benchmark, instead of one INSERT per line.
+    if (groups.length > 0) {
+      // One batched multi-row INSERT for every promoted group's benchmark
+      // (fixed in code review 2026-09-20, kept the same shape here: one
+      // INSERT for however many rows this approval writes, not one per
+      // group).
       const values: string[] = [];
       const insertParams: unknown[] = [];
-      toPromote.forEach((line, i) => {
+      groups.forEach((group, i) => {
         const base = i * 11;
         values.push(
           `($${base + 1}, $${base + 2}, 'usd_per_gsf', $${base + 3}, $${base + 4}, $${base + 5}, 1, ` +
             `$${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11})`,
         );
+        // Every line in a group matched the same canonical item, so its
+        // scope side and contract side (both properties of the item, not
+        // the line) are identical across the group -- the first line's is
+        // as good as any other's.
+        const first = group[0];
+        const sumValue = group.reduce((total, line) => total + Number(line.value_usd_per_gsf), 0);
+        const label = group.map((line) => line.raw_description).join(" + ");
         insertParams.push(
-          line.candidate_item_number,
-          line.raw_description,
-          line.value_usd_per_gsf,
+          first.candidate_item_number,
+          label,
+          sumValue,
           project.project_type,
           project.construction_kind,
           importRow.provenance_kind,
           importRow.export_label,
           importRow.uploaded_by,
           recordedAt,
-          line.candidate_scope_side,
-          line.candidate_contract_side,
+          first.candidate_scope_side,
+          first.candidate_contract_side,
         );
       });
 
@@ -546,12 +694,22 @@ export async function approveCostImport(
         insertParams,
       );
 
+      // `benchmarkRows` preserves VALUES-list order for a single multi-row
+      // INSERT ... RETURNING, so `benchmarkRows[i]` is `groups[i]`'s own new
+      // row -- every line in that group points at it.
+      const lineIds: string[] = [];
+      const benchmarkIdsForLines: string[] = [];
+      groups.forEach((group, i) => {
+        for (const line of group) {
+          lineIds.push(line.id);
+          benchmarkIdsForLines.push(benchmarkRows[i].id);
+        }
+      });
+
       // Fixed in code review (2026-09-20): the source-project link and each
       // line's own status update are independent once the new benchmark
-      // row's id is known, so they run concurrently instead of one after
-      // another. `benchmarkRows` preserves VALUES-list order for a single
-      // multi-row INSERT ... RETURNING, so `benchmarkRows[i]` is `toPromote[i]`'s
-      // own new row.
+      // rows' ids are known, so they run concurrently instead of one after
+      // another.
       await Promise.all([
         tx.query(
           `insert into benchmark_source_projects (benchmark_id, project_id)
@@ -563,11 +721,11 @@ export async function approveCostImport(
               set status = 'approved', benchmark_id = data.benchmark_id
              from unnest($1::uuid[], $2::uuid[]) as data(line_id, benchmark_id)
             where l.id = data.line_id`,
-          [toPromote.map((line) => line.id), benchmarkRows.map((row) => row.id)],
+          [lineIds, benchmarkIdsForLines],
         ),
       ]);
 
-      approved = toPromote.length;
+      approved = lineIds.length;
     }
 
     if (excludedIds.length > 0) {
@@ -630,5 +788,39 @@ export async function listUnmappedLines(db: Db): Promise<UnmappedLine[]> {
       name: row.candidate_name,
     },
     candidateScore: Number(row.candidate_score),
+  }));
+}
+
+export type CostImportListItem = {
+  id: string;
+  exportLabel: string;
+  projectName: string;
+  status: "staged" | "approved";
+  uploadedAt: string;
+};
+
+type CostImportListRow = {
+  id: string;
+  export_label: string;
+  project_name: string;
+  status: "staged" | "approved";
+  uploaded_at: Date | string;
+};
+
+/** The review index LA-978's own review page links from: every import, newest first, with its project's name so a reviewer does not have to open one to know whose cost file it is. */
+export async function listCostImports(db: Db): Promise<CostImportListItem[]> {
+  const { rows } = await db.query<CostImportListRow>(
+    `select i.id, i.export_label, p.name as project_name, i.status, i.uploaded_at
+       from cost_imports i
+       join projects p on p.id = i.source_project_id
+      order by i.uploaded_at desc`,
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    exportLabel: row.export_label,
+    projectName: row.project_name,
+    status: row.status,
+    uploadedAt: toIso(row.uploaded_at),
   }));
 }

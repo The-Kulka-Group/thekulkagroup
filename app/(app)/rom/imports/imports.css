@@ -1,0 +1,33 @@
+/* LA-978: the cost import review page. Reuses .board, .chip, .btn and
+   .input from daylight.css -- see BlockBoard's and RomRunner's own tables
+   for the pattern this follows. .board is table-layout: fixed and its
+   nth-child rules assume a 7-column pursuits-shaped table (daylight.css
+   section 11); this table has 9 columns, so, the same way .board--rom
+   already does for its own 5-column shape, an explicit <colgroup> here
+   overrides those assumptions instead of fighting them. */
+
+.board--import-lines col:nth-child(1) { width: 6%; }
+.board--import-lines col:nth-child(2) { width: 24%; }
+.board--import-lines col:nth-child(3) { width: 8%; }
+.board--import-lines col:nth-child(4) { width: 8%; }
+.board--import-lines col:nth-child(5) { width: 20%; }
+.board--import-lines col:nth-child(6) { width: 6%; }
+.board--import-lines col:nth-child(7) { width: 10%; }
+.board--import-lines col:nth-child(8) { width: 12%; }
+.board--import-lines col:nth-child(9) { width: 6%; }
+
+.board--import-lines td:nth-child(4) { color: var(--ink); }
+
+.import-totals {
+  display: flex;
+  gap: var(--s6);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.import-totals .stat { display: flex; flex-direction: column; gap: var(--s1); }
+
+.import-approve {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--s4);
+}

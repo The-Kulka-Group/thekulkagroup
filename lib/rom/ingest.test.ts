@@ -5,11 +5,14 @@ import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
 import { CostFileParseError } from "./cost-file-parse";
 import {
+  CanonicalWorkItemNotFound,
   CostImportAlreadyApproved,
+  CostImportLineNotFound,
   CostImportNotFound,
   approveCostImport,
   getCostImport,
   listUnmappedLines,
+  remapCostImportLine,
   stageCostImport,
 } from "./ingest";
 import { ProjectNotFound, runRom } from "./run";
@@ -395,7 +398,10 @@ describe("approveCostImport", () => {
     expect(reopened.lines[0].benchmarkId).toBeNull();
   });
 
-  it("also catches two lines inside the same import that map to the same cost code", async () => {
+  it("sums two lines inside the same import that map to the same cost code into one benchmark (LA-978)", async () => {
+    // A real budget carries several lines against one work item -- Drywall
+    // and Metal Framing might both map to the same canonical item -- and
+    // excluding the second used to silently drop its cost.
     const csv = [
       "description,division,value",
       '"Foundations, footings, and slab-on-grade",03,42.50',
@@ -410,8 +416,147 @@ describe("approveCostImport", () => {
     });
 
     const summary = await approveCostImport(db as Db, staged.id, "approver@kulka.com");
-    expect(summary).toEqual({ approved: 1, excluded: 1, unmapped: 0 });
+    expect(summary).toEqual({ approved: 2, excluded: 0, unmapped: 0 });
     expect(await countBenchmarksFor(db as Db, "2")).toBe(1);
+
+    const { rows } = await db.query<{ value: string; label: string }>(
+      `select value, label from benchmarks where cost_code = '2'`,
+    );
+    expect(rows[0].value).toBe("85.5");
+    expect(rows[0].label).toBe(
+      "Foundations, footings, and slab-on-grade + Foundations, footings, and slab-on-grade",
+    );
+
+    const updated = await getCostImport(db as Db, staged.id);
+    expect(updated.lines.every((line) => line.status === "approved")).toBe(true);
+    expect(new Set(updated.lines.map((line) => line.benchmarkId))).toEqual(
+      new Set([updated.lines[0].benchmarkId]),
+    );
+  });
+
+  it("still excludes a duplicate of an earlier import's cost code even when this import also has a same-code line to sum", async () => {
+    const first = await stagedImport(db as Db);
+    await approveCostImport(db as Db, first.id, "approver@kulka.com");
+
+    const csv = [
+      "description,division,value",
+      '"Foundations, footings, and slab-on-grade",03,10.00',
+    ].join("\n");
+    const second = await stageCostImport(db as Db, {
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Re-upload, same code",
+      provenanceKind: "actuals",
+      uploadedBy: "reviewer@kulka.com",
+      fileText: csv,
+    });
+
+    const summary = await approveCostImport(db as Db, second.id, "approver@kulka.com");
+    expect(summary).toEqual({ approved: 0, excluded: 1, unmapped: 0 });
+    expect(await countBenchmarksFor(db as Db, "2")).toBe(1);
+  });
+});
+
+describe("remapCostImportLine", () => {
+  it("sets a line's canonical item, stages it, and records who mapped it and when", async () => {
+    const staged = await stagedImport(db as Db);
+    const unmappedLine = staged.lines[1];
+
+    // "Foundations, footings, and slab-on-grade" is canonical item 2.
+    const { rows: itemRows } = await db.query<{ id: string }>(
+      `select id from canonical_work_items where item_number = '2'`,
+    );
+
+    const updated = await remapCostImportLine(
+      db as Db,
+      staged.id,
+      unmappedLine.id,
+      { canonicalItemId: itemRows[0].id },
+      "reviewer@kulka.com",
+    );
+
+    expect(updated.status).toBe("staged");
+    expect(updated.candidateCanonicalItem.itemNumber).toBe("2");
+
+    const { rows } = await db.query<{ mapped_by: string; mapped_at: string | null }>(
+      `select mapped_by, mapped_at from cost_import_lines where id = $1`,
+      [unmappedLine.id],
+    );
+    expect(rows[0].mapped_by).toBe("reviewer@kulka.com");
+    expect(rows[0].mapped_at).not.toBeNull();
+  });
+
+  it("excludes a line without changing its candidate match", async () => {
+    const staged = await stagedImport(db as Db);
+    const mappedLine = staged.lines[0];
+
+    const updated = await remapCostImportLine(
+      db as Db,
+      staged.id,
+      mappedLine.id,
+      { exclude: true },
+      "reviewer@kulka.com",
+    );
+
+    expect(updated.status).toBe("excluded");
+    expect(updated.candidateCanonicalItem.id).toBe(mappedLine.candidateCanonicalItem.id);
+  });
+
+  it("refuses to remap a line once the import is approved", async () => {
+    const staged = await stagedImport(db as Db);
+    const mappedLine = staged.lines[0];
+    await approveCostImport(db as Db, staged.id, "approver@kulka.com");
+
+    await expect(
+      remapCostImportLine(
+        db as Db,
+        staged.id,
+        mappedLine.id,
+        { exclude: true },
+        "reviewer@kulka.com",
+      ),
+    ).rejects.toThrow(CostImportAlreadyApproved);
+  });
+
+  it("refuses a line that belongs to a different import", async () => {
+    const first = await stagedImport(db as Db);
+    const second = await stagedImport(db as Db);
+
+    await expect(
+      remapCostImportLine(
+        db as Db,
+        first.id,
+        second.lines[0].id,
+        { exclude: true },
+        "reviewer@kulka.com",
+      ),
+    ).rejects.toThrow(CostImportLineNotFound);
+  });
+
+  it("refuses an import that does not exist", async () => {
+    const staged = await stagedImport(db as Db);
+    await expect(
+      remapCostImportLine(
+        db as Db,
+        "00000000-0000-4000-8000-0000000000ff",
+        staged.lines[0].id,
+        { exclude: true },
+        "reviewer@kulka.com",
+      ),
+    ).rejects.toThrow(CostImportNotFound);
+  });
+
+  it("refuses a canonical item that does not exist", async () => {
+    const staged = await stagedImport(db as Db);
+
+    await expect(
+      remapCostImportLine(
+        db as Db,
+        staged.id,
+        staged.lines[0].id,
+        { canonicalItemId: "00000000-0000-4000-8000-0000000000ff" },
+        "reviewer@kulka.com",
+      ),
+    ).rejects.toThrow(CanonicalWorkItemNotFound);
   });
 });
 

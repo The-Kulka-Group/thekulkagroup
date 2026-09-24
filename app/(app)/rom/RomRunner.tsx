@@ -124,6 +124,8 @@ export function RomRunner({
           ) : null}
           <Sep />
           <Link href="/rom/runs">Past runs</Link>
+          <Sep />
+          <Link href="/rom/backtest">Backtest</Link>
         </>
       }
       needsReview={held}

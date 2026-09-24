@@ -144,6 +144,13 @@ export function priceParking(
   };
 }
 
+/**
+ * ADR 0005's bar: a ROM passes when its undialed midpoint lands within this
+ * many percent of trade cost. The closing comparison and the backtest (LA-23)
+ * both score against it.
+ */
+export const PASS_BAR_PERCENT = 10;
+
 export type ClosingComparisonScore = {
   /** Signed: positive means the ROM's midpoint predicted high. */
   percentError: number;
@@ -188,6 +195,6 @@ export function scoreClosingComparison(
 
   return {
     percentError,
-    withinTenPercent: Math.abs(percentError) <= 10,
+    withinTenPercent: Math.abs(percentError) <= PASS_BAR_PERCENT,
   };
 }

@@ -1,0 +1,90 @@
+/* LA-23: the backtest report. Reuses .chip, .empty and .num from
+   daylight.css. Its tables are not .board: .board is fixed-layout with
+   nowrap cells and column widths sized for the pursuits board, and these
+   tables have their own shapes. Each table scrolls inside its own wrapper
+   so a phone never scrolls the page sideways. */
+
+.bt-headline {
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.bt-headline h2 {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 var(--s2);
+}
+.bt-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s6);
+  color: var(--ink-2);
+  font-size: var(--meta-size);
+}
+
+.bt-section { padding: var(--s4) 0; border-bottom: 1px solid var(--border-light); }
+.bt-section:last-child { border-bottom: 0; }
+.bt-section h3 {
+  font-size: var(--label-size);
+  line-height: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+  color: var(--ink-2);
+  margin: 0 0 var(--s3);
+}
+
+.bt-note {
+  color: var(--ink-2);
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+  margin: 0 0 var(--s2);
+  max-width: 72ch;
+}
+
+.bt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.bt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ui-size);
+}
+.bt-table th, .bt-table td {
+  padding: var(--s2) var(--s3);
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.bt-table th {
+  font-size: var(--label-size);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--label-track);
+  color: var(--ink-2);
+}
+.bt-table .right { text-align: right; }
+.bt-table td.bt-label { white-space: normal; min-width: 180px; }
+.bt-table tr.bt-muted td { color: var(--ink-2); }
+
+.bt-project { border-bottom: 1px solid var(--border-light); }
+.bt-project:last-child { border-bottom: 0; }
+.bt-project summary {
+  cursor: pointer;
+  padding: var(--s3) 0;
+  font-weight: 600;
+  color: var(--ink);
+  list-style-position: inside;
+}
+.bt-project summary .bt-summary-meta { font-weight: 400; color: var(--ink-2); margin-left: var(--s2); }
+.bt-project[open] summary { padding-bottom: var(--s2); }
+.bt-project .bt-note { margin-top: var(--s1); }
+
+.bt-misses { margin: 0; padding-left: var(--s6); }
+.bt-misses li { padding: var(--s1) 0; line-height: var(--ui-line); }
+
+@media (max-width: 700px) {
+  .bt-headline h2 { font-size: 18px; line-height: 24px; }
+  .bt-table th, .bt-table td { padding: var(--s2); }
+}

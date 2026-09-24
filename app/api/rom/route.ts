@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { parseMarkupChoices } from "@/lib/rom/markup";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 import type { Responses } from "@/lib/rom/question-flow";
 
@@ -28,8 +29,9 @@ export async function POST(request: Request) {
 
   let projectId: unknown;
   let responses: unknown;
+  let markups: unknown;
   try {
-    ({ projectId, responses } = await request.json());
+    ({ projectId, responses, markups } = await request.json());
   } catch {
     return NextResponse.json({ error: "Send a JSON body." }, { status: 400 });
   }
@@ -47,8 +49,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // GRs/GCs, fee and insurance (LA-1016). Without them the run uses setup
+  // "both", method "pct_of_subtotal", and the recorded fee and insurance
+  // rates. A bad choice is refused here, before a run opens.
+  const parsed = parseMarkupChoices(markups);
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
   try {
-    const { runId, rom } = await runRom(getDb(), projectId, responses);
+    const { runId, rom } = await runRom(getDb(), projectId, responses, parsed.choices);
     return NextResponse.json({ runId, rom });
   } catch (cause) {
     if (cause instanceof ProjectNotFound) {

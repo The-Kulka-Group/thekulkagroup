@@ -6,15 +6,24 @@
    already does for its own 5-column shape, an explicit <colgroup> here
    overrides those assumptions instead of fighting them. */
 
-.board--import-lines col:nth-child(1) { width: 6%; }
-.board--import-lines col:nth-child(2) { width: 24%; }
-.board--import-lines col:nth-child(3) { width: 8%; }
-.board--import-lines col:nth-child(4) { width: 8%; }
-.board--import-lines col:nth-child(5) { width: 20%; }
-.board--import-lines col:nth-child(6) { width: 6%; }
-.board--import-lines col:nth-child(7) { width: 10%; }
-.board--import-lines col:nth-child(8) { width: 12%; }
-.board--import-lines col:nth-child(9) { width: 6%; }
+.board--import-lines col:nth-child(1) { width: 5%; }
+.board--import-lines col:nth-child(2) { width: 19%; }
+.board--import-lines col:nth-child(3) { width: 7%; }
+.board--import-lines col:nth-child(4) { width: 7%; }
+.board--import-lines col:nth-child(5) { width: 16%; }
+.board--import-lines col:nth-child(6) { width: 5%; }
+.board--import-lines col:nth-child(7) { width: 9%; }
+.board--import-lines col:nth-child(8) { width: 11%; }
+.board--import-lines col:nth-child(9) { width: 7%; }
+.board--import-lines col:nth-child(10) { width: 14%; }
+
+/* LA-1016: a line sent to GRs/GCs. Its own hue, so it never reads as
+   approved, unmapped, or excluded. */
+.chip--markup { background: var(--primary-tint); }
+.chip--markup .dot { background: var(--primary); }
+.board--import-lines tr.row--markup td { color: var(--ink-2); }
+
+.markup-send { display: flex; flex-direction: column; gap: var(--s1); }
 
 .board--import-lines td:nth-child(4) { color: var(--ink); }
 

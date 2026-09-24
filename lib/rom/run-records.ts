@@ -6,7 +6,8 @@ import type { FlowRecord } from "@/lib/rom/question-flow";
 /**
  * What `runs.answers` actually holds. A run driven by the question flow records
  * the answers plus the flow that produced them (LA-20); a run off the project
- * record has no flow, so the key is absent.
+ * record has no flow, so the key is absent. A run since LA-1016 also records
+ * its markup choices under `markups`, which Answers already carries.
  */
 export type RecordedAnswers = Answers & { flow?: FlowRecord };
 

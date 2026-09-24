@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { MarkupSetup } from "@kulka/engine";
 
 import type { CostImportDetail, LineStatus, StagedLine } from "@/lib/rom/ingest";
 
@@ -12,6 +13,11 @@ import "../imports.css";
 // here decides a match on its own -- every remap this component can send is
 // one a person picked from the list of canonical work items handed down
 // from the server.
+//
+// LA-1016 adds one more thing a person can do with a line: send it to the
+// GRs/GCs history instead of a work item, when it is a General Requirements
+// or General Conditions figure. That stays open for an unmapped line after
+// approval, because an unmapped line never became a benchmark.
 
 export type CanonicalItemOption = { id: string; itemNumber: string; name: string };
 
@@ -27,6 +33,7 @@ const STATUS_LABEL: Record<LineStatus, string> = {
   unmapped: "Unmapped",
   approved: "Approved",
   excluded: "Excluded",
+  markup: "GRs/GCs",
 };
 
 const STATUS_CHIP: Record<LineStatus, string> = {
@@ -34,7 +41,20 @@ const STATUS_CHIP: Record<LineStatus, string> = {
   approved: "done",
   unmapped: "medium",
   excluded: "neutral",
+  markup: "markup",
 };
+
+const SETUP_OPTIONS: { value: MarkupSetup; label: string }[] = [
+  { value: "both", label: "GRs & GCs combined" },
+  { value: "gc_only", label: "GCs only" },
+  { value: "gr_only", label: "GRs only" },
+];
+
+const PERCENT = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 function itemLabel(item: { itemNumber: string; name: string }): string {
   return `${item.itemNumber} — ${item.name}`;
@@ -58,12 +78,15 @@ export function ImportReview({
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [setups, setSetups] = useState<Record<string, MarkupSetup>>({});
 
   const totals = useMemo(
     () => ({
       staged: sumOf(lines, "staged"),
       unmapped: sumOf(lines, "unmapped"),
       excluded: sumOf(lines, "excluded"),
+      markup: sumOf(lines, "markup"),
     }),
     [lines],
   );
@@ -87,6 +110,37 @@ export function ImportReview({
       }
       const updated: StagedLine = responseBody.line;
       setLines((current) => current.map((line) => (line.id === lineId ? updated : line)));
+    } catch {
+      setError("The site could not reach the server.");
+    } finally {
+      setBusyLineId(null);
+    }
+  }
+
+  async function sendToMarkup(lineId: string) {
+    const setup = setups[lineId] ?? "both";
+    setBusyLineId(lineId);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(
+        `/api/rom/imports/${costImport.id}/lines/${lineId}/markup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ setup }),
+        },
+      );
+      const body = await response.json();
+      if (!response.ok) {
+        setError(body.error ?? "The line could not be sent to GRs/GCs.");
+        return;
+      }
+      const updated: StagedLine = body.line;
+      setLines((current) => current.map((line) => (line.id === lineId ? updated : line)));
+      setNotice(
+        `Row ${updated.rowNumber} recorded as GRs/GCs: ${PER_SF.format(body.history.usdPerGsf)} / SF, ${PERCENT.format(body.history.pctOfSubtotal)} of this import's trade subtotal.`,
+      );
     } catch {
       setError("The site could not reach the server.");
     } finally {
@@ -129,15 +183,21 @@ export function ImportReview({
           <span className="t-label">Excluded</span>
           <span className="num">{PER_SF.format(totals.excluded)} / SF</span>
         </div>
+        <div className="stat">
+          <span className="t-label">GRs / GCs</span>
+          <span className="num">{PER_SF.format(totals.markup)} / SF</span>
+        </div>
       </div>
 
       {error ? <p className="empty">{error}</p> : null}
+      {notice ? <p className="empty">{notice}</p> : null}
 
       {lines.length === 0 ? (
         <p className="empty">This import has no lines.</p>
       ) : (
         <table className="board board--import-lines">
           <colgroup>
+            <col />
             <col />
             <col />
             <col />
@@ -159,13 +219,16 @@ export function ImportReview({
               <th>Status</th>
               <th>Remap</th>
               <th></th>
+              <th>GRs / GCs</th>
             </tr>
           </thead>
           <tbody>
             {lines.map((line) => {
               const busy = busyLineId === line.id;
+              const canSendToMarkup =
+                line.status === "unmapped" || (line.status === "staged" && !locked);
               return (
-                <tr className="row" key={line.id}>
+                <tr className={`row${line.status === "markup" ? " row--markup" : ""}`} key={line.id}>
                   <td className="num">{line.rowNumber}</td>
                   <td>{line.rawDescription}</td>
                   <td>{line.rawDivision ?? "—"}</td>
@@ -205,6 +268,36 @@ export function ImportReview({
                     >
                       Exclude
                     </button>
+                  </td>
+                  <td>
+                    {canSendToMarkup ? (
+                      <div className="markup-send">
+                        <select
+                          className="input"
+                          aria-label="How this budget files GRs and GCs"
+                          value={setups[line.id] ?? "both"}
+                          disabled={busy}
+                          onChange={(event) => {
+                            const setup = event.target.value as MarkupSetup;
+                            setSetups((current) => ({ ...current, [line.id]: setup }));
+                          }}
+                        >
+                          {SETUP_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="btn btn--secondary"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void sendToMarkup(line.id)}
+                        >
+                          Send to GRs/GCs
+                        </button>
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               );

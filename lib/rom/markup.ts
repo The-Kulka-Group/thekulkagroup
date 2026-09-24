@@ -1,0 +1,428 @@
+import {
+  DEFAULT_MARKUP_CHOICES,
+  type EngineParameter,
+  type FieldOfficeRate,
+  type MarkupChoices,
+  type MarkupHistoryRow,
+  type MarkupMethod,
+  type MarkupSetup,
+  type StaffingRate,
+} from "@kulka/engine";
+
+import type { Db } from "@/lib/db";
+import { isUuid } from "@/lib/uuid";
+
+import { toDateOnly, toIso } from "./date";
+import {
+  CostImportAlreadyApproved,
+  CostImportLineNotFound,
+  CostImportNotFound,
+  readStagedLine,
+  type LineStatus,
+  type StagedLine,
+} from "./ingest";
+
+// GRs/GCs, fee, and insurance below the ROM subtotal (LA-1016). This file owns
+// the database side: routing an imported line to markup_history, reading the
+// history and rate tables a run needs, and checking the markup choices a ROM
+// request carries. The math is in packages/engine/src/rom-markups.ts.
+
+export const MARKUP_SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only"];
+export const MARKUP_METHODS: readonly MarkupMethod[] = [
+  "pct_of_subtotal",
+  "usd_per_gsf",
+  "staffing_duration",
+];
+
+/** The line is already approved, excluded, or routed, or has no value, so it cannot become a GRs/GCs figure. */
+export class LineNotRoutable extends Error {
+  constructor(
+    readonly lineId: string,
+    reason: string,
+  ) {
+    super(`Line ${lineId} ${reason}, so it cannot be sent to GRs/GCs.`);
+    this.name = "LineNotRoutable";
+  }
+}
+
+/** The import has no other trade lines to divide by, so no percent can be computed. */
+export class MarkupSubtotalMissing extends Error {
+  constructor(readonly costImportId: string) {
+    super(
+      `Cost import ${costImportId} has no other trade lines in its subtotal, so a percent of subtotal cannot be computed.`,
+    );
+    this.name = "MarkupSubtotalMissing";
+  }
+}
+
+/** This project already has a GRs/GCs figure for this setup. */
+export class MarkupHistoryExists extends Error {
+  constructor(
+    readonly projectId: string,
+    readonly setup: MarkupSetup,
+  ) {
+    super(`Project ${projectId} already has a GRs/GCs figure recorded for setup "${setup}".`);
+    this.name = "MarkupHistoryExists";
+  }
+}
+
+export type MarkupHistoryRecord = {
+  id: string;
+  projectId: string;
+  setup: MarkupSetup;
+  usdPerGsf: number;
+  pctOfSubtotal: number;
+  costImportLineId: string;
+  recordedBy: string;
+  recordedAt: string;
+  exportLabel: string;
+};
+
+type HistoryRow = {
+  id: string;
+  project_id: string;
+  setup: MarkupSetup;
+  usd_per_gsf: string;
+  pct_of_subtotal: string;
+  cost_import_line_id: string;
+  recorded_by: string;
+  recorded_at: Date | string;
+  export_label: string;
+};
+
+function toRecord(row: HistoryRow): MarkupHistoryRecord {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    setup: row.setup,
+    usdPerGsf: Number(row.usd_per_gsf),
+    pctOfSubtotal: Number(row.pct_of_subtotal),
+    costImportLineId: row.cost_import_line_id,
+    recordedBy: row.recorded_by,
+    recordedAt: toIso(row.recorded_at),
+    exportLabel: row.export_label,
+  };
+}
+
+/**
+ * Sends one imported line to markup_history as a GRs/GCs figure, and marks
+ * the line 'markup' so it never becomes a benchmark.
+ *
+ * Allowed for an 'unmapped' line whatever the import's status: an unmapped
+ * line never became a benchmark, so routing it after approval disagrees with
+ * nothing on record. Allowed for a 'staged' line only while its import is
+ * still staged. Refused for a line already approved, excluded or routed.
+ *
+ * pct_of_subtotal is the line's value over the sum of the import's other
+ * trade lines: 'approved' lines once the import is approved, 'staged' lines
+ * before. Owner-direct lines stay out of that sum, because CONTEXT.md keeps
+ * owner-direct scope out of Kulka's General Conditions benchmarks.
+ */
+export async function routeLineToMarkup(
+  db: Db,
+  costImportId: string,
+  lineId: string,
+  setup: MarkupSetup,
+  recordedBy: string,
+): Promise<{ line: StagedLine; history: MarkupHistoryRecord }> {
+  return db.withTransaction(async (tx) => {
+    const { rows: importRows } = await tx.query<{
+      id: string;
+      source_project_id: string;
+      export_label: string;
+      status: "staged" | "approved";
+    }>(
+      `select id, source_project_id, export_label, status from cost_imports where id = $1`,
+      [costImportId],
+    );
+    const costImport = importRows[0];
+    if (!costImport) throw new CostImportNotFound(costImportId);
+
+    const { rows: lineRows } = await tx.query<{ status: LineStatus; value_usd_per_gsf: string }>(
+      `select status, value_usd_per_gsf from cost_import_lines
+        where id = $1 and cost_import_id = $2`,
+      [lineId, costImportId],
+    );
+    const line = lineRows[0];
+    if (!line) throw new CostImportLineNotFound(costImportId, lineId);
+
+    if (line.status === "staged") {
+      if (costImport.status !== "staged") throw new CostImportAlreadyApproved(costImportId);
+    } else if (line.status !== "unmapped") {
+      throw new LineNotRoutable(lineId, `is ${line.status}`);
+    }
+
+    const subtotalStatus = costImport.status === "approved" ? "approved" : "staged";
+    const { rows: sumRows } = await tx.query<{ subtotal: string | null }>(
+      `select sum(l.value_usd_per_gsf)::text as subtotal
+         from cost_import_lines l
+         join canonical_work_items c on c.id = l.candidate_canonical_item_id
+        where l.cost_import_id = $1 and l.status = $2 and l.id <> $3
+          and c.contract_side = 'kulka'`,
+      [costImportId, subtotalStatus, lineId],
+    );
+    const subtotal = Number(sumRows[0]?.subtotal ?? 0);
+    if (!(subtotal > 0)) throw new MarkupSubtotalMissing(costImportId);
+
+    const value = Number(line.value_usd_per_gsf);
+    if (!(value > 0)) throw new LineNotRoutable(lineId, "is $0");
+
+    const { rows: existing } = await tx.query<{ id: string }>(
+      `select id from markup_history where project_id = $1 and setup = $2`,
+      [costImport.source_project_id, setup],
+    );
+    if (existing[0]) throw new MarkupHistoryExists(costImport.source_project_id, setup);
+
+    // Guarded on the status read above, so a remap or approval that lands in
+    // between cannot be overwritten.
+    const { rows: updated } = await tx.query<{ id: string }>(
+      `update cost_import_lines
+          set status = 'markup', mapped_by = $3, mapped_at = now()
+        where id = $1 and cost_import_id = $2 and status = $4
+        returning id`,
+      [lineId, costImportId, recordedBy, line.status],
+    );
+    if (!updated[0]) throw new CostImportAlreadyApproved(costImportId);
+
+    const { rows: inserted } = await tx.query<HistoryRow>(
+      `insert into markup_history
+         (project_id, setup, usd_per_gsf, pct_of_subtotal, cost_import_line_id,
+          recorded_by, export_label)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       returning id, project_id, setup, usd_per_gsf, pct_of_subtotal, cost_import_line_id,
+                 recorded_by, recorded_at, export_label`,
+      [
+        costImport.source_project_id,
+        setup,
+        value,
+        value / subtotal,
+        lineId,
+        recordedBy,
+        costImport.export_label,
+      ],
+    );
+
+    return { line: await readStagedLine(tx, lineId), history: toRecord(inserted[0]) };
+  });
+}
+
+/** Every GRs/GCs figure on record, for the engine. Ordered so the same rows always hash the same. */
+export async function readMarkupHistory(db: Db): Promise<MarkupHistoryRow[]> {
+  const { rows } = await db.query<HistoryRow & { project_name: string }>(
+    `select h.id, h.project_id, p.name as project_name, h.setup, h.usd_per_gsf,
+            h.pct_of_subtotal, h.cost_import_line_id, h.recorded_by, h.recorded_at,
+            h.export_label
+       from markup_history h
+       join projects p on p.id = h.project_id
+      order by h.setup, h.project_id, h.id`,
+  );
+  return rows.map((row) => ({
+    projectId: row.project_id,
+    projectName: row.project_name,
+    setup: row.setup,
+    usdPerGsf: Number(row.usd_per_gsf),
+    pctOfSubtotal: Number(row.pct_of_subtotal),
+    exportLabel: row.export_label,
+    recordedBy: row.recorded_by,
+    recordedAt: toDateOnly(row.recorded_at),
+  }));
+}
+
+export async function readStaffingRates(db: Db): Promise<StaffingRate[]> {
+  const { rows } = await db.query<{
+    id: string;
+    role: string;
+    days_per_week: number;
+    weekly_rate_low: string;
+    weekly_rate_high: string;
+    source_estimate: string;
+  }>(
+    `select id, role, days_per_week, weekly_rate_low, weekly_rate_high, source_estimate
+       from gc_staffing_rates
+      order by role, days_per_week, id`,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    role: row.role,
+    daysPerWeek: Number(row.days_per_week),
+    weeklyRateLow: Number(row.weekly_rate_low),
+    weeklyRateHigh: Number(row.weekly_rate_high),
+    sourceEstimate: row.source_estimate,
+  }));
+}
+
+export async function readFieldOfficeRates(db: Db): Promise<FieldOfficeRate[]> {
+  const { rows } = await db.query<{
+    id: string;
+    category: string;
+    item: string;
+    rate_basis: FieldOfficeRate["rateBasis"];
+    rate: string;
+    recurring_rate: string | null;
+    source_estimate: string;
+  }>(
+    `select id, category, item, rate_basis, rate, recurring_rate, source_estimate
+       from gc_field_office_rates
+      order by category, item, id`,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    category: row.category,
+    item: row.item,
+    rateBasis: row.rate_basis,
+    rate: Number(row.rate),
+    recurringRate: row.recurring_rate === null ? null : Number(row.recurring_rate),
+    sourceEstimate: row.source_estimate,
+  }));
+}
+
+export type MarkupOptions = {
+  staffingRates: StaffingRate[];
+  fieldOfficeRates: FieldOfficeRate[];
+  feeRate: EngineParameter | null;
+  insuranceRate: EngineParameter | null;
+  /** How many jobs stand behind each setup, so the page can say when a line will be TBD. */
+  historyCounts: Record<MarkupSetup, number>;
+};
+
+/** What the /rom page needs to offer the GRs/GCs choices. */
+export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
+  const [staffingRates, fieldOfficeRates, history, parameterRows] = await Promise.all([
+    readStaffingRates(db),
+    readFieldOfficeRates(db),
+    readMarkupHistory(db),
+    db
+      .query<{
+        name: string;
+        value: string;
+        provenance_kind: EngineParameter["provenance"]["kind"];
+        provenance_recorded_by: string;
+        provenance_recorded_at: Date | string;
+        reason: string;
+      }>(
+        `select name, value, provenance_kind, provenance_recorded_by, provenance_recorded_at, reason
+           from engine_parameters where name in ('fee.rate', 'insurance.rate')`,
+      )
+      .then((r) => r.rows),
+  ]);
+
+  const parameter = (name: string): EngineParameter | null => {
+    const row = parameterRows.find((r) => r.name === name);
+    if (!row) return null;
+    return {
+      value: Number(row.value),
+      provenance: {
+        kind: row.provenance_kind,
+        recordedBy: row.provenance_recorded_by,
+        recordedAt: toDateOnly(row.provenance_recorded_at),
+        reason: row.reason,
+      },
+    };
+  };
+
+  const historyCounts: Record<MarkupSetup, number> = { both: 0, gc_only: 0, gr_only: 0 };
+  for (const row of history) historyCounts[row.setup] += 1;
+
+  return {
+    staffingRates,
+    fieldOfficeRates,
+    feeRate: parameter("fee.rate"),
+    insuranceRate: parameter("insurance.rate"),
+    historyCounts,
+  };
+}
+
+export type ParsedMarkupChoices = { ok: true; choices: MarkupChoices } | { ok: false; error: string };
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+/**
+ * Checks the markup choices a ROM request carries. Absent means the default:
+ * setup 'both', method 'pct_of_subtotal', no overrides. Only the fields the
+ * chosen method reads are kept, so the choices recorded with a run say
+ * exactly what priced it.
+ */
+export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
+  if (value === undefined || value === null) return { ok: true, choices: { ...DEFAULT_MARKUP_CHOICES } };
+  if (!isObject(value)) return { ok: false, error: "Send markups as an object." };
+
+  const setup = value.setup ?? DEFAULT_MARKUP_CHOICES.setup;
+  const method = value.method ?? DEFAULT_MARKUP_CHOICES.method;
+  if (!MARKUP_SETUPS.includes(setup as MarkupSetup)) {
+    return { ok: false, error: 'Send markups.setup as "both", "gc_only", or "gr_only".' };
+  }
+  if (!MARKUP_METHODS.includes(method as MarkupMethod)) {
+    return {
+      ok: false,
+      error: 'Send markups.method as "pct_of_subtotal", "usd_per_gsf", or "staffing_duration".',
+    };
+  }
+  const choices: MarkupChoices = { setup: setup as MarkupSetup, method: method as MarkupMethod };
+
+  for (const name of ["feeRate", "insuranceRate"] as const) {
+    const rate = value[name];
+    if (rate === undefined || rate === null) continue;
+    if (!isNumber(rate) || rate < 0 || rate >= 1) {
+      return { ok: false, error: `Send markups.${name} as a fraction from zero up to one.` };
+    }
+    choices[name] = rate;
+  }
+
+  if (choices.method !== "staffing_duration") {
+    const override = value.overrideRate;
+    if (override !== undefined && override !== null) {
+      if (!isNumber(override) || override <= 0) {
+        return { ok: false, error: "Send markups.overrideRate as a number above zero." };
+      }
+      if (choices.method === "pct_of_subtotal" && override >= 1) {
+        return { ok: false, error: "Send a percent override as a fraction below one." };
+      }
+      choices.overrideRate = override;
+    }
+    return { ok: true, choices };
+  }
+
+  const weeks = value.durationWeeks;
+  if (!isNumber(weeks) || weeks <= 0) {
+    return { ok: false, error: "Send markups.durationWeeks as a number of weeks above zero." };
+  }
+  choices.durationWeeks = weeks;
+
+  const staff = value.staff ?? [];
+  if (!Array.isArray(staff)) return { ok: false, error: "Send markups.staff as a list." };
+  choices.staff = [];
+  for (const pick of staff) {
+    if (!isObject(pick) || typeof pick.rateId !== "string" || !isUuid(pick.rateId)) {
+      return { ok: false, error: "Each staff pick needs a rateId." };
+    }
+    if (pick.weeks !== undefined && pick.weeks !== null && (!isNumber(pick.weeks) || pick.weeks <= 0)) {
+      return { ok: false, error: "Each staff pick's weeks must be above zero." };
+    }
+    choices.staff.push(isNumber(pick.weeks) ? { rateId: pick.rateId, weeks: pick.weeks } : { rateId: pick.rateId });
+  }
+
+  const office = value.fieldOffice ?? [];
+  if (!Array.isArray(office)) return { ok: false, error: "Send markups.fieldOffice as a list." };
+  choices.fieldOffice = [];
+  for (const pick of office) {
+    if (!isObject(pick) || typeof pick.rateId !== "string" || !isUuid(pick.rateId)) {
+      return { ok: false, error: "Each field-office pick needs a rateId." };
+    }
+    if (
+      pick.quantity !== undefined &&
+      pick.quantity !== null &&
+      (!isNumber(pick.quantity) || pick.quantity <= 0)
+    ) {
+      return { ok: false, error: "Each field-office pick's quantity must be above zero." };
+    }
+    choices.fieldOffice.push(
+      isNumber(pick.quantity) ? { rateId: pick.rateId, quantity: pick.quantity } : { rateId: pick.rateId },
+    );
+  }
+
+  return { ok: true, choices };
+}

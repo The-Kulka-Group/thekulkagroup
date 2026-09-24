@@ -9,12 +9,14 @@ import {
   type DetailLevel,
   type EngineParameter,
   type EngineParameters,
+  type MarkupChoices,
   type ParameterName,
   type Rom,
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
+import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
 import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 // The run: load a snapshot, hand it to the engine, write down what happened.
@@ -107,11 +109,17 @@ type ParameterRow = {
  *
  * The run row is written before any work starts, so a run that dies partway
  * still leaves a trace. That is the point of an audit trail.
+ *
+ * `markups` is the GRs/GCs, fee and insurance choice (LA-1016). The caller
+ * passes it already checked; lib/rom/markup.ts's parseMarkupChoices fills in
+ * the default when a request names none. It is recorded with the answers, so
+ * a run can be reproduced from its record.
  */
 export async function runRom(
   db: Db,
   projectId: string,
   responses?: Responses,
+  markups?: MarkupChoices,
 ): Promise<RunResult> {
   const project = await readProject(db, projectId);
   const runId = await openRun(db, projectId);
@@ -138,8 +146,9 @@ export async function runRom(
       } satisfies Answers;
       return { answers: fromProject, recorded: fromProject as Record<string, unknown> };
     });
-    const answers = intake.answers;
-    await db.query(`update runs set answers = $2 where id = $1`, [runId, intake.recorded]);
+    const answers: Answers = markups ? { ...intake.answers, markups } : intake.answers;
+    const recorded = markups ? { ...intake.recorded, markups } : intake.recorded;
+    await db.query(`update runs set answers = $2 where id = $1`, [runId, recorded]);
 
     // Block classifications are read inside this step rather than in one of
     // their own. A sixth step would change the run's recorded shape, and
@@ -148,6 +157,10 @@ export async function runRom(
     // writes. The classification is also a property of the same benchmarks
     // this step reads, keyed off the same cost code, so it belongs here on its
     // own terms rather than only to spare the tests.
+    //
+    // markup_history (LA-1016) is read here for the same reason. Each row is a
+    // measured GRs/GCs figure out of an imported budget, the same kind of
+    // thing a benchmark is, read so the markup waterfall can price from it.
     const data = await step(db, runId, ++seq, "read_benchmarks", async () => {
       // The order is total so the same rows always hash the same.
       const { rows } = await db.query<BenchmarkRow>(
@@ -177,20 +190,30 @@ export async function runRom(
       return {
         benchmarks: rows.map(toBenchmark),
         classifications: classifications.map(toClassification),
+        markupHistory: await readMarkupHistory(db),
       };
     });
     const benchmarks = data.benchmarks;
     const classifications = data.classifications;
 
-    const parameters = await step(db, runId, ++seq, "read_parameters", async () => {
+    // The GC staffing and field-office rate tables (LA-1016) are read inside
+    // this step rather than a sixth one, for the reason given above. They are
+    // stated rates with a named source estimate, the same footing as the fee
+    // and insurance rates this step already reads from engine_parameters.
+    const rated = await step(db, runId, ++seq, "read_parameters", async () => {
       const { rows } = await db.query<ParameterRow>(
         `select name, value, provenance_kind, provenance_recorded_by,
                 provenance_recorded_at, reason
            from engine_parameters
           order by name`,
       );
-      return toParameters(rows);
+      return {
+        parameters: toParameters(rows),
+        staffingRates: await readStaffingRates(db),
+        fieldOfficeRates: await readFieldOfficeRates(db),
+      };
     });
+    const parameters = rated.parameters;
 
     const judgmentRules = await step(db, runId, ++seq, "read_judgment_rules", async () =>
       readApprovedJudgmentRules(db, {
@@ -205,6 +228,13 @@ export async function runRom(
     const snapshot: DataSnapshot = { benchmarks, parameters };
     if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
     if (classifications.length > 0) snapshot.classifications = classifications;
+    // The markup data only matters when the ROM prices markups, and joins the
+    // snapshot on the same only-when-there-are-some rule.
+    if (markups) {
+      if (data.markupHistory.length > 0) snapshot.markupHistory = data.markupHistory;
+      if (rated.staffingRates.length > 0) snapshot.staffingRates = rated.staffingRates;
+      if (rated.fieldOfficeRates.length > 0) snapshot.fieldOfficeRates = rated.fieldOfficeRates;
+    }
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),

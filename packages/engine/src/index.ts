@@ -15,6 +15,7 @@ export {
   type Element,
   type EngineParameter,
   type EngineParameters,
+  type GateItemSummary,
   type JudgmentAdjustment,
   type JudgmentRule,
   type ParameterName,
@@ -26,6 +27,14 @@ export {
   type RomLine,
   type ScopeSide,
 } from "./rom";
+
+export {
+  resolveGateItems,
+  type BranchGateItemRule,
+  type GateAnswerValue,
+  type GateLineStatus,
+  type GateResolution,
+} from "./rom-gates";
 
 export {
   computeMarkups,

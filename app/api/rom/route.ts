@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { parseGateAnswers } from "@/lib/rom/gates";
 import { parseMarkupChoices } from "@/lib/rom/markup";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 import type { Responses } from "@/lib/rom/question-flow";
@@ -30,8 +31,9 @@ export async function POST(request: Request) {
   let projectId: unknown;
   let responses: unknown;
   let markups: unknown;
+  let gates: unknown;
   try {
-    ({ projectId, responses, markups } = await request.json());
+    ({ projectId, responses, markups, gates } = await request.json());
   } catch {
     return NextResponse.json({ error: "Send a JSON body." }, { status: 400 });
   }
@@ -55,8 +57,20 @@ export async function POST(request: Request) {
   const parsed = parseMarkupChoices(markups);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
+  // The Scope module's answers (LA-1028). Without them the run reads the
+  // project record's own gate columns, the same as before the module
+  // existed; `gates` present, even empty, replaces them for this run.
+  const parsedGates = parseGateAnswers(gates);
+  if (!parsedGates.ok) return NextResponse.json({ error: parsedGates.error }, { status: 400 });
+
   try {
-    const { runId, rom } = await runRom(getDb(), projectId, responses, parsed.choices);
+    const { runId, rom } = await runRom(
+      getDb(),
+      projectId,
+      responses,
+      parsed.choices,
+      gates === undefined ? undefined : parsedGates.gates,
+    );
     return NextResponse.json({ runId, rom });
   } catch (cause) {
     if (cause instanceof ProjectNotFound) {

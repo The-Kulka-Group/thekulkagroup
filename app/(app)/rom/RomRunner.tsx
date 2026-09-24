@@ -5,6 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import type { ProvenanceKind, Rom, RomLine } from "@kulka/engine";
 
 import { Sheet, Sep } from "@/components/Sheet";
+import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 import type { LineProvenance, ProvenanceSignal } from "@/lib/rom/provenance";
 
@@ -15,6 +16,7 @@ import {
   MarkupWaterfall,
   type MarkupForm,
 } from "./Markups";
+import { gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
 import "./provenance.css";
 
 // Money to the nearest dollar. A ROM is a range, so cents would imply a
@@ -42,13 +44,17 @@ type State =
 export function RomRunner({
   projectId,
   markupOptions,
+  scopeDefaults,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
   markupOptions?: MarkupOptions;
+  /** The project's own recorded answers to the nine yes/no scope questions (LA-1028). */
+  scopeDefaults?: GateAnswers;
 }) {
   const [state, setState] = useState<State>({ phase: "idle" });
   const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions));
+  const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
 
   async function run() {
     if (!projectId) return;
@@ -59,12 +65,19 @@ export function RomRunner({
       setState({ phase: "failed", error: choices.error });
       return;
     }
+    // Without a defaults object the page could not read the project's gate
+    // columns, so the request names no gates and the run reads them itself.
+    const gates = scopeDefaults ? gateAnswersFrom(scopeForm) : null;
     setState({ phase: "running" });
     try {
       const response = await fetch("/api/rom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(choices ? { projectId, markups: choices.markups } : { projectId }),
+        body: JSON.stringify({
+          projectId,
+          ...(choices ? { markups: choices.markups } : {}),
+          ...(gates ? { gates } : {}),
+        }),
       });
       const body = await response.json();
       setState(
@@ -116,6 +129,10 @@ export function RomRunner({
       needsReview={held}
       reviewLabel="held for review"
     >
+      {projectId && scopeDefaults ? (
+        <ScopeControls form={scopeForm} onChange={setScopeForm} disabled={state.phase === "running"} />
+      ) : null}
+
       {projectId && markupOptions ? (
         <MarkupControls
           options={markupOptions}
@@ -288,6 +305,50 @@ function Result({ rom, runId }: { rom: Rom; runId: string }) {
 
       {/* Runs recorded before LA-1016 carry no markups, so there is nothing to show. */}
       {rom.markups ? <MarkupWaterfall markups={rom.markups} /> : null}
+
+      {/* LA-1028: what a scope answer actually did to the lines above, named
+          item by item rather than left to the assumptions prose alone. */}
+      {rom.notInThisJob.length > 0 || rom.tbdGateItems.length > 0 || rom.assumedPresentItems.length > 0 ? (
+        <section className="doc-section rom-scope-summary">
+          <h2 className="doc-title">Scope</h2>
+          {rom.notInThisJob.length > 0 ? (
+            <>
+              <h3 className="t-label">Not in this job</h3>
+              <ul className="doc-list">
+                {rom.notInThisJob.map((item) => (
+                  <li key={item.costCode}>
+                    {item.label} ({item.question})
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {rom.tbdGateItems.length > 0 ? (
+            <>
+              <h3 className="t-label">TBD, outside the total</h3>
+              <ul className="doc-list">
+                {rom.tbdGateItems.map((item) => (
+                  <li key={item.costCode}>
+                    {item.label} ({item.question})
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {rom.assumedPresentItems.length > 0 ? (
+            <>
+              <h3 className="t-label">Assumed present, nobody answered</h3>
+              <ul className="doc-list">
+                {rom.assumedPresentItems.map((item) => (
+                  <li key={item.costCode}>
+                    {item.label} ({item.question})
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="doc-section rom-assumptions">
         <h2 className="doc-title">Assumptions</h2>

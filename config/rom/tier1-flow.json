@@ -91,6 +91,34 @@
       "kind": "branch_gate",
       "required": true,
       "mapsTo": { "target": "branch_gate", "section": "amenity_scope" }
+    },
+    {
+      "id": "elevator",
+      "prompt": "Does the building have an elevator?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "elevator" }
+    },
+    {
+      "id": "retail_storefronts",
+      "prompt": "Is there ground-floor retail with storefronts?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "retail_storefronts" }
+    },
+    {
+      "id": "balconies",
+      "prompt": "Do the units have balconies?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "balconies" }
+    },
+    {
+      "id": "radio_amplifier",
+      "prompt": "Does the building need an emergency radio amplifier (BDA)?",
+      "kind": "branch_gate",
+      "required": true,
+      "mapsTo": { "target": "branch_gate", "section": "radio_amplifier" }
     }
   ],
   "output": {

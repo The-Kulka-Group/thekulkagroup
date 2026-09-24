@@ -99,6 +99,10 @@ describe("editing the definition changes the flow", () => {
       existing_building_tie_in: "no",
       site_conditions: "no",
       amenity_scope: "no",
+      elevator: "no",
+      retail_storefronts: "no",
+      balconies: "no",
+      radio_amplifier: "no",
     });
 
     expect(answers.grossSquareFeet).toBe(42000);
@@ -115,6 +119,10 @@ const COMPLETE = {
   existing_building_tie_in: "no",
   site_conditions: "no",
   amenity_scope: "no",
+  elevator: "no",
+  retail_storefronts: "no",
+  balconies: "no",
+  radio_amplifier: "no",
 };
 
 describe("branch gates", () => {

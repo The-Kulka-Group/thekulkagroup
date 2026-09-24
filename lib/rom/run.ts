@@ -468,11 +468,22 @@ function toClassification(row: ClassificationRow): BlockClassification {
   };
 }
 
+// branch_gate_items names a section after the projects column that holds its
+// answer ("parking_type"), while the intake flow and the project-record path
+// both put parking into `facts` as "parkingType". Without this translation the
+// parking rule never finds its answer and garage items always read as assumed
+// present.
+const FACT_KEY_FOR_SECTION: Record<string, string> = { parking_type: "parkingType" };
+
+function factKey(section: string): string {
+  return FACT_KEY_FOR_SECTION[section] ?? section;
+}
+
 function toGateItemRule(row: GateItemRow): BranchGateItemRule {
   return {
     costCode: row.cost_code,
-    section: row.section,
-    requiresAllSections: row.requires_all_sections ?? [],
+    section: factKey(row.section),
+    requiresAllSections: (row.requires_all_sections ?? []).map(factKey),
     closesOn: row.closes_on,
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),

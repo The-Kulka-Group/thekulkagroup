@@ -5,8 +5,16 @@ import { Fragment, useEffect, useState } from "react";
 import type { ProvenanceKind, Rom, RomLine } from "@kulka/engine";
 
 import { Sheet, Sep } from "@/components/Sheet";
+import type { MarkupOptions } from "@/lib/rom/markup";
 import type { LineProvenance, ProvenanceSignal } from "@/lib/rom/provenance";
 
+import {
+  initialMarkupForm,
+  MarkupControls,
+  markupChoicesFrom,
+  MarkupWaterfall,
+  type MarkupForm,
+} from "./Markups";
 import "./provenance.css";
 
 // Money to the nearest dollar. A ROM is a range, so cents would imply a
@@ -31,17 +39,32 @@ type State =
   | { phase: "done"; rom: Rom; runId: string }
   | { phase: "failed"; error: string };
 
-export function RomRunner({ projectId }: { projectId?: string }) {
+export function RomRunner({
+  projectId,
+  markupOptions,
+}: {
+  projectId?: string;
+  /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
+  markupOptions?: MarkupOptions;
+}) {
   const [state, setState] = useState<State>({ phase: "idle" });
+  const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions));
 
   async function run() {
     if (!projectId) return;
+    // Without the options the page could not read the rate tables, so the
+    // request names no markups and the run uses the recorded defaults.
+    const choices = markupOptions ? markupChoicesFrom(form, markupOptions) : null;
+    if (choices && !choices.ok) {
+      setState({ phase: "failed", error: choices.error });
+      return;
+    }
     setState({ phase: "running" });
     try {
       const response = await fetch("/api/rom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify(choices ? { projectId, markups: choices.markups } : { projectId }),
       });
       const body = await response.json();
       setState(
@@ -93,6 +116,15 @@ export function RomRunner({ projectId }: { projectId?: string }) {
       needsReview={held}
       reviewLabel="held for review"
     >
+      {projectId && markupOptions ? (
+        <MarkupControls
+          options={markupOptions}
+          form={form}
+          onChange={setForm}
+          disabled={state.phase === "running"}
+        />
+      ) : null}
+
       {state.phase === "idle" ? (
         <p className="empty">
           {projectId
@@ -246,13 +278,16 @@ function Result({ rom, runId }: { rom: Rom; runId: string }) {
         </tbody>
         <tfoot>
           <tr className="group">
-            <th colSpan={2}>Total range</th>
+            <th colSpan={2}>Trade cost range</th>
             <th className="num right">{DOLLARS.format(rom.total.low)}</th>
             <th className="num right">{DOLLARS.format(rom.total.high)}</th>
             <th />
           </tr>
         </tfoot>
       </table>
+
+      {/* Runs recorded before LA-1016 carry no markups, so there is nothing to show. */}
+      {rom.markups ? <MarkupWaterfall markups={rom.markups} /> : null}
 
       <section className="doc-section rom-assumptions">
         <h2 className="doc-title">Assumptions</h2>

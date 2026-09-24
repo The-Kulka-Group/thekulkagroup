@@ -244,3 +244,124 @@ describe("benchmark provenance schema", () => {
     ).rejects.toThrow();
   });
 });
+
+// LA-1016: the markup choices ride on the ROM request, are recorded with the
+// run's answers, and price the waterfall below the trade subtotal.
+describe("POST /api/rom markups", () => {
+  type MarkupRun = { answers: { markups?: Record<string, unknown> } };
+  const markupRuns = () =>
+    db.query<MarkupRun>(`select answers from runs order by started_at`).then((r) => r.rows);
+
+  it("records the default choices when the request names none", async () => {
+    const response = await post({ projectId: TEST_PROJECT_ID });
+    expect(response.status).toBe(200);
+    const { rom } = await response.json();
+
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual({ setup: "both", method: "pct_of_subtotal" });
+
+    // No imported budget records GRs/GCs yet, so the line is TBD, not guessed.
+    expect(rom.markups.generalConditions.tbd).toBe(true);
+    // Fee reads Matt's recorded 3.25 percent.
+    expect(rom.markups.fee.source).toBe("parameter");
+    expect(rom.markups.fee.low).toBe(Math.round(rom.markups.subtotal.low * 0.0325));
+    expect(rom.parameters["insurance.rate"].value).toBe(0.054);
+  });
+
+  it("records the user's choices and overrides with the run", async () => {
+    const markups = {
+      setup: "gc_only",
+      method: "pct_of_subtotal",
+      overrideRate: 0.08,
+      feeRate: 0.04,
+      insuranceRate: 0.02,
+    };
+    const response = await post({ projectId: TEST_PROJECT_ID, markups });
+    expect(response.status).toBe(200);
+    const { rom } = await response.json();
+
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual(markups);
+    expect(rom.markups.generalConditions.label).toBe("General Conditions");
+    expect(rom.markups.generalConditions.source).toBe("override");
+    expect(rom.markups.fee.source).toBe("override");
+  });
+
+  it("prices the staffing method off the rate tables and records the plan", async () => {
+    const { rows } = await db.query<{ id: string }>(
+      `select id from gc_staffing_rates where role = 'Project Manager' and days_per_week = 5`,
+    );
+    const markups = {
+      setup: "both",
+      method: "staffing_duration",
+      durationWeeks: 10,
+      staff: [{ rateId: rows[0].id }],
+      fieldOffice: [],
+    };
+    const response = await post({ projectId: TEST_PROJECT_ID, markups });
+    expect(response.status).toBe(200);
+    const { rom } = await response.json();
+
+    // Project Manager, 5 days a week, $5,200 a week, for 10 weeks.
+    expect(rom.markups.generalConditions.low).toBe(52_000);
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual(markups);
+  });
+
+  it("uses recorded GRs/GCs history for the chosen setup", async () => {
+    const { rows } = await db.query<{ id: string }>(
+      `select id from canonical_work_items order by sort_order limit 1`,
+    );
+    const { rows: imports } = await db.query<{ id: string }>(
+      `insert into cost_imports (source_project_id, export_label, provenance_kind, uploaded_by)
+       values ($1, 'synthetic export', 'actuals', 'automated test') returning id`,
+      [TEST_PROJECT_ID],
+    );
+    const { rows: lines } = await db.query<{ id: string }>(
+      `insert into cost_import_lines
+         (cost_import_id, row_number, raw_description, value_usd_per_gsf,
+          candidate_canonical_item_id, candidate_score, status)
+       values ($1, 1, 'General Conditions & General Requirements', 0.25, $2, 0, 'markup')
+       returning id`,
+      [imports[0].id, rows[0].id],
+    );
+    await db.query(
+      `insert into markup_history
+         (project_id, setup, usd_per_gsf, pct_of_subtotal, cost_import_line_id, recorded_by, export_label)
+       values ($1, 'both', 0.25, 0.25, $2, 'automated test', 'synthetic export')`,
+      [TEST_PROJECT_ID, lines[0].id],
+    );
+
+    const { rom } = await (await post({ projectId: TEST_PROJECT_ID })).json();
+    expect(rom.markups.generalConditions.tbd).toBe(false);
+    expect(rom.markups.generalConditions.low).toBe(Math.round(rom.markups.subtotal.low * 0.25));
+    expect(rom.markups.generalConditions.basis).toBe(
+      "25.00% of subtotal, from 1 job: Synthetic test project",
+    );
+  });
+
+  it("refuses bad markup choices without opening a run", async () => {
+    for (const markups of [
+      { setup: "everything" },
+      { method: "guess" },
+      { feeRate: 3.25 },
+      { method: "staffing_duration" },
+      { method: "pct_of_subtotal", overrideRate: 15 },
+    ]) {
+      const response = await post({ projectId: TEST_PROJECT_ID, markups });
+      expect(response.status).toBe(400);
+    }
+    expect(await runs()).toEqual([]);
+  });
+
+  it("keeps the five recorded steps", async () => {
+    await post({ projectId: TEST_PROJECT_ID, markups: { setup: "gr_only", method: "usd_per_gsf" } });
+    expect((await steps()).map((s) => s.name)).toEqual([
+      "read_answers",
+      "read_benchmarks",
+      "read_parameters",
+      "read_judgment_rules",
+      "compute_rom",
+    ]);
+  });
+});

@@ -61,7 +61,8 @@ export type ProvenanceKind = "actuals" | "proest_budget" | "reviewed_judgment";
  * see lib/rom/judgment.ts.
  */
 export type CostImportProvenanceKind = Exclude<ProvenanceKind, "reviewed_judgment">;
-export type LineStatus = "staged" | "unmapped" | "approved" | "excluded";
+/** 'markup': routed to markup_history as a GRs/GCs figure instead of a work item (LA-1016, lib/rom/markup.ts). */
+export type LineStatus = "staged" | "unmapped" | "approved" | "excluded" | "markup";
 
 /** ADR 0003: "Only scope, lump and allowance lines may feed a benchmark, and a takeoff helper never can." Duplicate lines are excluded the same way. */
 const BENCHMARK_ELIGIBLE_ROLES: readonly LineRole[] = ["scope", "lump", "allowance"];
@@ -464,7 +465,12 @@ export async function remapCostImportLine(
   // approval can land between them. The update's own guard catches that.
   if (!updated[0]) throw new CostImportAlreadyApproved(costImportId);
 
-  const { rows: updatedRows } = await db.query<LineRow>(
+  return readStagedLine(db, lineId);
+}
+
+/** One line as the review page shows it. The caller has already confirmed the line exists. */
+export async function readStagedLine(db: Db, lineId: string): Promise<StagedLine> {
+  const { rows } = await db.query<LineRow>(
     `select l.id, l.row_number, l.raw_description, l.raw_division, l.value_usd_per_gsf,
             l.line_role, l.status, l.benchmark_id, l.candidate_score,
             c.id as candidate_id, c.item_number as candidate_item_number, c.name as candidate_name
@@ -473,7 +479,7 @@ export async function remapCostImportLine(
       where l.id = $1`,
     [lineId],
   );
-  return toStagedLine(updatedRows[0]);
+  return toStagedLine(rows[0]);
 }
 
 type EligibleLineRow = {

@@ -12,6 +12,14 @@
 // back to a number nobody recorded.
 
 import type { BranchGateAnswer } from "./rom-intake";
+import {
+  computeMarkups,
+  type FieldOfficeRate,
+  type MarkupChoices,
+  type MarkupHistoryRow,
+  type Markups,
+  type StaffingRate,
+} from "./rom-markups";
 
 export type ProjectType = "multifamily" | "self_storage";
 export type ConstructionKind = "new" | "renovation";
@@ -94,13 +102,17 @@ export type EngineParameter = {
  * The names the engine reads. `weight.*` is the blend weight of a provenance
  * kind. `flag.*` is the minimum comparable count for a tier. `spread.*` is a
  * tier's half-width as a fraction of the midpoint, which also bounds how far
- * apart the comparables may sit for a line to earn that tier.
+ * apart the comparables may sit for a line to earn that tier. `fee.rate` and
+ * `insurance.rate` are the default markup rates below the trade subtotal, as
+ * fractions (LA-1016).
  */
 export type ParameterName =
   | `weight.${ProvenanceKind}`
   | "flag.high_min_comparables"
   | "flag.medium_min_comparables"
-  | `spread.${ConfidenceFlag}`;
+  | `spread.${ConfidenceFlag}`
+  | "fee.rate"
+  | "insurance.rate";
 
 export type EngineParameters = Partial<Record<ParameterName, EngineParameter>>;
 
@@ -190,6 +202,12 @@ export type DataSnapshot = {
   judgmentRules?: JudgmentRule[];
   /** Stated block classifications (LA-884). A snapshot without any leaves every line unclassified. */
   classifications?: BlockClassification[];
+  /** Real GRs/GCs figures from imported budgets (LA-1016). */
+  markupHistory?: MarkupHistoryRow[];
+  /** gc_staffing_rates, for the staffing and duration method (LA-1016). */
+  staffingRates?: StaffingRate[];
+  /** gc_field_office_rates, for the staffing and duration method (LA-1016). */
+  fieldOfficeRates?: FieldOfficeRate[];
 };
 
 export type Answers = {
@@ -200,6 +218,12 @@ export type Answers = {
   facts?: Record<string, string | number | boolean>;
   /** Every branch gate the intake asked, by section (CONTEXT.md: Branch gate). */
   branchGates?: Record<string, BranchGateAnswer>;
+  /**
+   * The GRs/GCs, fee and insurance choices (LA-1016). When present the ROM
+   * carries a markup waterfall below the trade subtotal; when absent it has
+   * none, which is how every ROM computed before LA-1016 reads.
+   */
+  markups?: MarkupChoices;
 };
 
 /** One figure that went into a line's blend. */
@@ -252,8 +276,12 @@ export type RomLine = {
 export type Rom = {
   lines: RomLine[];
   /**
-   * Total project cost: Kulka's contract plus whatever construction-trade
-   * scope the owner buys direct (CONTEXT.md: Total project cost).
+   * Trade cost only, before any 90-series markup: Kulka's contract trade lines
+   * plus whatever construction-trade scope the owner buys direct. It keeps
+   * this meaning after LA-1016 on purpose, because lib/rom/issue.ts's closing
+   * comparison reads it as predicted trade cost, and the backtest measures
+   * trade cost (docs/precon/rom-spec.md). The markups and the totals that
+   * include them live in `markups` below.
    *
    * Every line except a breakout. A breakout is carved out of a level 1 lump
    * whose rate already contains it, so adding it here would count that scope
@@ -268,6 +296,12 @@ export type Rom = {
    * one above.
    */
   kulkaContractTotal: { low: number; high: number };
+  /**
+   * The waterfall below the trade subtotal: GRs/GCs, fee, insurance, and the
+   * totals with them (LA-1016). Absent on a ROM computed without markup
+   * choices, including every run recorded before LA-1016.
+   */
+  markups?: Markups;
   /**
    * What the breakouts are worth. It is not part of either total, and it is
    * reported so a reader can see the scope was priced rather than forgotten.
@@ -323,15 +357,38 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const added = lines.filter((l) => l.breakoutOf === null);
   const carved = lines.filter((l) => l.breakoutOf !== null);
   const kulkaLines = added.filter((l) => l.contractSide === "kulka");
+  const ownerLines = added.filter((l) => l.contractSide === "owner");
+  const kulkaContractTotal = sumRange(kulkaLines);
+  const assumptions = assumptionsFor(answers, lines);
 
-  return {
+  const rom: Rom = {
     lines,
     total: sumRange(added),
-    kulkaContractTotal: sumRange(kulkaLines),
+    kulkaContractTotal,
     carvedOut: sumRange(carved),
-    assumptions: assumptionsFor(answers, lines),
+    assumptions,
     parameters: snapshot.parameters,
   };
+
+  if (answers.markups) {
+    // Markups apply to Kulka's contract only. Owner-direct lines stay out of
+    // the base and are added back once, below the waterfall, as part of total
+    // project cost (CONTEXT.md: Contract side, Total project cost).
+    rom.markups = computeMarkups({
+      subtotal: kulkaContractTotal,
+      ownerDirect: sumRange(ownerLines),
+      grossSquareFeet: answers.grossSquareFeet,
+      choices: answers.markups,
+      history: snapshot.markupHistory ?? [],
+      staffingRates: snapshot.staffingRates ?? [],
+      fieldOfficeRates: snapshot.fieldOfficeRates ?? [],
+      feeParameter: snapshot.parameters["fee.rate"],
+      insuranceParameter: snapshot.parameters["insurance.rate"],
+    });
+    assumptions.push(...rom.markups.assumptions);
+  }
+
+  return rom;
 }
 
 function sumRange(lines: RomLine[]): { low: number; high: number } {

@@ -19,8 +19,10 @@ export const FLOW_FILE = "config/rom/tier1-flow.json";
  * A question answers one value, so the two collections are excluded: `facts` is
  * the bag a judgment rule's condition reads (LA-19), and `branchGates` is every
  * gate answer keyed by section, which the flow builds rather than asks for.
+ * `markups` (LA-1016) is excluded too: the ROM request carries it beside the
+ * responses, not as an answer to a question.
  */
-export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates">;
+export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates" | "markups">;
 
 export type QuestionKind = "choice" | "number" | "branch_gate";
 

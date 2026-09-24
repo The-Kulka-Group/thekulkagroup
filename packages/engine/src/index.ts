@@ -28,6 +28,25 @@ export {
 } from "./rom";
 
 export {
+  computeMarkups,
+  DEFAULT_MARKUP_CHOICES,
+  SETUP_LABEL,
+  WEEKS_PER_MONTH,
+  type FieldOfficePick,
+  type FieldOfficeRate,
+  type FieldOfficeRateBasis,
+  type MarkupChoices,
+  type MarkupHistoryRow,
+  type MarkupInputs,
+  type MarkupLine,
+  type MarkupMethod,
+  type Markups,
+  type MarkupSetup,
+  type StaffingRate,
+  type StaffPick,
+} from "./rom-markups";
+
+export {
   priceBranchGatedSection,
   priceParking,
   proposeGrossSquareFeet,

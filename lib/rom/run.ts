@@ -5,12 +5,15 @@ import {
   type Answers,
   type Benchmark,
   type BlockClassification,
+  type BranchGateAnswer,
+  type BranchGateItemRule,
   type DataSnapshot,
   type DetailLevel,
   type EngineParameter,
   type EngineParameters,
   type MarkupChoices,
   type ParameterName,
+  type ParkingType,
   type Rom,
 } from "@kulka/engine";
 
@@ -66,7 +69,56 @@ type ProjectRow = {
   project_type: Answers["projectType"];
   construction_kind: Answers["constructionKind"];
   gross_square_feet: number | null;
+  // The six section-level gates plus the four narrower ones LA-1028 adds, and
+  // parking type: every answer a caller with no responses can build a ROM's
+  // facts and branch gates from (see the read_answers step below).
+  demolition_gate: BranchGateAnswer | null;
+  levels_below_grade_gate: BranchGateAnswer | null;
+  existing_building_tie_in_gate: BranchGateAnswer | null;
+  site_conditions_gate: BranchGateAnswer | null;
+  amenity_scope_gate: BranchGateAnswer | null;
+  elevator_gate: BranchGateAnswer | null;
+  retail_storefronts_gate: BranchGateAnswer | null;
+  balconies_gate: BranchGateAnswer | null;
+  radio_amplifier_gate: BranchGateAnswer | null;
+  parking_type: ParkingType | null;
 };
+
+/**
+ * Every branch gate section this run can read off a project record, paired
+ * with the column that holds its answer. Parking has no "_gate" suffix, and
+ * its section name is "parkingType" rather than snake_case, because
+ * config/rom/tier1-flow.json already maps its question onto the intake field
+ * "parkingType", and a project run through the flow and one run off the
+ * project record have to land the same answer under the same key or the
+ * engine's gate map (packages/engine/src/rom-gates.ts) would read one and
+ * miss the other.
+ */
+const PROJECT_GATE_COLUMNS: readonly {
+  column: keyof Pick<
+    ProjectRow,
+    | "demolition_gate"
+    | "levels_below_grade_gate"
+    | "existing_building_tie_in_gate"
+    | "site_conditions_gate"
+    | "amenity_scope_gate"
+    | "elevator_gate"
+    | "retail_storefronts_gate"
+    | "balconies_gate"
+    | "radio_amplifier_gate"
+  >;
+  section: string;
+}[] = [
+  { column: "demolition_gate", section: "demolition" },
+  { column: "levels_below_grade_gate", section: "levels_below_grade" },
+  { column: "existing_building_tie_in_gate", section: "existing_building_tie_in" },
+  { column: "site_conditions_gate", section: "site_conditions" },
+  { column: "amenity_scope_gate", section: "amenity_scope" },
+  { column: "elevator_gate", section: "elevator" },
+  { column: "retail_storefronts_gate", section: "retail_storefronts" },
+  { column: "balconies_gate", section: "balconies" },
+  { column: "radio_amplifier_gate", section: "radio_amplifier" },
+];
 
 type BenchmarkRow = {
   cost_code: string;
@@ -104,6 +156,16 @@ type ParameterRow = {
   reason: string;
 };
 
+type GateItemRow = {
+  section: string;
+  cost_code: string;
+  closes_on: string[];
+  requires_all_sections: string[] | null;
+  stated_by: string;
+  stated_on: Date | string;
+  reason: string;
+};
+
 /**
  * Run a tier-1 ROM for one project and record it.
  *
@@ -114,12 +176,21 @@ type ParameterRow = {
  * passes it already checked; lib/rom/markup.ts's parseMarkupChoices fills in
  * the default when a request names none. It is recorded with the answers, so
  * a run can be reproduced from its record.
+ *
+ * `gates` is the Scope module's answers (LA-1028), checked by
+ * lib/rom/gates.ts's parseGateAnswers. It only matters on the no-`responses`
+ * path: when given, it replaces the project record's own gate columns for
+ * this run entirely, rather than merging with them, because the Scope module
+ * always sends the full state of every row it shows, blanks included as
+ * absent keys. Absent entirely, the run reads the project's own columns, the
+ * same as before the Scope module existed.
  */
 export async function runRom(
   db: Db,
   projectId: string,
   responses?: Responses,
   markups?: MarkupChoices,
+  gates?: Partial<Record<string, BranchGateAnswer>>,
 ): Promise<RunResult> {
   const project = await readProject(db, projectId);
   const runId = await openRun(db, projectId);
@@ -133,17 +204,36 @@ export async function runRom(
       if (responses) return readFlowAnswers(tier1Flow(), responses);
 
       // A caller that asked no questions still gets a ROM off the project
-      // record, which is how the existing ROM screen runs.
+      // record, which is how the existing ROM screen runs. LA-1028: that ROM
+      // still has to read the project's own gate columns, or every gated item
+      // would silently price as if nobody had ever answered its question,
+      // which is exactly the "assumed present" state, not the state the
+      // project record actually says. A gate column left null still reads
+      // that way on purpose: nobody answered it.
       if (!project.gross_square_feet) {
         throw new Error(
           `Project ${projectId} has no gross square feet, so it cannot be budgeted.`,
         );
       }
-      const fromProject = {
+      const branchGates: Record<string, BranchGateAnswer> = {};
+      if (gates) {
+        Object.assign(branchGates, gates);
+      } else {
+        for (const { column, section } of PROJECT_GATE_COLUMNS) {
+          const answer = project[column];
+          if (answer) branchGates[section] = answer;
+        }
+      }
+      const facts: Record<string, string | number | boolean> = { ...branchGates };
+      if (project.parking_type) facts.parkingType = project.parking_type;
+
+      const fromProject: Answers = {
         projectType: project.project_type,
         constructionKind: project.construction_kind,
         grossSquareFeet: project.gross_square_feet,
-      } satisfies Answers;
+        ...(Object.keys(facts).length > 0 ? { facts } : {}),
+        ...(Object.keys(branchGates).length > 0 ? { branchGates } : {}),
+      };
       return { answers: fromProject, recorded: fromProject as Record<string, unknown> };
     });
     const answers: Answers = markups ? { ...intake.answers, markups } : intake.answers;
@@ -187,10 +277,22 @@ export async function runRom(
           order by cost_code`,
       );
 
+      // branch_gate_items (LA-1028) is read here for the same reason as
+      // block_classification above: it is a declared cost-code mapping, not
+      // a benchmark, but it lives on the same footing and joins the snapshot
+      // the same only-when-there-are-some way below.
+      const { rows: gateItems } = await db.query<GateItemRow>(
+        `select section, cost_code, closes_on, requires_all_sections,
+                stated_by, stated_on, reason
+           from branch_gate_items
+          order by section, cost_code`,
+      );
+
       return {
         benchmarks: rows.map(toBenchmark),
         classifications: classifications.map(toClassification),
         markupHistory: await readMarkupHistory(db),
+        branchGateItems: gateItems.map(toGateItemRule),
       };
     });
     const benchmarks = data.benchmarks;
@@ -228,6 +330,7 @@ export async function runRom(
     const snapshot: DataSnapshot = { benchmarks, parameters };
     if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
     if (classifications.length > 0) snapshot.classifications = classifications;
+    if (data.branchGateItems.length > 0) snapshot.branchGateItems = data.branchGateItems;
     // The markup data only matters when the ROM prices markups, and joins the
     // snapshot on the same only-when-there-are-some rule.
     if (markups) {
@@ -270,7 +373,11 @@ export function hashSnapshot(snapshot: DataSnapshot): string {
 
 async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(
-    `select id, project_type, construction_kind, gross_square_feet
+    `select id, project_type, construction_kind, gross_square_feet,
+            demolition_gate, levels_below_grade_gate, existing_building_tie_in_gate,
+            site_conditions_gate, amenity_scope_gate, elevator_gate,
+            retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
+            parking_type
        from projects where id = $1`,
     [projectId],
   );
@@ -355,6 +462,18 @@ function toClassification(row: ClassificationRow): BlockClassification {
     element: row.element,
     breakoutOfCostCode: row.breakout_of_cost_code,
     buyoutPackage: row.buyout_package,
+    statedBy: row.stated_by,
+    statedOn: isoDate(row.stated_on),
+    reason: row.reason,
+  };
+}
+
+function toGateItemRule(row: GateItemRow): BranchGateItemRule {
+  return {
+    costCode: row.cost_code,
+    section: row.section,
+    requiresAllSections: row.requires_all_sections ?? [],
+    closesOn: row.closes_on,
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),
     reason: row.reason,

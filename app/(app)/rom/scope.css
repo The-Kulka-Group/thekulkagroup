@@ -1,0 +1,47 @@
+/* LA-1028: the Scope module above Run ROM. Reuses .markup-module,
+   .markup-note, .field-label, .t-label and .btn from daylight.css and
+   markups.css; this file only lays out the question rows themselves. */
+
+.scope-grid {
+  display: grid;
+  gap: var(--s3);
+}
+
+.scope-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 260px) 1fr;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.scope-row:last-child { border-bottom: none; }
+
+.scope-row-label { margin: 0; }
+
+.scope-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  align-items: center;
+}
+
+.scope-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: var(--meta-size);
+  color: var(--ink);
+}
+
+.scope-clear { margin-left: auto; }
+
+/* Phone width: a question's label sits above its choices instead of being
+   squeezed into a narrow first column. */
+@media (max-width: 700px) {
+  .scope-row {
+    grid-template-columns: 1fr;
+    gap: var(--s1);
+  }
+  .scope-clear { margin-left: 0; }
+}

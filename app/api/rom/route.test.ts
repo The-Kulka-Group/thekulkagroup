@@ -365,3 +365,84 @@ describe("POST /api/rom markups", () => {
     ]);
   });
 });
+
+// LA-1028: the intake's yes/no scope questions actually switch a canonical
+// item on or off. The seeded migrations already carry the real map
+// (branch_gate_items), so these tests give a project a benchmark on a real
+// gated cost code (demolition closes item 1) rather than the synthetic
+// "TEST" code the other tests in this file use.
+describe("POST /api/rom scope gates", () => {
+  async function benchmarkOnItemOne(): Promise<void> {
+    const { rows } = await db.query<{ id: string }>(
+      `insert into benchmarks
+         (cost_code, label, unit, value, project_type, construction_kind,
+          comparable_count, provenance_kind, provenance_recorded_by, provenance_recorded_at)
+       values
+         ('1', 'Demolition — site and structure', 'usd_per_gsf', 1,
+          'multifamily', 'new', 1, 'reviewed_judgment', 'automated test', date '2026-08-27')
+       returning id`,
+    );
+    await db.query(
+      `insert into benchmark_source_projects (benchmark_id, project_id) values ($1, $2)`,
+      [rows[0].id, TEST_PROJECT_ID],
+    );
+  }
+
+  it("prices the item present when the project record has never been asked", async () => {
+    await benchmarkOnItemOne();
+
+    const { rom } = await (await post({ projectId: TEST_PROJECT_ID })).json();
+    const item1 = rom.lines.find((l: { costCode: string }) => l.costCode === "1");
+
+    expect(item1.gateStatus).toBe("assumed_present");
+    expect(item1.low).toBeGreaterThan(0);
+    expect(rom.assumedPresentItems.map((i: { costCode: string }) => i.costCode)).toContain("1");
+  });
+
+  it("removes the item from the total when the project record says no", async () => {
+    await benchmarkOnItemOne();
+    await db.query(`update projects set demolition_gate = 'no' where id = $1`, [TEST_PROJECT_ID]);
+
+    const { rom } = await (await post({ projectId: TEST_PROJECT_ID })).json();
+    const item1 = rom.lines.find((l: { costCode: string }) => l.costCode === "1");
+
+    expect(item1.gateStatus).toBe("not_in_job");
+    expect(item1.low).toBe(0);
+    expect(rom.notInThisJob.map((i: { costCode: string }) => i.costCode)).toContain("1");
+  });
+
+  it("lets the Scope module's gates override the project record for one run", async () => {
+    await benchmarkOnItemOne();
+    await db.query(`update projects set demolition_gate = 'no' where id = $1`, [TEST_PROJECT_ID]);
+
+    const { rom } = await (
+      await post({ projectId: TEST_PROJECT_ID, gates: { demolition: "yes" } })
+    ).json();
+    const item1 = rom.lines.find((l: { costCode: string }) => l.costCode === "1");
+
+    expect(item1.gateStatus).toBe("priced");
+
+    const [run] = await runs();
+    expect((run.answers as { branchGates?: Record<string, string> }).branchGates?.demolition).toBe(
+      "yes",
+    );
+  });
+
+  it("shows the item as TBD when the Scope module sends don't know", async () => {
+    await benchmarkOnItemOne();
+
+    const { rom } = await (
+      await post({ projectId: TEST_PROJECT_ID, gates: { demolition: "dont_know" } })
+    ).json();
+    const item1 = rom.lines.find((l: { costCode: string }) => l.costCode === "1");
+
+    expect(item1.gateStatus).toBe("tbd");
+    expect(item1.low).toBe(0);
+  });
+
+  it("refuses a gate answer that is not yes, no, or don't know", async () => {
+    const response = await post({ projectId: TEST_PROJECT_ID, gates: { demolition: "maybe" } });
+    expect(response.status).toBe(400);
+    expect(await runs()).toEqual([]);
+  });
+});

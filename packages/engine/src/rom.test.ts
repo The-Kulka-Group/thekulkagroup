@@ -9,6 +9,7 @@ import {
   type EngineParameters,
   type ProvenanceKind,
 } from "./rom";
+import type { BranchGateItemRule } from "./rom-gates";
 
 // The engine seam, as LA-9 defines it: answers plus a data snapshot in, ROM
 // out, with nothing read from a network, a database, or a clock. Every case
@@ -638,5 +639,149 @@ describe("block classification", () => {
 
     expect(rom.carvedOut).toEqual({ low: 0, high: 0 });
     expect(rom.assumptions.join(" ")).not.toContain("carved out");
+  });
+});
+
+describe("branch gate items (LA-1028)", () => {
+  function gateRule(over: Partial<BranchGateItemRule> = {}): BranchGateItemRule {
+    return {
+      costCode: "TEST-A",
+      section: "demolition",
+      requiresAllSections: [],
+      closesOn: ["no"],
+      statedBy: "mnicosia@thekulkagroup.com",
+      statedOn: "2026-09-24",
+      reason: "synthetic",
+      ...over,
+    };
+  }
+
+  function gatedSnapshot(
+    branchGateItems: BranchGateItemRule[],
+    ...benchmarks: Benchmark[]
+  ): DataSnapshot {
+    return { benchmarks, parameters: parameters(), branchGateItems };
+  }
+
+  // A gate answer lives in both `facts` (what a judgment rule and the gate
+  // map read) and `branchGates` (what the old section-level fallback words
+  // read), exactly the way lib/rom/question-flow.ts's readFlowAnswers and
+  // lib/rom/run.ts's no-responses path both build it.
+  function answersWithFacts(facts: Record<string, "yes" | "no" | "dont_know">): Answers {
+    return { ...ANSWERS, facts, branchGates: facts };
+  }
+
+  it("keeps existing behavior when no gate map is supplied", () => {
+    const withMap = computeRom(
+      answersWithFacts({ demolition: "no" }),
+      gatedSnapshot([], benchmark()),
+    );
+    const without = computeRom(answersWithFacts({ demolition: "no" }), snapshot(benchmark()));
+
+    expect(withMap.total).toEqual(without.total);
+    expect(withMap.lines[0].gateStatus).toBeNull();
+  });
+
+  it("removes a line answered no from the total, and names it not in this job", () => {
+    const rom = computeRom(
+      answersWithFacts({ demolition: "no" }),
+      gatedSnapshot([gateRule()], benchmark()),
+    );
+
+    expect(rom.lines[0].gateStatus).toBe("not_in_job");
+    expect(rom.lines[0].low).toBe(0);
+    expect(rom.lines[0].high).toBe(0);
+    expect(rom.total).toEqual({ low: 0, high: 0 });
+    expect(rom.notInThisJob).toEqual([
+      { costCode: "TEST-A", label: "Synthetic test line", question: "demolition" },
+    ]);
+    expect(rom.assumptions.join(" ")).toContain("Not in this job");
+    expect(rom.assumptions.join(" ")).toContain("Synthetic test line (demolition)");
+  });
+
+  it("prices a line answered yes exactly as it would with no gate", () => {
+    const gated = computeRom(
+      answersWithFacts({ demolition: "yes" }),
+      gatedSnapshot([gateRule()], benchmark()),
+    );
+    const ungated = computeRom(ANSWERS, snapshot(benchmark()));
+
+    expect(gated.lines[0].gateStatus).toBe("priced");
+    expect(gated.total).toEqual(ungated.total);
+  });
+
+  it("shows a don't-know line as TBD, outside the total", () => {
+    const rom = computeRom(
+      answersWithFacts({ demolition: "dont_know" }),
+      gatedSnapshot([gateRule()], benchmark()),
+    );
+
+    expect(rom.lines[0].gateStatus).toBe("tbd");
+    expect(rom.total).toEqual({ low: 0, high: 0 });
+    expect(rom.tbdGateItems.map((i) => i.costCode)).toEqual(["TEST-A"]);
+  });
+
+  it("prices an unanswered line and flags it assumed present", () => {
+    const rom = computeRom(ANSWERS, gatedSnapshot([gateRule()], benchmark()));
+
+    expect(rom.lines[0].gateStatus).toBe("assumed_present");
+    expect(rom.total.low).toBeGreaterThan(0);
+    expect(rom.assumedPresentItems.map((i) => i.costCode)).toEqual(["TEST-A"]);
+    expect(rom.assumptions.join(" ")).toContain("assumed present");
+  });
+
+  it("closes item 34a's two-question rule only when both sections are no", () => {
+    const rule = gateRule({
+      costCode: "TEST-A",
+      section: "levels_below_grade",
+      requiresAllSections: ["site_conditions"],
+    });
+
+    const bothNo = computeRom(
+      answersWithFacts({ levels_below_grade: "no", site_conditions: "no" }),
+      gatedSnapshot([rule], benchmark()),
+    );
+    expect(bothNo.lines[0].gateStatus).toBe("not_in_job");
+
+    const oneYes = computeRom(
+      answersWithFacts({ levels_below_grade: "yes", site_conditions: "no" }),
+      gatedSnapshot([rule], benchmark()),
+    );
+    expect(oneYes.lines[0].gateStatus).toBe("priced");
+
+    const noAndDontKnow = computeRom(
+      answersWithFacts({ levels_below_grade: "no", site_conditions: "dont_know" }),
+      gatedSnapshot([rule], benchmark()),
+    );
+    expect(noAndDontKnow.lines[0].gateStatus).toBe("tbd");
+  });
+
+  it("keeps a section with no item rule reporting the old way", () => {
+    const rom = computeRom(
+      answersWithFacts({ existing_building_tie_in: "no" }),
+      gatedSnapshot([gateRule({ section: "demolition" })], benchmark(), benchmark({ costCode: "TEST-B" })),
+    );
+
+    expect(rom.assumptions.join(" ")).toContain(
+      "Answered no, so this budget carries nothing for: existing building tie in.",
+    );
+  });
+
+  it("excludes a not-in-job line from the markup subtotal", () => {
+    const answers: Answers = {
+      ...ANSWERS,
+      facts: { demolition: "no" },
+      markups: {
+        setup: "both",
+        method: "pct_of_subtotal",
+        overrideRate: 0.1,
+        feeRate: 0,
+        insuranceRate: 0,
+      },
+    };
+    const rom = computeRom(answers, gatedSnapshot([gateRule()], benchmark()));
+
+    expect(rom.markups?.subtotal.low).toBe(0);
+    expect(rom.markups?.subtotal.high).toBe(0);
   });
 });

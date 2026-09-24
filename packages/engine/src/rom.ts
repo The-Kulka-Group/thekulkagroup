@@ -13,6 +13,11 @@
 
 import type { BranchGateAnswer } from "./rom-intake";
 import {
+  resolveGateItems,
+  type BranchGateItemRule,
+  type GateLineStatus,
+} from "./rom-gates";
+import {
   computeMarkups,
   type FieldOfficeRate,
   type MarkupChoices,
@@ -208,6 +213,13 @@ export type DataSnapshot = {
   staffingRates?: StaffingRate[];
   /** gc_field_office_rates, for the staffing and duration method (LA-1016). */
   fieldOfficeRates?: FieldOfficeRate[];
+  /**
+   * The map from a branch gate (or an intake field such as parking type) to
+   * the one canonical item it switches on or off (LA-1028). A snapshot
+   * without any leaves every line priced exactly as it would with no gates
+   * at all, which is how every ROM computed before LA-1028 reads.
+   */
+  branchGateItems?: BranchGateItemRule[];
 };
 
 export type Answers = {
@@ -271,6 +283,21 @@ export type RomLine = {
   breakoutOf: string | null;
   /** The subcontract this scope was bought under, or null when nobody has said. */
   buyoutPackage: string | null;
+  /**
+   * What a branch gate did to this line (LA-1028), or null when no gate rule
+   * names this cost code, which reads exactly as `"priced"` for the total and
+   * the markup subtotal. `"not_in_job"` and `"tbd"` are zeroed here and left
+   * out of both; `"assumed_present"` prices normally but is named on the ROM.
+   */
+  gateStatus: GateLineStatus | null;
+};
+
+/** One item a branch gate named on the face of the ROM (LA-1028). */
+export type GateItemSummary = {
+  costCode: string;
+  label: string;
+  /** The question or questions that produced this status, in plain words. */
+  question: string;
 };
 
 export type Rom = {
@@ -307,6 +334,12 @@ export type Rom = {
    * reported so a reader can see the scope was priced rather than forgotten.
    */
   carvedOut: { low: number; high: number };
+  /** Items a branch gate answered "no", named and removed from the total (LA-1028). */
+  notInThisJob: GateItemSummary[];
+  /** Items a branch gate answered "don't know", named and TBD, outside the total (LA-1028). */
+  tbdGateItems: GateItemSummary[];
+  /** Items nobody answered, priced same as any other line but named as assumed present (LA-1028). */
+  assumedPresentItems: GateItemSummary[];
   assumptions: string[];
   /** The parameters this ROM was computed with, provenance included, so a run record is self-describing. */
   parameters: EngineParameters;
@@ -339,7 +372,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     (snapshot.classifications ?? []).map((c) => [c.costCode, c]),
   );
 
-  const lines = [...byCostCode.keys()]
+  const blended = [...byCostCode.keys()]
     .sort((a, b) => a.localeCompare(b))
     .map((costCode) =>
       blendLine(
@@ -352,20 +385,61 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       ),
     );
 
+  // A branch gate can switch a canonical item on or off (LA-1028). The
+  // answers a gate rule reads sit in `facts`, whatever the caller named that
+  // section: a branch gate's own section, or an intake field such as
+  // "parkingType". Read as text, because a gate answer is always a word
+  // ("yes", "no", "structured"), never a number.
+  const factsAsText: Record<string, string> = {};
+  for (const [key, value] of Object.entries(answers.facts ?? {})) factsAsText[key] = String(value);
+  const gateRules = snapshot.branchGateItems ?? [];
+  const gateResolutions = resolveGateItems(gateRules, factsAsText);
+
+  const lines = blended.map((line) => {
+    const resolution = gateResolutions.get(line.costCode);
+    if (!resolution) return { ...line, gateStatus: null };
+    // "not_in_job" and "tbd" both come out of every total and the markup
+    // subtotal, so they are zeroed here rather than left with a rate that
+    // would otherwise leak into `sumRange` below.
+    if (resolution.status === "not_in_job" || resolution.status === "tbd") {
+      return { ...line, gateStatus: resolution.status, low: 0, high: 0 };
+    }
+    return { ...line, gateStatus: resolution.status };
+  });
+
+  const gateSummary = (status: GateLineStatus): GateItemSummary[] =>
+    lines
+      .filter((l) => l.gateStatus === status)
+      .map((l) => ({
+        costCode: l.costCode,
+        label: l.label,
+        question: sectionWords(gateResolutions.get(l.costCode)!.sections.join(" and ")),
+      }));
+  const notInThisJob = gateSummary("not_in_job");
+  const tbdGateItems = gateSummary("tbd");
+  const assumedPresentItems = gateSummary("assumed_present");
+
   // A breakout's parent lump already contains it, so it is priced, shown, and
-  // left out of both totals (LA-884).
-  const added = lines.filter((l) => l.breakoutOf === null);
+  // left out of both totals (LA-884). A gated-off or TBD line is excluded the
+  // same way, and its rate is already zero above, so summing it changes
+  // nothing but keeps this one filter reading as "what counts toward the
+  // total" rather than two separate exclusions.
+  const added = lines.filter((l) => l.breakoutOf === null && l.gateStatus !== "not_in_job" && l.gateStatus !== "tbd");
   const carved = lines.filter((l) => l.breakoutOf !== null);
   const kulkaLines = added.filter((l) => l.contractSide === "kulka");
   const ownerLines = added.filter((l) => l.contractSide === "owner");
   const kulkaContractTotal = sumRange(kulkaLines);
-  const assumptions = assumptionsFor(answers, lines);
+  const coveredSections = new Set(gateRules.flatMap((r) => [r.section, ...r.requiresAllSections]));
+  const assumptions = assumptionsFor(answers, lines, coveredSections, notInThisJob, tbdGateItems, assumedPresentItems);
 
   const rom: Rom = {
     lines,
     total: sumRange(added),
     kulkaContractTotal,
     carvedOut: sumRange(carved),
+    notInThisJob,
+    tbdGateItems,
+    assumedPresentItems,
     assumptions,
     parameters: snapshot.parameters,
   };
@@ -576,6 +650,9 @@ function blendLine(
     element: classification?.element ?? null,
     breakoutOf: classification?.breakoutOfCostCode ?? null,
     buyoutPackage: classification?.buyoutPackage ?? null,
+    // Set by computeRom once it has resolved the gate map against this cost
+    // code (LA-1028). blendLine itself never reads a gate.
+    gateStatus: null,
   };
 }
 
@@ -651,7 +728,18 @@ function sectionWords(section: string): string {
   return section.replace(/_/g, " ");
 }
 
-function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
+function countWords(count: number, noun: string): string {
+  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+}
+
+function assumptionsFor(
+  answers: Answers,
+  lines: RomLine[],
+  coveredSections: ReadonlySet<string>,
+  notInThisJob: GateItemSummary[],
+  tbdGateItems: GateItemSummary[],
+  assumedPresentItems: GateItemSummary[],
+): string[] {
   const area = answers.grossSquareFeet.toLocaleString("en-US");
   const assumptions = [
     `The project is ${TYPE_WORDS[answers.projectType]} ${KIND_WORDS[answers.constructionKind]}.`,
@@ -702,10 +790,15 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   // A branch gate's answer has to show on the face of the ROM, or the intake
   // asks a question that changes nothing (CONTEXT.md: Branch gate).
   //
-  // Pricing a closed section's own lines at zero needs a map from a section to
-  // the cost codes it covers, and no such map exists yet in the schema. Until
-  // one does, a "no" is stated here rather than guessed at.
-  const gates = Object.entries(answers.branchGates ?? {});
+  // Where a gate has a stated map onto a canonical item (LA-1028's
+  // branch_gate_items, read by computeRom above into notInThisJob,
+  // tbdGateItems, and assumedPresentItems), that item-level list is the real
+  // account of what happened, so it is used here instead of the section-level
+  // words below. A section with no item behind it, such as
+  // existing_building_tie_in, has no such list, so it still falls back to
+  // stating the section by name only, the way every gate did before this map
+  // existed.
+  const gates = Object.entries(answers.branchGates ?? {}).filter(([section]) => !coveredSections.has(section));
   const closed = gates.filter(([, answer]) => answer === "no").map(([section]) => sectionWords(section));
   const tbd = gates.filter(([, answer]) => answer === "dont_know").map(([section]) => sectionWords(section));
   if (closed.length > 0) {
@@ -714,6 +807,22 @@ function assumptionsFor(answers: Answers, lines: RomLine[]): string[] {
   if (tbd.length > 0) {
     assumptions.push(
       `${tbd.length} ${tbd.length === 1 ? "item sits" : "items sit"} outside this total as TBD, because nobody knows the answer yet: ${tbd.join(", ")}.`,
+    );
+  }
+
+  if (notInThisJob.length > 0) {
+    assumptions.push(
+      `Not in this job, so removed from the total: ${notInThisJob.map((i) => `${i.label} (${i.question})`).join(", ")}.`,
+    );
+  }
+  if (tbdGateItems.length > 0) {
+    assumptions.push(
+      `${tbdGateItems.length} ${tbdGateItems.length === 1 ? "item sits" : "items sit"} outside this total as TBD, because nobody knows the answer yet: ${tbdGateItems.map((i) => `${i.label} (${i.question})`).join(", ")}.`,
+    );
+  }
+  if (assumedPresentItems.length > 0) {
+    assumptions.push(
+      `Nobody answered the question behind ${countWords(assumedPresentItems.length, "item")}, so ${assumedPresentItems.length === 1 ? "it is" : "they are"} assumed present: ${assumedPresentItems.map((i) => `${i.label} (${i.question})`).join(", ")}.`,
     );
   }
 

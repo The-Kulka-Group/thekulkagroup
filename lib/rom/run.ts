@@ -11,10 +11,14 @@ import {
   type DetailLevel,
   type EngineParameter,
   type EngineParameters,
+  type FieldOfficeRate,
+  type JudgmentRule,
   type MarkupChoices,
+  type MarkupHistoryRow,
   type ParameterName,
   type ParkingType,
   type Rom,
+  type StaffingRate,
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
@@ -64,8 +68,9 @@ export class ProjectNotFound extends Error {
   }
 }
 
-type ProjectRow = {
+export type ProjectRow = {
   id: string;
+  name: string;
   project_type: Answers["projectType"];
   construction_kind: Answers["constructionKind"];
   gross_square_feet: number | null;
@@ -202,38 +207,7 @@ export async function runRom(
       // The definition says which answer feeds which engine input, so nothing
       // here wires a question to a field.
       if (responses) return readFlowAnswers(tier1Flow(), responses);
-
-      // A caller that asked no questions still gets a ROM off the project
-      // record, which is how the existing ROM screen runs. LA-1028: that ROM
-      // still has to read the project's own gate columns, or every gated item
-      // would silently price as if nobody had ever answered its question,
-      // which is exactly the "assumed present" state, not the state the
-      // project record actually says. A gate column left null still reads
-      // that way on purpose: nobody answered it.
-      if (!project.gross_square_feet) {
-        throw new Error(
-          `Project ${projectId} has no gross square feet, so it cannot be budgeted.`,
-        );
-      }
-      const branchGates: Record<string, BranchGateAnswer> = {};
-      if (gates) {
-        Object.assign(branchGates, gates);
-      } else {
-        for (const { column, section } of PROJECT_GATE_COLUMNS) {
-          const answer = project[column];
-          if (answer) branchGates[section] = answer;
-        }
-      }
-      const facts: Record<string, string | number | boolean> = { ...branchGates };
-      if (project.parking_type) facts.parkingType = project.parking_type;
-
-      const fromProject: Answers = {
-        projectType: project.project_type,
-        constructionKind: project.construction_kind,
-        grossSquareFeet: project.gross_square_feet,
-        ...(Object.keys(facts).length > 0 ? { facts } : {}),
-        ...(Object.keys(branchGates).length > 0 ? { branchGates } : {}),
-      };
+      const fromProject = answersFromProject(project, gates);
       return { answers: fromProject, recorded: fromProject as Record<string, unknown> };
     });
     const answers: Answers = markups ? { ...intake.answers, markups } : intake.answers;
@@ -251,71 +225,15 @@ export async function runRom(
     // markup_history (LA-1016) is read here for the same reason. Each row is a
     // measured GRs/GCs figure out of an imported budget, the same kind of
     // thing a benchmark is, read so the markup waterfall can price from it.
-    const data = await step(db, runId, ++seq, "read_benchmarks", async () => {
-      // The order is total so the same rows always hash the same.
-      const { rows } = await db.query<BenchmarkRow>(
-        `select b.cost_code, b.label, b.unit, b.value, b.project_type,
-                b.construction_kind, b.provenance_kind,
-                coalesce(
-                  (select array_agg(bsp.project_id order by bsp.project_id)
-                     from benchmark_source_projects bsp
-                    where bsp.benchmark_id = b.id),
-                  '{}'::uuid[]
-                ) as provenance_source_project_ids,
-                b.provenance_export_label, b.provenance_recorded_by,
-                b.provenance_recorded_at, b.scope_side, b.contract_side
-           from benchmarks b
-          where b.project_type = $1 and b.construction_kind = $2
-          order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
-        [answers.projectType, answers.constructionKind],
-      );
-
-      const { rows: classifications } = await db.query<ClassificationRow>(
-        `select cost_code, detail_level, element, breakout_of_cost_code,
-                buyout_package, stated_by, stated_on, reason
-           from block_classification
-          order by cost_code`,
-      );
-
-      // branch_gate_items (LA-1028) is read here for the same reason as
-      // block_classification above: it is a declared cost-code mapping, not
-      // a benchmark, but it lives on the same footing and joins the snapshot
-      // the same only-when-there-are-some way below.
-      const { rows: gateItems } = await db.query<GateItemRow>(
-        `select section, cost_code, closes_on, requires_all_sections,
-                stated_by, stated_on, reason
-           from branch_gate_items
-          order by section, cost_code`,
-      );
-
-      return {
-        benchmarks: rows.map(toBenchmark),
-        classifications: classifications.map(toClassification),
-        markupHistory: await readMarkupHistory(db),
-        branchGateItems: gateItems.map(toGateItemRule),
-      };
-    });
-    const benchmarks = data.benchmarks;
-    const classifications = data.classifications;
+    const data = await step(db, runId, ++seq, "read_benchmarks", () =>
+      readBenchmarkData(db, answers.projectType, answers.constructionKind),
+    );
 
     // The GC staffing and field-office rate tables (LA-1016) are read inside
     // this step rather than a sixth one, for the reason given above. They are
     // stated rates with a named source estimate, the same footing as the fee
     // and insurance rates this step already reads from engine_parameters.
-    const rated = await step(db, runId, ++seq, "read_parameters", async () => {
-      const { rows } = await db.query<ParameterRow>(
-        `select name, value, provenance_kind, provenance_recorded_by,
-                provenance_recorded_at, reason
-           from engine_parameters
-          order by name`,
-      );
-      return {
-        parameters: toParameters(rows),
-        staffingRates: await readStaffingRates(db),
-        fieldOfficeRates: await readFieldOfficeRates(db),
-      };
-    });
-    const parameters = rated.parameters;
+    const rated = await step(db, runId, ++seq, "read_parameters", () => readParameterData(db));
 
     const judgmentRules = await step(db, runId, ++seq, "read_judgment_rules", async () =>
       readApprovedJudgmentRules(db, {
@@ -324,20 +242,7 @@ export async function runRom(
       }),
     );
 
-    // Judgment rules and classifications join the snapshot only when there are
-    // some, so a project with neither still fingerprints the way it did before
-    // they existed and two runs over the same data stay comparable.
-    const snapshot: DataSnapshot = { benchmarks, parameters };
-    if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
-    if (classifications.length > 0) snapshot.classifications = classifications;
-    if (data.branchGateItems.length > 0) snapshot.branchGateItems = data.branchGateItems;
-    // The markup data only matters when the ROM prices markups, and joins the
-    // snapshot on the same only-when-there-are-some rule.
-    if (markups) {
-      if (data.markupHistory.length > 0) snapshot.markupHistory = data.markupHistory;
-      if (rated.staffingRates.length > 0) snapshot.staffingRates = rated.staffingRates;
-      if (rated.fieldOfficeRates.length > 0) snapshot.fieldOfficeRates = rated.fieldOfficeRates;
-    }
+    const snapshot = assembleSnapshot(data, rated, judgmentRules, Boolean(markups));
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),
@@ -371,14 +276,157 @@ export function hashSnapshot(snapshot: DataSnapshot): string {
   return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
 
-async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
-  const { rows } = await db.query<ProjectRow>(
-    `select id, project_type, construction_kind, gross_square_feet,
+/**
+ * A ROM's answers off the project record alone, for a caller that asked no
+ * questions: the existing ROM screen, and the backtest (LA-23).
+ *
+ * LA-1028: that ROM still has to read the project's own gate columns, or every
+ * gated item would silently price as if nobody had ever answered its
+ * question, which is exactly the "assumed present" state, not the state the
+ * project record actually says. A gate column left null still reads that way
+ * on purpose: nobody answered it. `gates`, when given, replaces the columns
+ * entirely (see runRom).
+ */
+export function answersFromProject(
+  project: ProjectRow,
+  gates?: Partial<Record<string, BranchGateAnswer>>,
+): Answers {
+  if (!project.gross_square_feet) {
+    throw new Error(`Project ${project.id} has no gross square feet, so it cannot be budgeted.`);
+  }
+  const branchGates: Record<string, BranchGateAnswer> = {};
+  if (gates) {
+    Object.assign(branchGates, gates);
+  } else {
+    for (const { column, section } of PROJECT_GATE_COLUMNS) {
+      const answer = project[column];
+      if (answer) branchGates[section] = answer;
+    }
+  }
+  const facts: Record<string, string | number | boolean> = { ...branchGates };
+  if (project.parking_type) facts.parkingType = project.parking_type;
+
+  return {
+    projectType: project.project_type,
+    constructionKind: project.construction_kind,
+    grossSquareFeet: project.gross_square_feet,
+    ...(Object.keys(facts).length > 0 ? { facts } : {}),
+    ...(Object.keys(branchGates).length > 0 ? { branchGates } : {}),
+  };
+}
+
+/** What the read_benchmarks step reads. */
+export type BenchmarkData = {
+  benchmarks: Benchmark[];
+  classifications: BlockClassification[];
+  markupHistory: MarkupHistoryRow[];
+  branchGateItems: BranchGateItemRule[];
+};
+
+/** What the read_parameters step reads. */
+export type ParameterData = {
+  parameters: EngineParameters;
+  staffingRates: StaffingRate[];
+  fieldOfficeRates: FieldOfficeRate[];
+};
+
+export async function readBenchmarkData(
+  db: Db,
+  projectType: Answers["projectType"],
+  constructionKind: Answers["constructionKind"],
+): Promise<BenchmarkData> {
+  // The order is total so the same rows always hash the same.
+  const { rows } = await db.query<BenchmarkRow>(
+    `select b.cost_code, b.label, b.unit, b.value, b.project_type,
+            b.construction_kind, b.provenance_kind,
+            coalesce(
+              (select array_agg(bsp.project_id order by bsp.project_id)
+                 from benchmark_source_projects bsp
+                where bsp.benchmark_id = b.id),
+              '{}'::uuid[]
+            ) as provenance_source_project_ids,
+            b.provenance_export_label, b.provenance_recorded_by,
+            b.provenance_recorded_at, b.scope_side, b.contract_side
+       from benchmarks b
+      where b.project_type = $1 and b.construction_kind = $2
+      order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
+    [projectType, constructionKind],
+  );
+
+  const { rows: classifications } = await db.query<ClassificationRow>(
+    `select cost_code, detail_level, element, breakout_of_cost_code,
+            buyout_package, stated_by, stated_on, reason
+       from block_classification
+      order by cost_code`,
+  );
+
+  // branch_gate_items (LA-1028) is read here for the same reason as
+  // block_classification above: it is a declared cost-code mapping, not
+  // a benchmark, but it lives on the same footing and joins the snapshot
+  // the same only-when-there-are-some way in assembleSnapshot.
+  const { rows: gateItems } = await db.query<GateItemRow>(
+    `select section, cost_code, closes_on, requires_all_sections,
+            stated_by, stated_on, reason
+       from branch_gate_items
+      order by section, cost_code`,
+  );
+
+  return {
+    benchmarks: rows.map(toBenchmark),
+    classifications: classifications.map(toClassification),
+    markupHistory: await readMarkupHistory(db),
+    branchGateItems: gateItems.map(toGateItemRule),
+  };
+}
+
+export async function readParameterData(db: Db): Promise<ParameterData> {
+  const { rows } = await db.query<ParameterRow>(
+    `select name, value, provenance_kind, provenance_recorded_by,
+            provenance_recorded_at, reason
+       from engine_parameters
+      order by name`,
+  );
+  return {
+    parameters: toParameters(rows),
+    staffingRates: await readStaffingRates(db),
+    fieldOfficeRates: await readFieldOfficeRates(db),
+  };
+}
+
+/**
+ * Judgment rules and classifications join the snapshot only when there are
+ * some, so a project with neither still fingerprints the way it did before
+ * they existed and two runs over the same data stay comparable. The markup
+ * data only matters when the ROM prices markups, and joins on the same rule.
+ */
+export function assembleSnapshot(
+  data: BenchmarkData,
+  rated: ParameterData,
+  judgmentRules: JudgmentRule[],
+  withMarkups: boolean,
+): DataSnapshot {
+  const snapshot: DataSnapshot = { benchmarks: data.benchmarks, parameters: rated.parameters };
+  if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
+  if (data.classifications.length > 0) snapshot.classifications = data.classifications;
+  if (data.branchGateItems.length > 0) snapshot.branchGateItems = data.branchGateItems;
+  if (withMarkups) {
+    if (data.markupHistory.length > 0) snapshot.markupHistory = data.markupHistory;
+    if (rated.staffingRates.length > 0) snapshot.staffingRates = rated.staffingRates;
+    if (rated.fieldOfficeRates.length > 0) snapshot.fieldOfficeRates = rated.fieldOfficeRates;
+  }
+  return snapshot;
+}
+
+/** Every projects column a ProjectRow holds, for any query that reads one. */
+export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross_square_feet,
             demolition_gate, levels_below_grade_gate, existing_building_tie_in_gate,
             site_conditions_gate, amenity_scope_gate, elevator_gate,
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
-            parking_type
-       from projects where id = $1`,
+            parking_type`;
+
+export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
+  const { rows } = await db.query<ProjectRow>(
+    `select ${PROJECT_COLUMNS} from projects where id = $1`,
     [projectId],
   );
   const found = rows[0];

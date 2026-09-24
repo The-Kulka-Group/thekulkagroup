@@ -29,6 +29,19 @@ export {
 } from "./rom";
 
 export {
+  runBacktest,
+  WORST_MISS_COUNT,
+  type BacktestActualLine,
+  type BacktestLine,
+  type BacktestMiss,
+  type BacktestPredictedStatus,
+  type BacktestPresence,
+  type BacktestProjectInput,
+  type BacktestProjectResult,
+  type BacktestReport,
+} from "./backtest";
+
+export {
   resolveGateItems,
   type BranchGateItemRule,
   type GateAnswerValue,
@@ -56,6 +69,7 @@ export {
 } from "./rom-markups";
 
 export {
+  PASS_BAR_PERCENT,
   priceBranchGatedSection,
   priceParking,
   proposeGrossSquareFeet,

@@ -186,10 +186,11 @@ decided by Matt on 2026-09-19 before this pass and carried forward unchanged her
 | 32 | Fire alarm and nurse call | Gross square feet |
 | 32a | Emergency responder radio coverage | Gross square feet |
 | 33 | Erosion and sedimentation control | LF of site perimeter |
-| 34 | Excavation, backfill, deep foundations | CY of excavated volume |
+| 34 | Site work: excavation, backfill, grading, topsoil | CY of excavated volume (open, see item 34) |
+| 34a | Deep foundations, piles, shoring | Fixed lump sum |
 | 35 | Site drainage and stormwater | Fixed lump sum |
 | 36 | Sanitary sewer, water, site utilities | Fixed lump sum |
-| 37 | Site grading, topsoil, landscaping | SF of disturbed site area |
+| 37 | Landscaping and irrigation | SF of disturbed site area |
 | 38 | Paving and base courses | SF of paved area |
 | 39 | Site concrete, hardscape, retaining | SF of hardscape/paver area |
 
@@ -2836,7 +2837,14 @@ proposing.**
 4. **Stockpile Erosion Control.** Likely missing. Silt sock or fence around soil
    stockpiles during construction, standard SWPPP scope. Zero evidence in any file.
 
-### 34. Excavation, backfill, foundation prep, and deep foundations
+### 34. Site work — excavation, backfill, grading, and topsoil
+
+**Changed 2026-09-23 (LA-1015, Matt).** Was "Excavation, backfill, foundation prep, and
+deep foundations." Budgets often carry one Sitework line covering excavation and grading
+with no split, so grading moved in from item 37. Deep foundations moved out to item 34a.
+The sources below were gathered under the old name; grading sources sit under item 37.
+The quantity driver is open: this item kept CY of excavated volume, and grading's driver
+was SF of disturbed site area.
 
 **Sources:**
 - JF: "Excavate Foundations," "Prepare Slab Subgrade," "Backfill Foundation," "2" Rigid
@@ -2877,6 +2885,17 @@ Site Conditions groundwater answer already in the intake, well points and pumpin
 excavation hits water table — real gate, zero evidence connecting to it in any file.
 Contaminated or Excess Soil Export/Import, likely missing, a real and sometimes large
 cost especially relevant on Long Island sites, zero evidence in any file.
+
+### 34a. Deep foundations, piles, and shoring
+
+**Added 2026-09-23 (LA-1015, Matt).** Split out of item 34. Piles and shoring are lumpy
+allowances on a few jobs, and inside Site Work they would swing its rate.
+
+**Sources:** WS "Piles Allowance" 1.00 LS $350,000 (r49, code 31.06010 Pile Caps); VA
+"Shoring Allowance" 1.00 EA $200,000 (r268). Both were listed under item 34.
+
+**Quantity driver: fixed lump sum**, because both source lines are single allowances.
+MasterFormat 31 60 00. Scope side defaults to building.
 
 ### 35. Site drainage and stormwater
 
@@ -3009,7 +3028,12 @@ list either and depends on whether the building's domestic hot water or any othe
 is gas-fired at all, itself an unanswered question in every file. Zero evidence of
 either in any file.
 
-### 37. Site grading, topsoil, and landscaping/irrigation
+### 37. Landscaping and irrigation
+
+**Changed 2026-09-23 (LA-1015, Matt).** Was "Site grading, topsoil, and
+landscaping/irrigation." Grading and topsoil moved to item 34 (Site work). Division moved
+from 31 to 32, where planting and irrigation sit in MasterFormat. Grading sources below
+now count toward item 34.
 
 **Sources:**
 - JF: "2'-3' Tree" 3.00 EA $200; "6'-7' Tree" 12.00 EA $400; "Seeding" 2,365.98 SF $1.50

@@ -147,7 +147,7 @@ decided by Matt on 2026-09-19 before this pass and carried forward unchanged her
 | 6 | Brick and masonry veneer | SF of veneer area |
 | 7 | Structural and misc. metals | LF of railing/guardrail run |
 | 7a | Structural steel framing | Gross square feet |
-| 8 | Shell framing — wood structure | Gross square feet |
+| 8 | Wood framing | Gross square feet |
 | 8a | Wood stairs and railings | EA, stair count per building |
 | 9 | Finish carpentry | Unit count (door install) / LF (trim) |
 | 10 | Millwork and closet interiors | LF of closet/cabinet run |
@@ -160,7 +160,7 @@ decided by Matt on 2026-09-19 before this pass and carried forward unchanged her
 | 15a | Garage and overhead doors | EA, garage-bay count |
 | 16 | Arch. Metal & Glass | SF of storefront/curtain wall glazing |
 | 16a | Residential windows | EA, window opening count |
-| 17 | Drywall, framing install, ceilings | Gross square feet |
+| 17 | Metal framing and drywall | Gross square feet |
 | 18 | Tile and stone | Bathroom count |
 | 19 | Flooring — resilient and carpet | Gross square feet |
 | 19a | Wood flooring | Gross square feet |
@@ -634,7 +634,9 @@ captured fact for the same structural-system fork.
 
 ## Division 06 — Wood, Plastics and Composites
 
-### 8. Shell framing — wood structure
+### 8. Wood framing
+
+**Renamed 2026-09-24 (Matt).** Was "Shell framing — wood structure." Kulka keeps two framing items: this one for wood framing, and item 17 for metal framing and drywall together.
 
 **Amended (Matt, 2026-09-20): narrowed to wood only.** All cold-formed metal framing,
 regardless of whether it's an exterior wall system or an interior partition, moves to
@@ -1450,7 +1452,9 @@ against the actual specs before assuming anything's missing here.
 
 ## Division 09 — Finishes
 
-### 17. Drywall, interior framing install, and ceilings (including acoustical)
+### 17. Metal framing and drywall
+
+**Renamed 2026-09-24 (Matt).** Was "Drywall, interior framing install, and ceilings (including acoustical)." It covers light-gauge metal framing, structural or not, together with drywall. Ceilings, including acoustical, stay here. On Jefferson's Ferry (C00456) this item carries load-bearing metal studs; on a wood-framed job like Fieldstone (C00449) it carries only drywall, ceilings, and interior studs. So a wood job priced from metal-framed jobs reads high here and low on item 8, until more jobs of each kind load.
 
 **Amended (Matt, 2026-09-20): now also holds all cold-formed metal framing, moved from
 item 8.** JF's "Cold Formed Exterior Panel & Sheerwall" 9,500 SF $18.00 = $171,000 and

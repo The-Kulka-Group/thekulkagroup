@@ -1,62 +1,132 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
-import type { ProvenanceKind, Rom, RomLine } from "@kulka/engine";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Rom } from "@kulka/engine";
 
-import { Sheet, Sep } from "@/components/Sheet";
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
-import type { LineProvenance, ProvenanceSignal } from "@/lib/rom/provenance";
+import type { LineProvenance } from "@/lib/rom/provenance";
+import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 
 import {
-  initialMarkupForm,
-  MarkupControls,
-  markupChoicesFrom,
-  MarkupWaterfall,
-  type MarkupForm,
-} from "./Markups";
+  type TradeBlock,
+  headlineMoney,
+  headlineOf,
+  shortMoney,
+  tradeBlocks,
+  valueTier,
+} from "./block-layout";
+import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
+import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
+import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
-import "./provenance.css";
+import "./rom-blocks.css";
 
-// Money to the nearest dollar. A ROM is a range, so cents would imply a
-// precision the number does not have.
-const DOLLARS = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
+// LA-1101. The live conceptual budget in the Round 14 block layout: a black
+// header band with the total, one block per trade biggest first, a black side
+// panel for whatever was clicked, and a black strip of saved runs. The data
+// flow is the one LA-16, LA-18, LA-1016 and LA-1028 built: POST /api/rom runs
+// the engine, the run record is read back from /api/rom/runs, and the
+// drill-down from /api/rom/provenance. The markup and scope inputs sit behind
+// "Run settings" so the first screen is the answer, not the form.
 
-// The column header carries the noun, so the chip only names the level. The
-// long form overflowed the fixed-layout board.
-const CONFIDENCE_LABEL = {
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-} as const;
-
-type State =
+/** What the page is doing. The run on screen is held apart, so a failed run or a bad setting leaves it in place. */
+type Status =
   | { phase: "idle" }
   | { phase: "running" }
-  | { phase: "done"; rom: Rom; runId: string }
+  | { phase: "loading"; runId: string }
   | { phase: "failed"; error: string };
+
+type Panel =
+  | { kind: "total" }
+  | { kind: "block"; costCode: string }
+  | { kind: "notes" }
+  | { kind: "settings" };
+
+const STAMP = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+const AREA = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 export function RomRunner({
   projectId,
   markupOptions,
   scopeDefaults,
+  initialRuns = [],
+  initialRun = null,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
   markupOptions?: MarkupOptions;
   /** The project's own recorded answers to the nine yes/no scope questions (LA-1028). */
   scopeDefaults?: GateAnswers;
+  /** This project's saved runs, newest first, read on the server. */
+  initialRuns?: RunSummary[];
+  /** The newest saved run, so the first screen opens on an answer. */
+  initialRun?: LoadedRun | null;
 }) {
-  const [state, setState] = useState<State>({ phase: "idle" });
+  const [run, setRun] = useState<LoadedRun | null>(initialRun);
+  const [state, setState] = useState<Status>({ phase: "idle" });
+  const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
+  const [panel, setPanel] = useState<Panel | null>(null);
   const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions));
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
+  const opener = useRef<HTMLElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
-  async function run() {
+  const busy = state.phase === "running" || state.phase === "loading";
+  const blocks = useMemo(() => (run ? tradeBlocks(run.rom) : []), [run]);
+  const headline = useMemo(() => (run ? headlineOf(run.rom) : null), [run]);
+  const drilldown = useProvenance(run?.runId ?? null);
+
+  const refreshRuns = useCallback(async () => {
+    try {
+      const response = await fetch("/api/rom/runs?limit=50");
+      if (!response.ok) return;
+      const body = await response.json();
+      setRuns(savedRunsFor(body.runs as RunSummary[], projectId));
+    } catch {
+      // The strip keeps the list it had. A missing refresh loses nothing.
+    }
+  }, [projectId]);
+
+  const closePanel = useCallback(() => {
+    setPanel(null);
+    const back = opener.current;
+    opener.current = null;
+    if (back && document.contains(back)) back.focus({ preventScroll: true });
+  }, []);
+
+  // The title takes focus when the panel opens or changes, so a keyboard user
+  // lands on what they opened.
+  useEffect(() => {
+    if (panel) titleRef.current?.focus({ preventScroll: true });
+  }, [panel]);
+
+  useEffect(() => {
+    if (!panel) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closePanel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panel, closePanel]);
+
+  // Clicking what is already open closes it, the way Round 14 does.
+  function openPanel(next: Panel, from?: HTMLElement | null) {
+    const same =
+      panel !== null &&
+      panel.kind === next.kind &&
+      (panel.kind !== "block" || (next.kind === "block" && panel.costCode === next.costCode));
+    if (same) {
+      closePanel();
+      return;
+    }
+    if (panel === null && from) opener.current = from;
+    setPanel(next);
+  }
+
+  async function runRom() {
     if (!projectId) return;
     // Without the options the page could not read the rate tables, so the
     // request names no markups and the run uses the recorded defaults.
@@ -80,395 +150,404 @@ export function RomRunner({
         }),
       });
       const body = await response.json();
-      setState(
-        response.ok
-          ? { phase: "done", rom: body.rom, runId: body.runId }
-          : { phase: "failed", error: body.error ?? "The run failed." },
+      if (!response.ok) {
+        setState({ phase: "failed", error: body.error ?? "The run failed." });
+        void refreshRuns();
+        return;
+      }
+      // The run record carries the area and the project name the ROM itself
+      // does not. Without it the blocks still show; only $/SF goes quiet.
+      const record = await readRun(body.runId as string);
+      setRun(
+        (record && loadedRunFrom(record)) ?? {
+          runId: body.runId,
+          rom: body.rom,
+          projectName: null,
+          grossSquareFeet: null,
+          startedAt: null,
+        },
       );
+      setState({ phase: "idle" });
+      setPanel(null);
+      void refreshRuns();
     } catch {
       setState({ phase: "failed", error: "The site could not reach the engine." });
     }
   }
 
-  const rom = state.phase === "done" ? state.rom : undefined;
-  const held = rom?.lines.filter((l) => l.heldForReview).length ?? 0;
+  async function loadRun(runId: string) {
+    if (run?.runId === runId) return;
+    setState({ phase: "loading", runId });
+    setPanel((current) => (current?.kind === "settings" ? current : null));
+    const record = await readRun(runId);
+    const loaded = record ? loadedRunFrom(record) : null;
+    if (loaded) {
+      setRun(loaded);
+      setState({ phase: "idle" });
+    } else {
+      setState({ phase: "failed", error: "The site could not read that run." });
+    }
+  }
+
+  const openBlock = panel?.kind === "block" ? blocks.find((b) => b.costCode === panel.costCode) : undefined;
+  const held = blocks.filter((block) => block.line.heldForReview).length;
+  const noteCount = run
+    ? held + run.rom.tbdGateItems.length + run.rom.assumedPresentItems.length
+    : 0;
 
   return (
-    <Sheet
-      number="R-100"
-      title="Conceptual budget"
-      actions={
-        <button
-          className="btn btn--primary"
-          type="button"
-          onClick={run}
-          disabled={!projectId || state.phase === "running"}
-        >
-          {!projectId ? "Project required" : state.phase === "running" ? "Running" : "Run ROM"}
-        </button>
-      }
-      meta={
-        <>
-          <span>{projectId ? "Approved project" : "No project configured"}</span>
-          <Sep />
-          <span>tier 1</span>
-          {state.phase === "done" ? (
+    <div className={`rb${panel ? " rb--open" : ""}`}>
+      <header className="rb-hdr">
+        <div className="rb-t1">
+          <span className="rb-badge">R-100</span>
+          <h1 className="rb-title">Conceptual budget</h1>
+          {run?.projectName ? <span className="rb-proj">{run.projectName}</span> : null}
+          {run?.grossSquareFeet ? (
+            <span className="num">{AREA.format(run.grossSquareFeet)} SF</span>
+          ) : null}
+          {!projectId ? <span>No project configured</span> : null}
+          <nav className="rb-links" aria-label="ROM pages">
+            {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block board</Link> : null}
+            <Link href="/rom/runs">Past runs</Link>
+            <Link href="/rom/backtest">Backtest</Link>
+          </nav>
+          <span className="rb-sp" />
+          {projectId && (markupOptions || scopeDefaults) ? (
+            <button
+              type="button"
+              className="rb-hbtn"
+              aria-expanded={panel?.kind === "settings"}
+              onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
+            >
+              Run settings
+            </button>
+          ) : null}
+          <button
+            className="btn btn--primary"
+            type="button"
+            onClick={runRom}
+            disabled={!projectId || busy}
+          >
+            {!projectId ? "Project required" : state.phase === "running" ? "Running" : "Run ROM"}
+          </button>
+        </div>
+
+        <div className="rb-t2">
+          {run && headline ? (
             <>
-              <Sep />
-              <Link className="num" href={`/rom/runs/${state.runId}`}>
-                run {state.runId.slice(0, 8)}
-              </Link>
-              <Sep />
-              <Link href={`/rom/blocks?run=${state.runId}`}>Block board</Link>
+              <button
+                type="button"
+                className="rb-tot"
+                aria-expanded={panel?.kind === "total"}
+                onClick={(e) => openPanel({ kind: "total" }, e.currentTarget)}
+              >
+                <span className="rb-tl">{headline.label}</span>
+                <span className="rb-tv num">{headlineMoney(headline.midpoint, headline)}</span>
+                <span className="rb-tb">
+                  range{" "}
+                  <b className="num">
+                    {headlineMoney(headline.low, headline)} to {headlineMoney(headline.high, headline)}
+                  </b>
+                  {/* Inside the range so it never wraps onto a line of its own. */}
+                  <svg className="rb-chev" viewBox="0 0 12 12" aria-hidden="true">
+                    <path
+                      d="M4.5 2.5 8 6 4.5 9.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+              {headline.tbd.length > 0 ? (
+                <span className="rb-td">{headline.tbd.join(", ")} TBD, outside the total</span>
+              ) : null}
+              <button
+                type="button"
+                className="rb-oq"
+                aria-expanded={panel?.kind === "notes"}
+                onClick={(e) => openPanel({ kind: "notes" }, e.currentTarget)}
+              >
+                {noteCount > 0 ? (
+                  <span className={`rb-dot rb-dot--${held > 0 ? "stuck" : "working"}`} aria-hidden="true" />
+                ) : null}
+                {notesLabel(held, run.rom)}
+              </button>
+            </>
+          ) : (
+            <p className="rb-tnone">
+              {state.phase === "running"
+                ? "Reading data and computing lines."
+                : state.phase === "loading"
+                  ? "Reading the saved run."
+                  : "No ROM on screen yet."}
+            </p>
+          )}
+        </div>
+      </header>
+
+      <main className="rb-fld" aria-busy={busy}>
+        {state.phase === "idle" && !run ? (
+          <p className="rb-none">
+            {projectId
+              ? "No ROM yet. Run one to see a ranged budget."
+              : "Set ROM_PROJECT_ID to an approved project before running a ROM."}
+          </p>
+        ) : null}
+        {state.phase === "running" ? <p className="rb-none">Reading data and computing lines.</p> : null}
+        {state.phase === "loading" ? <p className="rb-none">Reading the saved run.</p> : null}
+        {state.phase === "failed" ? (
+          <p className="rb-none rb-none--error" role="alert">
+            {state.error}
+            {run ? ` The blocks below are still ${runWords(run)}.` : ""}
+          </p>
+        ) : null}
+        {run ? (
+          blocks.length === 0 ? (
+            <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
+          ) : (
+            <BlockField
+              blocks={blocks}
+              selected={openBlock?.costCode ?? null}
+              onOpen={(costCode, el) => openPanel({ kind: "block", costCode }, el)}
+            />
+          )
+        ) : null}
+      </main>
+
+      {panel ? (
+        <aside className="rb-pnl" aria-label="Detail">
+          {panel.kind === "settings" ? (
+            <>
+              <PanelHead
+                title="Run settings"
+                sub="Scope answers and markups for the next run. A change here applies to that run only."
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              {projectId && scopeDefaults ? (
+                <ScopeControls form={scopeForm} onChange={setScopeForm} disabled={busy} />
+              ) : null}
+              {projectId && markupOptions ? (
+                <MarkupControls options={markupOptions} form={form} onChange={setForm} disabled={busy} />
+              ) : null}
+              {state.phase === "failed" ? <p className="rb-pp rb-pp--error">{state.error}</p> : null}
+              <div className="rb-acts">
+                <button className="btn btn--primary" type="button" onClick={runRom} disabled={busy}>
+                  {state.phase === "running" ? "Running" : "Run ROM"}
+                </button>
+              </div>
             </>
           ) : null}
-          <Sep />
-          <Link href="/rom/runs">Past runs</Link>
-          <Sep />
-          <Link href="/rom/backtest">Backtest</Link>
-        </>
-      }
-      needsReview={held}
-      reviewLabel="held for review"
-    >
-      {projectId && scopeDefaults ? (
-        <ScopeControls form={scopeForm} onChange={setScopeForm} disabled={state.phase === "running"} />
+
+          {panel.kind === "total" && run && headline ? (
+            <>
+              <PanelHead
+                title={headline.label}
+                sub={runWords(run)}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <TotalPanel rom={run.rom} headline={headline} grossSquareFeet={run.grossSquareFeet} />
+            </>
+          ) : null}
+
+          {panel.kind === "block" && run && openBlock ? (
+            <>
+              <PanelHead
+                title={openBlock.label}
+                sub={`${openBlock.costCode} · ${runWords(run)}`}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <BlockPanel block={openBlock} drilldown={drilldown} grossSquareFeet={run.grossSquareFeet} />
+            </>
+          ) : null}
+
+          {panel.kind === "notes" && run ? (
+            <>
+              <PanelHead
+                title="Scope and assumptions"
+                sub={runWords(run)}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <NotesPanel
+                rom={run.rom}
+                blocks={blocks}
+                onOpenBlock={(costCode) => setPanel({ kind: "block", costCode })}
+              />
+            </>
+          ) : null}
+        </aside>
       ) : null}
 
-      {projectId && markupOptions ? (
-        <MarkupControls
-          options={markupOptions}
-          form={form}
-          onChange={setForm}
-          disabled={state.phase === "running"}
-        />
-      ) : null}
-
-      {state.phase === "idle" ? (
-        <p className="empty">
-          {projectId
-            ? "No ROM yet. Run one to see a ranged budget."
-            : "Set ROM_PROJECT_ID to an approved project before running a ROM."}
-        </p>
-      ) : null}
-
-      {state.phase === "running" ? <p className="empty">Reading data and computing lines.</p> : null}
-
-      {state.phase === "failed" ? <p className="empty">{state.error}</p> : null}
-
-      {/* Keyed by run: a second run gets a fresh panel rather than the last run's provenance. */}
-      {rom && state.phase === "done" ? (
-        <Result key={state.runId} rom={rom} runId={state.runId} />
-      ) : null}
-    </Sheet>
+      <footer className="rb-revs" aria-label="Saved runs">
+        <h2>Saved runs</h2>
+        {runs.length === 0 ? (
+          <p className="rb-rnone">No saved run for this project yet.</p>
+        ) : (
+          <div className="rb-rvl" role="group" aria-label="Saved run list">
+            {runs.map((one) => {
+              const current = run?.runId === one.id || (state.phase === "loading" && state.runId === one.id);
+              const started = new Date(one.startedAt);
+              return (
+                <button
+                  key={one.id}
+                  type="button"
+                  className="rb-rv"
+                  aria-current={current}
+                  disabled={busy}
+                  onClick={() => loadRun(one.id)}
+                  aria-label={`Load run ${one.id.slice(0, 8)}, ${STAMP.format(started)} at ${CLOCK.format(started)}`}
+                >
+                  <span className="rb-r1">
+                    <b>{STAMP.format(started)}</b>
+                    <span className="rb-rd num">{CLOCK.format(started)}</span>
+                  </span>
+                  <span className="rb-rk num">run {one.id.slice(0, 8)}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <Link className="rb-rall" href="/rom/runs">
+          All runs
+        </Link>
+      </footer>
+    </div>
   );
 }
 
-// What stands behind the flag, in the words CONTEXT.md uses. A model's figure
-// is not a comparable, so a line resting on one alone says so outright.
-function behind(line: RomLine): string {
-  if (line.comparables.every((c) => c.kind === "llm_proposal")) return "no Kulka data";
-  const jobs = line.comparableCount === 1 ? "1 job" : `${line.comparableCount} jobs`;
-  const measured = line.comparables.some((c) => c.kind === "actuals" || c.kind === "proest_budget");
-  return measured ? jobs : `${jobs}, judgment`;
+function BlockField({
+  blocks,
+  selected,
+  onOpen,
+}: {
+  blocks: TradeBlock[];
+  selected: string | null;
+  onOpen: (costCode: string, el: HTMLElement) => void;
+}) {
+  const kulka = blocks.filter((block) => !block.ownerDirect);
+  const owner = blocks.filter((block) => block.ownerDirect);
+
+  return (
+    <>
+      <section className="rb-grp" aria-label="Trades">
+        <h2>Trades, biggest first</h2>
+        <div className="rb-grid">
+          {kulka.map((block) => (
+            <Block key={block.costCode} block={block} selected={selected === block.costCode} onOpen={onOpen} />
+          ))}
+        </div>
+      </section>
+      {owner.length > 0 ? (
+        <section className="rb-grp" aria-label="Bought by the owner direct">
+          <h2>Bought by the owner direct</h2>
+          <div className="rb-grid">
+            {owner.map((block) => (
+              <Block key={block.costCode} block={block} selected={selected === block.costCode} onOpen={onOpen} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </>
+  );
 }
 
-// LA-18. The kinds in the words CONTEXT.md uses for them.
-const KIND_LABEL: Record<ProvenanceKind, string> = {
-  actuals: "Actuals",
-  proest_budget: "ProEst budget",
-  reviewed_judgment: "Reviewed judgment",
-  llm_proposal: "Model signal",
-};
+export function Block({
+  block,
+  selected,
+  onOpen,
+}: {
+  block: TradeBlock;
+  selected: boolean;
+  onOpen: (costCode: string, el: HTMLElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`rb-blk${selected ? " rb-blk--sel" : ""}`}
+      aria-pressed={selected}
+      aria-label={`${block.label}, ${shortMoney(block.midpoint)}${block.status ? `, ${block.status.word.toLowerCase()}` : ""}`}
+      onClick={(e) => onOpen(block.costCode, e.currentTarget)}
+    >
+      <span className="rb-bn">{block.label}</span>
+      {block.status ? (
+        <span className="rb-st">
+          <span className={`rb-dot rb-dot--${block.status.tone}`} aria-hidden="true" />
+          {block.status.word}
+        </span>
+      ) : null}
+      <span className={`rb-bv num rb-${valueTier(block.share)}`}>{shortMoney(block.midpoint)}</span>
+      <span className="rb-bar" aria-hidden="true">
+        <i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, block.share)).toFixed(4)})` }} />
+      </span>
+    </button>
+  );
+}
 
-const PER_SF = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+function notesLabel(held: number, rom: Rom): string {
+  const parts: string[] = [];
+  if (held > 0) parts.push(`${held} held for review`);
+  if (rom.tbdGateItems.length > 0) parts.push(`${rom.tbdGateItems.length} TBD`);
+  if (rom.assumedPresentItems.length > 0) parts.push(`${rom.assumedPresentItems.length} assumed present`);
+  return parts.length > 0 ? parts.join(", ") : "Scope and assumptions";
+}
 
-const SHARE = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
+function runWords(run: LoadedRun): string {
+  const id = `run ${run.runId.slice(0, 8)}`;
+  if (!run.startedAt) return id;
+  const started = new Date(run.startedAt);
+  return `${id}, ${STAMP.format(started)} at ${CLOCK.format(started)}`;
+}
 
-type Drilldown =
-  | { phase: "loading" }
-  | { phase: "ready"; byCostCode: Record<string, LineProvenance> }
-  | { phase: "failed" };
+async function readRun(runId: string): Promise<RunRecord | null> {
+  try {
+    const response = await fetch(`/api/rom/runs/${encodeURIComponent(runId)}`);
+    if (!response.ok) return null;
+    const body = await response.json();
+    return body.run as RunRecord;
+  } catch {
+    return null;
+  }
+}
 
-function Result({ rom, runId }: { rom: Rom; runId: string }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const [drilldown, setDrilldown] = useState<Drilldown>({ phase: "loading" });
+// LA-18. The drill-down for the run on screen, read once per run.
+function useProvenance(runId: string | null): Drilldown {
+  const [drilldown, setDrilldown] = useState<{ runId: string | null; value: Drilldown }>({
+    runId: null,
+    value: { phase: "loading" },
+  });
 
   useEffect(() => {
+    if (!runId) return;
     let live = true;
-
     fetch(`/api/rom/provenance?runId=${encodeURIComponent(runId)}`)
       .then(async (response) => {
         if (!response.ok) throw new Error("no provenance");
         const { provenance } = await response.json();
         if (!live) return;
         setDrilldown({
-          phase: "ready",
-          byCostCode: Object.fromEntries(
-            (provenance.lines as LineProvenance[]).map((line) => [line.costCode, line]),
-          ),
+          runId,
+          value: {
+            phase: "ready",
+            byCostCode: Object.fromEntries(
+              (provenance.lines as LineProvenance[]).map((line) => [line.costCode, line]),
+            ),
+          },
         });
       })
       .catch(() => {
-        if (live) setDrilldown({ phase: "failed" });
+        if (live) setDrilldown({ runId, value: { phase: "failed" } });
       });
-
     return () => {
       live = false;
     };
   }, [runId]);
 
-  if (rom.lines.length === 0) {
-    return <p className="empty">No benchmark matched this project, so the ROM has no lines.</p>;
-  }
-
-  return (
-    <>
-      <table className="board board--rom">
-        {/* Widths come from daylight.css. The board lays out fixed, so without
-            them the confidence chip was clipped. */}
-        <colgroup>
-          <col />
-          <col />
-          <col />
-          <col />
-          <col />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Line</th>
-            <th className="right">Low</th>
-            <th className="right">High</th>
-            <th>Confidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rom.lines.map((line) => {
-            const expanded = open === line.costCode;
-            return (
-              <Fragment key={line.costCode}>
-                <tr
-                  className={`row${line.heldForReview ? " row--stuck" : ""}${expanded ? " row--open" : ""}`}
-                >
-                  <td>
-                    <button
-                      className="line-toggle num"
-                      type="button"
-                      aria-expanded={expanded}
-                      onClick={() => setOpen(expanded ? null : line.costCode)}
-                    >
-                      <span aria-hidden="true" className="caret">
-                        {expanded ? "▾" : "▸"}
-                      </span>
-                      {line.costCode}
-                    </button>
-                  </td>
-                  <td>{line.label}</td>
-                  <td className="num right">{DOLLARS.format(line.low)}</td>
-                  <td className="num right">{DOLLARS.format(line.high)}</td>
-                  <td>
-                    <span className={`chip chip--${line.confidence}`}>
-                      <span className="dot" />
-                      {CONFIDENCE_LABEL[line.confidence]}
-                    </span>
-                    <span className="behind num">{behind(line)}</span>
-                  </td>
-                </tr>
-                {expanded ? (
-                  <tr>
-                    <td className="prov-cell" colSpan={5}>
-                      <Provenance
-                        drilldown={drilldown}
-                        label={line.label}
-                        costCode={line.costCode}
-                      />
-                    </td>
-                  </tr>
-                ) : null}
-              </Fragment>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="group">
-            <th colSpan={2}>Trade cost range</th>
-            <th className="num right">{DOLLARS.format(rom.total.low)}</th>
-            <th className="num right">{DOLLARS.format(rom.total.high)}</th>
-            <th />
-          </tr>
-        </tfoot>
-      </table>
-
-      {/* Runs recorded before LA-1016 carry no markups, so there is nothing to show. */}
-      {rom.markups ? <MarkupWaterfall markups={rom.markups} /> : null}
-
-      {/* LA-1028: what a scope answer actually did to the lines above, named
-          item by item rather than left to the assumptions prose alone. */}
-      {rom.notInThisJob.length > 0 || rom.tbdGateItems.length > 0 || rom.assumedPresentItems.length > 0 ? (
-        <section className="doc-section rom-scope-summary">
-          <h2 className="doc-title">Scope</h2>
-          {rom.notInThisJob.length > 0 ? (
-            <>
-              <h3 className="t-label">Not in this job</h3>
-              <ul className="doc-list">
-                {rom.notInThisJob.map((item) => (
-                  <li key={item.costCode}>
-                    {item.label} ({item.question})
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-          {rom.tbdGateItems.length > 0 ? (
-            <>
-              <h3 className="t-label">TBD, outside the total</h3>
-              <ul className="doc-list">
-                {rom.tbdGateItems.map((item) => (
-                  <li key={item.costCode}>
-                    {item.label} ({item.question})
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-          {rom.assumedPresentItems.length > 0 ? (
-            <>
-              <h3 className="t-label">Assumed present, nobody answered</h3>
-              <ul className="doc-list">
-                {rom.assumedPresentItems.map((item) => (
-                  <li key={item.costCode}>
-                    {item.label} ({item.question})
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </section>
-      ) : null}
-
-      <section className="doc-section rom-assumptions">
-        <h2 className="doc-title">Assumptions</h2>
-        <ul className="doc-list">
-          {rom.assumptions.map((assumption) => (
-            <li key={assumption}>{assumption}</li>
-          ))}
-        </ul>
-      </section>
-    </>
-  );
-}
-
-// LA-18. Where one line's number came from. Every figure here is read back
-// from the run record, so the panel can only ever show what the engine used.
-function Provenance({
-  drilldown,
-  costCode,
-  label,
-}: {
-  drilldown: Drilldown;
-  costCode: string;
-  label: string;
-}) {
-  if (drilldown.phase === "loading") {
-    return <p className="prov-empty">Reading where this line came from.</p>;
-  }
-  if (drilldown.phase === "failed") {
-    return <p className="prov-empty">The site could not read this line&rsquo;s provenance.</p>;
-  }
-
-  const line = drilldown.byCostCode[costCode];
-  if (!line || line.signals.length === 0) {
-    return <p className="prov-empty">Nothing is recorded behind this line.</p>;
-  }
-
-  return (
-    <>
-      <p className="prov-head">
-        {line.comparableCount === 0
-          ? `No comparable Kulka project stands behind ${label}. What follows is every signal the blend used.`
-          : `${label} blends ${countWords(line.signals.length, "signal")} from ${countWords(line.comparableCount, "Kulka project")}.`}
-      </p>
-      <table className="prov-table">
-        <thead>
-          <tr>
-            <th>Source</th>
-            <th>Projects</th>
-            <th>Export</th>
-            <th>Recorded</th>
-            <th className="right">Rate</th>
-            <th className="right">Weight</th>
-          </tr>
-        </thead>
-        <tbody>
-          {line.signals.map((signal, index) => (
-            <tr key={`${signal.kind}-${signal.recordedAt}-${index}`}>
-              <th scope="row">{KIND_LABEL[signal.kind]}</th>
-              <td>{projectWords(signal)}</td>
-              <td className={signal.exportLabel ? undefined : "quiet"}>
-                {signal.exportLabel ?? "No export named"}
-              </td>
-              <td className="num">
-                {signal.recordedAt} by {signal.recordedBy}
-              </td>
-              <td className="num right">{PER_SF.format(signal.rate)}/SF</td>
-              <td className="num right">
-                {signal.weight} ({SHARE.format(signal.weightShare)})
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {line.judgments.length > 0 ? (
-        <>
-          <p className="prov-head">
-            An approved estimator rule moved this line. The signals above do not
-            account for it on their own.
-          </p>
-          <table className="prov-table">
-            <thead>
-              <tr>
-                <th>Source</th>
-                <th>Stated</th>
-                <th className="right">Rule</th>
-                <th className="right">Moved the rate</th>
-                <th className="right">Weight</th>
-              </tr>
-            </thead>
-            <tbody>
-              {line.judgments.map((judgment) => (
-                <tr key={judgment.ruleId}>
-                  <th scope="row">{KIND_LABEL.reviewed_judgment}</th>
-                  <td className="num">
-                    {judgment.recordedAt} by {judgment.recordedBy}
-                  </td>
-                  <td className="num right">
-                    {PER_SF.format(judgment.adjustmentUsdPerGsf)}/SF
-                  </td>
-                  <td className="num right">
-                    {PER_SF.format(judgment.appliedUsdPerGsf)}/SF
-                  </td>
-                  <td className="num right">{judgment.weight}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      ) : null}
-    </>
-  );
-}
-
-function countWords(count: number, noun: string): string {
-  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
-}
-
-function projectWords(signal: ProvenanceSignal): string {
-  if (signal.projects.length === 0) return "No comparable project";
-  return signal.projects.map((p) => p.name ?? "Project record missing").join(", ");
+  // A second run shows loading rather than the last run's provenance.
+  return drilldown.runId === runId ? drilldown.value : { phase: "loading" };
 }

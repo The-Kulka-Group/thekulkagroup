@@ -1,29 +1,16 @@
 "use client";
 
-import {
-  WEEKS_PER_MONTH,
-  type MarkupChoices,
-  type MarkupLine,
-  type MarkupMethod,
-  type MarkupSetup,
-  type Markups,
-} from "@kulka/engine";
+import { WEEKS_PER_MONTH, type MarkupChoices, type MarkupMethod, type MarkupSetup } from "@kulka/engine";
 
 import type { MarkupOptions } from "@/lib/rom/markup";
 
 import "./markups.css";
 
-// LA-1016. The GRs/GCs module above Run ROM, and the waterfall below the
-// lines table: subtotal, GRs/GCs, fee, insurance, total. Every figure the
-// module offers comes from the server (rate tables, parameters, history
-// counts) or from what the user types. Nothing here supplies a default
-// staffing mix.
-
-const DOLLARS = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
+// LA-1016. The GRs/GCs module in Run settings. Every figure the module offers
+// comes from the server (rate tables, parameters, history counts) or from what
+// the user types. Nothing here supplies a default staffing mix. The waterfall
+// it produces (subtotal, GRs/GCs, fee, insurance, total) shows in the total
+// panel on /rom since LA-1101.
 
 const WEEKLY = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -407,69 +394,5 @@ export function MarkupControls({
         </>
       ) : null}
     </section>
-  );
-}
-
-export function MarkupWaterfall({ markups }: { markups: Markups }) {
-  const rows: MarkupLine[] = [
-    markups.subtotal,
-    markups.generalConditions,
-    markups.fee,
-    markups.insurance,
-    markups.total,
-  ];
-  const owner = markups.ownerDirect.high > 0 || markups.ownerDirect.low > 0;
-
-  return (
-    <table className="board board--markups">
-      <colgroup>
-        <col />
-        <col />
-        <col />
-        <col />
-        <col />
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Line</th>
-          <th className="right">Low</th>
-          <th className="right">High</th>
-          <th>Basis</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((line) => {
-          const isTotal = line === markups.subtotal || line === markups.total;
-          return (
-            <tr className={`row${isTotal ? " row--total" : ""}`} key={line.label}>
-              <td className="num">{line.code ?? ""}</td>
-              <td>{line.label}</td>
-              <td className="num right">{line.tbd ? "TBD" : DOLLARS.format(line.low)}</td>
-              <td className="num right">{line.tbd ? "TBD" : DOLLARS.format(line.high)}</td>
-              <td className="markup-basis">{line.basis}</td>
-            </tr>
-          );
-        })}
-        {owner ? (
-          <>
-            <tr className="row">
-              <td />
-              <td>Owner-direct</td>
-              <td className="num right">{DOLLARS.format(markups.ownerDirect.low)}</td>
-              <td className="num right">{DOLLARS.format(markups.ownerDirect.high)}</td>
-              <td className="markup-basis">Bought by the owner direct, so it carries no markup</td>
-            </tr>
-            <tr className="row row--total">
-              <td />
-              <td>Total project cost</td>
-              <td className="num right">{DOLLARS.format(markups.totalProjectCost.low)}</td>
-              <td className="num right">{DOLLARS.format(markups.totalProjectCost.high)}</td>
-              <td className="markup-basis">Kulka&rsquo;s contract total plus owner-direct scope</td>
-            </tr>
-          </>
-        ) : null}
-      </tbody>
-    </table>
   );
 }

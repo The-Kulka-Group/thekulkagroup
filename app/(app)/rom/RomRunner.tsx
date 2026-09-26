@@ -44,8 +44,10 @@ type Panel =
   | { kind: "notes" }
   | { kind: "settings" };
 
-const STAMP = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
-const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+// Pinned to Eastern so the server (UTC) and the browser print the same run
+// time; otherwise React reports a hydration mismatch (LA-1102).
+const STAMP = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 const AREA = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 export function RomRunner({

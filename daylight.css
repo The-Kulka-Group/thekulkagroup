@@ -654,6 +654,9 @@ em, .em { font-style: normal; font-weight: 600; }
               box-shadow var(--motion-fast) var(--ease);
 }
 .input::placeholder { color: var(--ink-3); }
+/* The intake page's project picker sits in the sheet's meta row, so it is
+   sized to its text rather than the full row. */
+.input.rom-intake-pick { width: auto; max-width: 320px; height: var(--control-h); font-size: var(--ui-size); }
 .input:focus {
   outline: none;
   border-color: var(--primary);

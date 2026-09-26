@@ -1,6 +1,6 @@
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
-import { resolveRomProjectId } from "@/lib/rom/projects";
+import { listRomProjects, resolveRomProjectId, type RomProjectOption } from "@/lib/rom/projects";
 import { tier1Flow } from "@/lib/rom/question-flow";
 
 import { IntakeFlow } from "./IntakeFlow";
@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 // that file changes what the page asks.
 //
 // LA-1107: the project comes from `?project=<id>`, checked against the
-// projects table, and falls back to ROM_PROJECT_ID.
+// projects table, and falls back to ROM_PROJECT_ID. The picker lists the same
+// projects as the /rom header: every project with a run.
 export default async function RomIntakePage({
   searchParams,
 }: {
@@ -20,11 +21,16 @@ export default async function RomIntakePage({
 }) {
   const { project } = await searchParams;
   let projectId = process.env.ROM_PROJECT_ID;
-  if (project !== undefined) {
-    const auth = await authorizeRequest();
-    projectId = auth.ok
-      ? (await resolveRomProjectId(getDb(), project, process.env.ROM_PROJECT_ID)).projectId
-      : undefined;
+  let projects: RomProjectOption[] = [];
+  const auth = await authorizeRequest();
+  if (auth.ok) {
+    const db = getDb();
+    projects = await listRomProjects(db);
+    if (project !== undefined) {
+      projectId = (await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID)).projectId;
+    }
+  } else if (project !== undefined) {
+    projectId = undefined;
   }
-  return <IntakeFlow definition={tier1Flow()} projectId={projectId} />;
+  return <IntakeFlow definition={tier1Flow()} projectId={projectId} projects={projects} />;
 }

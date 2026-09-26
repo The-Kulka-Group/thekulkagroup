@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Rom } from "@kulka/engine";
 
@@ -11,6 +12,7 @@ import {
   type Question,
   type Responses,
 } from "@/lib/rom/question-flow";
+import type { RomProjectOption } from "@/lib/rom/projects";
 
 // The walk from the tier-1 questions to a ROM. This component renders whatever
 // the definition declares and knows nothing about any particular question.
@@ -32,10 +34,14 @@ type State =
 export function IntakeFlow({
   definition,
   projectId,
+  projects = [],
 }: {
   definition: FlowDefinition;
   projectId?: string;
+  projects?: RomProjectOption[];
 }) {
+  const router = useRouter();
+  const known = projects.some((one) => one.id === projectId);
   const [responses, setResponses] = useState<Responses>({});
   const [state, setState] = useState<State>({ phase: "asking" });
 
@@ -91,7 +97,25 @@ export function IntakeFlow({
       }
       meta={
         <>
-          <span>{projectId ? "Approved project" : "No project configured"}</span>
+          {projects.length > 0 ? (
+            <select
+              className="input rom-intake-pick"
+              aria-label="Project"
+              value={known ? projectId : ""}
+              onChange={(e) => {
+                if (e.target.value) router.push(`/rom/intake?project=${e.target.value}`);
+              }}
+            >
+              {known ? null : <option value="">Choose a project</option>}
+              {projects.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {one.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{projectId ? "Approved project" : "No project configured"}</span>
+          )}
           <Sep />
           <span>tier 1</span>
           <Sep />

@@ -638,6 +638,8 @@ captured fact for the same structural-system fork.
 
 **Renamed 2026-09-24 (Matt).** Was "Shell framing — wood structure." Kulka keeps two framing items: this one for wood framing, and item 17 for metal framing and drywall together.
 
+**Blended by framing system (Matt, 2026-09-25, LA-1103).** This item and item 17 blend only past jobs framed the same way as the project being estimated. Fieldstone (C00449) is wood and Jefferson's Ferry (C00456) is metal. See item 17 for how the ROM handles no match and a project with no framing system set.
+
 **Amended (Matt, 2026-09-20): narrowed to wood only.** All cold-formed metal framing,
 regardless of whether it's an exterior wall system or an interior partition, moves to
 item 17, Drywall and Carpentry, on the reasoning that a light-gauge metal framing crew
@@ -1455,6 +1457,8 @@ against the actual specs before assuming anything's missing here.
 ### 17. Metal framing and drywall
 
 **Renamed 2026-09-24 (Matt).** Was "Drywall, interior framing install, and ceilings (including acoustical)." It covers light-gauge metal framing, structural or not, together with drywall. Ceilings, including acoustical, stay here. On Jefferson's Ferry (C00456) this item carries load-bearing metal studs; on a wood-framed job like Fieldstone (C00449) it carries only drywall, ceilings, and interior studs. So a wood job priced from metal-framed jobs reads high here and low on item 8, until more jobs of each kind load.
+
+**Blended by framing system (Matt, 2026-09-25, LA-1103).** Each project now records its framing system: wood, metal, or not set. Jefferson's Ferry (C00456) is metal and Fieldstone (C00449) is wood. On this item and item 8 the ROM blends only past jobs framed the same way as the project being estimated, and the drilldown names each job it left out. If no past job matches, the line has no figure and sits outside the total. If the project's framing system is not set, the line blends every job as before and is held for review.
 
 **Amended (Matt, 2026-09-20): now also holds all cold-formed metal framing, moved from
 item 8.** JF's "Cold Formed Exterior Panel & Sheerwall" 9,500 SF $18.00 = $171,000 and

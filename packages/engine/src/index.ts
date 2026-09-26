@@ -26,7 +26,17 @@ export {
   type Rom,
   type RomLine,
   type ScopeSide,
+  type ExcludedComparable,
+  type FramingLine,
+  type FramingLineStatus,
 } from "./rom";
+
+export {
+  FRAMING_ITEM_CODES,
+  FRAMING_WORDS,
+  framingExclusionReason,
+  type FramingSystem,
+} from "./rom-framing";
 
 export {
   runBacktest,

@@ -53,7 +53,17 @@ export type LineProvenance = {
   signals: ProvenanceSignal[];
   /** Approved rules that moved this line, empty when none did (LA-19). */
   judgments: ProvenanceJudgment[];
+  /**
+   * Figures left out of the blend and why, such as a past job framed
+   * differently on items 8 and 17 (LA-1103). Empty when nothing was left out.
+   */
+  excluded: ExcludedSignal[];
+  /** Why the line is held for its framing system, or null (LA-1103). */
+  framingReason: string | null;
 };
+
+/** A figure the blend left out, shaped like a signal with no share of the blend. */
+export type ExcludedSignal = Omit<ProvenanceSignal, "weightShare"> & { reason: string };
 
 export type RunProvenance = {
   runId: string;
@@ -79,7 +89,12 @@ export async function readRunProvenance(db: Db, runId: string): Promise<RunProve
 }
 
 async function describeLines(db: Db, rom: Rom): Promise<LineProvenance[]> {
-  const names = await projectNames(db, rom.lines.flatMap((l) => l.comparables.flatMap((c) => c.sourceProjectIds)));
+  const names = await projectNames(
+    db,
+    rom.lines.flatMap((l) =>
+      [...l.comparables, ...(l.framing?.excluded ?? [])].flatMap((c) => c.sourceProjectIds),
+    ),
+  );
 
   return rom.lines.map((line) => {
     const total = line.comparables.reduce((sum, c) => sum + c.weight, 0);
@@ -105,6 +120,17 @@ async function describeLines(db: Db, rom: Rom): Promise<LineProvenance[]> {
         recordedAt: c.recordedAt,
         projects: c.sourceProjectIds.map((id) => ({ id, name: names.get(id) ?? null })),
       })),
+      excluded: (line.framing?.excluded ?? []).map((c) => ({
+        kind: c.kind,
+        rate: c.rate,
+        weight: c.weight,
+        exportLabel: c.exportLabel,
+        recordedBy: c.recordedBy,
+        recordedAt: c.recordedAt,
+        projects: c.sourceProjectIds.map((id) => ({ id, name: names.get(id) ?? null })),
+        reason: c.reason,
+      })),
+      framingReason: line.framing?.reason ?? null,
     };
   });
 }

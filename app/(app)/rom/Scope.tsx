@@ -90,3 +90,45 @@ export function ScopeControls({
     </section>
   );
 }
+
+const FRAMING_CHOICES: { value: "wood" | "metal" | ""; label: string }[] = [
+  { value: "wood", label: "Wood" },
+  { value: "metal", label: "Metal" },
+  { value: "", label: "Not set" },
+];
+
+// LA-1103. How the project is framed decides which past jobs items 8 and 17
+// blend from. Prefilled from the project record; applies to the next run only.
+export function FramingControl({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: "wood" | "metal" | "";
+  onChange: (value: "wood" | "metal" | "") => void;
+  disabled: boolean;
+}) {
+  return (
+    <section className="markup-module scope-module" aria-label="Framing system">
+      <h2 className="doc-title">Framing system</h2>
+      <p className="markup-note">
+        Wood framing and metal framing and drywall blend only past jobs framed the same way. Not set
+        blends every job and holds both lines for review.
+      </p>
+      <div className="scope-choices" role="radiogroup" aria-label="Framing system">
+        {FRAMING_CHOICES.map((choice) => (
+          <label className="scope-choice" key={choice.label}>
+            <input
+              type="radio"
+              name="framing-system"
+              checked={value === choice.value}
+              disabled={disabled}
+              onChange={() => onChange(choice.value)}
+            />
+            {choice.label}
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+}

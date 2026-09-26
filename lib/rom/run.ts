@@ -12,6 +12,7 @@ import {
   type EngineParameter,
   type EngineParameters,
   type FieldOfficeRate,
+  type FramingSystem,
   type JudgmentRule,
   type MarkupChoices,
   type MarkupHistoryRow,
@@ -87,6 +88,8 @@ export type ProjectRow = {
   balconies_gate: BranchGateAnswer | null;
   radio_amplifier_gate: BranchGateAnswer | null;
   parking_type: ParkingType | null;
+  /** How the job is framed (LA-1103). Null means nobody has recorded it. */
+  framing_system: FramingSystem | null;
 };
 
 /**
@@ -189,6 +192,11 @@ type GateItemRow = {
  * always sends the full state of every row it shows, blanks included as
  * absent keys. Absent entirely, the run reads the project's own columns, the
  * same as before the Scope module existed.
+ *
+ * `framing` is the Run settings choice of framing system (LA-1103). Undefined
+ * reads the project record's own column; null means the estimator cleared it
+ * for this run. It applies on every path, with or without `responses`, because
+ * the tier-1 flow asks no framing question.
  */
 export async function runRom(
   db: Db,
@@ -196,6 +204,7 @@ export async function runRom(
   responses?: Responses,
   markups?: MarkupChoices,
   gates?: Partial<Record<string, BranchGateAnswer>>,
+  framing?: FramingSystem | null,
 ): Promise<RunResult> {
   const project = await readProject(db, projectId);
   const runId = await openRun(db, projectId);
@@ -210,8 +219,13 @@ export async function runRom(
       const fromProject = answersFromProject(project, gates);
       return { answers: fromProject, recorded: fromProject as Record<string, unknown> };
     });
-    const answers: Answers = markups ? { ...intake.answers, markups } : intake.answers;
-    const recorded = markups ? { ...intake.recorded, markups } : intake.recorded;
+    const framingSystem = framing === undefined ? project.framing_system : framing;
+    const withFraming: Answers = framingSystem
+      ? { ...intake.answers, framingSystem }
+      : intake.answers;
+    const answers: Answers = markups ? { ...withFraming, markups } : withFraming;
+    const recordedBase = framingSystem ? { ...intake.recorded, framingSystem } : intake.recorded;
+    const recorded = markups ? { ...recordedBase, markups } : recordedBase;
     await db.query(`update runs set answers = $2 where id = $1`, [runId, recorded]);
 
     // Block classifications are read inside this step rather than in one of
@@ -312,6 +326,7 @@ export function answersFromProject(
     grossSquareFeet: project.gross_square_feet,
     ...(Object.keys(facts).length > 0 ? { facts } : {}),
     ...(Object.keys(branchGates).length > 0 ? { branchGates } : {}),
+    ...(project.framing_system ? { framingSystem: project.framing_system } : {}),
   };
 }
 
@@ -321,6 +336,8 @@ export type BenchmarkData = {
   classifications: BlockClassification[];
   markupHistory: MarkupHistoryRow[];
   branchGateItems: BranchGateItemRule[];
+  /** Past jobs' recorded framing systems, by project id (LA-1103). Absent reads as none recorded. */
+  sourceProjectFraming?: Record<string, FramingSystem>;
 };
 
 /** What the read_parameters step reads. */
@@ -371,11 +388,22 @@ export async function readBenchmarkData(
       order by section, cost_code`,
   );
 
+  // Each past job's framing system (LA-1103), read for items 8 and 17. Only
+  // jobs with one recorded come back, so an unset job reads as unset.
+  const { rows: framingRows } = await db.query<{ id: string; framing_system: FramingSystem }>(
+    `select id, framing_system from projects
+      where framing_system is not null
+      order by id`,
+  );
+  const sourceProjectFraming: Record<string, FramingSystem> = {};
+  for (const row of framingRows) sourceProjectFraming[row.id] = row.framing_system;
+
   return {
     benchmarks: rows.map(toBenchmark),
     classifications: classifications.map(toClassification),
     markupHistory: await readMarkupHistory(db),
     branchGateItems: gateItems.map(toGateItemRule),
+    sourceProjectFraming,
   };
 }
 
@@ -409,6 +437,9 @@ export function assembleSnapshot(
   if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
   if (data.classifications.length > 0) snapshot.classifications = data.classifications;
   if (data.branchGateItems.length > 0) snapshot.branchGateItems = data.branchGateItems;
+  if (data.sourceProjectFraming && Object.keys(data.sourceProjectFraming).length > 0) {
+    snapshot.sourceProjectFraming = data.sourceProjectFraming;
+  }
   if (withMarkups) {
     if (data.markupHistory.length > 0) snapshot.markupHistory = data.markupHistory;
     if (rated.staffingRates.length > 0) snapshot.staffingRates = rated.staffingRates;
@@ -422,7 +453,7 @@ export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross
             demolition_gate, levels_below_grade_gate, existing_building_tie_in_gate,
             site_conditions_gate, amenity_scope_gate, elevator_gate,
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
-            parking_type`;
+            parking_type, framing_system`;
 
 export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(

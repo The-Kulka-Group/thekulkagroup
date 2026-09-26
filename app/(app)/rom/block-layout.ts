@@ -42,6 +42,8 @@ export function midpoint(range: Range): number {
 export function addsToTotal(line: RomLine): boolean {
   if (line.breakoutOf !== null) return false;
   if (line.gateStatus === "not_in_job" || line.gateStatus === "tbd") return false;
+  // LA-1103: no past job framed like this project, so the line has no figure.
+  if (line.framing?.status === "no_match") return false;
   return true;
 }
 

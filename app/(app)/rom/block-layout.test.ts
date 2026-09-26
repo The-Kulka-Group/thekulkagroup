@@ -175,6 +175,8 @@ describe("the /rom block layout", () => {
               label: block.label,
               comparableCount: 1,
               judgments: [],
+              excluded: [],
+              framingReason: null,
               signals: [
                 {
                   kind: "actuals",

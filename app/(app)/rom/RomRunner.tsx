@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Rom } from "@kulka/engine";
+import type { FramingSystem, Rom } from "@kulka/engine";
 
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -20,7 +20,7 @@ import {
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
-import { gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
+import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
 import "./rom-blocks.css";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
@@ -54,6 +54,7 @@ export function RomRunner({
   projectId,
   markupOptions,
   scopeDefaults,
+  framingDefault,
   initialRuns = [],
   initialRun = null,
 }: {
@@ -62,6 +63,8 @@ export function RomRunner({
   markupOptions?: MarkupOptions;
   /** The project's own recorded answers to the nine yes/no scope questions (LA-1028). */
   scopeDefaults?: GateAnswers;
+  /** The project's recorded framing system, null when not set (LA-1103). Undefined when the page could not read it. */
+  framingDefault?: FramingSystem | null;
   /** This project's saved runs, newest first, read on the server. */
   initialRuns?: RunSummary[];
   /** The newest saved run, so the first screen opens on an answer. */
@@ -73,6 +76,7 @@ export function RomRunner({
   const [panel, setPanel] = useState<Panel | null>(null);
   const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions));
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
+  const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
   const opener = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
@@ -149,6 +153,9 @@ export function RomRunner({
           projectId,
           ...(choices ? { markups: choices.markups } : {}),
           ...(gates ? { gates } : {}),
+          // Without a default the page could not read the project's column, so
+          // the request names none and the run reads it itself.
+          ...(framingDefault !== undefined ? { framingSystem: framing === "" ? null : framing } : {}),
         }),
       });
       const body = await response.json();
@@ -329,6 +336,9 @@ export function RomRunner({
                 onClose={closePanel}
                 titleRef={titleRef}
               />
+              {projectId && framingDefault !== undefined ? (
+                <FramingControl value={framing} onChange={setFraming} disabled={busy} />
+              ) : null}
               {projectId && scopeDefaults ? (
                 <ScopeControls form={scopeForm} onChange={setScopeForm} disabled={busy} />
               ) : null}

@@ -13,6 +13,12 @@
 
 import type { BranchGateAnswer } from "./rom-intake";
 import {
+  FRAMING_ITEM_CODES,
+  FRAMING_WORDS,
+  framingExclusionReason,
+  type FramingSystem,
+} from "./rom-framing";
+import {
   resolveGateItems,
   type BranchGateItemRule,
   type GateLineStatus,
@@ -220,6 +226,11 @@ export type DataSnapshot = {
    * at all, which is how every ROM computed before LA-1028 reads.
    */
   branchGateItems?: BranchGateItemRule[];
+  /**
+   * Each past job's recorded framing system, keyed by project id (LA-1103).
+   * A job missing here has none recorded. Only items 8 and 17 read it.
+   */
+  sourceProjectFraming?: Record<string, FramingSystem>;
 };
 
 export type Answers = {
@@ -236,6 +247,11 @@ export type Answers = {
    * none, which is how every ROM computed before LA-1016 reads.
    */
   markups?: MarkupChoices;
+  /**
+   * How the project being estimated is framed (LA-1103). Absent or null means
+   * nobody has set it, and items 8 and 17 are held for review.
+   */
+  framingSystem?: FramingSystem | null;
 };
 
 /** One figure that went into a line's blend. */
@@ -248,6 +264,25 @@ export type Comparable = {
   exportLabel: string | null;
   recordedBy: string;
   recordedAt: string;
+};
+
+/** A figure the blend left out, with the reason in plain words (LA-1103). */
+export type ExcludedComparable = Comparable & { reason: string };
+
+/**
+ * What the framing system did to item 8 or 17 (LA-1103). "matched" blends only
+ * jobs framed like this project. "no_match" means no such job exists, so the
+ * line carries no figure and stays out of the total. "target_unknown" blends
+ * every job as before and holds the line, because nobody set this project's
+ * framing system.
+ */
+export type FramingLineStatus = "matched" | "no_match" | "target_unknown";
+
+export type FramingLine = {
+  status: FramingLineStatus;
+  /** Why the line is held, or null when it is not held for framing. */
+  reason: string | null;
+  excluded: ExcludedComparable[];
 };
 
 export type RomLine = {
@@ -290,6 +325,8 @@ export type RomLine = {
    * out of both; `"assumed_present"` prices normally but is named on the ROM.
    */
   gateStatus: GateLineStatus | null;
+  /** Present on items 8 and 17 only (LA-1103). Absent on every other line and on runs recorded before it. */
+  framing?: FramingLine;
 };
 
 /** One item a branch gate named on the face of the ROM (LA-1028). */
@@ -372,18 +409,29 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     (snapshot.classifications ?? []).map((c) => [c.costCode, c]),
   );
 
+  const blend = (costCode: string, rows: Benchmark[]) =>
+    blendLine(
+      rows,
+      answers.grossSquareFeet,
+      snapshot.parameters,
+      tiers,
+      rulesByCostCode.get(costCode) ?? [],
+      classificationsByCostCode.get(costCode) ?? null,
+    );
+
   const blended = [...byCostCode.keys()]
     .sort((a, b) => a.localeCompare(b))
-    .map((costCode) =>
-      blendLine(
-        byCostCode.get(costCode)!,
-        answers.grossSquareFeet,
-        snapshot.parameters,
-        tiers,
-        rulesByCostCode.get(costCode) ?? [],
-        classificationsByCostCode.get(costCode) ?? null,
-      ),
-    );
+    .map((costCode) => {
+      const rows = byCostCode.get(costCode)!;
+      if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows);
+      return blendFramingLine(
+        rows,
+        answers.framingSystem ?? null,
+        snapshot.sourceProjectFraming ?? {},
+        (kept) => blend(costCode, kept),
+        (row) => toComparable(row, weightFor(snapshot.parameters, row.provenance.kind)),
+      );
+    });
 
   // A branch gate can switch a canonical item on or off (LA-1028). The
   // answers a gate rule reads sit in `facts`, whatever the caller named that
@@ -424,7 +472,13 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   // same way, and its rate is already zero above, so summing it changes
   // nothing but keeps this one filter reading as "what counts toward the
   // total" rather than two separate exclusions.
-  const added = lines.filter((l) => l.breakoutOf === null && l.gateStatus !== "not_in_job" && l.gateStatus !== "tbd");
+  const added = lines.filter(
+    (l) =>
+      l.breakoutOf === null &&
+      l.gateStatus !== "not_in_job" &&
+      l.gateStatus !== "tbd" &&
+      l.framing?.status !== "no_match",
+  );
   const carved = lines.filter((l) => l.breakoutOf !== null);
   const kulkaLines = added.filter((l) => l.contractSide === "kulka");
   const ownerLines = added.filter((l) => l.contractSide === "owner");
@@ -656,6 +710,66 @@ function blendLine(
   };
 }
 
+/**
+ * Items 8 and 17 (LA-1103). With the target's framing system known, only rows
+ * from past jobs framed the same way go into the blend. When none are left the
+ * line carries no figure rather than falling back to jobs framed the other
+ * way. With it unknown, every row blends as before and the line is held.
+ */
+function blendFramingLine(
+  rows: Benchmark[],
+  target: FramingSystem | null,
+  sourceFraming: Record<string, FramingSystem>,
+  blend: (rows: Benchmark[]) => RomLine,
+  comparableOf: (row: Benchmark) => Comparable,
+): RomLine {
+  if (target === null) {
+    const line = blend(rows);
+    return {
+      ...line,
+      heldForReview: true,
+      framing: {
+        status: "target_unknown",
+        reason:
+          "The framing system for this project is not set, so this line blends past jobs whatever their framing, and wood and metal jobs carry different scope on this item.",
+        excluded: [],
+      },
+    };
+  }
+
+  const kept: Benchmark[] = [];
+  const excluded: ExcludedComparable[] = [];
+  for (const row of rows) {
+    const reason = framingExclusionReason(row.provenance.sourceProjectIds, target, sourceFraming);
+    if (reason === null) kept.push(row);
+    else excluded.push({ ...comparableOf(row), reason });
+  }
+  excluded.sort((a, b) => compareComparables(a, b));
+
+  if (kept.length > 0) {
+    return { ...blend(kept), framing: { status: "matched", reason: null, excluded } };
+  }
+
+  // Label and sides still come from the rows, so the line reads as the item it
+  // is; the money is zero and the line stays out of every total.
+  const shell = blend(rows);
+  return {
+    ...shell,
+    low: 0,
+    high: 0,
+    confidence: "low",
+    heldForReview: true,
+    comparableCount: 0,
+    comparables: [],
+    judgmentAdjustments: [],
+    framing: {
+      status: "no_match",
+      reason: `No past job in the data was ${FRAMING_WORDS[target]}, so this line has no figure and sits outside the total.`,
+      excluded,
+    },
+  };
+}
+
 function toComparable(row: Benchmark, weight: number): Comparable {
   return {
     kind: row.provenance.kind,
@@ -762,7 +876,22 @@ function assumptionsFor(
     );
   }
 
-  const modelOnly = lines.filter((l) => l.comparables.every((c) => c.kind === "llm_proposal"));
+  const noFraming = lines.filter((l) => l.framing?.status === "no_match");
+  if (noFraming.length > 0) {
+    assumptions.push(
+      `No past job framed like this project stands behind ${noFraming.map((l) => l.label).join(" or ")}, so ${noFraming.length === 1 ? "that line has" : "those lines have"} no figure and ${noFraming.length === 1 ? "sits" : "sit"} outside the total.`,
+    );
+  }
+  const unknownFraming = lines.filter((l) => l.framing?.status === "target_unknown");
+  if (unknownFraming.length > 0) {
+    assumptions.push(
+      `This project's framing system is not set, so ${unknownFraming.map((l) => l.label).join(" and ")} blend wood and metal jobs and ${unknownFraming.length === 1 ? "is" : "are"} held for review.`,
+    );
+  }
+
+  const modelOnly = lines.filter(
+    (l) => l.framing?.status !== "no_match" && l.comparables.every((c) => c.kind === "llm_proposal"),
+  );
   if (modelOnly.length > 0) {
     assumptions.push(
       `${modelOnly.length} of ${lines.length} lines rest on no Kulka data at all: a model proposed the figure, and each is flagged low and held for review.`,

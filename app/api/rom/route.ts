@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { parseFramingSystem } from "@/lib/rom/framing";
 import { parseGateAnswers } from "@/lib/rom/gates";
 import { parseMarkupChoices } from "@/lib/rom/markup";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
@@ -32,8 +33,9 @@ export async function POST(request: Request) {
   let responses: unknown;
   let markups: unknown;
   let gates: unknown;
+  let framingSystem: unknown;
   try {
-    ({ projectId, responses, markups, gates } = await request.json());
+    ({ projectId, responses, markups, gates, framingSystem } = await request.json());
   } catch {
     return NextResponse.json({ error: "Send a JSON body." }, { status: 400 });
   }
@@ -63,6 +65,10 @@ export async function POST(request: Request) {
   const parsedGates = parseGateAnswers(gates);
   if (!parsedGates.ok) return NextResponse.json({ error: parsedGates.error }, { status: 400 });
 
+  // The framing system (LA-1103). Absent reads the project's own column.
+  const parsedFraming = parseFramingSystem(framingSystem);
+  if (!parsedFraming.ok) return NextResponse.json({ error: parsedFraming.error }, { status: 400 });
+
   try {
     const { runId, rom } = await runRom(
       getDb(),
@@ -70,6 +76,7 @@ export async function POST(request: Request) {
       responses,
       parsed.choices,
       gates === undefined ? undefined : parsedGates.gates,
+      parsedFraming.framing,
     );
     return NextResponse.json({ runId, rom });
   } catch (cause) {

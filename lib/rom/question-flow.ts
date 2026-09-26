@@ -22,7 +22,7 @@ export const FLOW_FILE = "config/rom/tier1-flow.json";
  * `markups` (LA-1016) is excluded too: the ROM request carries it beside the
  * responses, not as an answer to a question.
  */
-export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates" | "markups">;
+export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates" | "markups" | "framingSystem">;
 
 export type QuestionKind = "choice" | "number" | "branch_gate";
 

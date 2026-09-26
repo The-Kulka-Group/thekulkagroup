@@ -223,6 +223,7 @@ export function BlockPanel({
           Nobody answered the scope question behind this line, so it prices as present.
         </p>
       ) : null}
+      {line.framing?.reason ? <p className="rb-pp">{line.framing.reason}</p> : null}
       {line.buyoutPackage ? <p className="rb-pp">Bought as {line.buyoutPackage}.</p> : null}
 
       <Provenance drilldown={drilldown} costCode={line.costCode} label={line.label} />
@@ -296,6 +297,19 @@ function Provenance({
           sub={signalWords(signal)}
         />
       ))}
+      {line.excluded.length > 0 ? (
+        <>
+          <h3>Left out of the blend</h3>
+          {line.excluded.map((signal, index) => (
+            <Row
+              key={`excluded-${signal.kind}-${signal.recordedAt}-${index}`}
+              name={projectWords(signal)}
+              amount={`${PER_SF.format(signal.rate)}/SF`}
+              sub={signal.reason}
+            />
+          ))}
+        </>
+      ) : null}
       {line.judgments.length > 0 ? (
         <>
           <h3>Estimator rules</h3>
@@ -331,7 +345,7 @@ function countWords(count: number, noun: string): string {
   return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
 }
 
-function projectWords(signal: ProvenanceSignal): string {
+function projectWords(signal: Pick<ProvenanceSignal, "projects">): string {
   if (signal.projects.length === 0) return "No comparable project";
   return signal.projects.map((p) => p.name ?? "Project record missing").join(", ");
 }

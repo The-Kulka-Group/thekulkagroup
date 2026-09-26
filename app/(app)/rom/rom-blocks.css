@@ -50,8 +50,10 @@
   border-radius: 50%;
   flex: none;
 }
+/* Held lines and assumed scope are both open items, so both take orange, as
+   Round 14 marked anything open. Red stays for errors. */
 .rb-dot--stuck,
-.rb-dot--low { background: var(--stuck-bright); }
+.rb-dot--low,
 .rb-dot--working,
 .rb-dot--medium { background: var(--working); }
 .rb-dot--high { background: var(--done-bright); }

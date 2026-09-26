@@ -19,6 +19,7 @@ import {
   tradeBlocks,
   valueTier,
 } from "./block-layout";
+import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { NewBudgetForm } from "./NewBudget";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
@@ -46,7 +47,8 @@ type Panel =
   | { kind: "block"; costCode: string }
   | { kind: "notes" }
   | { kind: "settings" }
-  | { kind: "new" };
+  | { kind: "new" }
+  | { kind: "edit" };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -64,6 +66,8 @@ export function RomRunner({
   initialRun = null,
   projects = [],
   projectNotFound = false,
+  projectArchivedAt = null,
+  isEnvProject = false,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
@@ -82,6 +86,10 @@ export function RomRunner({
   projects?: RomProjectOption[];
   /** The URL named a project that does not exist. */
   projectNotFound?: boolean;
+  /** Set when the URL names an archived project (LA-1110); blocks the pricing UI for a Restore prompt. */
+  projectArchivedAt?: string | null;
+  /** Whether projectId is the project configured for this environment (ROM_PROJECT_ID); it cannot be archived (LA-1110). */
+  isEnvProject?: boolean;
 }) {
   const router = useRouter();
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
@@ -218,6 +226,26 @@ export function RomRunner({
     ? held + run.rom.tbdGateItems.length + run.rom.assumedPresentItems.length
     : 0;
 
+  // LA-1110: an archived project shows only its archived state and a Restore
+  // button. The rest of the runner (settings, run, blocks) never mounts for
+  // it, so there is nothing stale to reconcile once it is restored -- the
+  // restore just reloads the page.
+  if (projectArchivedAt) {
+    return (
+      <div className="rb">
+        <header className="rb-hdr">
+          <div className="rb-t1">
+            <span className="rb-badge">R-100</span>
+            <h1 className="rb-title">Conceptual budget</h1>
+          </div>
+        </header>
+        <main className="rb-fld">
+          <RestorePanel projectId={projectId ?? ""} onRestored={() => router.refresh()} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className={`rb${panel ? " rb--open" : ""}`}>
       <header className="rb-hdr">
@@ -257,6 +285,16 @@ export function RomRunner({
           >
             New budget
           </button>
+          {projectId ? (
+            <button
+              type="button"
+              className="rb-hbtn"
+              aria-expanded={panel?.kind === "edit"}
+              onClick={(e) => openPanel({ kind: "edit" }, e.currentTarget)}
+            >
+              Edit project
+            </button>
+          ) : null}
           {projectId && (markupOptions || scopeDefaults) ? (
             <button
               type="button"
@@ -401,6 +439,24 @@ export function RomRunner({
                 titleRef={titleRef}
               />
               <NewBudgetForm onCreated={(id) => router.push(`/rom?project=${id}`)} />
+            </>
+          ) : null}
+
+          {panel.kind === "edit" && projectId ? (
+            <>
+              <PanelHead title="Edit project" sub="Saved runs are untouched." onClose={closePanel} titleRef={titleRef} />
+              <EditProjectPanelBody
+                projectId={projectId}
+                isEnvProject={isEnvProject}
+                onSaved={() => {
+                  closePanel();
+                  router.refresh();
+                }}
+                onArchived={() => {
+                  closePanel();
+                  router.push("/rom");
+                }}
+              />
             </>
           ) : null}
 
@@ -568,6 +624,45 @@ function runWords(run: LoadedRun): string {
   if (!run.startedAt) return id;
   const started = new Date(run.startedAt);
   return `${id}, ${STAMP.format(started)} at ${CLOCK.format(started)}`;
+}
+
+/** Fetches the project's own row for the Edit panel's prefill (LA-1110). */
+function EditProjectPanelBody({
+  projectId,
+  isEnvProject,
+  onSaved,
+  onArchived,
+}: {
+  projectId: string;
+  isEnvProject: boolean;
+  onSaved: () => void;
+  onArchived: () => void;
+}) {
+  const [state, setState] = useState<
+    { phase: "loading" } | { phase: "ready"; project: EditableProject } | { phase: "failed" }
+  >({ phase: "loading" });
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/rom/projects/${encodeURIComponent(projectId)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("not found");
+        const body = await response.json();
+        if (live) setState({ phase: "ready", project: body.project as EditableProject });
+      })
+      .catch(() => {
+        if (live) setState({ phase: "failed" });
+      });
+    return () => {
+      live = false;
+    };
+  }, [projectId]);
+
+  if (state.phase === "loading") return <p className="rb-none">Reading the project.</p>;
+  if (state.phase === "failed") return <p className="rb-none rb-none--error">The project could not be read.</p>;
+  return (
+    <EditProjectForm project={state.project} isEnvProject={isEnvProject} onSaved={onSaved} onArchived={onArchived} />
+  );
 }
 
 async function readRun(runId: string): Promise<RunRecord | null> {

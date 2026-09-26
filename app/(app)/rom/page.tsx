@@ -40,9 +40,24 @@ export default async function RomPage({
 
   const db = getDb();
   const { project } = await searchParams;
-  const { projectId, notFound } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
+  const { projectId, notFound, archivedAt } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
   const projects = await listRomProjects(db);
   if (!projectId) return <RomRunner projects={projects} projectNotFound={notFound} />;
+
+  // LA-1110: an archived project shows only its archived state and a
+  // Restore button, not the pricing UI. It stays out of `projects` (the
+  // header picker) so this only happens by a direct `?project=<id>` link.
+  if (archivedAt) {
+    return (
+      <RomRunner
+        key={`${projectId}-archived`}
+        projectId={projectId}
+        projects={projects}
+        projectArchivedAt={archivedAt}
+        isEnvProject={projectId === process.env.ROM_PROJECT_ID}
+      />
+    );
+  }
 
   const [markupOptions, markupDefault, scopeDefaults, framingDefault, allRuns] = await Promise.all([
     readMarkupOptions(db),
@@ -56,7 +71,7 @@ export default async function RomPage({
 
   return (
     <RomRunner
-      key={projectId}
+      key={`${projectId}-active`}
       projectId={projectId}
       markupOptions={markupOptions}
       markupDefault={markupDefault}
@@ -65,6 +80,7 @@ export default async function RomPage({
       initialRuns={runs}
       initialRun={initialRun}
       projects={projects}
+      isEnvProject={projectId === process.env.ROM_PROJECT_ID}
     />
   );
 }

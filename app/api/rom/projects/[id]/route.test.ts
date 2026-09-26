@@ -1,0 +1,112 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { Db } from "@/lib/db";
+import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
+
+// LA-1110. Edit project against a seeded Postgres: GET prefills, PATCH saves
+// through the same parseNewBudget validation New budget uses.
+
+let db: Awaited<ReturnType<typeof seededDatabase>>;
+
+vi.mock("@/lib/db", () => ({ getDb: () => db as Db }));
+
+const { GET, PATCH } = await import("./route");
+
+function ctx(id: string) {
+  return { params: Promise.resolve({ id }) };
+}
+
+function patch(id: string, body: unknown, headers: Record<string, string> = {}) {
+  return PATCH(
+    new Request(`http://localhost/api/rom/projects/${id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(body),
+    }),
+    ctx(id),
+  );
+}
+
+const edit = {
+  name: "Maple Court, edited (example)",
+  grossSquareFeet: 130000,
+  projectType: "self_storage",
+  constructionKind: "renovation",
+  framingSystem: "metal",
+};
+
+beforeEach(async () => {
+  db = await seededDatabase();
+});
+
+afterEach(async () => {
+  await db.close();
+});
+
+describe("GET /api/rom/projects/[id]", () => {
+  it("refuses a signed-out request", async () => {
+    const response = await GET(
+      new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`, {
+        headers: { "x-kulka-test-auth": "signed-out" },
+      }),
+      ctx(TEST_PROJECT_ID),
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("returns the project's own fields", async () => {
+    const response = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    expect(response.status).toBe(200);
+    const { project } = await response.json();
+    expect(project).toMatchObject({ id: TEST_PROJECT_ID, name: "Synthetic test project" });
+  });
+
+  it("404s for an id that does not exist", async () => {
+    const response = await GET(
+      new Request("http://localhost/api/rom/projects/00000000-0000-4000-8000-00000000abcd"),
+      ctx("00000000-0000-4000-8000-00000000abcd"),
+    );
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("PATCH /api/rom/projects/[id]", () => {
+  it("refuses a signed-out request and writes nothing", async () => {
+    const response = await patch(TEST_PROJECT_ID, edit, { "x-kulka-test-auth": "signed-out" });
+    expect(response.status).toBe(401);
+    const row = await db.query<{ name: string }>(`select name from projects where id = $1`, [TEST_PROJECT_ID]);
+    expect(row.rows[0].name).toBe("Synthetic test project");
+  });
+
+  it.each([[{ ...edit, name: " " }], [{ ...edit, grossSquareFeet: 0 }], [{ ...edit, projectType: "office" }]])(
+    "refuses a bad form %j and writes nothing",
+    async (body) => {
+      const response = await patch(TEST_PROJECT_ID, body);
+      expect(response.status).toBe(400);
+    },
+  );
+
+  it("saves the edit and leaves saved runs untouched", async () => {
+    const run = await db.query<{ id: string }>(
+      `insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'succeeded') returning id`,
+      [TEST_PROJECT_ID],
+    );
+    const response = await patch(TEST_PROJECT_ID, edit);
+    expect(response.status).toBe(200);
+    const row = await db.query<Record<string, unknown>>(`select * from projects where id = $1`, [TEST_PROJECT_ID]);
+    expect(row.rows[0]).toMatchObject({
+      name: edit.name,
+      gross_square_feet: edit.grossSquareFeet,
+      project_type: edit.projectType,
+      construction_kind: edit.constructionKind,
+      framing_system: edit.framingSystem,
+    });
+    const runRow = await db.query<{ project_id: string }>(`select project_id from runs where id = $1`, [run.rows[0].id]);
+    expect(runRow.rows[0].project_id).toBe(TEST_PROJECT_ID);
+  });
+
+  it("404s for a project that does not exist", async () => {
+    const response = await patch("00000000-0000-4000-8000-00000000abcd", edit);
+    expect(response.status).toBe(404);
+  });
+});

@@ -71,7 +71,9 @@
 .rb-t1 {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+  white-space: nowrap;
   gap: 6px 12px;
   font-size: var(--meta-size);
   color: var(--rb-ink2-on-black);
@@ -466,4 +468,22 @@
     border-radius: 14px 14px 0 0;
     padding: 16px;
   }
+}
+
+/* The picker doubles as the project name: it reads as bold text and gives up
+   width first, so the buttons keep their place on one line. */
+.rb-t1 .rb-pick {
+  min-width: 160px;
+  max-width: 320px;
+  flex: 0 1 auto;
+  border-color: transparent;
+  background: transparent;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  padding: 0 var(--s2);
+}
+.rb-t1 > * { flex-shrink: 0; }
+.rb-t1 > .rb-pick, .rb-t1 > .rb-sp { flex-shrink: 1; }
+@media (max-width: 1100px) {
+  .rb-t1 { flex-wrap: wrap; white-space: normal; }
 }

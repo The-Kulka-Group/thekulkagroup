@@ -221,17 +221,8 @@ export function RomRunner({
         <div className="rb-t1">
           <span className="rb-badge">R-100</span>
           <h1 className="rb-title">Conceptual budget</h1>
-          {run?.projectName ? <span className="rb-proj">{run.projectName}</span> : null}
-          {run?.grossSquareFeet ? (
-            <span className="num">{AREA.format(run.grossSquareFeet)} SF</span>
-          ) : null}
-          {!projectId ? <span>{projectNotFound ? "Project not found" : "No project configured"}</span> : null}
-          <nav className="rb-links" aria-label="ROM pages">
-            {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block board</Link> : null}
-            <Link href="/rom/runs">Past runs</Link>
-            <Link href="/rom/backtest">Backtest</Link>
-          </nav>
-          <span className="rb-sp" />
+          {/* The picker sits where the project name was, so the name shows once
+              and the header stays on one line. */}
           {projects.length > 0 ? (
             <select
               className="rb-pick"
@@ -249,6 +240,12 @@ export function RomRunner({
               ))}
             </select>
           ) : null}
+          {projects.length === 0 && run?.projectName ? <span className="rb-proj">{run.projectName}</span> : null}
+          {run?.grossSquareFeet ? (
+            <span className="num">{AREA.format(run.grossSquareFeet)} SF</span>
+          ) : null}
+          {!projectId ? <span>{projectNotFound ? "Project not found" : "No project configured"}</span> : null}
+          <span className="rb-sp" />
           <button
             type="button"
             className="rb-hbtn"
@@ -475,9 +472,13 @@ export function RomRunner({
             })}
           </div>
         )}
-        <Link className="rb-rall" href="/rom/runs">
-          All runs
-        </Link>
+        {/* The page links live here, beside All runs, so the header keeps to
+            one line when a long project name is chosen. */}
+        <nav className="rb-links rb-rall" aria-label="ROM pages">
+          {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block board</Link> : null}
+          <Link href="/rom/backtest">Backtest</Link>
+          <Link href="/rom/runs">All runs</Link>
+        </nav>
       </footer>
     </div>
   );

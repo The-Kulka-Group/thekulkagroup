@@ -53,17 +53,26 @@ function percentText(fraction: number | undefined | null): string {
   return fraction === undefined || fraction === null ? "" : String(Number((fraction * 100).toFixed(4)));
 }
 
-export function initialMarkupForm(options: MarkupOptions | undefined): MarkupForm {
+/**
+ * The form's starting values: the project's own saved choice (LA-1109) where
+ * it recorded one, the recorded rate-table defaults everywhere else. A
+ * project nobody has run with a saved choice yet (`saved` null) opens exactly
+ * as it always has.
+ */
+export function initialMarkupForm(options: MarkupOptions | undefined, saved?: MarkupChoices | null): MarkupForm {
   return {
-    setup: "both",
-    method: "pct_of_subtotal",
-    overridePercent: "",
-    overridePerSf: "",
-    durationWeeks: "",
-    staff: [],
-    fieldOffice: [],
-    feePercent: percentText(options?.feeRate?.value),
-    insurancePercent: percentText(options?.insuranceRate?.value),
+    setup: saved?.setup ?? "both",
+    method: saved?.method ?? "pct_of_subtotal",
+    overridePercent: saved?.method === "pct_of_subtotal" ? percentText(saved.overrideRate) : "",
+    overridePerSf: saved?.method === "usd_per_gsf" && saved.overrideRate !== undefined ? String(saved.overrideRate) : "",
+    durationWeeks: saved?.durationWeeks !== undefined ? String(saved.durationWeeks) : "",
+    staff: (saved?.staff ?? []).map((pick) => ({ rateId: pick.rateId, weeks: pick.weeks !== undefined ? String(pick.weeks) : "" })),
+    fieldOffice: (saved?.fieldOffice ?? []).map((pick) => ({
+      rateId: pick.rateId,
+      quantity: pick.quantity !== undefined ? String(pick.quantity) : "",
+    })),
+    feePercent: percentText(saved?.feeRate ?? options?.feeRate?.value),
+    insurancePercent: percentText(saved?.insuranceRate ?? options?.insuranceRate?.value),
   };
 }
 

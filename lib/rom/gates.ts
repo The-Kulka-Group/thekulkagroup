@@ -55,6 +55,19 @@ export async function readProjectGateAnswers(db: Db, projectId: string): Promise
   return answers;
 }
 
+/**
+ * Writes the Scope module's answers back onto the project record (LA-1109),
+ * so the next visit prefills from what was just run. Every section the module
+ * shows is set: a section absent from `gates` (nobody answered it in the
+ * panel) clears that column, the same "full state, blanks included" contract
+ * `parseGateAnswers` already reads off the wire.
+ */
+export async function saveProjectGateAnswers(db: Db, projectId: string, gates: GateAnswers): Promise<void> {
+  const assignments = SCOPE_QUESTIONS.map((q, i) => `${q.column} = $${i + 2}`).join(", ");
+  const values = SCOPE_QUESTIONS.map((q) => gates[q.section] ?? null);
+  await db.query(`update projects set ${assignments} where id = $1`, [projectId, ...values]);
+}
+
 export type ParsedGateAnswers = { ok: true; gates: GateAnswers } | { ok: false; error: string };
 
 /**

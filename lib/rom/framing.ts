@@ -32,3 +32,12 @@ export async function readProjectFramingSystem(db: Db, projectId: string): Promi
   );
   return rows[0]?.framing_system ?? null;
 }
+
+/** Writes the Run settings framing choice back onto the project (LA-1109). Null clears it. */
+export async function saveProjectFramingSystem(
+  db: Db,
+  projectId: string,
+  framing: FramingSystem | null,
+): Promise<void> {
+  await db.query(`update projects set framing_system = $2 where id = $1`, [projectId, framing]);
+}

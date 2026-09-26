@@ -2,7 +2,7 @@ import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { readProjectFramingSystem } from "@/lib/rom/framing";
 import { readProjectGateAnswers } from "@/lib/rom/gates";
-import { readMarkupOptions } from "@/lib/rom/markup";
+import { readMarkupOptions, readProjectMarkupChoices } from "@/lib/rom/markup";
 import { listRomProjects, resolveRomProjectId } from "@/lib/rom/projects";
 import { getRun, listRuns } from "@/lib/rom/run-records";
 
@@ -44,8 +44,9 @@ export default async function RomPage({
   const projects = await listRomProjects(db);
   if (!projectId) return <RomRunner projects={projects} projectNotFound={notFound} />;
 
-  const [markupOptions, scopeDefaults, framingDefault, allRuns] = await Promise.all([
+  const [markupOptions, markupDefault, scopeDefaults, framingDefault, allRuns] = await Promise.all([
     readMarkupOptions(db),
+    readProjectMarkupChoices(db, projectId),
     readProjectGateAnswers(db, projectId),
     readProjectFramingSystem(db, projectId),
     listRuns(db),
@@ -58,6 +59,7 @@ export default async function RomPage({
       key={projectId}
       projectId={projectId}
       markupOptions={markupOptions}
+      markupDefault={markupDefault}
       scopeDefaults={scopeDefaults}
       framingDefault={framingDefault}
       initialRuns={runs}

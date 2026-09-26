@@ -206,6 +206,95 @@ describe("POST /api/rom", () => {
   });
 });
 
+// LA-1109: Run settings save to the project when Run ROM is pressed, so the
+// next visit's defaults come from the last run rather than always the
+// recorded fallback.
+describe("POST /api/rom saves Run settings to the project", () => {
+  async function projectRow(): Promise<{
+    framing_system: string | null;
+    demolition_gate: string | null;
+    elevator_gate: string | null;
+    markup_choices: Record<string, unknown> | null;
+  }> {
+    const { rows } = await db.query<{
+      framing_system: string | null;
+      demolition_gate: string | null;
+      elevator_gate: string | null;
+      markup_choices: Record<string, unknown> | null;
+    }>(
+      `select framing_system, demolition_gate, elevator_gate, markup_choices
+         from projects where id = $1`,
+      [TEST_PROJECT_ID],
+    );
+    return rows[0];
+  }
+
+  it("saves framing, gates, and markups together with one run", async () => {
+    const response = await post({
+      projectId: TEST_PROJECT_ID,
+      framingSystem: "metal",
+      gates: { demolition: "no", elevator: "yes" },
+      markups: { setup: "gc_only", method: "pct_of_subtotal", feeRate: 0.04 },
+    });
+    expect(response.status).toBe(200);
+
+    const row = await projectRow();
+    expect(row.framing_system).toBe("metal");
+    expect(row.demolition_gate).toBe("no");
+    expect(row.elevator_gate).toBe("yes");
+    expect(row.markup_choices).toEqual({ setup: "gc_only", method: "pct_of_subtotal", feeRate: 0.04 });
+  });
+
+  it("leaves a field untouched when the request names none of it", async () => {
+    await post({ projectId: TEST_PROJECT_ID, framingSystem: "wood" });
+    await post({ projectId: TEST_PROJECT_ID });
+
+    const row = await projectRow();
+    expect(row.framing_system).toBe("wood");
+    expect(row.markup_choices).toBeNull();
+  });
+
+  it("clears framing when the panel sends null", async () => {
+    await post({ projectId: TEST_PROJECT_ID, framingSystem: "wood" });
+    await post({ projectId: TEST_PROJECT_ID, framingSystem: null });
+
+    expect((await projectRow()).framing_system).toBeNull();
+  });
+
+  it("still saves the settings when the run itself fails", async () => {
+    const projectId = await unbudgetableProject();
+
+    const response = await post({
+      projectId,
+      framingSystem: "metal",
+      gates: { demolition: "yes" },
+    });
+    expect(response.status).toBe(422);
+
+    const { rows } = await db.query<{ framing_system: string | null; demolition_gate: string | null }>(
+      `select framing_system, demolition_gate from projects where id = $1`,
+      [projectId],
+    );
+    expect(rows[0].framing_system).toBe("metal");
+    expect(rows[0].demolition_gate).toBe("yes");
+  });
+
+  it("saves nothing, and opens no run, when a markup choice is invalid", async () => {
+    await post({ projectId: TEST_PROJECT_ID, framingSystem: "wood" });
+    const before = await runs();
+    const response = await post({
+      projectId: TEST_PROJECT_ID,
+      framingSystem: "metal",
+      markups: { setup: "everything" },
+    });
+    expect(response.status).toBe(400);
+
+    const row = await projectRow();
+    expect(row.framing_system).toBe("wood");
+    expect(await runs()).toEqual(before);
+  });
+});
+
 describe("benchmark provenance schema", () => {
   it("rejects imported cost data with no export named", async () => {
     await expect(

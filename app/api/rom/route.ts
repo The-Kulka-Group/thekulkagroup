@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
-import { parseFramingSystem } from "@/lib/rom/framing";
-import { parseGateAnswers } from "@/lib/rom/gates";
-import { parseMarkupChoices } from "@/lib/rom/markup";
+import { parseFramingSystem, saveProjectFramingSystem } from "@/lib/rom/framing";
+import { parseGateAnswers, saveProjectGateAnswers } from "@/lib/rom/gates";
+import { parseMarkupChoices, saveProjectMarkupChoices } from "@/lib/rom/markup";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 import type { Responses } from "@/lib/rom/question-flow";
 
@@ -69,9 +69,24 @@ export async function POST(request: Request) {
   const parsedFraming = parseFramingSystem(framingSystem);
   if (!parsedFraming.ok) return NextResponse.json({ error: parsedFraming.error }, { status: 400 });
 
+  const db = getDb();
+
+  // LA-1109: Run settings save to the project before the run opens, so a
+  // failed run still leaves the settings in place and the project's next
+  // visit reads what was just tried. Only a field the request actually named
+  // is saved; a field the caller sent nothing for (no rate tables to build
+  // markups from, no defaults object to build gates from, no recorded
+  // framing column) is left untouched rather than overwritten with a
+  // fallback default that was never the estimator's own choice.
+  await Promise.all([
+    markups === undefined ? null : saveProjectMarkupChoices(db, projectId, parsed.choices),
+    gates === undefined ? null : saveProjectGateAnswers(db, projectId, parsedGates.gates),
+    framingSystem === undefined ? null : saveProjectFramingSystem(db, projectId, parsedFraming.framing ?? null),
+  ]);
+
   try {
     const { runId, rom } = await runRom(
-      getDb(),
+      db,
       projectId,
       responses,
       parsed.choices,

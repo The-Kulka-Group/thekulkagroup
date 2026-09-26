@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FramingSystem, Rom } from "@kulka/engine";
+import type { FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -57,6 +57,7 @@ const AREA = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 export function RomRunner({
   projectId,
   markupOptions,
+  markupDefault,
   scopeDefaults,
   framingDefault,
   initialRuns = [],
@@ -67,6 +68,8 @@ export function RomRunner({
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
   markupOptions?: MarkupOptions;
+  /** The project's own saved markup choice (LA-1109), null when it has never saved one. */
+  markupDefault?: MarkupChoices | null;
   /** The project's own recorded answers to the nine yes/no scope questions (LA-1028). */
   scopeDefaults?: GateAnswers;
   /** The project's recorded framing system, null when not set (LA-1103). Undefined when the page could not read it. */
@@ -85,7 +88,7 @@ export function RomRunner({
   const [state, setState] = useState<Status>({ phase: "idle" });
   const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
   const [panel, setPanel] = useState<Panel | null>(null);
-  const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions));
+  const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, markupDefault));
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
   const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
   const opener = useRef<HTMLElement | null>(null);
@@ -367,7 +370,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title="Run settings"
-                sub="Scope answers and markups for the next run. A change here applies to that run only."
+                sub="These settings save to this project when you run."
                 onClose={closePanel}
                 titleRef={titleRef}
               />

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
-import { parseGateAnswers, readProjectGateAnswers, SCOPE_QUESTIONS } from "./gates";
+import { parseGateAnswers, readProjectGateAnswers, saveProjectGateAnswers, SCOPE_QUESTIONS } from "./gates";
 
 // LA-1028: the Scope module's server side. parseGateAnswers checks what a ROM
 // request carries; readProjectGateAnswers reads a project's own defaults.
@@ -70,6 +70,37 @@ describe("readProjectGateAnswers", () => {
     const db = await seededDatabase();
     try {
       expect(await readProjectGateAnswers(db, "00000000-0000-4000-8000-0000000000ff")).toEqual({});
+    } finally {
+      await db.close();
+    }
+  });
+});
+
+describe("saveProjectGateAnswers", () => {
+  it("writes every answered section and clears every section left out", async () => {
+    const db = await seededDatabase();
+    try {
+      await saveProjectGateAnswers(db, TEST_PROJECT_ID, { demolition: "no", elevator: "yes" });
+      expect(await readProjectGateAnswers(db, TEST_PROJECT_ID)).toEqual({
+        demolition: "no",
+        elevator: "yes",
+      });
+
+      // A second save with a different set clears what the first one wrote,
+      // because the panel always sends the full state of every row.
+      await saveProjectGateAnswers(db, TEST_PROJECT_ID, { demolition: "yes" });
+      expect(await readProjectGateAnswers(db, TEST_PROJECT_ID)).toEqual({ demolition: "yes" });
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("clears every section when the gates object is empty", async () => {
+    const db = await seededDatabase();
+    try {
+      await saveProjectGateAnswers(db, TEST_PROJECT_ID, { demolition: "no" });
+      await saveProjectGateAnswers(db, TEST_PROJECT_ID, {});
+      expect(await readProjectGateAnswers(db, TEST_PROJECT_ID)).toEqual({});
     } finally {
       await db.close();
     }

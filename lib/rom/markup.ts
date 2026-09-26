@@ -332,6 +332,25 @@ export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
   };
 }
 
+/**
+ * The project's own recorded markup choices (LA-1109), read back to prefill
+ * Run settings. Null means nobody has run this project with a saved choice
+ * yet, so the panel falls back to the recorded rate-table defaults the same
+ * way it always has.
+ */
+export async function readProjectMarkupChoices(db: Db, projectId: string): Promise<MarkupChoices | null> {
+  const { rows } = await db.query<{ markup_choices: MarkupChoices | null }>(
+    `select markup_choices from projects where id = $1`,
+    [projectId],
+  );
+  return rows[0]?.markup_choices ?? null;
+}
+
+/** Writes the Run settings markup choice back onto the project (LA-1109). */
+export async function saveProjectMarkupChoices(db: Db, projectId: string, choices: MarkupChoices): Promise<void> {
+  await db.query(`update projects set markup_choices = $2 where id = $1`, [projectId, JSON.stringify(choices)]);
+}
+
 export type ParsedMarkupChoices = { ok: true; choices: MarkupChoices } | { ok: false; error: string };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

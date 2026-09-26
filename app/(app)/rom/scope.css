@@ -1,4 +1,4 @@
-/* LA-1028: the Scope module above Run ROM. Reuses .markup-module,
+/* LA-1028: the Scope module, in Run settings since LA-1101. Reuses .markup-module,
    .markup-note, .field-label, .t-label and .btn from daylight.css and
    markups.css; this file only lays out the question rows themselves. */
 

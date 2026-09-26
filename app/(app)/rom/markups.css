@@ -1,6 +1,6 @@
-/* LA-1016: the GRs/GCs module above Run ROM and the markup waterfall below
-   the lines table. Reuses .input, .field-label, .board and .btn from
-   daylight.css; this file only lays them out. */
+/* LA-1016: the GRs/GCs module, which sits in Run settings on /rom since
+   LA-1101. Reuses .input, .field-label and .btn from daylight.css; this file
+   only lays them out. */
 
 .markup-module {
   padding: var(--s4) 0;
@@ -35,26 +35,7 @@
   padding: var(--s1) 0;
 }
 
-.board--markups { margin-top: var(--s6); }
-.board--markups col:nth-child(1) { width: 12%; }
-.board--markups col:nth-child(2) { width: 24%; }
-.board--markups col:nth-child(3),
-.board--markups col:nth-child(4) { width: 14%; }
-.board--markups col:nth-child(5) { width: 36%; }
-.board--markups th:nth-child(5),
-.board--markups tbody td:nth-child(5) { text-align: left; }
-.board--markups .markup-basis {
-  color: var(--ink-2);
-  font-size: var(--meta-size);
-  white-space: normal;
-  padding-top: var(--s2);
-  padding-bottom: var(--s2);
-}
-.board--markups tr.row--total td { font-weight: 600; }
-
-/* Phone width: the pick rows stack, and the waterfall scrolls inside its own
-   box rather than pushing the page sideways. */
+/* Phone width: the pick rows stack. */
 @media (max-width: 700px) {
   .markup-picks li { grid-template-columns: 1fr; }
-  .board--markups { display: block; overflow-x: auto; }
 }

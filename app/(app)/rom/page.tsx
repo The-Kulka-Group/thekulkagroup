@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { readProjectFramingSystem } from "@/lib/rom/framing";
 import { readProjectGateAnswers } from "@/lib/rom/gates";
 import { readMarkupOptions } from "@/lib/rom/markup";
+import { listRomProjects, resolveRomProjectId } from "@/lib/rom/projects";
 import { getRun, listRuns } from "@/lib/rom/run-records";
 
 import { RomRunner } from "./RomRunner";
@@ -25,12 +26,24 @@ export const dynamic = "force-dynamic";
 // LA-1101: the saved-runs strip lists this project's finished runs, and the
 // newest one opens on the first screen so the page leads with an answer. A
 // project with no finished run opens empty and says so.
-export default async function RomPage() {
-  const projectId = process.env.ROM_PROJECT_ID;
-  const auth = projectId ? await authorizeRequest() : null;
-  if (!projectId || !auth?.ok) return <RomRunner projectId={projectId} />;
+//
+// LA-1107: the project comes from `?project=<id>` and falls back to
+// ROM_PROJECT_ID. The id is checked against the projects table before
+// anything reads by it. The header's picker lists every project with a run.
+export default async function RomPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string | string[] }>;
+}) {
+  const auth = await authorizeRequest();
+  if (!auth.ok) return <RomRunner projectId={process.env.ROM_PROJECT_ID} />;
 
   const db = getDb();
+  const { project } = await searchParams;
+  const { projectId, notFound } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
+  const projects = await listRomProjects(db);
+  if (!projectId) return <RomRunner projects={projects} projectNotFound={notFound} />;
+
   const [markupOptions, scopeDefaults, framingDefault, allRuns] = await Promise.all([
     readMarkupOptions(db),
     readProjectGateAnswers(db, projectId),
@@ -42,12 +55,14 @@ export default async function RomPage() {
 
   return (
     <RomRunner
+      key={projectId}
       projectId={projectId}
       markupOptions={markupOptions}
       scopeDefaults={scopeDefaults}
       framingDefault={framingDefault}
       initialRuns={runs}
       initialRun={initialRun}
+      projects={projects}
     />
   );
 }

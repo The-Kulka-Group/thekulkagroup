@@ -111,6 +111,20 @@
   cursor: pointer;
   transition: border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease);
 }
+/* LA-1107: the project picker, a pill on the black band like .rb-hbtn. */
+.rb-pick {
+  height: var(--control-h);
+  max-width: 240px;
+  padding: 0 var(--s4);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rb-pnl-line2);
+  background: var(--rb-pnl-raise);
+  color: var(--rb-ink-on-black);
+  font-size: var(--ui-size);
+  font-weight: 600;
+  cursor: pointer;
+}
+.rb-pick:hover { border-color: var(--rb-pnl-mute); }
 .rb-hbtn:hover { border-color: var(--rb-pnl-mute); }
 .rb-hbtn[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #FFFFFF; }
 .rb-hdr .btn--primary:disabled { background: var(--rb-pnl-raise); border-color: var(--rb-pnl-line2); color: var(--rb-pnl-mute); }

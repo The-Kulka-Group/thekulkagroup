@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FramingSystem, Rom } from "@kulka/engine";
 
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 import type { LineProvenance } from "@/lib/rom/provenance";
+import type { RomProjectOption } from "@/lib/rom/projects";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 
 import {
@@ -18,6 +20,7 @@ import {
   valueTier,
 } from "./block-layout";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
+import { NewBudgetForm } from "./NewBudget";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
@@ -42,7 +45,8 @@ type Panel =
   | { kind: "total" }
   | { kind: "block"; costCode: string }
   | { kind: "notes" }
-  | { kind: "settings" };
+  | { kind: "settings" }
+  | { kind: "new" };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -57,6 +61,8 @@ export function RomRunner({
   framingDefault,
   initialRuns = [],
   initialRun = null,
+  projects = [],
+  projectNotFound = false,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
@@ -69,7 +75,12 @@ export function RomRunner({
   initialRuns?: RunSummary[];
   /** The newest saved run, so the first screen opens on an answer. */
   initialRun?: LoadedRun | null;
+  /** Projects with at least one run, for the header picker (LA-1107). */
+  projects?: RomProjectOption[];
+  /** The URL named a project that does not exist. */
+  projectNotFound?: boolean;
 }) {
+  const router = useRouter();
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
   const [state, setState] = useState<Status>({ phase: "idle" });
   const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
@@ -214,13 +225,38 @@ export function RomRunner({
           {run?.grossSquareFeet ? (
             <span className="num">{AREA.format(run.grossSquareFeet)} SF</span>
           ) : null}
-          {!projectId ? <span>No project configured</span> : null}
+          {!projectId ? <span>{projectNotFound ? "Project not found" : "No project configured"}</span> : null}
           <nav className="rb-links" aria-label="ROM pages">
             {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block board</Link> : null}
             <Link href="/rom/runs">Past runs</Link>
             <Link href="/rom/backtest">Backtest</Link>
           </nav>
           <span className="rb-sp" />
+          {projects.length > 0 ? (
+            <select
+              className="rb-pick"
+              aria-label="Project"
+              value={projects.some((one) => one.id === projectId) ? projectId : ""}
+              onChange={(e) => {
+                if (e.target.value) router.push(`/rom?project=${e.target.value}`);
+              }}
+            >
+              {projects.some((one) => one.id === projectId) ? null : <option value="">Choose a project</option>}
+              {projects.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {one.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <button
+            type="button"
+            className="rb-hbtn"
+            aria-expanded={panel?.kind === "new"}
+            onClick={(e) => openPanel({ kind: "new" }, e.currentTarget)}
+          >
+            New budget
+          </button>
           {projectId && (markupOptions || scopeDefaults) ? (
             <button
               type="button"
@@ -302,7 +338,9 @@ export function RomRunner({
           <p className="rb-none">
             {projectId
               ? "No ROM yet. Run one to see a ranged budget."
-              : "Set ROM_PROJECT_ID to an approved project before running a ROM."}
+              : projectNotFound
+                ? "No project matches that link. Choose one from the list or start a new budget."
+                : "Choose a project or start a new budget."}
           </p>
         ) : null}
         {state.phase === "running" ? <p className="rb-none">Reading data and computing lines.</p> : null}
@@ -351,6 +389,18 @@ export function RomRunner({
                   {state.phase === "running" ? "Running" : "Run ROM"}
                 </button>
               </div>
+            </>
+          ) : null}
+
+          {panel.kind === "new" ? (
+            <>
+              <PanelHead
+                title="New budget"
+                sub="Adds the project and runs its first ROM from these facts. Anything not asked here stays blank on the project."
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <NewBudgetForm onCreated={(id) => router.push(`/rom?project=${id}`)} />
             </>
           ) : null}
 

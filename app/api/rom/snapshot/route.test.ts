@@ -2,7 +2,7 @@ import { computeRom, type DataSnapshot } from "@kulka/engine";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
-import { previewAnswers } from "@/lib/rom/preview";
+import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
 import { tier1Flow, visibleQuestions, type Responses } from "@/lib/rom/question-flow";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
@@ -112,5 +112,57 @@ describe("previewAnswers", () => {
     expect(answers?.branchGates).toEqual({});
     expect(answers?.framingSystem).toBe("wood");
     expect(answers?.markups).toBeUndefined();
+  });
+});
+
+describe("knownScopeRom", () => {
+  // Item 26 (Elevators) is closed by the elevator question in the shipped
+  // gate rules (supabase/migrations/20260924140000_branch_gate_items.sql).
+  async function withElevatorLine(): Promise<DataSnapshot> {
+    await db.query(
+      `insert into benchmarks
+         (cost_code, label, unit, value, project_type, construction_kind,
+          comparable_count, provenance_kind, provenance_export_label,
+          provenance_recorded_by, provenance_recorded_at)
+       values
+         ('26', 'Elevators', 'usd_per_gsf', 3, 'multifamily', 'new', 1,
+          'reviewed_judgment', null, 'automated test', date '2026-09-26')`,
+    );
+    return snapshotFor();
+  }
+
+  function answersWithElevator(answer?: string) {
+    const question = tier1Flow().questions.find(
+      (one) => one.mapsTo.target === "branch_gate" && one.mapsTo.section === "elevator",
+    )!;
+    return previewAnswers(
+      tier1Flow(),
+      {
+        project_type: "multifamily",
+        construction_kind: "new",
+        gross_square_feet: "1000",
+        ...(answer ? { [question.id]: answer } : {}),
+      },
+      "",
+      null,
+    )!;
+  }
+
+  it("leaves an unanswered gated line off the screen and out of the total", async () => {
+    const { known, full } = knownScopeRom(answersWithElevator(), await withElevatorLine());
+    expect(full.lines.map((line) => line.costCode)).toContain("26");
+    expect(known.lines.map((line) => line.costCode)).not.toContain("26");
+    expect(known.total.high).toBeLessThan(full.total.high);
+  });
+
+  it("brings the line in once its question puts it in scope", async () => {
+    const { known, full } = knownScopeRom(answersWithElevator("yes"), await withElevatorLine());
+    expect(known).toBe(full);
+    expect(known.lines.find((line) => line.costCode === "26")?.gateStatus).toBe("priced");
+  });
+
+  it("keeps a No in the answered list, so it still shows as not in this job", async () => {
+    const { full } = knownScopeRom(answersWithElevator("no"), await withElevatorLine());
+    expect(full.notInThisJob.map((item) => item.costCode)).toContain("26");
   });
 });

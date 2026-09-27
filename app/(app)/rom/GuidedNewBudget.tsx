@@ -138,14 +138,16 @@ export function GuidedNewBudget({
   // mid-edit that does not parse keeps the last choice that did.
   const [reachedMarkups, setReachedMarkups] = useState(false);
   const lastMarkups = useRef<MarkupChoices | null>(null);
+  // LA-1147: the preview stays empty until the project has a name.
+  const named = name.trim() !== "";
   useEffect(() => {
     if (reachedMarkups && markupOptions) {
       const parsed = markupChoicesFrom(markupForm, markupOptions);
       if (parsed.ok) lastMarkups.current = parsed.markups;
     }
     const markups = reachedMarkups && markupOptions ? lastMarkups.current : null;
-    onDraft?.({ responses, framing: framingSystem, markups });
-  }, [onDraft, responses, framingSystem, reachedMarkups, markupForm, markupOptions]);
+    onDraft?.({ named, responses, framing: framingSystem, markups });
+  }, [onDraft, named, responses, framingSystem, reachedMarkups, markupForm, markupOptions]);
 
   const answer = (id: string, value: string) => setResponses((current) => ({ ...current, [id]: value }));
 

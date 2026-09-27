@@ -134,6 +134,12 @@ async function previewAndRun(): Promise<{ preview: Rom; recorded: Rom }> {
         responses[question.id] = "1";
       } else if (question.kind === "choice") {
         responses[question.id] = question.choices![0].value;
+      } else if (question.kind === "text") {
+        // LA-1199: ZIP is the flow's one text question, validated as three
+        // digits. Leaving this branch out kept it forever unanswered, which
+        // kept it forever in `unanswered` too -- an infinite loop, not just a
+        // missed answer.
+        responses[question.id] = "212";
       }
     }
     unanswered = visibleQuestions(tier1Flow(), responses).filter(

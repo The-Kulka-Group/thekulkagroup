@@ -114,6 +114,12 @@ describe("a run over the seeded relationships", () => {
         else if (question.kind === "branch_gate") responses[question.id] = "no";
         else if (question.mapsTo.target === "engine_input") responses[question.id] = ENGINE_ANSWER[question.mapsTo.name];
         else if (question.kind === "number") responses[question.id] = "1";
+        // LA-1199: ZIP is the flow's one text question, validated as three
+        // digits. Falling into the choice branch below would crash on a
+        // question with no choices; leaving it unanswered (`continue` with no
+        // assignment) would keep `added` true forever, since this loop's
+        // `added = true` above already ran for this question every pass.
+        else if (question.kind === "text") responses[question.id] = "212";
         else responses[question.id] = question.choices![0].value;
       }
     }

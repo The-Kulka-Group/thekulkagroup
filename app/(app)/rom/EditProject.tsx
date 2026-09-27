@@ -23,6 +23,11 @@ export type EditableProject = {
   projectType: "multifamily" | "self_storage";
   constructionKind: "new" | "renovation";
   framingSystem: "wood" | "metal" | null;
+  /** LA-1199. Null on a project that predates these fields, or that never answered them. */
+  storiesAboveGrade: number | null;
+  unitCount: number | null;
+  buildingCount: number;
+  zip: string | null;
 };
 
 function formFrom(project: EditableProject): Form {
@@ -32,6 +37,10 @@ function formFrom(project: EditableProject): Form {
     projectType: project.projectType,
     constructionKind: project.constructionKind,
     framingSystem: project.framingSystem ?? "",
+    storiesAboveGrade: project.storiesAboveGrade ? String(project.storiesAboveGrade) : "",
+    unitCount: project.unitCount ? String(project.unitCount) : "",
+    buildingCount: String(project.buildingCount || 1),
+    zip: project.zip ?? "",
   };
 }
 
@@ -71,6 +80,10 @@ export function EditProjectForm({
           projectType: form.projectType,
           constructionKind: form.constructionKind,
           framingSystem: form.framingSystem || null,
+          storiesAboveGrade: form.storiesAboveGrade ? Number(form.storiesAboveGrade) : null,
+          unitCount: form.unitCount ? Number(form.unitCount) : null,
+          buildingCount: form.buildingCount ? Number(form.buildingCount) : null,
+          zip: form.zip || null,
         }),
       });
       const body = await response.json().catch(() => ({}));

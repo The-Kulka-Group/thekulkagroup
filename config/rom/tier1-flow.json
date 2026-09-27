@@ -35,6 +35,39 @@
       "mapsTo": { "target": "engine_input", "name": "grossSquareFeet" }
     },
     {
+      "id": "stories_above_grade",
+      "prompt": "Stories Above Grade",
+      "kind": "number",
+      "required": false,
+      "requiredWhen": { "questionId": "project_type", "equals": ["multifamily"] },
+      "mapsTo": { "target": "intake_field", "name": "storiesAboveGrade" }
+    },
+    {
+      "id": "unit_count",
+      "prompt": "Unit Count",
+      "kind": "number",
+      "required": false,
+      "requiredWhen": { "questionId": "project_type", "equals": ["multifamily"] },
+      "mapsTo": { "target": "intake_field", "name": "unitCount" }
+    },
+    {
+      "id": "building_count",
+      "prompt": "Building Count",
+      "help": "Defaults to 1.",
+      "kind": "number",
+      "required": false,
+      "mapsTo": { "target": "intake_field", "name": "buildingCount" }
+    },
+    {
+      "id": "zip",
+      "prompt": "ZIP",
+      "help": "First three digits only.",
+      "kind": "text",
+      "required": false,
+      "pattern": "^[0-9]{3}$",
+      "mapsTo": { "target": "intake_field", "name": "zip" }
+    },
+    {
       "id": "parking_type",
       "prompt": "What kind of parking does the project have?",
       "help": "Required on every project. Parking is never assumed.",

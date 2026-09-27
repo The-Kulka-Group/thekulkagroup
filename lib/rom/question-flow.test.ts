@@ -93,6 +93,8 @@ describe("editing the definition changes the flow", () => {
       project_type: "multifamily",
       construction_kind: "new",
       building_area: "42000",
+      stories_above_grade: "4",
+      unit_count: "120",
       parking_type: "surface",
       demolition: "no",
       levels_below_grade: "no",
@@ -113,6 +115,8 @@ const COMPLETE = {
   project_type: "multifamily",
   construction_kind: "new",
   gross_square_feet: "42000",
+  stories_above_grade: "4",
+  unit_count: "120",
   parking_type: "surface",
   demolition: "no",
   levels_below_grade: "no",
@@ -344,6 +348,83 @@ describe("answers the engine cannot use", () => {
     expect(() =>
       readFlowAnswers(tier1Flow(), { ...COMPLETE, project_type: "hospital" }),
     ).toThrow(FlowAnswersInvalid);
+  });
+});
+
+// LA-1199. Matt confirmed on 2026-09-27 that Stories Above Grade and Unit
+// Count are required for a multifamily project and not for any other. Both
+// stay visible on the Facts step either way (config/rom/tier1-flow.json's
+// requiredWhen); only whether an answer is mandatory changes.
+describe("requiredWhen: a question required only for a project type", () => {
+  it("refuses a multifamily project with no stories above grade", () => {
+    const without = { ...COMPLETE };
+    delete (without as Record<string, string>).stories_above_grade;
+    expect(() => readFlowAnswers(tier1Flow(), without)).toThrow(FlowAnswersInvalid);
+  });
+
+  it("refuses a multifamily project with no unit count", () => {
+    const without = { ...COMPLETE };
+    delete (without as Record<string, string>).unit_count;
+    expect(() => readFlowAnswers(tier1Flow(), without)).toThrow(FlowAnswersInvalid);
+  });
+
+  it("accepts a self storage project with neither answered", () => {
+    const without: Record<string, string> = { ...COMPLETE, project_type: "self_storage" };
+    delete without.stories_above_grade;
+    delete without.unit_count;
+    const { answers } = readFlowAnswers(tier1Flow(), without);
+    expect(answers.projectType).toBe("self_storage");
+  });
+
+  it("still asks the question (visible) for a project type where it is not required", () => {
+    const asked = visibleQuestions(tier1Flow(), { project_type: "self_storage" }).map((q) => q.id);
+    expect(asked).toContain("stories_above_grade");
+    expect(asked).toContain("unit_count");
+  });
+
+  it("refuses requiredWhen alongside required: true, and a requiredWhen questionId that is not there", () => {
+    const redundant = shippedFile();
+    const question = questionsOf(redundant).find((one) => one.id === "gross_square_feet")!;
+    question.requiredWhen = { questionId: "project_type", equals: ["multifamily"] };
+    expect(() => parseFlowDefinition(redundant)).toThrow(FlowDefinitionInvalid);
+
+    const dangling = shippedFile();
+    const stories = questionsOf(dangling).find((one) => one.id === "stories_above_grade")!;
+    stories.requiredWhen = { questionId: "nothing_of_the_sort", equals: ["multifamily"] };
+    expect(() => parseFlowDefinition(dangling)).toThrow(FlowDefinitionInvalid);
+  });
+});
+
+// LA-1199. ZIP is the file's first "text" kind question: free text, validated
+// against an optional pattern rather than coerced to a number.
+describe("a text question (ZIP)", () => {
+  it("accepts a three-digit answer and leaves it out of the record when blank", () => {
+    const withZip = readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "212" });
+    expect((withZip.recorded as { flow: { intakeFields: Record<string, unknown> } }).flow.intakeFields.zip).toBe(
+      "212",
+    );
+
+    const withoutZip = readFlowAnswers(tier1Flow(), COMPLETE);
+    expect(
+      (withoutZip.recorded as { flow: { intakeFields: Record<string, unknown> } }).flow.intakeFields.zip,
+    ).toBeUndefined();
+  });
+
+  it("refuses an answer that is not three digits", () => {
+    expect(() => readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "abc" })).toThrow(FlowAnswersInvalid);
+    expect(() => readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "12" })).toThrow(FlowAnswersInvalid);
+  });
+
+  it("refuses a pattern on a question that is not text-kind, and an invalid regular expression", () => {
+    const wrongKind = shippedFile();
+    const grossArea = questionsOf(wrongKind).find((one) => one.id === "gross_square_feet")!;
+    grossArea.pattern = "^[0-9]{3}$";
+    expect(() => parseFlowDefinition(wrongKind)).toThrow(FlowDefinitionInvalid);
+
+    const badPattern = shippedFile();
+    const zip = questionsOf(badPattern).find((one) => one.id === "zip")!;
+    zip.pattern = "([";
+    expect(() => parseFlowDefinition(badPattern)).toThrow(FlowDefinitionInvalid);
   });
 });
 

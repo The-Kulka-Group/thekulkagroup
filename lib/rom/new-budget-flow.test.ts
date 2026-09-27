@@ -9,9 +9,18 @@ import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } 
 // passing test is a test of the file that ships, not of a copy of it.
 
 describe("factsQuestions / scopeQuestions", () => {
-  it("puts exactly the four top-level facts on the Facts step", () => {
+  it("puts exactly the eight top-level facts on the Facts step, in the file's order", () => {
     const ids = factsQuestions(tier1Flow(), {}).map((q) => q.id);
-    expect(ids).toEqual(["project_type", "construction_kind", "gross_square_feet", "parking_type"]);
+    expect(ids).toEqual([
+      "project_type",
+      "construction_kind",
+      "gross_square_feet",
+      "stories_above_grade",
+      "unit_count",
+      "building_count",
+      "zip",
+      "parking_type",
+    ]);
   });
 
   it("puts the nine scope gates on the Scope step, with no follow-up until its gate opens", () => {
@@ -72,6 +81,8 @@ describe("requiredAnswered", () => {
         project_type: "multifamily",
         construction_kind: "new",
         gross_square_feet: "42000",
+        stories_above_grade: "4",
+        unit_count: "120",
         parking_type: "none",
       }),
     ).toBe(true);
@@ -84,9 +95,43 @@ describe("requiredAnswered", () => {
         project_type: "multifamily",
         construction_kind: "new",
         gross_square_feet: "0",
+        stories_above_grade: "4",
+        unit_count: "120",
         parking_type: "none",
       }),
     ).toBe(false);
+  });
+
+  // LA-1199: Matt confirmed on 2026-09-27 that Stories Above Grade and Unit
+  // Count are required for a multifamily project and not for any other.
+  // Building Count and ZIP stay optional on every project type.
+  it("requires stories above grade and unit count only for a multifamily project", () => {
+    const facts = factsQuestions(tier1Flow(), {});
+    const withoutEither = {
+      project_type: "multifamily",
+      construction_kind: "new",
+      gross_square_feet: "42000",
+      parking_type: "none",
+    };
+    expect(requiredAnswered(facts, withoutEither)).toBe(false);
+
+    const selfStorage = { ...withoutEither, project_type: "self_storage" };
+    expect(requiredAnswered(facts, selfStorage)).toBe(true);
+  });
+
+  it("leaves building count and ZIP optional, and validates ZIP's shape when given", () => {
+    const facts = factsQuestions(tier1Flow(), {});
+    const complete = {
+      project_type: "multifamily",
+      construction_kind: "new",
+      gross_square_feet: "42000",
+      stories_above_grade: "4",
+      unit_count: "120",
+      parking_type: "none",
+    };
+    expect(requiredAnswered(facts, complete)).toBe(true);
+    expect(requiredAnswered(facts, { ...complete, zip: "212" })).toBe(true);
+    expect(requiredAnswered(facts, { ...complete, zip: "not-a-zip" })).toBe(false);
   });
 
   it("accepts a structure count of zero, since that closes its own follow-ups rather than leaving them unanswered", () => {

@@ -129,4 +129,47 @@ describe("POST /api/rom/projects", () => {
     ]);
     expect(runs.rows[0].n).toBe(0);
   });
+
+  // LA-1199: the guided New budget flow's Facts step also asks stories above
+  // grade, unit count, building count and ZIP, so New budget's insert carries
+  // them the same way it already carries framing and parking.
+  describe("stories above grade, unit count, building count, zip (LA-1199)", () => {
+    it("stores all four when the Facts step sends them", async () => {
+      const response = await post({ ...valid, storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "212" });
+      const { projectId } = await response.json();
+      const { rows } = await db.query<{
+        stories_above_grade: number | null;
+        unit_count: number | null;
+        building_count: number;
+        zip: string | null;
+      }>(`select stories_above_grade, unit_count, building_count, zip from projects where id = $1`, [projectId]);
+      expect(rows[0]).toEqual({ stories_above_grade: 4, unit_count: 120, building_count: 3, zip: "212" });
+    });
+
+    it("defaults building count to 1 when the Facts step sends none", async () => {
+      const response = await post(valid);
+      const { projectId } = await response.json();
+      const { rows } = await db.query<{ building_count: number }>(
+        `select building_count from projects where id = $1`,
+        [projectId],
+      );
+      expect(rows[0].building_count).toBe(1);
+    });
+
+    it("refuses a ZIP that is not three digits, and writes nothing", async () => {
+      const before = await projectCount();
+      const response = await post({ ...valid, zip: "1" });
+      expect(response.status).toBe(400);
+      expect(await projectCount()).toBe(before);
+    });
+
+    it("refuses a stories above grade or unit count of zero, and writes nothing", async () => {
+      const before = await projectCount();
+      const stories = await post({ ...valid, storiesAboveGrade: 0 });
+      expect(stories.status).toBe(400);
+      const units = await post({ ...valid, unitCount: 0 });
+      expect(units.status).toBe(400);
+      expect(await projectCount()).toBe(before);
+    });
+  });
 });

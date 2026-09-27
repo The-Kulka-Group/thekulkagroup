@@ -59,6 +59,11 @@ function answerEveryQuestion(definition: FlowDefinition): Responses {
       responses[question.id] = ENGINE_ANSWER[question.mapsTo.name];
     } else if (question.kind === "number") {
       responses[question.id] = "1";
+    } else if (question.kind === "text") {
+      // LA-1199: ZIP is the file's one text question and is optional on every
+      // project type, so this walk leaves it unanswered rather than guessing
+      // a value that would have to satisfy a pattern it does not know.
+      continue;
     } else {
       responses[question.id] = question.choices![0].value;
     }
@@ -74,6 +79,7 @@ type RunRow = {
   answers: {
     grossSquareFeet?: number;
     projectType?: string;
+    facts?: Record<string, unknown>;
     flow?: {
       skill: string;
       version: number;
@@ -184,6 +190,29 @@ describe("the tier-1 question flow, definition to ROM", () => {
     const [run] = await runs();
     expect(run.status).toBe("failed");
     expect(await steps()).toEqual([{ seq: 1, name: "read_answers", status: "failed" }]);
+  });
+
+  // LA-1199: stories above grade, unit count, building count and ZIP land in
+  // the run's recorded facts under the same intake-field names the flow file
+  // gives them, so a derived assumption can read them as stated facts.
+  it("carries stories above grade, unit count, building count and zip in the run's facts", async () => {
+    const definition = definitionFromFile();
+    const responses = {
+      ...answerEveryQuestion(definition),
+      stories_above_grade: "4",
+      unit_count: "120",
+      building_count: "3",
+      zip: "212",
+    };
+    await post({ projectId: TEST_PROJECT_ID, responses });
+
+    const [run] = await runs();
+    expect(run.answers.facts).toMatchObject({
+      storiesAboveGrade: 4,
+      unitCount: 120,
+      buildingCount: 3,
+      zip: "212",
+    });
   });
 
   it("refuses responses that are not text keyed by question id", async () => {

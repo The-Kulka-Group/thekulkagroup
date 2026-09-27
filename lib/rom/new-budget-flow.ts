@@ -1,6 +1,14 @@
 import type { BranchGateAnswer } from "@kulka/engine";
 
-import { numberAnswerIsValid, visibleQuestions, type FlowDefinition, type Question, type Responses } from "./question-flow";
+import {
+  isQuestionRequired,
+  numberAnswerIsValid,
+  textAnswerIsValid,
+  visibleQuestions,
+  type FlowDefinition,
+  type Question,
+  type Responses,
+} from "./question-flow";
 
 // LA-1141: the guided New budget flow's Facts and Scope steps split the same
 // questions the intake flow always asked (config/rom/tier1-flow.json) across
@@ -22,6 +30,10 @@ const FACTS_IDS: ReadonlySet<string> = new Set([
   "project_type",
   "construction_kind",
   "gross_square_feet",
+  "stories_above_grade",
+  "unit_count",
+  "building_count",
+  "zip",
   "parking_type",
 ]);
 
@@ -41,13 +53,20 @@ export function scopeQuestions(definition: FlowDefinition, responses: Responses)
   return visibleQuestions(definition, responses).filter((question) => !FACTS_IDS.has(question.id));
 }
 
-/** Whether every required question in the list has a legal-shaped answer. */
+/**
+ * Whether every required question in the list has a legal-shaped answer, and
+ * every optional one left blank or answered validly. A blank optional answer
+ * (ZIP, Building Count outside a multifamily project) is fine; an answered
+ * one still has to be a shape the question accepts, required or not -- LA-1199:
+ * ZIP is "optional, validated as three digits", not "optional, unchecked".
+ */
 export function requiredAnswered(questions: Question[], responses: Responses): boolean {
   return questions.every((question) => {
-    if (!question.required) return true;
     const value = responses[question.id];
-    if (value === undefined || value === "") return false;
-    return question.kind !== "number" || numberAnswerIsValid(question, value);
+    if (value === undefined || value === "") return !isQuestionRequired(question, responses);
+    if (question.kind === "number") return numberAnswerIsValid(question, value);
+    if (question.kind === "text") return textAnswerIsValid(question, value);
+    return true;
   });
 }
 

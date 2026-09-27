@@ -87,12 +87,26 @@ export type NewBudget = {
    * without disturbing what New budget recorded.
    */
   parkingType?: ParkingType | null;
+  /**
+   * LA-1199: the same four facts the tier-1 flow's Facts step now asks after
+   * Gross Area, so New budget's initial project insert and Edit project can
+   * carry them the way New budget already carries framing and parking.
+   * Optional and defaulted to null/undefined so a caller (including a run
+   * from Run settings, which never asks these) can keep sending a
+   * `NewBudget` with none of them.
+   */
+  storiesAboveGrade?: number | null;
+  unitCount?: number | null;
+  buildingCount?: number | null;
+  /** First three digits only, matching `projects.zip`'s own check constraint. */
+  zip?: string | null;
 };
 
 const PROJECT_TYPES: ReadonlySet<string> = new Set(["multifamily", "self_storage"]);
 const CONSTRUCTION_KINDS: ReadonlySet<string> = new Set(["new", "renovation"]);
 const FRAMING: ReadonlySet<string> = new Set(["wood", "metal"]);
 const PARKING_TYPES: ReadonlySet<string> = new Set(["none", "surface", "structured", "underground", "dont_know"]);
+const ZIP_PATTERN = /^[0-9]{3}$/;
 
 /**
  * The fields the projects table requires plus the area the engine prices on,
@@ -103,8 +117,18 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return { ok: false, error: "Send a JSON object." };
   }
-  const { name, grossSquareFeet, projectType, constructionKind, framingSystem, parkingType } =
-    body as Record<string, unknown>;
+  const {
+    name,
+    grossSquareFeet,
+    projectType,
+    constructionKind,
+    framingSystem,
+    parkingType,
+    storiesAboveGrade,
+    unitCount,
+    buildingCount,
+    zip,
+  } = body as Record<string, unknown>;
   if (typeof name !== "string" || name.trim() === "") return { ok: false, error: "Send a project name." };
   if (name.trim().length > 200) return { ok: false, error: "Keep the project name under 200 characters." };
   if (typeof grossSquareFeet !== "number" || !Number.isInteger(grossSquareFeet) || grossSquareFeet <= 0) {
@@ -125,6 +149,35 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       error: 'Send parkingType as "none", "surface", "structured", "underground", "dont_know", or null.',
     };
   }
+  // Neither storiesAboveGrade nor unitCount is enforced as required here.
+  // parseNewBudget backs both New budget's insert and Edit project's PATCH
+  // (LA-1110's "same parseNewBudget validation"), and an older multifamily
+  // project saved before LA-1199 has neither -- Edit project has to keep
+  // saving it (ticket: "Older projects... must still open and run"). The
+  // Facts-step gate that requires both for a new multifamily budget is
+  // enforced client-side, in GuidedNewBudget.tsx, through the same tier-1
+  // flow (question-flow.ts's requiredWhen) that config/rom/tier1-flow.json
+  // declares them against.
+  if (
+    storiesAboveGrade !== undefined &&
+    storiesAboveGrade !== null &&
+    (typeof storiesAboveGrade !== "number" || !Number.isInteger(storiesAboveGrade) || storiesAboveGrade <= 0)
+  ) {
+    return { ok: false, error: "Send storiesAboveGrade as a whole number above zero, or null." };
+  }
+  if (unitCount !== undefined && unitCount !== null && (typeof unitCount !== "number" || !Number.isInteger(unitCount) || unitCount <= 0)) {
+    return { ok: false, error: "Send unitCount as a whole number above zero, or null." };
+  }
+  if (
+    buildingCount !== undefined &&
+    buildingCount !== null &&
+    (typeof buildingCount !== "number" || !Number.isInteger(buildingCount) || buildingCount <= 0)
+  ) {
+    return { ok: false, error: "Send buildingCount as a whole number above zero, or null." };
+  }
+  if (zip !== undefined && zip !== null && (typeof zip !== "string" || !ZIP_PATTERN.test(zip))) {
+    return { ok: false, error: "Send zip as its first three digits, or null." };
+  }
   return {
     ok: true,
     budget: {
@@ -134,14 +187,20 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       constructionKind: constructionKind as ConstructionKind,
       framingSystem: (framingSystem ?? null) as FramingSystem | null,
       parkingType: (parkingType ?? null) as ParkingType | null,
+      storiesAboveGrade: (storiesAboveGrade ?? null) as number | null,
+      unitCount: (unitCount ?? null) as number | null,
+      buildingCount: (buildingCount ?? null) as number | null,
+      zip: (zip ?? null) as string | null,
     },
   };
 }
 
 export async function insertRomProject(db: Db, budget: NewBudget): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `insert into projects (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type, rom_budget)
-     values ($1, $2, $3, $4, $5, $6, true)
+    `insert into projects
+       (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type,
+        stories_above_grade, unit_count, building_count, zip, rom_budget)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, true)
      returning id`,
     [
       budget.name,
@@ -150,6 +209,10 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
       budget.constructionKind,
       budget.framingSystem,
       budget.parkingType ?? null,
+      budget.storiesAboveGrade ?? null,
+      budget.unitCount ?? null,
+      budget.buildingCount ?? null,
+      budget.zip ?? null,
     ],
   );
   return rows[0].id;
@@ -176,10 +239,22 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
   const { rows } = await db.query<{ id: string }>(
     `update projects
         set name = $2, gross_square_feet = $3, project_type = $4,
-            construction_kind = $5, framing_system = $6
+            construction_kind = $5, framing_system = $6,
+            stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10
       where id = $1
       returning id`,
-    [projectId, budget.name, budget.grossSquareFeet, budget.projectType, budget.constructionKind, budget.framingSystem],
+    [
+      projectId,
+      budget.name,
+      budget.grossSquareFeet,
+      budget.projectType,
+      budget.constructionKind,
+      budget.framingSystem,
+      budget.storiesAboveGrade ?? null,
+      budget.unitCount ?? null,
+      budget.buildingCount ?? null,
+      budget.zip ?? null,
+    ],
   );
   if (!rows[0]) throw new ProjectNotFoundForEdit(projectId);
 }
@@ -221,9 +296,14 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     project_type: ProjectType;
     construction_kind: ConstructionKind;
     framing_system: FramingSystem | null;
+    stories_above_grade: number | null;
+    unit_count: number | null;
+    building_count: number;
+    zip: string | null;
     archived_at: string | null;
   }>(
-    `select id, name, gross_square_feet, project_type, construction_kind, framing_system, archived_at
+    `select id, name, gross_square_feet, project_type, construction_kind, framing_system,
+            stories_above_grade, unit_count, building_count, zip, archived_at
        from projects where id = $1`,
     [projectId],
   );
@@ -236,6 +316,10 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     projectType: row.project_type,
     constructionKind: row.construction_kind,
     framingSystem: row.framing_system,
+    storiesAboveGrade: row.stories_above_grade,
+    unitCount: row.unit_count,
+    buildingCount: row.building_count,
+    zip: row.zip,
     archivedAt: row.archived_at,
   };
 }

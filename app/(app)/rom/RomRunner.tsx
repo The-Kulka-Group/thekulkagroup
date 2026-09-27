@@ -247,7 +247,9 @@ export function RomRunner({
   }
 
   return (
-    <div className={`rb${panel ? " rb--open" : ""}`}>
+    // New budget clears the screen behind its form, so the new project starts
+    // blank rather than over the last project's blocks and runs.
+    <div className={`rb${panel ? " rb--open" : ""}${panel?.kind === "new" ? " rb--fresh" : ""}`}>
       <header className="rb-hdr">
         <div className="rb-t1">
           <span className="rb-badge">R-100</span>
@@ -316,6 +318,7 @@ export function RomRunner({
         </div>
 
         <div className="rb-t2">
+          <p className="rb-tnone rb-fresh-note">New budget</p>
           {run && headline ? (
             <>
               <button
@@ -372,6 +375,7 @@ export function RomRunner({
       </header>
 
       <main className="rb-fld" aria-busy={busy}>
+        <p className="rb-none rb-fresh-note">Nothing here yet. Add the budget, then press Run ROM.</p>
         {state.phase === "idle" && !run ? (
           <p className="rb-none">
             {projectId
@@ -503,6 +507,7 @@ export function RomRunner({
       ) : null}
 
       <footer className="rb-revs" aria-label="Saved runs">
+        <p className="rb-rnone rb-fresh-note">No saved runs yet.</p>
         <h2>Saved runs</h2>
         {runs.length === 0 ? (
           <p className="rb-rnone">No saved run for this project yet.</p>

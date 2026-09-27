@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MarkupChoices } from "@kulka/engine";
 
 import type { MarkupOptions } from "@/lib/rom/markup";
 import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } from "@/lib/rom/new-budget-flow";
 import { BRANCH_GATE_ANSWERS, tier1Flow, type Question, type Responses } from "@/lib/rom/question-flow";
 
+import type { BudgetDraft } from "./LiveBudget";
 import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
 import "./scope.css";
 
@@ -113,10 +114,13 @@ function Field({
 export function GuidedNewBudget({
   markupOptions,
   onCreated,
+  onDraft,
 }: {
   /** Rate tables, fee and insurance parameters (LA-1016). Missing means the Markups step falls back to the run's own recorded defaults. */
   markupOptions?: MarkupOptions;
   onCreated: (projectId: string) => void;
+  /** Every change to the answers, so the page can show the budget building behind the panel (LA-1142). */
+  onDraft?: (draft: BudgetDraft) => void;
 }) {
   const definition = tier1Flow();
   const [step, setStep] = useState<Step>(1);
@@ -127,6 +131,21 @@ export function GuidedNewBudget({
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // LA-1142: the preview behind the panel. Markups join once the estimator
+  // reaches the Markups step and stay after it, even going back, so the
+  // total never loses GRs/GCs the estimator has already seen added. A form
+  // mid-edit that does not parse keeps the last choice that did.
+  const [reachedMarkups, setReachedMarkups] = useState(false);
+  const lastMarkups = useRef<MarkupChoices | null>(null);
+  useEffect(() => {
+    if (reachedMarkups && markupOptions) {
+      const parsed = markupChoicesFrom(markupForm, markupOptions);
+      if (parsed.ok) lastMarkups.current = parsed.markups;
+    }
+    const markups = reachedMarkups && markupOptions ? lastMarkups.current : null;
+    onDraft?.({ responses, framing: framingSystem, markups });
+  }, [onDraft, responses, framingSystem, reachedMarkups, markupForm, markupOptions]);
 
   const answer = (id: string, value: string) => setResponses((current) => ({ ...current, [id]: value }));
 
@@ -146,6 +165,7 @@ export function GuidedNewBudget({
     if (busy) return;
     if ((step === 1 && !factsReady) || (step === 2 && !scopeReady)) return;
     setError(null);
+    if (step >= 2) setReachedMarkups(true);
     setStep((current) => (current < 4 ? ((current + 1) as Step) : current));
   }
 

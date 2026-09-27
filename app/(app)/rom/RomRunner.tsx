@@ -21,6 +21,7 @@ import {
 } from "./block-layout";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
 import { GuidedNewBudget } from "./GuidedNewBudget";
+import { type BudgetDraft, LiveField, LiveTotal, useLiveBudget } from "./LiveBudget";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
@@ -102,6 +103,8 @@ export function RomRunner({
   const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, markupDefault));
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
   const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
+  const [draft, setDraft] = useState<BudgetDraft | null>(null);
+  const live = useLiveBudget(panel?.kind === "new" ? draft : null);
   const opener = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
@@ -321,7 +324,9 @@ export function RomRunner({
         </div>
 
         <div className="rb-t2">
-          <p className="rb-tnone rb-fresh-note">New budget</p>
+          {/* LA-1142: while New budget is open, the band shows the total the
+              answers so far add up to. */}
+          <div className="rb-fresh-note lb-hd">{panel?.kind === "new" ? <LiveTotal live={live} /> : null}</div>
           {run && headline ? (
             <>
               <button
@@ -378,7 +383,8 @@ export function RomRunner({
       </header>
 
       <main className="rb-fld" aria-busy={busy}>
-        <p className="rb-none rb-fresh-note">Nothing here yet. Add the budget, then press Run ROM.</p>
+        {/* LA-1142: and the field shows the budget building. */}
+        <div className="rb-fresh-note">{panel?.kind === "new" ? <LiveField live={live} /> : null}</div>
         {state.phase === "idle" && !run ? (
           <p className="rb-none">
             {projectId
@@ -445,7 +451,11 @@ export function RomRunner({
                 onClose={closePanel}
                 titleRef={titleRef}
               />
-              <GuidedNewBudget markupOptions={markupOptions} onCreated={(id) => router.push(`/rom?project=${id}`)} />
+              <GuidedNewBudget
+                markupOptions={markupOptions}
+                onDraft={setDraft}
+                onCreated={(id) => router.push(`/rom?project=${id}`)}
+              />
             </>
           ) : null}
 

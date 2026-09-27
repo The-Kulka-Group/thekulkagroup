@@ -31,6 +31,7 @@ import {
   type Markups,
   type StaffingRate,
 } from "./rom-markups";
+import { tierProblems, weightProblem } from "./rom-parameters";
 import { bringInSupportingItems, type ScopeRelationship } from "./rom-relationships";
 import {
   hasStructureDemolitionScope,
@@ -681,34 +682,18 @@ function readTiers(parameters: EngineParameters): Tiers {
     low: requireParameter(parameters, "spread.low"),
   };
 
-  for (const name of ["flag.high_min_comparables", "flag.medium_min_comparables"] as const) {
-    const value = parameters[name]!.value;
-    if (!Number.isInteger(value) || value < 1) {
-      throw new Error(`Engine parameter "${name}" must be a whole number of at least one.`);
-    }
-  }
-  if (highMinComparables < mediumMinComparables) {
-    throw new Error(
-      'Engine parameter "flag.high_min_comparables" must not be below "flag.medium_min_comparables".',
-    );
-  }
-  for (const flag of ["high", "medium", "low"] as const) {
-    if (!(spread[flag] > 0 && spread[flag] < 1)) {
-      throw new Error(`Engine parameter "spread.${flag}" must be a fraction between zero and one.`);
-    }
-  }
-  if (!(spread.high <= spread.medium && spread.medium <= spread.low)) {
-    throw new Error("Engine spreads must not narrow as confidence drops: high <= medium <= low.");
-  }
+  // The rules live in rom-parameters.ts, where the Engine Parameters screen
+  // reads the same ones (LA-866). A run stops at the first.
+  const [problem] = tierProblems((name) => parameters[name]!.value);
+  if (problem) throw new Error(`Engine parameter "${problem.name}": ${problem.message}`);
 
   return { highMinComparables, mediumMinComparables, spread };
 }
 
 function weightFor(parameters: EngineParameters, kind: ProvenanceKind): number {
   const weight = requireParameter(parameters, `weight.${kind}`);
-  if (!(weight > 0)) {
-    throw new Error(`Engine parameter "weight.${kind}" must be above zero.`);
-  }
+  const problem = weightProblem(weight);
+  if (problem) throw new Error(`Engine parameter "weight.${kind}": ${problem}`);
   return weight;
 }
 
@@ -799,16 +784,9 @@ function blendLine(
   const comparables = ranked.map((r) => r.comparable);
   const lead = ranked[0].row;
 
-  const totalWeight = comparables.reduce((sum, c) => sum + c.weight, 0);
-  const rate = comparables.reduce((sum, c) => sum + c.weight * c.rate, 0) / totalWeight;
-
-  const counted = comparables.filter((c) => c.kind !== "llm_proposal");
-  const measured = comparables.filter((c) => MEASURED_KINDS.has(c.kind));
-  const comparableCount = new Set(counted.flatMap((c) => c.sourceProjectIds)).size;
-
   // The flag stays a reading of the measured figures and how far apart they
   // sit, so a judgment rule moves the money without moving the confidence.
-  const confidence = flagFor(rate, counted, measured, comparableCount, tiers);
+  const { rate, totalWeight, comparableCount, confidence } = blendComparables(comparables, tiers);
   const judgment =
     rules.length > 0
       ? applyJudgment(rate, totalWeight, rules, weightFor(parameters, "reviewed_judgment"))
@@ -903,6 +881,104 @@ function blendFramingLine(
   };
 }
 
+/**
+ * The blend itself: the weighted mean of a line's figures, how many distinct
+ * Kulka projects stand behind it, how far apart its counted figures sit, and
+ * the flag that earns. Every line and the worked example on the Engine
+ * Parameters screen go through this one function.
+ */
+function blendComparables(comparables: Comparable[], tiers: Tiers) {
+  const totalWeight = comparables.reduce((sum, c) => sum + c.weight, 0);
+  const rate = comparables.reduce((sum, c) => sum + c.weight * c.rate, 0) / totalWeight;
+
+  const counted = comparables.filter((c) => c.kind !== "llm_proposal");
+  const measured = comparables.filter((c) => MEASURED_KINDS.has(c.kind));
+  const comparableCount = new Set(counted.flatMap((c) => c.sourceProjectIds)).size;
+  const confidence = flagFor(rate, counted, measured, comparableCount, tiers);
+
+  return {
+    rate,
+    totalWeight,
+    comparableCount,
+    dispersion: dispersionOf(rate, counted),
+    hasMeasured: measured.length > 0,
+    confidence,
+  };
+}
+
+/** One figure in the worked example: a source kind, its rate, and the job it stands for. */
+export type ExampleFigure = {
+  kind: ProvenanceKind;
+  /** Dollars per gross square foot. */
+  rate: number;
+  /**
+   * Stands in for the Kulka project behind the figure, so distinct figures
+   * count as distinct jobs. Null for a model's figure, which has none.
+   */
+  sourceProjectId: string | null;
+};
+
+/** What the engine makes of the worked example under one set of parameters. */
+export type ExampleBlend = {
+  rate: number;
+  confidence: ConfidenceFlag;
+  /** The half-width of the flag's range, as a fraction of the rate. */
+  spread: number;
+  low: number;
+  high: number;
+  comparableCount: number;
+  /** How far the widest counted figure sits from the rate, as a fraction of it. */
+  dispersion: number;
+  /** Whether any figure is measured Kulka data, without which a line caps at medium. */
+  hasMeasured: boolean;
+  /** Each figure with the weight it carried, heaviest kind first. */
+  comparables: Comparable[];
+  totalWeight: number;
+};
+
+/**
+ * The Engine Parameters screen's worked example (LA-866): one line of figures
+ * blended and flagged exactly as a ROM line is, without rounding to whole
+ * dollars, so the screen shows what a change to a weight or a threshold does
+ * without restating the arithmetic. Throws, as a run would, on any parameter
+ * the engine refuses.
+ */
+export function blendExample(figures: ExampleFigure[], parameters: EngineParameters): ExampleBlend {
+  if (figures.length === 0) throw new Error("A worked example needs at least one figure.");
+  const tiers = readTiers(parameters);
+  const comparables = figures
+    .map(
+      (figure): Comparable => ({
+        kind: figure.kind,
+        rate: figure.rate,
+        weight: weightFor(parameters, figure.kind),
+        sourceProjectIds: figure.sourceProjectId === null ? [] : [figure.sourceProjectId],
+        exportLabel: null,
+        recordedBy: "worked example",
+        recordedAt: "",
+      }),
+    )
+    .sort(compareComparables);
+  const blend = blendComparables(comparables, tiers);
+  const spread = tiers.spread[blend.confidence];
+  return {
+    rate: blend.rate,
+    confidence: blend.confidence,
+    spread,
+    low: blend.rate * (1 - spread),
+    high: blend.rate * (1 + spread),
+    comparableCount: blend.comparableCount,
+    dispersion: blend.dispersion,
+    hasMeasured: blend.hasMeasured,
+    comparables,
+    totalWeight: blend.totalWeight,
+  };
+}
+
+function dispersionOf(rate: number, counted: Comparable[]): number {
+  return counted.reduce((worst, c) => Math.max(worst, Math.abs(c.rate - rate) / rate), 0);
+}
+
 function toComparable(row: Benchmark, weight: number): Comparable {
   return {
     kind: row.provenance.kind,
@@ -940,7 +1016,7 @@ function flagFor(
 ): ConfidenceFlag {
   if (counted.length === 0) return "low";
 
-  const dispersion = counted.reduce((worst, c) => Math.max(worst, Math.abs(c.rate - rate) / rate), 0);
+  const dispersion = dispersionOf(rate, counted);
   const ceiling: ConfidenceFlag = measured.length > 0 ? "high" : "medium";
 
   if (

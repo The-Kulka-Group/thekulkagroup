@@ -18,6 +18,28 @@ export type RecordedAnswers = Answers & { flow?: FlowRecord };
 
 export type RunStatus = "running" | "succeeded" | "failed";
 
+/**
+ * A saved run's `rom` as the screens expect it today. A run keeps the ROM it
+ * computed, so a run saved before a list was added to the engine's output has
+ * no such key (LA-1209). Those lists read as empty rather than crashing the
+ * page that opens the run; the stored record itself is never rewritten.
+ */
+export function savedRom(rom: Rom): Rom;
+export function savedRom(rom: Rom | null): Rom | null;
+export function savedRom(rom: Rom | null): Rom | null {
+  if (!rom) return rom;
+  return {
+    ...rom,
+    lines: rom.lines ?? [],
+    notInThisJob: rom.notInThisJob ?? [],
+    tbdGateItems: rom.tbdGateItems ?? [],
+    assumedPresentItems: rom.assumedPresentItems ?? [],
+    unpricedItems: rom.unpricedItems ?? [],
+    assumptions: rom.assumptions ?? [],
+    carvedOut: rom.carvedOut ?? { low: 0, high: 0 },
+  };
+}
+
 export type RunStepRecord = {
   seq: number;
   name: string;
@@ -119,7 +141,7 @@ export async function getRun(db: Db, runId: string): Promise<RunRecord> {
   return {
     ...toSummary(run),
     answers: run.answers,
-    rom: run.rom,
+    rom: savedRom(run.rom),
     snapshotHash: run.snapshot_hash,
     steps: steps.map((step) => ({
       seq: Number(step.seq),

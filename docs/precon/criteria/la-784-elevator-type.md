@@ -98,7 +98,40 @@ are, needs a stated rate from Matt. This design sets none.
    proposing a question. The card carries the assumed-fact flag until the already-planned
    field ships.
 
-## 8. Open questions for Matt
+## Decisions, 2026-09-27
+
+Matt answered the open questions below, stated the rates himself, and asked Claude to settle
+the rest from the research in `docs/precon/research/la-784-elevator-followups.md`. These
+decisions replace the proposals above where they differ. The full reasoning is on LA-784.
+
+1. **Stories Above Grade** is a required multifamily question (LA-1199, shipped). There is
+   no default story count; a project without one shows the fact as missing.
+2. **The band runs on travel.** Travel = (Stories Above Grade minus 1) times floor-to-floor,
+   plus the extra height of a taller ground floor when one is known. 35 ft or less:
+   Hydraulic, high confidence. Over 35 ft up to 55 ft: either, low confidence, and V-1
+   proposes Hydraulic. Over 55 ft: Traction, high confidence. At 10'-0" floors that is 4
+   stories or fewer, 5 and 6, and 7 or more. JF, V64 and West Shore are all 6-stop, inside
+   the either zone.
+3. **Rates, stated by Matt:** Hydraulic $35,000 per stop. Traction $45,300 per stop. They
+   replace the single $41,000 per stop. A flat per-stop rate set at 6 stops runs low at 2 to
+   4 stops and high at 8 or more, because elevator cost is a large fixed base plus a
+   smaller amount per stop.
+4. **Floor-to-floor planning figures:** wood frame, including over a podium, 10'-0"; podium
+   level 12'-0"; concrete flat plate 9'-8"; steel 10'-0"; retail or amenity ground floor
+   15'-0"; cold-formed steel uses the wood figure until a source turns up. These replace the
+   10.5 ft sample used earlier in this document.
+5. **The elevator bulkhead is its own canonical item and applies to both types.** Neither
+   hydraulic nor machine-room-less traction puts a machine room on the roof, so the
+   penthouse machine room assumption in section 6 no longer holds; both need the shaft to
+   rise above the roof for the overrun. Default scope: CMU walls around the overrun, a fire
+   rating matching the shaft, a hoist beam, the bulkhead's roof and base flashing, and metal
+   coping when the roof uses it. The door, frame, hardware and paint go in only when the
+   bulkhead also holds the roof stair or a traction machine room, since mechanics reach the
+   overrun from the car top. Lights, an outlet, a guardrail, lightning protection and a
+   hoistway vent stay out unless a job states them. The bulkhead's rate needs a stated
+   figure from Matt.
+
+## 8. Open questions for Matt (answered, see Decisions above)
 
 1. Should Stories Above Grade ship as its own tier-1 question now, ahead of the rest of
    the working-session packet, since V-1 and the elevator-stop count both need it?

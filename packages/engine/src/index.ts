@@ -40,6 +40,18 @@ export {
 } from "./rom-framing";
 
 export {
+  isFullSpan,
+  priceStructureDemolition,
+  quantityFor,
+  readDemolitionFacts,
+  STRUCTURE_DEMOLITION_COST_CODE,
+  structureDemolitionRows,
+  structureDemolitionSpanLine,
+  type BenchmarkUnit,
+  type DemolitionFacts,
+} from "./rom-units";
+
+export {
   runBacktest,
   WORST_MISS_COUNT,
   type BacktestActualLine,

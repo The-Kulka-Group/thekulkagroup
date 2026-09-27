@@ -11,7 +11,7 @@
 // provenance (LA-14). The engine refuses to run without them rather than fall
 // back to a number nobody recorded.
 
-import type { BranchGateAnswer } from "./rom-intake";
+import type { BranchGateAnswer, DemolitionStructureType } from "./rom-intake";
 import {
   FRAMING_ITEM_CODES,
   FRAMING_WORDS,
@@ -31,6 +31,15 @@ import {
   type Markups,
   type StaffingRate,
 } from "./rom-markups";
+import {
+  hasStructureDemolitionScope,
+  priceStructureDemolition,
+  quantityFor,
+  readDemolitionFacts,
+  STRUCTURE_DEMOLITION_COST_CODE,
+  type BenchmarkUnit,
+  type DemolitionFacts,
+} from "./rom-units";
 
 export type ProjectType = "multifamily" | "self_storage";
 export type ConstructionKind = "new" | "renovation";
@@ -84,13 +93,19 @@ export type Provenance = {
 export type Benchmark = {
   costCode: string;
   label: string;
-  unit: "usd_per_gsf";
+  unit: BenchmarkUnit;
   value: number;
   projectType: ProjectType;
   constructionKind: ConstructionKind;
   provenance: Provenance;
   scopeSide: ScopeSide;
   contractSide: ContractSide;
+  /**
+   * Which of item 1a's five structure types this rate is for (LA-1156, ADR
+   * 0006). Absent on every other benchmark, and on every row that is not one
+   * of Structure Demolition's five per-type rates.
+   */
+  structureType?: DemolitionStructureType;
 };
 
 /**
@@ -443,10 +458,18 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     (snapshot.classifications ?? []).map((c) => [c.costCode, c]),
   );
 
+  // LA-1156, ADR 0006: the demolition answers a quantity reads, once per run,
+  // off whatever `Answers.facts` the caller supplied. Absent facts read as
+  // none of it answered yet (rom-units.ts), so a job without them prices
+  // Structure Demolition and Site Demolition exactly as it did before this
+  // ticket: nothing.
+  const demolitionFacts = readDemolitionFacts(answers.facts);
+
   const blend = (costCode: string, rows: Benchmark[]) =>
     blendLine(
       rows,
       answers.grossSquareFeet,
+      demolitionFacts,
       snapshot.parameters,
       tiers,
       rulesByCostCode.get(costCode) ?? [],
@@ -457,6 +480,15 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     .sort((a, b) => a.localeCompare(b))
     .map((costCode) => {
       const rows = byCostCode.get(costCode)!;
+      if (costCode === STRUCTURE_DEMOLITION_COST_CODE) {
+        // LA-1156, corrected 2026-09-27: no square footage of structure yet
+        // (the count was never answered, or it was answered zero) means item
+        // 1a produces no line at all, not a line priced at zero. LA-1154
+        // reads a priced line here as what brings its four disconnects into
+        // scope, so a $0 line would wrongly bring them in on every job.
+        if (!hasStructureDemolitionScope(demolitionFacts)) return null;
+        return priceStructureDemolition(rows, demolitionFacts, (kept) => blend(costCode, kept));
+      }
       if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows);
       return blendFramingLine(
         rows,
@@ -465,7 +497,8 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
         (kept) => blend(costCode, kept),
         (row) => toComparable(row, weightFor(snapshot.parameters, row.provenance.kind)),
       );
-    });
+    })
+    .filter((line): line is RomLine => line !== null);
 
   // A branch gate can switch a canonical item on or off (LA-1028). The
   // answers a gate rule reads sit in `facts`, whatever the caller named that
@@ -730,6 +763,7 @@ function applyJudgment(
 function blendLine(
   rows: Benchmark[],
   grossSquareFeet: number,
+  demolitionFacts: DemolitionFacts,
   parameters: EngineParameters,
   tiers: Tiers,
   rules: JudgmentRule[],
@@ -756,7 +790,12 @@ function blendLine(
       ? applyJudgment(rate, totalWeight, rules, weightFor(parameters, "reviewed_judgment"))
       : { rate, adjustments: [] as JudgmentAdjustment[] };
   const half = tiers.spread[confidence];
-  const midpoint = judgment.rate * grossSquareFeet;
+  // LA-1156: the quantity a line's rate multiplies by depends on the
+  // benchmark's own unit. Every row already blended together shares a unit
+  // (the same cost code always prices on one basis), so the lead row's is
+  // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
+  // as every ROM computed before this ticket did.
+  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts);
 
   return {
     costCode: lead.costCode,

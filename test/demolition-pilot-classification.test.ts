@@ -4,7 +4,7 @@ import { seededDatabase } from "./database";
 
 // LA-1157 (ADR 0006): the six demolition-pilot canonical items get an
 // element, a buyout package, and a division, stated by Matt on 2026-09-26 in
-// supabase/migrations/20260927120000_demolition_pilot_classification.sql.
+// supabase/migrations/20260927160000_demolition_pilot_classification.sql.
 // This reads them back the way By Scope, By Package and the Element parent
 // box will, and holds the one-driver-per-element rule the migration adds.
 

@@ -231,6 +231,33 @@ export type DataSnapshot = {
    * A job missing here has none recorded. Only items 8 and 17 read it.
    */
   sourceProjectFraming?: Record<string, FramingSystem>;
+  /**
+   * Canonical items the caller has put in scope for this run that no
+   * benchmark prices yet (LA-1153, ADR 0006: "A block can arrive unpriced"),
+   * such as the four demolition disconnects once an answer brings their
+   * driver in. A cost code that already has a benchmark line is priced the
+   * ordinary way and is never duplicated here. Absent or empty behaves
+   * exactly as every ROM computed before LA-1153.
+   *
+   * This lives on the snapshot rather than on `Answers` on purpose: `Answers`
+   * feeds `lib/rom/question-flow.ts`'s `EngineInputName`, one entry per
+   * field, so a new field there is a form input the tier-1 flow must ask for.
+   * This is not a question; it is a fact the caller (a relationship, per ADR
+   * 0006) derives from answers already asked, the same way `branchGateItems`
+   * above is a caller-supplied rule rather than a question of its own.
+   */
+  unpricedInScopeItems?: UnpricedItem[];
+};
+
+/**
+ * A canonical item a caller has put in scope that no benchmark prices yet
+ * (ADR 0006, "A block can arrive unpriced"). It carries only what the board
+ * needs to name the item, since a costCode with no benchmark behind it has no
+ * `Benchmark` row to read a label from.
+ */
+export type UnpricedItem = {
+  costCode: string;
+  label: string;
 };
 
 export type Answers = {
@@ -377,6 +404,13 @@ export type Rom = {
   tbdGateItems: GateItemSummary[];
   /** Items nobody answered, priced same as any other line but named as assumed present (LA-1028). */
   assumedPresentItems: GateItemSummary[];
+  /**
+   * Items in scope that no benchmark prices yet (LA-1153, ADR 0006: "A block
+   * can arrive unpriced"). Never in `lines`, so never in `total`,
+   * `kulkaContractTotal`, or the markup subtotal; named here and in
+   * `assumptions` instead of shown with an invented figure.
+   */
+  unpricedItems: UnpricedItem[];
   assumptions: string[];
   /** The parameters this ROM was computed with, provenance included, so a run record is self-describing. */
   parameters: EngineParameters;
@@ -484,7 +518,23 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const ownerLines = added.filter((l) => l.contractSide === "owner");
   const kulkaContractTotal = sumRange(kulkaLines);
   const coveredSections = new Set(gateRules.flatMap((r) => [r.section, ...r.requiresAllSections]));
-  const assumptions = assumptionsFor(answers, lines, coveredSections, notInThisJob, tbdGateItems, assumedPresentItems);
+
+  // LA-1153, ADR 0006: an item nothing prices still arrives, as long as a
+  // caller has put it in scope. A cost code that already produced a line
+  // above (benchmarked, whatever its gate status) is priced the ordinary
+  // way, so it is never listed twice.
+  const pricedCostCodes = new Set(lines.map((l) => l.costCode));
+  const unpricedItems = dedupeUnpriced(snapshot.unpricedInScopeItems ?? [], pricedCostCodes);
+
+  const assumptions = assumptionsFor(
+    answers,
+    lines,
+    coveredSections,
+    notInThisJob,
+    tbdGateItems,
+    assumedPresentItems,
+    unpricedItems,
+  );
 
   const rom: Rom = {
     lines,
@@ -494,6 +544,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     notInThisJob,
     tbdGateItems,
     assumedPresentItems,
+    unpricedItems,
     assumptions,
     parameters: snapshot.parameters,
   };
@@ -517,6 +568,25 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   }
 
   return rom;
+}
+
+/**
+ * Keeps only the declared items that a benchmark did not already turn into a
+ * line, and drops a repeated cost code in the caller's own list, so the same
+ * item is never named twice on the board (LA-1153).
+ */
+function dedupeUnpriced(
+  items: UnpricedItem[],
+  pricedCostCodes: ReadonlySet<string>,
+): UnpricedItem[] {
+  const seen = new Set<string>();
+  const kept: UnpricedItem[] = [];
+  for (const item of items) {
+    if (pricedCostCodes.has(item.costCode) || seen.has(item.costCode)) continue;
+    seen.add(item.costCode);
+    kept.push(item);
+  }
+  return kept;
 }
 
 function sumRange(lines: RomLine[]): { low: number; high: number } {
@@ -853,6 +923,7 @@ function assumptionsFor(
   notInThisJob: GateItemSummary[],
   tbdGateItems: GateItemSummary[],
   assumedPresentItems: GateItemSummary[],
+  unpricedItems: UnpricedItem[],
 ): string[] {
   const area = answers.grossSquareFeet.toLocaleString("en-US");
   const assumptions = [
@@ -861,6 +932,14 @@ function assumptionsFor(
     "Every line is a range rather than a point, and no line here is a bid.",
     "Blend weights, flag thresholds, and range widths are recorded engine parameters, each with its own provenance, listed with this ROM.",
   ];
+
+  // LA-1153, ADR 0006: named here whether or not any line priced, since an
+  // item can be in scope with nothing else priced yet either.
+  if (unpricedItems.length > 0) {
+    assumptions.push(
+      `${countWords(unpricedItems.length, "item")} ${unpricedItems.length === 1 ? "is" : "are"} in scope with no rate yet: ${unpricedItems.map((i) => i.label).join(", ")}.`,
+    );
+  }
 
   if (lines.length === 0) {
     assumptions.push(

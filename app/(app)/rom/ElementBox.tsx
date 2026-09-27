@@ -3,6 +3,7 @@
 import { midpoint, shortMoney } from "./block-layout";
 import type { ElementGroup, ElementItem } from "./element-groups";
 import { SpringMoney } from "./SpringMoney";
+import type { PackageGroup, PackageItem } from "./view-groups";
 
 // LA-1158, ADR 0006. "On the ROM screen an element is the parent box: it
 // shows the sum of its items, with the driver as a full-width tile and each
@@ -14,6 +15,11 @@ import { SpringMoney } from "./SpringMoney";
 //   - LiveElementBox, the New budget preview (LiveBudget.tsx): tiles spring
 //     their own figure and register with the field's FLIP tracking, the same
 //     as a lone trade block, so the box moves and enters the same way.
+//
+// LA-1159, ADR 0006 adds the By Package box lower in this file
+// (PackageBoxBlock / LivePackageBox): a flat block per buyout package rather
+// than a driver-plus-members box, since a package has no one canonical tile.
+// A supporting item still carries a small mark naming its driver on hover.
 
 function itemsNotPricedLabel(count: number): string {
   return count === 1 ? "1 Item Not Priced" : `${count} Items Not Priced`;
@@ -29,14 +35,17 @@ export function ElementBoxBlock({
   group,
   selected,
   onOpen,
+  register,
 }: {
   group: ElementGroup;
   selected: string | null;
   onOpen: (costCode: string, el: HTMLElement) => void;
+  /** LA-1159: the box's own root node, for the field's FLIP tracker. */
+  register?: (el: HTMLElement | null) => void;
 }) {
   const mid = midpoint(group.total);
   return (
-    <div className="rb-blk eb-box" aria-label={`${group.element}, ${shortMoney(mid)}`}>
+    <div ref={register} className="rb-blk eb-box" aria-label={`${group.element}, ${shortMoney(mid)}`}>
       <div className="eb-head">
         <span className="rb-bn">{group.element}</span>
         <span className="rb-bv num eb-hv">{shortMoney(mid)}</span>
@@ -201,6 +210,215 @@ function LiveTile({
     >
       <span className="eb-tn">{item.label}</span>
       <SpringMoney className="eb-tv num" value={waiting ? null : itemMidpoint(item)} format={shortMoney} delay={delay} />
+    </div>
+  );
+}
+
+/* --- The By Package box (LA-1159, ADR 0006) ------------------------------
+   A flat block per buyout package: the package's name and total in the
+   header, then every item that package carries, priced or not, two to a
+   row. Unlike an element box there is no one driver tile -- a package has no
+   canonical item -- so every tile is the same size. A supporting item still
+   carries a small mark, and hovering (or focusing) it names the driver that
+   brought it in, read off the ROM rather than hardcoded. */
+
+function packageItemMidpoint(item: Extract<PackageItem, { kind: "priced" }>): number {
+  return midpoint({ low: item.line.low, high: item.line.high });
+}
+
+/** The By Package saved ROM: a static box, each priced tile a button. */
+export function PackageBoxBlock({
+  group,
+  selected,
+  onOpen,
+  register,
+}: {
+  group: PackageGroup;
+  selected: string | null;
+  onOpen: (costCode: string, el: HTMLElement) => void;
+  /** LA-1159: the box's own root node, for the field's FLIP tracker. */
+  register?: (el: HTMLElement | null) => void;
+}) {
+  const mid = midpoint(group.total);
+  return (
+    <div ref={register} className="rb-blk eb-box" aria-label={`${group.package}, ${shortMoney(mid)}`}>
+      <div className="eb-head">
+        <span className="rb-bn">
+          {group.unassigned ? <span className="rb-dot rb-dot--working" aria-hidden="true" /> : null}
+          {group.package}
+        </span>
+        <span className="rb-bv num eb-hv">{shortMoney(mid)}</span>
+      </div>
+      <span className="rb-bar eb-hbar" aria-hidden="true">
+        <i style={{ transform: "scaleX(1)" }} />
+      </span>
+      {group.unpricedCount > 0 ? (
+        <span className="eb-unpriced">
+          <span className="rb-dot rb-dot--working" aria-hidden="true" />
+          {itemsNotPricedLabel(group.unpricedCount)}
+        </span>
+      ) : null}
+      <div className="eb-tiles">
+        {group.items.map((item) => (
+          <StaticPackageTile key={item.costCode} item={item} selected={selected} onOpen={onOpen} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StaticPackageTile({
+  item,
+  selected,
+  onOpen,
+}: {
+  item: PackageItem;
+  selected: string | null;
+  onOpen: (costCode: string, el: HTMLElement) => void;
+}) {
+  const supportingTitle = item.driverLabel ? `From ${item.driverLabel}` : undefined;
+  if (item.kind === "unpriced") {
+    return (
+      <div
+        className="eb-tile eb-tile--unpriced"
+        title={supportingTitle}
+        aria-label={supportingTitle ? `${item.label}, ${supportingTitle}, No Rate Yet` : `${item.label}, No Rate Yet`}
+      >
+        <span className="eb-tn">
+          {item.label}
+          {item.driverLabel ? <span className="eb-sup" aria-hidden="true" /> : null}
+        </span>
+        <span className="eb-ts">
+          <span className="rb-dot rb-dot--working" aria-hidden="true" />
+          No Rate Yet
+        </span>
+      </div>
+    );
+  }
+  const selectedHere = selected === item.costCode;
+  return (
+    <button
+      type="button"
+      className={`eb-tile${selectedHere ? " eb-tile--sel" : ""}`}
+      aria-pressed={selectedHere}
+      title={supportingTitle}
+      aria-label={
+        supportingTitle
+          ? `${item.label}, ${supportingTitle}, ${shortMoney(packageItemMidpoint(item))}`
+          : `${item.label}, ${shortMoney(packageItemMidpoint(item))}`
+      }
+      onClick={(e) => onOpen(item.costCode, e.currentTarget)}
+    >
+      <span className="eb-tn">
+        {item.label}
+        {item.driverLabel ? <span className="eb-sup" aria-hidden="true" /> : null}
+      </span>
+      <span className="eb-tv num">{shortMoney(packageItemMidpoint(item))}</span>
+    </button>
+  );
+}
+
+/** The New budget preview: springs its figures, registers with FLIP. */
+export function LivePackageBox({
+  group,
+  waiting,
+  rollDelay,
+  register,
+}: {
+  group: PackageGroup;
+  waiting: boolean;
+  /** When the box itself lands, same units as a lone block's roll delay. */
+  rollDelay: number;
+  register: (key: string) => (el: HTMLElement | null) => void;
+}) {
+  const mid = midpoint(group.total);
+  const headDelay = rollDelay + (1 + group.items.length) * 70;
+
+  return (
+    <div
+      ref={register(`package:${group.package}`)}
+      className={`rb-blk lb-blk eb-box${waiting ? " lb-blk--wait" : ""}`}
+      aria-label={waiting ? group.package : `${group.package}, ${shortMoney(mid)}`}
+    >
+      <div className="eb-head">
+        <span className="rb-bn">
+          {group.unassigned ? <span className="rb-dot rb-dot--working" aria-hidden="true" /> : null}
+          {group.package}
+        </span>
+        <SpringMoney className="rb-bv num eb-hv" value={waiting ? null : mid} format={shortMoney} delay={headDelay} />
+      </div>
+      <span className="rb-bar eb-hbar" aria-hidden="true">
+        <i style={{ transform: `scaleX(${waiting ? 0 : 1})` }} />
+      </span>
+      {!waiting && group.unpricedCount > 0 ? (
+        <span className="eb-unpriced">
+          <span className="rb-dot rb-dot--working" aria-hidden="true" />
+          {itemsNotPricedLabel(group.unpricedCount)}
+        </span>
+      ) : null}
+      <div className="eb-tiles">
+        {group.items.map((item, index) => (
+          <LivePackageTile
+            key={item.costCode}
+            item={item}
+            waiting={waiting}
+            delay={rollDelay + 70 * index}
+            register={register(item.costCode)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LivePackageTile({
+  item,
+  waiting,
+  delay,
+  register,
+}: {
+  item: PackageItem;
+  waiting: boolean;
+  delay: number;
+  register: (el: HTMLElement | null) => void;
+}) {
+  const supportingTitle = item.driverLabel ? `From ${item.driverLabel}` : undefined;
+  if (item.kind === "unpriced") {
+    return (
+      <div
+        ref={register}
+        className="eb-tile eb-tile--unpriced"
+        title={supportingTitle}
+        aria-label={supportingTitle ? `${item.label}, ${supportingTitle}, No Rate Yet` : `${item.label}, No Rate Yet`}
+      >
+        <span className="eb-tn">
+          {item.label}
+          {item.driverLabel ? <span className="eb-sup" aria-hidden="true" /> : null}
+        </span>
+        <span className="eb-ts">
+          <span className="rb-dot rb-dot--working" aria-hidden="true" />
+          No Rate Yet
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div
+      ref={register}
+      className={`eb-tile${waiting ? " eb-tile--wait" : ""}`}
+      title={supportingTitle}
+      aria-label={waiting ? item.label : `${item.label}, ${shortMoney(packageItemMidpoint(item))}`}
+    >
+      <span className="eb-tn">
+        {item.label}
+        {item.driverLabel ? <span className="eb-sup" aria-hidden="true" /> : null}
+      </span>
+      <SpringMoney
+        className="eb-tv num"
+        value={waiting ? null : packageItemMidpoint(item)}
+        format={shortMoney}
+        delay={delay}
+      />
     </div>
   );
 }

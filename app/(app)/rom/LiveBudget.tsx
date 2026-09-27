@@ -8,9 +8,10 @@ import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 import { headlineMoney, headlineOf, midpoint, shortMoney, tradeBlocks, valueTier, type TradeBlock } from "./block-layout";
 import { groupElements, type ElementGroup } from "./element-groups";
-import { LiveElementBox } from "./ElementBox";
-import { EASE_SMOOTH, reducedMotion } from "./motion";
+import { LiveElementBox, LivePackageBox } from "./ElementBox";
+import { useFieldFlip } from "./motion";
 import { SpringMoney } from "./SpringMoney";
+import { groupByPackage, type PackageGroup, type RomView } from "./view-groups";
 
 // LA-1142. The budget builds behind the New budget panel while its questions
 // are answered. The browser runs the same pure engine a run does over the
@@ -63,9 +64,10 @@ export type LiveBudget =
    * in the order they will take. `answered` is the ROM as the answers stand,
    * read only for what was answered No or Don't know. `blocks` holds only the
    * trades not shown inside an element box; `groups` holds those boxes
-   * (LA-1158, ADR 0006).
+   * (LA-1158, ADR 0006). `packageGroups` is the same lines grouped By Package
+   * instead (LA-1159, ADR 0006), read whenever the switch is set that way.
    */
-  | { phase: "waiting"; blocks: TradeBlock[]; groups: ElementGroup[]; answered: Rom }
+  | { phase: "waiting"; blocks: TradeBlock[]; groups: ElementGroup[]; packageGroups: PackageGroup[]; answered: Rom }
   /** `rom` is the scope known so far, which the blocks, boxes and the total show. */
   | {
       phase: "ready";
@@ -73,6 +75,7 @@ export type LiveBudget =
       answered: Rom;
       blocks: TradeBlock[];
       groups: ElementGroup[];
+      packageGroups: PackageGroup[];
       grossSquareFeet: number;
     };
 
@@ -144,17 +147,18 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
         );
         if (!ordering) return { phase: "empty" };
         const { known, full } = knownScopeRom(ordering, loaded.snapshot);
-        const { blocks, groups } = fieldBlocksAndGroups(known, classifications);
-        return { phase: "waiting", blocks, groups, answered: full };
+        const { blocks, groups, packageGroups } = fieldBlocksAndGroups(known, classifications);
+        return { phase: "waiting", blocks, groups, packageGroups, answered: full };
       }
       const { known, full } = knownScopeRom(answers, loaded.snapshot);
-      const { blocks, groups } = fieldBlocksAndGroups(known, classifications);
+      const { blocks, groups, packageGroups } = fieldBlocksAndGroups(known, classifications);
       return {
         phase: "ready",
         rom: known,
         answered: full,
         blocks,
         groups,
+        packageGroups,
         grossSquareFeet: answers.grossSquareFeet,
       };
     } catch (cause) {
@@ -167,16 +171,19 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
  * LA-1158, ADR 0006: an element with a stated driver and at least one other
  * member in scope groups into a box; `tradeBlocks` still names every line
  * that adds to the total, so a grouped line is filtered back out of the
- * single-tile list rather than computed twice.
+ * single-tile list rather than computed twice. LA-1159: `packageGroups` is
+ * the same lines grouped By Package, computed alongside so the switch has no
+ * data to wait on when the viewer flips it.
  */
 function fieldBlocksAndGroups(
   rom: Rom,
   classifications: readonly BlockClassification[],
-): { blocks: TradeBlock[]; groups: ElementGroup[] } {
+): { blocks: TradeBlock[]; groups: ElementGroup[]; packageGroups: PackageGroup[] } {
   const { groups, singles } = groupElements(rom, classifications);
   const singleCodes = new Set(singles.map((line) => line.costCode));
   const blocks = tradeBlocks(rom).filter((block) => singleCodes.has(block.costCode));
-  return { blocks, groups };
+  const packageGroups = groupByPackage(rom, classifications).groups;
+  return { blocks, groups, packageGroups };
 }
 
 /** The header band while New budget is open: the total the answers so far add up to. */
@@ -304,21 +311,29 @@ function Composition({ rom }: { rom: Rom }) {
   );
 }
 
-type Tracked = { x: number; y: number; w: number; h: number; el: HTMLElement };
-
-/** The white field while New budget is open: trades, then what the scope answers took out. */
-export function LiveField({ live }: { live: LiveBudget }) {
+/**
+ * The white field while New budget is open: trades, then what the scope
+ * answers took out. `view` switches the grouping (LA-1159, ADR 0006): By
+ * Scope shows element boxes over loose trade blocks, By Package shows one
+ * flat block per buyout package and nothing loose, since every line already
+ * has a package, Unassigned Package included. The header total this field
+ * sits under never moves when `view` changes; only the blocks regroup, on
+ * the shared FLIP tracker (`useFieldFlip`, motion.ts) so a tile crossing from
+ * a box into a package block reads as one thing travelling.
+ */
+export function LiveField({ live, view }: { live: LiveBudget; view: RomView }) {
+  const flip = useFieldFlip();
   const layer = useRef<HTMLDivElement>(null);
   const ghosts = useRef<HTMLDivElement>(null);
-  const nodes = useRef(new Map<string, HTMLElement>());
-  const tracked = useRef(new Map<string, Tracked>());
-  const firstFill = useRef(true);
 
-  const blocks = live.phase === "ready" || live.phase === "waiting" ? live.blocks : [];
+  const blocks = (live.phase === "ready" || live.phase === "waiting") && view === "scope" ? live.blocks : [];
   // LA-1158: an element with a stated driver and something else in scope
   // groups into a box (ADR 0006); `blocks` above already excludes whatever
   // groupElements moved in here.
-  const groups = live.phase === "ready" || live.phase === "waiting" ? live.groups : [];
+  const elementGroups = (live.phase === "ready" || live.phase === "waiting") && view === "scope" ? live.groups : [];
+  // LA-1159: By Package groups every line that adds to the total, so there is
+  // nothing left loose for `blocks` to show once this view is active.
+  const packageGroups = (live.phase === "ready" || live.phase === "waiting") && view === "package" ? live.packageGroups : [];
   // What was answered No or Don't know, from the ROM as the answers stand.
   // The scope-known ROM cannot say: it leaves unanswered lines out entirely.
   const answered = live.phase === "ready" || live.phase === "waiting" ? live.answered : null;
@@ -327,20 +342,27 @@ export function LiveField({ live }: { live: LiveBudget }) {
   // LA-1153: an item in scope with nothing pricing it yet (ADR 0006). It is
   // not a `TradeBlock`, since it never adds to the total, so it is not read
   // off `answered` the way the trays above are; it comes straight off the
-  // ROM, which is the same list whichever ROM the caller passes here. LA-1158:
-  // one already shown as a tile inside its element's box is left out here, so
-  // it is never named twice.
-  const groupedCodes = new Set(groups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)));
-  const unpriced = (answered?.unpricedItems ?? []).filter((item) => !groupedCodes.has(item.costCode));
+  // ROM, which is the same list whichever ROM the caller passes here. On By
+  // Scope, one already shown inside its element's box is left out here
+  // (LA-1158); on By Package every item already sits inside a package block,
+  // so this list is always empty there.
+  const groupedCodes = new Set(elementGroups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)));
+  const unpriced = view === "scope" ? (answered?.unpricedItems ?? []).filter((item) => !groupedCodes.has(item.costCode)) : [];
 
   // Blocks and boxes share one biggest-first order, boxes sorted by their own
   // total. `entries` also fixes the render order the field and the trays
   // agree on for FLIP.
   const entries = [
     ...blocks.map((block) => ({ kind: "block" as const, key: block.costCode, midpoint: block.midpoint, ownerDirect: block.ownerDirect })),
-    ...groups.map((group) => ({
-      kind: "group" as const,
+    ...elementGroups.map((group) => ({
+      kind: "element" as const,
       key: `element:${group.element}`,
+      midpoint: midpoint(group.total),
+      ownerDirect: group.ownerDirect,
+    })),
+    ...packageGroups.map((group) => ({
+      kind: "package" as const,
+      key: `package:${group.package}`,
       midpoint: midpoint(group.total),
       ownerDirect: group.ownerDirect,
     })),
@@ -348,112 +370,33 @@ export function LiveField({ live }: { live: LiveBudget }) {
   const kulkaEntries = entries.filter((entry) => !entry.ownerDirect);
   const ownerEntries = entries.filter((entry) => entry.ownerDirect);
   const rank = new Map(entries.map((entry, index) => [entry.key, index]));
-  const groupByKey = new Map(groups.map((group) => [`element:${group.element}`, group]));
+  const elementByKey = new Map(elementGroups.map((group) => [`element:${group.element}`, group]));
+  const packageByKey = new Map(packageGroups.map((group) => [`package:${group.package}`, group]));
   const blockByKey = new Map(blocks.map((block) => [block.costCode, block]));
 
-  // LA-1158: a box's tiles land as a family, the driver first, so a driver an
-  // answer just brought in never fades in at the same moment as the disconnects
+  // LA-1158/LA-1159: a box's tiles land as a family, the driver first (By
+  // Scope) or in package order (By Package), so a box an answer or a view
+  // switch just brought in never fades in at the same moment as everything
   // it carries. The delay is set off the box's own rank rather than the
-  // generic first-fill cascade below, so a box that arrives later in the
-  // session still stages the same way a box in the first fill does.
+  // generic first-fill cascade `useFieldFlip` falls back to, so a box that
+  // arrives later in the session still stages the same way a box in the
+  // first fill does.
   const tileDelay = new Map<string, number>();
-  for (const group of groups) {
+  for (const group of elementGroups) {
     const base = (rank.get(`element:${group.element}`) ?? 0) * 22;
     tileDelay.set(group.driver.costCode, base);
     group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
   }
-
-  const register = (key: string) => (el: HTMLElement | null) => {
-    if (el) nodes.current.set(key, el);
-    else nodes.current.delete(key);
-  };
+  for (const group of packageGroups) {
+    const base = (rank.get(`package:${group.package}`) ?? 0) * 22;
+    group.items.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * index));
+  }
 
   // FLIP, run after every commit. Each cost code is tracked wherever it
-  // shows, block or tray chip, so moving between the two reads as one thing
-  // travelling rather than one vanishing and another appearing.
+  // shows, block, tray chip or package tile, so moving between them reads as
+  // one thing travelling rather than one vanishing and another appearing.
   useLayoutEffect(() => {
-    const container = layer.current;
-    const overlay = ghosts.current;
-    if (!container || !overlay) return;
-    const still = reducedMotion();
-    const origin = container.getBoundingClientRect();
-    const previous = tracked.current;
-    const next = new Map<string, Tracked>();
-    const entering: [string, HTMLElement][] = [];
-
-    // Where each element is on screen right now, mid-slide included, before
-    // its running slide is cancelled and its new place measured.
-    const offsets = new Map<HTMLElement, { x: number; y: number }>();
-    for (const el of nodes.current.values()) {
-      const transform = getComputedStyle(el).transform;
-      const matrix = new DOMMatrixReadOnly(transform === "none" ? undefined : transform);
-      offsets.set(el, { x: matrix.m41, y: matrix.m42 });
-      for (const animation of el.getAnimations()) {
-        if ((animation as Animation & { id: string }).id === "lb-move") animation.cancel();
-      }
-    }
-
-    for (const [key, el] of nodes.current) {
-      const r = el.getBoundingClientRect();
-      const here: Tracked = { x: r.left - origin.left, y: r.top - origin.top, w: r.width, h: r.height, el };
-      next.set(key, here);
-      const before = previous.get(key);
-      if (!before) {
-        entering.push([key, el]);
-        continue;
-      }
-      if (still) continue;
-      if (before.el !== el) {
-        // Crossing between the field and a tray: the old element lifts off
-        // where it was and heads for the new one, which settles in behind it.
-        ghost(overlay, before, here);
-        el.animate(
-          [
-            { opacity: 0, transform: `translate(${before.x - here.x}px, ${before.y - here.y}px) scale(0.92)`, filter: "blur(3px)" },
-            { opacity: 1, transform: "none", filter: "blur(0)" },
-          ],
-          { duration: 520, easing: EASE_SMOOTH, fill: "backwards" },
-        );
-        continue;
-      }
-      const offset = offsets.get(el) ?? { x: 0, y: 0 };
-      const dx = before.x + offset.x - here.x;
-      const dy = before.y + offset.y - here.y;
-      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-        const move = el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
-          duration: 460,
-          easing: EASE_SMOOTH,
-        });
-        move.id = "lb-move";
-      }
-    }
-
-    // Gone from both field and trays: it drops away where it stood.
-    for (const [key, before] of previous) {
-      if (next.has(key) || still) continue;
-      ghost(overlay, before, null);
-    }
-
-    if (!still) {
-      const cascade = firstFill.current && entering.length > 3;
-      entering
-        .sort((a, b) => (rank.get(a[0]) ?? 0) - (rank.get(b[0]) ?? 0))
-        .forEach(([key, el], index) => {
-          // LA-1158: a tile inside a box lands off its own family delay,
-          // whichever fill this is; everything else keeps the plain cascade.
-          const family = tileDelay.get(key);
-          const delay = family !== undefined ? family : cascade ? Math.min(index * 22, 520) : 0;
-          el.animate(
-            [
-              { opacity: 0, transform: "translateY(8px) scale(0.98)", filter: "blur(4px)" },
-              { opacity: 1, transform: "none", filter: "blur(0)" },
-            ],
-            { duration: 380, delay, easing: EASE_SMOOTH, fill: "backwards" },
-          );
-        });
-    }
-    if (entering.length > 0) firstFill.current = false;
-    tracked.current = next;
+    flip.run(layer.current, ghosts.current, rank, { delayFor: (key) => tileDelay.get(key) });
   });
 
   if (live.phase === "idle" || live.phase === "loading" || live.phase === "empty") {
@@ -479,15 +422,27 @@ export function LiveField({ live }: { live: LiveBudget }) {
 
   const waiting = live.phase === "waiting";
   const tile = (entry: (typeof entries)[number]) => {
-    if (entry.kind === "group") {
-      const group = groupByKey.get(entry.key)!;
+    if (entry.kind === "element") {
+      const group = elementByKey.get(entry.key)!;
       return (
         <LiveElementBox
           key={entry.key}
           group={group}
           waiting={waiting}
           rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
-          register={register}
+          register={flip.register}
+        />
+      );
+    }
+    if (entry.kind === "package") {
+      const group = packageByKey.get(entry.key)!;
+      return (
+        <LivePackageBox
+          key={entry.key}
+          group={group}
+          waiting={waiting}
+          rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
+          register={flip.register}
         />
       );
     }
@@ -498,7 +453,7 @@ export function LiveField({ live }: { live: LiveBudget }) {
         block={block}
         waiting={waiting}
         rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
-        register={register(entry.key)}
+        register={flip.register(entry.key)}
       />
     );
   };
@@ -512,7 +467,13 @@ export function LiveField({ live }: { live: LiveBudget }) {
       {entries.length === 0 ? <p className="rb-none">No benchmark matched this project type, so there are no lines.</p> : null}
       {kulkaEntries.length > 0 ? (
         <section className="rb-grp" aria-label="Trades">
-          <h2>{waiting ? "Trades, in the order they price" : "Trades, biggest first"}</h2>
+          <h2>
+            {view === "package"
+              ? "Packages, biggest first"
+              : waiting
+                ? "Trades, in the order they price"
+                : "Trades, biggest first"}
+          </h2>
           <div className="rb-grid">{kulkaEntries.map(tile)}</div>
         </section>
       ) : null}
@@ -527,7 +488,7 @@ export function LiveField({ live }: { live: LiveBudget }) {
           <h2>Not Priced Yet</h2>
           <div className="rb-grid">
             {unpriced.map((item) => (
-              <UnpricedBlock key={item.costCode} item={item} register={register(`unpriced:${item.costCode}`)} />
+              <UnpricedBlock key={item.costCode} item={item} register={flip.register(`unpriced:${item.costCode}`)} />
             ))}
           </div>
         </section>
@@ -539,7 +500,7 @@ export function LiveField({ live }: { live: LiveBudget }) {
               <h2>TBD, outside the total</h2>
               <div className="lb-chips">
                 {tbd.map((item) => (
-                  <span key={item.costCode} ref={register(item.costCode)} className="lb-chip lb-chip--tbd" title={item.question}>
+                  <span key={item.costCode} ref={flip.register(item.costCode)} className="lb-chip lb-chip--tbd" title={item.question}>
                     {item.label}
                   </span>
                 ))}
@@ -551,7 +512,7 @@ export function LiveField({ live }: { live: LiveBudget }) {
               <h2>Not in this job</h2>
               <div className="lb-chips">
                 {notInJob.map((item) => (
-                  <span key={item.costCode} ref={register(item.costCode)} className="lb-chip lb-chip--out" title={item.question}>
+                  <span key={item.costCode} ref={flip.register(item.costCode)} className="lb-chip lb-chip--out" title={item.question}>
                     {item.label}
                   </span>
                 ))}
@@ -631,39 +592,4 @@ function UnpricedBlock({
       </span>
     </div>
   );
-}
-
-/**
- * The element that just left, put back where it stood in a layer over the
- * field and animated away: toward its new place when it has one, or down and
- * out when it has none. React has already detached it, so this is the node
- * itself, not a copy.
- */
-function ghost(overlay: HTMLElement, from: Tracked, to: Tracked | null) {
-  const el = from.el;
-  if (el.isConnected) return;
-  el.getAnimations().forEach((animation) => animation.cancel());
-  Object.assign(el.style, {
-    position: "absolute",
-    left: `${from.x}px`,
-    top: `${from.y}px`,
-    width: `${from.w}px`,
-    height: `${from.h}px`,
-    margin: "0",
-    pointerEvents: "none",
-    transformOrigin: "top left",
-  });
-  overlay.appendChild(el);
-  const end = to
-    ? `translate(${to.x - from.x}px, ${to.y - from.y}px) scale(${Math.max(0.2, to.w / from.w)}, ${Math.max(0.2, to.h / from.h)})`
-    : "translateY(10px) scale(0.94)";
-  const flight = el.animate(
-    [
-      { opacity: 1, transform: "none", filter: "blur(0)" },
-      { opacity: 0, transform: end, filter: "blur(4px)" },
-    ],
-    { duration: to ? 460 : 260, easing: EASE_SMOOTH, fill: "forwards" },
-  );
-  flight.onfinish = () => el.remove();
-  flight.oncancel = () => el.remove();
 }

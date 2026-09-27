@@ -1,4 +1,4 @@
-import type { ConstructionKind, FramingSystem, ProjectType } from "@kulka/engine";
+import type { ConstructionKind, FramingSystem, ParkingType, ProjectType } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
 import { isUuid } from "@/lib/uuid";
@@ -76,21 +76,35 @@ export type NewBudget = {
   projectType: ProjectType;
   constructionKind: ConstructionKind;
   framingSystem: FramingSystem | null;
+  /**
+   * LA-1141: the guided New budget flow asks parking type on its Facts step
+   * (config/rom/tier1-flow.json), the same required gate a run reads off
+   * `projects.parking_type` when a caller sends it no `responses`
+   * (lib/rom/run.ts's `answersFromProject`). Recording it at creation means a
+   * later run from Run settings already has it, with no Run settings field of
+   * its own needed. Optional and defaulted to null so updateRomProject (Edit
+   * project, which never asks this question) can keep passing a `NewBudget`
+   * without disturbing what New budget recorded.
+   */
+  parkingType?: ParkingType | null;
 };
 
 const PROJECT_TYPES: ReadonlySet<string> = new Set(["multifamily", "self_storage"]);
 const CONSTRUCTION_KINDS: ReadonlySet<string> = new Set(["new", "renovation"]);
 const FRAMING: ReadonlySet<string> = new Set(["wood", "metal"]);
+const PARKING_TYPES: ReadonlySet<string> = new Set(["none", "surface", "structured", "underground", "dont_know"]);
 
 /**
  * The fields the projects table requires plus the area the engine prices on,
- * and framing. Everything else on the project stays null or its column default.
+ * framing, and parking type. Everything else on the project stays null or its
+ * column default.
  */
 export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } | { ok: false; error: string } {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return { ok: false, error: "Send a JSON object." };
   }
-  const { name, grossSquareFeet, projectType, constructionKind, framingSystem } = body as Record<string, unknown>;
+  const { name, grossSquareFeet, projectType, constructionKind, framingSystem, parkingType } =
+    body as Record<string, unknown>;
   if (typeof name !== "string" || name.trim() === "") return { ok: false, error: "Send a project name." };
   if (name.trim().length > 200) return { ok: false, error: "Keep the project name under 200 characters." };
   if (typeof grossSquareFeet !== "number" || !Number.isInteger(grossSquareFeet) || grossSquareFeet <= 0) {
@@ -105,6 +119,12 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
   if (framingSystem !== undefined && framingSystem !== null && (typeof framingSystem !== "string" || !FRAMING.has(framingSystem))) {
     return { ok: false, error: 'Send framingSystem as "wood", "metal", or null.' };
   }
+  if (parkingType !== undefined && parkingType !== null && (typeof parkingType !== "string" || !PARKING_TYPES.has(parkingType))) {
+    return {
+      ok: false,
+      error: 'Send parkingType as "none", "surface", "structured", "underground", "dont_know", or null.',
+    };
+  }
   return {
     ok: true,
     budget: {
@@ -113,16 +133,24 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       projectType: projectType as ProjectType,
       constructionKind: constructionKind as ConstructionKind,
       framingSystem: (framingSystem ?? null) as FramingSystem | null,
+      parkingType: (parkingType ?? null) as ParkingType | null,
     },
   };
 }
 
 export async function insertRomProject(db: Db, budget: NewBudget): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `insert into projects (name, gross_square_feet, project_type, construction_kind, framing_system, rom_budget)
-     values ($1, $2, $3, $4, $5, true)
+    `insert into projects (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type, rom_budget)
+     values ($1, $2, $3, $4, $5, $6, true)
      returning id`,
-    [budget.name, budget.grossSquareFeet, budget.projectType, budget.constructionKind, budget.framingSystem],
+    [
+      budget.name,
+      budget.grossSquareFeet,
+      budget.projectType,
+      budget.constructionKind,
+      budget.framingSystem,
+      budget.parkingType ?? null,
+    ],
   );
   return rows[0].id;
 }

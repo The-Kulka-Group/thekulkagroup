@@ -370,6 +370,26 @@
 }
 .rb-acts { display: flex; gap: 8px; margin: 16px 0 4px; }
 
+/* LA-1141: the guided New budget flow's step indicator (Facts, Scope,
+   Markups, Review), a row of pills the same shape as a status chip. */
+.rb-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.rb-step {
+  padding: 3px 10px;
+  border: 1px solid var(--rb-pnl-line2);
+  border-radius: 999px;
+  font-size: var(--chip-size);
+  color: var(--rb-pnl-mute);
+}
+.rb-step--active { color: var(--rb-ink-on-black); border-color: var(--rb-ink-on-black); }
+.rb-step--done { color: var(--rb-sel-ink2); border-color: var(--rb-pnl-line2); }
+
 /* Run settings: the Scope and GRs/GCs modules, restyled for the black panel.
    Their layout stays in scope.css and markups.css. */
 .rb-pnl .markup-module { border-bottom-color: var(--rb-pnl-line); }

@@ -30,19 +30,36 @@ export const dynamic = "force-dynamic";
 // LA-1107: the project comes from `?project=<id>` and falls back to
 // ROM_PROJECT_ID. The id is checked against the projects table before
 // anything reads by it. The header's picker lists every project with a run.
+//
+// LA-1141: `?new=1` opens the guided New budget panel on load -- /rom/intake
+// redirects here with it set, since the guided flow now covers what intake
+// asked. The Markups step needs the rate tables and history counts
+// (LA-1016) regardless of whether a project is even selected yet, so
+// readMarkupOptions is read unconditionally rather than only once a project
+// resolves.
 export default async function RomPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string | string[] }>;
+  searchParams: Promise<{ project?: string | string[]; new?: string | string[] }>;
 }) {
   const auth = await authorizeRequest();
   if (!auth.ok) return <RomRunner projectId={process.env.ROM_PROJECT_ID} />;
 
   const db = getDb();
-  const { project } = await searchParams;
+  const { project, new: newParam } = await searchParams;
+  const openNewOnLoad = (Array.isArray(newParam) ? newParam[0] : newParam) === "1";
   const { projectId, notFound, archivedAt } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
-  const projects = await listRomProjects(db);
-  if (!projectId) return <RomRunner projects={projects} projectNotFound={notFound} />;
+  const [projects, markupOptions] = await Promise.all([listRomProjects(db), readMarkupOptions(db)]);
+  if (!projectId) {
+    return (
+      <RomRunner
+        projects={projects}
+        projectNotFound={notFound}
+        markupOptions={markupOptions}
+        openNewOnLoad={openNewOnLoad}
+      />
+    );
+  }
 
   // LA-1110: an archived project shows only its archived state and a
   // Restore button, not the pricing UI. It stays out of `projects` (the
@@ -59,8 +76,7 @@ export default async function RomPage({
     );
   }
 
-  const [markupOptions, markupDefault, scopeDefaults, framingDefault, allRuns] = await Promise.all([
-    readMarkupOptions(db),
+  const [markupDefault, scopeDefaults, framingDefault, allRuns] = await Promise.all([
     readProjectMarkupChoices(db, projectId),
     readProjectGateAnswers(db, projectId),
     readProjectFramingSystem(db, projectId),
@@ -81,6 +97,7 @@ export default async function RomPage({
       initialRun={initialRun}
       projects={projects}
       isEnvProject={projectId === process.env.ROM_PROJECT_ID}
+      openNewOnLoad={openNewOnLoad}
     />
   );
 }

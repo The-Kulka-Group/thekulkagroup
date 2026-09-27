@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-
-// LA-1107. The New budget form in the black side panel. It asks for what the
-// projects table requires (name, project type, construction kind), the area
-// the engine prices on, and framing. Nothing else is asked or filled in.
+// LA-1107. `Form`, `EMPTY`, `areaOf` and `ProjectFields` back the Edit project
+// panel (EditProject.tsx, LA-1110): the same four facts plus framing, and
+// nothing else, exactly as New budget always asked for them.
 //
-// LA-1110 reuses ProjectFields and Form here for the Edit project panel
-// (EditProject.tsx), so the two forms ask for exactly the same facts.
+// New budget itself is the guided flow in GuidedNewBudget.tsx (LA-1141): it
+// asks these same facts on its first step, plus parking type, the nine scope
+// gates, and GRs/GCs, before adding the project. This file no longer renders
+// a New budget form of its own.
 
 export type Form = {
   name: string;
@@ -101,61 +101,5 @@ export function ProjectFields({
         </label>
       </div>
     </section>
-  );
-}
-
-export function NewBudgetForm({ onCreated }: { onCreated: (projectId: string) => void }) {
-  const [form, setForm] = useState<Form>(EMPTY);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = (patch: Partial<Form>) => setForm((current) => ({ ...current, ...patch }));
-
-  const area = areaOf(form);
-  const ready = form.name.trim() !== "" && Number.isInteger(area) && area > 0;
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!ready || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/rom/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          grossSquareFeet: area,
-          projectType: form.projectType,
-          constructionKind: form.constructionKind,
-          framingSystem: form.framingSystem || null,
-        }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || typeof body.projectId !== "string") {
-        setError(body.error ?? "The project could not be added.");
-        setBusy(false);
-        return;
-      }
-      onCreated(body.projectId);
-    } catch {
-      setError("The project could not be added. Check the connection and try again.");
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit}>
-      <ProjectFields form={form} set={set} busy={busy} />
-      {error ? (
-        <p className="rb-pp rb-pp--error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className="rb-acts">
-        <button className="btn btn--primary" type="submit" disabled={!ready || busy}>
-          {busy ? "Adding" : "Add budget"}
-        </button>
-      </div>
-    </form>
   );
 }

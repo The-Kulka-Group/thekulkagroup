@@ -20,8 +20,8 @@ import {
   valueTier,
 } from "./block-layout";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
+import { GuidedNewBudget } from "./GuidedNewBudget";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
-import { NewBudgetForm } from "./NewBudget";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
@@ -68,6 +68,7 @@ export function RomRunner({
   projectNotFound = false,
   projectArchivedAt = null,
   isEnvProject = false,
+  openNewOnLoad = false,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
@@ -90,12 +91,14 @@ export function RomRunner({
   projectArchivedAt?: string | null;
   /** Whether projectId is the project configured for this environment (ROM_PROJECT_ID); it cannot be archived (LA-1110). */
   isEnvProject?: boolean;
+  /** /rom/intake redirects here with ?new=1 (LA-1141), since the guided New budget flow now covers what it asked. */
+  openNewOnLoad?: boolean;
 }) {
   const router = useRouter();
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
   const [state, setState] = useState<Status>({ phase: "idle" });
   const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
-  const [panel, setPanel] = useState<Panel | null>(null);
+  const [panel, setPanel] = useState<Panel | null>(() => (openNewOnLoad ? { kind: "new" } : null));
   const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, markupDefault));
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
   const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
@@ -438,11 +441,11 @@ export function RomRunner({
             <>
               <PanelHead
                 title="New budget"
-                sub="Adds the project from these facts. Anything not asked here stays blank on the project."
+                sub="Walks the facts, scope and GRs/GCs the engine reads, then adds the project."
                 onClose={closePanel}
                 titleRef={titleRef}
               />
-              <NewBudgetForm onCreated={(id) => router.push(`/rom?project=${id}`)} />
+              <GuidedNewBudget markupOptions={markupOptions} onCreated={(id) => router.push(`/rom?project=${id}`)} />
             </>
           ) : null}
 

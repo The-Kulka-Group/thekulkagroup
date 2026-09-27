@@ -71,6 +71,9 @@ export const BROWSER_TEST_ROM_PROJECT_ID = "30000000-0000-4000-8000-000000000001
  */
 async function seedRomFixtures(database: PGlite) {
   await database.exec(`
+    -- LA-1145: the lines below carry plain trade names so the screen reads
+    -- like the real thing. Every figure is still fake, so the project names
+    -- keep "Synthetic" as the marker on screen.
     insert into projects (id, name, project_type, construction_kind, gross_square_feet, percent_complete)
     values
       ('${BROWSER_TEST_ROM_PROJECT_ID}', 'Synthetic browser test project', 'multifamily', 'new', 100000, null),
@@ -81,29 +84,29 @@ async function seedRomFixtures(database: PGlite) {
       (id, cost_code, label, unit, value, project_type, construction_kind, comparable_count,
        provenance_kind, provenance_export_label, provenance_recorded_by, provenance_recorded_at)
     values
-      ('40000000-0000-4000-8000-000000000001', '03-300', 'Synthetic concrete line', 'usd_per_gsf', 20,
+      ('40000000-0000-4000-8000-000000000001', '03-300', 'Concrete', 'usd_per_gsf', 20,
        'multifamily', 'new', 1, 'actuals', 'Synthetic browser test export', 'Browser test fixture', '2026-09-01'),
-      ('40000000-0000-4000-8000-000000000002', '03-300', 'Synthetic concrete line', 'usd_per_gsf', 24,
+      ('40000000-0000-4000-8000-000000000002', '03-300', 'Concrete', 'usd_per_gsf', 24,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-02'),
-      ('40000000-0000-4000-8000-000000000003', '09-900', 'Synthetic finishes line', 'usd_per_gsf', 12,
+      ('40000000-0000-4000-8000-000000000003', '09-900', 'Finishes', 'usd_per_gsf', 12,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-03'),
-      ('40000000-0000-4000-8000-000000000004', '31-200', 'Synthetic sitework line', 'usd_per_gsf', 8,
+      ('40000000-0000-4000-8000-000000000004', '31-200', 'Sitework', 'usd_per_gsf', 8,
        'multifamily', 'new', 0, 'llm_proposal', 'Synthetic browser test export', 'Browser test fixture', '2026-09-04'),
-      ('40000000-0000-4000-8000-000000000005', '26-100', 'Synthetic electrical lump line', 'usd_per_gsf', 25,
+      ('40000000-0000-4000-8000-000000000005', '26-100', 'Electrical', 'usd_per_gsf', 25,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-06'),
-      ('40000000-0000-4000-8000-000000000006', '22-100', 'Synthetic plumbing rough-in lump line', 'usd_per_gsf', 14,
+      ('40000000-0000-4000-8000-000000000006', '22-100', 'Plumbing rough-in', 'usd_per_gsf', 14,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-06'),
-      ('40000000-0000-4000-8000-000000000007', '14-200', 'Synthetic elevator car line', 'usd_per_gsf', 2.6,
+      ('40000000-0000-4000-8000-000000000007', '14-200', 'Elevator', 'usd_per_gsf', 2.6,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
-      ('40000000-0000-4000-8000-000000000008', '26-200', 'Synthetic elevator wiring line', 'usd_per_gsf', 0.72,
+      ('40000000-0000-4000-8000-000000000008', '26-200', 'Elevator wiring', 'usd_per_gsf', 0.72,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
-      ('40000000-0000-4000-8000-000000000009', '22-300', 'Synthetic elevator pit sump line', 'usd_per_gsf', 0.26,
+      ('40000000-0000-4000-8000-000000000009', '22-300', 'Elevator pit sump', 'usd_per_gsf', 0.26,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
-      ('40000000-0000-4000-8000-00000000000a', '28-300', 'Synthetic elevator fire alarm interface line', 'usd_per_gsf', 0.17,
+      ('40000000-0000-4000-8000-00000000000a', '28-300', 'Elevator fire alarm interface', 'usd_per_gsf', 0.17,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
-      ('40000000-0000-4000-8000-00000000000b', '22-400', 'Synthetic bathroom fixture point line', 'usd_per_gsf', 4.4,
+      ('40000000-0000-4000-8000-00000000000b', '22-400', 'Bathroom fixtures', 'usd_per_gsf', 4.4,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08'),
-      ('40000000-0000-4000-8000-00000000000c', '22-500', 'Synthetic toilet labor and material split line', 'usd_per_gsf', 0.35,
+      ('40000000-0000-4000-8000-00000000000c', '22-500', 'Toilets, labor and material', 'usd_per_gsf', 0.35,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08');
 
     insert into benchmark_source_projects (benchmark_id, project_id)
@@ -171,6 +174,29 @@ async function seedRomFixtures(database: PGlite) {
        'Browser test fixture', '2026-09-05',
        'A synthetic fixture so the drill-down has a judgment row to show. Not a Kulka figure.',
        'approved', 'Browser test fixture', now());
+
+    -- LA-1145: scope-gate rules for the synthetic lines above, so a scope
+    -- answer takes a block out locally the way the shipped rules do on real
+    -- item numbers (supabase/migrations/20260924140000_branch_gate_items.sql).
+    -- Each mirrors a shipped rule's shape: the elevator gate closes the
+    -- elevator line and its breakouts like item 26, site conditions closes
+    -- sitework, and concrete closes only on two answers, the way item 34a
+    -- reads levels below grade and site conditions together.
+    insert into branch_gate_items
+      (section, cost_code, closes_on, requires_all_sections, stated_by, stated_on, reason)
+    values
+      ('elevator', '14-200', array['no'], null, 'Browser test fixture', '2026-09-26',
+       'A synthetic fixture so the elevator question takes the elevator block out. Not a Kulka rule.'),
+      ('elevator', '26-200', array['no'], null, 'Browser test fixture', '2026-09-26',
+       'A synthetic fixture so the elevator question takes its electrical breakout out. Not a Kulka rule.'),
+      ('elevator', '22-300', array['no'], null, 'Browser test fixture', '2026-09-26',
+       'A synthetic fixture so the elevator question takes its plumbing breakout out. Not a Kulka rule.'),
+      ('elevator', '28-300', array['no'], null, 'Browser test fixture', '2026-09-26',
+       'A synthetic fixture so the elevator question takes its fire alarm breakout out. Not a Kulka rule.'),
+      ('site_conditions', '31-200', array['no'], null, 'Browser test fixture', '2026-09-26',
+       'A synthetic fixture so the site conditions question takes the sitework block out. Not a Kulka rule.'),
+      ('levels_below_grade', '03-300', array['no'], array['site_conditions'], 'Browser test fixture', '2026-09-26',
+       'A synthetic fixture shaped like item 34a: concrete is off only when both questions are no. Not a Kulka rule.');
   `);
 }
 

@@ -20,17 +20,28 @@ import {
   valueTier,
 } from "./block-layout";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
-import { ElementBoxBlock, PackageBoxBlock } from "./ElementBox";
-import { type ElementGroup, groupElements } from "./element-groups";
+import { ElementBoxBlock } from "./ElementBox";
+import {
+  type BarModel,
+  barModel,
+  buildField,
+  chipFor,
+  entryForCostCode,
+  type FieldEntry,
+  orderField,
+  type RomOrder,
+} from "./field-order";
 import { GuidedNewBudget } from "./GuidedNewBudget";
-import { type BudgetDraft, LiveField, LiveTotal, useLiveBudget } from "./LiveBudget";
+import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } from "./LiveBudget";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { useFieldFlip } from "./motion";
+import { PackageCard, PackagePanel } from "./PackageCard";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
-import { type PackageGroup, type RomView, groupByPackage } from "./view-groups";
-import { useRomView, ViewSwitch } from "./view-switch";
+import { type FieldLink, ShareBar, ShareChip, useHoverIntent } from "./ShareBar";
+import type { RomView } from "./view-groups";
+import { OrderSwitch, useRomOrder, useRomView, ViewSwitch } from "./view-switch";
 import "./rom-blocks.css";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
@@ -51,6 +62,8 @@ type Status =
 type Panel =
   | { kind: "total" }
   | { kind: "block"; costCode: string }
+  /** LA-1181: a package card, its items listed in the panel. */
+  | { kind: "package"; key: string }
   | { kind: "notes" }
   | { kind: "settings" }
   | { kind: "new" }
@@ -125,31 +138,45 @@ export function RomRunner({
   // that choice follows them everywhere (useRomView, view-switch.tsx).
   const [view, setView] = useRomView(panel?.kind === "new" ? "scope" : "package");
 
+  // LA-1181: MasterFormat or Largest First, remembered per viewer like the view.
+  const [order, setOrder] = useRomOrder();
+
   const busy = state.phase === "running" || state.phase === "loading";
+  // Every line that adds to the total, since the side panel opens any of them
+  // by cost code whether or not it is shown inside a box or a card.
   const blocks = useMemo(() => (run ? tradeBlocks(run.rom) : []), [run]);
-  // LA-1158, ADR 0006: an element with a stated driver and something else in
-  // scope groups into a parent box; `blocks` above still names every line
-  // that adds to the total, since the side panel opens any of them by cost
-  // code whether or not it is shown inside a box.
-  const elementGroups = useMemo(
-    () => (run ? groupElements(run.rom, classifications).groups : []),
-    [run, classifications],
+  // LA-1181: the field in the chosen view and order (field-order.ts), and the
+  // header bar's shares for it, so the dividers follow the field's order.
+  const entries = useMemo(
+    () => (run ? orderField(buildField(view, run.rom, classifications), order) : []),
+    [run, classifications, view, order],
   );
-  // LA-1159: the same lines grouped By Package instead. Every line that adds
-  // to the total lands in some package group, Unassigned Package included, so
-  // there is nothing left for `blocks` to show once this view is active.
-  const packageGroups: PackageGroup[] = useMemo(
-    () => (run ? groupByPackage(run.rom, classifications).groups : []),
-    [run, classifications],
+  const bar = useMemo(() => (run ? barModel(run.rom, entries) : null), [run, entries]);
+
+  // The live preview's field and bar, the same way.
+  const liveRom = live.phase === "ready" || live.phase === "waiting" ? live.rom : null;
+  const liveClassifications = live.phase === "ready" || live.phase === "waiting" ? live.classifications : null;
+  const liveEntries = useMemo(
+    () => (liveRom && liveClassifications ? orderField(buildField(view, liveRom, liveClassifications), order) : []),
+    [liveRom, liveClassifications, view, order],
   );
-  const singleBlocks = useMemo(() => {
-    if (view === "package") return [];
-    if (elementGroups.length === 0) return blocks;
-    const grouped = new Set(
-      elementGroups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)),
-    );
-    return blocks.filter((block) => !grouped.has(block.costCode));
-  }, [blocks, elementGroups, view]);
+  const liveBar = useMemo(
+    () => (live.phase === "ready" ? barModel(live.rom, liveEntries) : null),
+    [live, liveEntries],
+  );
+
+  // LA-1181: hovering a card previews its share in the bar after a short
+  // hold; the item hovered in a card's strip or the side panel lights its
+  // twin in the other.
+  const hover = useHoverIntent();
+  const [hotItem, setHotItem] = useState<string | null>(null);
+  const link: FieldLink = useMemo(
+    () => ({ onEnter: hover.enter, onLeave: hover.leave, item: hotItem, onItem: setHotItem }),
+    [hover.enter, hover.leave, hotItem],
+  );
+  // New budget has no side panel to open, so a click there only keeps the
+  // card's share lit.
+  const [liveSelected, setLiveSelected] = useState<string | null>(null);
   const headline = useMemo(() => (run ? headlineOf(run.rom) : null), [run]);
   const drilldown = useProvenance(run?.runId ?? null);
 
@@ -191,7 +218,8 @@ export function RomRunner({
     const same =
       panel !== null &&
       panel.kind === next.kind &&
-      (panel.kind !== "block" || (next.kind === "block" && panel.costCode === next.costCode));
+      (panel.kind !== "block" || (next.kind === "block" && panel.costCode === next.costCode)) &&
+      (panel.kind !== "package" || (next.kind === "package" && panel.key === next.key));
     if (same) {
       closePanel();
       return;
@@ -267,6 +295,19 @@ export function RomRunner({
   }
 
   const openBlock = panel?.kind === "block" ? blocks.find((b) => b.costCode === panel.costCode) : undefined;
+  const openPackage =
+    panel?.kind === "package"
+      ? entries.find((entry): entry is Extract<FieldEntry, { kind: "package" }> => entry.key === panel.key)
+      : undefined;
+  // What stays lit once the pointer leaves: the selected card, or the card
+  // an open line sits in.
+  const selectedEntryKey = openPackage?.key ?? entryForCostCode(entries, openBlock?.costCode ?? null)?.key ?? null;
+  const litKey = hover.key ?? selectedEntryKey;
+  const litEntry = entries.find((entry) => entry.key === litKey);
+  const chip = litEntry && bar ? chipFor(litEntry, bar.spans.get(litEntry.key)) : null;
+  const liveLitKey = hover.key ?? liveSelected;
+  const liveLitEntry = live.phase === "ready" ? liveEntries.find((entry) => entry.key === liveLitKey) : undefined;
+  const liveChip = liveLitEntry && liveBar ? chipFor(liveLitEntry, liveBar.spans.get(liveLitEntry.key)) : null;
   const held = blocks.filter((block) => block.line.heldForReview).length;
   const noteCount = run
     ? held + run.rom.tbdGateItems.length + run.rom.assumedPresentItems.length
@@ -326,6 +367,7 @@ export function RomRunner({
           {!projectId ? <span>{projectNotFound ? "Project not found" : "No project configured"}</span> : null}
           <span className="rb-sp" />
           {run || panel?.kind === "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
+          {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
           <button
             type="button"
             className="rb-hbtn"
@@ -367,7 +409,9 @@ export function RomRunner({
         <div className="rb-t2">
           {/* LA-1142: while New budget is open, the band shows the total the
               answers so far add up to. */}
-          <div className="rb-fresh-note lb-hd">{panel?.kind === "new" ? <LiveTotal live={live} /> : null}</div>
+          <div className="rb-fresh-note lb-hd">
+            {panel?.kind === "new" ? <LiveTotal live={live} bar={liveBar} chip={liveChip} litKey={liveLitKey} /> : null}
+          </div>
           {run && headline ? (
             <>
               <button
@@ -410,6 +454,8 @@ export function RomRunner({
                 ) : null}
                 {notesLabel(held, run.rom)}
               </button>
+              <ShareChip chip={chip} />
+              {bar ? <SavedBar bar={bar} litKey={litKey} /> : null}
             </>
           ) : (
             <p className="rb-tnone">
@@ -425,7 +471,19 @@ export function RomRunner({
 
       <main className="rb-fld" aria-busy={busy}>
         {/* LA-1142: and the field shows the budget building. */}
-        <div className="rb-fresh-note">{panel?.kind === "new" ? <LiveField live={live} view={view} /> : null}</div>
+        <div className="rb-fresh-note">
+          {panel?.kind === "new" ? (
+            <LiveField
+              live={live}
+              view={view}
+              order={order}
+              entries={liveEntries}
+              selectedKey={liveSelected}
+              onSelect={(key) => setLiveSelected((current) => (current === key ? null : key))}
+              link={link}
+            />
+          ) : null}
+        </div>
         {state.phase === "idle" && !run ? (
           <p className="rb-none">
             {projectId
@@ -444,16 +502,18 @@ export function RomRunner({
           </p>
         ) : null}
         {run ? (
-          singleBlocks.length === 0 && elementGroups.length === 0 && packageGroups.length === 0 ? (
+          entries.length === 0 ? (
             <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
           ) : (
             <BlockField
               view={view}
-              blocks={singleBlocks}
-              groups={view === "scope" ? elementGroups : []}
-              packageGroups={view === "package" ? packageGroups : []}
+              order={order}
+              entries={entries}
               selected={openBlock?.costCode ?? null}
+              selectedPackage={openPackage?.key ?? null}
+              link={link}
               onOpen={(costCode, el) => openPanel({ kind: "block", costCode }, el)}
+              onOpenPackage={(key, el) => openPanel({ kind: "package", key }, el)}
             />
           )
         ) : null}
@@ -545,6 +605,22 @@ export function RomRunner({
             </>
           ) : null}
 
+          {panel.kind === "package" && run && openPackage ? (
+            <>
+              <PanelHead
+                title={openPackage.label}
+                sub={`${openPackage.division ? `Division ${openPackage.division} · ` : ""}${runWords(run)}`}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <PackagePanel
+                entry={openPackage}
+                link={link}
+                onOpenLine={(costCode) => setPanel({ kind: "block", costCode })}
+              />
+            </>
+          ) : null}
+
           {panel.kind === "notes" && run ? (
             <>
               <PanelHead
@@ -605,125 +681,117 @@ export function RomRunner({
   );
 }
 
-/** A block, an element box or a package box: the one unit BlockField sorts and lays out. */
-type FieldTile =
-  | { kind: "block"; key: string; midpoint: number; ownerDirect: boolean; block: TradeBlock }
-  | { kind: "element"; key: string; midpoint: number; ownerDirect: boolean; group: ElementGroup }
-  | { kind: "package"; key: string; midpoint: number; ownerDirect: boolean; group: PackageGroup };
+/** The saved ROM's markup bar, on its own line under the total. */
+function SavedBar({ bar, litKey }: { bar: BarModel; litKey: string | null }) {
+  return (
+    <span className="rb-sbar">
+      <ShareBar bar={bar} litKey={litKey} />
+    </span>
+  );
+}
 
 /**
- * The saved ROM's field. LA-1159, ADR 0006: `view` picks the grouping, By
- * Scope (element boxes over loose blocks) or By Package (one flat block per
- * buyout package and nothing loose). The header total this field sits under
- * never re-renders when `view` changes; only these blocks regroup, on the
- * same FLIP tracker New budget's field uses (`useFieldFlip`, motion.ts), so a
- * tile crossing from a box into a package block reads as one thing
- * travelling rather than one vanishing and another appearing.
+ * The saved ROM's field. `entries` is already grouped by view (LA-1159) and
+ * sorted by order (LA-1181, field-order.ts). The header total this field sits
+ * under never re-renders when the view or the order changes; only these cards
+ * move, on the same FLIP tracker New budget's field uses (`useFieldFlip`,
+ * motion.ts). An order switch moves them over about 420ms with a 25ms
+ * stagger per card, capped at 100ms.
  */
 function BlockField({
   view,
-  blocks,
-  groups,
-  packageGroups,
+  order,
+  entries,
   selected,
+  selectedPackage,
+  link,
   onOpen,
+  onOpenPackage,
 }: {
   view: RomView;
-  blocks: TradeBlock[];
-  /** Element boxes (LA-1158, ADR 0006); `blocks` above excludes what these already show. */
-  groups: ElementGroup[];
-  /** Package boxes (LA-1159); empty unless `view` is "package". */
-  packageGroups: PackageGroup[];
+  order: RomOrder;
+  entries: FieldEntry[];
   selected: string | null;
+  selectedPackage: string | null;
+  link: FieldLink;
   onOpen: (costCode: string, el: HTMLElement) => void;
+  onOpenPackage: (key: string, el: HTMLElement) => void;
 }) {
   const flip = useFieldFlip();
   const layer = useRef<HTMLDivElement>(null);
   const ghosts = useRef<HTMLDivElement>(null);
+  const lastOrder = useRef(order);
 
-  const tiles: FieldTile[] = [
-    ...blocks.map((block) => ({
-      kind: "block" as const,
-      key: block.costCode,
-      midpoint: block.midpoint,
-      ownerDirect: block.ownerDirect,
-      block,
-    })),
-    ...groups.map((group) => ({
-      kind: "element" as const,
-      key: `element:${group.element}`,
-      midpoint: (group.total.low + group.total.high) / 2,
-      ownerDirect: group.ownerDirect,
-      group,
-    })),
-    ...packageGroups.map((group) => ({
-      kind: "package" as const,
-      key: `package:${group.package}`,
-      midpoint: (group.total.low + group.total.high) / 2,
-      ownerDirect: group.ownerDirect,
-      group,
-    })),
-  ].sort((a, b) => b.midpoint - a.midpoint || a.key.localeCompare(b.key));
-  const kulka = tiles.filter((tile) => !tile.ownerDirect);
-  const owner = tiles.filter((tile) => tile.ownerDirect);
-  const rank = new Map(tiles.map((tile, index) => [tile.key, index]));
+  const kulka = entries.filter((entry) => !entry.ownerDirect);
+  const owner = entries.filter((entry) => entry.ownerDirect);
+  const rank = new Map(entries.map((entry, index) => [entry.key, index]));
 
   const tileDelay = new Map<string, number>();
-  for (const tile of tiles) {
-    if (tile.kind === "element") {
-      const base = (rank.get(tile.key) ?? 0) * 22;
-      tileDelay.set(tile.group.driver.costCode, base);
-      tile.group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
-    } else if (tile.kind === "package") {
-      const base = (rank.get(tile.key) ?? 0) * 22;
-      tile.group.items.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * index));
-    }
+  for (const entry of entries) {
+    if (entry.kind !== "element") continue;
+    const base = (rank.get(entry.key) ?? 0) * 22;
+    tileDelay.set(entry.group.driver.costCode, base);
+    entry.group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
   }
 
   useLayoutEffect(() => {
-    flip.run(layer.current, ghosts.current, rank, { delayFor: (key) => tileDelay.get(key) });
+    const reordered = lastOrder.current !== order;
+    lastOrder.current = order;
+    flip.run(layer.current, ghosts.current, rank, {
+      delayFor: (key) => tileDelay.get(key),
+      move: reordered ? { duration: 420, delayFor: (key) => Math.min((rank.get(key) ?? 0) * 25, 100) } : undefined,
+    });
   });
 
-  const render = (tile: FieldTile) => {
-    if (tile.kind === "element") {
+  const render = (entry: FieldEntry) => {
+    const rollDelay = Math.min((rank.get(entry.key) ?? 0) * 22, 520);
+    if (entry.kind === "element") {
       return (
         <ElementBoxBlock
-          key={tile.key}
-          group={tile.group}
+          key={entry.key}
+          group={entry.group}
           selected={selected}
           onOpen={onOpen}
-          register={flip.register(tile.key)}
+          register={flip.register(entry.key)}
+          entryKey={entry.key}
+          link={link}
         />
       );
     }
-    if (tile.kind === "package") {
+    if (entry.kind === "package") {
       return (
-        <PackageBoxBlock
-          key={tile.key}
-          group={tile.group}
-          selected={selected}
-          onOpen={onOpen}
-          register={flip.register(tile.key)}
+        <PackageCard
+          key={entry.key}
+          entry={entry}
+          selected={selectedPackage === entry.key}
+          rollDelay={rollDelay}
+          link={link}
+          onSelect={onOpenPackage}
+          register={flip.register(entry.key)}
         />
       );
+    }
+    if (entry.kind === "unpriced") {
+      return <UnpricedBlock key={entry.key} entry={entry} link={link} register={flip.register(entry.key)} />;
     }
     return (
       <Block
-        key={tile.key}
-        block={tile.block}
-        selected={selected === tile.key}
+        key={entry.key}
+        block={entry.block}
+        selected={selected === entry.key}
         onOpen={onOpen}
-        register={flip.register(tile.key)}
+        register={flip.register(entry.key)}
+        link={link}
       />
     );
   };
 
-  const heading = view === "package" ? "Packages, biggest first" : "Trades, biggest first";
+  const heading = view === "package" ? "Packages" : "Trades";
 
   return (
     <div className="rb-vflip" ref={layer}>
       <div className="lb-ghosts" ref={ghosts} aria-hidden="true" />
-      <section className="rb-grp" aria-label="Trades">
+      <section className="rb-grp" aria-label={heading}>
         <h2>{heading}</h2>
         <div className="rb-grid">{kulka.map(render)}</div>
       </section>
@@ -742,12 +810,15 @@ export function Block({
   selected,
   onOpen,
   register,
+  link,
 }: {
   block: TradeBlock;
   selected: boolean;
   onOpen: (costCode: string, el: HTMLElement) => void;
   /** LA-1159: the block's own root node, for the field's FLIP tracker. */
   register?: (el: HTMLElement | null) => void;
+  /** LA-1181: hovering or focusing the block previews its share in the header bar. */
+  link?: FieldLink;
 }) {
   return (
     <button
@@ -757,6 +828,10 @@ export function Block({
       aria-pressed={selected}
       aria-label={`${block.label}, ${shortMoney(block.midpoint)}${block.status ? `, ${block.status.word.toLowerCase()}` : ""}`}
       onClick={(e) => onOpen(block.costCode, e.currentTarget)}
+      onMouseEnter={link ? () => link.onEnter(block.costCode) : undefined}
+      onMouseLeave={link?.onLeave}
+      onFocus={link ? () => link.onEnter(block.costCode) : undefined}
+      onBlur={link?.onLeave}
     >
       <span className="rb-bn">{block.label}</span>
       {block.status ? (

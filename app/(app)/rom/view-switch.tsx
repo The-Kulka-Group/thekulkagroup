@@ -2,43 +2,56 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+import type { RomOrder } from "./field-order";
 import type { RomView } from "./view-groups";
 
 // LA-1159, ADR 0006, CONTEXT.md: View. The two-way switch in the header band
 // that picks how the field below groups its lines. By Division is LA-1152
 // work still to come and is not built here.
 
-const STORAGE_KEY = "kulka.rom.view";
-const listeners = new Set<() => void>();
+// LA-1181 adds the MasterFormat / Largest First switch beside it, remembered
+// the same way under its own key.
 
-function readStoredView(): RomView | null {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored === "scope" || stored === "package" ? stored : null;
-  } catch {
-    // A blocked or unavailable store never breaks the page; it just forgets.
-    return null;
-  }
+/**
+ * One remembered choice per viewer, shared by every screen: `localStorage`
+ * under `key`, read through useSyncExternalStore so the server renders the
+ * default and the client re-syncs right after, with no effect calling
+ * setState.
+ */
+function rememberedChoice<T extends string>(key: string, allowed: readonly T[]) {
+  const listeners = new Set<() => void>();
+  const read = (): T | null => {
+    try {
+      const stored = window.localStorage.getItem(key);
+      return allowed.includes(stored as T) ? (stored as T) : null;
+    } catch {
+      // A blocked or unavailable store never breaks the page; it just forgets.
+      return null;
+    }
+  };
+  const write = (value: T) => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      // Same as above: nothing here can fail loudly.
+    }
+    listeners.forEach((listener) => listener());
+  };
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  };
+  return { read, write, subscribe };
 }
 
-function writeStoredView(view: RomView): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, view);
-  } catch {
-    // Same as above: nothing here can fail loudly.
-  }
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
+const viewStore = rememberedChoice<RomView>("kulka.rom.view", ["scope", "package"]);
+const orderStore = rememberedChoice<RomOrder>("kulka.rom.order", ["masterformat", "largest"]);
 
 // The server has no localStorage, so it renders as though nothing were
-// stored yet; the client re-syncs to the real stored choice, if any, right
-// after (useSyncExternalStore's own job, not an effect calling setState).
-function getServerSnapshot(): RomView | null {
+// stored yet.
+function getServerSnapshot(): null {
   return null;
 }
 
@@ -51,10 +64,47 @@ function getServerSnapshot(): RomView | null {
  * remembers a setting rather than a screen.
  */
 export function useRomView(defaultView: RomView): [RomView, (view: RomView) => void] {
-  const stored = useSyncExternalStore(subscribe, readStoredView, getServerSnapshot);
+  const stored = useSyncExternalStore(viewStore.subscribe, viewStore.read, getServerSnapshot);
   const view = stored ?? defaultView;
-  const change = useCallback((next: RomView) => writeStoredView(next), []);
+  const change = useCallback((next: RomView) => viewStore.write(next), []);
   return [view, change];
+}
+
+/**
+ * LA-1181: the order the field sorts in, remembered per viewer the same way.
+ * MasterFormat is the default on both screens and in both views.
+ */
+export function useRomOrder(): [RomOrder, (order: RomOrder) => void] {
+  const stored = useSyncExternalStore(orderStore.subscribe, orderStore.read, getServerSnapshot);
+  const change = useCallback((next: RomOrder) => orderStore.write(next), []);
+  return [stored ?? "masterformat", change];
+}
+
+/** "MasterFormat · Largest First", the same pill as the view switch. */
+export function OrderSwitch({ order, onChange }: { order: RomOrder; onChange: (order: RomOrder) => void }) {
+  return (
+    <div className="rb-vsw" role="group" aria-label="Order">
+      <button
+        type="button"
+        className="rb-vopt"
+        aria-pressed={order === "masterformat"}
+        onClick={() => onChange("masterformat")}
+      >
+        MasterFormat
+      </button>
+      <span className="rb-vdot" aria-hidden="true">
+        ·
+      </span>
+      <button
+        type="button"
+        className="rb-vopt"
+        aria-pressed={order === "largest"}
+        onClick={() => onChange("largest")}
+      >
+        Largest First
+      </button>
+    </div>
+  );
 }
 
 /** Title Case, "By Scope · By Package" (CONTEXT.md / naming-title-case). */

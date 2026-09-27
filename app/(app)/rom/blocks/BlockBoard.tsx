@@ -269,7 +269,7 @@ function keyFor(block: Block, axis: Axis): { key: string; label: string } {
   if (axis === "division") {
     return block.division
       ? { key: block.division, label: `Division ${block.division}` }
-      : { key: "~none", label: "No Division On The Cost Code" };
+      : { key: "~none", label: "No Division on the Cost Code" };
   }
   return block.buyoutPackage
     ? { key: block.buyoutPackage, label: block.buyoutPackage }

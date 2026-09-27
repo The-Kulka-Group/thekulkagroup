@@ -225,6 +225,13 @@ export type BlockClassification = {
    * field existed still type-checks; absent reads the same as false.
    */
   isElementDriver?: boolean;
+  /**
+   * The MasterFormat division stated for this cost code (LA-1157), two
+   * digits such as "02". Null or absent when nobody has stated one; the ROM
+   * screen then falls back to the cost code's own first two digits
+   * (LA-1181). The engine prices nothing off it.
+   */
+  division?: string | null;
   statedBy: string;
   statedOn: string;
   reason: string;

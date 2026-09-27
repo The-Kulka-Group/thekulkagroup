@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { BlockClassification, DataSnapshot, FramingSystem, MarkupChoices, Rom, UnpricedItem } from "@kulka/engine";
+import type { BlockClassification, DataSnapshot, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
 import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
-import { headlineMoney, headlineOf, midpoint, shortMoney, tradeBlocks, valueTier, type TradeBlock } from "./block-layout";
-import { groupElements, type ElementGroup } from "./element-groups";
-import { LiveElementBox, LivePackageBox } from "./ElementBox";
+import { headlineMoney, headlineOf, shortMoney, valueTier, type TradeBlock } from "./block-layout";
+import { LiveElementBox } from "./ElementBox";
+import type { BarModel, Chip, FieldEntry, RomOrder } from "./field-order";
 import { useFieldFlip } from "./motion";
+import { PackageCard, UnpricedDot } from "./PackageCard";
+import { type FieldLink, ShareBar, ShareChip } from "./ShareBar";
 import { SpringMoney } from "./SpringMoney";
-import { groupByPackage, type PackageGroup, type RomView } from "./view-groups";
+import type { RomView } from "./view-groups";
 
 // LA-1142. The budget builds behind the New budget panel while its questions
 // are answered. The browser runs the same pure engine a run does over the
@@ -41,6 +43,8 @@ import { groupByPackage, type PackageGroup, type RomView } from "./view-groups";
 //   - Every answer that moves the total flashes the change beside it.
 //   - GRs/GCs, fee and insurance grow onto the composition bar at the
 //     Markups step.
+//   - LA-1181: the field sorts in the order the viewer picked (field-order.ts),
+//     and hovering or selecting a card lights its share in that bar.
 // prefers-reduced-motion drops all of it: figures and blocks land at once.
 
 /** What the New budget panel has collected so far, as the preview reads it. */
@@ -61,21 +65,19 @@ export type LiveBudget =
   | { phase: "empty" }
   /**
    * The trades in scope are known but the area is not, so tiles stand empty
-   * in the order they will take. `answered` is the ROM as the answers stand,
-   * read only for what was answered No or Don't know. `blocks` holds only the
-   * trades not shown inside an element box; `groups` holds those boxes
-   * (LA-1158, ADR 0006). `packageGroups` is the same lines grouped By Package
-   * instead (LA-1159, ADR 0006), read whenever the switch is set that way.
+   * in the order they will take. `rom` is priced on a stand-in area only to
+   * order them; no figure from it shows. `answered` is the ROM as the answers
+   * stand, read only for what was answered No or Don't know. The screen
+   * groups `rom` by view and order itself (field-order.ts, LA-1181), reading
+   * `classifications` for elements, packages and divisions.
    */
-  | { phase: "waiting"; blocks: TradeBlock[]; groups: ElementGroup[]; packageGroups: PackageGroup[]; answered: Rom }
+  | { phase: "waiting"; rom: Rom; answered: Rom; classifications: BlockClassification[] }
   /** `rom` is the scope known so far, which the blocks, boxes and the total show. */
   | {
       phase: "ready";
       rom: Rom;
       answered: Rom;
-      blocks: TradeBlock[];
-      groups: ElementGroup[];
-      packageGroups: PackageGroup[];
+      classifications: BlockClassification[];
       grossSquareFeet: number;
     };
 
@@ -147,18 +149,14 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
         );
         if (!ordering) return { phase: "empty" };
         const { known, full } = knownScopeRom(ordering, loaded.snapshot);
-        const { blocks, groups, packageGroups } = fieldBlocksAndGroups(known, classifications);
-        return { phase: "waiting", blocks, groups, packageGroups, answered: full };
+        return { phase: "waiting", rom: known, answered: full, classifications };
       }
       const { known, full } = knownScopeRom(answers, loaded.snapshot);
-      const { blocks, groups, packageGroups } = fieldBlocksAndGroups(known, classifications);
       return {
         phase: "ready",
         rom: known,
         answered: full,
-        blocks,
-        groups,
-        packageGroups,
+        classifications,
         grossSquareFeet: answers.grossSquareFeet,
       };
     } catch (cause) {
@@ -167,27 +165,20 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
   }, [draft, projectType, constructionKind, key, loaded]);
 }
 
-/**
- * LA-1158, ADR 0006: an element with a stated driver and at least one other
- * member in scope groups into a box; `tradeBlocks` still names every line
- * that adds to the total, so a grouped line is filtered back out of the
- * single-tile list rather than computed twice. LA-1159: `packageGroups` is
- * the same lines grouped By Package, computed alongside so the switch has no
- * data to wait on when the viewer flips it.
- */
-function fieldBlocksAndGroups(
-  rom: Rom,
-  classifications: readonly BlockClassification[],
-): { blocks: TradeBlock[]; groups: ElementGroup[]; packageGroups: PackageGroup[] } {
-  const { groups, singles } = groupElements(rom, classifications);
-  const singleCodes = new Set(singles.map((line) => line.costCode));
-  const blocks = tradeBlocks(rom).filter((block) => singleCodes.has(block.costCode));
-  const packageGroups = groupByPackage(rom, classifications).groups;
-  return { blocks, groups, packageGroups };
-}
-
 /** The header band while New budget is open: the total the answers so far add up to. */
-export function LiveTotal({ live }: { live: LiveBudget }) {
+export function LiveTotal({
+  live,
+  bar,
+  chip,
+  litKey,
+}: {
+  live: LiveBudget;
+  /** LA-1181: the markup bar for the field's current view and order. */
+  bar: BarModel | null;
+  /** What is hovered or selected, named beside the total; null names nothing. */
+  chip: Chip | null;
+  litKey: string | null;
+}) {
   const ready = live.phase === "ready" ? live : null;
   const headline = useMemo(() => (ready ? headlineOf(ready.rom) : null), [ready]);
   const [delta, setDelta] = useState<{ id: number; amount: number } | null>(null);
@@ -204,7 +195,7 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
   const unpricedBadge =
     unpricedCount > 0 ? (
       <span className="lb-unpriced">
-        <span className="rb-dot rb-dot--working" aria-hidden="true" />
+        <UnpricedDot />
         {itemsNotPricedLabel(unpricedCount)}
       </span>
     ) : null;
@@ -258,7 +249,8 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
       ) : null}
       <span className="lb-tag">Preview, not saved</span>
       {unpricedBadge}
-      <Composition rom={ready.rom} />
+      <ShareChip chip={chip} />
+      {bar ? <ShareBar bar={bar} litKey={litKey} /> : null}
       <span className="lb-sr" aria-live="polite">
         {headline.label} {headlineMoney(headline.midpoint, headline)}
       </span>
@@ -266,137 +258,70 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
   );
 }
 
-/** What the total is made of: trades first, then each markup as the Markups step adds it. */
-function Composition({ rom }: { rom: Rom }) {
-  const m = rom.markups;
-  const parts = [
-    { key: "trade", label: "Trades", value: m ? midpoint(m.subtotal) : midpoint(rom.total) },
-    { key: "owner", label: "Owner direct", value: m ? midpoint(m.ownerDirect) : 0 },
-    { key: "gc", label: "GRs/GCs", value: m && !m.generalConditions.tbd ? midpoint(m.generalConditions) : 0 },
-    { key: "fee", label: "Fee", value: m && !m.fee.tbd ? midpoint(m.fee) : 0 },
-    { key: "ins", label: "Insurance", value: m && !m.insurance.tbd ? midpoint(m.insurance) : 0 },
-  ];
-  const sum = parts.reduce((total, part) => total + Math.max(0, part.value), 0);
-  let left = 0;
-  const shown = parts.map((part) => {
-    const width = sum > 0 ? (Math.max(0, part.value) / sum) * 100 : 0;
-    const at = left;
-    left += width;
-    return { ...part, left: at, width };
-  });
-  return (
-    <span className="lb-comp" aria-hidden="true">
-      <span className="lb-bar">
-        {shown.map((part) => (
-          <i
-            key={part.key}
-            className={`lb-seg lb-seg--${part.key}`}
-            style={{ left: `${part.left}%`, width: `${part.width}%` }}
-          />
-        ))}
-      </span>
-      {m ? (
-        <span className="lb-legend">
-          {shown
-            .filter((part) => part.width > 0)
-            .map((part) => (
-              <span key={part.key} className="lb-key">
-                <i className={`lb-seg--${part.key}`} />
-                {part.label}
-              </span>
-            ))}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
 /**
  * The white field while New budget is open: trades, then what the scope
- * answers took out. `view` switches the grouping (LA-1159, ADR 0006): By
- * Scope shows element boxes over loose trade blocks, By Package shows one
- * flat block per buyout package and nothing loose, since every line already
- * has a package, Unassigned Package included. The header total this field
- * sits under never moves when `view` changes; only the blocks regroup, on
- * the shared FLIP tracker (`useFieldFlip`, motion.ts) so a tile crossing from
- * a box into a package block reads as one thing travelling.
+ * answers took out. `entries` is the field already grouped by view and sorted
+ * by order (field-order.ts, LA-1181): By Scope shows element boxes, loose
+ * trade blocks and loose unpriced items; By Package shows one card per
+ * buyout package. The header total this field sits under never moves when
+ * the view or the order changes; only the cards move, on the shared FLIP
+ * tracker (`useFieldFlip`, motion.ts). An order switch moves them over about
+ * 420ms with a 25ms stagger per card, capped at 100ms.
  */
-export function LiveField({ live, view }: { live: LiveBudget; view: RomView }) {
+export function LiveField({
+  live,
+  view,
+  order,
+  entries,
+  selectedKey,
+  onSelect,
+  link,
+}: {
+  live: LiveBudget;
+  view: RomView;
+  order: RomOrder;
+  entries: FieldEntry[];
+  /** The card or block the viewer clicked, which keeps its share lit. */
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+  link: FieldLink;
+}) {
   const flip = useFieldFlip();
   const layer = useRef<HTMLDivElement>(null);
   const ghosts = useRef<HTMLDivElement>(null);
+  const lastOrder = useRef(order);
 
-  const blocks = (live.phase === "ready" || live.phase === "waiting") && view === "scope" ? live.blocks : [];
-  // LA-1158: an element with a stated driver and something else in scope
-  // groups into a box (ADR 0006); `blocks` above already excludes whatever
-  // groupElements moved in here.
-  const elementGroups = (live.phase === "ready" || live.phase === "waiting") && view === "scope" ? live.groups : [];
-  // LA-1159: By Package groups every line that adds to the total, so there is
-  // nothing left loose for `blocks` to show once this view is active.
-  const packageGroups = (live.phase === "ready" || live.phase === "waiting") && view === "package" ? live.packageGroups : [];
   // What was answered No or Don't know, from the ROM as the answers stand.
   // The scope-known ROM cannot say: it leaves unanswered lines out entirely.
   const answered = live.phase === "ready" || live.phase === "waiting" ? live.answered : null;
   const notInJob = answered?.notInThisJob ?? [];
   const tbd = answered?.tbdGateItems ?? [];
-  // LA-1153: an item in scope with nothing pricing it yet (ADR 0006). It is
-  // not a `TradeBlock`, since it never adds to the total, so it is not read
-  // off `answered` the way the trays above are; it comes straight off the
-  // ROM, which is the same list whichever ROM the caller passes here. On By
-  // Scope, one already shown inside its element's box is left out here
-  // (LA-1158); on By Package every item already sits inside a package block,
-  // so this list is always empty there.
-  const groupedCodes = new Set(elementGroups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)));
-  const unpriced = view === "scope" ? (answered?.unpricedItems ?? []).filter((item) => !groupedCodes.has(item.costCode)) : [];
 
-  // Blocks and boxes share one biggest-first order, boxes sorted by their own
-  // total. `entries` also fixes the render order the field and the trays
-  // agree on for FLIP.
-  const entries = [
-    ...blocks.map((block) => ({ kind: "block" as const, key: block.costCode, midpoint: block.midpoint, ownerDirect: block.ownerDirect })),
-    ...elementGroups.map((group) => ({
-      kind: "element" as const,
-      key: `element:${group.element}`,
-      midpoint: midpoint(group.total),
-      ownerDirect: group.ownerDirect,
-    })),
-    ...packageGroups.map((group) => ({
-      kind: "package" as const,
-      key: `package:${group.package}`,
-      midpoint: midpoint(group.total),
-      ownerDirect: group.ownerDirect,
-    })),
-  ].sort((a, b) => b.midpoint - a.midpoint);
   const kulkaEntries = entries.filter((entry) => !entry.ownerDirect);
   const ownerEntries = entries.filter((entry) => entry.ownerDirect);
   const rank = new Map(entries.map((entry, index) => [entry.key, index]));
-  const elementByKey = new Map(elementGroups.map((group) => [`element:${group.element}`, group]));
-  const packageByKey = new Map(packageGroups.map((group) => [`package:${group.package}`, group]));
-  const blockByKey = new Map(blocks.map((block) => [block.costCode, block]));
 
-  // LA-1158/LA-1159: a box's tiles land as a family, the driver first (By
-  // Scope) or in package order (By Package), so a box an answer or a view
-  // switch just brought in never fades in at the same moment as everything
-  // it carries. The delay is set off the box's own rank rather than the
-  // generic first-fill cascade `useFieldFlip` falls back to, so a box that
-  // arrives later in the session still stages the same way a box in the
-  // first fill does.
+  // LA-1158: an element box's tiles land as a family, the driver first, so a
+  // box an answer or a view switch just brought in never fades in at the
+  // same moment as everything it carries.
   const tileDelay = new Map<string, number>();
-  for (const group of elementGroups) {
-    const base = (rank.get(`element:${group.element}`) ?? 0) * 22;
-    tileDelay.set(group.driver.costCode, base);
-    group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
-  }
-  for (const group of packageGroups) {
-    const base = (rank.get(`package:${group.package}`) ?? 0) * 22;
-    group.items.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * index));
+  for (const entry of entries) {
+    if (entry.kind !== "element") continue;
+    const base = (rank.get(entry.key) ?? 0) * 22;
+    tileDelay.set(entry.group.driver.costCode, base);
+    entry.group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
   }
 
   // FLIP, run after every commit. Each cost code is tracked wherever it
-  // shows, block, tray chip or package tile, so moving between them reads as
-  // one thing travelling rather than one vanishing and another appearing.
+  // shows, block, tray chip or box tile, so moving between them reads as one
+  // thing travelling rather than one vanishing and another appearing.
   useLayoutEffect(() => {
-    flip.run(layer.current, ghosts.current, rank, { delayFor: (key) => tileDelay.get(key) });
+    const reordered = lastOrder.current !== order;
+    lastOrder.current = order;
+    flip.run(layer.current, ghosts.current, rank, {
+      delayFor: (key) => tileDelay.get(key),
+      move: reordered ? { duration: 420, delayFor: (key) => Math.min((rank.get(key) ?? 0) * 25, 100) } : undefined,
+    });
   });
 
   if (live.phase === "idle" || live.phase === "loading" || live.phase === "empty") {
@@ -421,38 +346,47 @@ export function LiveField({ live, view }: { live: LiveBudget; view: RomView }) {
   }
 
   const waiting = live.phase === "waiting";
-  const tile = (entry: (typeof entries)[number]) => {
+  const tile = (entry: FieldEntry) => {
+    const rollDelay = Math.min((rank.get(entry.key) ?? 0) * 22, 520);
     if (entry.kind === "element") {
-      const group = elementByKey.get(entry.key)!;
       return (
         <LiveElementBox
           key={entry.key}
-          group={group}
+          group={entry.group}
           waiting={waiting}
-          rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
+          rollDelay={rollDelay}
           register={flip.register}
+          link={link}
         />
       );
     }
     if (entry.kind === "package") {
-      const group = packageByKey.get(entry.key)!;
       return (
-        <LivePackageBox
+        <PackageCard
           key={entry.key}
-          group={group}
+          entry={entry}
+          selected={selectedKey === entry.key}
           waiting={waiting}
-          rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
-          register={flip.register}
+          rollDelay={rollDelay}
+          link={link}
+          onSelect={onSelect}
+          register={flip.register(entry.key)}
         />
       );
     }
-    const block = blockByKey.get(entry.key)!;
+    if (entry.kind === "unpriced") {
+      return <UnpricedBlock key={entry.key} entry={entry} link={link} register={flip.register(entry.key)} />;
+    }
     return (
       <LiveBlock
         key={entry.key}
-        block={block}
+        entryKey={entry.key}
+        block={entry.block}
         waiting={waiting}
-        rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
+        selected={selectedKey === entry.key}
+        rollDelay={rollDelay}
+        link={link}
+        onSelect={onSelect}
         register={flip.register(entry.key)}
       />
     );
@@ -466,14 +400,8 @@ export function LiveField({ live, view }: { live: LiveBudget; view: RomView }) {
       ) : null}
       {entries.length === 0 ? <p className="rb-none">No benchmark matched this project type, so there are no lines.</p> : null}
       {kulkaEntries.length > 0 ? (
-        <section className="rb-grp" aria-label="Trades">
-          <h2>
-            {view === "package"
-              ? "Packages, biggest first"
-              : waiting
-                ? "Trades, in the order they price"
-                : "Trades, biggest first"}
-          </h2>
+        <section className="rb-grp" aria-label={view === "package" ? "Packages" : "Trades"}>
+          <h2>{view === "package" ? "Packages" : "Trades"}</h2>
           <div className="rb-grid">{kulkaEntries.map(tile)}</div>
         </section>
       ) : null}
@@ -481,16 +409,6 @@ export function LiveField({ live, view }: { live: LiveBudget; view: RomView }) {
         <section className="rb-grp" aria-label="Bought by the owner direct">
           <h2>Bought by the owner direct</h2>
           <div className="rb-grid">{ownerEntries.map(tile)}</div>
-        </section>
-      ) : null}
-      {unpriced.length > 0 ? (
-        <section className="rb-grp" aria-label="Not Priced Yet">
-          <h2>Not Priced Yet</h2>
-          <div className="rb-grid">
-            {unpriced.map((item) => (
-              <UnpricedBlock key={item.costCode} item={item} register={flip.register(`unpriced:${item.costCode}`)} />
-            ))}
-          </div>
         </section>
       ) : null}
       {tbd.length > 0 || notInJob.length > 0 ? (
@@ -526,21 +444,36 @@ export function LiveField({ live, view }: { live: LiveBudget; view: RomView }) {
 }
 
 function LiveBlock({
+  entryKey,
   block,
   waiting,
+  selected,
   rollDelay,
+  link,
+  onSelect,
   register,
 }: {
+  entryKey: string;
   block: TradeBlock;
   waiting: boolean;
+  selected: boolean;
   rollDelay: number;
+  link: FieldLink;
+  onSelect: (key: string) => void;
   register: (el: HTMLElement | null) => void;
 }) {
   return (
-    <div
+    <button
       ref={register}
-      className={`rb-blk lb-blk${waiting ? " lb-blk--wait" : ""}`}
+      type="button"
+      className={`rb-blk lb-blk${waiting ? " lb-blk--wait" : ""}${selected ? " rb-blk--sel" : ""}`}
+      aria-pressed={selected}
       aria-label={waiting ? block.label : `${block.label}, ${shortMoney(block.midpoint)}`}
+      onClick={() => onSelect(entryKey)}
+      onMouseEnter={() => link.onEnter(entryKey)}
+      onMouseLeave={link.onLeave}
+      onFocus={() => link.onEnter(entryKey)}
+      onBlur={link.onLeave}
     >
       <span className="rb-bn">{block.label}</span>
       <span className={`rb-st lb-st${!waiting && block.status ? " lb-st--on" : ""}`}>
@@ -560,35 +493,41 @@ function LiveBlock({
       <span className="rb-bar" aria-hidden="true">
         <i style={{ transform: `scaleX(${waiting ? 0 : Math.max(0.02, Math.min(1, block.share)).toFixed(4)})` }} />
       </span>
-    </div>
+    </button>
   );
 }
 
 /**
  * LA-1153: a canonical item in scope with no benchmark behind it yet (ADR
  * 0006, "A block can arrive unpriced"). It carries no figure and no bar, only
- * the label and the orange "No Rate Yet" status, so it reads as scope that
- * arrived rather than as a zero.
+ * the label and the orange "No Rate Yet" status, with the dashed border
+ * LA-1175 gives anything with nothing priced, so it reads as scope that
+ * arrived rather than as a zero. Shared with the saved ROM's field.
  */
-function UnpricedBlock({
-  item,
+export function UnpricedBlock({
+  entry,
+  link,
   register,
 }: {
-  item: UnpricedItem;
+  entry: Extract<FieldEntry, { kind: "unpriced" }>;
+  link: FieldLink;
   register: (el: HTMLElement | null) => void;
 }) {
   return (
-    <div ref={register} className="rb-blk lb-blk lb-blk--unpriced" aria-label={`${item.label}, No Rate Yet`}>
-      <span className="rb-bn">{item.label}</span>
+    <div
+      ref={register}
+      className="rb-blk lb-blk lb-blk--unpriced pk-card--none"
+      aria-label={`${entry.label}, No Rate Yet`}
+      onMouseEnter={() => link.onEnter(entry.key)}
+      onMouseLeave={link.onLeave}
+    >
+      <span className="pk-top">
+        <span className="rb-bn">{entry.label}</span>
+        {entry.division ? <span className="pk-div">{entry.division}</span> : null}
+      </span>
       <span className="rb-st lb-st lb-st--on">
-        <span className="rb-dot rb-dot--working" aria-hidden="true" />
+        <UnpricedDot pulseKey={entry.item.costCode} />
         No Rate Yet
-      </span>
-      <span className="rb-bv num rb-v4" aria-hidden="true">
-        &mdash;
-      </span>
-      <span className="rb-bar" aria-hidden="true">
-        <i style={{ transform: "scaleX(0.02)" }} />
       </span>
     </div>
   );

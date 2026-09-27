@@ -136,7 +136,7 @@ function toBlock(line: RomLine): Block {
 }
 
 /** A cost code opens with its two-digit division, or it does not name one. */
-function divisionOf(costCode: string): string | null {
+export function divisionOf(costCode: string): string | null {
   return /^(\d{2})/.exec(costCode)?.[1] ?? null;
 }
 

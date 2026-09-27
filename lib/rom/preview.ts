@@ -1,4 +1,11 @@
-import type { Answers, FramingSystem, MarkupChoices } from "@kulka/engine";
+import {
+  computeRom,
+  type Answers,
+  type DataSnapshot,
+  type FramingSystem,
+  type MarkupChoices,
+  type Rom,
+} from "@kulka/engine";
 
 import { readFlowAnswers, type FlowDefinition, type Responses } from "./question-flow";
 
@@ -43,4 +50,27 @@ export function previewAnswers(
     ...(framing ? { framingSystem: framing } : {}),
     ...(markups ? { markups } : {}),
   };
+}
+
+/**
+ * LA-1147: the live budget starts empty and scope arrives as answers put it
+ * in. A line a scope-gate rule names is in scope only once an answer says so;
+ * until then a run would price it as "assumed present", but the preview
+ * leaves it off the screen and out of the total.
+ *
+ * `known` is the engine's ROM over the scope known so far: the same answers,
+ * with the benchmarks of every still-unanswered gated line left out, so the
+ * engine itself computes the total and the markups on what is known. Nothing
+ * is added up here. `full` is the ROM the answers give as they stand, whose
+ * "not in this job" and TBD lists are what the estimator actually answered.
+ */
+export function knownScopeRom(answers: Answers, snapshot: DataSnapshot): { known: Rom; full: Rom } {
+  const full = computeRom(answers, snapshot);
+  const waiting = new Set(full.assumedPresentItems.map((item) => item.costCode));
+  if (waiting.size === 0) return { known: full, full };
+  const known = computeRom(answers, {
+    ...snapshot,
+    benchmarks: snapshot.benchmarks.filter((benchmark) => !waiting.has(benchmark.costCode)),
+  });
+  return { known, full };
 }

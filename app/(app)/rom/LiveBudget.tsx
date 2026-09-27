@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { computeRom, type DataSnapshot, type FramingSystem, type MarkupChoices, type Rom } from "@kulka/engine";
+import type { DataSnapshot, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
-import { previewAnswers } from "@/lib/rom/preview";
+import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 import { headlineMoney, headlineOf, midpoint, shortMoney, tradeBlocks, valueTier, type TradeBlock } from "./block-layout";
@@ -14,11 +14,19 @@ import { headlineMoney, headlineOf, midpoint, shortMoney, tradeBlocks, valueTier
 // figure here is one "Add and run" would record from the same data. Nothing
 // here prices anything, and nothing here is saved.
 //
+// LA-1147: the field starts empty, and scope arrives as answers put it in
+// (lib/rom/preview.ts, knownScopeRom). Naming the project brings in the base
+// trades, the lines no scope question governs, as tiles with no figure yet.
+// A line a scope question governs arrives only once an answer puts it in
+// scope, the elevator on Yes for example, and until then it is neither on
+// screen nor in the total.
+//
 // The motion carries what changed, so the estimator sees what an answer did
 // without reading a diff:
 //   - Before the gross area, each trade stands as an empty tile in the order
 //     it will take. Entering the area rolls every figure up from zero, biggest
 //     first, and the header total counts with them.
+//   - A trade an answer brings in blurs into its place and counts up.
 //   - Figures and the total move on a critically damped spring, so a number
 //     glides to its new value and never overshoots a dollar amount.
 //   - A block that changes rank slides to its new place (FLIP).
@@ -32,6 +40,8 @@ import { headlineMoney, headlineOf, midpoint, shortMoney, tradeBlocks, valueTier
 
 /** What the New budget panel has collected so far, as the preview reads it. */
 export type BudgetDraft = {
+  /** Whether the project has a name yet. The field stays empty until it does. */
+  named: boolean;
   responses: Responses;
   framing: FramingSystem | "";
   /** Null until the Markups step, so the total reads as trade cost first. */
@@ -42,9 +52,16 @@ export type LiveBudget =
   | { phase: "idle" }
   | { phase: "loading" }
   | { phase: "failed"; error: string }
-  /** The trades are known but the area is not, so tiles stand empty in the order they will take. */
-  | { phase: "waiting"; blocks: TradeBlock[] }
-  | { phase: "ready"; rom: Rom; blocks: TradeBlock[]; grossSquareFeet: number };
+  /** Nothing answered yet that brings scope in, so the field is empty. */
+  | { phase: "empty" }
+  /**
+   * The trades in scope are known but the area is not, so tiles stand empty
+   * in the order they will take. `answered` is the ROM as the answers stand,
+   * read only for what was answered No or Don't know.
+   */
+  | { phase: "waiting"; blocks: TradeBlock[]; answered: Rom }
+  /** `rom` is the scope known so far, which the blocks and the total show. */
+  | { phase: "ready"; rom: Rom; answered: Rom; blocks: TradeBlock[]; grossSquareFeet: number };
 
 // Critically damped: glides in fast and settles without overshoot, since a
 // dollar figure that swings past its value reads as a wrong number.
@@ -101,6 +118,7 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
     if (!draft || !projectType || !constructionKind) return { phase: "idle" };
     if (!loaded || loaded.key !== key) return { phase: "loading" };
     if (loaded.error || !loaded.snapshot) return { phase: "failed", error: loaded.error ?? "The data could not be read." };
+    if (!draft.named) return { phase: "empty" };
     const definition = tier1Flow();
     const answers = previewAnswers(definition, draft.responses, draft.framing, draft.markups);
     try {
@@ -111,11 +129,18 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
           draft.framing,
           null,
         );
-        if (!ordering) return { phase: "idle" };
-        return { phase: "waiting", blocks: tradeBlocks(computeRom(ordering, loaded.snapshot)) };
+        if (!ordering) return { phase: "empty" };
+        const { known, full } = knownScopeRom(ordering, loaded.snapshot);
+        return { phase: "waiting", blocks: tradeBlocks(known), answered: full };
       }
-      const rom = computeRom(answers, loaded.snapshot);
-      return { phase: "ready", rom, blocks: tradeBlocks(rom), grossSquareFeet: answers.grossSquareFeet };
+      const { known, full } = knownScopeRom(answers, loaded.snapshot);
+      return {
+        phase: "ready",
+        rom: known,
+        answered: full,
+        blocks: tradeBlocks(known),
+        grossSquareFeet: answers.grossSquareFeet,
+      };
     } catch (cause) {
       return { phase: "failed", error: cause instanceof Error ? cause.message : String(cause) };
     }
@@ -228,7 +253,7 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
     setDelta((current) => ({ id: (current?.id ?? 0) + 1, amount }));
   }, [headline, ready]);
 
-  if (live.phase === "idle") return <p className="rb-tnone">New budget</p>;
+  if (live.phase === "idle" || live.phase === "empty") return <p className="rb-tnone">New budget</p>;
   if (live.phase === "loading") return <p className="rb-tnone">Reading the data behind the budget.</p>;
   if (live.phase === "failed") return <p className="rb-tnone">New budget. The live figure is not available: {live.error}</p>;
   if (live.phase === "waiting" || !headline || !ready) {
@@ -324,9 +349,11 @@ export function LiveField({ live }: { live: LiveBudget }) {
   const firstFill = useRef(true);
 
   const blocks = live.phase === "ready" || live.phase === "waiting" ? live.blocks : [];
-  const rom = live.phase === "ready" ? live.rom : null;
-  const notInJob = rom?.notInThisJob ?? [];
-  const tbd = rom?.tbdGateItems ?? [];
+  // What was answered No or Don't know, from the ROM as the answers stand.
+  // The scope-known ROM cannot say: it leaves unanswered lines out entirely.
+  const answered = live.phase === "ready" || live.phase === "waiting" ? live.answered : null;
+  const notInJob = answered?.notInThisJob ?? [];
+  const tbd = answered?.tbdGateItems ?? [];
   const kulka = blocks.filter((block) => !block.ownerDirect);
   const owner = blocks.filter((block) => block.ownerDirect);
   const rank = new Map(blocks.map((block, index) => [block.costCode, index]));
@@ -420,11 +447,15 @@ export function LiveField({ live }: { live: LiveBudget }) {
     tracked.current = next;
   });
 
-  if (live.phase === "idle" || live.phase === "loading") {
+  if (live.phase === "idle" || live.phase === "loading" || live.phase === "empty") {
     return (
       <div className="lb" ref={layer}>
         <div className="lb-ghosts" ref={ghosts} />
-        <p className="rb-none">{live.phase === "loading" ? "Reading the data behind the budget." : "Nothing here yet."}</p>
+        <p className="rb-none lb-hint">
+          {live.phase === "loading"
+            ? "Reading the data behind the budget."
+            : "Name the project and the budget starts building here."}
+        </p>
       </div>
     );
   }

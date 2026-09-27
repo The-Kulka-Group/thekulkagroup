@@ -520,3 +520,155 @@
 .rb--fresh .rb-t1 .num,
 .rb--fresh .rb-t1 .btn--primary,
 .rb--fresh .rb-t1 .rb-hbtn:not([aria-expanded="true"]) { display: none; }
+
+/* LA-1142: the budget building behind New budget. LiveBudget.tsx drives the
+   moves (FLIP, the figure springs, the tray flights) with the Web Animations
+   API; these rules hold the resting states and the few one-shot entrances.
+   One curve for everything, cubic-bezier(0.22, 1, 0.36, 1). */
+.rb {
+  --lb-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --lb-trade: #F4F3EE;
+  --lb-owner: #8E8D86;
+  --lb-gc: #0073EA;
+  --lb-fee: #4DA3FF;
+  --lb-ins: #A9D1FF;
+}
+.lb-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.rb--fresh .rb-t2 > .lb-hd { flex: 1; min-width: 0; }
+
+.lb-tot {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 4px 0;
+  color: var(--rb-ink-on-black);
+}
+.lb-lbl { animation: lb-in 280ms var(--lb-ease) both; }
+.lb-wait { color: var(--rb-pnl-line2); }
+.lb-b { color: var(--rb-ink-on-black); font-weight: 600; }
+.lb-tag {
+  font-size: var(--chip-size);
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rb-pnl-line2);
+  color: var(--rb-ink2-on-black);
+  align-self: center;
+}
+
+/* What the last answer did to the total: rises in, holds, and clears. */
+.lb-delta {
+  font-size: 16px;
+  font-weight: 700;
+  animation: lb-delta 1800ms var(--lb-ease) both;
+}
+.lb-delta--up { color: var(--working); }
+.lb-delta--down { color: var(--done-bright); }
+@keyframes lb-delta {
+  0% { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+  14% { opacity: 1; transform: none; filter: blur(0); }
+  78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
+/* The composition bar: trades, then each markup the Markups step adds. The
+   segments slide and grow; nothing jumps. */
+.lb-comp {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.lb-bar {
+  position: relative;
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rb-line-on-black);
+  overflow: hidden;
+}
+.lb-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition: left 700ms var(--lb-ease), width 700ms var(--lb-ease);
+}
+.lb-seg + .lb-seg { box-shadow: -1px 0 0 var(--rb-black); }
+.lb-seg--trade { background: var(--lb-trade); }
+.lb-seg--owner { background: var(--lb-owner); }
+.lb-seg--gc { background: var(--lb-gc); }
+.lb-seg--fee { background: var(--lb-fee); }
+.lb-seg--ins { background: var(--lb-ins); }
+.lb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: var(--chip-size);
+  color: var(--rb-ink2-on-black);
+}
+.lb-key { display: inline-flex; align-items: center; gap: 6px; animation: lb-in 280ms var(--lb-ease) both; }
+.lb-key i { width: 8px; height: 8px; border-radius: 50%; }
+
+/* The field. The ghost layer holds whatever just left, while it flies. */
+.lb { position: relative; }
+.lb-ghosts { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.lb-hint { animation: lb-in 280ms var(--lb-ease) both; }
+.lb-blk { cursor: default; will-change: transform; }
+.lb-blk:hover { border-color: var(--rb-blk-line); }
+.lb-blk--wait .rb-bn { color: var(--rb-blk-ink2); }
+.lb-blk--wait .rb-bv { color: var(--rb-blk-line); }
+.lb-st:empty { display: none; }
+.lb-st--on { animation: lb-in 280ms var(--lb-ease) both; }
+
+.lb-trays {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rb-blk-line);
+}
+.lb-tray h2 {
+  margin: 0 0 8px;
+  font-size: var(--meta-size);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--rb-blk-ink2);
+}
+.lb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  font-size: var(--chip-size);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--rb-blk-ink);
+}
+.lb-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.lb-chip--tbd { background: var(--working-tint); }
+.lb-chip--tbd::before { background: var(--working); }
+.lb-chip--out { background: var(--rb-track); color: var(--rb-blk-ink2); }
+.lb-chip--out::before { background: var(--rb-blk-mute); }
+
+@keyframes lb-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lb-lbl, .lb-key, .lb-hint, .lb-st--on { animation: none; }
+  .lb-delta { animation-duration: 1ms; animation-delay: 1600ms; }
+  .lb-seg { transition: none; }
+}

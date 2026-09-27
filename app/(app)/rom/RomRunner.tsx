@@ -11,6 +11,7 @@ import type { MarkupOptions } from "@/lib/rom/markup";
 import type { LineProvenance } from "@/lib/rom/provenance";
 import type { RomProjectOption } from "@/lib/rom/projects";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
+import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
 import {
   type TradeBlock,
@@ -20,6 +21,13 @@ import {
   tradeBlocks,
   valueTier,
 } from "./block-layout";
+import {
+  CriteriaToast,
+  CriterionPanel,
+  DerivedCriteriaSection,
+  type Ping,
+  useDerivedCriteria,
+} from "./DerivedCriteria";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
 import { ElementBoxBlock } from "./ElementBox";
 import {
@@ -65,6 +73,8 @@ type Panel =
   | { kind: "block"; costCode: string }
   /** LA-1181: a package card, its items listed in the panel. */
   | { kind: "package"; key: string }
+  /** LA-860: one derived assumption, by its criterion code. */
+  | { kind: "criterion"; code: string }
   | { kind: "notes" }
   | { kind: "settings" }
   | { kind: "new" }
@@ -90,6 +100,7 @@ export function RomRunner({
   isEnvProject = false,
   openNewOnLoad = false,
   classifications = [],
+  derivedAssumptions = [],
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
@@ -120,6 +131,11 @@ export function RomRunner({
    * way the New budget preview does (LA-1158, ADR 0006).
    */
   classifications?: BlockClassification[];
+  /**
+   * LA-860: the project's derived assumptions, read on the server. Empty
+   * means the Design Criteria section does not show at all.
+   */
+  derivedAssumptions?: StoredDerivedAssumption[];
 }) {
   const router = useRouter();
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
@@ -179,6 +195,12 @@ export function RomRunner({
   // card's share lit.
   const [liveSelected, setLiveSelected] = useState<string | null>(null);
   const headline = useMemo(() => (run ? headlineOf(run.rom) : null), [run]);
+
+  // LA-860: Design Criteria. Hovering a card lights the blocks it feeds on
+  // LA-1181's hover intent (70ms in, 140ms out); an open card keeps them lit.
+  const criteria = useDerivedCriteria(derivedAssumptions);
+  const criterionHover = useHoverIntent();
+  const [ping, setPing] = useState<Ping>(null);
   const drilldown = useProvenance(run?.runId ?? null);
 
   const refreshRuns = useCallback(async () => {
@@ -220,7 +242,8 @@ export function RomRunner({
       panel !== null &&
       panel.kind === next.kind &&
       (panel.kind !== "block" || (next.kind === "block" && panel.costCode === next.costCode)) &&
-      (panel.kind !== "package" || (next.kind === "package" && panel.key === next.key));
+      (panel.kind !== "package" || (next.kind === "package" && panel.key === next.key)) &&
+      (panel.kind !== "criterion" || (next.kind === "criterion" && panel.code === next.code));
     if (same) {
       closePanel();
       return;
@@ -309,6 +332,20 @@ export function RomRunner({
   const liveLitKey = hover.key ?? liveSelected;
   const liveLitEntry = live.phase === "ready" ? liveEntries.find((entry) => entry.key === liveLitKey) : undefined;
   const liveChip = liveLitEntry && liveBar ? chipFor(liveLitEntry, liveBar.spans.get(liveLitEntry.key)) : null;
+  const openCriterion =
+    panel?.kind === "criterion" ? criteria.items.find((item) => item.code === panel.code) : undefined;
+  const litCriterion = criteria.items.find(
+    (item) => item.code === (criterionHover.key ?? openCriterion?.code ?? null),
+  );
+  const criterionMark = useMemo(() => {
+    if (!litCriterion) return null;
+    const keys = new Set<string>();
+    for (const costCode of litCriterion.costCodes) {
+      const entry = entryForCostCode(entries, costCode);
+      if (entry) keys.add(entry.key);
+    }
+    return { code: litCriterion.code, keys };
+  }, [litCriterion, entries]);
   const held = blocks.filter((block) => block.line.heldForReview).length;
   const noteCount = run
     ? held + run.rom.tbdGateItems.length + run.rom.assumedPresentItems.length
@@ -502,6 +539,19 @@ export function RomRunner({
             {run ? ` The blocks below are still ${runWords(run)}.` : ""}
           </p>
         ) : null}
+        {run && panel?.kind !== "new" ? (
+          <DerivedCriteriaSection
+            items={criteria.items}
+            recheck={criteria.recheck}
+            flip={criteria.flip}
+            selectedCode={openCriterion?.code ?? null}
+            ping={ping}
+            onPing={setPing}
+            onOpen={(code, el) => openPanel({ kind: "criterion", code }, el)}
+            onEnter={criterionHover.enter}
+            onLeave={criterionHover.leave}
+          />
+        ) : null}
         {run ? (
           entries.length === 0 ? (
             <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
@@ -513,6 +563,7 @@ export function RomRunner({
               selected={openBlock?.costCode ?? null}
               selectedPackage={openPackage?.key ?? null}
               link={link}
+              mark={criterionMark}
               onOpen={(costCode, el) => openPanel({ kind: "block", costCode }, el)}
               onOpenPackage={(key, el) => openPanel({ kind: "package", key }, el)}
             />
@@ -622,6 +673,21 @@ export function RomRunner({
             </>
           ) : null}
 
+          {panel.kind === "criterion" && openCriterion ? (
+            <>
+              <PanelHead title={openCriterion.label} onClose={closePanel} titleRef={titleRef} />
+              <CriterionPanel
+                key={`${openCriterion.code}-${openCriterion.correctionId ?? "jev"}`}
+                item={openCriterion}
+                busy={criteria.busy}
+                error={criteria.error}
+                onSave={(value, reason) => void criteria.save(openCriterion, value, reason)}
+                onRevert={() => void criteria.revert(openCriterion)}
+                onPing={setPing}
+              />
+            </>
+          ) : null}
+
           {panel.kind === "notes" && run ? (
             <>
               <PanelHead
@@ -678,6 +744,7 @@ export function RomRunner({
           <Link href="/rom/runs">All Runs</Link>
         </nav>
       </footer>
+      <CriteriaToast toast={criteria.toast} onDismiss={criteria.dismissToast} />
     </div>
   );
 }
@@ -706,6 +773,7 @@ function BlockField({
   selected,
   selectedPackage,
   link,
+  mark = null,
   onOpen,
   onOpenPackage,
 }: {
@@ -715,10 +783,30 @@ function BlockField({
   selected: string | null;
   selectedPackage: string | null;
   link: FieldLink;
+  /** LA-860: the entries a hovered or open criterion feeds, lit and marked with its code. */
+  mark?: { code: string; keys: Set<string> } | null;
   onOpen: (costCode: string, el: HTMLElement) => void;
   onOpenPackage: (key: string, el: HTMLElement) => void;
 }) {
   const flip = useFieldFlip();
+  // Each entry's root node carries its key, and the lit ones carry the
+  // criterion's code, so the stylesheet can fade the rest and draw the mark
+  // without every kind of card taking a new prop.
+  const register = (key: string) => {
+    const track = flip.register(key);
+    return (el: HTMLElement | null) => {
+      track(el);
+      if (!el) return;
+      el.dataset.dcEntry = key;
+      if (mark?.keys.has(key)) {
+        el.dataset.dcLit = "";
+        el.dataset.dcMark = mark.code;
+      } else {
+        delete el.dataset.dcLit;
+        delete el.dataset.dcMark;
+      }
+    };
+  };
   const layer = useRef<HTMLDivElement>(null);
   const ghosts = useRef<HTMLDivElement>(null);
   const lastOrder = useRef(order);
@@ -753,7 +841,7 @@ function BlockField({
           group={entry.group}
           selected={selected}
           onOpen={onOpen}
-          register={flip.register(entry.key)}
+          register={register(entry.key)}
           entryKey={entry.key}
           link={link}
         />
@@ -768,12 +856,12 @@ function BlockField({
           rollDelay={rollDelay}
           link={link}
           onSelect={onOpenPackage}
-          register={flip.register(entry.key)}
+          register={register(entry.key)}
         />
       );
     }
     if (entry.kind === "unpriced") {
-      return <UnpricedBlock key={entry.key} entry={entry} link={link} register={flip.register(entry.key)} />;
+      return <UnpricedBlock key={entry.key} entry={entry} link={link} register={register(entry.key)} />;
     }
     return (
       <Block
@@ -781,7 +869,7 @@ function BlockField({
         block={entry.block}
         selected={selected === entry.key}
         onOpen={onOpen}
-        register={flip.register(entry.key)}
+        register={register(entry.key)}
         link={link}
       />
     );
@@ -790,7 +878,7 @@ function BlockField({
   const heading = view === "package" ? "Packages" : "Trades";
 
   return (
-    <div className="rb-vflip" ref={layer}>
+    <div className={`rb-vflip${mark ? " dc-hl" : ""}`} ref={layer}>
       <div className="lb-ghosts" ref={ghosts} aria-hidden="true" />
       <section className="rb-grp" aria-label={heading}>
         <h2>{heading}</h2>

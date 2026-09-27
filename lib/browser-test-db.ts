@@ -197,6 +197,38 @@ async function seedRomFixtures(database: PGlite) {
        'A synthetic fixture so the site conditions question takes the sitework block out. Not a Kulka rule.'),
       ('levels_below_grade', '03-300', array['no'], array['site_conditions'], 'Browser test fixture', '2026-09-26',
        'A synthetic fixture shaped like item 34a: concrete is off only when both questions are no. Not a Kulka rule.');
+
+    -- LA-860: three derived assumptions so the Design Criteria cards show
+    -- locally. Nothing called Jev for these: every value, step and reason is
+    -- a fixture, not a code result and not a Kulka figure. M-1 rests on an
+    -- assumed fact (the climate zone), so the dashed card, the orange dot and
+    -- the count chip have something to show. This file only ever builds the
+    -- in-process browser-test database; none of it reaches production.
+    insert into derived_assumptions
+      (project_id, code, label, value, method, inputs, steps, confidence, confidence_reason,
+       cost_codes, derived_by, jev_confidence)
+    values
+      ('${BROWSER_TEST_ROM_PROJECT_ID}', 'E-1', 'Electrical Service Size',
+       '{"kind":"spec","text":"800A, 3-Phase, 120/208V"}',
+       'Synthetic fixture: demand load for 60 dwelling units',
+       '[{"name":"Units","value":"60","basis":"stated"},{"name":"Gross Area","value":"100,000 SF","basis":"stated"}]',
+       '[{"label":"Connected load, 60 units","result":"1,020 kVA"},{"label":"Demand factor, 60 units","result":"23%"},{"label":"Demand load","result":"235 kVA"},{"label":"At 208V, 3-phase","result":"652A"},{"label":"Service size, next standard frame","result":"800A"}]',
+       'high', 'Synthetic fixture: every input is a stated fact.',
+       array['26-100'], 'Browser test fixture', 0.92),
+      ('${BROWSER_TEST_ROM_PROJECT_ID}', 'M-1', 'HVAC Cooling Capacity',
+       '{"kind":"quantity","amount":250,"unit":"Tons"}',
+       'Synthetic fixture: about 1 ton per 400 SF',
+       '[{"name":"Gross Area","value":"100,000 SF","basis":"stated"},{"name":"Climate Zone","value":"4A","basis":"assumed"}]',
+       '[{"label":"Gross area","result":"100,000 SF"},{"label":"Rule of thumb, Zone 4A","result":"400 SF/ton"},{"label":"Cooling capacity","result":"250 tons"}]',
+       'low', 'Synthetic fixture: a rule of thumb, and the climate zone was assumed rather than stated.',
+       array['22-100', '26-100'], 'Browser test fixture', 0.54),
+      ('${BROWSER_TEST_ROM_PROJECT_ID}', 'V-1', 'Elevator Type',
+       '{"kind":"spec","text":"Hydraulic, 2 Cars, 4 Stops"}',
+       'Synthetic fixture: travel under 50 ft stays in hydraulic range',
+       '[{"name":"Stories","value":"4","basis":"stated"},{"name":"Units","value":"60","basis":"stated"}]',
+       '[{"label":"Stories","result":"4"},{"label":"Floor to floor, typical","result":"10.5 ft"},{"label":"Travel","result":"31.5 ft"},{"label":"Hydraulic limit, planning","result":"50 ft"}]',
+       'high', 'Synthetic fixture: travel sits well inside the hydraulic range.',
+       array['14-200'], 'Browser test fixture', 0.88);
   `);
 }
 

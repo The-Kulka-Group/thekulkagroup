@@ -15,7 +15,7 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
     ["Levered XIRR", (value: typeof columns[number]) => PERCENT.format(value.metrics.leveredXirr)],
     ["Unlevered Equity Multiple", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.unleveredEquityMultiple)}x`],
     ["Levered Equity Multiple", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.leveredEquityMultiple)}x`],
-    ["Yield On Cost", (value: typeof columns[number]) => PERCENT.format(value.metrics.yieldOnCost)],
+    ["Yield on Cost", (value: typeof columns[number]) => PERCENT.format(value.metrics.yieldOnCost)],
     ["Development Spread", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.developmentSpreadBasisPoints)} bps`],
   ] as const;
   return <div className="underwriting-monthly-results">

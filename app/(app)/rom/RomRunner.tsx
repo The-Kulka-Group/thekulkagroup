@@ -434,7 +434,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title="New budget"
-                sub="Adds the project and runs its first ROM from these facts. Anything not asked here stays blank on the project."
+                sub="Adds the project from these facts. Anything not asked here stays blank on the project."
                 onClose={closePanel}
                 titleRef={titleRef}
               />

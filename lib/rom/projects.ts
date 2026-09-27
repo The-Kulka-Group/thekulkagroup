@@ -4,10 +4,15 @@ import type { Db } from "@/lib/db";
 import { isUuid } from "@/lib/uuid";
 
 // LA-1107. Which project /rom and /rom/intake show, the picker's list, and the
-// New budget form's input. The schema has no "ROM project" flag, so a ROM
-// project is one with at least one run. New budget runs the first ROM as soon
-// as it inserts the project, and a failed run still writes a run row, so every
-// project made through New budget lands in the list too.
+// New budget form's input.
+//
+// LA-1140: New budget no longer runs a ROM as soon as it inserts the project
+// (Matt: "a new budget should start clean and have no saved runs on the
+// bottom"), so a project made through New budget can have zero runs. The
+// picker lists a project when it is flagged rom_budget (set by
+// insertRomProject) OR it has at least one run, so a clean budget still shows
+// up and a past job that only feeds benchmarks and was never made through New
+// budget still stays out.
 
 export type RomProjectOption = { id: string; name: string };
 
@@ -46,15 +51,21 @@ export async function resolveRomProjectId(
     : { projectId: undefined, notFound: true, archivedAt: null };
 }
 
-/** Projects with at least one run and not archived, newest run first (LA-1110 excludes archived). */
+/**
+ * Not-archived projects flagged rom_budget or with at least one run
+ * (LA-1110 excludes archived; LA-1140 adds the rom_budget flag so a clean
+ * budget with zero runs still lists). Newest run first, then newest created,
+ * then name.
+ */
 export async function listRomProjects(db: Db): Promise<RomProjectOption[]> {
   const { rows } = await db.query<RomProjectOption>(
     `select p.id, p.name
        from projects p
-       join runs r on r.project_id = p.id
+       left join runs r on r.project_id = p.id
       where p.archived_at is null
-      group by p.id, p.name
-      order by max(r.started_at) desc, p.name`,
+        and (p.rom_budget or r.project_id is not null)
+      group by p.id, p.name, p.created_at
+      order by max(r.started_at) desc nulls last, p.created_at desc, p.name`,
   );
   return rows;
 }
@@ -108,8 +119,8 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
 
 export async function insertRomProject(db: Db, budget: NewBudget): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `insert into projects (name, gross_square_feet, project_type, construction_kind, framing_system)
-     values ($1, $2, $3, $4, $5)
+    `insert into projects (name, gross_square_feet, project_type, construction_kind, framing_system, rom_budget)
+     values ($1, $2, $3, $4, $5, true)
      returning id`,
     [budget.name, budget.grossSquareFeet, budget.projectType, budget.constructionKind, budget.framingSystem],
   );

@@ -153,7 +153,7 @@ export function NewBudgetForm({ onCreated }: { onCreated: (projectId: string) =>
       ) : null}
       <div className="rb-acts">
         <button className="btn btn--primary" type="submit" disabled={!ready || busy}>
-          {busy ? "Adding and running" : "Add and run ROM"}
+          {busy ? "Adding" : "Add budget"}
         </button>
       </div>
     </form>

@@ -63,10 +63,12 @@ describe("POST /api/rom/projects", () => {
     expect(await projectCount()).toBe(before);
   });
 
-  it("inserts the project with only the entered facts and runs its first ROM", async () => {
+  it("inserts the project with only the entered facts and writes no run", async () => {
     const response = await post(valid);
     expect(response.status).toBe(201);
-    const { projectId, runId } = await response.json();
+    const body = await response.json();
+    const { projectId } = body;
+    expect(body.runId).toBeUndefined();
 
     const { rows } = await db.query<Record<string, unknown>>(`select * from projects where id = $1`, [projectId]);
     expect(rows[0]).toMatchObject({
@@ -81,8 +83,10 @@ describe("POST /api/rom/projects", () => {
       demolition_gate: null,
     });
 
-    const run = await db.query<{ project_id: string }>(`select project_id from runs where id = $1`, [runId]);
-    expect(run.rows[0].project_id).toBe(projectId);
+    const runs = await db.query<{ n: number }>(`select count(*)::int as n from runs where project_id = $1`, [
+      projectId,
+    ]);
+    expect(runs.rows[0].n).toBe(0);
   });
 
   it("stores framing as null when not set", async () => {

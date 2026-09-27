@@ -108,6 +108,66 @@ describe("listRomProjects", () => {
     const after = await listRomProjects(db);
     expect(after.map((p) => p.id)).not.toContain(TEST_PROJECT_ID);
   });
+
+  // LA-1140: rom_budget lets a clean New budget with zero runs list, while a
+  // past job with neither a run nor the flag (never made through New budget)
+  // stays out, and the 20260926140000 backfill (rom_budget = true wherever a
+  // run exists) keeps today's picker contents unchanged.
+  describe("rom_budget flag (LA-1140)", () => {
+    it("lists a budget flagged rom_budget even with no run", async () => {
+      const { rows } = await db.query<{ id: string }>(
+        `insert into projects (name, project_type, construction_kind, rom_budget)
+         values ('Clean budget (example)', 'multifamily', 'new', true) returning id`,
+      );
+      const after = await listRomProjects(db);
+      expect(after.map((p) => p.id)).toContain(rows[0].id);
+    });
+
+    it("excludes a past job with neither a run nor the rom_budget flag", async () => {
+      const { rows } = await db.query<{ id: string }>(
+        `insert into projects (name, project_type, construction_kind)
+         values ('Benchmark-only job (example)', 'multifamily', 'new') returning id`,
+      );
+      const after = await listRomProjects(db);
+      expect(after.map((p) => p.id)).not.toContain(rows[0].id);
+    });
+
+    it("excludes an archived project even when flagged rom_budget", async () => {
+      const { rows } = await db.query<{ id: string }>(
+        `insert into projects (name, project_type, construction_kind, rom_budget, archived_at)
+         values ('Archived budget (example)', 'multifamily', 'new', true, now()) returning id`,
+      );
+      const after = await listRomProjects(db);
+      expect(after.map((p) => p.id)).not.toContain(rows[0].id);
+    });
+
+    it("backfill: flags rom_budget = true for a project that already has a run, and leaves one without a run false", async () => {
+      const withRun = await db.query<{ id: string }>(
+        `insert into projects (name, project_type, construction_kind)
+         values ('Had a run before backfill (example)', 'multifamily', 'new') returning id`,
+      );
+      await db.query(`insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'succeeded')`, [
+        withRun.rows[0].id,
+      ]);
+      const withoutRun = await db.query<{ id: string }>(
+        `insert into projects (name, project_type, construction_kind)
+         values ('Never had a run (example)', 'multifamily', 'new') returning id`,
+      );
+
+      // The same backfill statement the 20260926140000 migration runs, applied
+      // again here to prove it flags every project with a run and nothing
+      // else -- exactly what "today's picker contents are unchanged" means.
+      await db.query(`update projects set rom_budget = true where id in (select distinct project_id from runs)`);
+
+      const after = await db.query<{ id: string; rom_budget: boolean }>(
+        `select id, rom_budget from projects where id in ($1, $2)`,
+        [withRun.rows[0].id, withoutRun.rows[0].id],
+      );
+      const byId = Object.fromEntries(after.rows.map((r) => [r.id, r.rom_budget]));
+      expect(byId[withRun.rows[0].id]).toBe(true);
+      expect(byId[withoutRun.rows[0].id]).toBe(false);
+    });
+  });
 });
 
 const editBudget = {

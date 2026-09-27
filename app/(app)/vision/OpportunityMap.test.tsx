@@ -53,10 +53,10 @@ describe("Vision opportunity map", () => {
     expect(html).toContain("Discoveries");
     expect(html).toContain("12");
     expect(html).toContain("On");
-    expect(html).toContain("Approximate areas");
+    expect(html).toContain("Approximate Areas");
     expect(html).toContain("4");
     expect(html).toContain("Off");
-    expect(html).toContain("Tracked opportunities");
+    expect(html).toContain("Tracked Opportunities");
     expect(html).toContain("3");
   });
 
@@ -102,7 +102,7 @@ describe("Vision opportunity map", () => {
     }));
 
     expect(html).toContain("1 source or saved · 2 approximate · 1 unmapped");
-    expect(html).not.toContain("<h2>Approximate areas</h2>");
+    expect(html).not.toContain("<h2>Approximate Areas</h2>");
     expect(html).toContain("Gold ≈ pills use a named area center, not a project coordinate.");
     expect(html).toContain("1 record remains unmapped.");
     expect(html).toContain('href="/vision/unknown#location"');

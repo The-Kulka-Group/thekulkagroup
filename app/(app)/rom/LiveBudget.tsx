@@ -420,7 +420,7 @@ export function LiveField({
               <div className="lb-chips">
                 {tbd.map((item) => (
                   <span key={item.costCode} ref={flip.register(item.costCode)} className="lb-chip lb-chip--tbd" title={item.question}>
-                    {item.label}
+                    {titleCase(item.label)}
                   </span>
                 ))}
               </div>
@@ -432,7 +432,7 @@ export function LiveField({
               <div className="lb-chips">
                 {notInJob.map((item) => (
                   <span key={item.costCode} ref={flip.register(item.costCode)} className="lb-chip lb-chip--out" title={item.question}>
-                    {item.label}
+                    {titleCase(item.label)}
                   </span>
                 ))}
               </div>
@@ -444,7 +444,7 @@ export function LiveField({
   );
 }
 
-function LiveBlock({
+export function LiveBlock({
   entryKey,
   block,
   waiting,
@@ -469,14 +469,14 @@ function LiveBlock({
       type="button"
       className={`rb-blk lb-blk${waiting ? " lb-blk--wait" : ""}${selected ? " rb-blk--sel" : ""}`}
       aria-pressed={selected}
-      aria-label={waiting ? block.label : `${block.label}, ${shortMoney(block.midpoint)}`}
+      aria-label={waiting ? titleCase(block.label) : `${titleCase(block.label)}, ${shortMoney(block.midpoint)}`}
       onClick={() => onSelect(entryKey)}
       onMouseEnter={() => link.onEnter(entryKey)}
       onMouseLeave={link.onLeave}
       onFocus={() => link.onEnter(entryKey)}
       onBlur={link.onLeave}
     >
-      <span className="rb-bn">{block.label}</span>
+      <span className="rb-bn">{titleCase(block.label)}</span>
       <span className={`rb-st lb-st${!waiting && block.status ? " lb-st--on" : ""}`}>
         {!waiting && block.status ? (
           <>
@@ -518,13 +518,13 @@ export function UnpricedBlock({
     <div
       ref={register}
       className="rb-blk lb-blk lb-blk--unpriced pk-card--none"
-      aria-label={`${entry.label}, No Rate Yet`}
+      aria-label={`${titleCase(entry.label)}, No Rate Yet`}
       onMouseEnter={() => link.onEnter(entry.key)}
       onMouseLeave={link.onLeave}
     >
       <span className="pk-top">
-        <span className="rb-bn">{entry.label}</span>
-        {entry.division ? <span className="pk-div">{entry.division}</span> : null}
+        <span className="rb-bn">{titleCase(entry.label)}</span>
+        {entry.division ? <span className="pk-div">{titleCase(entry.division)}</span> : null}
       </span>
       <span className="rb-st lb-st lb-st--on">
         <UnpricedDot pulseKey={entry.item.costCode} />

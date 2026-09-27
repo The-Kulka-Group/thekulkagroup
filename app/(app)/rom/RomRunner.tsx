@@ -341,7 +341,7 @@ export function RomRunner({
       <header className="rb-hdr">
         <div className="rb-t1">
           <span className="rb-badge">R-100</span>
-          <h1 className="rb-title">Conceptual budget</h1>
+          <h1 className="rb-title">Conceptual Budget</h1>
           {/* The picker sits where the project name was, so the name shows once
               and the header stays on one line. */}
           {projects.length > 0 ? (
@@ -597,7 +597,7 @@ export function RomRunner({
           {panel.kind === "block" && run && openBlock ? (
             <>
               <PanelHead
-                title={openBlock.label}
+                title={titleCase(openBlock.label)}
                 sub={`${openBlock.costCode} · ${runWords(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -609,7 +609,7 @@ export function RomRunner({
           {panel.kind === "package" && run && openPackage ? (
             <>
               <PanelHead
-                title={openPackage.label}
+                title={titleCase(openPackage.label)}
                 sub={`${openPackage.division ? `Division ${openPackage.division} · ` : ""}${runWords(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -827,14 +827,14 @@ export function Block({
       type="button"
       className={`rb-blk${selected ? " rb-blk--sel" : ""}`}
       aria-pressed={selected}
-      aria-label={`${block.label}, ${shortMoney(block.midpoint)}${block.status ? `, ${block.status.word.toLowerCase()}` : ""}`}
+      aria-label={`${titleCase(block.label)}, ${shortMoney(block.midpoint)}${block.status ? `, ${block.status.word.toLowerCase()}` : ""}`}
       onClick={(e) => onOpen(block.costCode, e.currentTarget)}
       onMouseEnter={link ? () => link.onEnter(block.costCode) : undefined}
       onMouseLeave={link?.onLeave}
       onFocus={link ? () => link.onEnter(block.costCode) : undefined}
       onBlur={link?.onLeave}
     >
-      <span className="rb-bn">{block.label}</span>
+      <span className="rb-bn">{titleCase(block.label)}</span>
       {block.status ? (
         <span className="rb-st">
           <span className={`rb-dot rb-dot--${block.status.tone}`} aria-hidden="true" />

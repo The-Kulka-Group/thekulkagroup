@@ -46,9 +46,9 @@ const STATUS_CHIP: Record<LineStatus, string> = {
 };
 
 const SETUP_OPTIONS: { value: MarkupSetup; label: string }[] = [
-  { value: "both", label: "GRs & GCs combined" },
-  { value: "gc_only", label: "GCs only" },
-  { value: "gr_only", label: "GRs only" },
+  { value: "both", label: "GRs & GCs Combined" },
+  { value: "gc_only", label: "GCs Only" },
+  { value: "gr_only", label: "GRs Only" },
 ];
 
 const PERCENT = new Intl.NumberFormat("en-US", {

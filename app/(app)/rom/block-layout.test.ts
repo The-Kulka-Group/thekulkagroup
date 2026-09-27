@@ -16,7 +16,11 @@ import {
 } from "./block-layout";
 import { Block } from "./RomRunner";
 import { BlockPanel, TotalPanel } from "./RomPanels";
+import { LiveBlock } from "./LiveBudget";
 import { loadedRunFrom, savedRunsFor, STRIP_RUNS } from "./saved-runs";
+import type { FieldLink } from "./ShareBar";
+
+const noLink: FieldLink = { onEnter: () => {}, onLeave: () => {}, item: null, onItem: () => {} };
 
 // LA-1101. Synthetic lines, labelled as such. None of these is a Kulka cost.
 
@@ -160,6 +164,32 @@ describe("the /rom block layout", () => {
     expect(html).toContain("Held for Review");
     expect(html).toContain("scaleX(1.0000)");
     expect(html).toContain('aria-pressed="false"');
+  });
+
+  it("puts a raw benchmark label in title case on a saved and a live single block", () => {
+    const raw = lines.filter((l) => l.costCode !== "26 0000").concat([
+      { ...lines[0], costCode: "22 0100", label: "plumbing rough-in" },
+    ]);
+    const block = tradeBlocks(rom(raw)).find((b) => b.costCode === "22 0100")!;
+
+    const saved = renderToStaticMarkup(createElement(Block, { block, selected: false, onOpen: vi.fn() }));
+    expect(saved).not.toContain("plumbing rough-in");
+    expect(saved).toContain("Plumbing Rough-in");
+
+    const live = renderToStaticMarkup(
+      createElement(LiveBlock, {
+        entryKey: block.costCode,
+        block,
+        waiting: false,
+        selected: false,
+        rollDelay: 0,
+        link: noLink,
+        onSelect: vi.fn(),
+        register: () => {},
+      }),
+    );
+    expect(live).not.toContain("plumbing rough-in");
+    expect(live).toContain("Plumbing Rough-in");
   });
 
   it("names the jobs behind a block in its panel", () => {

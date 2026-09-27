@@ -43,8 +43,8 @@ export function selectVisibleMapLayers(discoveryPoints: PartitionedMapPoints, tr
 
 const LAYER_LABELS: Record<MapLayerKey, string> = {
   discoveries: "Discoveries",
-  approximate: "Approximate areas",
-  tracked: "Tracked opportunities",
+  approximate: "Approximate Areas",
+  tracked: "Tracked Opportunities",
 };
 
 export function MapLayerControls({counts, visibility, onToggle}: {counts: Record<MapLayerKey, number>; visibility: MapLayerVisibility; onToggle: (layer: MapLayerKey) => void}) {

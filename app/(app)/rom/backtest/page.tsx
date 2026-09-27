@@ -206,7 +206,7 @@ function Report({ report }: { report: BacktestResult }) {
             {report.worstMisses.map((miss) => (
               <li key={`${miss.projectId}-${miss.line.costCode}`}>
                 <span className="num">{money(Math.abs(miss.line.error))}</span>{" "}
-                {miss.line.error > 0 ? "high" : "low"} on {miss.line.costCode} {miss.line.label}, {miss.projectName}.
+                {miss.line.error > 0 ? "high" : "low"} on {miss.line.costCode} {titleCase(miss.line.label)}, {miss.projectName}.
                 The ROM said <span className="num">{money(miss.line.predicted.midpoint)}</span> and the budget
                 carried <span className="num">{money(miss.line.actual)}</span>.
               </li>

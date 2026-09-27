@@ -908,7 +908,14 @@ button.lb-blk.rb-blk--sel:hover { border-color: var(--rb-black); }
 }
 .rb-blk--sel .pk-div { color: var(--rb-sel-ink2); }
 .pk-tot { font-size: 23px; }
-.pk-none { margin-top: auto; font-size: var(--meta-size); }
+.pk-none {
+  margin-top: auto;
+  font-size: var(--meta-size);
+  /* Same height as a priced card's total (23px at 1.1), so a No Rate Yet
+     card lines up with its row. */
+  min-height: calc(23px * 1.1);
+  align-items: center;
+}
 .pk-none .rb-dot { width: 8px; height: 8px; }
 
 /* The strip. Each segment's hit area is taller than the 4px it draws and

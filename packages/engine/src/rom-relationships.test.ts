@@ -96,14 +96,23 @@ const DEMOLITION_GATE: BranchGateItemRule = {
   reason: "synthetic",
 };
 
+// One 1,000 SF wood-frame structure comes down, so item 1a has the structure
+// square footage LA-1156 requires before it prices at all. These cases vary
+// only the demolition gate, which is what decides whether the driver is in.
+const STRUCTURE_FACTS = {
+  demolitionStructureCount: 1,
+  demolitionStructureSquareFeet: 1000,
+  demolitionStructureType: "wood_frame_type_v",
+};
+
 function answers(demolition?: "yes" | "no" | "dont_know"): Answers {
-  const facts: Record<string, "yes" | "no" | "dont_know"> = demolition ? { demolition } : {};
+  const gates: Record<string, "yes" | "no" | "dont_know"> = demolition ? { demolition } : {};
   return {
     projectType: "multifamily",
     constructionKind: "new",
     grossSquareFeet: 1000,
-    facts,
-    branchGates: facts,
+    facts: { ...gates, ...STRUCTURE_FACTS },
+    branchGates: gates,
   };
 }
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { Db } from "@/lib/db";
+import { tier1Flow, visibleQuestions, type Responses } from "@/lib/rom/question-flow";
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
@@ -67,6 +68,13 @@ describe("scope_relationships", () => {
   });
 });
 
+/** The seeded project is multifamily and new, the same as the synthetic benchmarks. */
+const ENGINE_ANSWER: Record<string, string> = {
+  projectType: "multifamily",
+  constructionKind: "new",
+  grossSquareFeet: "1000",
+};
+
 describe("a run over the seeded relationships", () => {
   async function withDriver() {
     await db.query(
@@ -85,11 +93,39 @@ describe("a run over the seeded relationships", () => {
     );
   }
 
+  /**
+   * Answers to the whole tier-1 flow with demolition yes and one 1,000 SF
+   * wood-frame structure coming down. Item 1a prices only once the structure
+   * square footage is known (LA-1156), and only the flow's answers carry it.
+   */
+  function demolitionYes(): Responses {
+    const definition = tier1Flow();
+    const responses: Responses = {};
+    let added = true;
+    while (added) {
+      added = false;
+      for (const question of visibleQuestions(definition, responses)) {
+        if (question.id in responses) continue;
+        added = true;
+        if (question.id === "demolition") responses[question.id] = "yes";
+        else if (question.id === "demolition_structure_count") responses[question.id] = "1";
+        else if (question.id === "demolition_structure_square_feet") responses[question.id] = "1000";
+        else if (question.id === "demolition_structure_type") responses[question.id] = "wood_frame_type_v";
+        else if (question.kind === "branch_gate") responses[question.id] = "no";
+        else if (question.mapsTo.target === "engine_input") responses[question.id] = ENGINE_ANSWER[question.mapsTo.name];
+        else if (question.kind === "number") responses[question.id] = "1";
+        else responses[question.id] = question.choices![0].value;
+      }
+    }
+    return responses;
+  }
+
   it("brings the four disconnects in as unpriced, naming the driver, when demolition is yes", async () => {
     await withDriver();
-    await db.query(`update projects set demolition_gate = 'yes' where id = $1`, [TEST_PROJECT_ID]);
 
-    const { rom } = await runRom(db as Db, TEST_PROJECT_ID);
+    const { rom } = await runRom(db as Db, TEST_PROJECT_ID, demolitionYes());
+
+    expect(rom.lines.map((line) => line.costCode)).toContain("1a");
 
     expect(rom.unpricedItems).toEqual([
       { costCode: "28a", label: "Plumbing Disconnect and Cap", driverCostCode: "1a" },
@@ -97,6 +133,25 @@ describe("a run over the seeded relationships", () => {
       { costCode: "31f", label: "Electrical Service Disconnect", driverCostCode: "1a" },
       { costCode: "36a", label: "Site Utility Cut and Cap at the Main", driverCostCode: "1a" },
     ]);
+  });
+
+  it("prices Structure Demolition from Matt's stated rate and brings its disconnects in, on shipped data alone", async () => {
+    const shipped = await seededDatabase({ statedRates: true });
+    try {
+      const { rom } = await runRom(shipped as Db, TEST_PROJECT_ID, demolitionYes());
+      const structure = rom.lines.find((line) => line.costCode === "1a")!;
+
+      // 1,000 SF of wood frame at Matt's $6.60 midpoint.
+      expect((structure.low + structure.high) / 2).toBeCloseTo(6600, 6);
+      expect(rom.unpricedItems.map((item) => [item.costCode, item.driverCostCode])).toEqual([
+        ["28a", "1a"],
+        ["28b", "1a"],
+        ["31f", "1a"],
+        ["36a", "1a"],
+      ]);
+    } finally {
+      await shipped.close();
+    }
   });
 
   it("leaves them out when demolition is no", async () => {

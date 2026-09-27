@@ -81,7 +81,7 @@ function sourceMetadata(value: unknown, field: string): EvidenceMetadata | undef
   const sourceDate = optionalSourceDate(candidate.sourceDate, `${field}.sourceDate`);
   const reviewState = candidate.reviewState ?? "working";
   if (reviewState !== "working" && reviewState !== "done") {
-    const message = "Review state must be Working on it or Done.";
+    const message = "Review state must be Working on It or Done.";
     throw new InvalidCaseDraft(message, { [`${field}.reviewState`]: message });
   }
   return { sourceLabel, sourceDate, reviewState };

@@ -211,6 +211,122 @@ describe("branch gates", () => {
   });
 });
 
+// LA-1155. A structure count of one or more opens the square-feet and
+// structure-type follow-ups; a count of zero closes them, same as any other
+// branch. A count answers a number question, not a "yes", so this exercises
+// the parser's own number-answer opening condition, not the branch_gate path.
+describe("the demolition structure-count follow-ups", () => {
+  it("hides both follow-ups when the count is zero", () => {
+    const asked = visibleQuestions(tier1Flow(), {
+      demolition: "yes",
+      demolition_structure_count: "0",
+    }).map((q) => q.id);
+
+    expect(asked).not.toContain("demolition_structure_square_feet");
+    expect(asked).not.toContain("demolition_structure_type");
+  });
+
+  it("shows both follow-ups when the count is two or more", () => {
+    const asked = visibleQuestions(tier1Flow(), {
+      demolition: "yes",
+      demolition_structure_count: "2",
+    }).map((q) => q.id);
+
+    expect(asked).toContain("demolition_structure_square_feet");
+    expect(asked).toContain("demolition_structure_type");
+  });
+
+  it("accepts a count of zero as a complete answer, closing both follow-ups", () => {
+    const { recorded } = readFlowAnswers(tier1Flow(), {
+      ...COMPLETE,
+      demolition: "yes",
+      demolition_structure_count: "0",
+    });
+    const flow = (recorded as { flow: { intakeFields: Record<string, unknown> } }).flow;
+
+    expect(flow.intakeFields.demolitionStructureCount).toBe(0);
+    expect(flow.intakeFields.demolitionStructureSquareFeet).toBeUndefined();
+    expect(flow.intakeFields.demolitionStructureType).toBeUndefined();
+  });
+
+  it("drops a stale square-feet and structure-type answer once the count falls back to zero", () => {
+    const { recorded } = readFlowAnswers(tier1Flow(), {
+      ...COMPLETE,
+      demolition: "yes",
+      // A prior pass answered these while the count was 2; the count then
+      // dropped to zero without the surface clearing the stale answers.
+      demolition_structure_count: "0",
+      demolition_structure_square_feet: "18000",
+      demolition_structure_type: "wood_frame_type_v",
+    });
+    const flow = (recorded as { flow: { intakeFields: Record<string, unknown> } }).flow;
+
+    expect(flow.intakeFields.demolitionStructureSquareFeet).toBeUndefined();
+    expect(flow.intakeFields.demolitionStructureType).toBeUndefined();
+  });
+
+  it("records the square feet and structure type intake fields when the count opens them", () => {
+    const { recorded } = readFlowAnswers(tier1Flow(), {
+      ...COMPLETE,
+      demolition: "yes",
+      demolition_structure_count: "2",
+      demolition_structure_square_feet: "18000",
+      demolition_structure_type: "wood_frame_type_v",
+    });
+    const flow = (recorded as { flow: { intakeFields: Record<string, unknown> } }).flow;
+
+    expect(flow.intakeFields.demolitionStructureCount).toBe(2);
+    expect(flow.intakeFields.demolitionStructureSquareFeet).toBe(18000);
+    expect(flow.intakeFields.demolitionStructureType).toBe("wood_frame_type_v");
+  });
+
+  it("refuses a structure type the file never offered", () => {
+    expect(() =>
+      readFlowAnswers(tier1Flow(), {
+        ...COMPLETE,
+        demolition: "yes",
+        demolition_structure_count: "1",
+        demolition_structure_square_feet: "1000",
+        demolition_structure_type: "spaceship",
+      }),
+    ).toThrow(FlowAnswersInvalid);
+  });
+});
+
+describe("a number question opening a follow-up on its own answer", () => {
+  it("refuses an opensWhen type this code does not know", () => {
+    const file = shippedFile();
+    const gate = questionsOf(file).find((one) => one.id === "demolition_structure_count");
+    if (!gate) throw new Error("The shipped file no longer asks the structure count.");
+    gate.opensWhen = { type: "number_above_zero" };
+    expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+
+  it("refuses an unknown key on the opensWhen condition, which is where a rate would arrive", () => {
+    const file = shippedFile();
+    const gate = questionsOf(file).find((one) => one.id === "demolition_structure_count");
+    if (!gate) throw new Error("The shipped file no longer asks the structure count.");
+    gate.opensWhen = { type: "number_at_least_one", ratePerUnit: 25 };
+    expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+
+  it("refuses opensWhen on a branch gate, which opens on yes already", () => {
+    const file = shippedFile();
+    const gate = questionsOf(file).find((one) => one.id === "demolition");
+    if (!gate) throw new Error("The shipped file no longer gates demolition.");
+    gate.opensWhen = { type: "number_at_least_one" };
+    expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+
+  it("refuses a number question that opens follow-ups with no opensWhen condition", () => {
+    const file = shippedFile();
+    const gate = questionsOf(file).find((one) => one.id === "demolition_structure_count");
+    if (!gate) throw new Error("The shipped file no longer asks the structure count.");
+    delete gate.opensWhen;
+    expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+});
+
 describe("answers the engine cannot use", () => {
   it("refuses a missing required answer", () => {
     const without: Record<string, string> = { ...COMPLETE };

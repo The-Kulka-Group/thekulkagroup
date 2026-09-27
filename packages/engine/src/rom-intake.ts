@@ -13,6 +13,21 @@
 /** LA-677's resolution: "built at once, in phases, or don't know." */
 export type Phasing = "built_at_once" | "phased" | "dont_know";
 
+/**
+ * The structure types item 1a, Structure Demolition, prices by (ADR 0006,
+ * LA-1155's `demolition_structure_type` question). Matches
+ * `config/rom/tier1-flow.json`'s choice values exactly; LA-1156's per-square-
+ * foot rate table keys off these six values, read from the run's intake
+ * fields, not from a typed `Answers` property.
+ */
+export type DemolitionStructureType =
+  | "wood_frame_type_v"
+  | "masonry_bearing_wall_type_iii"
+  | "pre_engineered_metal_or_light_steel"
+  | "steel_frame_concrete_metal_deck_type_ii"
+  | "cast_in_place_concrete_frame_type_i"
+  | "dont_know";
+
 /** LA-682's resolution: parking's required minimum branch gate. */
 export type ParkingType = "none" | "surface" | "structured" | "underground" | "dont_know";
 

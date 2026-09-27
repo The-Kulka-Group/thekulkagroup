@@ -24,7 +24,7 @@ square feet, parking type and nine scope questions. It does not store:
 | Missing fact | Tickets that need it | What the designs do today |
 | -- | -- | -- |
 | Stories Above Grade | LA-784, LA-774, LA-775 | Assume a default. LA-774 uses the Elevator answer as a stand-in for height, which is weak: a building can need a standpipe without having an elevator. |
-| Unit count and unit mix by bedroom | LA-775, LA-776, LA-777 | Work them out from gross square feet through assumed ratios. LA-776 avoids the multifamily method because of it. |
+| Unit count and unit mix by bedroom | LA-775, LA-776, LA-777 | Work them out from gross square feet through an assumed gross-square-feet-per-unit ratio, marked assumed. |
 | Location, and so Climate Zone | LA-777, LA-781 | Assume zone 4A for Long Island. |
 | Roof Type | LA-781 | Assume flat. `rom-spec.md` lists it as a gate, but the live flow never asks it. |
 | Structure type beyond wood or metal framing | LA-781 | Flag it. Steel frame and mass wall cannot be recorded. |

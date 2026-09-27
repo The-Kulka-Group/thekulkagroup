@@ -218,6 +218,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
   gap: 10px;
+  /* An element box is taller than a block. Blocks sharing its row keep their
+     own height instead of stretching to the box's. */
+  align-items: start;
 }
 .rb-none { font-size: var(--ui-size); color: var(--rb-blk-mute); margin: 0 0 12px; }
 .rb-none--error { color: var(--stuck); }
@@ -692,4 +695,103 @@
   .lb-lbl, .lb-key, .lb-hint, .lb-st--on { animation: none; }
   .lb-delta { animation-duration: 1ms; animation-delay: 1600ms; }
   .lb-seg { transition: none; }
+}
+
+/* --- The element box (LA-1158, ADR 0006) -----------------------------------
+   One element with a stated driver, on screen as a parent box: its name and
+   total in the header, a thin bar under that, the driver as a full-width
+   tile, and every other member two to a row. It spans two grid columns and
+   grows with its tiles; an element with nothing but its driver never becomes
+   a box, so it keeps the one-column block it always had. */
+
+.eb-box {
+  grid-column: span 2;
+  min-height: 0;
+  cursor: default;
+  gap: 10px;
+}
+.eb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.eb-hv {
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.eb-hbar { margin-top: -2px; }
+.eb-hbar i { transition: none; }
+
+/* Same pill as the live budget's unpriced badge, tuned for the light field. */
+.eb-unpriced {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--chip-size);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--rb-blk-ink2);
+}
+.eb-unpriced .rb-dot { width: 7px; height: 7px; }
+
+.eb-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.eb-tile {
+  grid-column: span 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 56px;
+  padding: 9px 11px;
+  border: 1px solid var(--rb-blk-line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--rb-blk-ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+}
+/* The driver: full width, so it always reads as what the box is built on. */
+.eb-tile--full { grid-column: 1 / -1; }
+button.eb-tile:hover { border-color: var(--rb-blk-hover); }
+.eb-tile--sel { background: var(--rb-black); color: var(--rb-ink-on-black); border-color: var(--rb-black); }
+.eb-tn { font-size: var(--chip-size); font-weight: 600; line-height: 1.3; }
+.eb-tv {
+  margin-top: auto;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+/* An item with no rate yet: no figure, the same orange dot the field's
+   "No Rate Yet" tiles carry, and it is never a button since there is nothing
+   priced to open. */
+.eb-tile--unpriced { cursor: default; }
+.eb-ts {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  font-size: var(--chip-size);
+  font-weight: 600;
+  color: var(--rb-blk-ink2);
+}
+.eb-ts .rb-dot { width: 7px; height: 7px; }
+
+/* New budget preview: waiting tiles read muted, same as a lone trade block. */
+.eb-tile--wait .eb-tn { color: var(--rb-blk-ink2); }
+.eb-tile--wait .eb-tv { color: var(--rb-blk-line); }
+.lb-blk--wait .eb-hv { color: var(--rb-blk-line); }
+
+@media (max-width: 860px) {
+  .eb-box { grid-column: span 2; }
+  .eb-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

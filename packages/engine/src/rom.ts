@@ -216,6 +216,15 @@ export type BlockClassification = {
   /** The cost code of the level 1 lump that already contains this scope. */
   breakoutOfCostCode: string | null;
   buyoutPackage: string | null;
+  /**
+   * True on the one canonical item that brings the rest of its element in
+   * (LA-1157, LA-1158, ADR 0006): Structure Demolition (1a) for the
+   * Demolition element. The screen reads this to show the driver as a
+   * full-width tile inside its element's parent box, rather than naming a
+   * cost code in the client. Optional so a classification built before this
+   * field existed still type-checks; absent reads the same as false.
+   */
+  isElementDriver?: boolean;
   statedBy: string;
   statedOn: string;
   reason: string;

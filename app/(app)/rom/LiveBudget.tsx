@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { DataSnapshot, FramingSystem, MarkupChoices, Rom, UnpricedItem } from "@kulka/engine";
+import type { BlockClassification, DataSnapshot, FramingSystem, MarkupChoices, Rom, UnpricedItem } from "@kulka/engine";
 
 import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 import { headlineMoney, headlineOf, midpoint, shortMoney, tradeBlocks, valueTier, type TradeBlock } from "./block-layout";
+import { groupElements, type ElementGroup } from "./element-groups";
+import { LiveElementBox } from "./ElementBox";
+import { EASE_SMOOTH, reducedMotion } from "./motion";
+import { SpringMoney } from "./SpringMoney";
 
 // LA-1142. The budget builds behind the New budget panel while its questions
 // are answered. The browser runs the same pure engine a run does over the
@@ -57,24 +61,23 @@ export type LiveBudget =
   /**
    * The trades in scope are known but the area is not, so tiles stand empty
    * in the order they will take. `answered` is the ROM as the answers stand,
-   * read only for what was answered No or Don't know.
+   * read only for what was answered No or Don't know. `blocks` holds only the
+   * trades not shown inside an element box; `groups` holds those boxes
+   * (LA-1158, ADR 0006).
    */
-  | { phase: "waiting"; blocks: TradeBlock[]; answered: Rom }
-  /** `rom` is the scope known so far, which the blocks and the total show. */
-  | { phase: "ready"; rom: Rom; answered: Rom; blocks: TradeBlock[]; grossSquareFeet: number };
+  | { phase: "waiting"; blocks: TradeBlock[]; groups: ElementGroup[]; answered: Rom }
+  /** `rom` is the scope known so far, which the blocks, boxes and the total show. */
+  | {
+      phase: "ready";
+      rom: Rom;
+      answered: Rom;
+      blocks: TradeBlock[];
+      groups: ElementGroup[];
+      grossSquareFeet: number;
+    };
 
-// Critically damped: glides in fast and settles without overshoot, since a
-// dollar figure that swings past its value reads as a wrong number.
-const STIFFNESS = 170;
-const DAMPING = 2 * Math.sqrt(STIFFNESS);
-const STEP = 1 / 240;
-const EASE_SMOOTH = "cubic-bezier(0.22, 1, 0.36, 1)";
 // Only used for tile order before the area is known; no figure from it shows.
 const ORDER_AREA = "10000";
-
-function reducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 /**
  * LA-1153: the header's count of items in scope with no benchmark behind
@@ -130,6 +133,7 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
     if (!draft.named) return { phase: "empty" };
     const definition = tier1Flow();
     const answers = previewAnswers(definition, draft.responses, draft.framing, draft.markups);
+    const classifications = loaded.snapshot.classifications ?? [];
     try {
       if (!answers) {
         const ordering = previewAnswers(
@@ -140,14 +144,17 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
         );
         if (!ordering) return { phase: "empty" };
         const { known, full } = knownScopeRom(ordering, loaded.snapshot);
-        return { phase: "waiting", blocks: tradeBlocks(known), answered: full };
+        const { blocks, groups } = fieldBlocksAndGroups(known, classifications);
+        return { phase: "waiting", blocks, groups, answered: full };
       }
       const { known, full } = knownScopeRom(answers, loaded.snapshot);
+      const { blocks, groups } = fieldBlocksAndGroups(known, classifications);
       return {
         phase: "ready",
         rom: known,
         answered: full,
-        blocks: tradeBlocks(known),
+        blocks,
+        groups,
         grossSquareFeet: answers.grossSquareFeet,
       };
     } catch (cause) {
@@ -157,87 +164,19 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
 }
 
 /**
- * A dollar figure that springs to each new value. It writes its own text on
- * each frame instead of re-rendering, so sixty blocks rolling at once cost
- * React nothing. Null shows a dash; the first real value rolls up from zero
- * after `delay`, which is how the first fill cascades biggest first.
+ * LA-1158, ADR 0006: an element with a stated driver and at least one other
+ * member in scope groups into a box; `tradeBlocks` still names every line
+ * that adds to the total, so a grouped line is filtered back out of the
+ * single-tile list rather than computed twice.
  */
-function SpringMoney({
-  value,
-  format,
-  delay = 0,
-  className,
-}: {
-  value: number | null;
-  format: (value: number) => string;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const state = useRef({ x: 0, v: 0, target: 0, frame: 0, timer: 0, fromDash: false });
-  const formatRef = useRef(format);
-  useEffect(() => {
-    formatRef.current = format;
-  });
-
-  // A layout effect, so a figure never paints blank on the frame it mounts.
-  useLayoutEffect(() => {
-    const s = state.current;
-    const el = ref.current;
-    if (!el) return;
-    cancelAnimationFrame(s.frame);
-    window.clearTimeout(s.timer);
-    if (value === null) {
-      s.fromDash = true;
-      s.x = 0;
-      s.v = 0;
-      el.textContent = "—";
-      return;
-    }
-    s.target = value;
-    if (reducedMotion()) {
-      s.x = value;
-      s.v = 0;
-      s.fromDash = false;
-      el.textContent = formatRef.current(value);
-      return;
-    }
-
-    // Fixed sub-steps over the real time elapsed, so a slow or throttled
-    // frame rate lands the figure on schedule instead of in slow motion.
-    let last = 0;
-    const tick = (now: number) => {
-      const elapsed = last ? Math.min(1, (now - last) / 1000) : 1 / 60;
-      last = now;
-      const steps = Math.max(1, Math.ceil(elapsed / STEP));
-      const dt = elapsed / steps;
-      for (let i = 0; i < steps; i++) {
-        const force = -STIFFNESS * (s.x - s.target) - DAMPING * s.v;
-        s.v += force * dt;
-        s.x += s.v * dt;
-      }
-      const settled = Math.abs(s.x - s.target) < Math.max(0.5, Math.abs(s.target) * 1e-5) && Math.abs(s.v) < 1;
-      if (settled) {
-        s.x = s.target;
-        s.v = 0;
-      }
-      el.textContent = formatRef.current(s.x);
-      if (!settled) s.frame = requestAnimationFrame(tick);
-    };
-    const start = () => {
-      s.fromDash = false;
-      s.frame = requestAnimationFrame(tick);
-    };
-    el.textContent = formatRef.current(s.x);
-    if (s.fromDash && delay > 0) s.timer = window.setTimeout(start, delay);
-    else start();
-    return () => {
-      cancelAnimationFrame(s.frame);
-      window.clearTimeout(s.timer);
-    };
-  }, [value, delay]);
-
-  return <span ref={ref} className={className} />;
+function fieldBlocksAndGroups(
+  rom: Rom,
+  classifications: readonly BlockClassification[],
+): { blocks: TradeBlock[]; groups: ElementGroup[] } {
+  const { groups, singles } = groupElements(rom, classifications);
+  const singleCodes = new Set(singles.map((line) => line.costCode));
+  const blocks = tradeBlocks(rom).filter((block) => singleCodes.has(block.costCode));
+  return { blocks, groups };
 }
 
 /** The header band while New budget is open: the total the answers so far add up to. */
@@ -376,6 +315,10 @@ export function LiveField({ live }: { live: LiveBudget }) {
   const firstFill = useRef(true);
 
   const blocks = live.phase === "ready" || live.phase === "waiting" ? live.blocks : [];
+  // LA-1158: an element with a stated driver and something else in scope
+  // groups into a box (ADR 0006); `blocks` above already excludes whatever
+  // groupElements moved in here.
+  const groups = live.phase === "ready" || live.phase === "waiting" ? live.groups : [];
   // What was answered No or Don't know, from the ROM as the answers stand.
   // The scope-known ROM cannot say: it leaves unanswered lines out entirely.
   const answered = live.phase === "ready" || live.phase === "waiting" ? live.answered : null;
@@ -384,11 +327,41 @@ export function LiveField({ live }: { live: LiveBudget }) {
   // LA-1153: an item in scope with nothing pricing it yet (ADR 0006). It is
   // not a `TradeBlock`, since it never adds to the total, so it is not read
   // off `answered` the way the trays above are; it comes straight off the
-  // ROM, which is the same list whichever ROM the caller passes here.
-  const unpriced = answered?.unpricedItems ?? [];
-  const kulka = blocks.filter((block) => !block.ownerDirect);
-  const owner = blocks.filter((block) => block.ownerDirect);
-  const rank = new Map(blocks.map((block, index) => [block.costCode, index]));
+  // ROM, which is the same list whichever ROM the caller passes here. LA-1158:
+  // one already shown as a tile inside its element's box is left out here, so
+  // it is never named twice.
+  const groupedCodes = new Set(groups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)));
+  const unpriced = (answered?.unpricedItems ?? []).filter((item) => !groupedCodes.has(item.costCode));
+
+  // Blocks and boxes share one biggest-first order, boxes sorted by their own
+  // total. `entries` also fixes the render order the field and the trays
+  // agree on for FLIP.
+  const entries = [
+    ...blocks.map((block) => ({ kind: "block" as const, key: block.costCode, midpoint: block.midpoint, ownerDirect: block.ownerDirect })),
+    ...groups.map((group) => ({
+      kind: "group" as const,
+      key: `element:${group.element}`,
+      midpoint: midpoint(group.total),
+      ownerDirect: group.ownerDirect,
+    })),
+  ].sort((a, b) => b.midpoint - a.midpoint);
+  const kulkaEntries = entries.filter((entry) => !entry.ownerDirect);
+  const ownerEntries = entries.filter((entry) => entry.ownerDirect);
+  const rank = new Map(entries.map((entry, index) => [entry.key, index]));
+  const groupByKey = new Map(groups.map((group) => [`element:${group.element}`, group]));
+  const blockByKey = new Map(blocks.map((block) => [block.costCode, block]));
+
+  // LA-1158: a box's tiles land as a family, the driver first, so a driver an
+  // answer just brought in never fades in at the same moment as the disconnects
+  // it carries. The delay is set off the box's own rank rather than the
+  // generic first-fill cascade below, so a box that arrives later in the
+  // session still stages the same way a box in the first fill does.
+  const tileDelay = new Map<string, number>();
+  for (const group of groups) {
+    const base = (rank.get(`element:${group.element}`) ?? 0) * 22;
+    tileDelay.set(group.driver.costCode, base);
+    group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
+  }
 
   const register = (key: string) => (el: HTMLElement | null) => {
     if (el) nodes.current.set(key, el);
@@ -465,13 +438,17 @@ export function LiveField({ live }: { live: LiveBudget }) {
       const cascade = firstFill.current && entering.length > 3;
       entering
         .sort((a, b) => (rank.get(a[0]) ?? 0) - (rank.get(b[0]) ?? 0))
-        .forEach(([, el], index) => {
+        .forEach(([key, el], index) => {
+          // LA-1158: a tile inside a box lands off its own family delay,
+          // whichever fill this is; everything else keeps the plain cascade.
+          const family = tileDelay.get(key);
+          const delay = family !== undefined ? family : cascade ? Math.min(index * 22, 520) : 0;
           el.animate(
             [
               { opacity: 0, transform: "translateY(8px) scale(0.98)", filter: "blur(4px)" },
               { opacity: 1, transform: "none", filter: "blur(0)" },
             ],
-            { duration: 380, delay: cascade ? Math.min(index * 22, 520) : 0, easing: EASE_SMOOTH, fill: "backwards" },
+            { duration: 380, delay, easing: EASE_SMOOTH, fill: "backwards" },
           );
         });
     }
@@ -501,15 +478,30 @@ export function LiveField({ live }: { live: LiveBudget }) {
   }
 
   const waiting = live.phase === "waiting";
-  const tile = (block: TradeBlock) => (
-    <LiveBlock
-      key={block.costCode}
-      block={block}
-      waiting={waiting}
-      rollDelay={Math.min((rank.get(block.costCode) ?? 0) * 22, 520)}
-      register={register(block.costCode)}
-    />
-  );
+  const tile = (entry: (typeof entries)[number]) => {
+    if (entry.kind === "group") {
+      const group = groupByKey.get(entry.key)!;
+      return (
+        <LiveElementBox
+          key={entry.key}
+          group={group}
+          waiting={waiting}
+          rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
+          register={register}
+        />
+      );
+    }
+    const block = blockByKey.get(entry.key)!;
+    return (
+      <LiveBlock
+        key={entry.key}
+        block={block}
+        waiting={waiting}
+        rollDelay={Math.min((rank.get(entry.key) ?? 0) * 22, 520)}
+        register={register(entry.key)}
+      />
+    );
+  };
 
   return (
     <div className={`lb${waiting ? " lb--waiting" : ""}`} ref={layer}>
@@ -517,17 +509,17 @@ export function LiveField({ live }: { live: LiveBudget }) {
       {waiting ? (
         <p className="rb-none lb-hint">Enter the gross area and each trade fills in.</p>
       ) : null}
-      {blocks.length === 0 ? <p className="rb-none">No benchmark matched this project type, so there are no lines.</p> : null}
-      {kulka.length > 0 ? (
+      {entries.length === 0 ? <p className="rb-none">No benchmark matched this project type, so there are no lines.</p> : null}
+      {kulkaEntries.length > 0 ? (
         <section className="rb-grp" aria-label="Trades">
           <h2>{waiting ? "Trades, in the order they price" : "Trades, biggest first"}</h2>
-          <div className="rb-grid">{kulka.map(tile)}</div>
+          <div className="rb-grid">{kulkaEntries.map(tile)}</div>
         </section>
       ) : null}
-      {owner.length > 0 ? (
+      {ownerEntries.length > 0 ? (
         <section className="rb-grp" aria-label="Bought by the owner direct">
           <h2>Bought by the owner direct</h2>
-          <div className="rb-grid">{owner.map(tile)}</div>
+          <div className="rb-grid">{ownerEntries.map(tile)}</div>
         </section>
       ) : null}
       {unpriced.length > 0 ? (

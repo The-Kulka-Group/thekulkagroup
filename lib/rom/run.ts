@@ -153,6 +153,8 @@ type ClassificationRow = {
   element: string | null;
   breakout_of_cost_code: string | null;
   buyout_package: string | null;
+  /** LA-1157/LA-1158: the one item that brings the rest of its element in. */
+  is_element_driver: boolean;
   stated_by: string;
   stated_on: Date | string;
   reason: string;
@@ -362,6 +364,22 @@ export type ParameterData = {
   fieldOfficeRates: FieldOfficeRate[];
 };
 
+/**
+ * The stated block classifications (LA-884, LA-1157, LA-1158), read on their
+ * own so the /rom screen can group an element into a parent box (ADR 0006)
+ * without waiting on a benchmark read for a project type it may not have yet,
+ * such as the New budget preview before a project type is answered.
+ */
+export async function readClassifications(db: Db): Promise<BlockClassification[]> {
+  const { rows } = await db.query<ClassificationRow>(
+    `select cost_code, detail_level, element, breakout_of_cost_code,
+            buyout_package, is_element_driver, stated_by, stated_on, reason
+       from block_classification
+      order by cost_code`,
+  );
+  return rows.map(toClassification);
+}
+
 export async function readBenchmarkData(
   db: Db,
   projectType: Answers["projectType"],
@@ -385,12 +403,7 @@ export async function readBenchmarkData(
     [projectType, constructionKind],
   );
 
-  const { rows: classifications } = await db.query<ClassificationRow>(
-    `select cost_code, detail_level, element, breakout_of_cost_code,
-            buyout_package, stated_by, stated_on, reason
-       from block_classification
-      order by cost_code`,
-  );
+  const classifications = await readClassifications(db);
 
   // branch_gate_items (LA-1028) is read here for the same reason as
   // block_classification above: it is a declared cost-code mapping, not
@@ -425,7 +438,7 @@ export async function readBenchmarkData(
 
   return {
     benchmarks: rows.map(toBenchmark),
-    classifications: classifications.map(toClassification),
+    classifications,
     markupHistory: await readMarkupHistory(db),
     branchGateItems: gateItems.map(toGateItemRule),
     scopeRelationships: relationships.map(toRelationship),
@@ -571,6 +584,7 @@ function toClassification(row: ClassificationRow): BlockClassification {
     element: row.element,
     breakoutOfCostCode: row.breakout_of_cost_code,
     buyoutPackage: row.buyout_package,
+    isElementDriver: row.is_element_driver,
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),
     reason: row.reason,

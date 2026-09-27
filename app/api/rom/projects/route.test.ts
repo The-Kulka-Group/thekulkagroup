@@ -98,4 +98,35 @@ describe("POST /api/rom/projects", () => {
     );
     expect(rows[0].framing_system).toBeNull();
   });
+
+  // LA-1141: the guided New budget flow's Facts step asks parking type, so a
+  // later run (Run settings, no responses) already has it off the project row
+  // (lib/rom/run.ts's answersFromProject) with no extra field to fill in.
+  it("stores the parking type the guided flow's Facts step sends", async () => {
+    const response = await post({ ...valid, parkingType: "structured" });
+    const { projectId } = await response.json();
+    const { rows } = await db.query<{ parking_type: string | null }>(
+      `select parking_type from projects where id = $1`,
+      [projectId],
+    );
+    expect(rows[0].parking_type).toBe("structured");
+  });
+
+  it("refuses a parking type it does not know, and writes nothing", async () => {
+    const before = await projectCount();
+    const response = await post({ ...valid, parkingType: "valet" });
+    expect(response.status).toBe(400);
+    expect(await projectCount()).toBe(before);
+  });
+
+  // LA-1141, "Add without running": the project is inserted with no run row,
+  // whether or not the guided flow ever gets to a run.
+  it("writes no run row when the project is added without a parking type either", async () => {
+    const response = await post(valid);
+    const { projectId } = await response.json();
+    const runs = await db.query<{ n: number }>(`select count(*)::int as n from runs where project_id = $1`, [
+      projectId,
+    ]);
+    expect(runs.rows[0].n).toBe(0);
+  });
 });

@@ -1,6 +1,7 @@
 import type { ConfidenceFlag, DetailLevel, Rom, RomLine } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import { savedRom } from "@/lib/rom/run-records";
 
 // The block board payload (LA-884). A finished run already carries every block
 // with its level, its element and its breakout parent, so this file reads the
@@ -101,7 +102,8 @@ export async function readRunBoard(db: Db, runId: string): Promise<RunBoard> {
   const run = rows[0];
   if (!run || !run.rom) throw new RunBoardNotFound(runId);
 
-  const blocks = run.rom.lines.map(toBlock);
+  const rom = savedRom(run.rom);
+  const blocks = rom.lines.map(toBlock);
 
   return {
     runId: run.id,
@@ -114,7 +116,7 @@ export async function readRunBoard(db: Db, runId: string): Promise<RunBoard> {
     elements: describeElements(blocks),
     total: run.rom.total,
     kulkaContractTotal: run.rom.kulkaContractTotal,
-    carvedOut: run.rom.carvedOut,
+    carvedOut: rom.carvedOut,
   };
 }
 

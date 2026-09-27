@@ -487,3 +487,16 @@
 @media (max-width: 1100px) {
   .rb-t1 { flex-wrap: wrap; white-space: normal; }
 }
+
+/* New budget open: the screen behind the form is blank. The last project's
+   total, blocks, runs and actions step aside until the budget is added. */
+.rb-fresh-note { display: none; }
+.rb--fresh .rb-fresh-note { display: block; }
+.rb--fresh .rb-t2 > :not(.rb-fresh-note),
+.rb--fresh .rb-fld > :not(.rb-fresh-note),
+.rb--fresh .rb-revs > :not(.rb-fresh-note),
+.rb--fresh .rb-t1 .rb-pick,
+.rb--fresh .rb-t1 .rb-proj,
+.rb--fresh .rb-t1 .num,
+.rb--fresh .rb-t1 .btn--primary,
+.rb--fresh .rb-t1 .rb-hbtn:not([aria-expanded="true"]) { display: none; }

@@ -785,3 +785,299 @@ describe("branch gate items (LA-1028)", () => {
     expect(rom.markups?.subtotal.high).toBe(0);
   });
 });
+
+describe("in-scope items with no rate (LA-1153, ADR 0006)", () => {
+  // ADR 0006, "A block can arrive unpriced": a supporting item such as the
+  // Electrical Service Disconnect has no benchmark behind it yet, but it is
+  // in scope and must still arrive on the board, out of every total. The
+  // declaration lives on the snapshot, not on `Answers`: `Answers` feeds
+  // lib/rom/question-flow.ts's `EngineInputName`, one form field per key, and
+  // this is a fact a relationship derives, never a question of its own.
+  function unpricedSnapshot(...items: { costCode: string; label: string }[]): DataSnapshot {
+    return { ...snapshot(benchmark()), unpricedInScopeItems: items };
+  }
+
+  it("carries an in-scope item nothing prices as unpriced, not as a line", () => {
+    const rom = computeRom(
+      ANSWERS,
+      unpricedSnapshot({ costCode: "31F", label: "Electrical Service Disconnect" }),
+    );
+
+    expect(rom.lines.map((l) => l.costCode)).toEqual(["TEST-A"]);
+    expect(rom.unpricedItems).toEqual([{ costCode: "31F", label: "Electrical Service Disconnect" }]);
+  });
+
+  it("keeps the total, the Kulka contract total, and the markup subtotal to the priced lines alone", () => {
+    const markups: Answers["markups"] = {
+      setup: "both",
+      method: "pct_of_subtotal",
+      overrideRate: 0.1,
+      feeRate: 0,
+      insuranceRate: 0,
+    };
+    const priced = computeRom(ANSWERS, snapshot(benchmark()));
+    const pricedWithMarkups = computeRom({ ...ANSWERS, markups }, snapshot(benchmark()));
+    const withUnpriced = computeRom(
+      { ...ANSWERS, markups },
+      unpricedSnapshot(
+        { costCode: "31F", label: "Electrical Service Disconnect" },
+        { costCode: "28A", label: "Plumbing Disconnect and Cap" },
+      ),
+    );
+
+    expect(withUnpriced.total).toEqual(priced.total);
+    expect(withUnpriced.kulkaContractTotal).toEqual(priced.kulkaContractTotal);
+    expect(withUnpriced.markups?.subtotal).toEqual(pricedWithMarkups.markups?.subtotal);
+  });
+
+  it("names the unpriced items in the assumptions, by count and label", () => {
+    const rom = computeRom(
+      ANSWERS,
+      unpricedSnapshot(
+        { costCode: "31F", label: "Electrical Service Disconnect" },
+        { costCode: "28A", label: "Plumbing Disconnect and Cap" },
+      ),
+    );
+
+    const text = rom.assumptions.join(" ");
+    expect(text).toContain("2 items");
+    expect(text).toContain("Electrical Service Disconnect");
+    expect(text).toContain("Plumbing Disconnect and Cap");
+  });
+
+  it("never lists a cost code twice when a benchmark already prices it", () => {
+    const rom = computeRom(ANSWERS, unpricedSnapshot({ costCode: "TEST-A", label: "Synthetic test line" }));
+
+    expect(rom.unpricedItems).toEqual([]);
+    expect(rom.lines).toHaveLength(1);
+  });
+
+  it("behaves exactly as before when no in-scope items without a rate are supplied", () => {
+    const bare = computeRom(ANSWERS, snapshot(benchmark()));
+    const explicit = computeRom(ANSWERS, unpricedSnapshot());
+
+    expect(bare.unpricedItems).toEqual([]);
+    expect(JSON.stringify(bare)).toBe(JSON.stringify(explicit));
+  });
+});
+
+describe("demolition benchmark units (LA-1156, ADR 0006)", () => {
+  // Matt's statement of 2026-09-26 (docs/precon/canonical-work-items.md item
+  // 1a): five rates, one per structure type, each a midpoint the engine puts
+  // its usual one-source spread around.
+  const FIVE_RATES: Benchmark[] = [
+    benchmark({
+      costCode: "1a",
+      label: "Structure Demolition",
+      unit: "usd_per_sf_of_structure",
+      value: 6.6,
+      structureType: "wood_frame_type_v",
+      kind: "reviewed_judgment",
+    }),
+    benchmark({
+      costCode: "1a",
+      label: "Structure Demolition",
+      unit: "usd_per_sf_of_structure",
+      value: 9.9,
+      structureType: "masonry_bearing_wall_type_iii",
+      kind: "reviewed_judgment",
+    }),
+    benchmark({
+      costCode: "1a",
+      label: "Structure Demolition",
+      unit: "usd_per_sf_of_structure",
+      value: 5.5,
+      structureType: "pre_engineered_metal_or_light_steel",
+      kind: "reviewed_judgment",
+    }),
+    benchmark({
+      costCode: "1a",
+      label: "Structure Demolition",
+      unit: "usd_per_sf_of_structure",
+      value: 13.2,
+      structureType: "steel_frame_concrete_metal_deck_type_ii",
+      kind: "reviewed_judgment",
+    }),
+    benchmark({
+      costCode: "1a",
+      label: "Structure Demolition",
+      unit: "usd_per_sf_of_structure",
+      value: 19.8,
+      structureType: "cast_in_place_concrete_frame_type_i",
+      kind: "reviewed_judgment",
+    }),
+  ];
+
+  const SITE_DEMOLITION = benchmark({
+    costCode: "1",
+    label: "Site Demolition",
+    unit: "usd_lump_sum",
+    value: 25_000,
+    kind: "proest_budget",
+  });
+
+  const demolitionAnswers = (facts: Answers["facts"]): Answers => ({ ...ANSWERS, facts });
+
+  it("prices Structure Demolition per square foot of structure, by structure type: 12,000 SF of Wood Frame gives a $79,200 midpoint", () => {
+    const rom = computeRom(
+      demolitionAnswers({
+        demolitionStructureCount: 1,
+        demolitionStructureSquareFeet: 12_000,
+        demolitionStructureType: "wood_frame_type_v",
+      }),
+      snapshot(...FIVE_RATES),
+    );
+
+    expect(rom.lines).toHaveLength(1);
+    const [line] = rom.lines;
+    expect(line.costCode).toBe("1a");
+    expect(midpoint(line)).toBe(79_200);
+  });
+
+  it("prices Structure Demolition as the full span, not a blended midpoint, when the structure type is Don't Know", () => {
+    const rom = computeRom(
+      demolitionAnswers({
+        demolitionStructureCount: 1,
+        demolitionStructureSquareFeet: 10_000,
+        demolitionStructureType: "dont_know",
+      }),
+      snapshot(...FIVE_RATES),
+    );
+
+    const [line] = rom.lines;
+    expect(line.low).toBe(55_000); // $5.50 low rate x 10,000 SF
+    expect(line.high).toBe(198_000); // $19.80 high rate x 10,000 SF
+    expect(line.heldForReview).toBe(true);
+  });
+
+  it("prices Site Demolition as a lump sum that does not scale with gross square feet", () => {
+    const small = computeRom({ ...ANSWERS, grossSquareFeet: 1000 }, snapshot(SITE_DEMOLITION));
+    const large = computeRom({ ...ANSWERS, grossSquareFeet: 500_000 }, snapshot(SITE_DEMOLITION));
+
+    expect(midpoint(small.lines[0])).toBe(25_000);
+    expect(midpoint(large.lines[0])).toBe(25_000);
+  });
+
+  it("prices a usd_each_structure benchmark once per structure coming down, and at zero with none", () => {
+    const perStructure = benchmark({
+      costCode: "TEST-EACH",
+      label: "Test $ each line",
+      unit: "usd_each_structure",
+      value: 500,
+      kind: "reviewed_judgment",
+    });
+
+    const withThree = computeRom(demolitionAnswers({ demolitionStructureCount: 3 }), snapshot(perStructure));
+    expect(midpoint(withThree.lines[0])).toBe(1500);
+
+    const withNone = computeRom(ANSWERS, snapshot(perStructure));
+    expect(withNone.lines[0].low).toBe(0);
+    expect(withNone.lines[0].high).toBe(0);
+  });
+
+  it("leaves an ordinary usd_per_gsf line's pricing unaffected by demolition benchmarks in the same snapshot", () => {
+    const ordinary = benchmark({ costCode: "TEST-A", value: 10 });
+    const without = computeRom(ANSWERS, snapshot(ordinary));
+    const withDemolition = computeRom(
+      demolitionAnswers({
+        demolitionStructureCount: 1,
+        demolitionStructureSquareFeet: 12_000,
+        demolitionStructureType: "wood_frame_type_v",
+      }),
+      snapshot(ordinary, SITE_DEMOLITION, ...FIVE_RATES),
+    );
+
+    const findA = (rom: ReturnType<typeof computeRom>) => rom.lines.find((l) => l.costCode === "TEST-A");
+    expect(findA(withDemolition)).toEqual(findA(without));
+  });
+
+  // Corrected 2026-09-27, after LA-1154 review: LA-1154 (ADR 0006's
+  // relationships) reads a priced line on item 1a as what brings its four
+  // disconnects (28a, 28b, 31f, 36a) into the budget. A $0 line would have
+  // wrongly brought them in on every job, including one that never answered
+  // a single demolition question, so item 1a must produce no line at all,
+  // and name nothing in unpricedItems, whenever it has no square footage to
+  // price.
+  describe("item 1a produces no line at all with nothing to price (corrected 2026-09-27)", () => {
+    it("with no demolition facts answered whatsoever", () => {
+      const rom = computeRom(ANSWERS, snapshot(...FIVE_RATES));
+
+      expect(rom.lines).toEqual([]);
+      expect(rom.unpricedItems).toEqual([]);
+      expect(rom.total).toEqual({ low: 0, high: 0 });
+    });
+
+    it("with a structure count of zero, so the square-footage follow-up never opened", () => {
+      const rom = computeRom(demolitionAnswers({ demolitionStructureCount: 0 }), snapshot(...FIVE_RATES));
+
+      expect(rom.lines).toEqual([]);
+      expect(rom.unpricedItems).toEqual([]);
+    });
+
+    it("alongside an ordinary line, so only Structure Demolition is missing, not the whole ROM", () => {
+      const ordinary = benchmark({ costCode: "TEST-A", value: 10 });
+      const rom = computeRom(ANSWERS, snapshot(ordinary, ...FIVE_RATES));
+
+      expect(rom.lines.map((l) => l.costCode)).toEqual(["TEST-A"]);
+    });
+  });
+
+  describe("stays unchanged on a job with no demolition answers (backtest)", () => {
+    function demolitionGateRule(): BranchGateItemRule {
+      return {
+        costCode: "1",
+        section: "demolition",
+        requiresAllSections: [],
+        closesOn: ["no"],
+        statedBy: "mnicosia@thekulkagroup.com",
+        statedOn: "2026-09-24",
+        reason: "synthetic: mirrors the real branch_gate_items row for item 1.",
+      };
+    }
+
+    it("prices nothing for Site Demolition or Structure Demolition when demolition is answered no", () => {
+      const ordinary = benchmark({ costCode: "TEST-A", value: 10 });
+      const withDemolitionBenchmarks: DataSnapshot = {
+        benchmarks: [ordinary, SITE_DEMOLITION, ...FIVE_RATES],
+        parameters: parameters(),
+        branchGateItems: [demolitionGateRule()],
+      };
+      const withoutDemolitionBenchmarks: DataSnapshot = {
+        benchmarks: [ordinary],
+        parameters: parameters(),
+        branchGateItems: [demolitionGateRule()],
+      };
+      const answers = demolitionAnswers({ demolition: "no" });
+
+      const withDemolition = computeRom(answers, withDemolitionBenchmarks);
+      const without = computeRom(answers, withoutDemolitionBenchmarks);
+
+      expect(withDemolition.total).toEqual(without.total);
+      expect(withDemolition.kulkaContractTotal).toEqual(without.kulkaContractTotal);
+      expect(withDemolition.lines.find((l) => l.costCode === "1")?.gateStatus).toBe("not_in_job");
+      expect(withDemolition.lines.find((l) => l.costCode === "1a")).toBeUndefined();
+    });
+
+    // Documents existing, pre-LA-1156 behavior rather than fixing it: a
+    // branch gate left unanswered prices as "assumed present"
+    // (packages/engine/src/rom-gates.ts, CONTEXT.md's Branch gate entry).
+    // Item 1 already carries a branch_gate_items row keyed to "demolition";
+    // this is not a new rule LA-1156 adds, and changing the silence default
+    // is out of this ticket's file lane. Item 1a has no such row and is
+    // unaffected either way, because its own quantity is what gates it.
+    it("prices Site Demolition as assumed present when demolition is left unanswered entirely (pre-existing branch-gate default, not new here)", () => {
+      const withDemolitionBenchmarks: DataSnapshot = {
+        benchmarks: [SITE_DEMOLITION, ...FIVE_RATES],
+        parameters: parameters(),
+        branchGateItems: [demolitionGateRule()],
+      };
+
+      const rom = computeRom(ANSWERS, withDemolitionBenchmarks);
+
+      const item1 = rom.lines.find((l) => l.costCode === "1");
+      expect(item1?.gateStatus).toBe("assumed_present");
+      expect(midpoint(item1!)).toBe(25_000);
+      expect(rom.lines.find((l) => l.costCode === "1a")).toBeUndefined();
+    });
+  });
+});

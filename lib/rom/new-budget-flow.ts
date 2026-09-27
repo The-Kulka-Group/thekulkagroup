@@ -1,6 +1,6 @@
 import type { BranchGateAnswer } from "@kulka/engine";
 
-import { visibleQuestions, type FlowDefinition, type Question, type Responses } from "./question-flow";
+import { numberAnswerIsValid, visibleQuestions, type FlowDefinition, type Question, type Responses } from "./question-flow";
 
 // LA-1141: the guided New budget flow's Facts and Scope steps split the same
 // questions the intake flow always asked (config/rom/tier1-flow.json) across
@@ -47,7 +47,7 @@ export function requiredAnswered(questions: Question[], responses: Responses): b
     if (!question.required) return true;
     const value = responses[question.id];
     if (value === undefined || value === "") return false;
-    return question.kind !== "number" || Number(value) > 0;
+    return question.kind !== "number" || numberAnswerIsValid(question, value);
   });
 }
 

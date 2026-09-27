@@ -17,12 +17,22 @@ const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
  * a test passing here is testing the schema that ships. It wants no Docker, no
  * network, and no state shared between test files.
  */
-export async function seededDatabase(): Promise<Db & { close: () => Promise<void> }> {
+export async function seededDatabase(
+  options: { statedRates?: boolean } = {},
+): Promise<Db & { close: () => Promise<void> }> {
   const pg = new PGlite();
 
   for (const file of readdirSync(MIGRATIONS).sort()) {
     if (!file.endsWith(".sql")) continue;
     await pg.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
+  }
+
+  // 20260927150000_demolition_stated_rates.sql records Matt's demolition
+  // rates for multifamily, the same type as the test project. Most tests
+  // expect the synthetic TEST benchmark below to be the only one, so they
+  // drop those rows. A test that reads the rates passes `statedRates: true`.
+  if (!options.statedRates) {
+    await pg.query(`delete from benchmarks where cost_code in ('1', '1a')`);
   }
 
   // Production migrations contain schema only. Synthetic inputs stay inside

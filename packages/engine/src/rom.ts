@@ -11,7 +11,7 @@
 // provenance (LA-14). The engine refuses to run without them rather than fall
 // back to a number nobody recorded.
 
-import type { BranchGateAnswer } from "./rom-intake";
+import type { BranchGateAnswer, DemolitionStructureType } from "./rom-intake";
 import {
   FRAMING_ITEM_CODES,
   FRAMING_WORDS,
@@ -31,6 +31,16 @@ import {
   type Markups,
   type StaffingRate,
 } from "./rom-markups";
+import { bringInSupportingItems, type ScopeRelationship } from "./rom-relationships";
+import {
+  hasStructureDemolitionScope,
+  priceStructureDemolition,
+  quantityFor,
+  readDemolitionFacts,
+  STRUCTURE_DEMOLITION_COST_CODE,
+  type BenchmarkUnit,
+  type DemolitionFacts,
+} from "./rom-units";
 
 export type ProjectType = "multifamily" | "self_storage";
 export type ConstructionKind = "new" | "renovation";
@@ -84,13 +94,19 @@ export type Provenance = {
 export type Benchmark = {
   costCode: string;
   label: string;
-  unit: "usd_per_gsf";
+  unit: BenchmarkUnit;
   value: number;
   projectType: ProjectType;
   constructionKind: ConstructionKind;
   provenance: Provenance;
   scopeSide: ScopeSide;
   contractSide: ContractSide;
+  /**
+   * Which of item 1a's five structure types this rate is for (LA-1156, ADR
+   * 0006). Absent on every other benchmark, and on every row that is not one
+   * of Structure Demolition's five per-type rates.
+   */
+  structureType?: DemolitionStructureType;
 };
 
 /**
@@ -231,6 +247,40 @@ export type DataSnapshot = {
    * A job missing here has none recorded. Only items 8 and 17 read it.
    */
   sourceProjectFraming?: Record<string, FramingSystem>;
+  /**
+   * Canonical items the caller has put in scope for this run that no
+   * benchmark prices yet (LA-1153, ADR 0006: "A block can arrive unpriced"),
+   * such as the four demolition disconnects once an answer brings their
+   * driver in. A cost code that already has a benchmark line is priced the
+   * ordinary way and is never duplicated here. Absent or empty behaves
+   * exactly as every ROM computed before LA-1153.
+   *
+   * This lives on the snapshot rather than on `Answers` on purpose: `Answers`
+   * feeds `lib/rom/question-flow.ts`'s `EngineInputName`, one entry per
+   * field, so a new field there is a form input the tier-1 flow must ask for.
+   * This is not a question; it is a fact the caller (a relationship, per ADR
+   * 0006) derives from answers already asked, the same way `branchGateItems`
+   * above is a caller-supplied rule rather than a question of its own.
+   */
+  unpricedInScopeItems?: UnpricedItem[];
+  /**
+   * Stated relationships from a driver to the supporting items it brings in
+   * (LA-1154, ADR 0006). Absent or empty behaves exactly as before LA-1154.
+   */
+  scopeRelationships?: ScopeRelationship[];
+};
+
+/**
+ * A canonical item a caller has put in scope that no benchmark prices yet
+ * (ADR 0006, "A block can arrive unpriced"). It carries only what the board
+ * needs to name the item, since a costCode with no benchmark behind it has no
+ * `Benchmark` row to read a label from.
+ */
+export type UnpricedItem = {
+  costCode: string;
+  label: string;
+  /** The driver that brought this supporting item in (LA-1154). Absent on anything else. */
+  driverCostCode?: string;
 };
 
 export type Answers = {
@@ -327,6 +377,11 @@ export type RomLine = {
   gateStatus: GateLineStatus | null;
   /** Present on items 8 and 17 only (LA-1103). Absent on every other line and on runs recorded before it. */
   framing?: FramingLine;
+  /**
+   * The driver that brought this supporting item in, so the screen can name
+   * it (LA-1154, ADR 0006). Present on supporting items only.
+   */
+  driverCostCode?: string;
 };
 
 /** One item a branch gate named on the face of the ROM (LA-1028). */
@@ -335,6 +390,8 @@ export type GateItemSummary = {
   label: string;
   /** The question or questions that produced this status, in plain words. */
   question: string;
+  /** The driver whose status this supporting item follows (LA-1154). Absent on anything else. */
+  driverCostCode?: string;
 };
 
 export type Rom = {
@@ -377,6 +434,13 @@ export type Rom = {
   tbdGateItems: GateItemSummary[];
   /** Items nobody answered, priced same as any other line but named as assumed present (LA-1028). */
   assumedPresentItems: GateItemSummary[];
+  /**
+   * Items in scope that no benchmark prices yet (LA-1153, ADR 0006: "A block
+   * can arrive unpriced"). Never in `lines`, so never in `total`,
+   * `kulkaContractTotal`, or the markup subtotal; named here and in
+   * `assumptions` instead of shown with an invented figure.
+   */
+  unpricedItems: UnpricedItem[];
   assumptions: string[];
   /** The parameters this ROM was computed with, provenance included, so a run record is self-describing. */
   parameters: EngineParameters;
@@ -409,10 +473,18 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     (snapshot.classifications ?? []).map((c) => [c.costCode, c]),
   );
 
+  // LA-1156, ADR 0006: the demolition answers a quantity reads, once per run,
+  // off whatever `Answers.facts` the caller supplied. Absent facts read as
+  // none of it answered yet (rom-units.ts), so a job without them prices
+  // Structure Demolition and Site Demolition exactly as it did before this
+  // ticket: nothing.
+  const demolitionFacts = readDemolitionFacts(answers.facts);
+
   const blend = (costCode: string, rows: Benchmark[]) =>
     blendLine(
       rows,
       answers.grossSquareFeet,
+      demolitionFacts,
       snapshot.parameters,
       tiers,
       rulesByCostCode.get(costCode) ?? [],
@@ -423,6 +495,15 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     .sort((a, b) => a.localeCompare(b))
     .map((costCode) => {
       const rows = byCostCode.get(costCode)!;
+      if (costCode === STRUCTURE_DEMOLITION_COST_CODE) {
+        // LA-1156, corrected 2026-09-27: no square footage of structure yet
+        // (the count was never answered, or it was answered zero) means item
+        // 1a produces no line at all, not a line priced at zero. LA-1154
+        // reads a priced line here as what brings its four disconnects into
+        // scope, so a $0 line would wrongly bring them in on every job.
+        if (!hasStructureDemolitionScope(demolitionFacts)) return null;
+        return priceStructureDemolition(rows, demolitionFacts, (kept) => blend(costCode, kept));
+      }
       if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows);
       return blendFramingLine(
         rows,
@@ -431,7 +512,8 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
         (kept) => blend(costCode, kept),
         (row) => toComparable(row, weightFor(snapshot.parameters, row.provenance.kind)),
       );
-    });
+    })
+    .filter((line): line is RomLine => line !== null);
 
   // A branch gate can switch a canonical item on or off (LA-1028). The
   // answers a gate rule reads sit in `facts`, whatever the caller named that
@@ -443,7 +525,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const gateRules = snapshot.branchGateItems ?? [];
   const gateResolutions = resolveGateItems(gateRules, factsAsText);
 
-  const lines = blended.map((line) => {
+  const gatedLines = blended.map((line) => {
     const resolution = gateResolutions.get(line.costCode);
     if (!resolution) return { ...line, gateStatus: null };
     // "not_in_job" and "tbd" both come out of every total and the markup
@@ -455,16 +537,28 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     return { ...line, gateStatus: resolution.status };
   });
 
+  // LA-1154, ADR 0006: a driver in the ROM brings in its supporting items,
+  // which follow its gate status and add to the total in their own right.
+  const supporting = bringInSupportingItems(
+    gatedLines,
+    snapshot.scopeRelationships ?? [],
+    snapshot.unpricedInScopeItems ?? [],
+    gateResolutions,
+  );
+  const lines = supporting.lines;
+
   const gateSummary = (status: GateLineStatus): GateItemSummary[] =>
     lines
-      .filter((l) => l.gateStatus === status)
+      .filter((l) => l.gateStatus === status && l.driverCostCode === undefined)
       .map((l) => ({
         costCode: l.costCode,
         label: l.label,
         question: sectionWords(gateResolutions.get(l.costCode)!.sections.join(" and ")),
       }));
   const notInThisJob = gateSummary("not_in_job");
-  const tbdGateItems = gateSummary("tbd");
+  const tbdGateItems = [...gateSummary("tbd"), ...supporting.tbdItems].sort((a, b) =>
+    a.costCode.localeCompare(b.costCode),
+  );
   const assumedPresentItems = gateSummary("assumed_present");
 
   // A breakout's parent lump already contains it, so it is priced, shown, and
@@ -484,7 +578,23 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const ownerLines = added.filter((l) => l.contractSide === "owner");
   const kulkaContractTotal = sumRange(kulkaLines);
   const coveredSections = new Set(gateRules.flatMap((r) => [r.section, ...r.requiresAllSections]));
-  const assumptions = assumptionsFor(answers, lines, coveredSections, notInThisJob, tbdGateItems, assumedPresentItems);
+
+  // LA-1153, ADR 0006: an item nothing prices still arrives, as long as a
+  // caller or a relationship has put it in scope. A cost code that already
+  // produced a line above is priced the ordinary way, so it is never listed
+  // twice. rom-relationships.ts does the merge.
+  const unpricedItems = supporting.unpricedItems;
+
+  const assumptions = assumptionsFor(
+    answers,
+    lines,
+    coveredSections,
+    notInThisJob,
+    tbdGateItems,
+    assumedPresentItems,
+    unpricedItems,
+  );
+  assumptions.push(...supporting.assumptions);
 
   const rom: Rom = {
     lines,
@@ -494,6 +604,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     notInThisJob,
     tbdGateItems,
     assumedPresentItems,
+    unpricedItems,
     assumptions,
     parameters: snapshot.parameters,
   };
@@ -660,6 +771,7 @@ function applyJudgment(
 function blendLine(
   rows: Benchmark[],
   grossSquareFeet: number,
+  demolitionFacts: DemolitionFacts,
   parameters: EngineParameters,
   tiers: Tiers,
   rules: JudgmentRule[],
@@ -686,7 +798,12 @@ function blendLine(
       ? applyJudgment(rate, totalWeight, rules, weightFor(parameters, "reviewed_judgment"))
       : { rate, adjustments: [] as JudgmentAdjustment[] };
   const half = tiers.spread[confidence];
-  const midpoint = judgment.rate * grossSquareFeet;
+  // LA-1156: the quantity a line's rate multiplies by depends on the
+  // benchmark's own unit. Every row already blended together shares a unit
+  // (the same cost code always prices on one basis), so the lead row's is
+  // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
+  // as every ROM computed before this ticket did.
+  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts);
 
   return {
     costCode: lead.costCode,
@@ -853,6 +970,7 @@ function assumptionsFor(
   notInThisJob: GateItemSummary[],
   tbdGateItems: GateItemSummary[],
   assumedPresentItems: GateItemSummary[],
+  unpricedItems: UnpricedItem[],
 ): string[] {
   const area = answers.grossSquareFeet.toLocaleString("en-US");
   const assumptions = [
@@ -861,6 +979,14 @@ function assumptionsFor(
     "Every line is a range rather than a point, and no line here is a bid.",
     "Blend weights, flag thresholds, and range widths are recorded engine parameters, each with its own provenance, listed with this ROM.",
   ];
+
+  // LA-1153, ADR 0006: named here whether or not any line priced, since an
+  // item can be in scope with nothing else priced yet either.
+  if (unpricedItems.length > 0) {
+    assumptions.push(
+      `${countWords(unpricedItems.length, "item")} ${unpricedItems.length === 1 ? "is" : "are"} in scope with no rate yet: ${unpricedItems.map((i) => i.label).join(", ")}.`,
+    );
+  }
 
   if (lines.length === 0) {
     assumptions.push(

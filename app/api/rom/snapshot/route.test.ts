@@ -1,4 +1,4 @@
-import { computeRom, type DataSnapshot } from "@kulka/engine";
+import { computeRom, type DataSnapshot, type Rom } from "@kulka/engine";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
@@ -56,42 +56,106 @@ describe("GET /api/rom/snapshot", () => {
   });
 
   it("gives the browser the figure a run over the same data records", async () => {
-    const responses: Responses = {
-      project_type: "multifamily",
-      construction_kind: "new",
-      gross_square_feet: "42000",
-      parking_type: "none",
-    };
-    // A run refuses a blank scope question, so every gate is answered: the
-    // first yes, the rest no, so the comparison covers both.
-    visibleQuestions(tier1Flow(), responses)
-      .filter((question) => question.kind === "branch_gate")
-      .forEach((question, index) => {
-        responses[question.id] = index === 0 ? "yes" : "no";
-      });
-    for (const question of visibleQuestions(tier1Flow(), responses)) {
-      if (question.kind === "number" && !responses[question.id]) responses[question.id] = "1";
-    }
-    const markups = { setup: "both", method: "pct_of_subtotal" } as const;
-
-    const run = await POST(
-      new Request("http://localhost/api/rom", {
-        method: "POST",
-        body: JSON.stringify({ projectId: TEST_PROJECT_ID, responses, markups }),
-      }),
-    );
-    expect(run.status).toBe(200);
-    const { rom: recorded } = await run.json();
-
-    const answers = previewAnswers(tier1Flow(), responses, "", markups);
-    expect(answers).not.toBeNull();
-    const preview = computeRom(answers!, await snapshotFor());
+    const { preview, recorded } = await previewAndRun();
 
     expect(preview.lines).toEqual(recorded.lines);
     expect(preview.total).toEqual(recorded.total);
     expect(preview.markups).toEqual(recorded.markups);
   });
+
+  // LA-1154: the seeded scope_relationships rows bring the four disconnects
+  // in behind Structure Demolition. With a driver line and one rated
+  // disconnect in the data, the preview still has to match the run.
+  it("gives the browser the figure a run records with relationships present", async () => {
+    await db.query(
+      `insert into benchmarks
+         (cost_code, label, unit, value, project_type, construction_kind,
+          comparable_count, provenance_kind, provenance_export_label,
+          provenance_recorded_by, provenance_recorded_at)
+       values
+         ('1a', 'Structure Demolition', 'usd_per_gsf', 2, 'multifamily', 'new', 1,
+          'reviewed_judgment', null, 'automated test', date '2026-09-27'),
+         ('31f', 'Electrical Service Disconnect', 'usd_per_gsf', 0.5, 'multifamily', 'new', 1,
+          'reviewed_judgment', null, 'automated test', date '2026-09-27')`,
+    );
+    await db.query(
+      `insert into branch_gate_items
+         (section, cost_code, closes_on, stated_by, stated_on, reason)
+       values ('demolition', '1a', array['no'], 'automated test', date '2026-09-27',
+               'A synthetic fixture so demolition brings in item 1a. Not a Kulka rule.')`,
+    );
+
+    const snapshot = await snapshotFor();
+    expect(snapshot.scopeRelationships?.map((r) => r.supportingCostCode)).toEqual([
+      "28a",
+      "28b",
+      "31f",
+      "36a",
+    ]);
+
+    const { preview, recorded } = await previewAndRun();
+
+    expect(recorded.lines.find((line) => line.costCode === "31f")?.driverCostCode).toBe("1a");
+    expect(recorded.unpricedItems.map((item) => item.costCode)).toEqual(["28a", "28b", "36a"]);
+    expect(preview.lines).toEqual(recorded.lines);
+    expect(preview.total).toEqual(recorded.total);
+    expect(preview.markups).toEqual(recorded.markups);
+    expect(preview.unpricedItems).toEqual(recorded.unpricedItems);
+  });
 });
+
+/**
+ * Answers every question the flow shows, records a run over it through
+ * POST /api/rom, and computes the same answers over this route's snapshot.
+ */
+async function previewAndRun(): Promise<{ preview: Rom; recorded: Rom }> {
+  const responses: Responses = {
+    project_type: "multifamily",
+    construction_kind: "new",
+    gross_square_feet: "42000",
+    parking_type: "none",
+  };
+  // A run refuses a blank scope question, so every gate and follow-up gets
+  // an answer: the first gate yes, the rest no, so the comparison covers
+  // both. Opening one follow-up can open another (demolition's structure
+  // count opens its own square-feet and structure-type questions), so this
+  // fills in a whole pass and re-reads what is visible until nothing new
+  // opens, rather than assuming one pass reaches every question.
+  let sawFirstGate = false;
+  let unanswered = visibleQuestions(tier1Flow(), responses).filter(
+    (question) => responses[question.id] === undefined,
+  );
+  while (unanswered.length > 0) {
+    for (const question of unanswered) {
+      if (question.kind === "branch_gate") {
+        responses[question.id] = sawFirstGate ? "no" : "yes";
+        sawFirstGate = true;
+      } else if (question.kind === "number") {
+        responses[question.id] = "1";
+      } else if (question.kind === "choice") {
+        responses[question.id] = question.choices![0].value;
+      }
+    }
+    unanswered = visibleQuestions(tier1Flow(), responses).filter(
+      (question) => responses[question.id] === undefined,
+    );
+  }
+  const markups = { setup: "both", method: "pct_of_subtotal" } as const;
+
+  const run = await POST(
+    new Request("http://localhost/api/rom", {
+      method: "POST",
+      body: JSON.stringify({ projectId: TEST_PROJECT_ID, responses, markups }),
+    }),
+  );
+  expect(run.status).toBe(200);
+  const { rom: recorded } = await run.json();
+
+  const answers = previewAnswers(tier1Flow(), responses, "", markups);
+  expect(answers).not.toBeNull();
+  const preview = computeRom(answers!, await snapshotFor());
+  return { preview, recorded: recorded as Rom };
+}
 
 describe("previewAnswers", () => {
   it("waits for a gross area before the engine runs", () => {

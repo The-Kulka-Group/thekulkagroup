@@ -29,6 +29,7 @@ export {
   type ExcludedComparable,
   type FramingLine,
   type FramingLineStatus,
+  type UnpricedItem,
 } from "./rom";
 
 export {
@@ -37,6 +38,18 @@ export {
   framingExclusionReason,
   type FramingSystem,
 } from "./rom-framing";
+
+export {
+  isFullSpan,
+  priceStructureDemolition,
+  quantityFor,
+  readDemolitionFacts,
+  STRUCTURE_DEMOLITION_COST_CODE,
+  structureDemolitionRows,
+  structureDemolitionSpanLine,
+  type BenchmarkUnit,
+  type DemolitionFacts,
+} from "./rom-units";
 
 export {
   runBacktest,
@@ -58,6 +71,13 @@ export {
   type GateLineStatus,
   type GateResolution,
 } from "./rom-gates";
+
+export {
+  bringInSupportingItems,
+  type QuantityRule,
+  type ScopeRelationship,
+  type SupportingItems,
+} from "./rom-relationships";
 
 export {
   computeMarkups,
@@ -87,6 +107,7 @@ export {
   type BranchGateAnswer,
   type BranchGateResult,
   type ClosingComparisonScore,
+  type DemolitionStructureType,
   type GrossSquareFeetProposal,
   type ParkingPricing,
   type ParkingRate,

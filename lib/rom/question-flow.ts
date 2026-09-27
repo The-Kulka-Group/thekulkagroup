@@ -33,6 +33,16 @@ export type Mapping =
   | { target: "branch_gate"; section: string }
   | { target: "intake_field"; name: string };
 
+/**
+ * The condition under which a number question's own `opens` list opens. A
+ * branch gate opens on "yes" implicitly and never carries one of these. This
+ * is the file's whole vocabulary for a number-answer condition: one type,
+ * `number_at_least_one`, no free-form threshold and no other key, so a rate
+ * or a multiplier cannot ride in beside it the way `mapsTo` already refuses
+ * one.
+ */
+export type OpenCondition = { type: "number_at_least_one" };
+
 export type Question = {
   id: string;
   prompt: string;
@@ -40,8 +50,13 @@ export type Question = {
   kind: QuestionKind;
   required: boolean;
   choices?: ChoiceOption[];
-  /** Question ids this gate opens. They appear only on a "yes". */
+  /**
+   * Question ids this gate opens: on a "yes" for a branch gate, or on
+   * `opensWhen`'s condition for a number question.
+   */
   opens?: string[];
+  /** Required alongside `opens` on a number question; illegal anywhere else. */
+  opensWhen?: OpenCondition;
   mapsTo: Mapping;
 };
 
@@ -105,8 +120,11 @@ const QUESTION_KEYS = new Set([
   "required",
   "choices",
   "opens",
+  "opensWhen",
   "mapsTo",
 ]);
+
+const OPEN_CONDITION_KEYS = new Set(["type"]);
 
 const DEFINITION_KEYS = new Set(["skill", "version", "title", "note", "questions", "output"]);
 
@@ -162,12 +180,21 @@ function parseMapping(value: unknown, where: string): Mapping {
   throw new FlowDefinitionInvalid(`${where} has a mapsTo target this code does not know.`);
 }
 
+function parseOpenCondition(value: unknown, where: string): OpenCondition {
+  if (!isRecord(value)) throw new FlowDefinitionInvalid(`${where} needs an opensWhen object.`);
+  requireKnownKeys(value, OPEN_CONDITION_KEYS, `${where} opensWhen`);
+  if (value.type !== "number_at_least_one") {
+    throw new FlowDefinitionInvalid(`${where} has an opensWhen type this code does not know.`);
+  }
+  return { type: "number_at_least_one" };
+}
+
 function parseQuestion(value: unknown, index: number): Question {
   const where = `question ${index + 1}`;
   if (!isRecord(value)) throw new FlowDefinitionInvalid(`${where} is not an object.`);
   requireKnownKeys(value, QUESTION_KEYS, where);
 
-  const { id, prompt, help, kind, required, choices, opens } = value;
+  const { id, prompt, help, kind, required, choices, opens, opensWhen } = value;
   if (typeof id !== "string" || id.length === 0) {
     throw new FlowDefinitionInvalid(`${where} needs an id.`);
   }
@@ -207,13 +234,29 @@ function parseQuestion(value: unknown, index: number): Question {
 
   let parsedOpens: string[] | undefined;
   if (opens !== undefined) {
-    if (kind !== "branch_gate") {
-      throw new FlowDefinitionInvalid(`Question "${id}" opens follow-ups but is not a branch gate.`);
+    if (kind !== "branch_gate" && kind !== "number") {
+      throw new FlowDefinitionInvalid(`Question "${id}" opens follow-ups but is not a branch gate or a number.`);
     }
     if (!Array.isArray(opens) || opens.some((one) => typeof one !== "string")) {
       throw new FlowDefinitionInvalid(`Question "${id}" has a bad opens list.`);
     }
     parsedOpens = opens as string[];
+  }
+
+  let parsedOpensWhen: OpenCondition | undefined;
+  if (opensWhen !== undefined) {
+    if (kind !== "number") {
+      throw new FlowDefinitionInvalid(`Question "${id}" has an opensWhen condition but is not a number question.`);
+    }
+    parsedOpensWhen = parseOpenCondition(opensWhen, `Question "${id}"`);
+  }
+  if (kind === "number" && parsedOpens && !parsedOpensWhen) {
+    throw new FlowDefinitionInvalid(
+      `Question "${id}" opens follow-ups on a number answer but has no opensWhen condition.`,
+    );
+  }
+  if (parsedOpensWhen && !parsedOpens) {
+    throw new FlowDefinitionInvalid(`Question "${id}" has an opensWhen condition but opens nothing.`);
   }
 
   const question: Question = {
@@ -226,6 +269,7 @@ function parseQuestion(value: unknown, index: number): Question {
   if (help !== undefined) question.help = help as string;
   if (parsedChoices) question.choices = parsedChoices;
   if (parsedOpens) question.opens = parsedOpens;
+  if (parsedOpensWhen) question.opensWhen = parsedOpensWhen;
 
   if (question.kind === "branch_gate" && question.mapsTo.target !== "branch_gate") {
     throw new FlowDefinitionInvalid(`Question "${id}" is a branch gate and must map to one.`);
@@ -370,11 +414,32 @@ function gateAnswerFor(gateId: string, responses: Responses): BranchGateAnswer |
 }
 
 /**
+ * Whether a gate question's own answer opens whatever it gates: a branch
+ * gate opens on "yes"; a number question with an `opensWhen` condition opens
+ * once its answer meets that condition. Anything else (a number question
+ * with no `opensWhen`, which parsing already refuses if it also has
+ * `opens`) never opens anything.
+ */
+function gateSatisfied(gate: Question, responses: Responses): boolean {
+  if (gate.kind === "branch_gate") {
+    return gateAnswerFor(gate.id, responses) === "yes";
+  }
+  if (gate.kind === "number" && gate.opensWhen?.type === "number_at_least_one") {
+    const raw = responses[gate.id];
+    if (raw === undefined || raw === "") return false;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 1;
+  }
+  return false;
+}
+
+/**
  * The questions to put in front of someone, in the file's order. A follow-up
- * appears only once the gate above it is answered "yes"; a "no" or a "don't
- * know" closes the branch, so nothing under it is ever asked.
+ * appears only once the gate above it is satisfied (`gateSatisfied`); closing
+ * that gate closes the branch, so nothing under it is ever asked.
  */
 export function visibleQuestions(definition: FlowDefinition, responses: Responses): Question[] {
+  const byId = new Map(definition.questions.map((question) => [question.id, question]));
   const gateOf = new Map<string, string>();
   for (const question of definition.questions) {
     for (const opened of question.opens ?? []) gateOf.set(opened, question.id);
@@ -382,7 +447,7 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
 
   // Every gate above a question has to be open, not just the one directly
   // above it. Closing an outer gate closes the whole branch under it, so a
-  // stale "yes" left on an inner gate cannot keep a grandchild alive.
+  // stale answer left on an inner gate cannot keep a grandchild alive.
   const open = new Map<string, boolean>();
   const isOpen = (id: string, visiting: Set<string>): boolean => {
     const cached = open.get(id);
@@ -391,9 +456,8 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
 
     visiting.add(id);
     const gateId = gateOf.get(id);
-    const result = !gateId
-      ? true
-      : isOpen(gateId, visiting) && gateAnswerFor(gateId, responses) === "yes";
+    const gate = gateId ? byId.get(gateId) : undefined;
+    const result = !gateId || !gate ? true : isOpen(gateId, visiting) && gateSatisfied(gate, responses);
     visiting.delete(id);
 
     open.set(id, result);
@@ -403,12 +467,28 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
   return definition.questions.filter((question) => isOpen(question.id, new Set()));
 }
 
-function readNumber(question: Question, raw: string): number {
+/**
+ * Whether a number question's raw answer is one it accepts. A plain number
+ * question needs a value above zero. A question that opens follow-ups on its
+ * own answer (`opensWhen`) also accepts zero, because zero is the answer
+ * that closes those follow-ups rather than an unanswered field.
+ */
+export function numberAnswerIsValid(question: Question, raw: string): boolean {
   const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new FlowAnswersInvalid(`"${question.prompt}" needs a number above zero.`);
+  if (!Number.isFinite(value) || value < 0) return false;
+  if (value === 0) return question.opensWhen?.type === "number_at_least_one";
+  return true;
+}
+
+function readNumber(question: Question, raw: string): number {
+  if (!numberAnswerIsValid(question, raw)) {
+    throw new FlowAnswersInvalid(
+      question.opensWhen
+        ? `"${question.prompt}" needs a number, zero or above.`
+        : `"${question.prompt}" needs a number above zero.`,
+    );
   }
-  return value;
+  return Number(raw);
 }
 
 /**

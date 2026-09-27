@@ -68,37 +68,37 @@ export function CaseIntake() {
     <form className="underwriting-intake" onSubmit={submit}>
       <div className="underwriting-intake-head">
         <div>
-          <h2 className="t-2">Start a ground-up multifamily project</h2>
+          <h2 className="t-2">Start a Ground-Up Multifamily Project</h2>
           <p className="t-meta">Enter what is known. Blank financial inputs stay missing.</p>
         </div>
       </div>
 
       <div className="underwriting-form-grid">
-        <Field name="name" label="Project name" required />
-        <Field name="address" label="Property address" required />
-        <Field name="proposedUnits" label="Proposed units" type="number" min="1" step="1" />
-        <Field name="averageUnitSquareFeet" label="Average unit size" unit="SF" type="number" min="0" step="any" />
-        <Field name="grossBuildingSquareFeet" label="Gross building area" unit="GSF" type="number" min="0" step="any" />
-        <Field name="commonSourceLabel" label="Common source label" note="Optional. This source applies to each value entered on this screen." />
-        <Field name="commonSourceDate" label="Common source date" note="Optional. Leave both source fields blank when evidence is not available." type="date" />
-        <Field name="purchasePrice" label="Purchase price" unit="USD" type="number" min="0" step="any" />
-        <Field name="monthlyRent" label="Average monthly rent" unit="USD/month" type="number" min="0" step="any" />
-        <Field name="hardCostPerGrossSquareFoot" label="Hard cost" unit="USD/GSF" type="number" min="0" step="any" />
-        <Field name="softCostPercent" label="Soft cost" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="name" label="Project Name" required />
+        <Field name="address" label="Property Address" required />
+        <Field name="proposedUnits" label="Proposed Units" type="number" min="1" step="1" />
+        <Field name="averageUnitSquareFeet" label="Average Unit Size" unit="SF" type="number" min="0" step="any" />
+        <Field name="grossBuildingSquareFeet" label="Gross Building Area" unit="GSF" type="number" min="0" step="any" />
+        <Field name="commonSourceLabel" label="Common Source Label" note="Optional. This source applies to each value entered on this screen." />
+        <Field name="commonSourceDate" label="Common Source Date" note="Optional. Leave both source fields blank when evidence is not available." type="date" />
+        <Field name="purchasePrice" label="Purchase Price" unit="USD" type="number" min="0" step="any" />
+        <Field name="monthlyRent" label="Average Monthly Rent" unit="USD/month" type="number" min="0" step="any" />
+        <Field name="hardCostPerGrossSquareFoot" label="Hard Cost" unit="USD/GSF" type="number" min="0" step="any" />
+        <Field name="softCostPercent" label="Soft Cost" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="contingencyPercent" label="Contingency" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="vacancyPercent" label="Vacancy" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="operatingExpensePercent" label="Operating expenses" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="constructionMonths" label="Construction duration" unit="months" note="Record only. The current model does not use this value." type="number" min="1" step="1" />
-        <Field name="debtPercent" label="Expected debt" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="interestRatePercent" label="Expected interest rate" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="exitCapRatePercent" label="Exit cap rate" unit="percent" type="number" min="0" max="100" step="any" />
-        <Field name="holdYears" label="Hold period" unit="years" note="Record only. The current model does not use this value." type="number" min="1" step="1" />
+        <Field name="operatingExpensePercent" label="Operating Expenses" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="constructionMonths" label="Construction Duration" unit="months" note="Record only. The current model does not use this value." type="number" min="1" step="1" />
+        <Field name="debtPercent" label="Expected Debt" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="interestRatePercent" label="Expected Interest Rate" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="exitCapRatePercent" label="Exit Cap Rate" unit="percent" type="number" min="0" max="100" step="any" />
+        <Field name="holdYears" label="Hold Period" unit="years" note="Record only. The current model does not use this value." type="number" min="1" step="1" />
       </div>
 
       {error ? <p className="input-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
         <button className="btn btn--primary btn--lg" type="submit" disabled={saving}>
-          {saving ? "Saving" : "Save project"}
+          {saving ? "Saving" : "Save Project"}
         </button>
       </div>
     </form>

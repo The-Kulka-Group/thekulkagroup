@@ -39,10 +39,10 @@ export function ProjectFields({
   busy: boolean;
 }) {
   return (
-    <section className="markup-module" aria-label="Project facts">
+    <section className="markup-module" aria-label="Project Facts">
       <div className="markup-grid">
         <label>
-          <span className="field-label t-label">Project name</span>
+          <span className="field-label t-label">Project Name</span>
           <input
             className="input"
             value={form.name}
@@ -52,7 +52,7 @@ export function ProjectFields({
           />
         </label>
         <label>
-          <span className="field-label t-label">Gross square feet</span>
+          <span className="field-label t-label">Gross Square Feet</span>
           <input
             className="input num"
             inputMode="numeric"
@@ -63,7 +63,7 @@ export function ProjectFields({
           />
         </label>
         <label>
-          <span className="field-label t-label">Project type</span>
+          <span className="field-label t-label">Project Type</span>
           <select
             className="input"
             value={form.projectType}
@@ -71,7 +71,7 @@ export function ProjectFields({
             onChange={(e) => set({ projectType: e.target.value as Form["projectType"] })}
           >
             <option value="multifamily">Multifamily</option>
-            <option value="self_storage">Self storage</option>
+            <option value="self_storage">Self Storage</option>
           </select>
         </label>
         <label>
@@ -82,19 +82,19 @@ export function ProjectFields({
             disabled={busy}
             onChange={(e) => set({ constructionKind: e.target.value as Form["constructionKind"] })}
           >
-            <option value="new">New construction</option>
+            <option value="new">New Construction</option>
             <option value="renovation">Renovation</option>
           </select>
         </label>
         <label>
-          <span className="field-label t-label">Framing system</span>
+          <span className="field-label t-label">Framing System</span>
           <select
             className="input"
             value={form.framingSystem}
             disabled={busy}
             onChange={(e) => set({ framingSystem: e.target.value as Form["framingSystem"] })}
           >
-            <option value="">Not set</option>
+            <option value="">Not Set</option>
             <option value="wood">Wood</option>
             <option value="metal">Metal</option>
           </select>

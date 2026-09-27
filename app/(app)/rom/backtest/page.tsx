@@ -5,6 +5,7 @@ import type { BacktestLine, BacktestPredictedStatus, BacktestProjectResult } fro
 import { Sheet, Sep } from "@/components/Sheet";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { titleCase } from "@/lib/format/title-case";
 import { runLeaveOneOutBacktest, type BacktestResult } from "@/lib/rom/backtest";
 
 import "./backtest.css";
@@ -28,15 +29,15 @@ function percent(value: number | null): string {
 
 const STATUS_WORDS: Record<BacktestPredictedStatus, string> = {
   priced: "Priced",
-  not_in_job: "Not in this job",
+  not_in_job: "Not in This Job",
   tbd: "TBD",
-  breakout: "Breakout, inside its lump",
-  not_predicted: "No other job has it",
+  breakout: "Breakout, Inside Its Lump",
+  not_predicted: "No Other Job Has It",
 };
 
 function presenceWords(line: BacktestLine): string {
-  if (line.presence === "predicted_only") return "ROM only";
-  if (line.presence === "budget_only") return "Budget only";
+  if (line.presence === "predicted_only") return "ROM Only";
+  if (line.presence === "budget_only") return "Budget Only";
   return "Both";
 }
 
@@ -45,7 +46,7 @@ function ResultChip({ project }: { project: BacktestProjectResult }) {
     return (
       <span className="chip chip--neutral">
         <span className="dot" />
-        Not scored
+        Not Scored
       </span>
     );
   }
@@ -71,12 +72,12 @@ function LineTable({ lines }: { lines: BacktestLine[] }) {
             <th>Code</th>
             <th>Line</th>
             <th>ROM</th>
-            <th className="right">Predicted range</th>
+            <th className="right">Predicted Range</th>
             <th className="right">Midpoint</th>
             <th className="right">Budget</th>
             <th className="right">Error</th>
             <th className="right">Error %</th>
-            <th>In range</th>
+            <th>In Range</th>
             <th>Sides</th>
           </tr>
         </thead>
@@ -87,7 +88,7 @@ function LineTable({ lines }: { lines: BacktestLine[] }) {
               key={line.costCode}
             >
               <td className="num">{line.costCode}</td>
-              <td className="bt-label">{line.label}</td>
+              <td className="bt-label">{titleCase(line.label)}</td>
               <td>{STATUS_WORDS[line.predictedStatus]}</td>
               <td className="num right">
                 {money(line.predicted.low)} to {money(line.predicted.high)}
@@ -146,12 +147,12 @@ function Report({ report }: { report: BacktestResult }) {
               <tr>
                 <th>Project</th>
                 <th className="right">GSF</th>
-                <th className="right">Predicted range</th>
+                <th className="right">Predicted Range</th>
                 <th className="right">Midpoint</th>
-                <th className="right">Budget trade cost</th>
+                <th className="right">Budget Trade Cost</th>
                 <th className="right">Error %</th>
                 <th>Result</th>
-                <th>In range</th>
+                <th>In Range</th>
               </tr>
             </thead>
             <tbody>
@@ -177,7 +178,7 @@ function Report({ report }: { report: BacktestResult }) {
       </section>
 
       <section className="bt-section">
-        <h3>Lines by job, largest miss first</h3>
+        <h3>Lines by Job, Largest Miss First</h3>
         {report.projects.map((project) => (
           <details className="bt-project" key={project.projectId}>
             <summary>
@@ -197,7 +198,7 @@ function Report({ report }: { report: BacktestResult }) {
       </section>
 
       <section className="bt-section">
-        <h3>Worst misses</h3>
+        <h3>Worst Misses</h3>
         {report.worstMisses.length === 0 ? (
           <p className="bt-note">No line has a miss yet.</p>
         ) : (

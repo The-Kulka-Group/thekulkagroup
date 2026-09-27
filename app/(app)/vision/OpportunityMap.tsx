@@ -246,22 +246,22 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
   }
 
   return (
-    <section className="vision-map-section" aria-label="Opportunity map">
+    <section className="vision-map-section" aria-label="Opportunity Map">
       <div className="vision-map-heading">
         <div>
-          <h2>Opportunities on the map</h2>
+          <h2>Opportunities on the Map</h2>
           <p className="t-meta">{sourceLocated} source or saved · {approximate} approximate · {unmapped} unmapped</p>
         </div>
         <div className="vision-map-controls">
-          <button type="button" className="btn btn--quiet" disabled={!ready} onClick={() => mapRef.current?.zoomIn(undefined, { animate: false })}>Zoom in</button>
-          <button type="button" className="btn btn--quiet" disabled={!ready} onClick={() => mapRef.current?.zoomOut(undefined, { animate: false })}>Zoom out</button>
+          <button type="button" className="btn btn--quiet" disabled={!ready} onClick={() => mapRef.current?.zoomIn(undefined, { animate: false })}>Zoom In</button>
+          <button type="button" className="btn btn--quiet" disabled={!ready} onClick={() => mapRef.current?.zoomOut(undefined, { animate: false })}>Zoom Out</button>
           <button type="button" className="btn btn--quiet" disabled={!ready} onClick={() => mapRef.current?.setView([40.85, -73.05], 9, { animate: false })}>Long Island</button>
         </div>
       </div>
       <div className="vision-map-toolbar">
         <MapLayerControls counts={{discoveries:sourceRecordPoints.source.length+sourceRecordPoints.approximate.length,approximate,tracked:trackedPoints.source.length+trackedPoints.approximate.length}} visibility={visibility} onToggle={toggleLayer}/>
         <details className="vision-status-key">
-          <summary>Tracked states</summary>
+          <summary>Tracked States</summary>
           <div className="vision-status-key-options" aria-label="Tracked opportunity states">
             {Object.entries(workflowDecisions ? {working:"Pursuing",done:"Won",open:"Other"} : STATUS_LABEL).map(([state,label])=><span key={state} className={`vision-map-pin vision-map-pin--${state}`}><span className="vision-map-state" aria-hidden="true" />{label}</span>)}
           </div>
@@ -269,8 +269,8 @@ export function OpportunityMap({ opportunities, discoveries, workflowDecisions }
       </div>
       {failure ? <p className="vision-map-notice" role="status">{failure}</p> : null}
       <div ref={container} className="vision-map-canvas" aria-label="Map of discovered and tracked opportunities" />
-      {unmappedTracked.length>0?<details className="vision-off-map" open><summary>{unmappedTracked.length} tracked {unmappedTracked.length===1?"opportunity needs":"opportunities need"} a location</summary><ul>{unmappedTracked.map(item=><li key={item.id}><Link className="vision-link-pill" href={`/vision/${item.id}#location`}>{item.name}: resolve map location</Link></li>)}</ul></details>:null}
-      <p className="vision-map-caption"><strong>Location note</strong><span>Blue diamonds use source coordinates. Gold ≈ pills use a named area center, not a project coordinate. {unmapped} {unmapped===1?"record remains":"records remain"} unmapped.</span></p>
+      {unmappedTracked.length>0?<details className="vision-off-map" open><summary>{unmappedTracked.length} tracked {unmappedTracked.length===1?"opportunity needs":"opportunities need"} a location</summary><ul>{unmappedTracked.map(item=><li key={item.id}><Link className="vision-link-pill" href={`/vision/${item.id}#location`}>{item.name}: Resolve Map Location</Link></li>)}</ul></details>:null}
+      <p className="vision-map-caption"><strong>Location Note</strong><span>Blue diamonds use source coordinates. Gold ≈ pills use a named area center, not a project coordinate. {unmapped} {unmapped===1?"record remains":"records remain"} unmapped.</span></p>
     </section>
   );
 }

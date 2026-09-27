@@ -48,8 +48,8 @@ export function addsToTotal(line: RomLine): boolean {
 }
 
 function statusOf(line: RomLine): BlockStatus | null {
-  if (line.heldForReview) return { tone: "stuck", word: "Held for review" };
-  if (line.gateStatus === "assumed_present") return { tone: "working", word: "Assumed present" };
+  if (line.heldForReview) return { tone: "stuck", word: "Held for Review" };
+  if (line.gateStatus === "assumed_present") return { tone: "working", word: "Assumed Present" };
   return null;
 }
 

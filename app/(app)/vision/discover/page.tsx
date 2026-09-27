@@ -8,7 +8,7 @@ import "./discovery.css";
 export default async function DiscoverPage({searchParams}:{searchParams:Promise<{record?:string}>}) {
   const {record}=await searchParams;
   const selectedSources=readSourcePreference((await cookies()).get(SOURCE_SELECTION_COOKIE)?.value);
-  return <Sheet number="V-002" title="Discover opportunities" bodyClass="vision-workspace" meta={<span>Official source records · Review before tracking</span>} actions={<><Link className="btn btn--quiet" href="/vision/sources">All sources</Link><Link className="btn btn--quiet" href="/vision">Tracked opportunities</Link></>}>
+  return <Sheet number="V-002" title="Discover Opportunities" bodyClass="vision-workspace" meta={<span>Official source records · Review before tracking</span>} actions={<><Link className="btn btn--quiet" href="/vision/sources">All Sources</Link><Link className="btn btn--quiet" href="/vision">Tracked Opportunities</Link></>}>
     <DiscoveryInbox initialSources={selectedSources} initialRecord={typeof record==="string" ? record : undefined} />
   </Sheet>;
 }

@@ -16,10 +16,10 @@ export default async function RomRunsPage() {
   return (
     <Sheet
       number="R-110"
-      title="ROM runs"
+      title="ROM Runs"
       actions={
         <Link className="btn btn--secondary" href="/rom">
-          Back to the conceptual budget
+          Back to the Conceptual Budget
         </Link>
       }
       meta={

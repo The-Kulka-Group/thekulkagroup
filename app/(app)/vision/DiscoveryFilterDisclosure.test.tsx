@@ -10,7 +10,7 @@ describe("Vision discovery filter disclosure",()=>{
 
     expect(html).toContain("<details class=\"vision-discovery-filters\">");
     expect(html).not.toContain(" open=\"\"");
-    expect(html).toContain("Discovery filters");
+    expect(html).toContain("Discovery Filters");
     expect(html).not.toContain("vision-filter-count");
   });
 

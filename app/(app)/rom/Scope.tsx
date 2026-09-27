@@ -18,7 +18,7 @@ export type ScopeForm = Record<string, GateAnswerChoice>;
 const CHOICES: { value: Exclude<GateAnswerChoice, "">; label: string }[] = [
   { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
-  { value: "dont_know", label: "Don't know" },
+  { value: "dont_know", label: "Don't Know" },
 ];
 
 export function initialScopeForm(defaults: GateAnswers | undefined): ScopeForm {
@@ -94,7 +94,7 @@ export function ScopeControls({
 const FRAMING_CHOICES: { value: "wood" | "metal" | ""; label: string }[] = [
   { value: "wood", label: "Wood" },
   { value: "metal", label: "Metal" },
-  { value: "", label: "Not set" },
+  { value: "", label: "Not Set" },
 ];
 
 // LA-1103. How the project is framed decides which past jobs items 8 and 17
@@ -109,13 +109,13 @@ export function FramingControl({
   disabled: boolean;
 }) {
   return (
-    <section className="markup-module scope-module" aria-label="Framing system">
-      <h2 className="doc-title">Framing system</h2>
+    <section className="markup-module scope-module" aria-label="Framing System">
+      <h2 className="doc-title">Framing System</h2>
       <p className="markup-note">
         Wood framing and metal framing and drywall blend only past jobs framed the same way. Not set
         blends every job and holds both lines for review.
       </p>
-      <div className="scope-choices" role="radiogroup" aria-label="Framing system">
+      <div className="scope-choices" role="radiogroup" aria-label="Framing System">
         {FRAMING_CHOICES.map((choice) => (
           <label className="scope-choice" key={choice.label}>
             <input

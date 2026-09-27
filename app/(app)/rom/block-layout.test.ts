@@ -95,8 +95,8 @@ describe("the /rom block layout", () => {
     const blocks = tradeBlocks(rom(lines));
     const byCode = new Map(blocks.map((b) => [b.costCode, b]));
 
-    expect(byCode.get("26 0000")!.status).toEqual({ tone: "stuck", word: "Held for review" });
-    expect(byCode.get("22 0000")!.status).toEqual({ tone: "working", word: "Assumed present" });
+    expect(byCode.get("26 0000")!.status).toEqual({ tone: "stuck", word: "Held for Review" });
+    expect(byCode.get("22 0000")!.status).toEqual({ tone: "working", word: "Assumed Present" });
     expect(byCode.get("09 2000")!.status).toBeNull();
     expect(byCode.get("11 3000")!.ownerDirect).toBe(true);
   });
@@ -157,7 +157,7 @@ describe("the /rom block layout", () => {
 
     expect(html).toContain("Synthetic 26 0000");
     expect(html).toContain("$2k");
-    expect(html).toContain("Held for review");
+    expect(html).toContain("Held for Review");
     expect(html).toContain("scaleX(1.0000)");
     expect(html).toContain('aria-pressed="false"');
   });

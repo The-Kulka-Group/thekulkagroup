@@ -116,7 +116,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
       </div>
       <div className="underwriting-form-grid underwriting-schedule-dates">
         <label className="field-label t-label">
-          Analysis start month
+          Analysis Start Month
           <input
             id="cost-schedule-analysis-start-month"
             className="input"
@@ -131,7 +131,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
           <FieldError id="cost-schedule-analysis-start-month-error" error={fieldErrors.analysisStartMonth} />
         </label>
         <label className="field-label t-label">
-          Sale month
+          Sale Month
           <input
             id="cost-schedule-sale-month"
             className="input"
@@ -152,7 +152,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
           <thead>
             <tr>
               <th>Cost Line</th><th>Category</th><th className="right">Amount</th><th>Start</th><th>End</th>
-              <th>Distribution</th><th>Source label</th><th>Source date</th><th>Review state</th><th>Action</th>
+              <th>Distribution</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -216,7 +216,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                 <td>
                   <select {...reviewState.controlProps} className="input" aria-label={`${line.name || `Cost line ${index + 1}`} review state`}
                     value={line.reviewState} onChange={(event) => updateLine(index, { reviewState: event.target.value as EditableLine["reviewState"] })}>
-                    <option value="working">Working on it</option><option value="done">Done</option>
+                    <option value="working">Working on It</option><option value="done">Done</option>
                   </select>
                   <FieldError id={reviewState.errorId} error={reviewState.error} />
                 </td>

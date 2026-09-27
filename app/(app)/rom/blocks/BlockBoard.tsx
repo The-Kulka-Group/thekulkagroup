@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { titleCase } from "@/lib/format/title-case";
 import type { Block, BlockRange, BoardLevel, RunBoard } from "@/lib/rom/board";
 
 import "./blocks.css";
@@ -89,7 +90,7 @@ export function BlockBoard({ board }: { board: RunBoard }) {
 
       {board.elements.length > 0 ? (
         <div className="blocks-bar">
-          <span className="t-label">Trace an element</span>
+          <span className="t-label">Trace an Element</span>
           <div className="blocks-elements">
             {board.elements.map((one) => (
               <button
@@ -99,7 +100,7 @@ export function BlockBoard({ board }: { board: RunBoard }) {
                 aria-pressed={traced === one.element}
                 onClick={() => setTraced(traced === one.element ? null : one.element)}
               >
-                {one.element}
+                {titleCase(one.element)}
                 <span className="num">
                   {one.blockCount} {one.blockCount === 1 ? "block" : "blocks"}
                 </span>
@@ -129,7 +130,7 @@ export function BlockBoard({ board }: { board: RunBoard }) {
 
       <div className="blocks-totals">
         <div className="blocks-total blocks-total--lead">
-          <span className="t-label">Total project cost</span>
+          <span className="t-label">Total Project Cost</span>
           <span className="num">{range(board.total)}</span>
           <span className="blocks-note">
             Kulka&rsquo;s contract plus whatever the owner buys direct. Carved-out blocks are
@@ -137,12 +138,12 @@ export function BlockBoard({ board }: { board: RunBoard }) {
           </span>
         </div>
         <div className="blocks-total">
-          <span className="t-label">Kulka&rsquo;s contract</span>
+          <span className="t-label">Kulka&rsquo;s Contract</span>
           <span className="num">{range(board.kulkaContractTotal)}</span>
           <span className="blocks-note">Owner-direct scope is out of this one.</span>
         </div>
         <div className="blocks-total">
-          <span className="t-label">Carved out, not added</span>
+          <span className="t-label">Carved Out, Not Added</span>
           <span className="num">{range(board.carvedOut)}</span>
           <span className="blocks-note">
             Already inside a level 1 lump. Counting it again would count the scope twice.
@@ -182,7 +183,7 @@ function LevelRow({
       <div className={`blocks-level-body${axis === "element" ? "" : " blocks-level-body--packed"}`}>
         {groups.map((group) => (
           <div className="blocks-group" key={group.key}>
-            <h3 className="t-label">{group.label}</h3>
+            <h3 className="t-label">{titleCase(group.label)}</h3>
             <div className="blocks-row">
               {group.blocks.map((block) => (
                 <BlockCard key={block.costCode} block={block} axis={axis} traced={traced} />
@@ -193,11 +194,11 @@ function LevelRow({
       </div>
 
       <div className="blocks-level-sum">
-        <span className="t-label">Adds to total</span>
+        <span className="t-label">Adds to Total</span>
         <span className="num">{range(level.adds, COMPACT)}</span>
         {level.carvedOut.high > 0 ? (
           <>
-            <span className="t-label">Carved out</span>
+            <span className="t-label">Carved Out</span>
             <span className="num blocks-level-sum-carved">{range(level.carvedOut, COMPACT)}</span>
           </>
         ) : null}
@@ -223,18 +224,18 @@ function BlockCard({
       className={`blocks-block${block.addsToTotal ? "" : " blocks-block--carved"}${lit ? " blocks-block--lit" : ""}${dim ? " blocks-block--dim" : ""}`}
     >
       <span className="blocks-block-top">
-        <span className="blocks-block-div num">{block.division ?? "No division"}</span>
-        <span className="blocks-block-name">{block.label}</span>
+        <span className="blocks-block-div num">{block.division ?? "No Division"}</span>
+        <span className="blocks-block-name">{titleCase(block.label)}</span>
       </span>
       <span className="blocks-block-cost num">{range(block, COMPACT)}</span>
       {block.addsToTotal ? null : (
-        <span className="blocks-block-carve num">Carved out of {block.breakoutOf}</span>
+        <span className="blocks-block-carve num">Carved Out of {titleCase(block.breakoutOf ?? "")}</span>
       )}
       {axis !== "element" && block.element ? (
-        <span className="blocks-block-meta">{block.element}</span>
+        <span className="blocks-block-meta">{titleCase(block.element ?? "")}</span>
       ) : null}
       {axis !== "package" && block.buyoutPackage ? (
-        <span className="blocks-block-meta">{block.buyoutPackage}</span>
+        <span className="blocks-block-meta">{titleCase(block.buyoutPackage ?? "")}</span>
       ) : null}
     </article>
   );

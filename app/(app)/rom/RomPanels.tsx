@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { ConfidenceFlag, ProvenanceKind, Rom, RomLine } from "@kulka/engine";
 
+import { titleCase } from "@/lib/format/title-case";
 import type { LineProvenance, ProvenanceSignal } from "@/lib/rom/provenance";
 
 import { type Headline, type TradeBlock, midpoint, perSquareFoot } from "./block-layout";
@@ -119,25 +120,25 @@ export function TotalPanel({
 
       {markups ? (
         <>
-          <h3>Markups on the subtotal</h3>
+          <h3>Markups on the Subtotal</h3>
           {[markups.subtotal, markups.generalConditions, markups.fee, markups.insurance].map((line) => (
             <Row
               key={line.label}
-              name={line.code ? `${line.code} ${line.label}` : line.label}
+              name={line.code ? `${line.code} ${titleCase(line.label)}` : titleCase(line.label)}
               amount={line.tbd ? "TBD" : range(line)}
               sub={line.basis}
             />
           ))}
-          <Row name={markups.total.label} amount={range(markups.total)} sub={markups.total.basis} sum />
+          <Row name={titleCase(markups.total.label)} amount={range(markups.total)} sub={markups.total.basis} sum />
           {owner ? (
             <>
               <Row
-                name="Owner-direct"
+                name="Owner-Direct"
                 amount={range(markups.ownerDirect)}
                 sub="Bought by the owner direct, so it carries no markup."
               />
               <Row
-                name="Total project cost"
+                name="Total Project Cost"
                 amount={range(markups.totalProjectCost)}
                 sub="Kulka's contract total plus owner-direct scope."
                 sum
@@ -147,8 +148,8 @@ export function TotalPanel({
         </>
       ) : (
         <>
-          <h3>Trade cost</h3>
-          <Row name="Trade cost" amount={range(rom.total)} sum />
+          <h3>Trade Cost</h3>
+          <Row name="Trade Cost" amount={range(rom.total)} sum />
           <p className="rb-pp">
             This run was recorded before the GRs/GCs module existed, so it carries no markups.
           </p>
@@ -157,26 +158,26 @@ export function TotalPanel({
 
       <h3>Range</h3>
       <Row
-        name="Low to high"
+        name="Low to High"
         amount={range(headline)}
         sub="The engine adds every line's low together, and every line's high. It computes no narrower likely band."
       />
 
-      <h3>What it rests on</h3>
+      <h3>What It Rests On</h3>
       <Row
-        name="Gross area"
+        name="Gross Area"
         amount={grossSquareFeet ? `${AREA.format(grossSquareFeet)} SF` : "Not recorded"}
         sub="The area the run was computed on."
       />
-      <Row name="Trade cost" amount={range(rom.total)} sub="Every line that adds, before any markup." />
+      <Row name="Trade Cost" amount={range(rom.total)} sub="Every line that adds, before any markup." />
       <Row
-        name="Kulka's contract trade cost"
+        name="Kulka's Contract Trade Cost"
         amount={range(rom.kulkaContractTotal)}
         sub="Owner-direct lines are out of this one."
       />
       {rom.carvedOut.high > 0 ? (
         <Row
-          name="Carved out, not added"
+          name="Carved Out, Not Added"
           amount={range(rom.carvedOut)}
           sub="Already inside a parent line's rate. Adding it again would count the scope twice."
         />
@@ -230,7 +231,7 @@ export function BlockPanel({
 
       {block.breakouts.length > 0 ? (
         <>
-          <h3>Carved out inside it</h3>
+          <h3>Carved Out Inside It</h3>
           <p className="rb-pp">
             These are priced on their own but already sit inside this line&rsquo;s rate, so they add
             nothing to the total.
@@ -238,7 +239,7 @@ export function BlockPanel({
           {block.breakouts.map((breakout) => (
             <Row
               key={breakout.costCode}
-              name={breakout.label}
+              name={titleCase(breakout.label)}
               amount={DOLLARS.format(midpoint(breakout))}
               sub={`${breakout.costCode}, range ${range(breakout)}`}
             />
@@ -281,13 +282,14 @@ function Provenance({
     return <p className="rb-pp">Nothing is recorded behind this line.</p>;
   }
 
+  const displayLabel = titleCase(label);
   return (
     <>
-      <h3>Where the number came from</h3>
+      <h3>Where the Number Came From</h3>
       <p className="rb-pp">
         {line.comparableCount === 0
-          ? `No comparable Kulka project stands behind ${label}. These are every signal the blend used.`
-          : `${label} blends ${countWords(line.signals.length, "signal")} from ${countWords(line.comparableCount, "Kulka project")}.`}
+          ? `No comparable Kulka project stands behind ${displayLabel}. These are every signal the blend used.`
+          : `${displayLabel} blends ${countWords(line.signals.length, "signal")} from ${countWords(line.comparableCount, "Kulka project")}.`}
       </p>
       {line.signals.map((signal, index) => (
         <Row
@@ -299,7 +301,7 @@ function Provenance({
       ))}
       {line.excluded.length > 0 ? (
         <>
-          <h3>Left out of the blend</h3>
+          <h3>Left Out of the Blend</h3>
           {line.excluded.map((signal, index) => (
             <Row
               key={`excluded-${signal.kind}-${signal.recordedAt}-${index}`}
@@ -312,7 +314,7 @@ function Provenance({
       ) : null}
       {line.judgments.length > 0 ? (
         <>
-          <h3>Estimator rules</h3>
+          <h3>Estimator Rules</h3>
           <p className="rb-pp">
             An approved estimator rule moved this line. The signals above do not account for it on
             their own.
@@ -368,7 +370,7 @@ export function NotesPanel({
     <>
       {held.length > 0 ? (
         <>
-          <h3>Held for review</h3>
+          <h3>Held for Review</h3>
           <p className="rb-pp">Low confidence holds a line back until someone examines it.</p>
           {held.map((block) => (
             <button
@@ -377,25 +379,25 @@ export function NotesPanel({
               className="rb-orow"
               onClick={() => onOpenBlock(block.costCode)}
             >
-              <Row name={block.label} amount={DOLLARS.format(block.midpoint)} sub={behind(block.line)} />
+              <Row name={titleCase(block.label)} amount={DOLLARS.format(block.midpoint)} sub={behind(block.line)} />
             </button>
           ))}
         </>
       ) : null}
 
-      <ScopeList title="Not in this job" items={rom.notInThisJob} />
-      <ScopeList title="TBD, outside the total" items={rom.tbdGateItems} />
-      <ScopeList title="Assumed present, nobody answered" items={rom.assumedPresentItems} />
+      <ScopeList title="Not in This Job" items={rom.notInThisJob} />
+      <ScopeList title="TBD, Outside the Total" items={rom.tbdGateItems} />
+      <ScopeList title="Assumed Present, Nobody Answered" items={rom.assumedPresentItems} />
 
       {carved.length > 0 ? (
         <>
-          <h3>Carved out, not added</h3>
+          <h3>Carved Out, Not Added</h3>
           {carved.map((line) => (
             <Row
               key={line.costCode}
-              name={line.label}
+              name={titleCase(line.label)}
               amount={DOLLARS.format(midpoint(line))}
-              sub={`Inside ${labelOf.get(line.breakoutOf ?? "") ?? line.breakoutOf}.`}
+              sub={`Inside ${titleCase(labelOf.get(line.breakoutOf ?? "") ?? line.breakoutOf ?? "")}.`}
             />
           ))}
         </>
@@ -417,7 +419,7 @@ function ScopeList({ title, items }: { title: string; items: Rom["notInThisJob"]
     <>
       <h3>{title}</h3>
       {items.map((item) => (
-        <Row key={item.costCode} name={item.label} sub={item.question} />
+        <Row key={item.costCode} name={titleCase(item.label)} sub={item.question} />
       ))}
     </>
   );

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 
+import { titleCase } from "@/lib/format/title-case";
+
 import { shortMoney } from "./block-layout";
 import { itemsLabel, notPricedLabel, packageCard, type FieldEntry } from "./field-order";
 import type { FieldLink } from "./ShareBar";
@@ -62,7 +64,7 @@ export function PackageCard({
       type="button"
       className={`rb-blk pk-card${card.noRate ? " pk-card--none" : ""}${selected ? " rb-blk--sel" : ""}${waiting ? " lb-blk--wait" : ""}`}
       aria-pressed={selected}
-      aria-label={waiting ? entry.label : `${entry.label}, ${figure}, ${itemsLabel(card.itemCount)}`}
+      aria-label={waiting ? titleCase(entry.label) : `${titleCase(entry.label)}, ${figure}, ${itemsLabel(card.itemCount)}`}
       onClick={(e) => onSelect(entry.key, e.currentTarget)}
       onMouseEnter={() => link.onEnter(entry.key)}
       onMouseLeave={link.onLeave}
@@ -70,8 +72,8 @@ export function PackageCard({
       onBlur={link.onLeave}
     >
       <span className="pk-top">
-        <span className="rb-bn">{entry.label}</span>
-        {entry.division ? <span className="pk-div">{entry.division}</span> : null}
+        <span className="rb-bn">{titleCase(entry.label)}</span>
+        {entry.division ? <span className="pk-div">{titleCase(entry.division)}</span> : null}
       </span>
       {card.noRate ? (
         <span className="rb-st pk-none">
@@ -111,7 +113,7 @@ export function PackageCard({
       <span className="pk-line">
         {hot && !waiting ? (
           <>
-            <span className="pk-ln">{hot.label}</span>
+            <span className="pk-ln">{titleCase(hot.label)}</span>
             <span className="num pk-lv">{hotValue === null ? "No Rate Yet" : shortMoney(hotValue)}</span>
           </>
         ) : (
@@ -167,9 +169,9 @@ export function PackagePanel({
             onClick={() => onOpenLine(segment.costCode)}
           >
             <span className="rb-row">
-              <span className="rb-rn">{segment.label}</span>
+              <span className="rb-rn">{titleCase(segment.label)}</span>
               <span className="rb-ra num">{DOLLARS.format(segment.value)}</span>
-              {segment.driverLabel ? <span className="rb-rs">From {segment.driverLabel}</span> : null}
+              {segment.driverLabel ? <span className="rb-rs">From {titleCase(segment.driverLabel)}</span> : null}
             </span>
           </button>
         ))}
@@ -180,12 +182,12 @@ export function PackagePanel({
             onMouseEnter={() => link.onItem(dot.costCode)}
           >
             <span className="rb-row">
-              <span className="rb-rn">{dot.label}</span>
+              <span className="rb-rn">{titleCase(dot.label)}</span>
               <span className="rb-ra pk-rnone">
                 <UnpricedDot />
                 No Rate Yet
               </span>
-              {dot.driverLabel ? <span className="rb-rs">From {dot.driverLabel}</span> : null}
+              {dot.driverLabel ? <span className="rb-rs">From {titleCase(dot.driverLabel)}</span> : null}
             </span>
           </div>
         ))}

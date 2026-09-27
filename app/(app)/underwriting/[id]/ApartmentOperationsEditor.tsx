@@ -116,16 +116,16 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       />
 
       <div className="underwriting-form-grid underwriting-operations-controls">
-        <NumberField path="operationStartMonth" label="Operation start month" type="month" value={operationStartMonth} onChange={setOperationStartMonth} error={fieldErrors.operationStartMonth} />
-        <NumberField path="growthStartMonth" label="Growth start month" type="month" value={growthStartMonth} onChange={setGrowthStartMonth} error={fieldErrors.growthStartMonth} />
+        <NumberField path="operationStartMonth" label="Operation Start Month" type="month" value={operationStartMonth} onChange={setOperationStartMonth} error={fieldErrors.operationStartMonth} />
+        <NumberField path="growthStartMonth" label="Growth Start Month" type="month" value={growthStartMonth} onChange={setGrowthStartMonth} error={fieldErrors.growthStartMonth} />
         <NumberField path="preleasedUnits" label="Pre-leased units" value={preleasedUnits} onChange={(value) => setPreleasedUnits(Number(value))} error={fieldErrors.preleasedUnits} min="0" step="1" />
         <NumberField path="leaseUpUnitsPerMonth" label="Lease-up units per month" value={leaseUpUnitsPerMonth} onChange={(value) => setLeaseUpUnitsPerMonth(Number(value))} error={fieldErrors.leaseUpUnitsPerMonth} min="1" step="1" />
-        <NumberField path="annualIncomeGrowthPercent" label="Annual income growth" value={annualIncomeGrowthPercent} onChange={(value) => setAnnualIncomeGrowthPercent(Number(value))} error={fieldErrors.annualIncomeGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField path="annualExpenseGrowthPercent" label="Annual expense growth" value={annualExpenseGrowthPercent} onChange={(value) => setAnnualExpenseGrowthPercent(Number(value))} error={fieldErrors.annualExpenseGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField path="rentAdjustmentLossPercent" label="Rent adjustment loss" value={rentAdjustmentLossPercent} onChange={(value) => setRentAdjustmentLossPercent(Number(value))} error={fieldErrors.rentAdjustmentLossPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField path="freeRentPercent" label="Free rent" value={freeRentPercent} onChange={(value) => setFreeRentPercent(Number(value))} error={fieldErrors.freeRentPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="annualIncomeGrowthPercent" label="Annual Income Growth" value={annualIncomeGrowthPercent} onChange={(value) => setAnnualIncomeGrowthPercent(Number(value))} error={fieldErrors.annualIncomeGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="annualExpenseGrowthPercent" label="Annual Expense Growth" value={annualExpenseGrowthPercent} onChange={(value) => setAnnualExpenseGrowthPercent(Number(value))} error={fieldErrors.annualExpenseGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="rentAdjustmentLossPercent" label="Rent Adjustment Loss" value={rentAdjustmentLossPercent} onChange={(value) => setRentAdjustmentLossPercent(Number(value))} error={fieldErrors.rentAdjustmentLossPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="freeRentPercent" label="Free Rent" value={freeRentPercent} onChange={(value) => setFreeRentPercent(Number(value))} error={fieldErrors.freeRentPercent} min="0" max="100" step="0.01" suffix="%" />
         <NumberField path="vacancyPercent" label="Vacancy" value={vacancyPercent} onChange={(value) => setVacancyPercent(Number(value))} error={fieldErrors.vacancyPercent} min="0" max="100" step="0.01" suffix="%" />
-        <NumberField path="creditLossPercent" label="Credit loss" value={creditLossPercent} onChange={(value) => setCreditLossPercent(Number(value))} error={fieldErrors.creditLossPercent} min="0" max="100" step="0.01" suffix="%" />
+        <NumberField path="creditLossPercent" label="Credit Loss" value={creditLossPercent} onChange={(value) => setCreditLossPercent(Number(value))} error={fieldErrors.creditLossPercent} min="0" max="100" step="0.01" suffix="%" />
       </div>
 
       <LineSection
@@ -215,7 +215,7 @@ function AssumptionEvidenceTable({ evidence, setEvidence, fieldErrors }: {
                 <FieldError id={sourceDate.errorId} error={fieldErrors[`${path}.sourceDate`]} />
               </td>
               <td>
-                <select {...reviewState.input} className="input" aria-label={`${ASSUMPTION_LABELS[key]} review state`} value={evidence[key].reviewState} onChange={(event) => update(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select>
+                <select {...reviewState.input} className="input" aria-label={`${ASSUMPTION_LABELS[key]} review state`} value={evidence[key].reviewState} onChange={(event) => update(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on It</option><option value="done">Done</option></select>
                 <FieldError id={reviewState.errorId} error={fieldErrors[`${path}.reviewState`]} />
               </td>
             </tr>;
@@ -270,7 +270,7 @@ function EvidenceCells({ path, line, fieldErrors, onChange }: { path: string; li
   return <>
     <td><input {...sourceLabel.input} className="input" maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH} aria-label={`${line.name || "Line"} source label`} value={line.sourceLabel ?? ""} onChange={(event) => onChange({ sourceLabel: event.target.value || undefined })} /><FieldError id={sourceLabel.errorId} error={fieldErrors[`${path}.sourceLabel`]} /></td>
     <td><input {...sourceDate.input} className="input" type="date" aria-label={`${line.name || "Line"} source date`} value={line.sourceDate ?? ""} onChange={(event) => onChange({ sourceDate: event.target.value || undefined })} /><FieldError id={sourceDate.errorId} error={fieldErrors[`${path}.sourceDate`]} /></td>
-    <td><select {...reviewState.input} className="input" aria-label={`${line.name || "Line"} review state`} value={line.reviewState} onChange={(event) => onChange({ reviewState: event.target.value as "working" | "done" })}><option value="working">Working on it</option><option value="done">Done</option></select><FieldError id={reviewState.errorId} error={fieldErrors[`${path}.reviewState`]} /></td>
+    <td><select {...reviewState.input} className="input" aria-label={`${line.name || "Line"} review state`} value={line.reviewState} onChange={(event) => onChange({ reviewState: event.target.value as "working" | "done" })}><option value="working">Working on It</option><option value="done">Done</option></select><FieldError id={reviewState.errorId} error={fieldErrors[`${path}.reviewState`]} /></td>
   </>;
 }
 

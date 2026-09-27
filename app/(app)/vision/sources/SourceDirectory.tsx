@@ -30,17 +30,17 @@ export function SourceDirectory({sources,health={}}: {sources: MunicipalSource[]
     <p className="vision-source-coverage-note">The directory covers Nassau and Suffolk. Its {summary.directorySources} entries are official source routes, not projects. Vision can collect records from {summary.collectableSources} county and municipal sources. Each other entry states whether review, a records request or contact is required, or no public project feed was found.</p>
     <div className="vision-source-directory-heading">
       <div>
-        <h2 id="source-directory-title">Municipal source directory</h2>
+        <h2 id="source-directory-title">Municipal Source Directory</h2>
         <p>Each entry states which fields the source makes available and whether Vision collects them.</p>
       </div>
       <output className="t-meta" aria-live="polite">The directory shows {filtered.length} of {sources.length} sources.</output>
     </div>
     <div className="vision-source-filters" aria-label="Filter municipal sources">
-      <label>County<select className="input" value={county} onChange={event => setCounty(event.target.value as typeof county)}><option value="">All counties</option><option value="Nassau">Nassau</option><option value="Suffolk">Suffolk</option></select></label>
-      <label>Location<select className="input" value={jurisdiction} onChange={event => setJurisdiction(event.target.value)}><option value="">All locations</option>{jurisdictions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-      <label>Municipality type<select className="input" value={jurisdictionType} onChange={event => setJurisdictionType(event.target.value as typeof jurisdictionType)}><option value="">All types</option>{JURISDICTION_TYPES.map(value => <option key={value} value={value}>{formatEnumLabel(value)}</option>)}</select></label>
-      <label>Record type<select className="input" value={recordFamily} onChange={event => setRecordFamily(event.target.value)}><option value="">All records</option>{recordFamilies.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
-      <label>Access<select className="input" value={accessMode} onChange={event => setAccessMode(event.target.value as typeof accessMode)}><option value="">All access</option>{ACCESS_MODES.map(value => <option key={value} value={value}>{SOURCE_ACCESS[value].filterLabel}</option>)}</select></label>
+      <label>County<select className="input" value={county} onChange={event => setCounty(event.target.value as typeof county)}><option value="">All Counties</option><option value="Nassau">Nassau</option><option value="Suffolk">Suffolk</option></select></label>
+      <label>Location<select className="input" value={jurisdiction} onChange={event => setJurisdiction(event.target.value)}><option value="">All Locations</option>{jurisdictions.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+      <label>Municipality Type<select className="input" value={jurisdictionType} onChange={event => setJurisdictionType(event.target.value as typeof jurisdictionType)}><option value="">All types</option>{JURISDICTION_TYPES.map(value => <option key={value} value={value}>{formatEnumLabel(value)}</option>)}</select></label>
+      <label>Record Type<select className="input" value={recordFamily} onChange={event => setRecordFamily(event.target.value)}><option value="">All Records</option>{recordFamilies.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+      <label>Access<select className="input" value={accessMode} onChange={event => setAccessMode(event.target.value as typeof accessMode)}><option value="">All Access</option>{ACCESS_MODES.map(value => <option key={value} value={value}>{SOURCE_ACCESS[value].filterLabel}</option>)}</select></label>
     </div>
     <SourceDirectoryResults sources={filtered} health={health}/>
   </section>;
@@ -60,22 +60,22 @@ export function SourceDirectoryResults({sources,health={}}: {sources: MunicipalS
           <p className="t-meta">{source.officialAgency} publishes this source.</p>
           <p>{source.coverage}</p>
           <dl className="vision-source-capabilities">
-            <div><dt>What this source publishes</dt><dd>{source.recordFamilies.join(", ")}</dd></div>
-            <div><dt>{sourceIsCollectable(source) ? "Vision can retrieve" : "Fields available from source"}</dt><dd>{source.availableFields.join(", ")}</dd></div>
-            <div><dt>Manual step or access need</dt><dd>{source.manualSteps}</dd></div>
-            <div><dt>Coverage and limits</dt><dd>{source.limits}</dd></div>
+            <div><dt>What This Source Publishes</dt><dd>{source.recordFamilies.join(", ")}</dd></div>
+            <div><dt>{sourceIsCollectable(source) ? "Vision Can Retrieve" : "Fields Available From Source"}</dt><dd>{source.availableFields.join(", ")}</dd></div>
+            <div><dt>Manual Step or Access Need</dt><dd>{source.manualSteps}</dd></div>
+            <div><dt>Coverage and Limits</dt><dd>{source.limits}</dd></div>
           </dl>
           <p className="t-meta vision-source-checked">We checked this source on {new Intl.DateTimeFormat("en-US", {month: "long", day: "numeric", year: "numeric", timeZone: "UTC"}).format(new Date(source.checkedAt))}.</p>
           {definition?<div className="vision-source-health" aria-label={`${source.name} collection health`}>
-            <span className="chip chip--neutral">Daily schedule</span>
-            <span className="chip chip--neutral">Latest outcome: {status?.last_outcome?SOURCE_RUN_OUTCOME_LABELS[status.last_outcome]:"Not checked"}</span>
+            <span className="chip chip--neutral">Daily Schedule</span>
+            <span className="chip chip--neutral">Latest Outcome: {status?.last_outcome?SOURCE_RUN_OUTCOME_LABELS[status.last_outcome]:"Not Checked"}</span>
             <span className="chip chip--neutral">{status?.record_count??0} records</span>
             <p className="t-meta">Last completed: {visionDateTime(status?.last_success_at)}.</p>
             {status?.last_error?<p className="input-error">{status.last_error}</p>:null}
           </div>:null}
           <div className="vision-source-actions">
-            <a className="btn btn--primary" href={source.url} target="_blank" rel="noopener noreferrer">Open official source</a>
-            <Link className="btn btn--quiet" href={`/vision/new?${query}`}>Add an opportunity</Link>
+            <a className="btn btn--primary" href={source.url} target="_blank" rel="noopener noreferrer">Open Official Source</a>
+            <Link className="btn btn--quiet" href={`/vision/new?${query}`}>Add an Opportunity</Link>
           </div>
         </article>;
       })}

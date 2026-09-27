@@ -18,13 +18,13 @@ const WEEKLY = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const SETUPS: { value: MarkupSetup; label: string }[] = [
+export const SETUPS: { value: MarkupSetup; label: string }[] = [
   { value: "both", label: "Both, one combined line" },
   { value: "gc_only", label: "General Conditions only" },
   { value: "gr_only", label: "General Requirements only" },
 ];
 
-const METHODS: { value: MarkupMethod; label: string }[] = [
+export const METHODS: { value: MarkupMethod; label: string }[] = [
   { value: "pct_of_subtotal", label: "Percent of subtotal" },
   { value: "usd_per_gsf", label: "Dollars per GSF" },
   { value: "staffing_duration", label: "Staffing and duration" },

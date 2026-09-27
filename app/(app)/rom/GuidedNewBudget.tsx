@@ -7,7 +7,7 @@ import type { MarkupOptions } from "@/lib/rom/markup";
 import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } from "@/lib/rom/new-budget-flow";
 import { BRANCH_GATE_ANSWERS, tier1Flow, type Question, type Responses } from "@/lib/rom/question-flow";
 
-import { initialMarkupForm, markupChoicesFrom, MarkupControls, type MarkupForm } from "./Markups";
+import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
 import "./scope.css";
 
 // LA-1141. The New budget panel walks Facts, Scope and Markups before Review
@@ -342,7 +342,9 @@ export function GuidedNewBudget({
             <>
               <h3>GRs / GCs</h3>
               <p className="rb-pp">
-                Setup <b>{markupForm.setup}</b>, method <b>{markupForm.method}</b>.
+                {/* The same labels the Markups step shows, not the stored codes. */}
+                <b>{SETUPS.find((one) => one.value === markupForm.setup)?.label ?? markupForm.setup}</b>, priced
+                by <b>{(METHODS.find((one) => one.value === markupForm.method)?.label ?? markupForm.method).toLowerCase()}</b>.
               </p>
             </>
           ) : null}

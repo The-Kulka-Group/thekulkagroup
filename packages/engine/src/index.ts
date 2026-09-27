@@ -61,6 +61,13 @@ export {
 } from "./rom-gates";
 
 export {
+  bringInSupportingItems,
+  type QuantityRule,
+  type ScopeRelationship,
+  type SupportingItems,
+} from "./rom-relationships";
+
+export {
   computeMarkups,
   DEFAULT_MARKUP_CHOICES,
   SETUP_LABEL,

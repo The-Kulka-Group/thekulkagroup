@@ -31,6 +31,7 @@ import {
   type Markups,
   type StaffingRate,
 } from "./rom-markups";
+import { bringInSupportingItems, type ScopeRelationship } from "./rom-relationships";
 
 export type ProjectType = "multifamily" | "self_storage";
 export type ConstructionKind = "new" | "renovation";
@@ -247,6 +248,11 @@ export type DataSnapshot = {
    * above is a caller-supplied rule rather than a question of its own.
    */
   unpricedInScopeItems?: UnpricedItem[];
+  /**
+   * Stated relationships from a driver to the supporting items it brings in
+   * (LA-1154, ADR 0006). Absent or empty behaves exactly as before LA-1154.
+   */
+  scopeRelationships?: ScopeRelationship[];
 };
 
 /**
@@ -258,6 +264,8 @@ export type DataSnapshot = {
 export type UnpricedItem = {
   costCode: string;
   label: string;
+  /** The driver that brought this supporting item in (LA-1154). Absent on anything else. */
+  driverCostCode?: string;
 };
 
 export type Answers = {
@@ -354,6 +362,11 @@ export type RomLine = {
   gateStatus: GateLineStatus | null;
   /** Present on items 8 and 17 only (LA-1103). Absent on every other line and on runs recorded before it. */
   framing?: FramingLine;
+  /**
+   * The driver that brought this supporting item in, so the screen can name
+   * it (LA-1154, ADR 0006). Present on supporting items only.
+   */
+  driverCostCode?: string;
 };
 
 /** One item a branch gate named on the face of the ROM (LA-1028). */
@@ -362,6 +375,8 @@ export type GateItemSummary = {
   label: string;
   /** The question or questions that produced this status, in plain words. */
   question: string;
+  /** The driver whose status this supporting item follows (LA-1154). Absent on anything else. */
+  driverCostCode?: string;
 };
 
 export type Rom = {
@@ -477,7 +492,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const gateRules = snapshot.branchGateItems ?? [];
   const gateResolutions = resolveGateItems(gateRules, factsAsText);
 
-  const lines = blended.map((line) => {
+  const gatedLines = blended.map((line) => {
     const resolution = gateResolutions.get(line.costCode);
     if (!resolution) return { ...line, gateStatus: null };
     // "not_in_job" and "tbd" both come out of every total and the markup
@@ -489,16 +504,28 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     return { ...line, gateStatus: resolution.status };
   });
 
+  // LA-1154, ADR 0006: a driver in the ROM brings in its supporting items,
+  // which follow its gate status and add to the total in their own right.
+  const supporting = bringInSupportingItems(
+    gatedLines,
+    snapshot.scopeRelationships ?? [],
+    snapshot.unpricedInScopeItems ?? [],
+    gateResolutions,
+  );
+  const lines = supporting.lines;
+
   const gateSummary = (status: GateLineStatus): GateItemSummary[] =>
     lines
-      .filter((l) => l.gateStatus === status)
+      .filter((l) => l.gateStatus === status && l.driverCostCode === undefined)
       .map((l) => ({
         costCode: l.costCode,
         label: l.label,
         question: sectionWords(gateResolutions.get(l.costCode)!.sections.join(" and ")),
       }));
   const notInThisJob = gateSummary("not_in_job");
-  const tbdGateItems = gateSummary("tbd");
+  const tbdGateItems = [...gateSummary("tbd"), ...supporting.tbdItems].sort((a, b) =>
+    a.costCode.localeCompare(b.costCode),
+  );
   const assumedPresentItems = gateSummary("assumed_present");
 
   // A breakout's parent lump already contains it, so it is priced, shown, and
@@ -520,11 +547,10 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const coveredSections = new Set(gateRules.flatMap((r) => [r.section, ...r.requiresAllSections]));
 
   // LA-1153, ADR 0006: an item nothing prices still arrives, as long as a
-  // caller has put it in scope. A cost code that already produced a line
-  // above (benchmarked, whatever its gate status) is priced the ordinary
-  // way, so it is never listed twice.
-  const pricedCostCodes = new Set(lines.map((l) => l.costCode));
-  const unpricedItems = dedupeUnpriced(snapshot.unpricedInScopeItems ?? [], pricedCostCodes);
+  // caller or a relationship has put it in scope. A cost code that already
+  // produced a line above is priced the ordinary way, so it is never listed
+  // twice. rom-relationships.ts does the merge.
+  const unpricedItems = supporting.unpricedItems;
 
   const assumptions = assumptionsFor(
     answers,
@@ -535,6 +561,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     assumedPresentItems,
     unpricedItems,
   );
+  assumptions.push(...supporting.assumptions);
 
   const rom: Rom = {
     lines,
@@ -568,25 +595,6 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   }
 
   return rom;
-}
-
-/**
- * Keeps only the declared items that a benchmark did not already turn into a
- * line, and drops a repeated cost code in the caller's own list, so the same
- * item is never named twice on the board (LA-1153).
- */
-function dedupeUnpriced(
-  items: UnpricedItem[],
-  pricedCostCodes: ReadonlySet<string>,
-): UnpricedItem[] {
-  const seen = new Set<string>();
-  const kept: UnpricedItem[] = [];
-  for (const item of items) {
-    if (pricedCostCodes.has(item.costCode) || seen.has(item.costCode)) continue;
-    seen.add(item.costCode);
-    kept.push(item);
-  }
-  return kept;
 }
 
 function sumRange(lines: RomLine[]): { low: number; high: number } {

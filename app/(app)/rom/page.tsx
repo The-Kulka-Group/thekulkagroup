@@ -1,5 +1,6 @@
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
 import { readProjectFramingSystem } from "@/lib/rom/framing";
 import { readProjectGateAnswers } from "@/lib/rom/gates";
 import { readMarkupOptions, readProjectMarkupChoices } from "@/lib/rom/markup";
@@ -77,13 +78,16 @@ export default async function RomPage({
     );
   }
 
-  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications] = await Promise.all([
-    readProjectMarkupChoices(db, projectId),
-    readProjectGateAnswers(db, projectId),
-    readProjectFramingSystem(db, projectId),
-    listRuns(db),
-    readClassifications(db),
-  ]);
+  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications, derivedAssumptions] =
+    await Promise.all([
+      readProjectMarkupChoices(db, projectId),
+      readProjectGateAnswers(db, projectId),
+      readProjectFramingSystem(db, projectId),
+      listRuns(db),
+      readClassifications(db),
+      // LA-860: the Design Criteria cards. Empty for a project nothing has derived.
+      listDerivedAssumptions(db, projectId),
+    ]);
   const runs = savedRunsFor(allRuns, projectId);
   const initialRun = runs[0] ? loadedRunFrom(await getRun(db, runs[0].id)) : null;
 
@@ -101,6 +105,7 @@ export default async function RomPage({
       isEnvProject={projectId === process.env.ROM_PROJECT_ID}
       openNewOnLoad={openNewOnLoad}
       classifications={classifications}
+      derivedAssumptions={derivedAssumptions}
     />
   );
 }

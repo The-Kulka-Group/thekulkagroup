@@ -252,3 +252,27 @@ export {
   type ApartmentScenarioRole,
   type ScenarioChangedInput,
 } from "./apartment-scenarios";
+
+export {
+  applyCorrection,
+  assumedInputs,
+  changedCriteria,
+  effectiveValue,
+  formatDerivedValue,
+  InvalidDerivedAssumption,
+  isCorrected,
+  rederive,
+  restsOnAssumedFact,
+  revertCorrection,
+  sameValue,
+  showsAssumedFact,
+  validateDerivedAssumption,
+  validateDerivedValue,
+  type DerivedAssumption,
+  type DerivedConfidence,
+  type DerivedCorrection,
+  type DerivedInput,
+  type DerivedStep,
+  type DerivedValue,
+  type FactBasis,
+} from "./derived-assumptions";

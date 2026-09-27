@@ -218,6 +218,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
   gap: 10px;
+  /* An element box is taller than a block. Blocks sharing its row keep their
+     own height instead of stretching to the box's. */
+  align-items: start;
 }
 .rb-none { font-size: var(--ui-size); color: var(--rb-blk-mute); margin: 0 0 12px; }
 .rb-none--error { color: var(--stuck); }

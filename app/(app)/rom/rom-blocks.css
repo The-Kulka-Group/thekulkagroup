@@ -71,7 +71,10 @@
 .rb-t1 {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  /* LA-1198: wrap whenever the header runs out of room. The header is
+     narrower than the window by the sidebar, so a window-width breakpoint
+     alone left Run ROM past the right edge at 1440px. */
+  flex-wrap: wrap;
   min-width: 0;
   white-space: nowrap;
   gap: 6px 12px;
@@ -536,9 +539,13 @@
   padding: 0 var(--s2);
 }
 .rb-t1 > * { flex-shrink: 0; }
+/* The spacer's auto margin holds the title left on the first line; any
+   controls that wrap to a second line sit on the right, under the others. */
+.rb-t1 { justify-content: flex-end; }
+.rb-t1 > .rb-sp { margin-right: auto; }
 .rb-t1 > .rb-pick, .rb-t1 > .rb-sp { flex-shrink: 1; }
 @media (max-width: 1100px) {
-  .rb-t1 { flex-wrap: wrap; white-space: normal; }
+  .rb-t1 { white-space: normal; }
 }
 
 /* New budget open: the screen behind the form is blank. The last project's

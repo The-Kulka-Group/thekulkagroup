@@ -5,7 +5,7 @@ import type { MarkupChoices } from "@kulka/engine";
 
 import type { MarkupOptions } from "@/lib/rom/markup";
 import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } from "@/lib/rom/new-budget-flow";
-import { BRANCH_GATE_ANSWERS, tier1Flow, type Question, type Responses } from "@/lib/rom/question-flow";
+import { BRANCH_GATE_ANSWERS, isQuestionRequired, tier1Flow, type Question, type Responses } from "@/lib/rom/question-flow";
 
 import type { BudgetDraft } from "./LiveBudget";
 import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
@@ -52,11 +52,14 @@ function Field({
   value,
   onAnswer,
   disabled,
+  required,
 }: {
   question: Question;
   value: string;
   onAnswer: (id: string, value: string) => void;
   disabled: boolean;
+  /** LA-1199: Stories Above Grade and Unit Count only, and only for a multifamily project. */
+  required?: boolean;
 }) {
   if (question.kind === "branch_gate") {
     return (
@@ -82,7 +85,10 @@ function Field({
 
   return (
     <label>
-      <span className="field-label t-label">{question.prompt}</span>
+      <span className="field-label t-label">
+        {question.prompt}
+        {required ? " *" : ""}
+      </span>
       {question.kind === "choice" ? (
         <select
           className="input"
@@ -97,6 +103,13 @@ function Field({
             </option>
           ))}
         </select>
+      ) : question.kind === "text" ? (
+        <input
+          className="input"
+          disabled={disabled}
+          value={value}
+          onChange={(e) => onAnswer(question.id, e.target.value)}
+        />
       ) : (
         <input
           className="input num"
@@ -126,7 +139,13 @@ export function GuidedNewBudget({
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState("");
   const [framingSystem, setFramingSystem] = useState<"wood" | "metal" | "">("");
-  const [responses, setResponses] = useState<Responses>({ project_type: "multifamily", construction_kind: "new" });
+  const [responses, setResponses] = useState<Responses>({
+    project_type: "multifamily",
+    construction_kind: "new",
+    // LA-1199: Building Count defaults to 1, matching projects.building_count's
+    // own NOT NULL DEFAULT 1 (20260920140000_rom_spec_decisions_catchup.sql).
+    building_count: "1",
+  });
   const [markupForm, setMarkupForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, null));
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -187,6 +206,10 @@ export function GuidedNewBudget({
           constructionKind: responses.construction_kind,
           framingSystem: framingSystem || null,
           parkingType: responses.parking_type || null,
+          storiesAboveGrade: responses.stories_above_grade ? Number(responses.stories_above_grade) : null,
+          unitCount: responses.unit_count ? Number(responses.unit_count) : null,
+          buildingCount: responses.building_count ? Number(responses.building_count) : null,
+          zip: responses.zip || null,
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -289,6 +312,7 @@ export function GuidedNewBudget({
                 value={responses[question.id] ?? ""}
                 onAnswer={answer}
                 disabled={busy}
+                required={isQuestionRequired(question, responses)}
               />
             ))}
             <label>

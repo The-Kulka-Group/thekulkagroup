@@ -37,7 +37,15 @@ export function previewAnswers(
   if (!(Number(responses.gross_square_feet) > 0)) return null;
   const lenient: FlowDefinition = {
     ...definition,
-    questions: definition.questions.map((question) => ({ ...question, required: false })),
+    // LA-1199: `requiredWhen` (Stories Above Grade, Unit Count) is stripped
+    // the same as `required`, or the preview would refuse to run on a
+    // multifamily project until both were answered, defeating the whole
+    // point of showing the budget build as it is answered.
+    questions: definition.questions.map((question) => {
+      const lenientQuestion = { ...question, required: false };
+      delete lenientQuestion.requiredWhen;
+      return lenientQuestion;
+    }),
   };
   let answers: Answers;
   try {

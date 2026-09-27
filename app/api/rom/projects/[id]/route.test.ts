@@ -109,4 +109,34 @@ describe("PATCH /api/rom/projects/[id]", () => {
     const response = await patch("00000000-0000-4000-8000-00000000abcd", edit);
     expect(response.status).toBe(404);
   });
+
+  // LA-1199: Edit project saves and reloads stories above grade, unit count,
+  // building count and ZIP through the same PATCH.
+  it("saves stories above grade, unit count, building count and zip, and GET reloads them", async () => {
+    const response = await patch(TEST_PROJECT_ID, {
+      ...edit,
+      storiesAboveGrade: 4,
+      unitCount: 120,
+      buildingCount: 3,
+      zip: "212",
+    });
+    expect(response.status).toBe(200);
+
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    const { project } = await get.json();
+    expect(project).toMatchObject({ storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "212" });
+  });
+
+  it("keeps an older project's saved run and still opens it once these fields are edited in", async () => {
+    const run = await db.query<{ id: string }>(
+      `insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'succeeded') returning id`,
+      [TEST_PROJECT_ID],
+    );
+    const response = await patch(TEST_PROJECT_ID, { ...edit, storiesAboveGrade: 4, unitCount: 120 });
+    expect(response.status).toBe(200);
+    const runRow = await db.query<{ project_id: string }>(`select project_id from runs where id = $1`, [
+      run.rows[0].id,
+    ]);
+    expect(runRow.rows[0].project_id).toBe(TEST_PROJECT_ID);
+  });
 });

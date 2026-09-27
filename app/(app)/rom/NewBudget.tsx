@@ -15,6 +15,11 @@ export type Form = {
   projectType: "multifamily" | "self_storage";
   constructionKind: "new" | "renovation";
   framingSystem: "wood" | "metal" | "";
+  /** LA-1199: the same four facts New budget's Facts step now asks after Gross Area. */
+  storiesAboveGrade: string;
+  unitCount: string;
+  buildingCount: string;
+  zip: string;
 };
 
 export const EMPTY: Form = {
@@ -23,6 +28,10 @@ export const EMPTY: Form = {
   projectType: "multifamily",
   constructionKind: "new",
   framingSystem: "",
+  storiesAboveGrade: "",
+  unitCount: "",
+  buildingCount: "1",
+  zip: "",
 };
 
 export function areaOf(form: Form): number {
@@ -73,6 +82,46 @@ export function ProjectFields({
             <option value="multifamily">Multifamily</option>
             <option value="self_storage">Self Storage</option>
           </select>
+        </label>
+        <label>
+          <span className="field-label t-label">Stories Above Grade</span>
+          <input
+            className="input num"
+            inputMode="numeric"
+            value={form.storiesAboveGrade}
+            disabled={busy}
+            onChange={(e) => set({ storiesAboveGrade: e.target.value })}
+          />
+        </label>
+        <label>
+          <span className="field-label t-label">Unit Count</span>
+          <input
+            className="input num"
+            inputMode="numeric"
+            value={form.unitCount}
+            disabled={busy}
+            onChange={(e) => set({ unitCount: e.target.value })}
+          />
+        </label>
+        <label>
+          <span className="field-label t-label">Building Count</span>
+          <input
+            className="input num"
+            inputMode="numeric"
+            value={form.buildingCount}
+            disabled={busy}
+            onChange={(e) => set({ buildingCount: e.target.value })}
+          />
+        </label>
+        <label>
+          <span className="field-label t-label">ZIP</span>
+          <input
+            className="input"
+            maxLength={3}
+            value={form.zip}
+            disabled={busy}
+            onChange={(e) => set({ zip: e.target.value })}
+          />
         </label>
         <label>
           <span className="field-label t-label">Construction</span>

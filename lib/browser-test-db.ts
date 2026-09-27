@@ -74,11 +74,19 @@ async function seedRomFixtures(database: PGlite) {
     -- LA-1145: the lines below carry plain trade names so the screen reads
     -- like the real thing. Every figure is still fake, so the project names
     -- keep "Synthetic" as the marker on screen.
-    insert into projects (id, name, project_type, construction_kind, gross_square_feet, percent_complete)
+    -- LA-1199: stories_above_grade, unit_count, building_count and zip are
+    -- synthetic figures, clearly fake, so the Facts step and Edit project
+    -- have something plausible to show on the main browser-test project.
+    insert into projects
+      (id, name, project_type, construction_kind, gross_square_feet, percent_complete,
+       stories_above_grade, unit_count, building_count, zip)
     values
-      ('${BROWSER_TEST_ROM_PROJECT_ID}', 'Synthetic browser test project', 'multifamily', 'new', 100000, null),
-      ('30000000-0000-4000-8000-000000000002', 'Synthetic past project A', 'multifamily', 'new', 90000, 100),
-      ('30000000-0000-4000-8000-000000000003', 'Synthetic past project B', 'multifamily', 'new', 120000, 56);
+      ('${BROWSER_TEST_ROM_PROJECT_ID}', 'Synthetic browser test project', 'multifamily', 'new', 100000, null,
+       4, 120, 1, '555'),
+      ('30000000-0000-4000-8000-000000000002', 'Synthetic past project A', 'multifamily', 'new', 90000, 100,
+       null, null, 1, null),
+      ('30000000-0000-4000-8000-000000000003', 'Synthetic past project B', 'multifamily', 'new', 120000, 56,
+       null, null, 1, null);
 
     insert into benchmarks
       (id, cost_code, label, unit, value, project_type, construction_kind, comparable_count,

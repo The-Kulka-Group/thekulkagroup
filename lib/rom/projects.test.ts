@@ -185,6 +185,58 @@ describe("updateRomProject", () => {
     expect(detail).toMatchObject(editBudget);
   });
 
+  // LA-1199: Stories Above Grade, Unit Count, Building Count and ZIP save
+  // through the same PATCH path New budget's own insert uses, and read back
+  // on the next GET the way Edit project prefills from it.
+  describe("stories above grade, unit count, building count, zip (LA-1199)", () => {
+    it("saves and reloads all four", async () => {
+      await updateRomProject(db, TEST_PROJECT_ID, {
+        ...editBudget,
+        storiesAboveGrade: 4,
+        unitCount: 120,
+        buildingCount: 3,
+        zip: "212",
+      });
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail).toMatchObject({
+        storiesAboveGrade: 4,
+        unitCount: 120,
+        buildingCount: 3,
+        zip: "212",
+      });
+    });
+
+    it("leaves building count at its existing value when the edit sends none", async () => {
+      await updateRomProject(db, TEST_PROJECT_ID, { ...editBudget, buildingCount: 5 });
+      await updateRomProject(db, TEST_PROJECT_ID, editBudget);
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.buildingCount).toBe(5);
+    });
+
+    it("reads back null for a project that predates these fields (LA-1199: older projects still open)", async () => {
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.storiesAboveGrade).toBeNull();
+      expect(detail?.unitCount).toBeNull();
+      expect(detail?.zip).toBeNull();
+      // The column itself is NOT NULL DEFAULT 1 from an earlier migration.
+      expect(detail?.buildingCount).toBe(1);
+    });
+
+    it("clears stories above grade, unit count and zip back to null", async () => {
+      await updateRomProject(db, TEST_PROJECT_ID, {
+        ...editBudget,
+        storiesAboveGrade: 4,
+        unitCount: 120,
+        zip: "212",
+      });
+      await updateRomProject(db, TEST_PROJECT_ID, editBudget);
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.storiesAboveGrade).toBeNull();
+      expect(detail?.unitCount).toBeNull();
+      expect(detail?.zip).toBeNull();
+    });
+  });
+
   it("leaves saved runs untouched", async () => {
     const { rows } = await db.query<{ id: string }>(`insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'succeeded') returning id`, [
       TEST_PROJECT_ID,

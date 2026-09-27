@@ -91,6 +91,18 @@ export type ProjectRow = {
   parking_type: ParkingType | null;
   /** How the job is framed (LA-1103). Null means nobody has recorded it. */
   framing_system: FramingSystem | null;
+  /**
+   * LA-1199: Stories Above Grade, Unit Count, Building Count and ZIP, read
+   * off the project record for a run that gets no `responses` (the ROM
+   * screen, and the backtest). Carried into `facts` under the same names the
+   * tier-1 flow's intake fields use, so a judgment rule reads the same fact
+   * whichever path produced it. `building_count` is not null on the column
+   * (it defaults to 1), so a run always has one.
+   */
+  stories_above_grade: number | null;
+  unit_count: number | null;
+  building_count: number;
+  zip: string | null;
 };
 
 /**
@@ -336,6 +348,13 @@ export function answersFromProject(
   }
   const facts: Record<string, string | number | boolean> = { ...branchGates };
   if (project.parking_type) facts.parkingType = project.parking_type;
+  // LA-1199: the same intake-field names the tier-1 flow gives these facts
+  // (config/rom/tier1-flow.json), so a judgment rule or a derived assumption
+  // reads the same key regardless of which path produced the run.
+  if (project.stories_above_grade) facts.storiesAboveGrade = project.stories_above_grade;
+  if (project.unit_count) facts.unitCount = project.unit_count;
+  facts.buildingCount = project.building_count;
+  if (project.zip) facts.zip = project.zip;
 
   return {
     projectType: project.project_type,
@@ -495,7 +514,8 @@ export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross
             demolition_gate, levels_below_grade_gate, existing_building_tie_in_gate,
             site_conditions_gate, amenity_scope_gate, elevator_gate,
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
-            parking_type, framing_system`;
+            parking_type, framing_system,
+            stories_above_grade, unit_count, building_count, zip`;
 
 export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(

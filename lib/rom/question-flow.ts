@@ -24,7 +24,7 @@ export const FLOW_FILE = "config/rom/tier1-flow.json";
  */
 export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates" | "markups" | "framingSystem">;
 
-export type QuestionKind = "choice" | "number" | "branch_gate";
+export type QuestionKind = "choice" | "number" | "branch_gate" | "text";
 
 export type ChoiceOption = { value: string; label: string };
 
@@ -43,6 +43,17 @@ export type Mapping =
  */
 export type OpenCondition = { type: "number_at_least_one" };
 
+/**
+ * A question that stays visible on every project but is only mandatory when
+ * another question's answer matches one of `equals`. Stories Above Grade and
+ * Unit Count use this to be required for a multifamily project without being
+ * hidden, and without unanswered, for any other project type (LA-1199: Matt
+ * confirmed on 2026-09-27 that both are required for multifamily). Distinct
+ * from `opens`/`opensWhen`, which hide a question entirely; this only changes
+ * whether an answer is mandatory.
+ */
+export type RequiredCondition = { questionId: string; equals: string[] };
+
 export type Question = {
   id: string;
   prompt: string;
@@ -57,6 +68,10 @@ export type Question = {
   opens?: string[];
   /** Required alongside `opens` on a number question; illegal anywhere else. */
   opensWhen?: OpenCondition;
+  /** Legal only for a text question: a regular expression the answer must match. */
+  pattern?: string;
+  /** Makes a question required only when another question's answer matches. Illegal alongside `required: true`. */
+  requiredWhen?: RequiredCondition;
   mapsTo: Mapping;
 };
 
@@ -121,10 +136,14 @@ const QUESTION_KEYS = new Set([
   "choices",
   "opens",
   "opensWhen",
+  "pattern",
+  "requiredWhen",
   "mapsTo",
 ]);
 
 const OPEN_CONDITION_KEYS = new Set(["type"]);
+
+const REQUIRED_CONDITION_KEYS = new Set(["questionId", "equals"]);
 
 const DEFINITION_KEYS = new Set(["skill", "version", "title", "note", "questions", "output"]);
 
@@ -189,12 +208,25 @@ function parseOpenCondition(value: unknown, where: string): OpenCondition {
   return { type: "number_at_least_one" };
 }
 
+function parseRequiredCondition(value: unknown, where: string): RequiredCondition {
+  if (!isRecord(value)) throw new FlowDefinitionInvalid(`${where} needs a requiredWhen object.`);
+  requireKnownKeys(value, REQUIRED_CONDITION_KEYS, `${where} requiredWhen`);
+  const { questionId, equals } = value;
+  if (typeof questionId !== "string" || questionId.length === 0) {
+    throw new FlowDefinitionInvalid(`${where} needs a requiredWhen questionId.`);
+  }
+  if (!Array.isArray(equals) || equals.length === 0 || equals.some((one) => typeof one !== "string" || one.length === 0)) {
+    throw new FlowDefinitionInvalid(`${where} needs a requiredWhen equals list of text values.`);
+  }
+  return { questionId, equals: equals as string[] };
+}
+
 function parseQuestion(value: unknown, index: number): Question {
   const where = `question ${index + 1}`;
   if (!isRecord(value)) throw new FlowDefinitionInvalid(`${where} is not an object.`);
   requireKnownKeys(value, QUESTION_KEYS, where);
 
-  const { id, prompt, help, kind, required, choices, opens, opensWhen } = value;
+  const { id, prompt, help, kind, required, choices, opens, opensWhen, pattern, requiredWhen } = value;
   if (typeof id !== "string" || id.length === 0) {
     throw new FlowDefinitionInvalid(`${where} needs an id.`);
   }
@@ -204,7 +236,7 @@ function parseQuestion(value: unknown, index: number): Question {
   if (help !== undefined && typeof help !== "string") {
     throw new FlowDefinitionInvalid(`Question "${id}" has help text that is not text.`);
   }
-  if (kind !== "choice" && kind !== "number" && kind !== "branch_gate") {
+  if (kind !== "choice" && kind !== "number" && kind !== "branch_gate" && kind !== "text") {
     throw new FlowDefinitionInvalid(`Question "${id}" has a kind this code does not know.`);
   }
   if (typeof required !== "boolean") {
@@ -259,6 +291,30 @@ function parseQuestion(value: unknown, index: number): Question {
     throw new FlowDefinitionInvalid(`Question "${id}" has an opensWhen condition but opens nothing.`);
   }
 
+  let parsedPattern: string | undefined;
+  if (pattern !== undefined) {
+    if (kind !== "text") {
+      throw new FlowDefinitionInvalid(`Question "${id}" lists a pattern but is not a text question.`);
+    }
+    if (typeof pattern !== "string" || pattern.length === 0) {
+      throw new FlowDefinitionInvalid(`Question "${id}" has a pattern that is not text.`);
+    }
+    try {
+      new RegExp(pattern);
+    } catch {
+      throw new FlowDefinitionInvalid(`Question "${id}" has a pattern that is not a valid expression.`);
+    }
+    parsedPattern = pattern;
+  }
+
+  let parsedRequiredWhen: RequiredCondition | undefined;
+  if (requiredWhen !== undefined) {
+    if (required === true) {
+      throw new FlowDefinitionInvalid(`Question "${id}" is already required, so requiredWhen is redundant.`);
+    }
+    parsedRequiredWhen = parseRequiredCondition(requiredWhen, `Question "${id}"`);
+  }
+
   const question: Question = {
     id,
     prompt,
@@ -270,6 +326,8 @@ function parseQuestion(value: unknown, index: number): Question {
   if (parsedChoices) question.choices = parsedChoices;
   if (parsedOpens) question.opens = parsedOpens;
   if (parsedOpensWhen) question.opensWhen = parsedOpensWhen;
+  if (parsedPattern) question.pattern = parsedPattern;
+  if (parsedRequiredWhen) question.requiredWhen = parsedRequiredWhen;
 
   if (question.kind === "branch_gate" && question.mapsTo.target !== "branch_gate") {
     throw new FlowDefinitionInvalid(`Question "${id}" is a branch gate and must map to one.`);
@@ -349,6 +407,15 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
         );
       }
       openedBy.set(opened, question.id);
+    }
+  }
+
+  for (const question of parsed) {
+    if (!question.requiredWhen) continue;
+    if (!seen.has(question.requiredWhen.questionId)) {
+      throw new FlowDefinitionInvalid(
+        `Question "${question.id}" has a requiredWhen questionId "${question.requiredWhen.questionId}", which is not there.`,
+      );
     }
   }
 
@@ -492,6 +559,36 @@ function readNumber(question: Question, raw: string): number {
 }
 
 /**
+ * Whether a text question's raw answer is one it accepts. A question with no
+ * `pattern` accepts anything non-empty; a `pattern` is checked as a whole-string
+ * match (LA-1199: ZIP's first three digits, `^[0-9]{3}$`).
+ */
+export function textAnswerIsValid(question: Question, raw: string): boolean {
+  if (question.pattern === undefined) return true;
+  return new RegExp(question.pattern).test(raw);
+}
+
+function readText(question: Question, raw: string): string {
+  if (!textAnswerIsValid(question, raw)) {
+    throw new FlowAnswersInvalid(`"${question.prompt}" is not a valid answer.`);
+  }
+  return raw;
+}
+
+/**
+ * Whether a question is mandatory for this set of responses: either it is
+ * unconditionally `required`, or its `requiredWhen` condition matches (LA-1199:
+ * Stories Above Grade and Unit Count are required for a multifamily project and
+ * optional for any other, without being hidden either way).
+ */
+export function isQuestionRequired(question: Question, responses: Responses): boolean {
+  if (question.required) return true;
+  if (!question.requiredWhen) return false;
+  const value = responses[question.requiredWhen.questionId];
+  return value !== undefined && question.requiredWhen.equals.includes(value);
+}
+
+/**
  * Turn the collected responses into the engine's answers, plus the record of
  * the flow that produced them.
  *
@@ -509,7 +606,9 @@ export function readFlowAnswers(definition: FlowDefinition, responses: Responses
   for (const question of asked) {
     const raw = responses[question.id];
     if (raw === undefined || raw === "") {
-      if (question.required) throw new FlowAnswersInvalid(`"${question.prompt}" was not answered.`);
+      if (isQuestionRequired(question, responses)) {
+        throw new FlowAnswersInvalid(`"${question.prompt}" was not answered.`);
+      }
       continue;
     }
     kept[question.id] = raw;
@@ -530,7 +629,9 @@ export function readFlowAnswers(definition: FlowDefinition, responses: Responses
       if (!legal) throw new FlowAnswersInvalid(`"${question.prompt}" has no such answer.`);
     }
 
-    const value = question.kind === "number" ? readNumber(question, raw) : raw;
+    let value: string | number = raw;
+    if (question.kind === "number") value = readNumber(question, raw);
+    else if (question.kind === "text") value = readText(question, raw);
     if (question.mapsTo.target === "engine_input") engineInputs[question.mapsTo.name] = value;
     else if (question.mapsTo.target === "intake_field") intakeFields[question.mapsTo.name] = value;
   }

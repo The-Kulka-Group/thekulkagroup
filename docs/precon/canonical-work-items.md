@@ -20,6 +20,17 @@ generator out of the gate list. They stay informal sub-scopes of item 31a. See e
 own note below. Numbering after item 32 is unchanged, letters were used instead of a
 renumber so every other item keeps the number already referenced elsewhere.
 
+**Amended, 2026-09-26, LA-1150 (ADR 0006):** item 1 split in two and four supporting items
+added, on Matt's direction in the scope-relationship session. Item 1 is now Site
+Demolition, a lump sum. Structure Demolition (1a) came out of it and prices per square
+foot of structure coming down, by structure type, at rates Matt stated. Structure
+Demolition is a driver: it brings in four supporting items, one per structure, each
+under the trade that buys it: Plumbing Disconnect and Cap (28a), Gas Meter and Service
+Disconnect (28b), Electrical Service Disconnect (31f), and Site Utility Cut and Cap at the
+Main (36a). None of the four has a rate yet. Letters again keep every other number in
+place. New item names follow Matt's title-case rule for labels; the older headings keep
+their form until the label sweep (LA-1148).
+
 Matt resolved every flag raised in review: the shell-framing grouping (item 8), MEP's
 dollars-per-GSF basis, the amenity lump-sum basis (items 25 and its V64/VR "Amenity
 Allowance" source), the elevator per-stop rate (item 26), the deck-pour/gypcrete split
@@ -211,7 +222,14 @@ question, not a driver-identity one, and stays open rather than assumed here.
 
 ## Division 02 — Existing Conditions
 
-### 1. Demolition — site and structure
+### 1. Site Demolition
+
+**Renamed 2026-09-26 (LA-1150, ADR 0006).** This was "Demolition, site and structure".
+Building demolition moved to item 1a; this item keeps site clearing and site demolition
+as a lump sum. It prices from JF's "Site Demolition" $25,000 line alone, flagged as thin
+data, because V64's and VA's lumps mix site and building work and would charge the
+building twice once 1a is added. Brought in by a "yes" to "Is there anything on the site
+to demolish?". The history below is the combined item's, kept as it was written.
 
 Site clearing/demolition and building demolition, combined into one canonical item
 because most files price them as a single lump sum and only one file (JF) prices
@@ -248,6 +266,44 @@ built there.
   came in 154% over the actual bought-out and closed cost of $88,500. The CF-based unit
   rate is the named cause. Any future demolition benchmark should weight JF's rate low
   for the same reason.
+
+### 1a. Structure Demolition
+
+Split from item 1 on 2026-09-26 (LA-1150, ADR 0006). Taking down an existing structure:
+mechanical demolition of the structure, its slab-on-grade and its footings, loading,
+trucking, and C&D disposal. It excludes hazardous material survey and abatement, the
+utility disconnects (28a, 28b, 31f, 36a), site demolition (item 1), backfill, permits and
+the demolition bond.
+
+**Brought in by:** a count of one or more for "How many structures come down?", asked
+after a "yes" to "Is there anything on the site to demolish?". That count also opens the
+two questions this item prices on: the square feet of structure coming down, every floor
+counted, and the structure type.
+
+**Quantity driver: square feet of structure coming down, by structure type.** A deliberate
+exception to the one $/SF-of-gross-area basis Matt set on 2026-09-24, because the cost
+depends on what stands on the site, not on what gets built. The rates are Matt's statement
+of 2026-09-26, recorded as midpoints; the engine puts its one-source spread around each.
+
+| Structure type | $/SF |
+|--|--|
+| Wood Frame (Type V) | $6.60 |
+| Masonry Bearing Wall with Wood Floors (Type III) | $9.90 |
+| Pre-Engineered Metal or Light Steel | $5.50 |
+| Steel Frame with Concrete on Metal Deck (Type II) | $13.20 |
+| Cast-in-Place Concrete Frame (Type I) | $19.80 |
+
+The rates began as Claude's proposal of open-shop Long Island ranges; Matt reviewed them
+and stated the low end plus ten percent as accurate. A structure type of Don't Know shows
+the full span, $5.50 to $19.80, flagged.
+
+**Driver of:** 28a, 28b, 31f and 36a, one of each per structure.
+
+**Element:** Demolition. **Buyout package:** Demolition. **Division:** 02.
+
+**Sources:** JF's building demolition (151,186 CF, closed at $88,500 including a $28,500
+steel demolition change order) is the only real quantity in the six files, and it cannot
+convert to $/SF without the building's height, which no file records.
 
 ---
 
@@ -2332,6 +2388,37 @@ trade with several containers.
    evidence in any file. This is where item 26's elevator pit sump belongs when a pit
    sits below the sewer invert, closing that cross-reference.
 
+### 28a. Plumbing Disconnect and Cap
+
+Added 2026-09-26 (LA-1150, ADR 0006). Disconnecting and capping the water, waste and vent
+services inside a structure before it comes down. A supporting item of Structure
+Demolition (1a): it exists in a budget only when 1a does, follows 1a into TBD, and adds to
+the total in its own right rather than being carved out of item 28's rate.
+
+**Quantity driver: one per structure coming down.** **Rate:** none yet. It shows "No Rate
+Yet" and stays out of every total until Matt states one.
+
+**Element:** Demolition. **Buyout package:** Plumbing. **Division:** 22.
+
+**Sources:** none. No file carries a plumbing disconnect line, and the data cannot show
+whether the work sits inside a demolition lump, a plumbing allowance, or nowhere.
+
+### 28b. Gas Meter and Service Disconnect
+
+Added 2026-09-26 (LA-1150, ADR 0006). Disconnecting the gas meter and service to a
+structure before it comes down. A supporting item of Structure Demolition (1a), on the
+same terms as 28a.
+
+**Quantity driver: one per structure coming down.** **Rate:** none yet, "No Rate Yet".
+
+**Element:** Demolition. **Buyout package:** Plumbing. **Division:** 22. Where the gas
+utility does this work itself on a Long Island job, the item may belong on the owner side
+instead; open until a job shows it.
+
+**Sources:** VA's "Disconnect Gas Meter and Pipework" 1.00 EA $300 (r216, code 22.00000),
+filed under plumbing. One line on one job, so it is not used as a rate; item 28's note
+already reads it as evidence of a gas-fueled building.
+
 ### 29. Plumbing fixtures
 
 **Sources:**
@@ -2664,6 +2751,19 @@ solar-ready rule actually reaches multifamily.
 2. **Solar-Ready Electrical Provisions.** Conditional on jurisdiction. Conduit stub-ups
    and reserved panel capacity for a future interconnection, distinct from container 1's
    structural side.
+
+### 31f. Electrical Service Disconnect
+
+Added 2026-09-26 (LA-1150, ADR 0006). Disconnecting and making safe the electrical
+service to a structure before it comes down, coordinated with the utility. A supporting
+item of Structure Demolition (1a): it exists only when 1a does, follows 1a into TBD, and
+adds to the total rather than being carved out of item 31's rate.
+
+**Quantity driver: one per structure coming down.** **Rate:** none yet, "No Rate Yet".
+
+**Element:** Demolition. **Buyout package:** Electrical. **Division:** 26.
+
+**Sources:** none in any of the six files.
 
 ---
 
@@ -3035,6 +3135,21 @@ from any interior gas piping and distribution, which has no container anywhere o
 list either and depends on whether the building's domestic hot water or any other system
 is gas-fired at all, itself an unanswered question in every file. Zero evidence of
 either in any file.
+
+### 36a. Site Utility Cut and Cap at the Main
+
+Added 2026-09-26 (LA-1150, ADR 0006). Cutting and capping a demolished structure's water,
+sewer and storm connections at the main, outside the building. A supporting item of
+Structure Demolition (1a): it exists only when 1a does, follows 1a into TBD, and adds to
+the total rather than being carved out of item 36's rate. Not the same work as the "Road
+Demo and Restoration for Sewer Connection" lines on V64, VA and VR (1 EA $4,250 each),
+which open the street for the new building's tap.
+
+**Quantity driver: one per structure coming down.** **Rate:** none yet, "No Rate Yet".
+
+**Element:** Demolition. **Buyout package:** Site Work. **Division:** 33.
+
+**Sources:** none in any of the six files.
 
 ### 37. Landscaping and irrigation
 

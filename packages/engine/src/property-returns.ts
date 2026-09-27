@@ -520,7 +520,7 @@ function metricsFor(
     { key: "leveredXirr", label: "Levered XIRR", value: returns.levered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, returnTimingPaths, capitalPaths) },
     { key: "leveredEquityMultiple", label: "Levered Equity Multiple", value: returns.levered.equityMultiple, unit: "multiple", formula: "positive levered cash flow divided by negative levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
     { key: "leveredNetProfit", label: "Levered Net Profit", value: returns.levered.netProfit, unit: "usd", formula: "sum dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
-    { key: "yieldOnCost", label: "Sale Yield On Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: rootPaths(costPaths, operationPaths, ["forwardNoiConvention"], capitalPaths) },
+    { key: "yieldOnCost", label: "Sale Yield on Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: rootPaths(costPaths, operationPaths, ["forwardNoiConvention"], capitalPaths) },
     { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: "sale yield on cost less terminal cap rate, in basis points", inputPaths: rootPaths(costPaths, operationPaths, saleValuePaths, capitalPaths) },
   ];
 }

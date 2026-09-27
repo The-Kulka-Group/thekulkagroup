@@ -26,7 +26,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   if (!savedCase.costSchedule || !savedCase.apartmentOperations || !savedCase.developmentCapital) {
-    return <section aria-labelledby="property-returns-heading"><h3 id="property-returns-heading">Property Sale And Returns</h3><div className="empty empty--inline"><p>Save the cost schedule, apartment operations, and capital plan before adding sale terms.</p></div></section>;
+    return <section aria-labelledby="property-returns-heading"><h3 id="property-returns-heading">Property Sale and Returns</h3><div className="empty empty--inline"><p>Save the cost schedule, apartment operations, and capital plan before adding sale terms.</p></div></section>;
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -70,12 +70,12 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   };
 
   return <form className="underwriting-returns-editor" onSubmit={save} noValidate>
-    <div className="underwriting-section-head"><div><h3 id="property-returns-heading">Property Sale And Returns</h3><p className="t-meta">The model values the sale from forward twelve-month NOI, pays off construction debt, and calculates dated property returns.</p></div></div>
+    <div className="underwriting-section-head"><div><h3 id="property-returns-heading">Property Sale and Returns</h3><p className="t-meta">The model values the sale from forward twelve-month NOI, pays off construction debt, and calculates dated property returns.</p></div></div>
     <div className="underwriting-form-grid underwriting-capital-controls">
       <NumberField id="returns-terminal-cap-rate" label="Terminal Cap Rate" value={terminalCapRatePercent} onChange={setTerminalCapRatePercent} error={fieldErrors.terminalCapRatePercent} />
       <NumberField id="returns-selling-cost" label="Selling Costs" value={sellingCostPercent} onChange={setSellingCostPercent} error={fieldErrors.sellingCostPercent} />
       <ReadOnlyField label="Sale Month" value={savedCase.costSchedule.saleMonth} />
-      <ReadOnlyField label="Forward NOI Period" value="Sale Month And Next 11 Months" />
+      <ReadOnlyField label="Forward NOI Period" value="Sale Month and Next 11 Months" />
       <ReadOnlyField label="Cash Flow Dates" value="Month End" />
       <ReadOnlyField label="XIRR Convention" value="Actual Days Over 365" />
     </div>

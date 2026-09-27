@@ -137,7 +137,7 @@ async function seedRomFixtures(database: PGlite) {
       ('03-300', 1, null, null, 'Concrete',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the board has a level 1 area block. Not a Kulka classification.'),
-      ('09-900', 1, null, null, 'Drywall And Finishes',
+      ('09-900', 1, null, null, 'Drywall and Finishes',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the board has a second level 1 area block. Not a Kulka classification.'),
       ('26-100', 1, null, null, 'Electrical',

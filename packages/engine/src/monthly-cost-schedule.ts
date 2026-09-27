@@ -254,7 +254,7 @@ function validate(input: MonthlyCostScheduleInputs) {
       issue(issues, `${path}.sourceLabel`, "missing_text", "Source label cannot be blank when supplied.");
     }
     if (line.reviewState !== "working" && line.reviewState !== "done") {
-      issue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
+      issue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on It or Done.");
     }
   }
   return issues;

@@ -323,7 +323,7 @@ function validateEvidence(
       addIssue(issues, `${path}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
     }
     if (item.reviewState !== "working" && item.reviewState !== "done") {
-      addIssue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
+      addIssue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on It or Done.");
     }
   }
 }

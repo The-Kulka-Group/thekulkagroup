@@ -65,7 +65,7 @@ export function buildUnderwritingReviewItems(
       items.push({ id: `fact-source-date-${id}`, message: `${label} needs a source date.`, severity: "waiting" });
     }
     if (!metadata || metadata.reviewState === "working") {
-      items.push({ id: `fact-review-state-${id}`, message: `${label} is still Working on it.`, severity: "waiting" });
+      items.push({ id: `fact-review-state-${id}`, message: `${label} is still Working on It.`, severity: "waiting" });
     }
   }
 
@@ -105,7 +105,7 @@ export function buildUnderwritingReviewItems(
     if (assumption.reviewState === "working") {
       items.push({
         id: `review-state-${assumption.name}`,
-        message: `${assumption.label} is still Working on it.`,
+        message: `${assumption.label} is still Working on It.`,
         severity: "waiting",
       });
     }
@@ -129,7 +129,7 @@ export function buildUnderwritingReviewItems(
     if (line.reviewState === "working") {
       items.push({
         id: `cost-review-state-${line.id}`,
-        message: `${line.name} is still Working on it.`,
+        message: `${line.name} is still Working on It.`,
         severity: "waiting",
       });
     }
@@ -159,7 +159,7 @@ export function buildUnderwritingReviewItems(
     if (line.reviewState === "working") {
       items.push({
         id: `operations-review-state-${line.id}`,
-        message: `${line.name} is still Working on it.`,
+        message: `${line.name} is still Working on It.`,
         severity: "waiting",
       });
     }
@@ -176,7 +176,7 @@ export function buildUnderwritingReviewItems(
         items.push({ id: `operations-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
       }
       if (evidence.reviewState === "working") {
-        items.push({ id: `operations-assumption-review-state-${key}`, message: `${label} is still Working on it.`, severity: "waiting" });
+        items.push({ id: `operations-assumption-review-state-${key}`, message: `${label} is still Working on It.`, severity: "waiting" });
       }
     }
   }
@@ -192,7 +192,7 @@ export function buildUnderwritingReviewItems(
         items.push({ id: `capital-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
       }
       if (evidence.reviewState === "working") {
-        items.push({ id: `capital-assumption-review-state-${key}`, message: `${label} is still Working on it.`, severity: "waiting" });
+        items.push({ id: `capital-assumption-review-state-${key}`, message: `${label} is still Working on It.`, severity: "waiting" });
       }
     }
   }
@@ -208,7 +208,7 @@ export function buildUnderwritingReviewItems(
         items.push({ id: `returns-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
       }
       if (evidence.reviewState === "working") {
-        items.push({ id: `returns-assumption-review-state-${key}`, message: `${label} is still Working on it.`, severity: "waiting" });
+        items.push({ id: `returns-assumption-review-state-${key}`, message: `${label} is still Working on It.`, severity: "waiting" });
       }
     }
   }
@@ -218,7 +218,7 @@ export function buildUnderwritingReviewItems(
       const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
       if (typeof evidence?.sourceLabel !== "string" || !evidence.sourceLabel.trim()) items.push({ id: `scenario-source-label-${scenario.id}-${key}`, message: `${scenario.name} ${label} needs a source label.`, severity: "waiting" });
       if (typeof evidence?.sourceDate !== "string" || !evidence.sourceDate.trim()) items.push({ id: `scenario-source-date-${scenario.id}-${key}`, message: `${scenario.name} ${label} needs a source date.`, severity: "waiting" });
-      if (evidence?.reviewState === "working") items.push({ id: `scenario-review-state-${scenario.id}-${key}`, message: `${scenario.name} ${label} is still Working on it.`, severity: "waiting" });
+      if (evidence?.reviewState === "working") items.push({ id: `scenario-review-state-${scenario.id}-${key}`, message: `${scenario.name} ${label} is still Working on It.`, severity: "waiting" });
     }
   }
 

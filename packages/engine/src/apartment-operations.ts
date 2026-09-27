@@ -344,7 +344,7 @@ function validateAssumptionEvidence(
     }
     validateSourceLabel(issues, `${path}.sourceLabel`, item.sourceLabel);
     if (item.reviewState !== "working" && item.reviewState !== "done") {
-      addIssue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
+      addIssue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on It or Done.");
     }
   }
 }
@@ -405,7 +405,7 @@ function validateSourcedLines(issues: ApartmentOperationsIssue[], lines: Sourced
       addIssue(issues, `${linePath}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
     }
     if (line.reviewState !== "working" && line.reviewState !== "done") {
-      addIssue(issues, `${linePath}.reviewState`, "invalid_review_state", "Review state must be Working on it or Done.");
+      addIssue(issues, `${linePath}.reviewState`, "invalid_review_state", "Review state must be Working on It or Done.");
     }
   });
 }

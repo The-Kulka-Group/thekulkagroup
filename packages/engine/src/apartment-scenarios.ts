@@ -262,7 +262,7 @@ function validateDelta(issues: ApartmentScenarioIssue[], scenario: ApartmentScen
         issues.push({ path: `${evidencePath}.sourceLabel`, code: "text_too_long", message: `Source label cannot exceed ${MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH} characters.` });
       }
       if (evidence.sourceDate !== undefined && (typeof evidence.sourceDate !== "string" || !validDate(evidence.sourceDate))) issues.push({ path: `${evidencePath}.sourceDate`, code: "invalid_source_date", message: "Source date must be a valid YYYY-MM-DD date." });
-      if (evidence.reviewState !== "working" && evidence.reviewState !== "done") issues.push({ path: `${evidencePath}.reviewState`, code: "invalid_review_state", message: "Review state must be Working on it or Done." });
+      if (evidence.reviewState !== "working" && evidence.reviewState !== "done") issues.push({ path: `${evidencePath}.reviewState`, code: "invalid_review_state", message: "Review state must be Working on It or Done." });
     }
   }
 }

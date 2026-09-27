@@ -83,8 +83,10 @@ async function seedRomFixtures(database: PGlite) {
     values
       ('${BROWSER_TEST_ROM_PROJECT_ID}', 'Synthetic browser test project', 'multifamily', 'new', 100000, null,
        4, 120, 1, '555'),
-      ('30000000-0000-4000-8000-000000000002', 'Synthetic past project A', 'multifamily', 'new', 90000, 100),
-      ('30000000-0000-4000-8000-000000000003', 'Synthetic past project B', 'multifamily', 'new', 120000, 56);
+      ('30000000-0000-4000-8000-000000000002', 'Synthetic past project A', 'multifamily', 'new', 90000, 100,
+       null, null, 1, null),
+      ('30000000-0000-4000-8000-000000000003', 'Synthetic past project B', 'multifamily', 'new', 120000, 56,
+       null, null, 1, null);
 
     insert into benchmarks
       (id, cost_code, label, unit, value, project_type, construction_kind, comparable_count,

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
+import type { BlockClassification, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -20,6 +20,8 @@ import {
   valueTier,
 } from "./block-layout";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
+import { ElementBoxBlock } from "./ElementBox";
+import { type ElementGroup, groupElements } from "./element-groups";
 import { GuidedNewBudget } from "./GuidedNewBudget";
 import { type BudgetDraft, LiveField, LiveTotal, useLiveBudget } from "./LiveBudget";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
@@ -70,6 +72,7 @@ export function RomRunner({
   projectArchivedAt = null,
   isEnvProject = false,
   openNewOnLoad = false,
+  classifications = [],
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
@@ -94,6 +97,12 @@ export function RomRunner({
   isEnvProject?: boolean;
   /** /rom/intake redirects here with ?new=1 (LA-1141), since the guided New budget flow now covers what it asked. */
   openNewOnLoad?: boolean;
+  /**
+   * The stated block classifications (LA-884, LA-1157), read once on the
+   * server, so a saved run can group an element into its parent box the same
+   * way the New budget preview does (LA-1158, ADR 0006).
+   */
+  classifications?: BlockClassification[];
 }) {
   const router = useRouter();
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
@@ -110,6 +119,21 @@ export function RomRunner({
 
   const busy = state.phase === "running" || state.phase === "loading";
   const blocks = useMemo(() => (run ? tradeBlocks(run.rom) : []), [run]);
+  // LA-1158, ADR 0006: an element with a stated driver and something else in
+  // scope groups into a parent box; `blocks` above still names every line
+  // that adds to the total, since the side panel opens any of them by cost
+  // code whether or not it is shown inside a box.
+  const elementGroups = useMemo(
+    () => (run ? groupElements(run.rom, classifications).groups : []),
+    [run, classifications],
+  );
+  const singleBlocks = useMemo(() => {
+    if (elementGroups.length === 0) return blocks;
+    const grouped = new Set(
+      elementGroups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)),
+    );
+    return blocks.filter((block) => !grouped.has(block.costCode));
+  }, [blocks, elementGroups]);
   const headline = useMemo(() => (run ? headlineOf(run.rom) : null), [run]);
   const drilldown = useProvenance(run?.runId ?? null);
 
@@ -403,11 +427,12 @@ export function RomRunner({
           </p>
         ) : null}
         {run ? (
-          blocks.length === 0 ? (
+          singleBlocks.length === 0 && elementGroups.length === 0 ? (
             <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
           ) : (
             <BlockField
-              blocks={blocks}
+              blocks={singleBlocks}
+              groups={elementGroups}
               selected={openBlock?.costCode ?? null}
               onOpen={(costCode, el) => openPanel({ kind: "block", costCode }, el)}
             />
@@ -561,36 +586,59 @@ export function RomRunner({
   );
 }
 
+/** A block or an element box, the one unit BlockField sorts and lays out. */
+type FieldTile =
+  | { kind: "block"; key: string; midpoint: number; ownerDirect: boolean; block: TradeBlock }
+  | { kind: "group"; key: string; midpoint: number; ownerDirect: boolean; group: ElementGroup };
+
 function BlockField({
   blocks,
+  groups,
   selected,
   onOpen,
 }: {
   blocks: TradeBlock[];
+  /** Element boxes (LA-1158, ADR 0006); `blocks` above excludes what these already show. */
+  groups: ElementGroup[];
   selected: string | null;
   onOpen: (costCode: string, el: HTMLElement) => void;
 }) {
-  const kulka = blocks.filter((block) => !block.ownerDirect);
-  const owner = blocks.filter((block) => block.ownerDirect);
+  const tiles: FieldTile[] = [
+    ...blocks.map((block) => ({
+      kind: "block" as const,
+      key: block.costCode,
+      midpoint: block.midpoint,
+      ownerDirect: block.ownerDirect,
+      block,
+    })),
+    ...groups.map((group) => ({
+      kind: "group" as const,
+      key: `element:${group.element}`,
+      midpoint: (group.total.low + group.total.high) / 2,
+      ownerDirect: group.ownerDirect,
+      group,
+    })),
+  ].sort((a, b) => b.midpoint - a.midpoint || a.key.localeCompare(b.key));
+  const kulka = tiles.filter((tile) => !tile.ownerDirect);
+  const owner = tiles.filter((tile) => tile.ownerDirect);
+
+  const render = (tile: FieldTile) =>
+    tile.kind === "group" ? (
+      <ElementBoxBlock key={tile.key} group={tile.group} selected={selected} onOpen={onOpen} />
+    ) : (
+      <Block key={tile.key} block={tile.block} selected={selected === tile.key} onOpen={onOpen} />
+    );
 
   return (
     <>
       <section className="rb-grp" aria-label="Trades">
         <h2>Trades, biggest first</h2>
-        <div className="rb-grid">
-          {kulka.map((block) => (
-            <Block key={block.costCode} block={block} selected={selected === block.costCode} onOpen={onOpen} />
-          ))}
-        </div>
+        <div className="rb-grid">{kulka.map(render)}</div>
       </section>
       {owner.length > 0 ? (
         <section className="rb-grp" aria-label="Bought by the owner direct">
           <h2>Bought by the owner direct</h2>
-          <div className="rb-grid">
-            {owner.map((block) => (
-              <Block key={block.costCode} block={block} selected={selected === block.costCode} onOpen={onOpen} />
-            ))}
-          </div>
+          <div className="rb-grid">{owner.map(render)}</div>
         </section>
       ) : null}
     </>

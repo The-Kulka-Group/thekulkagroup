@@ -5,6 +5,7 @@ import { readProjectGateAnswers } from "@/lib/rom/gates";
 import { readMarkupOptions, readProjectMarkupChoices } from "@/lib/rom/markup";
 import { listRomProjects, resolveRomProjectId } from "@/lib/rom/projects";
 import { getRun, listRuns } from "@/lib/rom/run-records";
+import { readClassifications } from "@/lib/rom/run";
 
 import { RomRunner } from "./RomRunner";
 import { loadedRunFrom, savedRunsFor } from "./saved-runs";
@@ -76,11 +77,12 @@ export default async function RomPage({
     );
   }
 
-  const [markupDefault, scopeDefaults, framingDefault, allRuns] = await Promise.all([
+  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications] = await Promise.all([
     readProjectMarkupChoices(db, projectId),
     readProjectGateAnswers(db, projectId),
     readProjectFramingSystem(db, projectId),
     listRuns(db),
+    readClassifications(db),
   ]);
   const runs = savedRunsFor(allRuns, projectId);
   const initialRun = runs[0] ? loadedRunFrom(await getRun(db, runs[0].id)) : null;
@@ -98,6 +100,7 @@ export default async function RomPage({
       projects={projects}
       isEnvProject={projectId === process.env.ROM_PROJECT_ID}
       openNewOnLoad={openNewOnLoad}
+      classifications={classifications}
     />
   );
 }

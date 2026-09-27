@@ -142,6 +142,8 @@ type BenchmarkRow = {
   provenance_recorded_at: Date | string;
   scope_side: Benchmark["scopeSide"];
   contract_side: Benchmark["contractSide"];
+  /** Which of item 1a's five structure types this rate is for (LA-1156). Null on every other benchmark. */
+  structure_type: Benchmark["structureType"] | null;
 };
 
 type ClassificationRow = {
@@ -363,7 +365,7 @@ export async function readBenchmarkData(
               '{}'::uuid[]
             ) as provenance_source_project_ids,
             b.provenance_export_label, b.provenance_recorded_by,
-            b.provenance_recorded_at, b.scope_side, b.contract_side
+            b.provenance_recorded_at, b.scope_side, b.contract_side, b.structure_type
        from benchmarks b
       where b.project_type = $1 and b.construction_kind = $2
       order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
@@ -529,6 +531,9 @@ function toBenchmark(row: BenchmarkRow): Benchmark {
     },
     scopeSide: row.scope_side,
     contractSide: row.contract_side,
+    // LA-1156: absent on every benchmark but item 1a's five per-structure-type
+    // rates, so this only ever adds the key when the column holds a value.
+    ...(row.structure_type ? { structureType: row.structure_type } : {}),
   };
 }
 

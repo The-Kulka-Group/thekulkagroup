@@ -19,15 +19,10 @@
 -- that names the unit, and adds the column Structure Demolition's five rates
 -- need to say which structure type they price.
 --
--- No benchmark is seeded here. Same rule 20260921130000_judgment_rules.sql
--- states for judgment rules and this schema's own migration states for
--- benchmarks generally: a real dollar figure enters the database only
--- through the app's own review and approval path (CONTEXT.md's "Controlled
--- goalposts": "data enters the database only through an approval gate"),
--- never hardcoded into a migration. Matt's five stated rates for item 1a and
--- Jefferson's Ferry's $25,000 Site Demolition line (docs/precon/canonical-
--- work-items.md, items 1 and 1a) are ready to enter that way now that the
--- units exist to hold them; this migration does not enter them itself.
+-- This migration seeds no benchmark. Matt's five stated rates for item 1a
+-- and Jefferson's Ferry's $25,000 Site Demolition line go in through
+-- 20260927150000_demolition_stated_rates.sql, which Matt directed on
+-- 2026-09-27.
 
 alter table benchmarks
   drop constraint benchmarks_unit_check,

@@ -4,10 +4,9 @@ import { seededDatabase } from "./database";
 
 // LA-1156, ADR 0006: 20260927140000_demolition_benchmark_units.sql widens
 // benchmarks.unit past the original usd_per_gsf and adds structure_type for
-// item 1a's five per-structure-type rates. This is schema-only: no migration
-// seeds a real dollar figure (see that migration's own comment), so these
-// tests exercise the column and its constraints directly rather than reading
-// back seeded rows.
+// item 1a's five per-structure-type rates. These tests exercise the column
+// and its constraints directly. The seeded rates are read back in
+// demolition-stated-rates.test.ts.
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 

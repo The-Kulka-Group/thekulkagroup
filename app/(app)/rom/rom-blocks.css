@@ -560,8 +560,10 @@
    One curve for everything, cubic-bezier(0.22, 1, 0.36, 1). */
 .rb {
   --lb-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --lb-trade: #F4F3EE;
-  --lb-owner: #8E8D86;
+  /* LA-1181: Trades rests muted so a card's share can light in solid ink
+     inside it, with faint white dividers at each card's edge. */
+  --lb-trade: #6F6E67;
+  --lb-owner: #45443F;
   --lb-gc: #0073EA;
   --lb-fee: #4DA3FF;
   --lb-ins: #A9D1FF;
@@ -630,8 +632,8 @@
   100% { opacity: 0; transform: translateY(-4px); }
 }
 
-/* The composition bar: trades, then each markup the Markups step adds. The
-   segments slide and grow; nothing jumps. */
+/* The composition bar: trades, then each markup the Markups step adds, owner
+   direct last (LA-1181). The segments slide and grow; nothing jumps. */
 .lb-comp {
   flex-basis: 100%;
   display: flex;
@@ -659,15 +661,6 @@
 .lb-seg--gc { background: var(--lb-gc); }
 .lb-seg--fee { background: var(--lb-fee); }
 .lb-seg--ins { background: var(--lb-ins); }
-.lb-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  font-size: var(--chip-size);
-  color: var(--rb-ink2-on-black);
-}
-.lb-key { display: inline-flex; align-items: center; gap: 6px; animation: lb-in 280ms var(--lb-ease) both; }
-.lb-key i { width: 8px; height: 8px; border-radius: 50%; }
 
 /* The field. The ghost layer holds whatever just left, while it flies. */
 .lb { position: relative; }
@@ -722,7 +715,7 @@
   to { opacity: 1; transform: none; filter: blur(0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lb-lbl, .lb-key, .lb-hint, .lb-st--on { animation: none; }
+  .lb-lbl, .lb-hint, .lb-st--on { animation: none; }
   .lb-delta { animation-duration: 1ms; animation-delay: 1600ms; }
   .lb-seg { transition: none; }
 }
@@ -821,22 +814,186 @@ button.eb-tile:hover { border-color: var(--rb-blk-hover); }
 .eb-tile--wait .eb-tv { color: var(--rb-blk-line); }
 .lb-blk--wait .eb-hv { color: var(--rb-blk-line); }
 
-/* LA-1159, ADR 0006: a supporting item sitting in its own package's block
-   carries this small mark; the driver it came from is named on hover (or
-   focus) through the tile's own title/aria-label, never a tooltip built
-   twice. */
-.eb-sup {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-left: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.45;
-  vertical-align: middle;
-}
-
 @media (max-width: 860px) {
   .eb-box { grid-column: span 2; }
   .eb-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* --- LA-1181: the linked markup bar --------------------------------------
+   Faint white dividers split Trades at each card's share, in the field's
+   order, and slide when the order changes. The lit share is one element
+   that slides and resizes from card to card; it fades out in place rather
+   than jumping, and appears in place (no slide) when nothing was lit. */
+
+.sb-bar { height: 6px; border-radius: 3px; }
+.sb-hair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  margin-left: -0.5px;
+  background: rgba(255, 255, 255, 0.3);
+  z-index: 1;
+  transition: left 420ms var(--lb-ease);
+}
+.sb-lit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  background: var(--rb-ink-on-black);
+  opacity: 0;
+  z-index: 2;
+  transition: left 320ms var(--lb-ease), width 320ms var(--lb-ease), opacity 180ms var(--lb-ease);
+}
+.sb-lit--on { opacity: 1; }
+.sb-lit--snap { transition: opacity 180ms var(--lb-ease); }
+
+/* The saved ROM's bar sits on its own line under the total. */
+.rb-sbar { flex-basis: 100%; display: flex; }
+.rb-sbar .lb-comp { flex: 1; margin-top: 2px; }
+
+/* What is hovered or selected, beside the total. Nothing shows at rest. On
+   a wide screen it floats at the band's right edge, so its coming and going
+   never shifts the total, the notes, or the bar under them. */
+.rb-t2, .lb-tot { position: relative; }
+@media (min-width: 861px) {
+  .sb-chip { position: absolute; right: 0; top: 14px; }
+}
+.sb-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--rb-ink2-on-black);
+  white-space: nowrap;
+  animation: lb-in 200ms var(--lb-ease) both;
+}
+.sb-chip b { color: var(--rb-ink-on-black); font-weight: 600; }
+.sb-chip .num { font-variant-numeric: tabular-nums; color: var(--rb-ink-on-black); }
+.sb-chip .sb-share { color: var(--rb-ink2-on-black); }
+.sb-none { display: inline-flex; align-items: center; gap: 6px; align-self: center; }
+.sb-none .rb-dot { width: 7px; height: 7px; }
+
+/* --- LA-1181: the package card --------------------------------------------
+   The same size as a By Scope block: name with its division in the corner,
+   the total, a strip with one segment per priced item, and a line under it. */
+
+.pk-card {
+  font: inherit;
+  transition: background-color .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease), scale 120ms var(--ease);
+}
+.pk-card:active,
+button.lb-blk:active { scale: 0.98; }
+button.lb-blk { cursor: pointer; }
+button.lb-blk:hover { border-color: var(--rb-blk-hover); }
+button.lb-blk.rb-blk--sel:hover { border-color: var(--rb-black); }
+.pk-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.pk-div {
+  flex: none;
+  font-family: var(--family-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--rb-blk-mute);
+}
+.rb-blk--sel .pk-div { color: var(--rb-sel-ink2); }
+.pk-tot { font-size: 23px; }
+.pk-none { margin-top: auto; font-size: var(--meta-size); }
+.pk-none .rb-dot { width: 8px; height: 8px; }
+
+/* The strip. Each segment's hit area is taller than the 4px it draws and
+   never narrower than 3px, so a small item can still be pointed at. */
+.pk-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  margin: -4px 0 -3px;
+}
+.pk-seg {
+  flex: 1 1 0;
+  min-width: 3px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+}
+.pk-seg i {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rb-bar);
+  transform-origin: left center;
+  transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+  animation: pk-grow 420ms var(--lb-ease) var(--pk-d, 0ms) backwards;
+}
+.pk-strip--hot .pk-seg:not(.pk-seg--hot) i { opacity: 0.28; }
+.pk-seg--hot i { transform: scaleY(1.6); }
+.rb-blk--sel .pk-seg i { background: var(--rb-ink-on-black); }
+.pk-dotw {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 14px;
+  transition: opacity 180ms var(--ease);
+}
+.pk-dotw .rb-dot { width: 7px; height: 7px; transition: transform 180ms var(--ease); }
+.pk-strip--hot .pk-dotw:not(.pk-seg--hot) { opacity: 0.35; }
+.pk-dotw.pk-seg--hot .rb-dot { transform: scale(1.3); }
+
+.pk-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 16px;
+  font-size: var(--chip-size);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--rb-blk-ink2);
+}
+.pk-ln { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--rb-blk-ink); }
+.pk-lv { margin-left: auto; font-variant-numeric: tabular-nums; }
+.pk-np { display: inline-flex; align-items: center; gap: 5px; }
+.pk-np .rb-dot { width: 7px; height: 7px; }
+.rb-blk--sel .pk-line { color: var(--rb-sel-ink2); }
+.rb-blk--sel .pk-ln { color: var(--rb-ink-on-black); }
+
+/* LA-1175: nothing priced inside, so the border is dashed. */
+.pk-card--none { border-style: dashed; }
+
+/* The orange dot pulses once, the first time an item's dot appears. */
+.pk-pulse { animation: pk-pulse 900ms var(--lb-ease) 1; }
+
+/* The side panel's item rows, lit from the card's strip and back. */
+.pk-rows { margin-top: 12px; }
+.pk-row { display: block; border-radius: 6px; transition: background-color 150ms var(--ease); }
+.pk-row .rb-row { padding-left: 8px; padding-right: 8px; }
+.pk-row--hot { background: var(--rb-hover-on-black); }
+.pk-rnone { display: inline-flex; align-items: center; gap: 6px; color: var(--rb-sel-ink2); }
+.pk-rnone .rb-dot { width: 7px; height: 7px; }
+
+@keyframes pk-grow {
+  from { transform: scaleX(0); }
+}
+@keyframes pk-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.55); }
+  100% { box-shadow: 0 0 0 7px rgba(255, 149, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pk-seg i, .pk-pulse, .sb-chip { animation: none; }
+  .pk-card:active, button.lb-blk:active { scale: none; }
 }

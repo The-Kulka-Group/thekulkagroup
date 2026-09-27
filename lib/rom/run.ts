@@ -155,6 +155,8 @@ type ClassificationRow = {
   buyout_package: string | null;
   /** LA-1157/LA-1158: the one item that brings the rest of its element in. */
   is_element_driver: boolean;
+  /** LA-1157: the stated MasterFormat division, null until somebody states one. */
+  division: string | null;
   stated_by: string;
   stated_on: Date | string;
   reason: string;
@@ -373,7 +375,7 @@ export type ParameterData = {
 export async function readClassifications(db: Db): Promise<BlockClassification[]> {
   const { rows } = await db.query<ClassificationRow>(
     `select cost_code, detail_level, element, breakout_of_cost_code,
-            buyout_package, is_element_driver, stated_by, stated_on, reason
+            buyout_package, is_element_driver, division, stated_by, stated_on, reason
        from block_classification
       order by cost_code`,
   );
@@ -585,6 +587,7 @@ function toClassification(row: ClassificationRow): BlockClassification {
     breakoutOfCostCode: row.breakout_of_cost_code,
     buyoutPackage: row.buyout_package,
     isElementDriver: row.is_element_driver,
+    division: row.division,
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),
     reason: row.reason,

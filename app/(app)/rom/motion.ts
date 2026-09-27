@@ -53,7 +53,15 @@ export function useFieldFlip() {
     container: HTMLElement | null,
     overlay: HTMLElement | null,
     rank: Map<string, number>,
-    options?: { delayFor?: (key: string) => number | undefined },
+    options?: {
+      delayFor?: (key: string) => number | undefined;
+      /**
+       * LA-1181: how a tile that only moved travels. An order switch passes
+       * its own duration and a short per-card stagger; without it a move
+       * takes the default 460ms with no delay.
+       */
+      move?: { duration: number; delayFor: (key: string) => number };
+    },
   ): void {
     if (!container) return;
     const still = reducedMotion();
@@ -107,8 +115,10 @@ export function useFieldFlip() {
       const dy = before.y + offset.y - here.y;
       if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
         const move = el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], {
-          duration: 460,
+          duration: options?.move?.duration ?? 460,
+          delay: options?.move?.delayFor(key) ?? 0,
           easing: EASE_SMOOTH,
+          fill: "backwards",
         });
         move.id = "flip-move";
       }

@@ -467,11 +467,17 @@ export async function readBenchmarkData(
   };
 }
 
+/**
+ * The current value of every engine parameter, which is the newest row per
+ * name (LA-866). engine_parameters keeps every value ever set; the
+ * engine_parameters_current view is the one place that picks the newest, so
+ * a run, the live budget's snapshot route and the backtest all read the same.
+ */
 export async function readParameterData(db: Db): Promise<ParameterData> {
   const { rows } = await db.query<ParameterRow>(
     `select name, value, provenance_kind, provenance_recorded_by,
             provenance_recorded_at, reason
-       from engine_parameters
+       from engine_parameters_current
       order by name`,
   );
   return {

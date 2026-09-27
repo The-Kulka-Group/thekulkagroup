@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar } from "@phosphor-icons/react";
+import { House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar, SlidersHorizontal } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
@@ -25,6 +25,7 @@ const NAV_GROUPS = [
     label: "Pre-Construction",
     items: [
       { href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator },
+      { href: "/rom/parameters", label: "Engine Parameters", count: undefined, Icon: SlidersHorizontal },
       { href: "/estimating", label: "Estimating", count: undefined, Icon: ChartBar },
     ],
   },
@@ -34,9 +35,22 @@ const NAV_GROUPS = [
   },
 ];
 
+/**
+ * Which rail item a path belongs to. An item owns every path under it (/rom
+ * covers /rom/runs and /rom/backtest), and the longest match wins, so
+ * /rom/parameters lights its own item (LA-866).
+ */
+export function activeRailHref(path: string): string | null {
+  if (path === "/") return "/";
+  const items = NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href));
+  const matches = items.filter((href) => path === href || path.startsWith(`${href}/`));
+  return matches.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
 export function Rail({ email }: { email: string }) {
   const path = usePathname();
   const initials = email.slice(0, 2).toUpperCase();
+  const activeHref = activeRailHref(path);
   return (
     <nav className="rail">
       <div className="rail-logo">
@@ -60,8 +74,9 @@ export function Rail({ email }: { email: string }) {
           <div className="rail-group" key={group.label}>
             <div className="rail-section t-label">{group.label}</div>
             {group.items.map(({ href, label, count, Icon }) => {
-              const active =
-                href === "/" ? path === "/" : path.startsWith(href.split("/").slice(0, 2).join("/"));
+              // The longest href that matches the path wins, so /rom/parameters
+              // lights Engine Parameters rather than Conceptual Budget too.
+              const active = href === activeHref;
               return (
                 <Link
                   key={href}

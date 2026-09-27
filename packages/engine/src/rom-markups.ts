@@ -255,10 +255,19 @@ function validateChoices(choices: MarkupChoices): void {
     ["fee", choices.feeRate],
     ["insurance", choices.insuranceRate],
   ] as const) {
-    if (rate !== undefined && !(rate >= 0 && rate < 1)) {
+    if (rate !== undefined && markupRateProblem(rate)) {
       throw new Error(`A ${name} rate must be a fraction from zero up to one.`);
     }
   }
+}
+
+/**
+ * True when a fee or insurance rate is one the waterfall refuses: anything
+ * outside zero up to, but not including, one. The same rule holds for a
+ * one-ROM override and for the recorded default (LA-866).
+ */
+export function markupRateProblem(rate: number): boolean {
+  return !(rate >= 0 && rate < 1);
 }
 
 function rateFor(
@@ -271,6 +280,9 @@ function rateFor(
     throw new Error(
       `No engine parameter "${name}" is recorded, so the engine cannot run. Record one with its provenance.`,
     );
+  }
+  if (markupRateProblem(parameter.value)) {
+    throw new Error(`Engine parameter "${name}" must be a fraction from zero up to one.`);
   }
   return {
     value: parameter.value,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { WEEKS_PER_MONTH, type MarkupChoices, type MarkupMethod, type MarkupSetup } from "@kulka/engine";
 
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -234,7 +235,8 @@ export function MarkupControls({
         {options.insuranceRate
           ? `Insurance defaults to ${percentText(options.insuranceRate.value)}%, recorded by ${options.insuranceRate.provenance.recordedBy} on ${options.insuranceRate.provenance.recordedAt}. `
           : "No insurance rate is recorded yet, so enter one. "}
-        A change here applies to this ROM only.
+        A change here applies to this ROM only. The defaults themselves change on{" "}
+        <Link href="/rom/parameters">Engine Parameters</Link>.
       </p>
 
       {form.method === "pct_of_subtotal" || form.method === "usd_per_gsf" ? (

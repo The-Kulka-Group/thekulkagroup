@@ -741,6 +741,7 @@ export function RomRunner({
         <nav className="rb-links rb-rall" aria-label="ROM pages">
           {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block Board</Link> : null}
           <Link href="/rom/backtest">Backtest</Link>
+          <Link href="/rom/parameters">Engine Parameters</Link>
           <Link href="/rom/runs">All Runs</Link>
         </nav>
       </footer>

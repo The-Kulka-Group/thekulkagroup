@@ -65,7 +65,7 @@ export default async function UnderwritingCasePage({
     <Sheet
       number={savedCase.sheetNumber}
       title={savedCase.name}
-      actions={<Link className="btn btn--secondary" href="/underwriting">All cases</Link>}
+      actions={<Link className="btn btn--secondary" href="/underwriting">All Cases</Link>}
       meta={
         <>
           <span>{savedCase.address}</span>
@@ -82,7 +82,7 @@ export default async function UnderwritingCasePage({
         <div className="margin" />
         <div className="col-field underwriting-decision-row">
           <div>
-            <span className="t-label">Current state</span>
+            <span className="t-label">Current State</span>
             <h2 className="t-1">{decisionTitle(currentRun?.status, runCount > 0)}</h2>
             <p className="t-meta">{decisionDetail(currentRun?.status, runCount > 0)}</p>
           </div>
@@ -95,7 +95,7 @@ export default async function UnderwritingCasePage({
             <section className="col-field underwriting-attention" aria-labelledby="underwriting-review-heading">
               <div className="underwriting-section-head">
                 <div>
-                  <h3 id="underwriting-review-heading">Needs your review</h3>
+                  <h3 id="underwriting-review-heading">Needs Your Review</h3>
                   <p className="t-meta">This list includes case facts, calculation issues, source gaps, and working assumptions.</p>
                 </div>
                 <span className="chip chip--neutral"><span className="dot" /><span className="num">{reviewItems.length}</span> need review</span>
@@ -194,21 +194,21 @@ export default async function UnderwritingCasePage({
                 <div><span className="t-label">Debt Share</span><strong className="num">{NUMBER.format(currentRun.developmentCapitalResult.capital.totals.debtSharePercent)}%</strong></div>
                 <div><span className="t-label">Capitalized Interest</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.capitalizedInterest)}</strong></div>
               </div>
-              <h4>Monthly funding and debt balance</h4>
+              <h4>Monthly Funding and Debt Balance</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-monthly-table underwriting-capital-results">
                   <thead><tr><th>Month</th><th className="right">Project Costs</th><th className="right">Operating Shortfall</th><th className="right">Loan Fee</th><th className="right">Gross Interest</th><th className="right">Operating Cash to Interest</th><th className="right">Equity</th><th className="right">Debt Before Reserves</th><th className="right">Interest Reserve</th><th className="right">Shortfall Reserve</th><th className="right">Opening Debt</th><th className="right">Repayment</th><th className="right">Closing Debt</th></tr></thead>
                   <tbody>{currentRun.developmentCapitalResult.capital.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{MONEY.format(month.projectCosts)}</td><td className="num right">{MONEY.format(month.operatingShortfall)}</td><td className="num right">{MONEY.format(month.loanFee)}</td><td className="num right">{MONEY.format(month.grossInterest)}</td><td className="num right">{MONEY.format(month.operatingCashAppliedToInterest)}</td><td className="num right">{MONEY.format(month.equityContribution)}</td><td className="num right">{MONEY.format(month.debtBeforeReservesDraw)}</td><td className="num right">{MONEY.format(month.interestReserveDraw)}</td><td className="num right">{MONEY.format(month.operatingShortfallReserveDraw)}</td><td className="num right">{MONEY.format(month.openingDebtBalance)}</td><td className="num right">{MONEY.format(month.repayment)}</td><td className="num right">{MONEY.format(month.closingDebtBalance)}</td></tr>)}</tbody>
                 </table>
               </div>
-              <h4>Formula traces</h4>
+              <h4>Formula Traces</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Result</th><th>Formula</th><th>Inputs Used</th></tr></thead>
                   <tbody>{currentRun.developmentCapitalResult.capital.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
               </div>
-              <h4>Reconciliation checks</h4>
+              <h4>Reconciliation Checks</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
@@ -235,14 +235,14 @@ export default async function UnderwritingCasePage({
                   <tbody>{currentRun.apartmentOperationsResult.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{NUMBER.format(month.leasedUnits)} / {NUMBER.format(month.revenueUnits)}</td><td className="num right">{MONEY.format(month.residentialGrossRent)}</td><td className="num right">{MONEY.format(month.leaseUpLoss)}</td><td className="num right">{MONEY.format(month.nonRevenueRentAdjustment)}</td><td className="num right">{MONEY.format(month.rentAdjustmentLoss)}</td><td className="num right">{MONEY.format(month.freeRentLoss)}</td><td className="num right">{MONEY.format(month.totalResidentialRent)}</td><td className="num right">{MONEY.format(month.otherIncome)}</td><td className="num right">{MONEY.format(month.vacancyLoss)}</td><td className="num right">{MONEY.format(month.creditLoss)}</td><td className="num right">{MONEY.format(month.effectiveGrossRevenue)}</td><td className="num right">{MONEY.format(month.operatingExpenses)}</td><td className="num right">{MONEY.format(month.netOperatingIncome)}</td><td className="num right">{MONEY.format(month.capitalExpenditures)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td></tr>)}</tbody>
                 </table>
               </div>
-              <h4>Formula traces</h4>
+              <h4>Formula Traces</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Result</th><th>Formula</th><th>Inputs Used</th></tr></thead>
                   <tbody>{currentRun.apartmentOperationsResult.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
               </div>
-              <h4>Reconciliation checks</h4>
+              <h4>Reconciliation Checks</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
@@ -258,7 +258,7 @@ export default async function UnderwritingCasePage({
                 ))}
                 <div><span className="t-label">Total Uses</span><strong className="num">{MONEY.format(currentRun.monthlyCostResult.totalUses)}</strong></div>
               </div>
-              <h4>Monthly uses</h4>
+              <h4>Monthly Uses</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-monthly-table">
                   <thead><tr><th>Month</th>{currentRun.monthlyCostResult.costLineSchedules.map((line) => <th className="right" key={line.lineId}>{line.name}</th>)}<th className="right">Total Uses</th></tr></thead>
@@ -269,21 +269,21 @@ export default async function UnderwritingCasePage({
                   </tbody>
                 </table>
               </div>
-              <h4>Formula traces</h4>
+              <h4>Formula Traces</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Cost Line</th><th>Distribution</th><th>Inputs Used</th></tr></thead>
                   <tbody>{currentRun.monthlyCostResult.costLineSchedules.map((line) => <tr key={line.lineId}><th scope="row">{line.name}</th><td>{line.formulaTrace}</td><td className="t-meta">{line.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
               </div>
-              <h4>Aggregate formula traces</h4>
+              <h4>Aggregate Formula Traces</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead>
                   <tbody>{currentRun.monthlyCostResult.aggregateFormulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td className="num right">{MONEY.format(trace.value)}</td><td>{trace.formulaTrace}</td><td className="t-meta">{trace.inputPaths.join(", ") || "No cost lines in this period"}</td></tr>)}</tbody>
                 </table>
               </div>
-              <h4>Reconciliation checks</h4>
+              <h4>Reconciliation Checks</h4>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead>
@@ -295,7 +295,7 @@ export default async function UnderwritingCasePage({
             <div className="underwriting-results-wrap">
               <table className="underwriting-results">
                 <thead>
-                  <tr><th>Result</th><th className="right">Value</th><th>Formula trace</th><th>Inputs used</th></tr>
+                  <tr><th>Result</th><th className="right">Value</th><th>Formula Trace</th><th>Inputs Used</th></tr>
                 </thead>
                 <tbody>
                   {currentRun.results.map((result) => (
@@ -312,7 +312,7 @@ export default async function UnderwritingCasePage({
           )}
 
           <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
-            <h4 id="underwriting-limitations-heading">Model limits</h4>
+            <h4 id="underwriting-limitations-heading">Model Limits</h4>
             <ul>
               {(savedCase.propertyReturns ? [
                 "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
@@ -339,14 +339,14 @@ export default async function UnderwritingCasePage({
           <>
             <div className="margin" />
             <div className="col-field record-section" id="calculation-history">
-              <h3>Calculation history</h3>
+              <h3>Calculation History</h3>
               <p className="t-meta underwriting-history-note">
                 Every saved run remains available. Open a run to inspect its full inputs, evidence, formulas, and issues.
               </p>
               <div className="underwriting-results-wrap">
                 <table className="underwriting-history">
                   <thead>
-                    <tr><th>Run</th><th>Date</th><th>Status</th><th>Input snapshot</th><th className="right">Captured result</th></tr>
+                    <tr><th>Run</th><th>Date</th><th>Status</th><th>Input Snapshot</th><th className="right">Captured Result</th></tr>
                   </thead>
                   <tbody>
                     {runs.map((run) => {
@@ -377,10 +377,10 @@ export default async function UnderwritingCasePage({
                 </table>
               </div>
               {pageCount > 1 ? (
-                <nav className="underwriting-pagination" aria-label="Calculation history pages">
-                  {runPage > 1 ? <Link href={`?runPage=${runPage - 1}#calculation-history`}>Newer runs</Link> : <span />}
+                <nav className="underwriting-pagination" aria-label="Calculation History Pages">
+                  {runPage > 1 ? <Link href={`?runPage=${runPage - 1}#calculation-history`}>Newer Runs</Link> : <span />}
                   <span className="t-meta num">Page {runPage} of {pageCount}</span>
-                  {runPage < pageCount ? <Link href={`?runPage=${runPage + 1}#calculation-history`}>Older runs</Link> : <span />}
+                  {runPage < pageCount ? <Link href={`?runPage=${runPage + 1}#calculation-history`}>Older Runs</Link> : <span />}
                 </nav>
               ) : null}
             </div>

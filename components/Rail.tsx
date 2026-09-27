@@ -43,7 +43,7 @@ export function Rail({ email }: { email: string }) {
         Kulka<span className="logo-ai">AI</span>
       </div>
       <div className="rail-search">
-        <input className="input" type="search" placeholder="Search sheets" />
+        <input className="input" type="search" placeholder="Search Sheets" />
       </div>
 
       <div className="rail-nav">

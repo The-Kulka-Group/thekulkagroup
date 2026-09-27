@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Sheet, Sep } from "@/components/Sheet";
+import { titleCase } from "@/lib/format/title-case";
 import type { RunRecord } from "@/lib/rom/run-records";
 import {
   RUN_STATUS_CHIP,
@@ -65,10 +66,10 @@ export function RunView({ initialRun }: { initialRun: RunRecord }) {
   return (
     <Sheet
       number="R-111"
-      title={`ROM run ${run.id.slice(0, 8)}`}
+      title={`ROM Run ${run.id.slice(0, 8)}`}
       actions={
         <Link className="btn btn--secondary" href="/rom/runs">
-          Back to the run list
+          Back to the Run List
         </Link>
       }
       meta={
@@ -143,20 +144,20 @@ export function RunView({ initialRun }: { initialRun: RunRecord }) {
                 <td>{run.projectName}</td>
               </tr>
               <tr className="row">
-                <td>Project type</td>
+                <td>Project Type</td>
                 <td>{run.answers.projectType}</td>
               </tr>
               <tr className="row">
-                <td>Construction kind</td>
+                <td>Construction Kind</td>
                 <td>{run.answers.constructionKind}</td>
               </tr>
               <tr className="row">
-                <td>Gross square feet</td>
+                <td>Gross Square Feet</td>
                 <td className="num">{run.answers.grossSquareFeet.toLocaleString("en-US")}</td>
               </tr>
               <tr className="row">
-                <td>Snapshot hash</td>
-                <td className="num">{run.snapshotHash ?? "Not recorded"}</td>
+                <td>Snapshot Hash</td>
+                <td className="num">{run.snapshotHash ?? "Not Recorded"}</td>
               </tr>
             </tbody>
           </table>
@@ -210,7 +211,7 @@ function RomLines({ rom }: { rom: NonNullable<RunRecord["rom"]> }) {
           {rom.lines.map((line) => (
             <tr className={`row${line.heldForReview ? " row--stuck" : ""}`} key={line.costCode}>
               <td className="num">{line.costCode}</td>
-              <td>{line.label}</td>
+              <td>{titleCase(line.label)}</td>
               <td className="num right">{DOLLARS.format(line.low)}</td>
               <td className="num right">{DOLLARS.format(line.high)}</td>
               <td>
@@ -227,7 +228,7 @@ function RomLines({ rom }: { rom: NonNullable<RunRecord["rom"]> }) {
         </tbody>
         <tfoot>
           <tr className="group">
-            <th colSpan={2}>Total range</th>
+            <th colSpan={2}>Total Range</th>
             <th className="num right">{DOLLARS.format(rom.total.low)}</th>
             <th className="num right">{DOLLARS.format(rom.total.high)}</th>
             <th />

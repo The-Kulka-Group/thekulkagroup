@@ -58,7 +58,7 @@ describe("factsQuestions / scopeQuestions", () => {
     expect(projectType.prompt).toBe("What kind of project is this?");
     expect(projectType.choices).toEqual([
       { value: "multifamily", label: "Multifamily" },
-      { value: "self_storage", label: "Self storage" },
+      { value: "self_storage", label: "Self Storage" },
     ]);
   });
 });

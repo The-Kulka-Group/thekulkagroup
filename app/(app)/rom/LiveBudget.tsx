@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockClassification, DataSnapshot, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
+import { titleCase } from "@/lib/format/title-case";
 import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
@@ -215,16 +216,16 @@ export function LiveTotal({
     setDelta((current) => ({ id: (current?.id ?? 0) + 1, amount }));
   }, [headline, ready]);
 
-  if (live.phase === "idle" || live.phase === "empty") return <p className="rb-tnone">New budget</p>;
+  if (live.phase === "idle" || live.phase === "empty") return <p className="rb-tnone">New Budget</p>;
   if (live.phase === "loading") return <p className="rb-tnone">Reading the data behind the budget.</p>;
-  if (live.phase === "failed") return <p className="rb-tnone">New budget. The live figure is not available: {live.error}</p>;
+  if (live.phase === "failed") return <p className="rb-tnone">New Budget. The live figure is not available: {live.error}</p>;
   if (live.phase === "waiting" || !headline || !ready) {
     return (
       <div className="lb-tot">
-        <span className="rb-tl">Trade cost</span>
+        <span className="rb-tl">Trade Cost</span>
         <span className="rb-tv num lb-wait">&mdash;</span>
         <span className="rb-tb">waiting on the gross area</span>
-        <span className="lb-tag">Preview, not saved</span>
+        <span className="lb-tag">Preview, Not Saved</span>
         {unpricedBadge}
       </div>
     );
@@ -234,7 +235,7 @@ export function LiveTotal({
   return (
     <div className="lb-tot">
       <span className="rb-tl lb-lbl" key={headline.label}>
-        {headline.label}
+        {titleCase(headline.label)}
       </span>
       <SpringMoney className="rb-tv num" value={headline.midpoint} format={fmt} />
       <span className="rb-tb">
@@ -247,12 +248,12 @@ export function LiveTotal({
           {shortMoney(Math.abs(delta.amount)).replace("-", "")}
         </span>
       ) : null}
-      <span className="lb-tag">Preview, not saved</span>
+      <span className="lb-tag">Preview, Not Saved</span>
       {unpricedBadge}
       <ShareChip chip={chip} />
       {bar ? <ShareBar bar={bar} litKey={litKey} /> : null}
       <span className="lb-sr" aria-live="polite">
-        {headline.label} {headlineMoney(headline.midpoint, headline)}
+        {titleCase(headline.label)} {headlineMoney(headline.midpoint, headline)}
       </span>
     </div>
   );
@@ -406,32 +407,32 @@ export function LiveField({
         </section>
       ) : null}
       {ownerEntries.length > 0 ? (
-        <section className="rb-grp" aria-label="Bought by the owner direct">
-          <h2>Bought by the owner direct</h2>
+        <section className="rb-grp" aria-label="Bought by the Owner Direct">
+          <h2>Bought by the Owner Direct</h2>
           <div className="rb-grid">{ownerEntries.map(tile)}</div>
         </section>
       ) : null}
       {tbd.length > 0 || notInJob.length > 0 ? (
         <div className="lb-trays">
           {tbd.length > 0 ? (
-            <section className="lb-tray" aria-label="TBD, outside the total">
-              <h2>TBD, outside the total</h2>
+            <section className="lb-tray" aria-label="TBD, Outside the Total">
+              <h2>TBD, Outside the Total</h2>
               <div className="lb-chips">
                 {tbd.map((item) => (
                   <span key={item.costCode} ref={flip.register(item.costCode)} className="lb-chip lb-chip--tbd" title={item.question}>
-                    {item.label}
+                    {titleCase(item.label)}
                   </span>
                 ))}
               </div>
             </section>
           ) : null}
           {notInJob.length > 0 ? (
-            <section className="lb-tray" aria-label="Not in this job">
-              <h2>Not in this job</h2>
+            <section className="lb-tray" aria-label="Not in This Job">
+              <h2>Not in This Job</h2>
               <div className="lb-chips">
                 {notInJob.map((item) => (
                   <span key={item.costCode} ref={flip.register(item.costCode)} className="lb-chip lb-chip--out" title={item.question}>
-                    {item.label}
+                    {titleCase(item.label)}
                   </span>
                 ))}
               </div>
@@ -443,7 +444,7 @@ export function LiveField({
   );
 }
 
-function LiveBlock({
+export function LiveBlock({
   entryKey,
   block,
   waiting,
@@ -468,14 +469,14 @@ function LiveBlock({
       type="button"
       className={`rb-blk lb-blk${waiting ? " lb-blk--wait" : ""}${selected ? " rb-blk--sel" : ""}`}
       aria-pressed={selected}
-      aria-label={waiting ? block.label : `${block.label}, ${shortMoney(block.midpoint)}`}
+      aria-label={waiting ? titleCase(block.label) : `${titleCase(block.label)}, ${shortMoney(block.midpoint)}`}
       onClick={() => onSelect(entryKey)}
       onMouseEnter={() => link.onEnter(entryKey)}
       onMouseLeave={link.onLeave}
       onFocus={() => link.onEnter(entryKey)}
       onBlur={link.onLeave}
     >
-      <span className="rb-bn">{block.label}</span>
+      <span className="rb-bn">{titleCase(block.label)}</span>
       <span className={`rb-st lb-st${!waiting && block.status ? " lb-st--on" : ""}`}>
         {!waiting && block.status ? (
           <>
@@ -517,13 +518,13 @@ export function UnpricedBlock({
     <div
       ref={register}
       className="rb-blk lb-blk lb-blk--unpriced pk-card--none"
-      aria-label={`${entry.label}, No Rate Yet`}
+      aria-label={`${titleCase(entry.label)}, No Rate Yet`}
       onMouseEnter={() => link.onEnter(entry.key)}
       onMouseLeave={link.onLeave}
     >
       <span className="pk-top">
-        <span className="rb-bn">{entry.label}</span>
-        {entry.division ? <span className="pk-div">{entry.division}</span> : null}
+        <span className="rb-bn">{titleCase(entry.label)}</span>
+        {entry.division ? <span className="pk-div">{titleCase(entry.division)}</span> : null}
       </span>
       <span className="rb-st lb-st lb-st--on">
         <UnpricedDot pulseKey={entry.item.costCode} />

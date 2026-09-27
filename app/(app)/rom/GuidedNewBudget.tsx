@@ -35,16 +35,16 @@ type Step = 1 | 2 | 3 | 4;
 const FRAMING_CHOICES: { value: "wood" | "metal" | ""; label: string }[] = [
   { value: "wood", label: "Wood" },
   { value: "metal", label: "Metal" },
-  { value: "", label: "Not set" },
+  { value: "", label: "Not Set" },
 ];
 
 function choiceLabel(question: Question | undefined, value: string): string {
-  if (!value) return "Not answered";
+  if (!value) return "Not Answered";
   return question?.choices?.find((choice) => choice.value === value)?.label ?? value;
 }
 
 function gateLabel(value: string): string {
-  return BRANCH_GATE_ANSWERS.find((answer) => answer.value === value)?.label ?? "Not answered";
+  return BRANCH_GATE_ANSWERS.find((answer) => answer.value === value)?.label ?? "Not Answered";
 }
 
 function Field({
@@ -90,7 +90,7 @@ function Field({
           value={value}
           onChange={(e) => onAnswer(question.id, e.target.value)}
         >
-          <option value="">Choose one</option>
+          <option value="">Choose One</option>
           {question.choices?.map((choice) => (
             <option key={choice.value} value={choice.value}>
               {choice.label}
@@ -279,7 +279,7 @@ export function GuidedNewBudget({
         <section className="markup-module" aria-label="Facts">
           <div className="markup-grid">
             <label>
-              <span className="field-label t-label">Project name</span>
+              <span className="field-label t-label">Project Name</span>
               <input className="input" value={name} disabled={busy} onChange={(e) => setName(e.target.value)} />
             </label>
             {facts.map((question) => (
@@ -292,7 +292,7 @@ export function GuidedNewBudget({
               />
             ))}
             <label>
-              <span className="field-label t-label">Framing system</span>
+              <span className="field-label t-label">Framing System</span>
               <select
                 className="input"
                 value={framingSystem}
@@ -342,7 +342,7 @@ export function GuidedNewBudget({
         <section aria-label="Review">
           <h3>Facts</h3>
           <p className="rb-pp">
-            {name.trim() || "Untitled project"}, <span className="num">{responses.gross_square_feet || "0"}</span> SF
+            {name.trim() || "Untitled Project"}, <span className="num">{responses.gross_square_feet || "0"}</span> SF
           </p>
           <p className="rb-pp">
             {choiceLabel(factsById.get("project_type"), responses.project_type ?? "")},{" "}
@@ -356,7 +356,7 @@ export function GuidedNewBudget({
               <b>
                 {question.kind === "branch_gate"
                   ? gateLabel(responses[question.id] ?? "")
-                  : responses[question.id] || "Not answered"}
+                  : responses[question.id] || "Not Answered"}
               </b>
             </p>
           ))}
@@ -397,10 +397,10 @@ export function GuidedNewBudget({
         ) : (
           <>
             <button className="btn" type="button" onClick={addWithoutRunning} disabled={busy}>
-              {busy ? "Adding" : "Add without running"}
+              {busy ? "Adding" : "Add Without Running"}
             </button>
             <button className="btn btn--primary" type="button" onClick={addAndRun} disabled={busy}>
-              {busy ? "Running" : "Add and run"}
+              {busy ? "Running" : "Add and Run"}
             </button>
           </>
         )}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockClassification, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
+import { titleCase } from "@/lib/format/title-case";
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 import type { LineProvenance } from "@/lib/rom/provenance";
@@ -323,7 +324,7 @@ export function RomRunner({
         <header className="rb-hdr">
           <div className="rb-t1">
             <span className="rb-badge">R-100</span>
-            <h1 className="rb-title">Conceptual budget</h1>
+            <h1 className="rb-title">Conceptual Budget</h1>
           </div>
         </header>
         <main className="rb-fld">
@@ -340,7 +341,7 @@ export function RomRunner({
       <header className="rb-hdr">
         <div className="rb-t1">
           <span className="rb-badge">R-100</span>
-          <h1 className="rb-title">Conceptual budget</h1>
+          <h1 className="rb-title">Conceptual Budget</h1>
           {/* The picker sits where the project name was, so the name shows once
               and the header stays on one line. */}
           {projects.length > 0 ? (
@@ -352,7 +353,7 @@ export function RomRunner({
                 if (e.target.value) router.push(`/rom?project=${e.target.value}`);
               }}
             >
-              {projects.some((one) => one.id === projectId) ? null : <option value="">Choose a project</option>}
+              {projects.some((one) => one.id === projectId) ? null : <option value="">Choose a Project</option>}
               {projects.map((one) => (
                 <option key={one.id} value={one.id}>
                   {one.name}
@@ -364,7 +365,7 @@ export function RomRunner({
           {run?.grossSquareFeet ? (
             <span className="num">{AREA.format(run.grossSquareFeet)} SF</span>
           ) : null}
-          {!projectId ? <span>{projectNotFound ? "Project not found" : "No project configured"}</span> : null}
+          {!projectId ? <span>{projectNotFound ? "Project Not Found" : "No Project Configured"}</span> : null}
           <span className="rb-sp" />
           {run || panel?.kind === "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
           {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
@@ -374,7 +375,7 @@ export function RomRunner({
             aria-expanded={panel?.kind === "new"}
             onClick={(e) => openPanel({ kind: "new" }, e.currentTarget)}
           >
-            New budget
+            New Budget
           </button>
           {projectId ? (
             <button
@@ -383,7 +384,7 @@ export function RomRunner({
               aria-expanded={panel?.kind === "edit"}
               onClick={(e) => openPanel({ kind: "edit" }, e.currentTarget)}
             >
-              Edit project
+              Edit Project
             </button>
           ) : null}
           {projectId && (markupOptions || scopeDefaults) ? (
@@ -393,7 +394,7 @@ export function RomRunner({
               aria-expanded={panel?.kind === "settings"}
               onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
             >
-              Run settings
+              Run Settings
             </button>
           ) : null}
           <button
@@ -402,7 +403,7 @@ export function RomRunner({
             onClick={runRom}
             disabled={!projectId || busy}
           >
-            {!projectId ? "Project required" : state.phase === "running" ? "Running" : "Run ROM"}
+            {!projectId ? "Project Required" : state.phase === "running" ? "Running" : "Run ROM"}
           </button>
         </div>
 
@@ -420,7 +421,7 @@ export function RomRunner({
                 aria-expanded={panel?.kind === "total"}
                 onClick={(e) => openPanel({ kind: "total" }, e.currentTarget)}
               >
-                <span className="rb-tl">{headline.label}</span>
+                <span className="rb-tl">{titleCase(headline.label)}</span>
                 <span className="rb-tv num">{headlineMoney(headline.midpoint, headline)}</span>
                 <span className="rb-tb">
                   range{" "}
@@ -441,7 +442,7 @@ export function RomRunner({
                 </span>
               </button>
               {headline.tbd.length > 0 ? (
-                <span className="rb-td">{headline.tbd.join(", ")} TBD, outside the total</span>
+                <span className="rb-td">{headline.tbd.join(", ")} TBD, Outside the Total</span>
               ) : null}
               <button
                 type="button"
@@ -524,7 +525,7 @@ export function RomRunner({
           {panel.kind === "settings" ? (
             <>
               <PanelHead
-                title="Run settings"
+                title="Run Settings"
                 sub="These settings save to this project when you run."
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -550,7 +551,7 @@ export function RomRunner({
           {panel.kind === "new" ? (
             <>
               <PanelHead
-                title="New budget"
+                title="New Budget"
                 sub="Walks the facts, scope and GRs/GCs the engine reads, then adds the project."
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -565,7 +566,7 @@ export function RomRunner({
 
           {panel.kind === "edit" && projectId ? (
             <>
-              <PanelHead title="Edit project" sub="Saved runs are untouched." onClose={closePanel} titleRef={titleRef} />
+              <PanelHead title="Edit Project" sub="Saved runs are untouched." onClose={closePanel} titleRef={titleRef} />
               <EditProjectPanelBody
                 projectId={projectId}
                 isEnvProject={isEnvProject}
@@ -584,7 +585,7 @@ export function RomRunner({
           {panel.kind === "total" && run && headline ? (
             <>
               <PanelHead
-                title={headline.label}
+                title={titleCase(headline.label)}
                 sub={runWords(run)}
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -596,7 +597,7 @@ export function RomRunner({
           {panel.kind === "block" && run && openBlock ? (
             <>
               <PanelHead
-                title={openBlock.label}
+                title={titleCase(openBlock.label)}
                 sub={`${openBlock.costCode} · ${runWords(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -608,7 +609,7 @@ export function RomRunner({
           {panel.kind === "package" && run && openPackage ? (
             <>
               <PanelHead
-                title={openPackage.label}
+                title={titleCase(openPackage.label)}
                 sub={`${openPackage.division ? `Division ${openPackage.division} · ` : ""}${runWords(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -624,7 +625,7 @@ export function RomRunner({
           {panel.kind === "notes" && run ? (
             <>
               <PanelHead
-                title="Scope and assumptions"
+                title="Scope and Assumptions"
                 sub={runWords(run)}
                 onClose={closePanel}
                 titleRef={titleRef}
@@ -639,13 +640,13 @@ export function RomRunner({
         </aside>
       ) : null}
 
-      <footer className="rb-revs" aria-label="Saved runs">
+      <footer className="rb-revs" aria-label="Saved Runs">
         <p className="rb-rnone rb-fresh-note">No saved runs yet.</p>
-        <h2>Saved runs</h2>
+        <h2>Saved Runs</h2>
         {runs.length === 0 ? (
           <p className="rb-rnone">No saved run for this project yet.</p>
         ) : (
-          <div className="rb-rvl" role="group" aria-label="Saved run list">
+          <div className="rb-rvl" role="group" aria-label="Saved Run List">
             {runs.map((one) => {
               const current = run?.runId === one.id || (state.phase === "loading" && state.runId === one.id);
               const started = new Date(one.startedAt);
@@ -672,9 +673,9 @@ export function RomRunner({
         {/* The page links live here, beside All runs, so the header keeps to
             one line when a long project name is chosen. */}
         <nav className="rb-links rb-rall" aria-label="ROM pages">
-          {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block board</Link> : null}
+          {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block Board</Link> : null}
           <Link href="/rom/backtest">Backtest</Link>
-          <Link href="/rom/runs">All runs</Link>
+          <Link href="/rom/runs">All Runs</Link>
         </nav>
       </footer>
     </div>
@@ -796,8 +797,8 @@ function BlockField({
         <div className="rb-grid">{kulka.map(render)}</div>
       </section>
       {owner.length > 0 ? (
-        <section className="rb-grp" aria-label="Bought by the owner direct">
-          <h2>Bought by the owner direct</h2>
+        <section className="rb-grp" aria-label="Bought by the Owner Direct">
+          <h2>Bought by the Owner Direct</h2>
           <div className="rb-grid">{owner.map(render)}</div>
         </section>
       ) : null}
@@ -826,14 +827,14 @@ export function Block({
       type="button"
       className={`rb-blk${selected ? " rb-blk--sel" : ""}`}
       aria-pressed={selected}
-      aria-label={`${block.label}, ${shortMoney(block.midpoint)}${block.status ? `, ${block.status.word.toLowerCase()}` : ""}`}
+      aria-label={`${titleCase(block.label)}, ${shortMoney(block.midpoint)}${block.status ? `, ${block.status.word.toLowerCase()}` : ""}`}
       onClick={(e) => onOpen(block.costCode, e.currentTarget)}
       onMouseEnter={link ? () => link.onEnter(block.costCode) : undefined}
       onMouseLeave={link?.onLeave}
       onFocus={link ? () => link.onEnter(block.costCode) : undefined}
       onBlur={link?.onLeave}
     >
-      <span className="rb-bn">{block.label}</span>
+      <span className="rb-bn">{titleCase(block.label)}</span>
       {block.status ? (
         <span className="rb-st">
           <span className={`rb-dot rb-dot--${block.status.tone}`} aria-hidden="true" />
@@ -853,7 +854,7 @@ function notesLabel(held: number, rom: Rom): string {
   if (held > 0) parts.push(`${held} held for review`);
   if (rom.tbdGateItems.length > 0) parts.push(`${rom.tbdGateItems.length} TBD`);
   if (rom.assumedPresentItems.length > 0) parts.push(`${rom.assumedPresentItems.length} assumed present`);
-  return parts.length > 0 ? parts.join(", ") : "Scope and assumptions";
+  return parts.length > 0 ? parts.join(", ") : "Scope and Assumptions";
 }
 
 function runWords(run: LoadedRun): string {

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { MarkupSetup } from "@kulka/engine";
 
+import { titleCase } from "@/lib/format/title-case";
 import type { CostImportDetail, LineStatus, StagedLine } from "@/lib/rom/ingest";
 
 import "../imports.css";
@@ -45,9 +46,9 @@ const STATUS_CHIP: Record<LineStatus, string> = {
 };
 
 const SETUP_OPTIONS: { value: MarkupSetup; label: string }[] = [
-  { value: "both", label: "GRs & GCs combined" },
-  { value: "gc_only", label: "GCs only" },
-  { value: "gr_only", label: "GRs only" },
+  { value: "both", label: "GRs & GCs Combined" },
+  { value: "gc_only", label: "GCs Only" },
+  { value: "gr_only", label: "GRs Only" },
 ];
 
 const PERCENT = new Intl.NumberFormat("en-US", {
@@ -57,7 +58,7 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 });
 
 function itemLabel(item: { itemNumber: string; name: string }): string {
-  return `${item.itemNumber} — ${item.name}`;
+  return `${item.itemNumber} — ${titleCase(item.name)}`;
 }
 
 function sumOf(lines: StagedLine[], status: LineStatus): number {
@@ -214,7 +215,7 @@ export function ImportReview({
               <th>Description</th>
               <th>Division</th>
               <th className="right">$/SF</th>
-              <th>Matched item</th>
+              <th>Matched Item</th>
               <th className="right">Score</th>
               <th>Status</th>
               <th>Remap</th>
@@ -230,7 +231,7 @@ export function ImportReview({
               return (
                 <tr className={`row${line.status === "markup" ? " row--markup" : ""}`} key={line.id}>
                   <td className="num">{line.rowNumber}</td>
-                  <td>{line.rawDescription}</td>
+                  <td>{titleCase(line.rawDescription)}</td>
                   <td>{line.rawDivision ?? "—"}</td>
                   <td className="num right">{PER_SF.format(line.valueUsdPerGsf)}</td>
                   <td className="num">{itemLabel(line.candidateCanonicalItem)}</td>

@@ -23,7 +23,7 @@ export default async function CostImportsPage() {
   return (
     <Sheet
       number="R-115"
-      title="Cost imports"
+      title="Cost Imports"
       meta={
         <>
           <span>{imports.length === 1 ? "1 import" : `${imports.length} imports`}</span>

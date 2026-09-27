@@ -15,15 +15,15 @@ describe("underwriting form accessibility contract", () => {
     const detail = await source("app/(app)/underwriting/[id]/page.tsx");
     const run = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
 
-    expect(list).toContain("New project");
+    expect(list).toContain("New Project");
     expect(list).toContain("No underwriting projects have been saved.");
     expect(list).toContain("<th>Project</th>");
-    expect(create).toContain('title="New underwriting project"');
-    expect(intake).toContain("Start a ground-up multifamily project");
-    expect(intake).toContain('label="Project name"');
-    expect(intake).toContain('"Save project"');
+    expect(create).toContain('title="New Underwriting Project"');
+    expect(intake).toContain("Start a Ground-Up Multifamily Project");
+    expect(intake).toContain('label="Project Name"');
+    expect(intake).toContain('"Save Project"');
     expect(detail).toContain("The project has not been calculated.");
-    expect(run).toContain("Back to project");
+    expect(run).toContain("Back to Project");
   });
 
   it("labels inline controls and links field errors with described-by ids", async () => {
@@ -39,8 +39,8 @@ describe("underwriting form accessibility contract", () => {
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
     expect(casePage).toContain("/runs/${run.id}");
     expect(casePage).toContain("runPage=${runPage + 1}");
-    expect(runPage).toContain("Full calculation input snapshot");
-    expect(runPage).toContain("Saved evidence snapshot");
+    expect(runPage).toContain("Full Calculation Input Snapshot");
+    expect(runPage).toContain("Saved Evidence Snapshot");
   });
 
   it("validates page identifiers before any repository read", async () => {
@@ -66,14 +66,14 @@ describe("underwriting form accessibility contract", () => {
   it("offers a dated cost editor and a readable monthly uses table", async () => {
     const editor = await source("app/(app)/underwriting/[id]/CostScheduleEditor.tsx");
     const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
-    expect(editor).toContain("Analysis start month");
-    expect(editor).toContain("Sale month");
+    expect(editor).toContain("Analysis Start Month");
+    expect(editor).toContain("Sale Month");
     expect(editor).toContain("Straight-line");
     expect(editor).toContain("S-curve");
-    expect(editor).toContain("Source label");
+    expect(editor).toContain("Source Label");
     expect(editor).toContain("finally {");
-    expect(casePage).toContain("Monthly uses");
-    expect(casePage).toContain("Reconciliation checks");
+    expect(casePage).toContain("Monthly Uses");
+    expect(casePage).toContain("Reconciliation Checks");
     expect(casePage).toContain("monthlyCostResult.months");
     expect(casePage).toContain("aggregateFormulaTraces");
   });
@@ -116,7 +116,7 @@ describe("underwriting form accessibility contract", () => {
     const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
     expect(editor).toContain("Equity First");
-    expect(editor).toContain("Opening Balance, Annual Rate Divided By 12");
+    expect(editor).toContain("Opening Balance, Annual Rate Divided by 12");
     expect(editor).toContain("Capital Assumption Sources");
     expect(editor).toContain("MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH");
     expect(editor).toContain("maxLength={MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH}");

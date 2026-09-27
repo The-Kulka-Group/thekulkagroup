@@ -1,5 +1,7 @@
 "use client";
 
+import { titleCase } from "@/lib/format/title-case";
+
 import { midpoint, shortMoney } from "./block-layout";
 import type { ElementGroup, ElementItem } from "./element-groups";
 import { elementHasNoRate } from "./field-order";
@@ -57,12 +59,12 @@ export function ElementBoxBlock({
     <div
       ref={register}
       className={`rb-blk eb-box${noRate ? " pk-card--none" : ""}`}
-      aria-label={`${group.element}, ${noRate ? "No Rate Yet" : shortMoney(mid)}`}
+      aria-label={`${titleCase(group.element)}, ${noRate ? "No Rate Yet" : shortMoney(mid)}`}
       onMouseEnter={link ? () => link.onEnter(key) : undefined}
       onMouseLeave={link?.onLeave}
     >
       <div className="eb-head">
-        <span className="rb-bn">{group.element}</span>
+        <span className="rb-bn">{titleCase(group.element)}</span>
         {noRate ? (
           <NoRateYet pulseKey={key} />
         ) : (
@@ -113,9 +115,9 @@ function StaticTile({
     return (
       <div
         className={`eb-tile eb-tile--unpriced${full ? " eb-tile--full" : ""}`}
-        aria-label={`${item.label}, No Rate Yet`}
+        aria-label={`${titleCase(item.label)}, No Rate Yet`}
       >
-        <span className="eb-tn">{item.label}</span>
+        <span className="eb-tn">{titleCase(item.label)}</span>
         <span className="eb-ts">
           <UnpricedDot pulseKey={item.costCode} />
           No Rate Yet
@@ -129,10 +131,10 @@ function StaticTile({
       type="button"
       className={`eb-tile${full ? " eb-tile--full" : ""}${selectedHere ? " eb-tile--sel" : ""}`}
       aria-pressed={selectedHere}
-      aria-label={`${item.label}, ${shortMoney(itemMidpoint(item))}`}
+      aria-label={`${titleCase(item.label)}, ${shortMoney(itemMidpoint(item))}`}
       onClick={(e) => onOpen(item.costCode, e.currentTarget)}
     >
-      <span className="eb-tn">{item.label}</span>
+      <span className="eb-tn">{titleCase(item.label)}</span>
       <span className="eb-tv num">{shortMoney(itemMidpoint(item))}</span>
     </button>
   );
@@ -164,12 +166,12 @@ export function LiveElementBox({
     <div
       ref={register(key)}
       className={`rb-blk lb-blk eb-box${waiting ? " lb-blk--wait" : ""}${noRate ? " pk-card--none" : ""}`}
-      aria-label={waiting ? group.element : `${group.element}, ${noRate ? "No Rate Yet" : shortMoney(mid)}`}
+      aria-label={waiting ? titleCase(group.element) : `${titleCase(group.element)}, ${noRate ? "No Rate Yet" : shortMoney(mid)}`}
       onMouseEnter={() => link.onEnter(key)}
       onMouseLeave={link.onLeave}
     >
       <div className="eb-head">
-        <span className="rb-bn">{group.element}</span>
+        <span className="rb-bn">{titleCase(group.element)}</span>
         {noRate ? (
           <NoRateYet pulseKey={key} />
         ) : (
@@ -231,9 +233,9 @@ function LiveTile({
       <div
         ref={register}
         className={`eb-tile eb-tile--unpriced${full ? " eb-tile--full" : ""}`}
-        aria-label={`${item.label}, No Rate Yet`}
+        aria-label={`${titleCase(item.label)}, No Rate Yet`}
       >
-        <span className="eb-tn">{item.label}</span>
+        <span className="eb-tn">{titleCase(item.label)}</span>
         <span className="eb-ts">
           <UnpricedDot pulseKey={item.costCode} />
           No Rate Yet
@@ -245,9 +247,9 @@ function LiveTile({
     <div
       ref={register}
       className={`eb-tile${full ? " eb-tile--full" : ""}${waiting ? " eb-tile--wait" : ""}`}
-      aria-label={waiting ? item.label : `${item.label}, ${shortMoney(itemMidpoint(item))}`}
+      aria-label={waiting ? titleCase(item.label) : `${titleCase(item.label)}, ${shortMoney(itemMidpoint(item))}`}
     >
-      <span className="eb-tn">{item.label}</span>
+      <span className="eb-tn">{titleCase(item.label)}</span>
       <SpringMoney className="eb-tv num" value={waiting ? null : itemMidpoint(item)} format={shortMoney} delay={delay} />
     </div>
   );

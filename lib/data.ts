@@ -3,8 +3,8 @@
 export type Status = "working" | "stuck" | "done" | "open";
 
 export const STATUS_LABEL: Record<Status, string> = {
-  working: "Working on it",
+  working: "Working on It",
   stuck: "Stuck",
   done: "Done",
-  open: "Not started",
+  open: "Not Started",
 };

@@ -90,14 +90,14 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
       </div>
 
       <div className="underwriting-form-grid underwriting-capital-controls">
-        <NumberField id="capital-target-debt-share" label="Target debt share of total uses" value={targetDebtSharePercent} onChange={setTargetDebtSharePercent} error={fieldErrors.targetDebtSharePercent} suffix="%" />
-        <NumberField id="capital-annual-interest-rate" label="Annual construction interest rate" value={annualInterestRatePercent} onChange={setAnnualInterestRatePercent} error={fieldErrors.annualInterestRatePercent} suffix="%" />
-        <NumberField id="capital-loan-fee" label="Loan fee on planned project-cost debt" value={loanFeePercent} onChange={setLoanFeePercent} error={fieldErrors.loanFeePercent} suffix="%" />
-        <MonthField id="capital-fee-month" label="Fee month" value={feeMonth} onChange={setFeeMonth} error={fieldErrors.feeMonth} />
-        <MonthField id="capital-payoff-month" label="Debt payoff month" value={payoffMonth} onChange={setPayoffMonth} error={fieldErrors.payoffMonth} />
-        <ReadOnlyField label="Funding order" value="Equity First" />
-        <ReadOnlyField label="Interest treatment" value="Operating Cash First, Then Capitalized" />
-        <ReadOnlyField label="Interest convention" value="Opening Balance, Annual Rate Divided By 12" />
+        <NumberField id="capital-target-debt-share" label="Target Debt Share of Total Uses" value={targetDebtSharePercent} onChange={setTargetDebtSharePercent} error={fieldErrors.targetDebtSharePercent} suffix="%" />
+        <NumberField id="capital-annual-interest-rate" label="Annual Construction Interest Rate" value={annualInterestRatePercent} onChange={setAnnualInterestRatePercent} error={fieldErrors.annualInterestRatePercent} suffix="%" />
+        <NumberField id="capital-loan-fee" label="Loan Fee on Planned Project-Cost Debt" value={loanFeePercent} onChange={setLoanFeePercent} error={fieldErrors.loanFeePercent} suffix="%" />
+        <MonthField id="capital-fee-month" label="Fee Month" value={feeMonth} onChange={setFeeMonth} error={fieldErrors.feeMonth} />
+        <MonthField id="capital-payoff-month" label="Debt Payoff Month" value={payoffMonth} onChange={setPayoffMonth} error={fieldErrors.payoffMonth} />
+        <ReadOnlyField label="Funding Order" value="Equity First" />
+        <ReadOnlyField label="Interest Treatment" value="Operating Cash First, Then Capitalized" />
+        <ReadOnlyField label="Interest Convention" value="Opening Balance, Annual Rate Divided by 12" />
       </div>
 
       <section className="underwriting-line-section">
@@ -115,7 +115,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
                 <th scope="row">{LABELS[key]}</th>
                 <td><input className="input" id={`capital-evidence-${key}-source-label`} maxLength={MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH} aria-label={`${LABELS[key]} source label`} value={capitalAssumptionEvidence[key].sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(sourceLabelError)} aria-describedby={sourceLabelError ? `capital-evidence-${key}-source-label-error` : undefined} /><FieldError id={`capital-evidence-${key}-source-label-error`} error={sourceLabelError} /></td>
                 <td><input className="input" id={`capital-evidence-${key}-source-date`} type="date" aria-label={`${LABELS[key]} source date`} value={capitalAssumptionEvidence[key].sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(sourceDateError)} aria-describedby={sourceDateError ? `capital-evidence-${key}-source-date-error` : undefined} /><FieldError id={`capital-evidence-${key}-source-date-error`} error={sourceDateError} /></td>
-                <td><select className="input" id={`capital-evidence-${key}-review-state`} aria-label={`${LABELS[key]} review state`} value={capitalAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(reviewStateError)} aria-describedby={reviewStateError ? `capital-evidence-${key}-review-state-error` : undefined}><option value="working">Working on it</option><option value="done">Done</option></select><FieldError id={`capital-evidence-${key}-review-state-error`} error={reviewStateError} /></td>
+                <td><select className="input" id={`capital-evidence-${key}-review-state`} aria-label={`${LABELS[key]} review state`} value={capitalAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(reviewStateError)} aria-describedby={reviewStateError ? `capital-evidence-${key}-review-state-error` : undefined}><option value="working">Working on It</option><option value="done">Done</option></select><FieldError id={`capital-evidence-${key}-review-state-error`} error={reviewStateError} /></td>
               </tr>;
             })}</tbody>
           </table>

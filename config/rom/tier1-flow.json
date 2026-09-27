@@ -11,7 +11,7 @@
       "required": true,
       "choices": [
         { "value": "multifamily", "label": "Multifamily" },
-        { "value": "self_storage", "label": "Self storage" }
+        { "value": "self_storage", "label": "Self Storage" }
       ],
       "mapsTo": { "target": "engine_input", "name": "projectType" }
     },
@@ -21,7 +21,7 @@
       "kind": "choice",
       "required": true,
       "choices": [
-        { "value": "new", "label": "New construction" },
+        { "value": "new", "label": "New Construction" },
         { "value": "renovation", "label": "Renovation" }
       ],
       "mapsTo": { "target": "engine_input", "name": "constructionKind" }
@@ -45,7 +45,7 @@
         { "value": "surface", "label": "Surface" },
         { "value": "structured", "label": "Structured" },
         { "value": "underground", "label": "Underground" },
-        { "value": "dont_know", "label": "Don't know" }
+        { "value": "dont_know", "label": "Don't Know" }
       ],
       "mapsTo": { "target": "intake_field", "name": "parkingType" }
     },

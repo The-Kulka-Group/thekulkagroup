@@ -18,10 +18,10 @@ export const RUN_STATUS_CHIP: Record<RunStatus, string> = {
 
 /** The steps lib/rom/run.ts records, in plain words. */
 const STEP_LABEL: Record<string, string> = {
-  read_answers: "Read the project answers",
-  read_benchmarks: "Read the benchmarks",
-  read_parameters: "Read the engine parameters",
-  read_judgment_rules: "Read the approved judgment rules",
+  read_answers: "Read the Project Answers",
+  read_benchmarks: "Read the Benchmarks",
+  read_parameters: "Read the Engine Parameters",
+  read_judgment_rules: "Read the Approved Judgment Rules",
   compute_rom: "Compute the ROM",
 };
 
@@ -39,7 +39,7 @@ export const DATE_TIME = new Intl.DateTimeFormat("en-US", {
 });
 
 export function formatTime(value: string | null): string {
-  return value ? DATE_TIME.format(new Date(value)) : "Still going";
+  return value ? DATE_TIME.format(new Date(value)) : "Still Going";
 }
 
 /** How long a step took, once it has finished. */

@@ -74,7 +74,7 @@ export default async function UnderwritingRunPage({
     <Sheet
       number={savedCase.sheetNumber}
       title={`Calculation run ${run.id.slice(0, 8)}`}
-      actions={<Link className="btn btn--secondary" href={`/underwriting/${savedCase.id}#calculation-history`}>Back to project</Link>}
+      actions={<Link className="btn btn--secondary" href={`/underwriting/${savedCase.id}#calculation-history`}>Back to Project</Link>}
       meta={
         <>
           <span>{savedCase.name}</span>
@@ -89,7 +89,7 @@ export default async function UnderwritingRunPage({
         <div className="margin" />
         <div className="col-field underwriting-decision-row">
           <div>
-            <span className="t-label">Saved run</span>
+            <span className="t-label">Saved Run</span>
             <h2 className="t-1">{run.status === "complete" ? "The calculation completed." : "The calculation stopped on input issues."}</h2>
             <p className="t-meta">This record stays tied to case revision {run.caseRevision} and formula version {run.formulaVersion}.</p>
           </div>
@@ -98,7 +98,7 @@ export default async function UnderwritingRunPage({
 
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-results-heading">
-          <h3 id="run-results-heading">Saved results and formulas</h3>
+          <h3 id="run-results-heading">Saved Results and Formulas</h3>
           {run.scenarioComparisonResult ? (
             <ScenarioComparisonResults result={run.scenarioComparisonResult} />
           ) : run.propertyReturnsResult ? (
@@ -185,7 +185,7 @@ export default async function UnderwritingRunPage({
             <div className="underwriting-results-wrap">
               <table className="underwriting-results">
                 <thead>
-                  <tr><th>Result</th><th className="right">Value</th><th>Formula trace</th><th>Inputs used</th></tr>
+                  <tr><th>Result</th><th className="right">Value</th><th>Formula Trace</th><th>Inputs Used</th></tr>
                 </thead>
                 <tbody>
                   {run.results.map((result) => (
@@ -201,7 +201,7 @@ export default async function UnderwritingRunPage({
             </div>
           ) : <p className="t-meta underwriting-history-note">This run saved no financial results.</p>}
           <div className="underwriting-limitations" aria-labelledby="run-limitations-heading">
-            <h4 id="run-limitations-heading">Model limits</h4>
+            <h4 id="run-limitations-heading">Model Limits</h4>
             <ul>{(run.scenarioComparisonResult ? [
               "This formula version changes only the four named apartment sensitivity inputs.",
               "It does not model permanent debt, investor waterfalls, or taxes.",
@@ -228,7 +228,7 @@ export default async function UnderwritingRunPage({
 
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-inputs-heading">
-          <h3 id="run-inputs-heading">Full calculation input snapshot</h3>
+          <h3 id="run-inputs-heading">Full Calculation Input Snapshot</h3>
           {isScenarioSnapshot(run.inputSnapshot) ? (
             <>
               <div className="underwriting-results-wrap"><table className="underwriting-snapshot underwriting-scenario-comparison"><thead><tr><th>Scenario</th><th>Role</th><th>Input Version</th><th>Delta</th></tr></thead><tbody>{run.inputSnapshot.scenarios.map((scenario) => <tr key={scenario.id}><th scope="row">{scenario.name}</th><td>{scenario.role}</td><td className="num">{scenario.inputVersion}</td><td className="num">{Object.entries(scenario.delta).map(([key, value]) => `${key}: ${value}`).join(", ")}</td></tr>)}</tbody></table></div>
@@ -276,7 +276,7 @@ export default async function UnderwritingRunPage({
             </div>
           ) : <div className="underwriting-results-wrap">
             <table className="underwriting-snapshot">
-              <thead><tr><th>Input</th><th className="right">Saved value</th><th>Unit</th></tr></thead>
+              <thead><tr><th>Input</th><th className="right">Saved Value</th><th>Unit</th></tr></thead>
               <tbody>
                 {UNDERWRITING_INPUT_KEYS.map((key) => (
                   <tr key={key}>
@@ -292,26 +292,26 @@ export default async function UnderwritingRunPage({
 
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-evidence-heading">
-          <h3 id="run-evidence-heading">Saved evidence snapshot</h3>
+          <h3 id="run-evidence-heading">Saved Evidence Snapshot</h3>
           <dl className="underwriting-evidence-facts">
             <div><dt>Case record ID</dt><dd className="num">{run.evidenceSnapshot.caseId}</dd></div>
-            <div><dt>Sheet number</dt><dd className="num">{run.evidenceSnapshot.sheetNumber}</dd></div>
-            <div><dt>Case number</dt><dd className="num">{run.evidenceSnapshot.caseNumber}</dd></div>
-            <div><dt>Case name</dt><dd>{run.evidenceSnapshot.name}</dd></div>
-            <div><dt>Property address</dt><dd>{run.evidenceSnapshot.address}</dd></div>
-            <div><dt>Development type</dt><dd>Ground-up multifamily</dd></div>
-            <div><dt>Saved case status</dt><dd>{run.evidenceSnapshot.status}</dd></div>
-            <div><dt>Case revision</dt><dd className="num">{run.evidenceSnapshot.caseRevision}</dd></div>
-            <div><dt>Proposed units</dt><dd className="num">{formatOptional(run.evidenceSnapshot.proposedUnits)}</dd></div>
-            <div><dt>Average unit size</dt><dd className="num">{formatOptional(run.evidenceSnapshot.averageUnitSquareFeet, " SF")}</dd></div>
-            <div><dt>Gross building area</dt><dd className="num">{formatOptional(run.evidenceSnapshot.grossBuildingSquareFeet, " GSF")}</dd></div>
-            <div><dt>Case created</dt><dd className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.createdAt))}</dd></div>
-            <div><dt>Case updated</dt><dd className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.updatedAt))}</dd></div>
+            <div><dt>Sheet Number</dt><dd className="num">{run.evidenceSnapshot.sheetNumber}</dd></div>
+            <div><dt>Case Number</dt><dd className="num">{run.evidenceSnapshot.caseNumber}</dd></div>
+            <div><dt>Case Name</dt><dd>{run.evidenceSnapshot.name}</dd></div>
+            <div><dt>Property Address</dt><dd>{run.evidenceSnapshot.address}</dd></div>
+            <div><dt>Development Type</dt><dd>Ground-up multifamily</dd></div>
+            <div><dt>Saved Case Status</dt><dd>{run.evidenceSnapshot.status}</dd></div>
+            <div><dt>Case Revision</dt><dd className="num">{run.evidenceSnapshot.caseRevision}</dd></div>
+            <div><dt>Proposed Units</dt><dd className="num">{formatOptional(run.evidenceSnapshot.proposedUnits)}</dd></div>
+            <div><dt>Average Unit Size</dt><dd className="num">{formatOptional(run.evidenceSnapshot.averageUnitSquareFeet, " SF")}</dd></div>
+            <div><dt>Gross Building Area</dt><dd className="num">{formatOptional(run.evidenceSnapshot.grossBuildingSquareFeet, " GSF")}</dd></div>
+            <div><dt>Case Created</dt><dd className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.createdAt))}</dd></div>
+            <div><dt>Case Updated</dt><dd className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.updatedAt))}</dd></div>
           </dl>
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>
-                <tr><th>Project fact</th><th>Source label</th><th>Source date</th><th>Review state</th><th>Evidence changed</th><th>Case revision</th></tr>
+                <tr><th>Project Fact</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th><th>Case Revision</th></tr>
               </thead>
               <tbody>
                 {Object.entries(FACT_DEFINITIONS).map(([name, definition]) => {
@@ -395,14 +395,14 @@ export default async function UnderwritingRunPage({
           <div className="underwriting-results-wrap">
             <table className="underwriting-evidence">
               <thead>
-                <tr><th>Assumption</th><th className="right">Value</th><th>Source type</th><th>Source label</th><th>Source date</th><th>Review state</th><th>Value changed</th></tr>
+                <tr><th>Assumption</th><th className="right">Value</th><th>Source Type</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Value Changed</th></tr>
               </thead>
               <tbody>
                 {run.evidenceSnapshot.assumptions.map((assumption) => (
                   <tr key={assumption.name}>
                     <th scope="row">{assumption.label}</th>
                     <td className="num right">{NUMBER.format(assumption.value)} <span className="t-meta">{assumption.unit}</span></td>
-                    <td>User supplied</td>
+                    <td>User Supplied</td>
                     <td>{assumption.sourceLabel || "Missing"}</td>
                     <td className="num">{assumption.sourceDate ? DATE.format(new Date(`${assumption.sourceDate}T00:00:00.000Z`)) : "Missing"}</td>
                     <td><Chip status={assumption.reviewState} /></td>
@@ -416,7 +416,7 @@ export default async function UnderwritingRunPage({
 
         <div className="margin" />
         <section className="col-field record-section" aria-labelledby="run-issues-heading">
-          <h3 id="run-issues-heading">Saved calculation issues</h3>
+          <h3 id="run-issues-heading">Saved Calculation Issues</h3>
           {run.issues.length > 0 ? (
             <div className="underwriting-issues">
               {run.issues.map((issue) => (

@@ -14,24 +14,24 @@ describe("Vision source directory view", () => {
     expect(html).toContain("There are 5 county sources and 135 local sources.");
     expect(html).toContain("<strong>140</strong><span>directory sources</span>");
     expect(html).toContain("<strong>9</strong><span>collectable sources</span>");
-    expect(html).toContain("What this source publishes");
-    expect(html).toContain("Vision can retrieve");
-    expect(html).toContain("Fields available from source");
-    expect(html).toContain("Manual step or access need");
-    expect(html).toContain("Coverage and limits");
-    expect(html).toContain("Open official source");
+    expect(html).toContain("What This Source Publishes");
+    expect(html).toContain("Vision Can Retrieve");
+    expect(html).toContain("Fields Available From Source");
+    expect(html).toContain("Manual Step or Access Need");
+    expect(html).toContain("Coverage and Limits");
+    expect(html).toContain("Open Official Source");
     expect(html).toContain("We checked this source on September 9, 2026.");
-    expect(html).toContain("Daily schedule");
-    expect(html).toContain("Latest outcome");
+    expect(html).toContain("Daily Schedule");
+    expect(html).toContain("Latest Outcome");
     expect(html).toContain("Completed");
-    expect(html).toContain("Latest outcome: Not checked");
+    expect(html).toContain("Latest Outcome: Not Checked");
     expect(html).toContain("Last completed: Not checked yet.");
     expect(html).toContain("12 records");
     expect(html).toContain("vision-source-access");
     expect(html).toContain("Collectable");
-    expect(html).toContain("Manual review");
-    expect(html).toContain("Restricted access");
-    expect(html).toContain("No public feed");
+    expect(html).toContain("Manual Review");
+    expect(html).toContain("Restricted Access");
+    expect(html).toContain("No Public Feed");
   });
 
   it("renders a clear empty result", () => {
@@ -45,9 +45,9 @@ describe("Vision source directory view", () => {
 
     expect(html).toContain(">County<");
     expect(html).toContain(">Location<");
-    expect(html).toContain(">Municipality type<");
-    expect(html).toContain(">Record type<");
+    expect(html).toContain(">Municipality Type<");
+    expect(html).toContain(">Record Type<");
     expect(html).toContain(">Access<");
-    expect(html).toContain("All locations");
+    expect(html).toContain("All Locations");
   });
 });

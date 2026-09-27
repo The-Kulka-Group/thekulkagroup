@@ -19,18 +19,18 @@ const ASSUMPTION_FIELDS: Array<{
   step: string;
   recordOnly?: boolean;
 }> = [
-  { name: "purchasePrice", label: "Purchase price", unit: "USD", min: 0, step: "any" },
-  { name: "monthlyRent", label: "Average monthly rent", unit: "USD/month", min: 0, step: "any" },
-  { name: "hardCostPerGrossSquareFoot", label: "Hard cost", unit: "USD/GSF", min: 0, step: "any" },
-  { name: "softCostPercent", label: "Soft cost", unit: "percent", min: 0, max: 100, step: "any" },
+  { name: "purchasePrice", label: "Purchase Price", unit: "USD", min: 0, step: "any" },
+  { name: "monthlyRent", label: "Average Monthly Rent", unit: "USD/month", min: 0, step: "any" },
+  { name: "hardCostPerGrossSquareFoot", label: "Hard Cost", unit: "USD/GSF", min: 0, step: "any" },
+  { name: "softCostPercent", label: "Soft Cost", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "contingencyPercent", label: "Contingency", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "vacancyPercent", label: "Vacancy", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "operatingExpensePercent", label: "Operating expenses", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "constructionMonths", label: "Construction duration", unit: "months", min: 1, step: "1", recordOnly: true },
-  { name: "debtPercent", label: "Expected debt", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "interestRatePercent", label: "Expected interest rate", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "exitCapRatePercent", label: "Exit cap rate", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "holdYears", label: "Hold period", unit: "years", min: 1, step: "1", recordOnly: true },
+  { name: "operatingExpensePercent", label: "Operating Expenses", unit: "percent", min: 0, max: 100, step: "any" },
+  { name: "constructionMonths", label: "Construction Duration", unit: "months", min: 1, step: "1", recordOnly: true },
+  { name: "debtPercent", label: "Expected Debt", unit: "percent", min: 0, max: 100, step: "any" },
+  { name: "interestRatePercent", label: "Expected Interest Rate", unit: "percent", min: 0, max: 100, step: "any" },
+  { name: "exitCapRatePercent", label: "Exit Cap Rate", unit: "percent", min: 0, max: 100, step: "any" },
+  { name: "holdYears", label: "Hold Period", unit: "years", min: 1, step: "1", recordOnly: true },
 ];
 
 const FACT_FIELDS: Array<{
@@ -40,9 +40,9 @@ const FACT_FIELDS: Array<{
   min: number;
   step: string;
 }> = [
-  { name: "proposedUnits", label: "Proposed units", unit: "units", min: 1, step: "1" },
-  { name: "averageUnitSquareFeet", label: "Average unit size", unit: "SF", min: 0, step: "any" },
-  { name: "grossBuildingSquareFeet", label: "Gross building area", unit: "GSF", min: 0, step: "any" },
+  { name: "proposedUnits", label: "Proposed Units", unit: "units", min: 1, step: "1" },
+  { name: "averageUnitSquareFeet", label: "Average Unit Size", unit: "SF", min: 0, step: "any" },
+  { name: "grossBuildingSquareFeet", label: "Gross Building Area", unit: "GSF", min: 0, step: "any" },
 ];
 
 function numberValue(form: FormData, name: string) {
@@ -149,10 +149,10 @@ export function EditUnderwritingCase({
   return (
     <form className="underwriting-edit" onSubmit={submit} noValidate>
       <section className="record-section">
-        <h3>Project facts</h3>
+        <h3>Project Facts</h3>
         <div className="underwriting-form-grid">
-          <Field name="name" label="Project name" defaultValue={savedCase.name} required error={fieldErrors.name} />
-          <Field name="address" label="Property address" defaultValue={savedCase.address} required error={fieldErrors.address} />
+          <Field name="name" label="Project Name" defaultValue={savedCase.name} required error={fieldErrors.name} />
+          <Field name="address" label="Property Address" defaultValue={savedCase.address} required error={fieldErrors.address} />
         </div>
         <EvidenceTable
           fields={FACT_FIELDS}
@@ -165,10 +165,10 @@ export function EditUnderwritingCase({
       <section className="record-section">
         <div className="underwriting-section-head">
           <div>
-            <h3>Financial assumptions</h3>
+            <h3>Financial Assumptions</h3>
             <p className="t-meta">Each supplied value keeps its source date and review state.</p>
           </div>
-          <span className="chip chip--neutral"><span className="dot" />User supplied</span>
+          <span className="chip chip--neutral"><span className="dot" />User Supplied</span>
         </div>
         <div className="underwriting-edit-table-wrap">
           <table className="underwriting-edit-table">
@@ -176,9 +176,9 @@ export function EditUnderwritingCase({
               <tr>
                 <th>Assumption</th>
                 <th>Value</th>
-                <th>Source label</th>
-                <th>Source date</th>
-                <th>Review state</th>
+                <th>Source Label</th>
+                <th>Source Date</th>
+                <th>Review State</th>
               </tr>
             </thead>
             <tbody>
@@ -232,7 +232,7 @@ export function EditUnderwritingCase({
                           ? `${controlId(`assumptionMetadata.${field.name}.reviewState`)}-error`
                           : undefined}
                       >
-                        <option value="working">Working on it</option>
+                        <option value="working">Working on It</option>
                         <option value="done">Done</option>
                       </select>
                       <FieldError
@@ -273,7 +273,7 @@ function EvidenceTable({
     <div className="underwriting-edit-table-wrap">
       <table className="underwriting-edit-table">
         <thead>
-          <tr><th>Project fact</th><th>Value</th><th>Source label</th><th>Source date</th><th>Review state</th></tr>
+          <tr><th>Project Fact</th><th>Value</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr>
         </thead>
         <tbody>
           {fields.map((field) => {
@@ -318,7 +318,7 @@ function EvidenceTable({
                     aria-label={`${field.label} review state`}
                     aria-invalid={Boolean(fieldErrors[`factMetadata.${field.name}.reviewState`])}
                   >
-                    <option value="working">Working on it</option>
+                    <option value="working">Working on It</option>
                     <option value="done">Done</option>
                   </select>
                 </td>

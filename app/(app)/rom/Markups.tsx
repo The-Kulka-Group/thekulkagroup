@@ -19,15 +19,15 @@ const WEEKLY = new Intl.NumberFormat("en-US", {
 });
 
 export const SETUPS: { value: MarkupSetup; label: string }[] = [
-  { value: "both", label: "Both, one combined line" },
-  { value: "gc_only", label: "General Conditions only" },
-  { value: "gr_only", label: "General Requirements only" },
+  { value: "both", label: "Both, One Combined Line" },
+  { value: "gc_only", label: "General Conditions Only" },
+  { value: "gr_only", label: "General Requirements Only" },
 ];
 
 export const METHODS: { value: MarkupMethod; label: string }[] = [
-  { value: "pct_of_subtotal", label: "Percent of subtotal" },
+  { value: "pct_of_subtotal", label: "Percent of Subtotal" },
   { value: "usd_per_gsf", label: "Dollars per GSF" },
-  { value: "staffing_duration", label: "Staffing and duration" },
+  { value: "staffing_duration", label: "Staffing and Duration" },
 ];
 
 const BASIS_WORDS: Record<string, string> = {
@@ -241,12 +241,12 @@ export function MarkupControls({
         <div className="markup-grid">
           <label>
             <span className="field-label t-label">
-              {form.method === "pct_of_subtotal" ? "Your rate, % of subtotal" : "Your rate, $ per GSF"}
+              {form.method === "pct_of_subtotal" ? "Your Rate, % of Subtotal" : "Your Rate, $ per GSF"}
             </span>
             <input
               className="input num"
               inputMode="decimal"
-              placeholder="Use history"
+              placeholder="Use History"
               value={form.method === "pct_of_subtotal" ? form.overridePercent : form.overridePerSf}
               disabled={disabled}
               onChange={(e) =>
@@ -270,7 +270,7 @@ export function MarkupControls({
         <>
           <div className="markup-grid">
             <label>
-              <span className="field-label t-label">Job duration, weeks</span>
+              <span className="field-label t-label">Job Duration, Weeks</span>
               <input
                 className="input num"
                 inputMode="decimal"
@@ -333,7 +333,7 @@ export function MarkupControls({
               if (e.target.value) set({ staff: [...form.staff, { rateId: e.target.value, weeks: "" }] });
             }}
           >
-            <option value="">Add a role&hellip;</option>
+            <option value="">Add a Role&hellip;</option>
             {options.staffingRates.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.role}, {r.daysPerWeek} days/week
@@ -341,7 +341,7 @@ export function MarkupControls({
             ))}
           </select>
 
-          <h3 className="t-label markup-sub">Field office</h3>
+          <h3 className="t-label markup-sub">Field Office</h3>
           {form.fieldOffice.length === 0 ? <p className="markup-note">No item picked yet.</p> : null}
           <ul className="markup-picks">
             {form.fieldOffice.map((pick, index) => {
@@ -393,7 +393,7 @@ export function MarkupControls({
               }
             }}
           >
-            <option value="">Add a field-office item&hellip;</option>
+            <option value="">Add a Field-Office Item&hellip;</option>
             {options.fieldOfficeRates.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.item}

@@ -18,18 +18,18 @@ import type { Db } from "@/lib/db";
  */
 export const SCOPE_QUESTIONS: readonly { section: string; label: string; column: string }[] = [
   { section: "demolition", label: "Demolition", column: "demolition_gate" },
-  { section: "levels_below_grade", label: "Levels below grade", column: "levels_below_grade_gate" },
+  { section: "levels_below_grade", label: "Levels Below Grade", column: "levels_below_grade_gate" },
   {
     section: "existing_building_tie_in",
-    label: "Existing building tie-in",
+    label: "Existing Building Tie-in",
     column: "existing_building_tie_in_gate",
   },
-  { section: "site_conditions", label: "Site conditions", column: "site_conditions_gate" },
-  { section: "amenity_scope", label: "Amenity scope", column: "amenity_scope_gate" },
+  { section: "site_conditions", label: "Site Conditions", column: "site_conditions_gate" },
+  { section: "amenity_scope", label: "Amenity Scope", column: "amenity_scope_gate" },
   { section: "elevator", label: "Elevator", column: "elevator_gate" },
-  { section: "retail_storefronts", label: "Retail storefronts", column: "retail_storefronts_gate" },
+  { section: "retail_storefronts", label: "Retail Storefronts", column: "retail_storefronts_gate" },
   { section: "balconies", label: "Balconies", column: "balconies_gate" },
-  { section: "radio_amplifier", label: "Emergency radio amplifier (BDA)", column: "radio_amplifier_gate" },
+  { section: "radio_amplifier", label: "Emergency Radio Amplifier (BDA)", column: "radio_amplifier_gate" },
 ];
 
 const GATE_ANSWER_VALUES = new Set<BranchGateAnswer>(["yes", "no", "dont_know"]);

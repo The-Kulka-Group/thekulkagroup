@@ -15,9 +15,9 @@ export default async function VisionSources() {
   const selectedSources=readSourcePreference((await cookies()).get(SOURCE_SELECTION_COOKIE)?.value);
   const health=await discoverySourceHealth(getDb());
   return (
-    <Sheet number="V-001" title="Find opportunities" bodyClass="vision-workspace"
+    <Sheet number="V-001" title="Find Opportunities" bodyClass="vision-workspace"
       meta={<span>Long Island · Public planning and development records</span>}
-      actions={<><Link className="btn btn--primary" href="/vision/discover">Discovery inbox</Link><Link className="btn btn--quiet" href="/vision">Back to Vision</Link></>}>
+      actions={<><Link className="btn btn--primary" href="/vision/discover">Discovery Inbox</Link><Link className="btn btn--quiet" href="/vision">Back to Vision</Link></>}>
       <div className="vision-source-intro">
         <h2>Start with the public record.</h2>
         <p>The discovery inbox collects {AUTOMATED_SOURCE_DEFINITIONS.length} planning, zoning and IDA sources. The directory also lists public sources that require manual review, a record request or direct contact.</p>

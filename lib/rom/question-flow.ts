@@ -109,7 +109,7 @@ export class FlowDefinitionInvalid extends Error {
 export const BRANCH_GATE_ANSWERS: readonly { value: BranchGateAnswer; label: string }[] = [
   { value: "yes", label: "Yes" },
   { value: "no", label: "No" },
-  { value: "dont_know", label: "Don't know" },
+  { value: "dont_know", label: "Don't Know" },
 ];
 
 const QUESTION_KEYS = new Set([

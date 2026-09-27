@@ -120,7 +120,7 @@ export function EditProjectForm({
       ) : null}
       <div className="rb-acts">
         <button className="btn btn--primary" type="submit" disabled={!ready || busy}>
-          {busy ? "Saving" : "Save changes"}
+          {busy ? "Saving" : "Save Changes"}
         </button>
       </div>
       <div className="rb-acts">
@@ -131,7 +131,7 @@ export function EditProjectForm({
               Cancel
             </button>
             <button type="button" className="btn btn--redline" disabled={busy} onClick={archive}>
-              {busy ? "Archiving" : "Confirm archive"}
+              {busy ? "Archiving" : "Confirm Archive"}
             </button>
           </>
         ) : (
@@ -142,7 +142,7 @@ export function EditProjectForm({
             title={isEnvProject ? "This project is configured for this environment and cannot be archived." : undefined}
             onClick={() => setConfirmingArchive(true)}
           >
-            Archive project
+            Archive Project
           </button>
         )}
       </div>
@@ -189,7 +189,7 @@ export function RestorePanel({ projectId, onRestored }: { projectId: string; onR
       ) : null}
       <div className="rb-acts">
         <button type="button" className="btn btn--primary" disabled={busy} onClick={restore}>
-          {busy ? "Restoring" : "Restore project"}
+          {busy ? "Restoring" : "Restore Project"}
         </button>
       </div>
     </div>

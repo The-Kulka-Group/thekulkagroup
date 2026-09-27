@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { titleCase } from "@/lib/format/title-case";
+
 import type { BarModel, BarSpan, Chip } from "./field-order";
 import { UnpricedDot } from "./PackageCard";
 
@@ -88,7 +90,7 @@ export function ShareChip({ chip }: { chip: Chip | null }) {
   if (!chip) return null;
   return (
     <span className="sb-chip" key={chip.name}>
-      <b>{chip.name}</b>
+      <b>{titleCase(chip.name)}</b>
       {chip.figure === null ? (
         <span className="sb-none">
           <UnpricedDot />

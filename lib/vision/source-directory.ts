@@ -47,17 +47,17 @@ export type SourceCoverageSummary = {
 };
 
 export const SOURCE_ACCESS: Record<SourceAccessMode, {filterLabel: string}> = {
-  automated: {filterLabel: "Vision collects this source"},
-  "public-online": {filterLabel: "Public source, manual review"},
-  "request-or-contact": {filterLabel: "Request or account needed"},
-  "no-public-feed": {filterLabel: "No public project feed found"},
+  automated: {filterLabel: "Vision Collects This Source"},
+  "public-online": {filterLabel: "Public Source, Manual Review"},
+  "request-or-contact": {filterLabel: "Request or Account Needed"},
+  "no-public-feed": {filterLabel: "No Public Project Feed Found"},
 };
 
 export const COLLECTION_STATE_LABELS: Record<SourceCollectionState, string> = {
   collectable: "Collectable",
-  manual: "Manual review",
-  restricted: "Restricted access",
-  "no-public-feed": "No public feed",
+  manual: "Manual Review",
+  restricted: "Restricted Access",
+  "no-public-feed": "No Public Feed",
 };
 
 export function sourceIsCollectable(source: Pick<MunicipalSource, "collectionState">) {

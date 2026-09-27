@@ -16,7 +16,7 @@ export default async function UnderwritingPage() {
     <Sheet
       number="U-100"
       title="Underwriting"
-      actions={<Link className="btn btn--primary" href="/underwriting/new">New project</Link>}
+      actions={<Link className="btn btn--primary" href="/underwriting/new">New Project</Link>}
       meta={
         <>
           <span>Ground-up multifamily</span>

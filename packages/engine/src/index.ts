@@ -29,6 +29,7 @@ export {
   type ExcludedComparable,
   type FramingLine,
   type FramingLineStatus,
+  type UnpricedItem,
 } from "./rom";
 
 export {

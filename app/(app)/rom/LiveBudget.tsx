@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { DataSnapshot, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
+import type { DataSnapshot, FramingSystem, MarkupChoices, Rom, UnpricedItem } from "@kulka/engine";
 
 import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
@@ -74,6 +74,15 @@ const ORDER_AREA = "10000";
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * LA-1153: the header's count of items in scope with no benchmark behind
+ * them yet (ADR 0006, "A block can arrive unpriced"). Title case, since every
+ * label in the software is (CONTEXT.md / kulka-rom-naming-title-case).
+ */
+function itemsNotPricedLabel(count: number): string {
+  return count === 1 ? "1 Item Not Priced" : `${count} Items Not Priced`;
 }
 
 const snapshots = new Map<string, Promise<DataSnapshot>>();
@@ -238,6 +247,22 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
   const [delta, setDelta] = useState<{ id: number; amount: number } | null>(null);
   const previous = useRef<{ midpoint: number; area: number } | null>(null);
 
+  // LA-1153: named whether the area is known yet or not, the same way the
+  // trays below already read `answered` regardless of phase.
+  const unpricedCount =
+    live.phase === "ready"
+      ? live.rom.unpricedItems.length
+      : live.phase === "waiting"
+        ? live.answered.unpricedItems.length
+        : 0;
+  const unpricedBadge =
+    unpricedCount > 0 ? (
+      <span className="lb-unpriced">
+        <span className="rb-dot rb-dot--working" aria-hidden="true" />
+        {itemsNotPricedLabel(unpricedCount)}
+      </span>
+    ) : null;
+
   // Flash what an answer did to the total. A change of area is left out: it
   // moves every figure at once, and the rolling total already says so.
   useEffect(() => {
@@ -263,6 +288,7 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
         <span className="rb-tv num lb-wait">&mdash;</span>
         <span className="rb-tb">waiting on the gross area</span>
         <span className="lb-tag">Preview, not saved</span>
+        {unpricedBadge}
       </div>
     );
   }
@@ -285,6 +311,7 @@ export function LiveTotal({ live }: { live: LiveBudget }) {
         </span>
       ) : null}
       <span className="lb-tag">Preview, not saved</span>
+      {unpricedBadge}
       <Composition rom={ready.rom} />
       <span className="lb-sr" aria-live="polite">
         {headline.label} {headlineMoney(headline.midpoint, headline)}
@@ -354,6 +381,11 @@ export function LiveField({ live }: { live: LiveBudget }) {
   const answered = live.phase === "ready" || live.phase === "waiting" ? live.answered : null;
   const notInJob = answered?.notInThisJob ?? [];
   const tbd = answered?.tbdGateItems ?? [];
+  // LA-1153: an item in scope with nothing pricing it yet (ADR 0006). It is
+  // not a `TradeBlock`, since it never adds to the total, so it is not read
+  // off `answered` the way the trays above are; it comes straight off the
+  // ROM, which is the same list whichever ROM the caller passes here.
+  const unpriced = answered?.unpricedItems ?? [];
   const kulka = blocks.filter((block) => !block.ownerDirect);
   const owner = blocks.filter((block) => block.ownerDirect);
   const rank = new Map(blocks.map((block, index) => [block.costCode, index]));
@@ -498,6 +530,16 @@ export function LiveField({ live }: { live: LiveBudget }) {
           <div className="rb-grid">{owner.map(tile)}</div>
         </section>
       ) : null}
+      {unpriced.length > 0 ? (
+        <section className="rb-grp" aria-label="Not Priced Yet">
+          <h2>Not Priced Yet</h2>
+          <div className="rb-grid">
+            {unpriced.map((item) => (
+              <UnpricedBlock key={item.costCode} item={item} register={register(`unpriced:${item.costCode}`)} />
+            ))}
+          </div>
+        </section>
+      ) : null}
       {tbd.length > 0 || notInJob.length > 0 ? (
         <div className="lb-trays">
           {tbd.length > 0 ? (
@@ -564,6 +606,36 @@ function LiveBlock({
       />
       <span className="rb-bar" aria-hidden="true">
         <i style={{ transform: `scaleX(${waiting ? 0 : Math.max(0.02, Math.min(1, block.share)).toFixed(4)})` }} />
+      </span>
+    </div>
+  );
+}
+
+/**
+ * LA-1153: a canonical item in scope with no benchmark behind it yet (ADR
+ * 0006, "A block can arrive unpriced"). It carries no figure and no bar, only
+ * the label and the orange "No Rate Yet" status, so it reads as scope that
+ * arrived rather than as a zero.
+ */
+function UnpricedBlock({
+  item,
+  register,
+}: {
+  item: UnpricedItem;
+  register: (el: HTMLElement | null) => void;
+}) {
+  return (
+    <div ref={register} className="rb-blk lb-blk lb-blk--unpriced" aria-label={`${item.label}, No Rate Yet`}>
+      <span className="rb-bn">{item.label}</span>
+      <span className="rb-st lb-st lb-st--on">
+        <span className="rb-dot rb-dot--working" aria-hidden="true" />
+        No Rate Yet
+      </span>
+      <span className="rb-bv num rb-v4" aria-hidden="true">
+        &mdash;
+      </span>
+      <span className="rb-bar" aria-hidden="true">
+        <i style={{ transform: "scaleX(0.02)" }} />
       </span>
     </div>
   );

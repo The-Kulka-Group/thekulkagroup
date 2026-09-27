@@ -785,3 +785,78 @@ describe("branch gate items (LA-1028)", () => {
     expect(rom.markups?.subtotal.high).toBe(0);
   });
 });
+
+describe("in-scope items with no rate (LA-1153, ADR 0006)", () => {
+  // ADR 0006, "A block can arrive unpriced": a supporting item such as the
+  // Electrical Service Disconnect has no benchmark behind it yet, but it is
+  // in scope and must still arrive on the board, out of every total. The
+  // declaration lives on the snapshot, not on `Answers`: `Answers` feeds
+  // lib/rom/question-flow.ts's `EngineInputName`, one form field per key, and
+  // this is a fact a relationship derives, never a question of its own.
+  function unpricedSnapshot(...items: { costCode: string; label: string }[]): DataSnapshot {
+    return { ...snapshot(benchmark()), unpricedInScopeItems: items };
+  }
+
+  it("carries an in-scope item nothing prices as unpriced, not as a line", () => {
+    const rom = computeRom(
+      ANSWERS,
+      unpricedSnapshot({ costCode: "31F", label: "Electrical Service Disconnect" }),
+    );
+
+    expect(rom.lines.map((l) => l.costCode)).toEqual(["TEST-A"]);
+    expect(rom.unpricedItems).toEqual([{ costCode: "31F", label: "Electrical Service Disconnect" }]);
+  });
+
+  it("keeps the total, the Kulka contract total, and the markup subtotal to the priced lines alone", () => {
+    const markups: Answers["markups"] = {
+      setup: "both",
+      method: "pct_of_subtotal",
+      overrideRate: 0.1,
+      feeRate: 0,
+      insuranceRate: 0,
+    };
+    const priced = computeRom(ANSWERS, snapshot(benchmark()));
+    const pricedWithMarkups = computeRom({ ...ANSWERS, markups }, snapshot(benchmark()));
+    const withUnpriced = computeRom(
+      { ...ANSWERS, markups },
+      unpricedSnapshot(
+        { costCode: "31F", label: "Electrical Service Disconnect" },
+        { costCode: "28A", label: "Plumbing Disconnect and Cap" },
+      ),
+    );
+
+    expect(withUnpriced.total).toEqual(priced.total);
+    expect(withUnpriced.kulkaContractTotal).toEqual(priced.kulkaContractTotal);
+    expect(withUnpriced.markups?.subtotal).toEqual(pricedWithMarkups.markups?.subtotal);
+  });
+
+  it("names the unpriced items in the assumptions, by count and label", () => {
+    const rom = computeRom(
+      ANSWERS,
+      unpricedSnapshot(
+        { costCode: "31F", label: "Electrical Service Disconnect" },
+        { costCode: "28A", label: "Plumbing Disconnect and Cap" },
+      ),
+    );
+
+    const text = rom.assumptions.join(" ");
+    expect(text).toContain("2 items");
+    expect(text).toContain("Electrical Service Disconnect");
+    expect(text).toContain("Plumbing Disconnect and Cap");
+  });
+
+  it("never lists a cost code twice when a benchmark already prices it", () => {
+    const rom = computeRom(ANSWERS, unpricedSnapshot({ costCode: "TEST-A", label: "Synthetic test line" }));
+
+    expect(rom.unpricedItems).toEqual([]);
+    expect(rom.lines).toHaveLength(1);
+  });
+
+  it("behaves exactly as before when no in-scope items without a rate are supplied", () => {
+    const bare = computeRom(ANSWERS, snapshot(benchmark()));
+    const explicit = computeRom(ANSWERS, unpricedSnapshot());
+
+    expect(bare.unpricedItems).toEqual([]);
+    expect(JSON.stringify(bare)).toBe(JSON.stringify(explicit));
+  });
+});

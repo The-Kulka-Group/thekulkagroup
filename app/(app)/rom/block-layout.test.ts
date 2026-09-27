@@ -54,6 +54,7 @@ function rom(lines: RomLine[], markups?: Markups): Rom {
     notInThisJob: [],
     tbdGateItems: [],
     assumedPresentItems: [],
+    unpricedItems: [],
     assumptions: [],
     parameters: {} as Rom["parameters"],
   };

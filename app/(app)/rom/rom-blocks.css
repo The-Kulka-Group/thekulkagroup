@@ -565,6 +565,23 @@
   align-self: center;
 }
 
+/* LA-1153: the header's count of items in scope with no rate yet (ADR 0006).
+   Same pill as .lb-tag, with the orange dot the block below also carries. */
+.lb-unpriced {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--chip-size);
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rb-pnl-line2);
+  color: var(--rb-ink2-on-black);
+  align-self: center;
+}
+.lb-unpriced .rb-dot { width: 7px; height: 7px; }
+
 /* What the last answer did to the total: rises in, holds, and clears. */
 .lb-delta {
   font-size: 16px;
@@ -627,6 +644,10 @@
 .lb-blk:hover { border-color: var(--rb-blk-line); }
 .lb-blk--wait .rb-bn { color: var(--rb-blk-ink2); }
 .lb-blk--wait .rb-bv { color: var(--rb-blk-line); }
+/* LA-1153: no figure prices this block yet, so its dash stays as muted as a
+   line still waiting on the gross area, and the bar never fills. */
+.lb-blk--unpriced .rb-bv { color: var(--rb-blk-line); }
+.lb-blk--unpriced .rb-bar i { background: var(--rb-track); }
 .lb-st:empty { display: none; }
 .lb-st--on { animation: lb-in 280ms var(--lb-ease) both; }
 

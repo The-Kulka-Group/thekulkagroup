@@ -87,6 +87,7 @@ export {
   type BranchGateAnswer,
   type BranchGateResult,
   type ClosingComparisonScore,
+  type DemolitionStructureType,
   type GrossSquareFeetProposal,
   type ParkingPricing,
   type ParkingRate,

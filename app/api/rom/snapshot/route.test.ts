@@ -62,15 +62,30 @@ describe("GET /api/rom/snapshot", () => {
       gross_square_feet: "42000",
       parking_type: "none",
     };
-    // A run refuses a blank scope question, so every gate is answered: the
-    // first yes, the rest no, so the comparison covers both.
-    visibleQuestions(tier1Flow(), responses)
-      .filter((question) => question.kind === "branch_gate")
-      .forEach((question, index) => {
-        responses[question.id] = index === 0 ? "yes" : "no";
-      });
-    for (const question of visibleQuestions(tier1Flow(), responses)) {
-      if (question.kind === "number" && !responses[question.id]) responses[question.id] = "1";
+    // A run refuses a blank scope question, so every gate and follow-up gets
+    // an answer: the first gate yes, the rest no, so the comparison covers
+    // both. Opening one follow-up can open another (demolition's structure
+    // count opens its own square-feet and structure-type questions), so this
+    // fills in a whole pass and re-reads what is visible until nothing new
+    // opens, rather than assuming one pass reaches every question.
+    let sawFirstGate = false;
+    let unanswered = visibleQuestions(tier1Flow(), responses).filter(
+      (question) => responses[question.id] === undefined,
+    );
+    while (unanswered.length > 0) {
+      for (const question of unanswered) {
+        if (question.kind === "branch_gate") {
+          responses[question.id] = sawFirstGate ? "no" : "yes";
+          sawFirstGate = true;
+        } else if (question.kind === "number") {
+          responses[question.id] = "1";
+        } else if (question.kind === "choice") {
+          responses[question.id] = question.choices![0].value;
+        }
+      }
+      unanswered = visibleQuestions(tier1Flow(), responses).filter(
+        (question) => responses[question.id] === undefined,
+      );
     }
     const markups = { setup: "both", method: "pct_of_subtotal" } as const;
 

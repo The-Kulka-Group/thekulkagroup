@@ -62,7 +62,32 @@
       "prompt": "How many structures come down?",
       "kind": "number",
       "required": true,
+      "opens": ["demolition_structure_square_feet", "demolition_structure_type"],
+      "opensWhen": { "type": "number_at_least_one" },
       "mapsTo": { "target": "intake_field", "name": "demolitionStructureCount" }
+    },
+    {
+      "id": "demolition_structure_square_feet",
+      "prompt": "How many square feet of structure come down?",
+      "help": "Gross floor area, every floor counted.",
+      "kind": "number",
+      "required": true,
+      "mapsTo": { "target": "intake_field", "name": "demolitionStructureSquareFeet" }
+    },
+    {
+      "id": "demolition_structure_type",
+      "prompt": "What kind of structure comes down?",
+      "kind": "choice",
+      "required": true,
+      "choices": [
+        { "value": "wood_frame_type_v", "label": "Wood Frame (Type V)" },
+        { "value": "masonry_bearing_wall_type_iii", "label": "Masonry Bearing Wall with Wood Floors (Type III)" },
+        { "value": "pre_engineered_metal_or_light_steel", "label": "Pre-Engineered Metal or Light Steel" },
+        { "value": "steel_frame_concrete_metal_deck_type_ii", "label": "Steel Frame with Concrete on Metal Deck (Type II)" },
+        { "value": "cast_in_place_concrete_frame_type_i", "label": "Cast-in-Place Concrete Frame (Type I)" },
+        { "value": "dont_know", "label": "Don't Know" }
+      ],
+      "mapsTo": { "target": "intake_field", "name": "demolitionStructureType" }
     },
     {
       "id": "levels_below_grade",

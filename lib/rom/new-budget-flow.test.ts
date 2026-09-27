@@ -37,6 +37,22 @@ describe("factsQuestions / scopeQuestions", () => {
     expect(open).toContain("demolition_structure_count");
   });
 
+  it("shows the square-feet and structure-type follow-ups only once the count is one or more", () => {
+    const zero = scopeQuestions(tier1Flow(), {
+      demolition: "yes",
+      demolition_structure_count: "0",
+    }).map((q) => q.id);
+    expect(zero).not.toContain("demolition_structure_square_feet");
+    expect(zero).not.toContain("demolition_structure_type");
+
+    const two = scopeQuestions(tier1Flow(), {
+      demolition: "yes",
+      demolition_structure_count: "2",
+    }).map((q) => q.id);
+    expect(two).toContain("demolition_structure_square_feet");
+    expect(two).toContain("demolition_structure_type");
+  });
+
   it("carries the file's own wording rather than anything hard-coded here", () => {
     const [projectType] = factsQuestions(tier1Flow(), {});
     expect(projectType.prompt).toBe("What kind of project is this?");
@@ -71,6 +87,32 @@ describe("requiredAnswered", () => {
         parking_type: "none",
       }),
     ).toBe(false);
+  });
+
+  it("accepts a structure count of zero, since that closes its own follow-ups rather than leaving them unanswered", () => {
+    const responses = { demolition: "yes", demolition_structure_count: "0" };
+    const countOnly = scopeQuestions(tier1Flow(), responses).filter(
+      (q) => q.id === "demolition_structure_count",
+    );
+    expect(requiredAnswered(countOnly, responses)).toBe(true);
+  });
+
+  it("requires the square-feet and structure-type follow-ups once the count opens them", () => {
+    const followUps = (responses: Record<string, string>) =>
+      scopeQuestions(tier1Flow(), responses).filter((q) =>
+        ["demolition_structure_square_feet", "demolition_structure_type"].includes(q.id),
+      );
+
+    const unanswered = { demolition: "yes", demolition_structure_count: "2" };
+    expect(requiredAnswered(followUps(unanswered), unanswered)).toBe(false);
+
+    const answered = {
+      demolition: "yes",
+      demolition_structure_count: "2",
+      demolition_structure_square_feet: "18000",
+      demolition_structure_type: "wood_frame_type_v",
+    };
+    expect(requiredAnswered(followUps(answered), answered)).toBe(true);
   });
 });
 

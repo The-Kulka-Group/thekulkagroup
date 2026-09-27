@@ -26,6 +26,9 @@ A question whose answer decides whether a whole section of the intake appears, o
 form a required item prices under, such as whether the site has existing structures to
 demolish. It takes three answers: yes, no, or don't know. A "no" prices that section at
 zero. A "don't know" shows TBD on the schedule of values and is left out of the total.
+A "yes" is also what brings a driver into the budget (see Driver). Left unanswered, a run
+prices the gated items as assumed present, while the live budget in New Budget leaves
+them off the screen until an answer puts them in scope (ADR 0006).
 _Avoid_: conditional question, skip logic, gate question
 
 **Code lookup**:
@@ -64,6 +67,43 @@ _Avoid_: cost code (that word belongs to a source system), line item
 A scope of work as it was actually bought, meaning one subcontract with one supplier. A
 package can span more than one CSI division.
 _Avoid_: trade package, bid package, contract
+
+**Element**:
+A named group of canonical work items that together make one physical thing, across
+whatever trades build it, such as Demolition or Elevator. On the ROM screen an element
+is the parent box: it shows the sum of its items, with the driver as a full-width tile
+and each supporting item as its own tile inside it. It is one of the three rollups in
+ADR 0002, the one a developer reads.
+_Avoid_: group, bundle, assembly (that word belongs to estimating software)
+
+**Driver**:
+The canonical work item an answer brings into the budget, and the one whose presence
+brings in its supporting items. Structure Demolition is a driver: answering that one or
+more structures come down brings it in, and it brings in the disconnects.
+_Avoid_: parent item, source item, trigger
+
+**Supporting Item**:
+A canonical work item that exists in a budget only because its driver does, such as the
+Electrical Service Disconnect that Structure Demolition brings in. It adds to the total
+in its own right; it is not carved out of another item's rate, which is what separates
+it from a breakout. It follows its driver: TBD when the driver is TBD, absent when the
+driver is absent. It keeps its own buyout package and division, so it counts once, in
+its element's box on By Scope and in its package's block on By Package.
+_Avoid_: dependent item, child item, add-on, breakout (a breakout adds nothing)
+
+**Relationship**:
+A stated rule that a driver brings in a supporting item, recorded with who stated it,
+when, and why, the same way a scope-gate rule is. Relationships are data, never code
+and never the question file, so a question cannot quietly add scope or cost. Matt
+states them; nothing infers them.
+_Avoid_: dependency, link, rule (too broad on its own)
+
+**View**:
+One of the three ways the ROM screen groups the same lines: By Scope (by element), By
+Package (by buyout package), and By Division (by MasterFormat division). Every view
+shows every line exactly once and the same total. New Budget opens on By Scope; a saved
+ROM opens on By Package.
+_Avoid_: mode, tab, layout
 
 **Trade cost**:
 The sum of every MasterFormat division from 01 to 33, before any 90-series item applies.

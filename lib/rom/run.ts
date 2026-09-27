@@ -19,6 +19,7 @@ import {
   type ParameterName,
   type ParkingType,
   type Rom,
+  type ScopeRelationship,
   type StaffingRate,
 } from "@kulka/engine";
 
@@ -171,6 +172,16 @@ type GateItemRow = {
   cost_code: string;
   closes_on: string[];
   requires_all_sections: string[] | null;
+  stated_by: string;
+  stated_on: Date | string;
+  reason: string;
+};
+
+type RelationshipRow = {
+  driver_cost_code: string;
+  supporting_cost_code: string;
+  supporting_label: string;
+  quantity_rule: ScopeRelationship["quantityRule"];
   stated_by: string;
   stated_on: Date | string;
   reason: string;
@@ -338,6 +349,8 @@ export type BenchmarkData = {
   classifications: BlockClassification[];
   markupHistory: MarkupHistoryRow[];
   branchGateItems: BranchGateItemRule[];
+  /** Stated driver-to-supporting-item relationships (LA-1154). */
+  scopeRelationships: ScopeRelationship[];
   /** Past jobs' recorded framing systems, by project id (LA-1103). Absent reads as none recorded. */
   sourceProjectFraming?: Record<string, FramingSystem>;
 };
@@ -390,6 +403,16 @@ export async function readBenchmarkData(
       order by section, cost_code`,
   );
 
+  // scope_relationships (LA-1154, ADR 0006) is read here for the same reason
+  // as branch_gate_items: a stated cost-code mapping that joins the snapshot
+  // only when there are some.
+  const { rows: relationships } = await db.query<RelationshipRow>(
+    `select driver_cost_code, supporting_cost_code, supporting_label,
+            quantity_rule, stated_by, stated_on, reason
+       from scope_relationships
+      order by driver_cost_code, supporting_cost_code`,
+  );
+
   // Each past job's framing system (LA-1103), read for items 8 and 17. Only
   // jobs with one recorded come back, so an unset job reads as unset.
   const { rows: framingRows } = await db.query<{ id: string; framing_system: FramingSystem }>(
@@ -405,6 +428,7 @@ export async function readBenchmarkData(
     classifications: classifications.map(toClassification),
     markupHistory: await readMarkupHistory(db),
     branchGateItems: gateItems.map(toGateItemRule),
+    scopeRelationships: relationships.map(toRelationship),
     sourceProjectFraming,
   };
 }
@@ -439,6 +463,7 @@ export function assembleSnapshot(
   if (judgmentRules.length > 0) snapshot.judgmentRules = judgmentRules;
   if (data.classifications.length > 0) snapshot.classifications = data.classifications;
   if (data.branchGateItems.length > 0) snapshot.branchGateItems = data.branchGateItems;
+  if (data.scopeRelationships.length > 0) snapshot.scopeRelationships = data.scopeRelationships;
   if (data.sourceProjectFraming && Object.keys(data.sourceProjectFraming).length > 0) {
     snapshot.sourceProjectFraming = data.sourceProjectFraming;
   }
@@ -569,6 +594,18 @@ function toGateItemRule(row: GateItemRow): BranchGateItemRule {
     section: factKey(row.section),
     requiresAllSections: (row.requires_all_sections ?? []).map(factKey),
     closesOn: row.closes_on,
+    statedBy: row.stated_by,
+    statedOn: isoDate(row.stated_on),
+    reason: row.reason,
+  };
+}
+
+function toRelationship(row: RelationshipRow): ScopeRelationship {
+  return {
+    driverCostCode: row.driver_cost_code,
+    supportingCostCode: row.supporting_cost_code,
+    supportingLabel: row.supporting_label,
+    quantityRule: row.quantity_rule,
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),
     reason: row.reason,

@@ -154,13 +154,13 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       </LineSection>
 
       <MoneyLineSection title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" canAdd={canAddLine} lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
-        ["usd_per_year", "USD Per Year"], ["usd_per_occupied_unit_month", "USD Per Occupied Unit Per Month"],
+        ["usd_per_year", "USD per Year"], ["usd_per_occupied_unit_month", "USD per Occupied Unit per Month"],
       ]} fieldErrors={fieldErrors} />
       <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" units={[
-        ["usd_per_year", "USD Per Year"], ["usd_per_unit_year", "USD Per Unit Per Year"], ["percent_effective_gross_revenue", "Percent Of Effective Gross Revenue"],
+        ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"], ["percent_effective_gross_revenue", "Percent of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
       <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" units={[
-        ["usd_per_year", "USD Per Year"], ["usd_per_unit_year", "USD Per Unit Per Year"],
+        ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"],
       ]} fieldErrors={fieldErrors} />
 
       {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
@@ -175,7 +175,7 @@ const ASSUMPTION_LABELS: Record<ApartmentOperationsAssumptionKey, string> = {
   operationStartMonth: "Operation Start Month",
   growthStartMonth: "Growth Start Month",
   preleasedUnits: "Pre-Leased Units",
-  leaseUpUnitsPerMonth: "Lease-Up Units Per Month",
+  leaseUpUnitsPerMonth: "Lease-Up Units per Month",
   annualIncomeGrowthPercent: "Annual Income Growth",
   annualExpenseGrowthPercent: "Annual Expense Growth",
   rentAdjustmentLossPercent: "Rent Adjustment Loss",

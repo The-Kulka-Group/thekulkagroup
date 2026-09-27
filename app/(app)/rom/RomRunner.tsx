@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockClassification, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
 import type { GateAnswers } from "@/lib/rom/gates";
@@ -20,14 +20,17 @@ import {
   valueTier,
 } from "./block-layout";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
-import { ElementBoxBlock } from "./ElementBox";
+import { ElementBoxBlock, PackageBoxBlock } from "./ElementBox";
 import { type ElementGroup, groupElements } from "./element-groups";
 import { GuidedNewBudget } from "./GuidedNewBudget";
 import { type BudgetDraft, LiveField, LiveTotal, useLiveBudget } from "./LiveBudget";
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
+import { useFieldFlip } from "./motion";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
+import { type PackageGroup, type RomView, groupByPackage } from "./view-groups";
+import { useRomView, ViewSwitch } from "./view-switch";
 import "./rom-blocks.css";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
@@ -117,6 +120,11 @@ export function RomRunner({
   const opener = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
+  // LA-1159, ADR 0006, CONTEXT.md: View. New budget opens on By Scope and a
+  // saved ROM opens on By Package; once the viewer has picked a view at all,
+  // that choice follows them everywhere (useRomView, view-switch.tsx).
+  const [view, setView] = useRomView(panel?.kind === "new" ? "scope" : "package");
+
   const busy = state.phase === "running" || state.phase === "loading";
   const blocks = useMemo(() => (run ? tradeBlocks(run.rom) : []), [run]);
   // LA-1158, ADR 0006: an element with a stated driver and something else in
@@ -127,13 +135,21 @@ export function RomRunner({
     () => (run ? groupElements(run.rom, classifications).groups : []),
     [run, classifications],
   );
+  // LA-1159: the same lines grouped By Package instead. Every line that adds
+  // to the total lands in some package group, Unassigned Package included, so
+  // there is nothing left for `blocks` to show once this view is active.
+  const packageGroups: PackageGroup[] = useMemo(
+    () => (run ? groupByPackage(run.rom, classifications).groups : []),
+    [run, classifications],
+  );
   const singleBlocks = useMemo(() => {
+    if (view === "package") return [];
     if (elementGroups.length === 0) return blocks;
     const grouped = new Set(
       elementGroups.flatMap((group) => [group.driver, ...group.members].map((item) => item.costCode)),
     );
     return blocks.filter((block) => !grouped.has(block.costCode));
-  }, [blocks, elementGroups]);
+  }, [blocks, elementGroups, view]);
   const headline = useMemo(() => (run ? headlineOf(run.rom) : null), [run]);
   const drilldown = useProvenance(run?.runId ?? null);
 
@@ -309,6 +325,7 @@ export function RomRunner({
           ) : null}
           {!projectId ? <span>{projectNotFound ? "Project not found" : "No project configured"}</span> : null}
           <span className="rb-sp" />
+          {run || panel?.kind === "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
           <button
             type="button"
             className="rb-hbtn"
@@ -408,7 +425,7 @@ export function RomRunner({
 
       <main className="rb-fld" aria-busy={busy}>
         {/* LA-1142: and the field shows the budget building. */}
-        <div className="rb-fresh-note">{panel?.kind === "new" ? <LiveField live={live} /> : null}</div>
+        <div className="rb-fresh-note">{panel?.kind === "new" ? <LiveField live={live} view={view} /> : null}</div>
         {state.phase === "idle" && !run ? (
           <p className="rb-none">
             {projectId
@@ -427,12 +444,14 @@ export function RomRunner({
           </p>
         ) : null}
         {run ? (
-          singleBlocks.length === 0 && elementGroups.length === 0 ? (
+          singleBlocks.length === 0 && elementGroups.length === 0 && packageGroups.length === 0 ? (
             <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
           ) : (
             <BlockField
+              view={view}
               blocks={singleBlocks}
-              groups={elementGroups}
+              groups={view === "scope" ? elementGroups : []}
+              packageGroups={view === "package" ? packageGroups : []}
               selected={openBlock?.costCode ?? null}
               onOpen={(costCode, el) => openPanel({ kind: "block", costCode }, el)}
             />
@@ -586,23 +605,42 @@ export function RomRunner({
   );
 }
 
-/** A block or an element box, the one unit BlockField sorts and lays out. */
+/** A block, an element box or a package box: the one unit BlockField sorts and lays out. */
 type FieldTile =
   | { kind: "block"; key: string; midpoint: number; ownerDirect: boolean; block: TradeBlock }
-  | { kind: "group"; key: string; midpoint: number; ownerDirect: boolean; group: ElementGroup };
+  | { kind: "element"; key: string; midpoint: number; ownerDirect: boolean; group: ElementGroup }
+  | { kind: "package"; key: string; midpoint: number; ownerDirect: boolean; group: PackageGroup };
 
+/**
+ * The saved ROM's field. LA-1159, ADR 0006: `view` picks the grouping, By
+ * Scope (element boxes over loose blocks) or By Package (one flat block per
+ * buyout package and nothing loose). The header total this field sits under
+ * never re-renders when `view` changes; only these blocks regroup, on the
+ * same FLIP tracker New budget's field uses (`useFieldFlip`, motion.ts), so a
+ * tile crossing from a box into a package block reads as one thing
+ * travelling rather than one vanishing and another appearing.
+ */
 function BlockField({
+  view,
   blocks,
   groups,
+  packageGroups,
   selected,
   onOpen,
 }: {
+  view: RomView;
   blocks: TradeBlock[];
   /** Element boxes (LA-1158, ADR 0006); `blocks` above excludes what these already show. */
   groups: ElementGroup[];
+  /** Package boxes (LA-1159); empty unless `view` is "package". */
+  packageGroups: PackageGroup[];
   selected: string | null;
   onOpen: (costCode: string, el: HTMLElement) => void;
 }) {
+  const flip = useFieldFlip();
+  const layer = useRef<HTMLDivElement>(null);
+  const ghosts = useRef<HTMLDivElement>(null);
+
   const tiles: FieldTile[] = [
     ...blocks.map((block) => ({
       kind: "block" as const,
@@ -612,8 +650,15 @@ function BlockField({
       block,
     })),
     ...groups.map((group) => ({
-      kind: "group" as const,
+      kind: "element" as const,
       key: `element:${group.element}`,
+      midpoint: (group.total.low + group.total.high) / 2,
+      ownerDirect: group.ownerDirect,
+      group,
+    })),
+    ...packageGroups.map((group) => ({
+      kind: "package" as const,
+      key: `package:${group.package}`,
       midpoint: (group.total.low + group.total.high) / 2,
       ownerDirect: group.ownerDirect,
       group,
@@ -621,18 +666,65 @@ function BlockField({
   ].sort((a, b) => b.midpoint - a.midpoint || a.key.localeCompare(b.key));
   const kulka = tiles.filter((tile) => !tile.ownerDirect);
   const owner = tiles.filter((tile) => tile.ownerDirect);
+  const rank = new Map(tiles.map((tile, index) => [tile.key, index]));
 
-  const render = (tile: FieldTile) =>
-    tile.kind === "group" ? (
-      <ElementBoxBlock key={tile.key} group={tile.group} selected={selected} onOpen={onOpen} />
-    ) : (
-      <Block key={tile.key} block={tile.block} selected={selected === tile.key} onOpen={onOpen} />
+  const tileDelay = new Map<string, number>();
+  for (const tile of tiles) {
+    if (tile.kind === "element") {
+      const base = (rank.get(tile.key) ?? 0) * 22;
+      tileDelay.set(tile.group.driver.costCode, base);
+      tile.group.members.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * (index + 1)));
+    } else if (tile.kind === "package") {
+      const base = (rank.get(tile.key) ?? 0) * 22;
+      tile.group.items.forEach((item, index) => tileDelay.set(item.costCode, base + 70 * index));
+    }
+  }
+
+  useLayoutEffect(() => {
+    flip.run(layer.current, ghosts.current, rank, { delayFor: (key) => tileDelay.get(key) });
+  });
+
+  const render = (tile: FieldTile) => {
+    if (tile.kind === "element") {
+      return (
+        <ElementBoxBlock
+          key={tile.key}
+          group={tile.group}
+          selected={selected}
+          onOpen={onOpen}
+          register={flip.register(tile.key)}
+        />
+      );
+    }
+    if (tile.kind === "package") {
+      return (
+        <PackageBoxBlock
+          key={tile.key}
+          group={tile.group}
+          selected={selected}
+          onOpen={onOpen}
+          register={flip.register(tile.key)}
+        />
+      );
+    }
+    return (
+      <Block
+        key={tile.key}
+        block={tile.block}
+        selected={selected === tile.key}
+        onOpen={onOpen}
+        register={flip.register(tile.key)}
+      />
     );
+  };
+
+  const heading = view === "package" ? "Packages, biggest first" : "Trades, biggest first";
 
   return (
-    <>
+    <div className="rb-vflip" ref={layer}>
+      <div className="lb-ghosts" ref={ghosts} aria-hidden="true" />
       <section className="rb-grp" aria-label="Trades">
-        <h2>Trades, biggest first</h2>
+        <h2>{heading}</h2>
         <div className="rb-grid">{kulka.map(render)}</div>
       </section>
       {owner.length > 0 ? (
@@ -641,7 +733,7 @@ function BlockField({
           <div className="rb-grid">{owner.map(render)}</div>
         </section>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -649,13 +741,17 @@ export function Block({
   block,
   selected,
   onOpen,
+  register,
 }: {
   block: TradeBlock;
   selected: boolean;
   onOpen: (costCode: string, el: HTMLElement) => void;
+  /** LA-1159: the block's own root node, for the field's FLIP tracker. */
+  register?: (el: HTMLElement | null) => void;
 }) {
   return (
     <button
+      ref={register}
       type="button"
       className={`rb-blk${selected ? " rb-blk--sel" : ""}`}
       aria-pressed={selected}

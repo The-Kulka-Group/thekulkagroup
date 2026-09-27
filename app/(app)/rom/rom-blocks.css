@@ -131,6 +131,32 @@
 .rb-hbtn[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #FFFFFF; }
 .rb-hdr .btn--primary:disabled { background: var(--rb-pnl-raise); border-color: var(--rb-pnl-line2); color: var(--rb-pnl-mute); }
 
+/* LA-1159: the By Scope / By Package switch, a pill the same height as the
+   other header controls so it sits in the band without changing its rhythm. */
+.rb-vsw {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 var(--s4);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--rb-pnl-line2);
+  background: var(--rb-pnl-raise);
+}
+.rb-vopt {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: var(--ui-size);
+  font-weight: 600;
+  color: var(--rb-pnl-mute);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease);
+}
+.rb-vopt:hover { color: var(--rb-ink2-on-black); }
+.rb-vopt[aria-pressed="true"] { color: var(--rb-ink-on-black); }
+.rb-vdot { color: var(--rb-pnl-line2); }
+
 .rb-t2 {
   margin-top: 8px;
   display: flex;
@@ -207,6 +233,10 @@
   background: var(--surface);
 }
 .rb-grp + .rb-grp { margin-top: 16px; }
+/* LA-1159: the saved ROM's field wrapper, so the FLIP ghost layer it shares
+   with the live budget's field (motion.ts, useFieldFlip) positions against
+   this box rather than the page. */
+.rb-vflip { position: relative; }
 .rb-grp h2 {
   margin: 0 0 8px;
   font-size: var(--meta-size);
@@ -790,6 +820,21 @@ button.eb-tile:hover { border-color: var(--rb-blk-hover); }
 .eb-tile--wait .eb-tn { color: var(--rb-blk-ink2); }
 .eb-tile--wait .eb-tv { color: var(--rb-blk-line); }
 .lb-blk--wait .eb-hv { color: var(--rb-blk-line); }
+
+/* LA-1159, ADR 0006: a supporting item sitting in its own package's block
+   carries this small mark; the driver it came from is named on hover (or
+   focus) through the tile's own title/aria-label, never a tooltip built
+   twice. */
+.eb-sup {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.45;
+  vertical-align: middle;
+}
 
 @media (max-width: 860px) {
   .eb-box { grid-column: span 2; }

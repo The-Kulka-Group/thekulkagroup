@@ -119,4 +119,9 @@ describe("DerivedCriteriaSection", () => {
     expect(html).toContain("2 Rest on an Assumed Fact");
     expect(html).toContain("planning assumptions for the budget");
   });
+
+  it("says Rests when one criterion rests on an assumed fact", () => {
+    const html = renderToStaticMarkup(<DerivedCriteriaSection items={[criterion()]} {...props} />);
+    expect(html).toContain("1 Rests on an Assumed Fact");
+  });
 });

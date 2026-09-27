@@ -206,7 +206,7 @@ export function DerivedCriteriaSection({
               onClick={(e) => onOpen(leaning[0].code, e.currentTarget)}
             >
               <span className="dc-dot dc-dot--low" aria-hidden="true" />
-              {leaning.length} Rest on an Assumed Fact
+              {`${leaning.length} ${leaning.length === 1 ? "Rests" : "Rest"} on an Assumed Fact`}
             </button>
           ) : null}
           <span>

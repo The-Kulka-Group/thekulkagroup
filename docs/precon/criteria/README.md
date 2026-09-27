@@ -10,7 +10,7 @@ pricing. A build ticket follows each once Matt answers its open questions.
 | -- | -- | -- |
 | LA-774 | `la-774-sprinkler-system.md` | SP-1 Hazard Classification Split, SP-2 Standpipe System Requirement, SP-4 Trash Chute Head Count. Fire pump (SP-3) stays a stated gate. |
 | LA-775 | `la-775-plumbing-fixture-units.md` | P-1 Fixture-Unit Sizing |
-| LA-776 | `la-776-electrical-service-size.md` | E-1 Electrical Service Size. Needs another pass; see its review note. |
+| LA-776 | `la-776-electrical-service-size.md` | E-1 Electrical Service Size, by the multifamily method. Its method changed in review. |
 | LA-777 | `la-777-hvac-tonnage.md` | M-0 Window Area and Orientation, M-1 HVAC Tonnage |
 | LA-781 | `la-781-insulation.md` | I-1 Thermal Envelope Insulation, I-2 Acoustic Insulation |
 | LA-784 | `la-784-elevator-type.md` | V-1 Elevator Type |

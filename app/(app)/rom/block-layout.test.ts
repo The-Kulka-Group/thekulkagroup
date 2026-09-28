@@ -235,13 +235,18 @@ describe("the /rom block layout", () => {
 });
 
 describe("the saved-runs strip", () => {
-  const summary = (id: string, projectId: string, status: RunSummary["status"]): RunSummary => ({
+  const summary = (
+    id: string,
+    projectId: string,
+    status: RunSummary["status"],
+    startedAt = "2026-09-25T15:00:00.000Z",
+  ): RunSummary => ({
     id,
     projectId,
     projectName: "Synthetic project",
     skill: "rom",
     status,
-    startedAt: "2026-09-25T15:00:00.000Z",
+    startedAt,
     finishedAt: null,
     error: null,
     stepCount: 5,
@@ -252,7 +257,10 @@ describe("the saved-runs strip", () => {
       summary("a", "p1", "succeeded"),
       summary("b", "p2", "succeeded"),
       summary("c", "p1", "failed"),
-      ...Array.from({ length: 12 }, (_, i) => summary(`d${i}`, "p1", "succeeded")),
+      // An hour apart, so none of them is part of a burst.
+      ...Array.from({ length: 12 }, (_, i) =>
+        summary(`d${i}`, "p1", "succeeded", new Date(Date.parse("2026-09-25T14:00:00.000Z") - i * 3_600_000).toISOString()),
+      ),
     ];
     const saved = savedRunsFor(runs, "p1");
 
@@ -260,6 +268,17 @@ describe("the saved-runs strip", () => {
     expect(saved).toHaveLength(STRIP_RUNS);
     expect(saved.every((run) => run.projectId === "p1" && run.status === "succeeded")).toBe(true);
     expect(savedRunsFor(runs, undefined)).toEqual([]);
+  });
+
+  it("shows only the last run of a burst of edits, and keeps runs further apart", () => {
+    // Newest first, as the runs route returns them.
+    const runs = [
+      summary("burst-3", "p1", "succeeded", "2026-09-28T04:10:50.000Z"),
+      summary("burst-2", "p1", "succeeded", "2026-09-28T04:10:20.000Z"),
+      summary("burst-1", "p1", "succeeded", "2026-09-28T04:09:05.000Z"),
+      summary("earlier", "p1", "succeeded", "2026-09-28T03:30:00.000Z"),
+    ];
+    expect(savedRunsFor(runs, "p1").map((run) => run.id)).toEqual(["burst-3", "earlier"]);
   });
 
   it("loads a run with its area, and refuses one with no ROM", () => {

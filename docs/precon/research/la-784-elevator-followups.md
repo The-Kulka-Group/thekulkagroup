@@ -291,6 +291,68 @@ above that position is two feet or five.
 convenience, apart from a stair or a machine room. If a Kulka job has one, it is a
 project-specific choice, not a code requirement.
 
+## 6. What a bulkhead costs
+
+### Kulka's own data
+
+Kulka's files carry no line for a bulkhead, an overrun, a hoist beam, or coping. The only
+related figures are general CMU wall rates from three jobs (`docs/precon/canonical-work-items.md`,
+item 5): JF prices "CMU Block (Plan View), Fire Separation Wall" (no rate visible in the
+grepped line); V64 prices "2hr rated CMU" at $26.00/SF; VA prices "CMU Block (Plan View)"
+and "2hr rated CMU (Plan View)" both at $30.00/SF, and an "8" CMU Wall - Breakout for
+underground level" at $26.00/SF. These are undifferentiated wall-area rates covering any
+2-hour CMU on the job, not a bulkhead-specific figure, and the file flags this as an open
+gap (item 5, "Stair and Elevator Shaft Wall Construction"). No coping rate, roofing rate,
+or hoist beam rate appears anywhere in `docs/precon/`.
+
+### Component build-up, one single-car bulkhead
+
+Geometry from Section 3: outside plan 9'-8" x 8'-2" to 9'-2" (using 8'-8", the midpoint,
+for area), 8-inch CMU. Perimeter is about 36.7 linear feet. Height above roof is the base
+case at 4 ft, with 2 ft and 6 ft as a range. No door in the default scope.
+
+| Line | Basis and source | 2 ft height | 4 ft height (base) | 6 ft height |
+| --- | --- | --- | --- | --- |
+| CMU wall (2-hour rated, grout and reinforcing typical for 8" CMU assumed included in the rate) | $28/SF, midpoint of Kulka's own $26 to $30/SF for 2-hour CMU (V64, VA) | 73 SF, $2,055 | 147 SF, $4,108 | 220 SF, $6,160 |
+| Hoist beam, furnished and set | Assumption: a single small wide-flange beam (material $14 to $40/LF, HomeGuide/LatestCost, 2026) plus an isolated crane pick and mobilization, not scaled to beam length | $3,750 | $3,750 | $3,750 |
+| Bulkhead roof and flashing | Assumption: $30/SF for a small, isolated low-slope roof with wall flashing (no low-slope-roofing source found at this scale; general RSMeans low-slope material runs lower, but a single small roof carries a mobilization premium) | $2,514 | $2,514 | $2,514 |
+| Metal coping | $40/LF, midpoint of $30 to $70/LF installed (Rescreening Masters; C&J Metal Products, 2026) | $1,467 | $1,467 | $1,467 |
+| **Subtotal, before overhead and mobilization premium** | | **$9,786** | **$11,839** | **$13,891** |
+| Small-scope mobilization and GC overhead and profit | Assumption: 1.3x to 1.6x, a single rooftop CMU-and-flashing package is too small to spread mobilization the way a full building's CMU or roofing package does | 1.3x | 1.4x | 1.6x |
+| **Proposed lump sum, one single-car bulkhead** | | **≈ $12,700** | **≈ $16,600** | **≈ $22,200** |
+
+Door package, add when the bulkhead also holds the roof stair or a machine room: a
+fire-rated hollow metal frame in an 8" CMU opening ($150 to $400), hardware including a
+closer and panic or lever set ($200 to $500), factory finish ($75 to $200), and
+installation into masonry ($150 to $500) (HomeAdvisor/Facebook Answers/DoorClosersUSA,
+2025). These are small-door retail figures, not a commercial fire-rated assembly quote, so
+the build-up needs a coordination and commercial-grade premium on top. **Proposed door add:
+$1,500 to $3,000, planning figure about $2,200.**
+
+**Proposed per-shaft lump sum: low $13,000, planning figure $17,000, high $23,000, for the
+default no-door scope.** Every unit cost above with a named source is a published figure;
+the hoist beam price, the roof and flashing price, and the mobilization multiplier are
+Kulka AI's own assumptions, not sourced figures, because no published price exists at this
+scale. Matt states the rate; this range and figure are a proposal only.
+
+### Two-car bulkhead sharing one enclosure
+
+A two-car bulkhead is wider (about 18'-4" versus 9'-8") but not proportionally deeper, and
+it needs two hoist beams, one per shaft, not one. Running the same build-up at 4 ft height
+gives a subtotal of about $20,500 before the mobilization multiplier, against $11,800 for
+one car: about 1.7 times the single-car cost, not 2 times, because the walls, roof and
+coping scale with shared perimeter and area rather than doubling with car count. Applying
+the same 1.4x multiplier gives a planning figure of about $28,700 for a shared two-car
+bulkhead, before any door.
+
+### Published all-in figure
+
+We found no published or quoted all-in figure for an elevator bulkhead or overrun
+enclosure as its own line item. Web search on bulkhead and overrun cost returned only
+home-elevator and elevator-modernization pricing, which prices the elevator equipment and
+shaft work generally and never isolates the rooftop CMU enclosure. RSMeans' current square
+foot cost books were not reachable in this pass to check for a bulkhead assembly line.
+
 ## What we could not find
 
 - RSMeans current elevator line items, or any published per-stop rate split by type.
@@ -299,6 +361,10 @@ project-specific choice, not a code requirement.
 - A published floor-to-floor figure for cold-formed steel, or for New York or Long Island
   practice by construction type.
 - Why West Shore chose traction, and whether its unit had a machine room.
+- A published all-in price for an elevator bulkhead or overrun enclosure as its own line
+  item, and a reachable current RSMeans assembly for one.
+- A sourced price for a hoist beam furnished and set as an isolated small pick, and for a
+  small isolated low-slope roof with wall flashing, at this bulkhead's scale.
 
 ## Sources
 
@@ -367,3 +433,21 @@ project-specific choice, not a code requirement.
 - UpCodes, ASME A17.1 Section 2.7, "Machinery Spaces, Machine Rooms, Control Spaces and
   Control Rooms" (read 2026): https://up.codes/s/machinery-spaces-machine-rooms-control-spaces-and-control-rooms
 - UpCodes, IBC Section 3005.1, "Access" (read 2026): https://up.codes/s/machine-rooms
+- Kulka AI, `docs/precon/canonical-work-items.md`, item 5 (CMU / concrete block walls),
+  JF, V64 and VA job figures.
+- Terrapin Construction Group, "CMU Block Wall Construction Cost Per Square Foot" (2026):
+  https://terrapincg.com/news/cmu-block-wall-construction-cost-per-square-foot-2026
+- Well Built Florida, "CMU Wall Cost Per Square Foot: Prices and Budget Guide" (read 2026):
+  https://wellbuiltflorida.com/cmu-wall-cost-per-square-foot-prices-budget/
+- HomeGuide, "Steel Beam Costs" (2026): https://homeguide.com/costs/steel-beam-cost
+- LatestCost, "Steel Beam Cost and Price Guide" (2026): https://latestcost.com/steel-beam-cost-price/
+- Rescreening Masters, "Metal Parapet Cap Pricing and Cost Guide" (read 2026):
+  https://rescreeningmasters.com/metal-parapet-cap-pricing-cost/
+- C&J Metal Products, "Parapet Wall Coping Cap Cost Considerations" (read 2026):
+  https://cjmetals.com/parapet-wall-coping-cap-cost-considerations-planning-for-your-project/
+- HomeAdvisor, hollow metal door and installation cost pages (read 2025):
+  https://www.homeadvisor.com/cost/doors-and-windows/install-a-door/
+- DoorClosersUSA, "How Much Do Commercial Metal Doors Cost?" (read 2026):
+  https://www.doorclosersusa.com/How-Much-Is-A-Commercial-Metal-Door-s/34748.htm
+- RSMeans, "City Cost Index" and 2025 cost index update (read 2026):
+  https://www.rsmeans.com/rsmeans-city-cost-index ; https://www.rsmeans.com/q1-2021-cost-index

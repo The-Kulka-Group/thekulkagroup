@@ -42,6 +42,16 @@ import {
   type BenchmarkUnit,
   type DemolitionFacts,
 } from "./rom-units";
+import {
+  ELEVATOR_BULKHEAD_COST_CODE,
+  ELEVATOR_COST_CODE,
+  priceElevator,
+  priceElevatorBulkhead,
+  readElevatorFacts,
+  totalElevatorStops,
+  type BulkheadConfig,
+  type ElevatorType,
+} from "./elevator";
 
 export type ProjectType = "multifamily" | "self_storage";
 export type ConstructionKind = "new" | "renovation";
@@ -108,6 +118,10 @@ export type Benchmark = {
    * of Structure Demolition's five per-type rates.
    */
   structureType?: DemolitionStructureType;
+  /** Item 26's rate for this elevator type (LA-1205). Absent on every other benchmark. */
+  elevatorType?: ElevatorType;
+  /** Item 26a's rate for this shaft configuration or the door package (LA-1205). Absent on every other benchmark. */
+  elevatorBulkheadConfig?: BulkheadConfig;
 };
 
 /**
@@ -497,6 +511,12 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   // ticket: nothing.
   const demolitionFacts = readDemolitionFacts(answers.facts);
 
+  // LA-1205: item 26's quantity (total elevator stops across every elevator)
+  // read once per run, the same "absent facts read as none of it answered
+  // yet" rule readDemolitionFacts already follows.
+  const elevatorFacts = readElevatorFacts(answers.facts);
+  const elevatorStops = totalElevatorStops(elevatorFacts);
+
   const blend = (costCode: string, rows: Benchmark[]) =>
     blendLine(
       rows,
@@ -506,6 +526,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       tiers,
       rulesByCostCode.get(costCode) ?? [],
       classificationsByCostCode.get(costCode) ?? null,
+      elevatorStops,
     );
 
   const blended = [...byCostCode.keys()]
@@ -520,6 +541,16 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
         // scope, so a $0 line would wrongly bring them in on every job.
         if (!hasStructureDemolitionScope(demolitionFacts)) return null;
         return priceStructureDemolition(rows, demolitionFacts, (kept) => blend(costCode, kept));
+      }
+      if (costCode === ELEVATOR_COST_CODE && rows.some((row) => row.unit === "usd_per_stop")) {
+        // LA-1205's per-stop-by-type pricing applies only once item 26 is
+        // actually seeded on the new unit; a legacy or synthetic row still
+        // on `usd_per_gsf` (as fixtures elsewhere in this repo use) prices
+        // the ordinary way, same as before this ticket.
+        return priceElevator(rows, elevatorFacts, (kept) => blend(costCode, kept));
+      }
+      if (costCode === ELEVATOR_BULKHEAD_COST_CODE) {
+        return priceElevatorBulkhead(rows, elevatorFacts.elevatorCount, (kept) => blend(costCode, kept));
       }
       if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows);
       return blendFramingLine(
@@ -777,6 +808,7 @@ function blendLine(
   tiers: Tiers,
   rules: JudgmentRule[],
   classification: BlockClassification | null,
+  elevatorStops: number | null = null,
 ): RomLine {
   const ranked = rows
     .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
@@ -797,7 +829,7 @@ function blendLine(
   // (the same cost code always prices on one basis), so the lead row's is
   // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
   // as every ROM computed before this ticket did.
-  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts);
+  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops);
 
   return {
     costCode: lead.costCode,

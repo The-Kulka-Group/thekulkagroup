@@ -796,6 +796,9 @@ export function GuidedNewBudget({
           />
         ) : slot.kind === "flow" ? (
           <>
+            {slot.question.id === "levels_below_grade" ? (
+              <p className="nb-divider">Now the New Building</p>
+            ) : null}
             <h3 className="nb-prompt">{slot.question.prompt}</h3>
             {slot.question.help ? <p className="nb-help">{slot.question.help}</p> : null}
             {slot.question.kind === "branch_gate" ? (

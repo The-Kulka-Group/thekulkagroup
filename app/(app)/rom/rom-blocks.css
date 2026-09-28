@@ -446,6 +446,18 @@
   color: var(--rb-ink-on-black);
 }
 .rb-pnl h3.nb-prompt { margin: 0; font-size: var(--t3-size); color: var(--rb-ink-on-black); }
+/* LA-1303: marks where the demolition questions end and the new building begins. */
+.nb-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: var(--meta-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--rb-sel-ink2);
+}
+.nb-divider::after { content: ""; flex: 1; height: 1px; background: currentColor; opacity: 0.35; }
 .nb-help { margin: 6px 0 0; font-size: var(--meta-size); line-height: 1.45; color: var(--rb-sel-ink2); }
 .nb-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .nb-choice {

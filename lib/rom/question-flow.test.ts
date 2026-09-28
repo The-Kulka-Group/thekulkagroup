@@ -399,9 +399,9 @@ describe("requiredWhen: a question required only for a project type", () => {
 // against an optional pattern rather than coerced to a number.
 describe("a text question (ZIP)", () => {
   it("accepts a three-digit answer and leaves it out of the record when blank", () => {
-    const withZip = readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "212" });
+    const withZip = readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "10956" });
     expect((withZip.recorded as { flow: { intakeFields: Record<string, unknown> } }).flow.intakeFields.zip).toBe(
-      "212",
+      "10956",
     );
 
     const withoutZip = readFlowAnswers(tier1Flow(), COMPLETE);
@@ -410,9 +410,9 @@ describe("a text question (ZIP)", () => {
     ).toBeUndefined();
   });
 
-  it("refuses an answer that is not three digits", () => {
+  it("refuses an answer that is not five digits", () => {
     expect(() => readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "abc" })).toThrow(FlowAnswersInvalid);
-    expect(() => readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "12" })).toThrow(FlowAnswersInvalid);
+    expect(() => readFlowAnswers(tier1Flow(), { ...COMPLETE, zip: "109" })).toThrow(FlowAnswersInvalid);
   });
 
   it("refuses a pattern on a question that is not text-kind, and an invalid regular expression", () => {

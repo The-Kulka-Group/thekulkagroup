@@ -135,7 +135,7 @@ describe("POST /api/rom/projects", () => {
   // them the same way it already carries framing and parking.
   describe("stories above grade, unit count, building count, zip (LA-1199)", () => {
     it("stores all four when the Facts step sends them", async () => {
-      const response = await post({ ...valid, storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "212" });
+      const response = await post({ ...valid, storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "10956" });
       const { projectId } = await response.json();
       const { rows } = await db.query<{
         stories_above_grade: number | null;
@@ -143,7 +143,7 @@ describe("POST /api/rom/projects", () => {
         building_count: number;
         zip: string | null;
       }>(`select stories_above_grade, unit_count, building_count, zip from projects where id = $1`, [projectId]);
-      expect(rows[0]).toEqual({ stories_above_grade: 4, unit_count: 120, building_count: 3, zip: "212" });
+      expect(rows[0]).toEqual({ stories_above_grade: 4, unit_count: 120, building_count: 3, zip: "10956" });
     });
 
     it("defaults building count to 1 when the Facts step sends none", async () => {
@@ -156,9 +156,9 @@ describe("POST /api/rom/projects", () => {
       expect(rows[0].building_count).toBe(1);
     });
 
-    it("refuses a ZIP that is not three digits, and writes nothing", async () => {
+    it("refuses a ZIP that is not five digits, and writes nothing", async () => {
       const before = await projectCount();
-      const response = await post({ ...valid, zip: "1" });
+      const response = await post({ ...valid, zip: "109" });
       expect(response.status).toBe(400);
       expect(await projectCount()).toBe(before);
     });

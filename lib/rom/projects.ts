@@ -98,7 +98,7 @@ export type NewBudget = {
   storiesAboveGrade?: number | null;
   unitCount?: number | null;
   buildingCount?: number | null;
-  /** First three digits only, matching `projects.zip`'s own check constraint. */
+  /** Five digits (LA-1224). */
   zip?: string | null;
   /**
    * LA-1212: the guided New budget flow's Scope step asks Elevator Count once
@@ -114,7 +114,7 @@ const PROJECT_TYPES: ReadonlySet<string> = new Set(["multifamily", "self_storage
 const CONSTRUCTION_KINDS: ReadonlySet<string> = new Set(["new", "renovation"]);
 const FRAMING: ReadonlySet<string> = new Set(["wood", "metal"]);
 const PARKING_TYPES: ReadonlySet<string> = new Set(["none", "surface", "structured", "underground", "dont_know"]);
-const ZIP_PATTERN = /^[0-9]{3}$/;
+const ZIP_PATTERN = /^[0-9]{5}$/;
 
 /**
  * The fields the projects table requires plus the area the engine prices on,
@@ -185,7 +185,7 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
     return { ok: false, error: "Send buildingCount as a whole number above zero, or null." };
   }
   if (zip !== undefined && zip !== null && (typeof zip !== "string" || !ZIP_PATTERN.test(zip))) {
-    return { ok: false, error: "Send zip as its first three digits, or null." };
+    return { ok: false, error: "Send zip as five digits, or null." };
   }
   // LA-1212: unlike storiesAboveGrade and unitCount above, zero is a legal
   // Elevator Count (no elevator), so this only refuses a negative or

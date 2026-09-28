@@ -86,7 +86,7 @@ async function seedRomFixtures(database: PGlite) {
        stories_above_grade, unit_count, building_count, zip, elevator_count)
     values
       ('${BROWSER_TEST_ROM_PROJECT_ID}', 'Synthetic browser test project', 'multifamily', 'new', 100000, null,
-       4, 120, 1, '555', 2),
+       4, 120, 1, '55555', 2),
       ('30000000-0000-4000-8000-000000000002', 'Synthetic past project A', 'multifamily', 'new', 90000, 100,
        null, null, 1, null, null),
       ('30000000-0000-4000-8000-000000000003', 'Synthetic past project B', 'multifamily', 'new', 120000, 56,

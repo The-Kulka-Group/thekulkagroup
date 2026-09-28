@@ -118,13 +118,13 @@ describe("PATCH /api/rom/projects/[id]", () => {
       storiesAboveGrade: 4,
       unitCount: 120,
       buildingCount: 3,
-      zip: "212",
+      zip: "10956",
     });
     expect(response.status).toBe(200);
 
     const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
     const { project } = await get.json();
-    expect(project).toMatchObject({ storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "212" });
+    expect(project).toMatchObject({ storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "10956" });
   });
 
   // LA-1212: Edit project sets, clears and reloads Elevator Count through the

@@ -219,6 +219,16 @@ export function GuidedNewBudget({
       // checked against blank rather than truthiness.
       elevatorCount:
         current.elevator_count !== undefined && current.elevator_count !== "" ? Number(current.elevator_count) : null,
+      // LA-1239: demolition's building answers go on the project too, so a
+      // later run still has them and prices demolition.
+      demolitionStructureCount:
+        current.demolition_structure_count !== undefined && current.demolition_structure_count !== ""
+          ? Number(current.demolition_structure_count)
+          : null,
+      demolitionStructureSquareFeet: current.demolition_structure_square_feet
+        ? Number(current.demolition_structure_square_feet)
+        : null,
+      demolitionStructureType: current.demolition_structure_type || null,
     };
   }
 

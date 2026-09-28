@@ -477,8 +477,18 @@ describe("POST /api/rom scope gates", () => {
     );
   }
 
+  it("leaves demolition out when its building questions are unanswered (LA-1239)", async () => {
+    await benchmarkOnItemOne();
+
+    const { rom } = await (await post({ projectId: TEST_PROJECT_ID })).json();
+    expect(rom.lines.some((l: { costCode: string }) => l.costCode === "1")).toBe(false);
+  });
+
   it("prices the item present when the project record has never been asked", async () => {
     await benchmarkOnItemOne();
+    // LA-1239: demolition prices only once its building questions are
+    // answered; zero structures answers them, so the gate itself is tested.
+    await db.query(`update projects set demolition_structure_count = 0 where id = $1`, [TEST_PROJECT_ID]);
 
     const { rom } = await (await post({ projectId: TEST_PROJECT_ID })).json();
     const item1 = rom.lines.find((l: { costCode: string }) => l.costCode === "1");
@@ -502,7 +512,9 @@ describe("POST /api/rom scope gates", () => {
 
   it("lets the Scope module's gates override the project record for one run", async () => {
     await benchmarkOnItemOne();
-    await db.query(`update projects set demolition_gate = 'no' where id = $1`, [TEST_PROJECT_ID]);
+    await db.query(`update projects set demolition_gate = 'no', demolition_structure_count = 0 where id = $1`, [
+      TEST_PROJECT_ID,
+    ]);
 
     const { rom } = await (
       await post({ projectId: TEST_PROJECT_ID, gates: { demolition: "yes" } })

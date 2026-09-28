@@ -1,5 +1,7 @@
 "use client";
 
+import { tier1Flow } from "@/lib/rom/question-flow";
+
 // LA-1107. `Form`, `EMPTY`, `areaOf` and `ProjectFields` back the Edit project
 // panel (EditProject.tsx, LA-1110): the same four facts plus framing, and
 // nothing else, exactly as New budget always asked for them.
@@ -27,6 +29,14 @@ export type Form = {
    * count set, cleared or corrected without re-running the guided flow.
    */
   elevatorCount: string;
+  /**
+   * LA-1239: demolition's three building answers, so a saved project that
+   * never answered them (or answered them wrong) can get them here. Until
+   * they are in, a run leaves the Demolition element out.
+   */
+  demolitionStructureCount: string;
+  demolitionStructureSquareFeet: string;
+  demolitionStructureType: string;
 };
 
 export const EMPTY: Form = {
@@ -40,7 +50,14 @@ export const EMPTY: Form = {
   buildingCount: "1",
   zip: "",
   elevatorCount: "",
+  demolitionStructureCount: "",
+  demolitionStructureSquareFeet: "",
+  demolitionStructureType: "",
 };
+
+/** The structure types, worded as config/rom/tier1-flow.json words them. */
+const DEMOLITION_TYPE_CHOICES =
+  tier1Flow().questions.find((question) => question.id === "demolition_structure_type")?.choices ?? [];
 
 export function areaOf(form: Form): number {
   return Number(form.grossSquareFeet.replace(/,/g, ""));
@@ -142,6 +159,46 @@ export function ProjectFields({
             onChange={(e) => set({ elevatorCount: e.target.value })}
           />
         </label>
+        <label>
+          <span className="field-label t-label">Demolition: Structures Coming Down</span>
+          <input
+            className="input num"
+            inputMode="numeric"
+            value={form.demolitionStructureCount}
+            disabled={busy}
+            onChange={(e) => set({ demolitionStructureCount: e.target.value })}
+          />
+        </label>
+        {Number(form.demolitionStructureCount) > 0 ? (
+          <>
+            <label>
+              <span className="field-label t-label">Demolition: Square Feet of Structure</span>
+              <input
+                className="input num"
+                inputMode="numeric"
+                value={form.demolitionStructureSquareFeet}
+                disabled={busy}
+                onChange={(e) => set({ demolitionStructureSquareFeet: e.target.value })}
+              />
+            </label>
+            <label>
+              <span className="field-label t-label">Demolition: Structure Type</span>
+              <select
+                className="input"
+                value={form.demolitionStructureType}
+                disabled={busy}
+                onChange={(e) => set({ demolitionStructureType: e.target.value })}
+              >
+                <option value="">Choose One</option>
+                {DEMOLITION_TYPE_CHOICES.map((choice) => (
+                  <option key={choice.value} value={choice.value}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : null}
         <label>
           <span className="field-label t-label">Construction</span>
           <select

@@ -28,7 +28,11 @@ demolish. It takes three answers: yes, no, or don't know. A "no" prices that sec
 zero. A "don't know" shows TBD on the schedule of values and is left out of the total.
 A "yes" is also what brings a driver into the budget (see Driver). Left unanswered, a run
 prices the gated items as assumed present, while the live budget in New Budget leaves
-them off the screen until an answer puts them in scope (ADR 0006).
+them off the screen until an answer puts them in scope (ADR 0006). Demolition is the
+exception: neither a run nor the live budget prices anything in the Demolition element
+until its building questions (structure count, and for one or more structures, square
+footage and type) are answered, because Site Demolition is a lump sum that would
+otherwise price on silence alone (Matt, 2026-09-27).
 _Avoid_: conditional question, skip logic, gate question
 
 **Code lookup**:

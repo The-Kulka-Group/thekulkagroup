@@ -12,7 +12,7 @@ import { readFlowAnswers, type FlowDefinition, type Responses } from "./question
 // LA-1142: the New budget flow shows the budget building while its questions
 // are answered. The browser runs the same pure engine a run does, over the
 // same data snapshot (GET /api/rom/snapshot), so the preview is the figure
-// "Add and run" will record from that data. Nothing here prices anything or
+// the run saved at New Budget's last answer records from that data. Nothing here prices anything or
 // writes anything; it only turns a half-answered flow into the engine's input.
 
 /**

@@ -406,25 +406,73 @@
 }
 .rb-acts { display: flex; gap: 8px; margin: 16px 0 4px; }
 
-/* LA-1141: the guided New budget flow's step indicator (Facts, Scope,
-   Markups, Review), a row of pills the same shape as a status chip. */
-.rb-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0 0 16px;
-  padding: 0;
-  list-style: none;
+/* LA-1225: New Budget asks one question at a time after the setup card.
+   The card stays short, so on a phone the sheet leaves the budget in view
+   above it. Answers are large pills; the picked one is filled. */
+.nb-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.nb-count { font-size: var(--chip-size); color: var(--rb-sel-ink2); }
+.nb-save { font-size: var(--chip-size); color: var(--rb-pnl-mute); }
+.nb-save--failed { color: #FF8A9B; }
+.nb-track {
+  height: 3px;
+  margin: 8px 0 18px;
+  border-radius: 2px;
+  background: var(--rb-pnl-line);
+  overflow: hidden;
 }
-.rb-step {
-  padding: 3px 10px;
+.nb-track i {
+  display: block;
+  height: 100%;
+  background: var(--rb-ink-on-black);
+  transform-origin: left center;
+  transition: transform 320ms var(--lb-ease);
+}
+.nb-q { animation: lb-in 220ms var(--lb-ease) both; }
+.nb-prompt {
+  margin: 0;
+  font-size: var(--t3-size);
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--rb-ink-on-black);
+}
+.rb-pnl h3.nb-prompt { margin: 0; font-size: var(--t3-size); color: var(--rb-ink-on-black); }
+.nb-help { margin: 6px 0 0; font-size: var(--meta-size); line-height: 1.45; color: var(--rb-sel-ink2); }
+.nb-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.nb-choice {
+  min-height: 40px;
+  padding: 0 16px;
   border: 1px solid var(--rb-pnl-line2);
-  border-radius: 999px;
-  font-size: var(--chip-size);
-  color: var(--rb-pnl-mute);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--rb-ink-on-black);
+  font: inherit;
+  font-size: var(--meta-size);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 150ms, background-color 150ms, transform 120ms;
 }
-.rb-step--active { color: var(--rb-ink-on-black); border-color: var(--rb-ink-on-black); }
-.rb-step--done { color: var(--rb-sel-ink2); border-color: var(--rb-pnl-line2); }
+.nb-choice:hover { border-color: var(--rb-pnl-mute); }
+.nb-choice:active { transform: scale(0.97); }
+.nb-choice--picked { background: var(--rb-ink-on-black); border-color: var(--rb-ink-on-black); color: var(--rb-black); }
+.nb-num { display: flex; gap: 8px; margin-top: 14px; }
+.nb-num .input { max-width: 180px; }
+.nb-foot { margin-top: 18px; }
+.nb-back, .nb-retry {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--rb-sel-ink2);
+  font: inherit;
+  font-size: var(--meta-size);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.nb-back:disabled { opacity: 0.5; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+  .nb-q { animation: none; }
+  .nb-track i, .nb-choice { transition: none; }
+}
 
 /* Run settings: the Scope and GRs/GCs modules, restyled for the black panel.
    Their layout stays in scope.css and markups.css. */

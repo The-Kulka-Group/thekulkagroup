@@ -19,7 +19,7 @@ import type { RomView } from "./view-groups";
 // LA-1142. The budget builds behind the New budget panel while its questions
 // are answered. The browser runs the same pure engine a run does over the
 // snapshot GET /api/rom/snapshot reads (see lib/rom/preview.ts), so every
-// figure here is one "Add and run" would record from the same data. Nothing
+// figure here is one the run saved at the last answer records from the same data. Nothing
 // here prices anything, and nothing here is saved.
 //
 // LA-1147: the field starts empty, and scope arrives as answers put it in
@@ -225,7 +225,7 @@ export function LiveTotal({
         <span className="rb-tl">Trade Cost</span>
         <span className="rb-tv num lb-wait">&mdash;</span>
         <span className="rb-tb">waiting on the gross area</span>
-        <span className="lb-tag">Preview, Not Saved</span>
+        <span className="lb-tag">Live, Saves at the Last Answer</span>
         {unpricedBadge}
       </div>
     );
@@ -248,7 +248,7 @@ export function LiveTotal({
           {shortMoney(Math.abs(delta.amount)).replace("-", "")}
         </span>
       ) : null}
-      <span className="lb-tag">Preview, Not Saved</span>
+      <span className="lb-tag">Live, Saves at the Last Answer</span>
       {unpricedBadge}
       <ShareChip chip={chip} />
       {bar ? <ShareBar bar={bar} litKey={litKey} /> : null}

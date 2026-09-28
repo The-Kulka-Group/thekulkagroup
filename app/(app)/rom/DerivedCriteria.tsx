@@ -11,6 +11,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
+import { CRITERION_CHOICES } from "./engineering";
 import { reducedMotion } from "./motion";
 import { SpringMoney } from "./SpringMoney";
 import "./derived-criteria.css";
@@ -237,7 +238,7 @@ export function DerivedCriteriaSection({
         ))}
       </div>
       <p className="dc-foot">
-        These are planning assumptions for the budget, worked out from the project's facts. Nobody has designed or engineered the building.
+        These are planning assumptions for the budget, worked out from the project&apos;s facts. Nobody has designed or engineered the building.
       </p>
     </section>
   );
@@ -430,7 +431,7 @@ export function CriterionPanel({
           {item.steps.map((step, index) => (
             <li key={index} className={index === item.steps.length - 1 ? "dc-res" : undefined}>
               <span>{step.label}</span>
-              <b>{step.result}</b>
+              <b>{step.result.replace(/\s*->\s*/g, " → ")}</b>
             </li>
           ))}
         </ol>
@@ -466,7 +467,26 @@ export function CriterionPanel({
             }}
           >
             <label htmlFor={`dc-v-${item.code}`}>Correct This Value</label>
-            <span className="dc-unit">
+            {item.value.kind === "spec" && CRITERION_CHOICES[item.code] ? (
+              // LA-1265: a criterion with set answers (V-1, V-2) offers them as buttons.
+              <div className="dc-choices" role="radiogroup" aria-label={item.label}>
+                {CRITERION_CHOICES[item.code]
+                  .filter((choice) => item.value.kind === "spec" && choice !== item.value.text)
+                  .map((choice) => (
+                    <button
+                      key={choice}
+                      type="button"
+                      role="radio"
+                      aria-checked={value === choice}
+                      className={`nb-choice${value === choice ? " nb-choice--picked" : ""}`}
+                      onClick={() => setValue(choice)}
+                    >
+                      {choice}
+                    </button>
+                  ))}
+              </div>
+            ) : null}
+            <span className="dc-unit" hidden={item.value.kind === "spec" && Boolean(CRITERION_CHOICES[item.code])}>
               <input
                 id={`dc-v-${item.code}`}
                 inputMode={item.value.kind === "quantity" ? "decimal" : undefined}

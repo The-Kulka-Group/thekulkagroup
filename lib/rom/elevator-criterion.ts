@@ -85,20 +85,25 @@ function direct(
   return assumption;
 }
 
-function candidatesFor(travelFeet: number): Record<"hydraulic" | "traction", DerivationCandidate> {
-  const commonSteps: DerivedStep[] = [{ label: "Travel", result: `${feet(travelFeet)} (${travelFeet.toFixed(1)} ft)` }];
+function candidatesFor(
+  travelFeet: number,
+  commonSteps: DerivedStep[],
+): Record<"hydraulic" | "traction", DerivationCandidate> {
+  // LA-1265: every step the code worked out, so the Design and Engineering
+  // card shows the whole arithmetic whichever way Jev picks.
+  const band = `Over ${HYDRAULIC_MAX_FEET} ft, up to ${TRACTION_MIN_FEET} ft`;
   return {
     hydraulic: {
       description: `Travel of ${travelFeet.toFixed(1)} ft, inside the either band (over 35 ft, up to 55 ft); hydraulic is the cheaper of the two types and the more common choice at this travel.`,
       value: { kind: "spec", text: "Hydraulic" },
       method: "Travel sits in the either band; Jev picked Hydraulic from the facts given.",
-      steps: [...commonSteps, { label: "Type", result: "Hydraulic" }],
+      steps: [...commonSteps, { label: "Band", result: `${band} -> Hydraulic` }],
     },
     traction: {
       description: `Travel of ${travelFeet.toFixed(1)} ft, inside the either band (over 35 ft, up to 55 ft); traction is also common at this travel and fits a faster car speed or a below-grade or tall ground floor pushing travel toward the hydraulic ceiling.`,
       value: { kind: "spec", text: "Traction" },
       method: "Travel sits in the either band; Jev picked Traction from the facts given.",
-      steps: [...commonSteps, { label: "Type", result: "Traction" }],
+      steps: [...commonSteps, { label: "Band", result: `${band} -> Traction` }],
     },
   };
 }
@@ -180,7 +185,7 @@ export async function deriveElevatorType(
       costCodes: V1_COST_CODES,
       facts: inputs,
       question: "Which elevator type fits the travel these facts give?",
-      candidates: candidatesFor(travel),
+      candidates: candidatesFor(travel, steps),
       reasons,
     });
     return { assumption: result.assumption, jev: result.jev };

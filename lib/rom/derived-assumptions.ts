@@ -218,3 +218,11 @@ export async function restoreCorrection(
     return getDerivedAssumption(tx, id);
   });
 }
+
+/**
+ * LA-1265: removes a criterion that no longer applies, such as V-2 once the
+ * job is not hydraulic. Its corrections go with it (on delete cascade).
+ */
+export async function deleteDerivedAssumption(db: Db, projectId: string, code: string): Promise<void> {
+  await db.query(`delete from derived_assumptions where project_id = $1 and code = $2`, [projectId, code]);
+}

@@ -239,6 +239,18 @@ export function RomRunner({
         : [],
     [liveRom, liveClassifications, canonicalDivisionMap, order],
   );
+  // LA-1265: the Design and Engineering answer that just landed in New
+  // Budget, and the entries it feeds, lit with its code.
+  const [engineeringFocus, setEngineeringFocus] = useState<{ code: string; costCodes: string[] } | null>(null);
+  const liveMark = useMemo(() => {
+    if (!engineeringFocus) return null;
+    const keys = new Set(
+      liveEntries
+        .filter((entry) => entry.costCodes.some((code) => engineeringFocus.costCodes.includes(code)))
+        .map((entry) => entry.key),
+    );
+    return keys.size > 0 ? { code: engineeringFocus.code, keys } : null;
+  }, [engineeringFocus, liveEntries]);
   const liveBar = useMemo(
     () => (live.phase === "ready" ? barModel(live.rom, liveEntries) : null),
     [live, liveEntries],
@@ -427,6 +439,9 @@ export function RomRunner({
       // An auto run keeps Run settings open, so the next change can follow.
       if (!auto) setPanel(null);
       void refreshRuns();
+      // LA-1265: a run can add, change or remove a Design and Engineering
+      // card (V-2 follows V-1), so the page reads the criteria again.
+      router.refresh();
     } catch {
       setState({ phase: "failed", error: "The site could not reach the engine." });
     }
@@ -596,7 +611,13 @@ export function RomRunner({
           {/* LA-1142: while New budget is open, the band shows the total the
               answers so far add up to. */}
           <div className="rb-fresh-note lb-hd">
-            {panel?.kind === "new" ? <LiveTotal live={live} bar={liveBar} chip={liveChip} litKey={liveLitKey} /> : null}
+            {panel?.kind === "new" ? <LiveTotal
+                live={live}
+                bar={liveBar}
+                chip={liveChip}
+                litKey={liveLitKey}
+                source={engineeringFocus?.code ?? null}
+              /> : null}
           </div>
           {run && headline ? (
             <>
@@ -686,6 +707,7 @@ export function RomRunner({
               selectedKey={liveSelected}
               onSelect={(key) => setLiveSelected((current) => (current === key ? null : key))}
               link={link}
+              mark={liveMark}
             />
           ) : null}
         </div>
@@ -821,6 +843,7 @@ export function RomRunner({
               <GuidedNewBudget
                 markupOptions={markupOptions}
                 onDraft={setDraft}
+                onEngineeringFocus={setEngineeringFocus}
                 onCreated={(id) => router.push(`/rom?project=${id}`)}
               />
             </>
@@ -975,8 +998,11 @@ export function RomRunner({
                 item={openCriterion}
                 busy={criteria.busy}
                 error={criteria.error}
-                onSave={(value, reason) => void criteria.save(openCriterion, value, reason)}
-                onRevert={() => void criteria.revert(openCriterion)}
+                // LA-1265: a correction changes what the run prices (V-1's type
+                // picks the per-stop rate and whether V-2 applies), so it records
+                // a new run like every other change on a saved budget.
+                onSave={(value, reason) => void criteria.save(openCriterion, value, reason).then(() => run && queueRun())}
+                onRevert={() => void criteria.revert(openCriterion).then(() => run && queueRun())}
                 onPing={setPing}
               />
             </>

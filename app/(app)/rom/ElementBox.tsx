@@ -112,16 +112,37 @@ function StaticTile({
   onOpen: (costCode: string, el: HTMLElement) => void;
 }) {
   if (item.kind === "unpriced") {
-    return (
-      <div
-        className={`eb-tile eb-tile--unpriced${full ? " eb-tile--full" : ""}`}
-        aria-label={`${titleCase(item.label)}, No Rate Yet`}
-      >
+    const body = (
+      <>
         <span className="eb-tn">{titleCase(item.label)}</span>
         <span className="eb-ts">
           <UnpricedDot pulseKey={item.costCode} />
           No Rate Yet
         </span>
+      </>
+    );
+    // A supporting item takes a rate on its card (RatePanel.tsx), so it is a
+    // button. Anything else with no rate stays a plain tile.
+    if (item.item.driverCostCode) {
+      const selectedHere = selected === item.costCode;
+      return (
+        <button
+          type="button"
+          className={`eb-tile eb-tile--unpriced${full ? " eb-tile--full" : ""}${selectedHere ? " eb-tile--sel" : ""}`}
+          aria-pressed={selectedHere}
+          aria-label={`${titleCase(item.label)}, No Rate Yet. Enter a rate.`}
+          onClick={(e) => onOpen(item.costCode, e.currentTarget)}
+        >
+          {body}
+        </button>
+      );
+    }
+    return (
+      <div
+        className={`eb-tile eb-tile--unpriced${full ? " eb-tile--full" : ""}`}
+        aria-label={`${titleCase(item.label)}, No Rate Yet`}
+      >
+        {body}
       </div>
     );
   }

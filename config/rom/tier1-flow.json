@@ -137,7 +137,7 @@
     {
       "id": "levels_below_grade",
       "prompt": "Does the new building go below grade?",
-      "help": "The building being built, such as a basement or underground garage. The demolition questions are done.",
+      "help": "The building being built, such as a basement or underground garage.",
       "kind": "branch_gate",
       "required": true,
       "mapsTo": { "target": "branch_gate", "section": "levels_below_grade" }

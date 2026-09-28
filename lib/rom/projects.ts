@@ -119,7 +119,11 @@ export type NewBudget = {
   demolitionStructureCount?: number | null;
   demolitionStructureSquareFeet?: number | null;
   demolitionStructureType?: string | null;
+  /** LA-1245: Union, Open Shop or Prevailing Wage. A suggested rate reads it. */
+  laborType?: string | null;
 };
+
+export const LABOR_TYPES: ReadonlySet<string> = new Set(["union", "open_shop", "prevailing_wage"]);
 
 /** The demolition structure types config/rom/tier1-flow.json offers, matching the column's check. */
 export const DEMOLITION_STRUCTURE_TYPES: ReadonlySet<string> = new Set([
@@ -161,6 +165,7 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
     demolitionStructureCount,
     demolitionStructureSquareFeet,
     demolitionStructureType,
+    laborType,
   } = body as Record<string, unknown>;
   if (typeof name !== "string" || name.trim() === "") return { ok: false, error: "Send a project name." };
   if (name.trim().length > 200) return { ok: false, error: "Keep the project name under 200 characters." };
@@ -246,6 +251,9 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
   ) {
     return { ok: false, error: "Send demolitionStructureType as one of the flow's structure types, or null." };
   }
+  if (laborType !== undefined && laborType !== null && (typeof laborType !== "string" || !LABOR_TYPES.has(laborType))) {
+    return { ok: false, error: 'Send laborType as "union", "open_shop", "prevailing_wage", or null.' };
+  }
   return {
     ok: true,
     budget: {
@@ -263,6 +271,7 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       demolitionStructureCount: (demolitionStructureCount ?? null) as number | null,
       demolitionStructureSquareFeet: (demolitionStructureSquareFeet ?? null) as number | null,
       demolitionStructureType: (demolitionStructureType ?? null) as string | null,
+      laborType: (laborType ?? null) as string | null,
     },
   };
 }
@@ -272,8 +281,9 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
     `insert into projects
        (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type,
         stories_above_grade, unit_count, building_count, zip, elevator_count,
-        demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, rom_budget)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, $12, $13, $14, true)
+        demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type,
+        rom_budget)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, $12, $13, $14, $15, true)
      returning id`,
     [
       budget.name,
@@ -290,6 +300,7 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
       budget.demolitionStructureCount ?? null,
       budget.demolitionStructureSquareFeet ?? null,
       budget.demolitionStructureType ?? null,
+      budget.laborType ?? null,
     ],
   );
   return rows[0].id;
@@ -314,7 +325,7 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
             construction_kind = $5, framing_system = $6,
             stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10,
             elevator_count = $11, demolition_structure_count = $12,
-            demolition_structure_square_feet = $13, demolition_structure_type = $14
+            demolition_structure_square_feet = $13, demolition_structure_type = $14, labor_type = $15
       where id = $1
       returning id`,
     [
@@ -332,6 +343,7 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
       budget.demolitionStructureCount ?? null,
       budget.demolitionStructureSquareFeet ?? null,
       budget.demolitionStructureType ?? null,
+      budget.laborType ?? null,
     ],
   );
   if (!rows[0]) throw new ProjectNotFoundForEdit(projectId);
@@ -380,11 +392,13 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     demolition_structure_count: number | null;
     demolition_structure_square_feet: number | null;
     demolition_structure_type: string | null;
+    labor_type: string | null;
     archived_at: string | null;
   }>(
     `select id, name, gross_square_feet, project_type, construction_kind, framing_system,
             stories_above_grade, unit_count, building_count, zip, elevator_count,
-            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, archived_at
+            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type,
+            archived_at
        from projects where id = $1`,
     [projectId],
   );
@@ -405,6 +419,7 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     demolitionStructureCount: row.demolition_structure_count,
     demolitionStructureSquareFeet: row.demolition_structure_square_feet,
     demolitionStructureType: row.demolition_structure_type,
+    laborType: row.labor_type,
     archivedAt: row.archived_at,
   };
 }

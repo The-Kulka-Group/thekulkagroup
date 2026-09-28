@@ -149,6 +149,14 @@ describe("PATCH /api/rom/projects/[id]", () => {
     expect(bad.status).toBe(400);
   });
 
+  // LA-1245: Labor Type saves and reloads, and an unknown one is refused.
+  it("saves a labor type, and GET reloads it", async () => {
+    expect((await patch(TEST_PROJECT_ID, { ...edit, laborType: "prevailing_wage" })).status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    expect((await get.json()).project).toMatchObject({ laborType: "prevailing_wage" });
+    expect((await patch(TEST_PROJECT_ID, { ...edit, laborType: "piecework" })).status).toBe(400);
+  });
+
   // LA-1212: Edit project sets, clears and reloads Elevator Count through the
   // same PATCH/GET pair, the same as the four LA-1199 fields above. Zero is
   // its own case, since it is a legal count (no elevator) rather than a clear.

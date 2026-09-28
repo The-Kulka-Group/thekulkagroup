@@ -34,6 +34,7 @@ const FACTS_IDS: ReadonlySet<string> = new Set([
   "unit_count",
   "building_count",
   "zip",
+  "labor_type",
   "parking_type",
 ]);
 

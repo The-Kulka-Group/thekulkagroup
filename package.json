@@ -16,6 +16,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@kulka/engine": "*",
     "@phosphor-icons/react": "^2.1.7",
     "@supabase/ssr": "^0.12.5",

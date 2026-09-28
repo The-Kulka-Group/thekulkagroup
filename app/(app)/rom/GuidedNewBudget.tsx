@@ -229,6 +229,7 @@ export function GuidedNewBudget({
         ? Number(current.demolition_structure_square_feet)
         : null,
       demolitionStructureType: current.demolition_structure_type || null,
+      laborType: current.labor_type || null,
     };
   }
 

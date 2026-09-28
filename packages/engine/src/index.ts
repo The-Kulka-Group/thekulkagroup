@@ -63,6 +63,33 @@ export {
 } from "./rom-units";
 
 export {
+  bulkheadCost,
+  elevatorBand,
+  elevatorSpanLine,
+  elevatorTravelFeet,
+  elevatorTypeRows,
+  floorToFloorFor,
+  FLOOR_TO_FLOOR_FEET,
+  FLOOR_TO_FLOOR_SOURCE,
+  hasElevatorScope,
+  HYDRAULIC_MAX_FEET,
+  priceElevator,
+  priceElevatorBulkhead,
+  readElevatorFacts,
+  RETAIL_GROUND_FLOOR_FEET,
+  stopsPerElevator,
+  totalElevatorStops,
+  TRACTION_MIN_FEET,
+  ELEVATOR_BULKHEAD_COST_CODE,
+  ELEVATOR_COST_CODE,
+  type BulkheadConfig,
+  type ElevatorBand,
+  type ElevatorFacts,
+  type ElevatorType,
+  type FloorToFloorSource,
+} from "./elevator";
+
+export {
   runBacktest,
   WORST_MISS_COUNT,
   type BacktestActualLine,

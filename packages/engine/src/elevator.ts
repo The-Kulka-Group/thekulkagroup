@@ -204,10 +204,18 @@ export function priceElevator(
   facts: ElevatorFacts,
   blend: (rows: Benchmark[]) => RomLine,
 ): RomLine | null {
-  if (!hasElevatorScope(facts)) return null;
+  // Only the per-stop rows price per stop. A job without the facts per-stop
+  // pricing needs (no Stories Above Grade, or no Elevator Count, which only a
+  // guided New Budget run records today) keeps the per-GSF pricing it had
+  // before LA-1205 from any other row, rather than losing its elevator line.
+  // An Elevator Count of zero means no elevator, so no line at all.
+  const perStop = rows.filter((row) => row.unit === "usd_per_stop");
+  const other = rows.filter((row) => row.unit !== "usd_per_stop");
+  if (facts.elevatorCount === 0) return null;
+  if (!hasElevatorScope(facts)) return other.length > 0 ? blend([...other]) : null;
   const stops = totalElevatorStops(facts)!;
-  if (facts.elevatorType === null) return elevatorSpanLine(rows, stops, blend);
-  return blend([...elevatorTypeRows(rows, facts.elevatorType)]);
+  if (facts.elevatorType === null) return elevatorSpanLine(perStop, stops, blend);
+  return blend([...elevatorTypeRows(perStop, facts.elevatorType)]);
 }
 
 // =====================================================================

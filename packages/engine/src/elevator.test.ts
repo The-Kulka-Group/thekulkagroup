@@ -204,6 +204,35 @@ describe("priceElevator", () => {
   });
 });
 
+describe("priceElevator with an older per-GSF row beside the per-stop rates", () => {
+  // Production has an item 26 row on usd_per_gsf from Jefferson's Ferry, and
+  // no project records Stories Above Grade or Elevator Count yet.
+  const legacy = benchmark({ unit: "usd_per_gsf", value: 1.71, elevatorType: undefined, provenance: { ...benchmark().provenance, kind: "proest_budget" } });
+  const rows = [legacy, ...ELEVATOR_RATES];
+
+  it("keeps the per-GSF line when the per-stop facts are missing", () => {
+    const blend = (kept: Benchmark[]) => shellLine({ comparableCount: kept.length, low: kept[0].value, high: kept[0].value });
+    expect(priceElevator(rows, facts({}), blend)).toMatchObject({ comparableCount: 1, low: 1.71 });
+    expect(priceElevator(rows, facts({ storiesAboveGrade: 6 }), blend)).toMatchObject({ comparableCount: 1, low: 1.71 });
+  });
+
+  it("leaves the per-GSF row out once it prices per stop", () => {
+    const f = facts({ storiesAboveGrade: 6, elevatorCount: 1 });
+    const line = priceElevator(rows, f, (kept) => shellLine({ comparableCount: kept.length }));
+    const stops = totalElevatorStops(f)!;
+    expect(line).toMatchObject({ low: 35000 * stops, high: 45300 * stops });
+    const typed = priceElevator(rows, { ...f, elevatorType: "hydraulic" }, (kept) => {
+      expect(kept).toEqual([ELEVATOR_RATES[0]]);
+      return shellLine({});
+    });
+    expect(typed).not.toBeNull();
+  });
+
+  it("prices nothing when the Elevator Count is zero", () => {
+    expect(priceElevator(rows, facts({ storiesAboveGrade: 6, elevatorCount: 0 }), () => shellLine({}))).toBeNull();
+  });
+});
+
 describe("elevatorSpanLine", () => {
   it("spans the lowest to the highest rate over the stop count", () => {
     const line = elevatorSpanLine(ELEVATOR_RATES, 6, (rows) => shellLine({ comparableCount: rows.length }));

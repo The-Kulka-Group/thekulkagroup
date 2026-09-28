@@ -628,7 +628,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title="New Budget"
-                sub="Walks the facts, scope and GRs/GCs the engine reads, then adds the project."
+                sub="Set up the project, then answer one question at a time. The budget builds and saves as you go."
                 onClose={closePanel}
                 titleRef={titleRef}
               />

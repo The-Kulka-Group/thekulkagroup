@@ -7,6 +7,7 @@ import { readMarkupOptions, readProjectMarkupChoices } from "@/lib/rom/markup";
 import { listRomProjects, resolveRomProjectId } from "@/lib/rom/projects";
 import { getRun, listRuns } from "@/lib/rom/run-records";
 import { readCanonicalDivisions, readClassifications } from "@/lib/rom/run";
+import { readStageFacts } from "@/lib/rom/stage-facts";
 
 import { RomRunner } from "./RomRunner";
 import { loadedRunFrom, savedRunsFor } from "./saved-runs";
@@ -85,7 +86,7 @@ export default async function RomPage({
     );
   }
 
-  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications, derivedAssumptions] =
+  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications, derivedAssumptions, stageFacts] =
     await Promise.all([
       readProjectMarkupChoices(db, projectId),
       readProjectGateAnswers(db, projectId),
@@ -94,6 +95,8 @@ export default async function RomPage({
       readClassifications(db),
       // LA-860: the Design Criteria cards. Empty for a project nothing has derived.
       listDerivedAssumptions(db, projectId),
+      // LA-1317: the facts the Design and Engineering stage draws the building from.
+      readStageFacts(db, projectId),
     ]);
   const runs = savedRunsFor(allRuns, projectId);
   const initialRun = runs[0] ? loadedRunFrom(await getRun(db, runs[0].id)) : null;
@@ -113,6 +116,7 @@ export default async function RomPage({
       classifications={classifications}
       canonicalDivisions={canonicalDivisions}
       derivedAssumptions={derivedAssumptions}
+      stageFacts={stageFacts}
     />
   );
 }

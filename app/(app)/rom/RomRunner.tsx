@@ -13,6 +13,7 @@ import type { RomProjectOption } from "@/lib/rom/projects";
 import type { CanonicalItemDivision } from "@/lib/rom/run";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
+import { type StageFacts, stageBuilding } from "@/lib/rom/stage-model";
 
 import {
   type TradeBlock,
@@ -65,6 +66,7 @@ import {
   useRomView,
   ViewSwitch,
 } from "./view-switch";
+import { Stage } from "./stage/Stage";
 import "./rom-blocks.css";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
@@ -126,10 +128,13 @@ export function RomRunner({
   classifications = [],
   canonicalDivisions = [],
   derivedAssumptions = NO_DERIVED_ASSUMPTIONS,
+  stageFacts = null,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
   markupOptions?: MarkupOptions;
+  /** LA-1317: the project facts the Design and Engineering stage draws from. Null with no project. */
+  stageFacts?: StageFacts | null;
   /** The project's own saved markup choice (LA-1109), null when it has never saved one. */
   markupDefault?: MarkupChoices | null;
   /** The project's own recorded answers to the nine yes/no scope questions (LA-1028). */
@@ -274,6 +279,11 @@ export function RomRunner({
   // LA-1181's hover intent (70ms in, 140ms out); an open card keeps them lit.
   const criteria = useDerivedCriteria(derivedAssumptions);
   const criterionHover = useHoverIntent();
+  // LA-1317: the building the stage draws, from the project's facts and its cards.
+  const stageSpec = useMemo(
+    () => (stageFacts ? stageBuilding(stageFacts, criteria.items) : null),
+    [stageFacts, criteria.items],
+  );
   const [ping, setPing] = useState<Ping>(null);
   const drilldown = useProvenance(run?.runId ?? null);
 
@@ -728,6 +738,7 @@ export function RomRunner({
             {run ? ` The blocks below are still ${runWords(run)}.` : ""}
           </p>
         ) : null}
+        {run && panel?.kind !== "new" ? <Stage building={stageSpec} /> : null}
         {run && panel?.kind !== "new" ? (
           <DerivedCriteriaSection
             items={criteria.items}

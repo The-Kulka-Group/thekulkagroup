@@ -125,7 +125,8 @@ export function ProjectFields({
           <span className="field-label t-label">ZIP</span>
           <input
             className="input"
-            maxLength={3}
+            maxLength={5}
+            inputMode="numeric"
             value={form.zip}
             disabled={busy}
             onChange={(e) => set({ zip: e.target.value })}

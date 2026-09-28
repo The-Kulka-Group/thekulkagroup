@@ -561,7 +561,7 @@ function readNumber(question: Question, raw: string): number {
 /**
  * Whether a text question's raw answer is one it accepts. A question with no
  * `pattern` accepts anything non-empty; a `pattern` is checked as a whole-string
- * match (LA-1199: ZIP's first three digits, `^[0-9]{3}$`).
+ * match (LA-1224: ZIP's five digits, `^[0-9]{5}$`).
  */
 export function textAnswerIsValid(question: Question, raw: string): boolean {
   if (question.pattern === undefined) return true;

@@ -58,7 +58,7 @@ export function scopeQuestions(definition: FlowDefinition, responses: Responses)
  * every optional one left blank or answered validly. A blank optional answer
  * (ZIP, Building Count outside a multifamily project) is fine; an answered
  * one still has to be a shape the question accepts, required or not -- LA-1199:
- * ZIP is "optional, validated as three digits", not "optional, unchecked".
+ * ZIP is "optional, validated as five digits" (LA-1224), not "optional, unchecked".
  */
 export function requiredAnswered(questions: Question[], responses: Responses): boolean {
   return questions.every((question) => {

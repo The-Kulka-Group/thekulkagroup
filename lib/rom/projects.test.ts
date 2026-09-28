@@ -195,14 +195,14 @@ describe("updateRomProject", () => {
         storiesAboveGrade: 4,
         unitCount: 120,
         buildingCount: 3,
-        zip: "212",
+        zip: "10956",
       });
       const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
       expect(detail).toMatchObject({
         storiesAboveGrade: 4,
         unitCount: 120,
         buildingCount: 3,
-        zip: "212",
+        zip: "10956",
       });
     });
 
@@ -227,7 +227,7 @@ describe("updateRomProject", () => {
         ...editBudget,
         storiesAboveGrade: 4,
         unitCount: 120,
-        zip: "212",
+        zip: "10956",
       });
       await updateRomProject(db, TEST_PROJECT_ID, editBudget);
       const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);

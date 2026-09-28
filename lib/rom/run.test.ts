@@ -27,7 +27,7 @@ describe("stories above grade, unit count, building count, zip on the project re
   it("carries all four into answersFromProject's facts when set", async () => {
     await db.query(
       `update projects
-          set stories_above_grade = 4, unit_count = 120, building_count = 3, zip = '212'
+          set stories_above_grade = 4, unit_count = 120, building_count = 3, zip = '10956'
         where id = $1`,
       [TEST_PROJECT_ID],
     );
@@ -37,7 +37,7 @@ describe("stories above grade, unit count, building count, zip on the project re
       storiesAboveGrade: 4,
       unitCount: 120,
       buildingCount: 3,
-      zip: "212",
+      zip: "10956",
     });
   });
 

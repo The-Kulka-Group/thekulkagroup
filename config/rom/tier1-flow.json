@@ -61,10 +61,10 @@
     {
       "id": "zip",
       "prompt": "ZIP",
-      "help": "First three digits only.",
+      "help": "Five digits.",
       "kind": "text",
       "required": false,
-      "pattern": "^[0-9]{3}$",
+      "pattern": "^[0-9]{5}$",
       "mapsTo": { "target": "intake_field", "name": "zip" }
     },
     {

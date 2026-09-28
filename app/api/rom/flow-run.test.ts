@@ -202,7 +202,7 @@ describe("the tier-1 question flow, definition to ROM", () => {
       stories_above_grade: "4",
       unit_count: "120",
       building_count: "3",
-      zip: "212",
+      zip: "10956",
     };
     await post({ projectId: TEST_PROJECT_ID, responses });
 
@@ -211,7 +211,7 @@ describe("the tier-1 question flow, definition to ROM", () => {
       storiesAboveGrade: 4,
       unitCount: 120,
       buildingCount: 3,
-      zip: "212",
+      zip: "10956",
     });
   });
 

@@ -130,7 +130,7 @@ describe("requiredAnswered", () => {
       parking_type: "none",
     };
     expect(requiredAnswered(facts, complete)).toBe(true);
-    expect(requiredAnswered(facts, { ...complete, zip: "212" })).toBe(true);
+    expect(requiredAnswered(facts, { ...complete, zip: "10956" })).toBe(true);
     expect(requiredAnswered(facts, { ...complete, zip: "not-a-zip" })).toBe(false);
   });
 

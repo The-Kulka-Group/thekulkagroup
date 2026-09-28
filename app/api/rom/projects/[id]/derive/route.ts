@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
 import { applyElevatorCriterion, V1_CODE } from "@/lib/rom/elevator-criterion";
 import { applyJackCriterion, V2_CODE } from "@/lib/rom/jack-criterion";
+import { applyMachineRoomCriterion, V3_CODE } from "@/lib/rom/machine-room-criterion";
 import { previewAnswers } from "@/lib/rom/preview";
 import { readRomProjectDetail } from "@/lib/rom/projects";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
@@ -19,7 +20,7 @@ import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
 
-const CODES = new Set([V1_CODE, V2_CODE]);
+const CODES = new Set([V1_CODE, V2_CODE, V3_CODE]);
 
 export async function POST(request: Request, context: Context) {
   const denied = await requireApiUser(request);
@@ -46,12 +47,13 @@ export async function POST(request: Request, context: Context) {
   if (!answers) return NextResponse.json({ criteria: [], facts: {} });
 
   const withV1 = await applyElevatorCriterion(db, id, answers, project.framingSystem ?? null);
-  const derived = await applyJackCriterion(db, id, withV1, project.framingSystem ?? null);
+  const withV2 = await applyJackCriterion(db, id, withV1, project.framingSystem ?? null);
+  const derived = await applyMachineRoomCriterion(db, id, withV2);
 
   const facts: Record<string, string> = {};
-  for (const name of ["elevatorType", "hydraulicJackType"]) {
+  for (const name of ["elevatorType", "hydraulicJackType", "elevatorMachineRooms", "elevatorMachineRoomHvac"]) {
     const value = derived.facts?.[name];
-    if (typeof value === "string") facts[name] = value;
+    if (typeof value === "string" || typeof value === "number") facts[name] = String(value);
   }
   const criteria = (await listDerivedAssumptions(db, id)).filter((one) => CODES.has(one.code));
   return NextResponse.json({ criteria, facts });

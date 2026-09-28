@@ -15,7 +15,7 @@ import {
   type Responses,
 } from "@/lib/rom/question-flow";
 
-import { factFor } from "./engineering";
+import { factsFor } from "./engineering";
 import { EngineeringStep } from "./EngineeringStep";
 import type { BudgetDraft } from "./LiveBudget";
 import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
@@ -54,7 +54,7 @@ type Slot =
   | { kind: "markup_setup" }
   | { kind: "markup_method" }
   /** LA-1265: Design and Engineering, a question the app answers itself (EngineeringStep.tsx). */
-  | { kind: "engineering"; code: "V-1" | "V-2" }
+  | { kind: "engineering"; code: "V-1" | "V-2" | "V-3" }
   /** LA-1256: the GRs/GCs rate, so New Budget never finishes with GRs/GCs TBD. */
   | { kind: "markup_rate" }
   | { kind: "markup_detail" };
@@ -67,7 +67,7 @@ function slotKey(slot: Slot): string {
   return slot.kind;
 }
 
-const ENGINEERING_LABEL = { "V-1": "Elevator Type", "V-2": "Hydraulic Jack Type" } as const;
+const ENGINEERING_LABEL = { "V-1": "Elevator Type", "V-2": "Hydraulic Jack Type", "V-3": "Elevator Machine Rooms" } as const;
 
 /** The answers V-1 and V-2 read. A change to any of them works both out again. */
 function engineeringInputs(responses: Responses, framing: string): string {
@@ -229,6 +229,8 @@ export function GuidedNewBudget({
         if (v1Text?.kind === "spec" && v1Text.text.toLowerCase().startsWith("hydraulic") && criteria["V-2"]) {
           slots.push({ kind: "engineering", code: "V-2" });
         }
+        // LA-1269: V-3 counts the machine rooms, after V-2 or straight after V-1.
+        if (criteria["V-3"]) slots.push({ kind: "engineering", code: "V-3" });
       }
     }
     if (markupOptions) {
@@ -536,8 +538,7 @@ export function GuidedNewBudget({
     for (const one of Object.values(next)) {
       const value = one.correction?.value ?? one.value;
       if (value.kind !== "spec") continue;
-      const fact = factFor(one.code, value.text);
-      if (fact) facts[fact.name] = fact.value;
+      Object.assign(facts, factsFor(one.code, value.text));
     }
     if (!next["V-2"]) delete facts.hydraulicJackType;
     return facts;
@@ -548,8 +549,12 @@ export function GuidedNewBudget({
     if (!criterion) return;
     setAppliedFacts((current) => {
       const next = { ...current, ...factsOf({ ...criteria }) };
-      // V-2's jack counts only once V-2 itself has landed.
+      // A later card's facts count only once that card itself has landed.
       if (code === "V-1" && !current.hydraulicJackType) delete next.hydraulicJackType;
+      if (code !== "V-3" && current.elevatorMachineRooms === undefined) {
+        delete next.elevatorMachineRooms;
+        delete next.elevatorMachineRoomHvac;
+      }
       return next;
     });
     onEngineeringFocus?.({ code, costCodes: criterion.costCodes });
@@ -590,8 +595,9 @@ export function GuidedNewBudget({
     setCriteria(updated);
     setAppliedFacts(factsOf(updated));
     onEngineeringFocus?.({ code, costCodes: criterion.costCodes });
-    // V-2 reads V-1's type, so a change to V-1 works V-2 out again (it may
-    // come or go). A change to V-2 decides nothing further.
+    // V-2 and V-3 read V-1's type, so a change to V-1 works them out again
+    // (V-2 may come or go, V-3's rooms may change). V-2 only moves V-3's
+    // confidence, which the run at the end works out, so it waits for that.
     if (code === "V-1") {
       const next = await deriveEngineering(projectId, responses);
       if (next) setAppliedFacts(factsOf(next));

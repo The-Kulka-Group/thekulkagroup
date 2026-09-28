@@ -6,7 +6,7 @@ import type { BenchmarkUnit, QuantityRule } from "@kulka/engine";
 // element's items come one per elevator or one per stop.
 
 export type RuleBasis = {
-  unit: Extract<BenchmarkUnit, "usd_each_structure" | "usd_each_elevator" | "usd_per_stop">;
+  unit: Extract<BenchmarkUnit, "usd_each_structure" | "usd_each_elevator" | "usd_per_stop" | "usd_each_machine_room">;
   /** The rate field's label: "Dollars Each, per Structure". */
   fieldLabel: string;
   /** How many come in, after the driver's name: "one for each structure coming down". */
@@ -26,6 +26,12 @@ const BASES: Record<QuantityRule, RuleBasis> = {
     unit: "usd_each_elevator",
     fieldLabel: "Dollars Each, per Elevator",
     count: "one for each elevator",
+    per: "each",
+  },
+  one_per_machine_room: {
+    unit: "usd_each_machine_room",
+    fieldLabel: "Dollars Each, per Machine Room",
+    count: "one for each machine room V-3 counts",
     per: "each",
   },
   one_per_stop: {

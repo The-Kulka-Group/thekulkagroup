@@ -166,3 +166,33 @@
 
 /* The saved budget's correction panel offers a spec criterion's answers as buttons. */
 .dc-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* LA-1269: V-3's cars grouped into the machine rooms that serve them. */
+.eng-rooms { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px; }
+.eng-room {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 10px 12px 8px;
+  border: 1.5px dashed transparent;
+  border-radius: 10px;
+  transition: border-color .35s var(--eng-ease) calc(var(--eng-room, 0) * 120ms + 260ms), background .35s var(--eng-ease);
+}
+.eng-rooms--on .eng-room { border-color: var(--eng-blue-line); background: rgba(140, 194, 255, .05); }
+.eng-rooms--on.eng-rooms--none .eng-room { border-color: transparent; background: none; }
+.eng-cars { display: flex; gap: 6px; }
+.eng-car {
+  width: 18px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--eng-blue);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .25s var(--eng-ease) calc(var(--eng-car, 0) * 90ms), transform .35s var(--eng-spring) calc(var(--eng-car, 0) * 90ms);
+}
+.eng-rooms--on .eng-car { opacity: 1; transform: none; }
+.eng-room-lbl { font-size: 10.5px; font-weight: 600; color: var(--rb-pnl-mute); }
+.eng-rooms--on .eng-room-lbl { color: var(--eng-blue); }
+@media (prefers-reduced-motion: reduce) {
+  .eng-room, .eng-car { transition: none; }
+}

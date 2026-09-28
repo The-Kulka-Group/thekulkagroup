@@ -130,6 +130,12 @@ export type ElevatorFacts = {
   elevatorCount: number | null;
   storiesAboveGrade: number | null;
   levelsBelowGradeServed: boolean;
+  /**
+   * LA-1269: how many elevator machine rooms or controller spaces need HVAC,
+   * as V-3 worked it out (lib/rom/machine-room-criterion.ts). Null until V-3
+   * has run.
+   */
+  machineRooms: number | null;
 };
 
 function readNumberFact(facts: Record<string, string | number | boolean> | undefined, name: string): number | null {
@@ -144,7 +150,15 @@ export function readElevatorFacts(facts: Record<string, string | number | boolea
     elevatorCount: readNumberFact(facts, "elevatorCount"),
     storiesAboveGrade: readNumberFact(facts, "storiesAboveGrade"),
     levelsBelowGradeServed: facts?.["levels_below_grade"] === "yes",
+    machineRooms: readCountFact(facts, "elevatorMachineRooms"),
   };
+}
+
+/** A count set by a criterion, which reaches the live budget as text ("2") and a run as a number. */
+function readCountFact(facts: Record<string, string | number | boolean> | undefined, name: string): number | null {
+  const value = facts?.[name];
+  const count = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : null;
 }
 
 /** Stops per elevator: Stories Above Grade, plus one for a served below-grade level (the ticket). */

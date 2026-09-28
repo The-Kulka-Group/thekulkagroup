@@ -5,10 +5,12 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
 import {
-  CRITERION_CHOICES,
+  carsPerRoom,
+  choicesFor,
   CRITERION_DISCIPLINE,
   CRITERION_GAUGE,
   type Gauge,
+  stepNumber,
   travelFeet,
   zoneIndex,
 } from "./engineering";
@@ -106,7 +108,10 @@ export function EngineeringStep({
 
   const gauge = CRITERION_GAUGE[code];
   const travel = criterion ? travelFeet(criterion) : null;
-  const choices = CRITERION_CHOICES[code] ?? [];
+  // LA-1269: V-3 draws its cars grouped into the rooms that serve them.
+  const cars = criterion ? stepNumber(criterion, "Elevators") : null;
+  const rooms = criterion ? stepNumber(criterion, "Machine Rooms") : null;
+  const choices = criterion ? choicesFor(criterion) : [];
   const corrected = Boolean(criterion?.correction);
 
   return (
@@ -163,6 +168,9 @@ export function EngineeringStep({
           </ol>
 
           {gauge && travel !== null ? <TravelGauge gauge={gauge} value={travel} on={shownSteps >= 3 || phase === "landed"} /> : null}
+          {code === "V-3" && cars !== null && rooms !== null ? (
+            <RoomsDiagram cars={cars} rooms={rooms} on={shownSteps >= 2 || phase === "landed"} />
+          ) : null}
 
           <div className="eng-answer" aria-live="polite">
             {phase === "landed" ? (
@@ -254,3 +262,33 @@ function TravelGauge({ gauge, value, on }: { gauge: Gauge; value: number; on: bo
     </div>
   );
 }
+
+/**
+ * LA-1269: V-3's answer drawn: each elevator a small car, grouped into the
+ * machine rooms that serve them. Cars rise in one at a time, then each room's
+ * outline closes around its cars.
+ */
+function RoomsDiagram({ cars, rooms, on }: { cars: number; rooms: number; on: boolean }) {
+  const groups = rooms > 0 ? carsPerRoom(cars, rooms) : [cars];
+  let index = 0;
+  return (
+    <div
+      className={`eng-rooms${on ? " eng-rooms--on" : ""}${rooms === 0 ? " eng-rooms--none" : ""}`}
+      role="img"
+      aria-label={`${cars} ${cars === 1 ? "elevator" : "elevators"}, ${rooms === 0 ? "no machine room" : `${rooms} ${rooms === 1 ? "machine room" : "machine rooms"}`}`}
+    >
+      {groups.map((count, room) => (
+        <div key={room} className="eng-room" style={{ "--eng-room": room } as CSSProperties}>
+          <div className="eng-cars">
+            {Array.from({ length: count }, () => {
+              const k = index++;
+              return <span key={k} className="eng-car" style={{ "--eng-car": k } as CSSProperties} />;
+            })}
+          </div>
+          <span className="eng-room-lbl">{rooms === 0 ? "No Machine Room" : `Machine Room ${room + 1}`}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+

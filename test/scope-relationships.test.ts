@@ -72,7 +72,7 @@ describe("scope_relationships", () => {
       ["26d", "one_per_elevator", "levels_below_grade", "yes"],
       ["26e", "one_per_elevator", null, null],
       ["26f", "one_per_elevator", null, null],
-      ["26g", "one_per_elevator", "elevatorType", "hydraulic"],
+      ["26g", "one_per_machine_room", "elevatorMachineRoomHvac", "yes"],
       ["26h", "one_per_stop", null, null],
       ["26i", "one_per_elevator", "hydraulicJackType", "in_ground"],
     ]);

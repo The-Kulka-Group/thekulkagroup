@@ -44,14 +44,20 @@ afterEach(async () => {
 });
 
 describe("POST /api/rom/projects/[id]/derive", () => {
-  it("works out V-1 and then V-2, and returns the facts they set", async () => {
+  it("works out V-1, V-2 and V-3, and returns the facts they set", async () => {
     const response = await derive(FIVE_STORIES);
     expect(response.status).toBe(200);
     const body = await response.json();
 
-    expect(body.criteria.map((one: { code: string }) => one.code).sort()).toEqual(["V-1", "V-2"]);
+    expect(body.criteria.map((one: { code: string }) => one.code).sort()).toEqual(["V-1", "V-2", "V-3"]);
     // Five stories at 10'-0" is 40 ft: hydraulic, and in-ground on dry ground.
-    expect(body.facts).toEqual({ elevatorType: "hydraulic", hydraulicJackType: "in_ground" });
+    // Two hydraulic cars in one building share one machine room (LA-1269).
+    expect(body.facts).toEqual({
+      elevatorType: "hydraulic",
+      hydraulicJackType: "in_ground",
+      elevatorMachineRooms: "1",
+      elevatorMachineRoomHvac: "yes",
+    });
     const v2 = body.criteria.find((one: { code: string }) => one.code === "V-2");
     expect(v2.costCodes).toEqual(["26", "26i"]);
   });
@@ -71,8 +77,9 @@ describe("POST /api/rom/projects/[id]/derive", () => {
     );
 
     const body = await (await derive(FIVE_STORIES)).json();
-    expect(body.criteria.map((one: { code: string }) => one.code)).toEqual(["V-1"]);
-    expect(body.facts).toEqual({ elevatorType: "traction" });
+    expect(body.criteria.map((one: { code: string }) => one.code).sort()).toEqual(["V-1", "V-3"]);
+    // Machine-room-less traction has no room to condition (LA-1269).
+    expect(body.facts).toEqual({ elevatorType: "traction", elevatorMachineRooms: "0", elevatorMachineRoomHvac: "no" });
   });
 
   it("works nothing out without an elevator", async () => {

@@ -89,7 +89,7 @@ export async function updateSupportingItemRate(db: Db, rate: SupportingItemRate)
     `update benchmarks
         set value = $1, provenance_export_label = $2, provenance_recorded_by = $3, provenance_recorded_at = $4
       where cost_code = $5 and project_type = $6 and construction_kind = $7
-        and unit in ('usd_each_structure', 'usd_each_elevator', 'usd_per_stop')
+        and unit in ('usd_each_structure', 'usd_each_elevator', 'usd_per_stop', 'usd_each_machine_room')
         and provenance_kind = 'reviewed_judgment'
       returning 1`,
     [
@@ -129,7 +129,7 @@ export async function readSupportingItemRates(db: Db, projectId: string, costCod
   const shared = await db.query<{ value: string }>(
     `select value from benchmarks
       where cost_code = $1 and project_type = $2 and construction_kind = $3
-        and unit in ('usd_each_structure', 'usd_each_elevator', 'usd_per_stop')
+        and unit in ('usd_each_structure', 'usd_each_elevator', 'usd_per_stop', 'usd_each_machine_room')
         and provenance_kind = 'reviewed_judgment' limit 1`,
     [costCode, found.project_type, found.construction_kind],
   );

@@ -989,10 +989,15 @@ button.lb-blk.rb-blk--sel:hover { border-color: var(--rb-black); }
   gap: 2px;
   height: 14px;
   margin: -4px 0 -3px;
+  /* A package with dozens of items (Unassigned, 36 on the live data) ran
+     its strip past the card's edge, one fixed-width segment per item. The
+     segments and dots now shrink to fit, and the strip never overflows. */
+  min-width: 0;
+  overflow: hidden;
 }
 .pk-seg {
   flex: 1 1 0;
-  min-width: 3px;
+  min-width: 1px;
   height: 14px;
   display: flex;
   align-items: center;
@@ -1011,7 +1016,8 @@ button.lb-blk.rb-blk--sel:hover { border-color: var(--rb-black); }
 .pk-seg--hot i { transform: scaleY(1.6); }
 .rb-blk--sel .pk-seg i { background: var(--rb-ink-on-black); }
 .pk-dotw {
-  flex: none;
+  flex: 0 1 12px;
+  min-width: 5px;
   display: flex;
   align-items: center;
   justify-content: center;

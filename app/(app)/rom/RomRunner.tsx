@@ -198,9 +198,9 @@ export function RomRunner({
   const liveEntries = useMemo(
     () =>
       liveRom && liveClassifications
-        ? orderField(buildField(view, liveRom, liveClassifications, canonicalDivisionMap), order)
+        ? orderField(buildField("scope", liveRom, liveClassifications, canonicalDivisionMap), order)
         : [],
-    [liveRom, liveClassifications, canonicalDivisionMap, view, order],
+    [liveRom, liveClassifications, canonicalDivisionMap, order],
   );
   const liveBar = useMemo(
     () => (live.phase === "ready" ? barModel(live.rom, liveEntries) : null),
@@ -489,7 +489,10 @@ export function RomRunner({
           ) : null}
           {!projectId ? <span>{projectNotFound ? "Project Not Found" : "No Project Configured"}</span> : null}
           <span className="rb-sp" />
-          {run || panel?.kind === "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
+          {/* New Budget always builds By Scope: production has almost no
+              buyout packages stated yet, so By Package would pour every
+              answer into one Unassigned Package card (Matt, 2026-09-27). */}
+          {run && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
           {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
           <button
             type="button"
@@ -603,7 +606,7 @@ export function RomRunner({
           {panel?.kind === "new" ? (
             <LiveField
               live={live}
-              view={view}
+              view="scope"
               order={order}
               entries={liveEntries}
               selectedKey={liveSelected}

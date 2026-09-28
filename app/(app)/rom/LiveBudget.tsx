@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockClassification, DataSnapshot, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
-import { knownScopeRom, previewAnswers } from "@/lib/rom/preview";
+import { knownScopeRom, previewAnswers, sectionsAwaitingFollowUps } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 import { headlineMoney, headlineOf, shortMoney, valueTier, type TradeBlock } from "./block-layout";
@@ -140,6 +140,7 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
     const definition = tier1Flow();
     const answers = previewAnswers(definition, draft.responses, draft.framing, draft.markups);
     const classifications = loaded.snapshot.classifications ?? [];
+    const awaiting = sectionsAwaitingFollowUps(definition, draft.responses);
     try {
       if (!answers) {
         const ordering = previewAnswers(
@@ -149,10 +150,10 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
           null,
         );
         if (!ordering) return { phase: "empty" };
-        const { known, full } = knownScopeRom(ordering, loaded.snapshot);
+        const { known, full } = knownScopeRom(ordering, loaded.snapshot, awaiting);
         return { phase: "waiting", rom: known, answered: full, classifications };
       }
-      const { known, full } = knownScopeRom(answers, loaded.snapshot);
+      const { known, full } = knownScopeRom(answers, loaded.snapshot, awaiting);
       return {
         phase: "ready",
         rom: known,

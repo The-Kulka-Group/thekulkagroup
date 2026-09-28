@@ -72,3 +72,60 @@ export async function addSupportingItemRate(db: Db, rate: SupportingItemRate): P
     ],
   );
 }
+
+/**
+ * Changes a shared supporting-item rate stated earlier on a card (Matt,
+ * 2026-09-28: a saved rate can be edited). Only a card-stated rate, dollars
+ * each per structure, is changed here; a rate from job data is not.
+ */
+export async function updateSupportingItemRate(db: Db, rate: SupportingItemRate): Promise<void> {
+  if (!Number.isFinite(rate.value) || rate.value <= 0) throw new RateRefused("Enter a rate above zero.");
+  const { rows: changed } = await db.query(
+    `update benchmarks
+        set value = $1, provenance_export_label = $2, provenance_recorded_by = $3, provenance_recorded_at = $4
+      where cost_code = $5 and project_type = $6 and construction_kind = $7
+        and unit = 'usd_each_structure' and provenance_kind = 'reviewed_judgment'
+      returning 1`,
+    [
+      rate.value,
+      `Stated on the item's card in Kulka AI, changed to $${rate.value} each, one per structure coming down.`,
+      rate.recordedBy,
+      rate.recordedAt,
+      rate.costCode,
+      rate.projectType,
+      rate.constructionKind,
+    ],
+  );
+  if (changed.length === 0) throw new RateRefused("This item has no card-stated rate to change.");
+}
+
+export type SavedSupportingRate = {
+  /** The rate that prices this project only, if it has one (LA-1245). */
+  projectRate: { value: number; suggested: boolean } | null;
+  /** The shared card-stated rate for this project's type and construction kind. */
+  sharedRate: { value: number } | null;
+};
+
+/** The rates a supporting item has for one project, for the rate panel to edit. */
+export async function readSupportingItemRates(db: Db, projectId: string, costCode: string): Promise<SavedSupportingRate | null> {
+  const project = await db.query<{ project_type: string; construction_kind: string }>(
+    `select project_type, construction_kind from projects where id = $1`,
+    [projectId],
+  );
+  const found = project.rows[0];
+  if (!found) return null;
+  const own = await db.query<{ value: string; model_proposal: unknown }>(
+    `select value, model_proposal from project_rates where project_id = $1 and cost_code = $2`,
+    [projectId, costCode],
+  );
+  const shared = await db.query<{ value: string }>(
+    `select value from benchmarks
+      where cost_code = $1 and project_type = $2 and construction_kind = $3
+        and unit = 'usd_each_structure' and provenance_kind = 'reviewed_judgment' limit 1`,
+    [costCode, found.project_type, found.construction_kind],
+  );
+  return {
+    projectRate: own.rows[0] ? { value: Number(own.rows[0].value), suggested: own.rows[0].model_proposal != null } : null,
+    sharedRate: shared.rows[0] ? { value: Number(shared.rows[0].value) } : null,
+  };
+}

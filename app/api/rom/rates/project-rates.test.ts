@@ -12,7 +12,7 @@ let db: Awaited<ReturnType<typeof seededDatabase>>;
 
 vi.mock("@/lib/db", () => ({ getDb: () => db as Db }));
 
-const { POST: saveRate } = await import("./route");
+const { GET: readRates, POST: saveRate } = await import("./route");
 const { POST: suggest } = await import("./suggest/route");
 
 function post(handler: (request: Request) => Promise<Response>, body: unknown) {
@@ -118,5 +118,37 @@ describe("suggested, project-only rates (LA-1245)", () => {
     // The shared benchmark is untouched for every other project.
     const shared = await db.query(`select value from benchmarks where cost_code = '28a'`);
     expect(Number((shared.rows[0] as { value: string }).value)).toBe(1500);
+  });
+});
+
+describe("editing a saved rate (Matt, 2026-09-28)", () => {
+  const read = async (costCode: string) =>
+    (await readRates(new Request(`http://localhost/api/rom/rates?projectId=${TEST_PROJECT_ID}&costCode=${costCode}`))).json();
+
+  it("changes a shared card rate in place with replace", async () => {
+    await demolitionProject();
+    expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1500 })).status).toBe(201);
+    expect(await read("28a")).toEqual({ projectRate: null, sharedRate: { value: 1500 } });
+
+    // A second plain save is still refused; replace changes it.
+    expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1700 })).status).toBe(400);
+    expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1700, replace: true })).status).toBe(201);
+    expect(await read("28a")).toEqual({ projectRate: null, sharedRate: { value: 1700 } });
+  });
+
+  it("refuses replace when there is no card rate to change", async () => {
+    await demolitionProject();
+    const response = await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1700, replace: true });
+    expect(response.status).toBe(400);
+  });
+
+  it("changes a budget-only rate and reports whether it began as a suggestion", async () => {
+    await demolitionProject();
+    const proposal = { value: 1800, low: 1400, high: 2400, reasoning: "Union.", model: "claude-opus-5" };
+    await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1800, scope: "project", proposal });
+    expect(await read("28a")).toEqual({ projectRate: { value: 1800, suggested: true }, sharedRate: null });
+
+    await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 2100, scope: "project" });
+    expect((await read("28a")).projectRate).toEqual({ value: 2100, suggested: false });
   });
 });

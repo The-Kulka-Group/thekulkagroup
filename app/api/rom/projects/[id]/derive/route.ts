@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
+import { applyElectricalCriterion, E1_CODE } from "@/lib/rom/electrical-criterion";
 import { applyElevatorCriterion, V1_CODE } from "@/lib/rom/elevator-criterion";
+import { applyHvacCriteria, M0_CODE, M1_CODE } from "@/lib/rom/hvac-criterion";
 import { applyJackCriterion, V2_CODE } from "@/lib/rom/jack-criterion";
 import { applyMachineRoomCriterion, V3_CODE } from "@/lib/rom/machine-room-criterion";
 import { previewAnswers } from "@/lib/rom/preview";
@@ -12,7 +14,7 @@ import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 import { isUuid } from "@/lib/uuid";
 
 // LA-1265. Design and Engineering in the New Budget flow: POST the answers as
-// they stand, and the elevator criteria are worked out now, mid-flow, the
+// they stand, and the criteria are worked out now, mid-flow, the
 // same way a run works them out (V-1, then V-2 from V-1's type). Each is
 // saved on the project, so the run at the end and the saved budget show the
 // same cards, corrections included. It opens no run. The facts the criteria
@@ -20,7 +22,7 @@ import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
 
-const CODES = new Set([V1_CODE, V2_CODE, V3_CODE]);
+const CODES = new Set([V1_CODE, V2_CODE, V3_CODE, E1_CODE, M0_CODE, M1_CODE]);
 
 export async function POST(request: Request, context: Context) {
   const denied = await requireApiUser(request);
@@ -48,7 +50,10 @@ export async function POST(request: Request, context: Context) {
 
   const withV1 = await applyElevatorCriterion(db, id, answers, project.framingSystem ?? null);
   const withV2 = await applyJackCriterion(db, id, withV1, project.framingSystem ?? null);
-  const derived = await applyMachineRoomCriterion(db, id, withV2);
+  const withV3 = await applyMachineRoomCriterion(db, id, withV2);
+  // LA-1281, LA-1282: E-1, then M-0 and M-1 (M-1 reads M-0's band).
+  const withE1 = await applyElectricalCriterion(db, id, withV3);
+  const derived = await applyHvacCriteria(db, id, withE1);
 
   const facts: Record<string, string> = {};
   for (const name of ["elevatorType", "hydraulicJackType", "elevatorMachineRooms", "elevatorMachineRoomHvac"]) {

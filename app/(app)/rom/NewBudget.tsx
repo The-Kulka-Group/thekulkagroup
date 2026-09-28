@@ -37,6 +37,8 @@ export type Form = {
   demolitionStructureCount: string;
   demolitionStructureSquareFeet: string;
   demolitionStructureType: string;
+  /** LA-1245: Union, Open Shop or Prevailing Wage, or blank. */
+  laborType: string;
 };
 
 export const EMPTY: Form = {
@@ -53,11 +55,15 @@ export const EMPTY: Form = {
   demolitionStructureCount: "",
   demolitionStructureSquareFeet: "",
   demolitionStructureType: "",
+  laborType: "",
 };
 
 /** The structure types, worded as config/rom/tier1-flow.json words them. */
 const DEMOLITION_TYPE_CHOICES =
   tier1Flow().questions.find((question) => question.id === "demolition_structure_type")?.choices ?? [];
+
+/** Labor Type's choices, worded as config/rom/tier1-flow.json words them. */
+const LABOR_TYPE_CHOICES = tier1Flow().questions.find((question) => question.id === "labor_type")?.choices ?? [];
 
 export function areaOf(form: Form): number {
   return Number(form.grossSquareFeet.replace(/,/g, ""));
@@ -148,6 +154,22 @@ export function ProjectFields({
             disabled={busy}
             onChange={(e) => set({ zip: e.target.value })}
           />
+        </label>
+        <label>
+          <span className="field-label t-label">Labor Type</span>
+          <select
+            className="input"
+            value={form.laborType}
+            disabled={busy}
+            onChange={(e) => set({ laborType: e.target.value })}
+          >
+            <option value="">Not Set</option>
+            {LABOR_TYPE_CHOICES.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           <span className="field-label t-label">Elevator Count</span>

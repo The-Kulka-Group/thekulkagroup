@@ -9,7 +9,7 @@ import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } 
 // passing test is a test of the file that ships, not of a copy of it.
 
 describe("factsQuestions / scopeQuestions", () => {
-  it("puts exactly the eight top-level facts on the Facts step, in the file's order", () => {
+  it("puts exactly the nine top-level facts on the Facts step, in the file's order", () => {
     const ids = factsQuestions(tier1Flow(), {}).map((q) => q.id);
     expect(ids).toEqual([
       "project_type",
@@ -19,6 +19,8 @@ describe("factsQuestions / scopeQuestions", () => {
       "unit_count",
       "building_count",
       "zip",
+      // LA-1245
+      "labor_type",
       "parking_type",
     ]);
   });

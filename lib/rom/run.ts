@@ -28,6 +28,7 @@ import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
+import { readProjectRates, withProjectRates } from "@/lib/rom/project-rates";
 import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 // The run: load a snapshot, hand it to the engine, write down what happened.
@@ -118,6 +119,8 @@ export type ProjectRow = {
   demolition_structure_count: number | null;
   demolition_structure_square_feet: number | null;
   demolition_structure_type: string | null;
+  /** LA-1245: Union, Open Shop or Prevailing Wage. */
+  labor_type: string | null;
 };
 
 /**
@@ -313,7 +316,15 @@ export async function runRom(
       }),
     );
 
-    const snapshot = assembleSnapshot(data, rated, judgmentRules, Boolean(markups));
+    // LA-1245: this project's own rates stand in for the shared benchmarks
+    // on their cost codes, and count toward the snapshot's hash like any
+    // other input the run read.
+    const snapshot = withProjectRates(
+      assembleSnapshot(data, rated, judgmentRules, Boolean(markups)),
+      await readProjectRates(db, projectId),
+      answers.projectType,
+      answers.constructionKind,
+    );
     await db.query(`update runs set snapshot_hash = $2 where id = $1`, [
       runId,
       hashSnapshot(snapshot),
@@ -398,6 +409,7 @@ export function answersFromProject(
     facts.demolitionStructureSquareFeet = project.demolition_structure_square_feet;
   }
   if (project.demolition_structure_type) facts.demolitionStructureType = project.demolition_structure_type;
+  if (project.labor_type) facts.laborType = project.labor_type;
 
   return {
     projectType: project.project_type,
@@ -584,7 +596,7 @@ export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
             parking_type, framing_system,
             stories_above_grade, unit_count, building_count, zip, elevator_count,
-            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type`;
+            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type`;
 
 export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(

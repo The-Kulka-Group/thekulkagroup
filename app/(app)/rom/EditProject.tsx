@@ -38,6 +38,8 @@ export type EditableProject = {
   demolitionStructureCount: number | null;
   demolitionStructureSquareFeet: number | null;
   demolitionStructureType: string | null;
+  /** LA-1245. Null until set. */
+  laborType: string | null;
 };
 
 function formFrom(project: EditableProject): Form {
@@ -60,6 +62,7 @@ function formFrom(project: EditableProject): Form {
       ? String(project.demolitionStructureSquareFeet)
       : "",
     demolitionStructureType: project.demolitionStructureType ?? "",
+    laborType: project.laborType ?? "",
   };
 }
 
@@ -152,6 +155,7 @@ export function EditProjectForm({
             Number(form.demolitionStructureCount) > 0 && form.demolitionStructureType
               ? form.demolitionStructureType
               : null,
+          laborType: form.laborType || null,
         }),
       });
       const body = await response.json().catch(() => ({}));

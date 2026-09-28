@@ -49,7 +49,7 @@ import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from ".
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
 import { type FieldLink, ShareBar, ShareChip, useHoverIntent } from "./ShareBar";
-import type { RomView } from "./view-groups";
+import { defaultRomView, type RomView } from "./view-groups";
 import { OrderSwitch, useRomOrder, useRomView, ViewSwitch } from "./view-switch";
 import "./rom-blocks.css";
 
@@ -150,10 +150,16 @@ export function RomRunner({
   const opener = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  // LA-1159, ADR 0006, CONTEXT.md: View. New budget opens on By Scope and a
-  // saved ROM opens on By Package; once the viewer has picked a view at all,
-  // that choice follows them everywhere (useRomView, view-switch.tsx).
-  const [view, setView] = useRomView(panel?.kind === "new" ? "scope" : "package");
+  // LA-1159, ADR 0006, CONTEXT.md: View. New budget always opens on By Scope.
+  // A saved ROM opens on By Scope when most of its trade cost has no stated
+  // buyout package, and on By Package once most of it does (LA-1210,
+  // defaultRomView, view-groups.ts) -- production has almost none stated
+  // today, so this keeps a saved run off one giant Unassigned Package card.
+  // Once the viewer has picked a view at all, that choice follows them
+  // everywhere (useRomView, view-switch.tsx).
+  const [view, setView] = useRomView(
+    panel?.kind === "new" ? "scope" : run ? defaultRomView(run.rom, classifications) : "scope",
+  );
 
   // LA-1181: MasterFormat or Largest First, remembered per viewer like the view.
   const [order, setOrder] = useRomOrder();

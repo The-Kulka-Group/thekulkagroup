@@ -28,7 +28,7 @@ export default async function EngineParametersPage() {
       title="Engine Parameters"
       actions={
         <Link className="btn btn--secondary" href="/rom">
-          Back to the conceptual budget
+          Back to the Conceptual Budget
         </Link>
       }
       meta={

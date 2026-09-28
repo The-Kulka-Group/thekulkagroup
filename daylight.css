@@ -214,6 +214,12 @@ em, .em { font-style: normal; font-weight: 600; }
   overflow: hidden;
 }
 
+/* LA-1210: the phone top bar and the rail's own backdrop. Both are markup on
+   every width; `daylight.css` hides them above the mobile breakpoint below,
+   so desktop never sees them. */
+.phone-topbar { display: none; }
+.rail-backdrop { display: none; }
+
 .rail {
   background: var(--canvas);
   border-right: 1px solid var(--border-light);
@@ -1211,11 +1217,16 @@ textarea.input { border-radius: var(--r-lg); }
 }
 
 /* Phones and small tablets. The frame is a fixed two-column grid that clips at
-   every level, so below 860px the rail lies down as a top bar, the page scrolls
-   vertically, and the board keeps its column widths and scrolls sideways inside
-   the sheet body rather than crushing to nothing. Added 2026-08-26 after a
-   375px check showed the rail taking 232px and leaving the sheet 109px wide
-   with its title collapsed to zero. */
+   every level, so below 860px the page scrolls vertically and the board keeps
+   its column widths and scrolls sideways inside the sheet body rather than
+   crushing to nothing. Added 2026-08-26 after a 375px check showed the rail
+   taking 232px and leaving the sheet 109px wide with its title collapsed to
+   zero.
+   LA-1210, 2026-09-27: the rail no longer lies down as a horizontal bar (that
+   still left the sheet cramped, just below the rail instead of beside it).
+   It is off-canvas by default; the compact `.phone-topbar` carries the
+   product name and the Menu button that opens it as a drawer over the page,
+   so content starts under a ~48px bar rather than under a 232px block. */
 @media (max-width: 860px) {
   html, body { height: auto; }
 
@@ -1226,26 +1237,62 @@ textarea.input { border-radius: var(--r-lg); }
     overflow: visible;
   }
 
-  /* The rail lies down: wordmark, then the four items on one scrolling line.
-     Search and the user block are desktop affordances and step out here. */
-  .rail {
-    flex-direction: row;
+  .phone-topbar {
+    display: flex;
     align-items: center;
-    gap: var(--s3);
-    padding: var(--s2) var(--s3);
-    border-right: 0;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 var(--s3);
+    background: var(--surface);
     border-bottom: 1px solid var(--border-light);
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
   }
-  .rail-logo { flex: none; }
-  .rail-search, .rail-section, .rail-user { display: none; }
-  .rail-nav { flex: none; display: flex; gap: var(--s1); }
-  .rail-group { display: flex; gap: var(--s1); }
-  .rail-group + .rail-group { margin-top: 0; }
-  .rail-item { flex: none; height: 32px; }
-  .rail-item .count { margin-left: 6px; }
+  .phone-topbar-name {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 800;
+    color: var(--brand);
+    letter-spacing: -0.02em;
+  }
+  .phone-menu-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 var(--s3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--ui-size);
+    font-weight: 600;
+  }
+
+  /* The rail is a drawer here: hidden until the Menu button opens it, then a
+     fixed panel over the page with its own scroll, closed by its backdrop,
+     by Escape, or by picking a rail item. */
+  .rail { display: none; }
+  .rail.rail--open {
+    display: flex;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(288px, 84vw);
+    z-index: 50;
+    box-shadow: var(--shadow-card);
+    overflow-y: auto;
+  }
+  .rail-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(15, 15, 18, 0.32);
+    border: 0;
+    padding: 0;
+  }
 
   .field {
     padding: var(--s3);

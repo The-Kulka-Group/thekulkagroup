@@ -57,4 +57,27 @@ describe("sidebar navigation", () => {
     expect(html).toContain('<a class="rail-item" aria-current="page" href="/rom">');
     expect(html).toContain('<a class="rail-item" href="/rom/parameters">');
   });
+
+  it("shows the account and Sign Out when sign-in is on", () => {
+    const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
+    expect(html).toContain("test@example.com");
+    expect(html).toContain("Sign Out");
+  });
+
+  it("hides the avatar, email, and Sign Out while sign-in is open (LA-1210)", () => {
+    const html = renderToStaticMarkup(createElement(Rail, { email: "open-access@kulka.invalid", openAccess: true }));
+    expect(html).not.toContain("open-access@kulka.invalid");
+    expect(html).not.toContain("Sign Out");
+    expect(html).not.toContain('class="rail-user"');
+  });
+
+  it("renders a phone top bar with an accessible Menu button that opens the rail drawer (LA-1210)", () => {
+    const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
+    expect(html).toContain("phone-topbar");
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*aria-controls="rail-nav"[^>]*>/);
+    expect(html).toContain('id="rail-nav"');
+    // Closed by default: the drawer's own open class and its backdrop are absent.
+    expect(html).not.toContain("rail--open");
+    expect(html).not.toContain("rail-backdrop");
+  });
 });

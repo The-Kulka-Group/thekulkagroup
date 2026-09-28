@@ -136,6 +136,29 @@ export function packageItemRange(item: PackageItem): Range {
 }
 
 /**
+ * LA-1210: the view a saved ROM opens on, when the viewer has never picked
+ * one themselves (view-switch.tsx's remembered choice still wins over this).
+ * New budget always opens on By Scope, decided elsewhere; this is only for a
+ * saved run. Weighing by priced trade cost rather than by line count, so one
+ * huge unpackaged line can't be outvoted by a handful of small packaged ones,
+ * or the reverse: By Scope once most of the run's trade cost has no stated
+ * buyout package, By Package once most of it does. A run with nothing priced
+ * yet opens in By Scope, since there is no packaged majority to show.
+ */
+export function defaultRomView(rom: Rom, classifications: readonly BlockClassification[]): RomView {
+  const packageByCostCode = new Map(classifications.map((c) => [c.costCode, c.buyoutPackage]));
+  let total = 0;
+  let packaged = 0;
+  for (const line of rom.lines.filter(addsToTotal)) {
+    const cost = midpoint({ low: line.low, high: line.high });
+    total += cost;
+    if (line.buyoutPackage ?? packageByCostCode.get(line.costCode) ?? null) packaged += cost;
+  }
+  if (total <= 0) return "scope";
+  return packaged > total / 2 ? "package" : "scope";
+}
+
+/**
  * The one entry point the screen calls: groups a ROM's lines the way the
  * named view groups them. By Scope reuses `groupElements` untouched (LA-1158);
  * By Package is this ticket's own grouping. Pure, same as either grouping

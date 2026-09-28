@@ -17,9 +17,20 @@ import { groupByPackage, type PackageGroup, type PackageItem, type RomView } fro
 //     of its own anywhere in the schema. A block takes its line's division and
 //     an element its driver's. A division comes from
 //     `block_classification.division` where stated, and otherwise from the
-//     cost code's first two digits (`divisionOf`, lib/rom/board.ts). Anything
-//     with no division sorts last. Kulka's 90 series sorts after the standard
-//     divisions because divisions compare as numbers.
+//     cost code's first two digits (`divisionOf`, lib/rom/board.ts), but only
+//     for a benchmark-style cost code ("09-900"): its own digits really are
+//     its division. A canonical item number ("10", "31f") is an ordinal, not
+//     a division, and reading its digits as one is the LA-1210 bug: item 10
+//     (Millwork, Division 06) read as division "10" (Specialties), item 31f
+//     (Electrical Service Disconnect, Division 26) read as division "31". Until
+//     `docs/precon/masterformat-divisions.md` is confirmed and the real
+//     divisions are stated, an item-number code names no division at all.
+//     Anything with no division sorts last, in canonical item order (LA-1210)
+//     rather than by cost-code text, so Concrete (item 2) still sorts ahead of
+//     Site Work (items 33-39) even though neither carries a stated division
+//     yet. Kulka's 90 series sorts after the standard divisions because
+//     divisions compare as numbers. The Unassigned Package card (LA-1210)
+//     never shows a division and always sorts last of all, in every order.
 //   - Largest First sorts by priced total, biggest first, and puts anything
 //     with nothing priced last.
 
@@ -30,9 +41,17 @@ export function statedDivisions(classifications: readonly BlockClassification[])
   return new Map(classifications.map((c) => [c.costCode, c.division ?? null]));
 }
 
-/** A cost code's division: the stated one, else the cost code's own first two digits. */
+/**
+ * A cost code's division: the stated one, else, only for a benchmark-style
+ * code that opens with its own division and a dash ("09-900", "22-100"), the
+ * cost code's first two digits. A bare canonical item number ("10", "28a",
+ * "31f") never falls back this way (LA-1210): its digits are an ordinal, not
+ * a division, and reading them as one is the bug this ticket fixes.
+ */
 export function divisionFor(costCode: string, stated: ReadonlyMap<string, string | null>): string | null {
-  return stated.get(costCode) ?? divisionOf(costCode);
+  const explicit = stated.get(costCode);
+  if (explicit) return explicit;
+  return /^\d{2}-/.test(costCode) ? divisionOf(costCode) : null;
 }
 
 /** Divisions compare as numbers, so 02 < 22 < 33 < 90; none sorts last. */
@@ -87,7 +106,11 @@ export function buildField(view: RomView, rom: Rom, classifications: readonly Bl
       kind: "package",
       key: `package:${group.package}`,
       label: group.package,
-      division: lowestDivision(group.items.map((item) => div(item.costCode))),
+      // LA-1210: the Unassigned Package card names no division, even when one
+      // of its items happens to resolve one -- it is a catch-all, not a real
+      // buyout package, so a division number in its corner would be a fact
+      // nobody stated.
+      division: group.unassigned ? null : lowestDivision(group.items.map((item) => div(item.costCode))),
       midpoint: midpoint(group.total),
       priced: group.items.some((item) => item.kind === "priced"),
       ownerDirect: group.ownerDirect,
@@ -144,19 +167,58 @@ function byLabel(a: FieldEntry, b: FieldEntry): number {
   return a.label.localeCompare(b.label) || a.key.localeCompare(b.key);
 }
 
+/**
+ * A canonical item number's natural order: the leading digits as a number,
+ * then any trailing letters, so "2" sorts before "10" and "28a" before
+ * "28b" -- not the text order that would put "10" before "2" (LA-1210).
+ */
+function naturalItemKey(costCode: string): readonly [number, string] {
+  const digits = /^\d+/.exec(costCode);
+  if (!digits) return [Number.POSITIVE_INFINITY, costCode];
+  return [Number(digits[0]), costCode.slice(digits[0].length)];
+}
+
+function naturalItemCompare(a: string, b: string): number {
+  const [an, as] = naturalItemKey(a);
+  const [bn, bs] = naturalItemKey(b);
+  return an - bn || as.localeCompare(bs);
+}
+
+/** The entry's own cost code that sorts first in natural item order, its representative when it carries no division. */
+function representativeCode(entry: FieldEntry): string {
+  return [...entry.costCodes].sort(naturalItemCompare)[0];
+}
+
+function isUnassignedPackage(entry: FieldEntry): boolean {
+  return entry.kind === "package" && entry.group.unassigned;
+}
+
 /** A copy of `entries` in the named order. */
 export function orderField(entries: readonly FieldEntry[], order: RomOrder): FieldEntry[] {
   const sorted = [...entries];
   if (order === "masterformat") {
-    // Within one division the bigger figure leads, so the field still reads
-    // at a glance.
-    sorted.sort(
-      (a, b) =>
-        divisionRank(a.division) - divisionRank(b.division) || b.midpoint - a.midpoint || byLabel(a, b),
-    );
+    sorted.sort((a, b) => {
+      // Neither carries a division: canonical item order, not cost-code text
+      // (LA-1210), so Concrete (item 2) still leads Site Work (items 33-39).
+      // Checked before the numeric compare below, because both ranks are
+      // +Infinity here and Infinity minus Infinity is NaN, not 0.
+      if (a.division === null && b.division === null) {
+        return naturalItemCompare(representativeCode(a), representativeCode(b)) || byLabel(a, b);
+      }
+      const divisionCompare = divisionRank(a.division) - divisionRank(b.division);
+      if (divisionCompare !== 0) return divisionCompare;
+      // Both carry the same division: the bigger figure leads, so the field
+      // still reads at a glance.
+      return b.midpoint - a.midpoint || byLabel(a, b);
+    });
   } else {
     sorted.sort((a, b) => Number(b.priced) - Number(a.priced) || b.midpoint - a.midpoint || byLabel(a, b));
   }
+  // LA-1210: the Unassigned Package card is a catch-all, never a real
+  // MasterFormat position or a real dollar ranking, so it sorts last of all,
+  // in every order, no matter where the sort above would otherwise put it.
+  const unassignedIndex = sorted.findIndex(isUnassignedPackage);
+  if (unassignedIndex !== -1) sorted.push(...sorted.splice(unassignedIndex, 1));
   return sorted;
 }
 

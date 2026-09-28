@@ -1,5 +1,5 @@
 import { Rail } from "@/components/Rail";
-import { authorizeRequest } from "@/lib/auth/server";
+import { authIsOpen, authorizeRequest } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -7,7 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!auth.ok) redirect("/login");
   return (
     <div className="app">
-      <Rail email={auth.user.email} />
+      <Rail email={auth.user.email} openAccess={authIsOpen()} />
       <main className="field">{children}</main>
     </div>
   );

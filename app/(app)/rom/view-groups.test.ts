@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BlockClassification, Rom, RomLine, UnpricedItem } from "@kulka/engine";
 
-import { groupByPackage, groupByView, UNASSIGNED_PACKAGE, type PackageItem } from "./view-groups";
+import { defaultRomView, groupByPackage, groupByView, UNASSIGNED_PACKAGE, type PackageItem } from "./view-groups";
 import { type ElementGroup, groupElements } from "./element-groups";
 
 // LA-1159, ADR 0006. The pilot's own cost codes (CONTEXT.md, the LA-1159
@@ -276,5 +276,34 @@ describe("groupByView", () => {
     if (viaView.view !== "scope") throw new Error("unreachable");
     expect(viaView.groups).toEqual(direct.groups);
     expect(viaView.singles).toEqual(direct.singles);
+  });
+});
+
+describe("defaultRomView (LA-1210)", () => {
+  it("opens in By Scope when almost none of the trade cost has a stated package, production's own shape", () => {
+    // Matches the ticket's own report: one big unpackaged line and a small
+    // packaged one, the whole run reading as one Unassigned Package card.
+    const unpackaged = line({ costCode: "09 2000", label: "Finishes", low: 1_000_000, high: 1_200_000 });
+    const packaged = line({ costCode: "1", label: "Site Demolition", low: 4_000, high: 5_000, buyoutPackage: "Demolition" });
+    expect(defaultRomView(rom([unpackaged, packaged]), [])).toBe("scope");
+  });
+
+  it("opens in By Package once most of the trade cost has a stated package", () => {
+    const packaged = line({ costCode: "1", label: "Site Demolition", low: 1_000_000, high: 1_200_000, buyoutPackage: "Demolition" });
+    const unpackaged = line({ costCode: "09 2000", label: "Finishes", low: 4_000, high: 5_000 });
+    expect(defaultRomView(rom([packaged, unpackaged]), [])).toBe("package");
+  });
+
+  it("reads an unpriced item's package off the stated classification the same way groupByPackage does", () => {
+    // An unpriced item carries no buyoutPackage of its own; only a priced
+    // line's own cost counts toward the majority either way, so this mostly
+    // checks the lookup does not throw and still weighs by priced cost.
+    const packaged = line({ costCode: "1", label: "Site Demolition", low: 1_000_000, high: 1_200_000, buyoutPackage: "Demolition" });
+    const classifications = [classification({ costCode: "1", element: null, buyoutPackage: "Demolition" })];
+    expect(defaultRomView(rom([packaged]), classifications)).toBe("package");
+  });
+
+  it("opens in By Scope when there is no priced trade cost yet", () => {
+    expect(defaultRomView(rom([]), [])).toBe("scope");
   });
 });

@@ -324,7 +324,7 @@ function Provenance({
               key={judgment.ruleId}
               name={`${KIND_LABEL.reviewed_judgment}, ${PER_SF.format(judgment.adjustmentUsdPerGsf)}/SF stated`}
               amount={`${PER_SF.format(judgment.appliedUsdPerGsf)}/SF`}
-              sub={`Moved the rate by this much. Weight ${judgment.weight}. Stated ${judgment.recordedAt} by ${judgment.recordedBy}.`}
+              sub={`Moved the rate by this much. Weight ${judgment.weight}. Stated ${judgment.recordedAt} by ${recordedByWords(judgment.recordedBy)}.`}
             />
           ))}
         </>
@@ -333,11 +333,20 @@ function Provenance({
   );
 }
 
+// LA-1210: while sign-in is off (KULKA_AUTH_OPEN=1) the recording account is
+// lib/auth/server.ts's OPEN_ACCESS_USER, whose email is a placeholder
+// ("open-access@kulka.invalid") rather than a real address. The panel prints
+// its short id instead, the same way lib/rom/parameters.ts's recordedByFor
+// already names it for the parameter history.
+function recordedByWords(recordedBy: string): string {
+  return recordedBy === "open-access@kulka.invalid" ? "open-access" : recordedBy;
+}
+
 function signalWords(signal: ProvenanceSignal): string {
   const parts = [
     KIND_LABEL[signal.kind],
     signal.exportLabel ?? "no export named",
-    `recorded ${signal.recordedAt} by ${signal.recordedBy}`,
+    `recorded ${signal.recordedAt} by ${recordedByWords(signal.recordedBy)}`,
     `weight ${signal.weight} (${SHARE.format(signal.weightShare)})`,
   ];
   return parts.join(", ");

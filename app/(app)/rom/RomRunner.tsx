@@ -167,9 +167,16 @@ export function RomRunner({
   // today, so this keeps a saved run off one giant Unassigned Package card.
   // Once the viewer has picked a view at all, that choice follows them
   // everywhere (useRomView, view-switch.tsx).
-  const [view, setView] = useRomView(
+  const [chosenView, setView] = useRomView(
     panel?.kind === "new" ? "scope" : run ? defaultRomView(run.rom, classifications) : "scope",
   );
+  // Matt, 2026-09-27: hide By Package until packages are assigned. Until most
+  // of the run's trade cost has a stated buyout package (the same test
+  // defaultRomView uses), By Package is one Unassigned Package card, so the
+  // switch hides and the field shows By Scope. The viewer's remembered
+  // choice is kept, so By Package returns once packages are stated.
+  const packagesAssigned = run !== null && defaultRomView(run.rom, classifications) === "package";
+  const view: RomView = packagesAssigned && panel?.kind !== "new" ? chosenView : "scope";
 
   // LA-1181: MasterFormat or Largest First, remembered per viewer like the view.
   const [order, setOrder] = useRomOrder();
@@ -492,7 +499,7 @@ export function RomRunner({
           {/* New Budget always builds By Scope: production has almost no
               buyout packages stated yet, so By Package would pour every
               answer into one Unassigned Package card (Matt, 2026-09-27). */}
-          {run && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
+          {packagesAssigned && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
           {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
           <button
             type="button"

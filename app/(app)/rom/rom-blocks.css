@@ -409,6 +409,14 @@
 /* LA-1225: New Budget asks one question at a time after the setup card.
    The card stays short, so on a phone the sheet leaves the budget in view
    above it. Answers are large pills; the picked one is filled. */
+/* LA-1230: setup and the first question share the panel; setup folds to a
+   one-line summary once the first answer creates the project. */
+.nb-setup { margin-bottom: 18px; }
+.nb-sum { margin: 0 0 16px; font-size: var(--meta-size); color: var(--rb-sel-ink2); }
+.nb-sum b { color: var(--rb-ink-on-black); font-weight: 600; }
+.nb-sum .nb-back { margin-left: 8px; }
+.nb-missing { margin-top: 0; }
+.nb-top { scroll-margin-bottom: 140px; }
 .nb-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .nb-count { font-size: var(--chip-size); color: var(--rb-sel-ink2); }
 .nb-save { font-size: var(--chip-size); color: var(--rb-pnl-mute); }

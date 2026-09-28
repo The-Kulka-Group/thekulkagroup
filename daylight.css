@@ -1232,6 +1232,7 @@ textarea.input { border-radius: var(--r-lg); }
 
   .app {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
     height: auto;
     min-height: 100dvh;
     overflow: visible;

@@ -13,6 +13,7 @@ export const CRITERION_CHOICES: Record<string, readonly string[]> = {
   "V-1": ["Hydraulic", "Traction"],
   "V-2": ["In-Ground", "Holeless", "Roped"],
   "M-0": ["Standard Glazing Band", "Elevated Glazing Band"],
+  "S-1": ["Spread Footings", "Mat Foundation", "Deep Foundations", "Ground Improvement"],
 };
 
 /** The discipline a criterion belongs to, named on the card's eyebrow. */
@@ -21,6 +22,7 @@ export const CRITERION_DISCIPLINE: Record<string, string> = {
   "V-2": "Vertical Transportation",
   "V-3": "Vertical Transportation",
   "A-1": "Architectural",
+  "S-1": "Structural",
   "E-1": "Electrical",
   "M-0": "Mechanical",
   "M-1": "Mechanical",
@@ -32,6 +34,7 @@ export const CRITERION_DISCIPLINE: Record<string, string> = {
  * reads as intended. Each waits on Matt's pricing answer.
  */
 export const CRITERION_PRICING_NOTE: Record<string, string> = {
+  "S-1": "The foundation is shown for reference. Footings, the slab and excavation still price as they do today.",
   "A-1": "The type is shown for reference. The podium deck, exterior walls, rated drywall and sprinklers still price as they do today.",
   "E-1": "Electrical still prices per square foot. The service size is shown for reference until a rate per amp is set.",
   "M-0": "The band feeds M-1's tonnage. HVAC still prices per square foot.",
@@ -51,7 +54,7 @@ export function valueFromChoice(criterion: Pick<DerivedAssumption, "value">, tex
 }
 
 export type GaugeZone = { upTo: number; label: string };
-export type Gauge = { max: number; unit: string; zones: GaugeZone[] };
+export type Gauge = { max: number; unit: string; zones: GaugeZone[]; /** The marker's suffix: " ft" by default. */ mark?: string };
 
 /**
  * The travel scale each elevator criterion reads, with the bands its rule
@@ -66,6 +69,17 @@ export const CRITERION_GAUGE: Record<string, Gauge> = {
       { upTo: 35, label: "Hydraulic" },
       { upTo: 55, label: "Either" },
       { upTo: 70, label: "Traction" },
+    ],
+  },
+  // LA-1300: S-1's footing coverage, with the mat line at 50 percent.
+  "S-1": {
+    max: 100,
+    unit: "% of the footprint",
+    mark: "%",
+    zones: [
+      { upTo: 30, label: "Light" },
+      { upTo: 50, label: "Spread Footings" },
+      { upTo: 100, label: "Mat Pays" },
     ],
   },
   "V-2": {
@@ -85,6 +99,12 @@ export function travelFeet(criterion: Pick<DerivedAssumption, "steps">): number 
   const step = criterion.steps.find((one) => one.label.toLowerCase() === "travel");
   const match = step ? /\(([\d.]+) ft\)/.exec(step.result) : null;
   return match ? Number(match[1]) : null;
+}
+
+/** The number a criterion's gauge reads: travel for the elevator cards, coverage for S-1. */
+export function gaugeValue(code: string, criterion: Pick<DerivedAssumption, "steps">): number | null {
+  if (code === "S-1") return stepNumber(criterion, "Coverage");
+  return travelFeet(criterion);
 }
 
 /** Which zone a value sits in, by index. */

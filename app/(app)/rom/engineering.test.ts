@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { choicesFor, ladderPosition, ratingLabel, stepNumber, valueFromChoice, valueText, windowBays } from "./engineering";
+import { choicesFor, gaugeValue, ladderPosition, ratingLabel, stepNumber, valueFromChoice, valueText, windowBays } from "./engineering";
 
 // LA-1281, LA-1282: the helpers the Design and Engineering card draws E-1,
 // M-0 and M-1 with.
@@ -50,6 +50,13 @@ describe("choicesFor", () => {
       "Standard Glazing Band",
       "Elevated Glazing Band",
     ]);
+  });
+});
+
+describe("gaugeValue", () => {
+  it("reads S-1's coverage and the elevator cards' travel", () => {
+    expect(gaugeValue("S-1", { steps: [{ label: "Coverage", result: "32% of the footprint at 2,000 psf" }] })).toBe(32);
+    expect(gaugeValue("V-1", { steps: [{ label: "Travel", result: `42'-0" (42.0 ft)` }] })).toBe(42);
   });
 });
 

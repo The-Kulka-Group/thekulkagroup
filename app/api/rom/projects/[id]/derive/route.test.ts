@@ -92,7 +92,7 @@ describe("POST /api/rom/projects/[id]/derive", () => {
   it("works no elevator criterion out without an elevator", async () => {
     const body = await (await derive({ ...FIVE_STORIES, elevator: "no" })).json();
     // No unit count, so E-1 has nothing to size either (LA-1281).
-    expect(body.criteria.map((one: { code: string }) => one.code).sort()).toEqual(["A-1", "M-0", "M-1"]);
+    expect(body.criteria.map((one: { code: string }) => one.code).sort()).toEqual(["A-1", "M-0", "M-1", "S-1"]);
     expect(body.facts).toEqual({});
   });
 
@@ -110,7 +110,9 @@ describe("POST /api/rom/projects/[id]/derive", () => {
       })
     ).json();
     const byCode = Object.fromEntries(body.criteria.map((one: { code: string }) => [one.code, one]));
-    expect(Object.keys(byCode).sort()).toEqual(["A-1", "E-1", "M-0", "M-1", "V-1", "V-2", "V-3"]);
+    expect(Object.keys(byCode).sort()).toEqual(["A-1", "E-1", "M-0", "M-1", "S-1", "V-1", "V-2", "V-3"]);
+    // Five wood stories on good ground: spread footings (LA-1300).
+    expect(byCode["S-1"].value).toEqual({ kind: "spec", text: "Spread Footings" });
     // Five wood stories, no podium: Type IIIA (LA-1298).
     expect(byCode["A-1"].value).toEqual({ kind: "spec", text: "Type IIIA" });
     // New City is Rockland, zone 5: 50,000 / 701 GSF per ton is 71 tons.

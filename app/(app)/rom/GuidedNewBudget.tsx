@@ -67,13 +67,14 @@ function slotKey(slot: Slot): string {
   return slot.kind;
 }
 
-type EngineeringCode = "V-1" | "V-2" | "V-3" | "A-1" | "M-0" | "M-1" | "E-1";
+type EngineeringCode = "V-1" | "V-2" | "V-3" | "A-1" | "S-1" | "M-0" | "M-1" | "E-1";
 
 const ENGINEERING_LABEL: Record<EngineeringCode, string> = {
   "V-1": "Elevator Type",
   "V-2": "Hydraulic Jack Type",
   "V-3": "Elevator Machine Rooms",
   "A-1": "Construction Type",
+  "S-1": "Foundation System",
   "M-0": "Window Area and Orientation",
   "M-1": "HVAC Tonnage",
   "E-1": "Electrical Service Size",
@@ -99,6 +100,8 @@ function engineeringInputs(responses: Responses, framing: string): string {
     responses.parking_type,
     responses.amenity_scope,
     responses.balconies,
+    // LA-1300: what S-1 reads beyond the above.
+    responses.existing_building_tie_in,
   ]);
 }
 
@@ -268,16 +271,17 @@ export function GuidedNewBudget({
       // app sizes the cooling (M-0, then M-1) and the electrical service
       // (E-1). A card stays in line while its answer is being worked out, and
       // drops out if the server says it does not apply.
-      // LA-1298: A-1, the construction type, leads them: architecture first.
+      // LA-1298, LA-1300: A-1 and S-1 lead them, architecture then structure.
       if (question.id === "balconies" && current.project_type === "multifamily") {
         const pending = engBusy || derivedInputs !== engineeringInputs(current, framingSystem);
-        const ready: Record<"A-1" | "M-0" | "M-1" | "E-1", boolean> = {
+        const ready: Record<"A-1" | "S-1" | "M-0" | "M-1" | "E-1", boolean> = {
           "A-1": current.construction_kind === "new" && Number(current.stories_above_grade) > 0,
+          "S-1": Number(current.stories_above_grade) > 0,
           "M-0": true,
           "M-1": true,
           "E-1": electricalReady(current),
         };
-        for (const code of ["A-1", "M-0", "M-1", "E-1"] as const) {
+        for (const code of ["A-1", "S-1", "M-0", "M-1", "E-1"] as const) {
           if (ready[code] && (criteria[code] || pending)) slots.push({ kind: "engineering", code });
         }
       }

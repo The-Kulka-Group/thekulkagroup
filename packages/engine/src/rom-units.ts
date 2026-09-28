@@ -27,7 +27,9 @@ export type BenchmarkUnit =
   | "usd_per_sf_of_structure"
   | "usd_each_structure"
   /** Item 26, Elevators (LA-1205): dollars per elevator stop, by V-1's type. */
-  | "usd_per_stop";
+  | "usd_per_stop"
+  /** LA-1257: an Elevator element's supporting item, dollars for each elevator. */
+  | "usd_each_elevator";
 
 /** Item 1a, Structure Demolition (ADR 0006, canonical-work-items.md). */
 export const STRUCTURE_DEMOLITION_COST_CODE = "1a";
@@ -97,6 +99,8 @@ export function quantityFor(
   demolition: DemolitionFacts,
   /** Total stops across every elevator (LA-1205), or null when item 26 has no line to price. */
   elevatorStops: number | null = null,
+  /** How many elevators (LA-1257), or null when nobody answered Elevator Count. */
+  elevatorCount: number | null = null,
 ): number {
   switch (unit) {
     case "usd_per_gsf":
@@ -109,6 +113,8 @@ export function quantityFor(
       return demolition.structureCount ?? 0;
     case "usd_per_stop":
       return elevatorStops ?? 0;
+    case "usd_each_elevator":
+      return elevatorCount ?? 0;
   }
 }
 

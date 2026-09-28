@@ -2153,6 +2153,29 @@ Stops per elevator = Stories Above Grade, plus Levels Below Grade when the eleva
 serves them. Elevator Count is a new required Scope-step question, opened by the
 elevator gate (LA-1205).
 
+**Elevator element (LA-1257, Matt approved 2026-09-28).** Item 26 drives the Elevator
+element, the way item 1a drives Demolition, and each item below sits in the box with its
+own division, so By Division reads each under its trade. None has a rate yet; each
+arrives as No Rate Yet. The list came from the containers above and the "work by
+others" a standard elevator specification carries (ASME A17.1, NEC 620, NFPA 72, IBC).
+
+| Code | Item | Division | Counted | Brought in when |
+| --- | --- | --- | --- | --- |
+| 26a | Elevator Bulkhead | 04 | Per shaft (its own lump sums) | Always |
+| 26b | Cab Interior Finish Package | 14 | Per elevator | Always |
+| 26c | Elevator Pit Ladder | 05 | Per elevator | Always |
+| 26d | Elevator Pit Waterproofing | 07 | Per elevator | Levels below grade is yes |
+| 26e | Pit Light and GFCI Receptacle | 26 | Per elevator | Always (NEC 620.24) |
+| 26f | Emergency Two-Way Communication Line | 27 | Per elevator | Always (ASME A17.1) |
+| 26g | Machine Room HVAC | 23 | Per elevator | Hydraulic (V-1) |
+| 26h | Hoistway Door Frame Grouting | 04 | Per stop | Always |
+
+Still open: Hydraulic Well Hole and Casing (in-ground hydraulic only; the intake does not
+ask in-ground or holeless), and the three breakouts Matt chose, Elevator Pit Sump (item
+28), Elevator and Equipment Feeds with Shunt Trip (item 31) and Elevator Recall and
+Shunt-Trip Heat Detectors (item 32). A breakout shows its share of the parent trade's
+figure, and none of the three has a figure to carve out yet.
+
 ### 26a. Elevator Bulkhead
 
 **New canonical item (LA-1205, 2026-09-27), Division 04 (masonry).** Driven by the same

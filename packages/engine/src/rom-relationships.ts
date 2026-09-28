@@ -23,11 +23,19 @@ import type { GateItemSummary, RomLine, UnpricedItem } from "./rom";
 import type { GateLineStatus, GateResolution } from "./rom-gates";
 
 /**
- * How many of a supporting item one driver brings in. The pilot has one rule:
- * one per structure coming down, read from the demolition structure count.
- * Nothing prices on it yet; LA-1156's "$ each" unit is what will.
+ * How many of a supporting item one driver brings in. The demolition pilot
+ * has one per structure coming down; the Elevator element (LA-1257) adds one
+ * per elevator and one per elevator stop. The rule names how the item is
+ * counted; the benchmark unit that matches it is what prices it.
  */
-export type QuantityRule = "one_per_structure";
+export type QuantityRule = "one_per_structure" | "one_per_elevator" | "one_per_stop";
+
+/**
+ * LA-1257: a fact that must hold for the driver to bring the item in, the
+ * same shape a judgment rule's condition takes, such as Elevator Pit
+ * Waterproofing only when the building goes below grade. Null always holds.
+ */
+export type RelationshipCondition = { fact: string; equals: string } | null;
 
 /** One stated rule that a driver brings in a supporting item (CONTEXT.md: Relationship). */
 export type ScopeRelationship = {
@@ -40,6 +48,7 @@ export type ScopeRelationship = {
    */
   supportingLabel: string;
   quantityRule: QuantityRule;
+  condition?: RelationshipCondition;
   statedBy: string;
   statedOn: string;
   reason: string;
@@ -68,6 +77,8 @@ export function bringInSupportingItems(
   relationships: readonly ScopeRelationship[],
   callerUnpriced: readonly UnpricedItem[],
   gateResolutions: ReadonlyMap<string, GateResolution>,
+  /** The project's answers as text, for a relationship's condition (LA-1257). */
+  facts: Readonly<Record<string, string>> = {},
 ): SupportingItems {
   const lineByCode = new Map(gatedLines.map((l) => [l.costCode, l]));
   const callerUnpricedCodes = new Map(callerUnpriced.map((i) => [i.costCode, i]));
@@ -94,6 +105,8 @@ export function bringInSupportingItems(
   const supportingCodes = new Set(sorted.map((r) => r.supportingCostCode));
   const chosen = new Map<string, { relationship: ScopeRelationship; driver: DriverState }>();
   for (const relationship of sorted) {
+    const condition = relationship.condition ?? null;
+    if (condition && facts[condition.fact] !== condition.equals) continue;
     const driver = driverState(relationship.driverCostCode);
     if (!driver) continue;
     const held = chosen.get(relationship.supportingCostCode);

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { readRomProjectDetail } from "@/lib/rom/projects";
+import { basisFor, isQuantityRule } from "@/lib/rom/quantity-rules";
 import { rateClient, RateSuggestionFailed, suggestRateFromAsks } from "@/lib/rom/rate-suggestion";
 import { isUuid } from "@/lib/uuid";
 
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     [costCode],
   );
   const found = relationship.rows[0];
-  if (!found || found.quantity_rule !== "one_per_structure") {
+  if (!found || !isQuantityRule(found.quantity_rule)) {
     return NextResponse.json({ error: "Only a supporting item can get a suggested rate here." }, { status: 400 });
   }
   const driver = await db.query<{ label: string }>(`select label from benchmarks where cost_code = $1 limit 1`, [
@@ -65,8 +66,8 @@ export async function POST(request: Request) {
     // Three asks at once, so the panel can show how far the figure moves.
     const suggestion = await suggestRateFromAsks(client, {
       itemLabel: found.supporting_label,
-      quantityBasis: `${driverLabel} brings this in, one per structure coming down`,
-      unit: "each",
+      quantityBasis: `${driverLabel} brings this in, ${basisFor(found.quantity_rule).count}`,
+      unit: basisFor(found.quantity_rule).per === "each" ? "each" : "per stop",
       facts: {
         zip: project.zip ?? null,
         laborType: LABOR_WORDS[project.laborType ?? "open_shop"] ?? project.laborType,

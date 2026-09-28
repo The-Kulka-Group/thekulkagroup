@@ -128,12 +128,12 @@ describe("editing a saved rate (Matt, 2026-09-28)", () => {
   it("changes a shared card rate in place with replace", async () => {
     await demolitionProject();
     expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1500 })).status).toBe(201);
-    expect(await read("28a")).toEqual({ projectRate: null, sharedRate: { value: 1500 } });
+    expect(await read("28a")).toMatchObject({ projectRate: null, sharedRate: { value: 1500 } });
 
     // A second plain save is still refused; replace changes it.
     expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1700 })).status).toBe(400);
     expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1700, replace: true })).status).toBe(201);
-    expect(await read("28a")).toEqual({ projectRate: null, sharedRate: { value: 1700 } });
+    expect(await read("28a")).toMatchObject({ projectRate: null, sharedRate: { value: 1700 } });
   });
 
   it("refuses replace when there is no card rate to change", async () => {
@@ -146,9 +146,31 @@ describe("editing a saved rate (Matt, 2026-09-28)", () => {
     await demolitionProject();
     const proposal = { value: 1800, low: 1400, high: 2400, reasoning: "Union.", model: "claude-opus-5" };
     await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 1800, scope: "project", proposal });
-    expect(await read("28a")).toEqual({ projectRate: { value: 1800, suggested: true }, sharedRate: null });
+    expect(await read("28a")).toMatchObject({ projectRate: { value: 1800, suggested: true }, sharedRate: null });
 
     await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "28a", value: 2100, scope: "project" });
     expect((await read("28a")).projectRate).toEqual({ value: 2100, suggested: false });
+  });
+});
+
+describe("the Elevator element's items take rates on their own counting rule (LA-1257)", () => {
+  const read = async (costCode: string) =>
+    (await readRates(new Request(`http://localhost/api/rom/rates?projectId=${TEST_PROJECT_ID}&costCode=${costCode}`))).json();
+
+  it("saves a per-elevator rate on usd_each_elevator and words it per elevator", async () => {
+    expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "26c", value: 2400 })).status).toBe(201);
+    const { rows } = await db.query<{ unit: string; provenance_export_label: string }>(
+      `select unit, provenance_export_label from benchmarks where cost_code = '26c'`,
+    );
+    expect(rows[0].unit).toBe("usd_each_elevator");
+    expect(rows[0].provenance_export_label).toContain("one for each elevator");
+    expect((await read("26c")).basis).toMatchObject({ fieldLabel: "Dollars Each, per Elevator" });
+  });
+
+  it("saves a per-stop rate on usd_per_stop", async () => {
+    expect((await post(saveRate, { projectId: TEST_PROJECT_ID, costCode: "26h", value: 350, scope: "project" })).status).toBe(201);
+    const { rows } = await db.query<{ unit: string }>(`select unit from project_rates where cost_code = '26h'`);
+    expect(rows[0].unit).toBe("usd_per_stop");
+    expect((await read("26h")).basis).toMatchObject({ fieldLabel: "Dollars per Stop" });
   });
 });

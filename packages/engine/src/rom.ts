@@ -527,6 +527,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       rulesByCostCode.get(costCode) ?? [],
       classificationsByCostCode.get(costCode) ?? null,
       elevatorStops,
+      elevatorFacts.elevatorCount,
     );
 
   const blended = [...byCostCode.keys()]
@@ -592,6 +593,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     snapshot.scopeRelationships ?? [],
     snapshot.unpricedInScopeItems ?? [],
     gateResolutions,
+    factsAsText,
   );
   const lines = supporting.lines;
 
@@ -809,6 +811,7 @@ function blendLine(
   rules: JudgmentRule[],
   classification: BlockClassification | null,
   elevatorStops: number | null = null,
+  elevatorCount: number | null = null,
 ): RomLine {
   const ranked = rows
     .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
@@ -829,7 +832,7 @@ function blendLine(
   // (the same cost code always prices on one basis), so the lead row's is
   // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
   // as every ROM computed before this ticket did.
-  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops);
+  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount);
 
   return {
     costCode: lead.costCode,

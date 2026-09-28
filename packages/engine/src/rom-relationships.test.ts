@@ -131,6 +131,43 @@ const PRICED_DISCONNECT = benchmark({ costCode: "31f", label: "Electrical Servic
 
 const codes = (items: { costCode: string }[]) => items.map((i) => i.costCode);
 
+describe("the Elevator element's rules (LA-1257)", () => {
+  const conditional: ScopeRelationship = {
+    ...relationship("99", "Synthetic Pit Waterproofing"),
+    quantityRule: "one_per_elevator",
+    condition: { fact: "levels_below_grade", equals: "yes" },
+  };
+
+  it("leaves a conditional item out while its fact does not hold", () => {
+    const rom = computeRom(answers("yes"), snapshot({ scopeRelationships: [conditional] }));
+    expect(codes(rom.unpricedItems)).toEqual([]);
+  });
+
+  it("brings a conditional item in once its fact holds", () => {
+    const base = answers("yes");
+    const rom = computeRom(
+      { ...base, facts: { ...base.facts, levels_below_grade: "yes" } },
+      snapshot({ scopeRelationships: [conditional] }),
+    );
+    expect(codes(rom.unpricedItems)).toEqual(["99"]);
+  });
+
+  it("prices a per-elevator rate by the elevator count", () => {
+    const perElevator = benchmark({ costCode: "99", label: "Synthetic Pit Ladder", unit: "usd_each_elevator", value: 1000 });
+    const base = answers("yes");
+    const rom = computeRom(
+      { ...base, facts: { ...base.facts, elevatorCount: 2 } },
+      snapshot({
+        benchmarks: [benchmark(), perElevator],
+        scopeRelationships: [{ ...relationship("99", "Synthetic Pit Ladder"), quantityRule: "one_per_elevator" }],
+      }),
+    );
+    const line = rom.lines.find((l) => l.costCode === "99")!;
+    expect((line.low + line.high) / 2).toBeCloseTo(2000, 6);
+    expect(line.driverCostCode).toBe("1a");
+  });
+});
+
 describe("supporting items when the driver is priced", () => {
   it("brings every supporting item in, each naming its driver", () => {
     const rom = computeRom(answers("yes"), snapshot());

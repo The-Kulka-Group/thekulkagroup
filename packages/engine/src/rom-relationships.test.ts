@@ -152,6 +152,26 @@ describe("the Elevator element's rules (LA-1257)", () => {
     expect(codes(rom.unpricedItems)).toEqual(["99"]);
   });
 
+  it("prices a per-machine-room rate by V-3's count, read as text the way the live budget sends it (LA-1269)", () => {
+    const perRoom = benchmark({ costCode: "98", label: "Synthetic Machine Room HVAC", unit: "usd_each_machine_room", value: 9000 });
+    const base = answers("yes");
+    const rom = computeRom(
+      { ...base, facts: { ...base.facts, elevatorMachineRooms: "2", elevatorMachineRoomHvac: "yes" } },
+      snapshot({
+        benchmarks: [benchmark(), perRoom],
+        scopeRelationships: [
+          {
+            ...relationship("98", "Synthetic Machine Room HVAC"),
+            quantityRule: "one_per_machine_room",
+            condition: { fact: "elevatorMachineRoomHvac", equals: "yes" },
+          },
+        ],
+      }),
+    );
+    const line = rom.lines.find((l) => l.costCode === "98")!;
+    expect((line.low + line.high) / 2).toBeCloseTo(18000, 6);
+  });
+
   it("prices a per-elevator rate by the elevator count", () => {
     const perElevator = benchmark({ costCode: "99", label: "Synthetic Pit Ladder", unit: "usd_each_elevator", value: 1000 });
     const base = answers("yes");

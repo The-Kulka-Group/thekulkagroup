@@ -27,6 +27,7 @@ import type { Db } from "@/lib/db";
 import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
 import { applyJackCriterion } from "@/lib/rom/jack-criterion";
+import { applyMachineRoomCriterion } from "@/lib/rom/machine-room-criterion";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
 import { readProjectRates, withProjectRates } from "@/lib/rom/project-rates";
@@ -284,7 +285,9 @@ export async function runRom(
     // Above Grade yet) gets `withFraming` back unchanged.
     const withV1 = await applyElevatorCriterion(db, projectId, withFraming, framingSystem);
     // LA-1265: V-2 reads V-1's type and sets the jack the well hole checks.
-    const withElevator = await applyJackCriterion(db, projectId, withV1, framingSystem);
+    const withV2 = await applyJackCriterion(db, projectId, withV1, framingSystem);
+    // LA-1269: V-3 counts the machine rooms item 26g prices per room.
+    const withElevator = await applyMachineRoomCriterion(db, projectId, withV2);
     const answers: Answers = markups ? { ...withElevator, markups } : withElevator;
     const recordedBase = framingSystem ? { ...intake.recorded, framingSystem } : intake.recorded;
     // LA-1205: record the same elevatorType fact V-1 fed into `answers`, so a

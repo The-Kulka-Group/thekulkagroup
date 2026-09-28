@@ -28,7 +28,7 @@ import type { GateLineStatus, GateResolution } from "./rom-gates";
  * per elevator and one per elevator stop. The rule names how the item is
  * counted; the benchmark unit that matches it is what prices it.
  */
-export type QuantityRule = "one_per_structure" | "one_per_elevator" | "one_per_stop";
+export type QuantityRule = "one_per_structure" | "one_per_elevator" | "one_per_stop" | "one_per_machine_room";
 
 /**
  * LA-1257: a fact that must hold for the driver to bring the item in, the

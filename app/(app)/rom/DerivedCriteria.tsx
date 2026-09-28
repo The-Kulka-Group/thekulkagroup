@@ -11,7 +11,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
-import { CRITERION_CHOICES } from "./engineering";
+import { choicesFor } from "./engineering";
 import { reducedMotion } from "./motion";
 import { SpringMoney } from "./SpringMoney";
 import "./derived-criteria.css";
@@ -467,10 +467,10 @@ export function CriterionPanel({
             }}
           >
             <label htmlFor={`dc-v-${item.code}`}>Correct This Value</label>
-            {item.value.kind === "spec" && CRITERION_CHOICES[item.code] ? (
+            {item.value.kind === "spec" && choicesFor(item).length > 0 ? (
               // LA-1265: a criterion with set answers (V-1, V-2) offers them as buttons.
               <div className="dc-choices" role="radiogroup" aria-label={item.label}>
-                {CRITERION_CHOICES[item.code]
+                {choicesFor(item)
                   .filter((choice) => item.value.kind === "spec" && choice !== item.value.text)
                   .map((choice) => (
                     <button
@@ -486,7 +486,7 @@ export function CriterionPanel({
                   ))}
               </div>
             ) : null}
-            <span className="dc-unit" hidden={item.value.kind === "spec" && Boolean(CRITERION_CHOICES[item.code])}>
+            <span className="dc-unit" hidden={item.value.kind === "spec" && choicesFor(item).length > 0}>
               <input
                 id={`dc-v-${item.code}`}
                 inputMode={item.value.kind === "quantity" ? "decimal" : undefined}

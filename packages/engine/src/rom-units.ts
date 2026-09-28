@@ -29,7 +29,9 @@ export type BenchmarkUnit =
   /** Item 26, Elevators (LA-1205): dollars per elevator stop, by V-1's type. */
   | "usd_per_stop"
   /** LA-1257: an Elevator element's supporting item, dollars for each elevator. */
-  | "usd_each_elevator";
+  | "usd_each_elevator"
+  /** LA-1269: dollars for each elevator machine room or controller space V-3 counts. */
+  | "usd_each_machine_room";
 
 /** Item 1a, Structure Demolition (ADR 0006, canonical-work-items.md). */
 export const STRUCTURE_DEMOLITION_COST_CODE = "1a";
@@ -101,6 +103,8 @@ export function quantityFor(
   elevatorStops: number | null = null,
   /** How many elevators (LA-1257), or null when nobody answered Elevator Count. */
   elevatorCount: number | null = null,
+  /** How many machine rooms need HVAC (LA-1269, V-3), or null before V-3 runs. */
+  machineRooms: number | null = null,
 ): number {
   switch (unit) {
     case "usd_per_gsf":
@@ -115,6 +119,8 @@ export function quantityFor(
       return elevatorStops ?? 0;
     case "usd_each_elevator":
       return elevatorCount ?? 0;
+    case "usd_each_machine_room":
+      return machineRooms ?? 0;
   }
 }
 

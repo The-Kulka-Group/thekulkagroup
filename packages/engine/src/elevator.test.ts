@@ -93,6 +93,7 @@ function facts(over: Partial<ElevatorFacts> = {}): ElevatorFacts {
     elevatorCount: null,
     storiesAboveGrade: null,
     levelsBelowGradeServed: false,
+    machineRooms: null,
     ...over,
   };
 }

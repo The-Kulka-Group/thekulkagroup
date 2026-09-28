@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { asksWords } from "./RatePanel";
+
 // LA-1249. Matt, 2026-09-28: one button asks Claude for a rate on every item in the
 // budget that has none, all at once. Each suggestion comes from the same
 // route as the single-item panel (RatePanel.tsx) and fills its row as it
@@ -10,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 // determines a line). Each saved rate prices this budget only (LA-1245),
 // and saving records one new run.
 
-type Suggestion = { value: number; low: number; high: number; reasoning: string; model: string };
+type Suggestion = { value: number; low: number; high: number; reasoning: string; model: string; asks?: number[] };
 
 type Row = {
   costCode: string;
@@ -116,7 +118,8 @@ export function BulkRatePanel({
   return (
     <div className="br">
       <p className="rb-pp">
-        Claude suggests a rate for each item below from this budget&apos;s ZIP, labor type and facts. Check each
+        Claude is asked three times for each item below, from this budget&apos;s ZIP, labor type and facts, and the
+        figure is the middle answer. Check each
         figure and change any you disagree with. The rates price this budget only, and saving records one new run.
       </p>
       {missing.length > 0 ? (
@@ -147,6 +150,7 @@ export function BulkRatePanel({
             </div>
             {row.suggestion ? (
               <p className="br-note">
+                {row.suggestion.asks && row.suggestion.asks.length > 1 ? `${asksWords(row.suggestion.asks)} ` : ""}
                 Range {money(row.suggestion.low)} to {money(row.suggestion.high)} each. {row.suggestion.reasoning}
               </p>
             ) : null}

@@ -92,7 +92,7 @@ export type NewProjectRate = {
   recordedBy: string;
   recordedAt: string;
   /** What the model proposed, kept beside the saved figure. */
-  modelProposal: { value: number; low: number; high: number; reasoning: string; model: string } | null;
+  modelProposal: { value: number; low: number; high: number; reasoning: string; model: string; asks?: number[] } | null;
 };
 
 /**

@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 
-import { firstSentence, RateSuggestionFailed, suggestRate, type RateClient } from "./rate-suggestion";
+import { firstSentence, RateSuggestionFailed, suggestRate, suggestRateFromAsks, type RateClient } from "./rate-suggestion";
 
 // LA-1245. The fake stands in for Claude; nothing reaches the network.
 
@@ -53,6 +53,60 @@ describe("suggestRate", () => {
     );
     await expect(suggestRate(fake({}, "refusal").client, input)).rejects.toBeInstanceOf(RateSuggestionFailed);
     await expect(suggestRate(fake("not json").client, input)).rejects.toBeInstanceOf(RateSuggestionFailed);
+  });
+});
+
+/** A fake that gives each call the next reply in turn; a string reply is a failure. */
+function sequence(replies: (object | "fail")[]) {
+  let next = 0;
+  const client: RateClient = {
+    beta: {
+      messages: {
+        create: async () => {
+          const reply = replies[next++];
+          if (reply === "fail") throw new Error("overloaded");
+          return {
+            model: "claude-opus-5",
+            stop_reason: "end_turn",
+            content: [{ type: "text", text: JSON.stringify(reply) }],
+          } as unknown as Anthropic.Beta.Messages.BetaMessage;
+        },
+      },
+    },
+  };
+  return client;
+}
+
+describe("suggestRateFromAsks (Matt, 2026-09-28: the range from three asks)", () => {
+  it("takes the middle answer's figure and reason, the widest range, and lists every ask", async () => {
+    const client = sequence([
+      { rate: 14000, low: 7500, high: 30000, reasoning: "High." },
+      { rate: 6500, low: 4000, high: 12000, reasoning: "Low." },
+      { rate: 9000, low: 5000, high: 18000, reasoning: "Middle." },
+    ]);
+    expect(await suggestRateFromAsks(client, input)).toEqual({
+      value: 9000,
+      low: 4000,
+      high: 30000,
+      reasoning: "Middle.",
+      model: "claude-opus-5",
+      asks: [6500, 9000, 14000],
+    });
+  });
+
+  it("still suggests when one ask fails", async () => {
+    const client = sequence([
+      { rate: 3000, low: 2000, high: 5000, reasoning: "A." },
+      "fail",
+      { rate: 4000, low: 2500, high: 6000, reasoning: "B." },
+    ]);
+    const suggestion = await suggestRateFromAsks(client, input);
+    expect(suggestion.asks).toEqual([3000, 4000]);
+    expect(suggestion.value).toBe(3000);
+  });
+
+  it("fails when every ask fails", async () => {
+    await expect(suggestRateFromAsks(sequence(["fail", "fail", "fail"]), input)).rejects.toThrow("overloaded");
   });
 });
 

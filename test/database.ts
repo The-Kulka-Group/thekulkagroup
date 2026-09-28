@@ -18,7 +18,7 @@ const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
  * network, and no state shared between test files.
  */
 export async function seededDatabase(
-  options: { statedRates?: boolean } = {},
+  options: { statedRates?: boolean; elevatorRates?: boolean } = {},
 ): Promise<Db & { close: () => Promise<void> }> {
   const pg = new PGlite();
 
@@ -33,6 +33,14 @@ export async function seededDatabase(
   // drop those rows. A test that reads the rates passes `statedRates: true`.
   if (!options.statedRates) {
     await pg.query(`delete from benchmarks where cost_code in ('1', '1a')`);
+  }
+
+  // 20260927210000_elevator_stated_rates.sql records Matt's item 26 and 26a
+  // rates the same way (LA-1205). Same reasoning: dropped by default so the
+  // synthetic TEST benchmark stays the only row most tests see, and a test
+  // that reads the elevator rates passes `elevatorRates: true`.
+  if (!options.elevatorRates) {
+    await pg.query(`delete from benchmarks where cost_code in ('26', '26a')`);
   }
 
   // Production migrations contain schema only. Synthetic inputs stay inside

@@ -184,6 +184,7 @@ decided by Matt on 2026-09-19 before this pass and carried forward unchanged her
 | 24b | Window treatments | Unit count |
 | 25 | Amenity special construction | Fixed lump sum |
 | 26 | Elevators | Per stop |
+| 26a | Elevator bulkhead | EA per elevator shaft |
 | 27 | Fire sprinkler system | Gross square feet |
 | 28 | Plumbing rough-in and piping | Bathroom count / unit count, split |
 | 29 | Plumbing fixtures | Bathroom count / unit count, split |
@@ -2134,13 +2135,47 @@ differently. See LA-784, opened to derive elevator type from building height.
    means of access into every pit for mechanics, the same near-universal, small-dollar
    shape as door saddles or self-closing devices found elsewhere in this review.
 
-**Cross-item flags, not resolved here:** a traction elevator (LA-784) needs a penthouse
-machine room instead of a small ground-level one, a real construction cost on items 2,
-8, and 13 that none of them currently name as its own line. An elevator pit below the
-sewer invert also needs a sewage ejector and sump, item 28's Specialties container,
-closed there rather than duplicated as a container of this item. The hoistway is
-itself a rated shaft, and firestopping every feed and, on a hydraulic system, piston
-piping that penetrates it, is item 14a's scope.
+**Cross-item flags, not resolved here:** an elevator pit below the sewer invert also
+needs a sewage ejector and sump, item 28's Specialties container, closed there rather
+than duplicated as a container of this item. The hoistway is itself a rated shaft, and
+firestopping every feed and, on a hydraulic system, piston piping that penetrates it, is
+item 14a's scope.
+
+**Resolved (LA-1205, 2026-09-27): priced per stop by V-1's type, and the penthouse flag
+corrected.** LA-784's research (`docs/precon/research/la-784-elevator-followups.md`)
+found that neither hydraulic nor machine-room-less traction puts a machine room on the
+roof, so the "traction needs a penthouse machine room" flag above no longer holds; see
+item 26a, Elevator Bulkhead, below for what a traction or hydraulic roof condition
+actually adds. Matt stated two type-specific rates, replacing the single $41,000/stop
+trade number in container 1 above: **Hydraulic $35,000 per stop, Traction $45,300 per
+stop**, picked per project by V-1 (`docs/precon/criteria/la-784-elevator-type.md`).
+Stops per elevator = Stories Above Grade, plus Levels Below Grade when the elevator
+serves them. Elevator Count is a new required Scope-step question, opened by the
+elevator gate (LA-1205).
+
+### 26a. Elevator Bulkhead
+
+**New canonical item (LA-1205, 2026-09-27), Division 04 (masonry).** Driven by the same
+elevator gate as item 26, one per elevator shaft, for both elevator types: the shaft has
+to rise above the roof for the overrun whether the building is hydraulic or traction
+(`docs/precon/research/la-784-elevator-followups.md`, Section 3).
+
+**Default scope:** CMU walls around the overrun, a fire rating matching the shaft, a
+hoist beam, the bulkhead's roof and base flashing, metal coping when the roof uses one.
+The door, frame, hardware and paint are **not** in the default scope; they go in only
+when the bulkhead also holds the roof stair enclosure or a traction machine room, since
+a mechanic reaches the overrun from the car top, not through a roof door (ASME A17.1
+2.7.5.1; research Section 5).
+
+**Rates, stated by Matt, 2026-09-27**, accepting the per-trade build-up in the research
+(Section 6), sheet metal folded into roofing:
+
+- Single-car shaft: masonry (04) $4,108, structural steel (05) $3,750, roofing (07)
+  $3,981; trade subtotal $11,839, times 1.4 for small-job mobilization and GC overhead
+  and profit: **$16,600**.
+- Two cars sharing one bulkhead: **$28,700** (about 1.7 times the single-car subtotal,
+  not double, since the walls, roof and coping scale with shared perimeter and area).
+- Door package, added only when stated: **$2,200** (range $1,500 to $3,000).
 
 **Fire alarm and sprinkler cross-checked against elevators (Matt, 2026-09-20), a real
 three-trade coordination point currently priced nowhere.** NFPA 13 requires sprinklers

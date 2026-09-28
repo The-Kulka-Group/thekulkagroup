@@ -24,6 +24,7 @@ import {
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
 import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-flow";
@@ -157,6 +158,10 @@ type BenchmarkRow = {
   contract_side: Benchmark["contractSide"];
   /** Which of item 1a's five structure types this rate is for (LA-1156). Null on every other benchmark. */
   structure_type: Benchmark["structureType"] | null;
+  /** Item 26's rate for this elevator type (LA-1205). Null on every other benchmark. */
+  elevator_type: Benchmark["elevatorType"] | null;
+  /** Item 26a's rate for this shaft configuration or the door package (LA-1205). Null on every other benchmark. */
+  elevator_bulkhead_config: Benchmark["elevatorBulkheadConfig"] | null;
 };
 
 type ClassificationRow = {
@@ -252,9 +257,18 @@ export async function runRom(
     const withFraming: Answers = framingSystem
       ? { ...intake.answers, framingSystem }
       : intake.answers;
-    const answers: Answers = markups ? { ...withFraming, markups } : withFraming;
+    // LA-1205: V-1, Elevator Type, derived and saved here (never a sixth
+    // step -- see the comment on the block-classification read below), so
+    // its effective value feeds facts.elevatorType before computeRom prices
+    // item 26 by type. A no-op project (elevator gate not yes, or no Stories
+    // Above Grade yet) gets `withFraming` back unchanged.
+    const withElevator = await applyElevatorCriterion(db, projectId, withFraming, framingSystem);
+    const answers: Answers = markups ? { ...withElevator, markups } : withElevator;
     const recordedBase = framingSystem ? { ...intake.recorded, framingSystem } : intake.recorded;
-    const recorded = markups ? { ...recordedBase, markups } : recordedBase;
+    // LA-1205: record the same elevatorType fact V-1 fed into `answers`, so a
+    // run's stored record reproduces the price it actually computed.
+    const recordedWithElevator = answers.facts ? { ...recordedBase, facts: answers.facts } : recordedBase;
+    const recorded = markups ? { ...recordedWithElevator, markups } : recordedWithElevator;
     await db.query(`update runs set answers = $2 where id = $1`, [runId, recorded]);
 
     // Block classifications are read inside this step rather than in one of
@@ -417,7 +431,8 @@ export async function readBenchmarkData(
               '{}'::uuid[]
             ) as provenance_source_project_ids,
             b.provenance_export_label, b.provenance_recorded_by,
-            b.provenance_recorded_at, b.scope_side, b.contract_side, b.structure_type
+            b.provenance_recorded_at, b.scope_side, b.contract_side, b.structure_type,
+            b.elevator_type, b.elevator_bulkhead_config
        from benchmarks b
       where b.project_type = $1 and b.construction_kind = $2
       order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
@@ -594,6 +609,10 @@ function toBenchmark(row: BenchmarkRow): Benchmark {
     // LA-1156: absent on every benchmark but item 1a's five per-structure-type
     // rates, so this only ever adds the key when the column holds a value.
     ...(row.structure_type ? { structureType: row.structure_type } : {}),
+    // LA-1205: absent on every benchmark but item 26's two per-type rates and
+    // item 26a's three configuration rows.
+    ...(row.elevator_type ? { elevatorType: row.elevator_type } : {}),
+    ...(row.elevator_bulkhead_config ? { elevatorBulkheadConfig: row.elevator_bulkhead_config } : {}),
   };
 }
 

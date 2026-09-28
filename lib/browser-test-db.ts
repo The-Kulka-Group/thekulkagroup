@@ -115,7 +115,9 @@ async function seedRomFixtures(database: PGlite) {
       ('40000000-0000-4000-8000-00000000000b', '22-400', 'Bathroom fixtures', 'usd_per_gsf', 4.4,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08'),
       ('40000000-0000-4000-8000-00000000000c', '22-500', 'Toilets, labor and material', 'usd_per_gsf', 0.35,
-       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08');
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08'),
+      ('40000000-0000-4000-8000-00000000000d', '14-201', 'Elevator Bulkhead', 'usd_per_gsf', 0.18,
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-27');
 
     insert into benchmark_source_projects (benchmark_id, project_id)
     values
@@ -166,6 +168,9 @@ async function seedRomFixtures(database: PGlite) {
       ('28-300', 2, 'Elevator', '26-100', 'Electrical',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the Elevator element reaches a fourth division. Not a Kulka classification.'),
+      ('14-201', 2, 'Elevator', null, 'Masonry',
+       'Browser test fixture', '2026-09-27',
+       'A synthetic fixture so the Elevator element shows the LA-1205 bulkhead as its own block. Not a Kulka classification.'),
       ('22-400', 3, 'Bathroom', null, 'Plumbing',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the board has a level 3 block counted in fixture points. Not a Kulka classification.'),
@@ -201,6 +206,8 @@ async function seedRomFixtures(database: PGlite) {
        'A synthetic fixture so the elevator question takes its plumbing breakout out. Not a Kulka rule.'),
       ('elevator', '28-300', array['no'], null, 'Browser test fixture', '2026-09-26',
        'A synthetic fixture so the elevator question takes its fire alarm breakout out. Not a Kulka rule.'),
+      ('elevator', '14-201', array['no'], null, 'Browser test fixture', '2026-09-27',
+       'A synthetic fixture so the elevator question takes the LA-1205 bulkhead block out. Not a Kulka rule.'),
       ('site_conditions', '31-200', array['no'], null, 'Browser test fixture', '2026-09-26',
        'A synthetic fixture so the site conditions question takes the sitework block out. Not a Kulka rule.'),
       ('levels_below_grade', '03-300', array['no'], array['site_conditions'], 'Browser test fixture', '2026-09-26',

@@ -155,7 +155,15 @@
       "prompt": "Does the building have an elevator?",
       "kind": "branch_gate",
       "required": true,
+      "opens": ["elevator_count"],
       "mapsTo": { "target": "branch_gate", "section": "elevator" }
+    },
+    {
+      "id": "elevator_count",
+      "prompt": "Elevator Count",
+      "kind": "number",
+      "required": true,
+      "mapsTo": { "target": "intake_field", "name": "elevatorCount" }
     },
     {
       "id": "retail_storefronts",

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { readRomProjectDetail } from "@/lib/rom/projects";
-import { rateClient, RateSuggestionFailed, suggestRate } from "@/lib/rom/rate-suggestion";
+import { rateClient, RateSuggestionFailed, suggestRateFromAsks } from "@/lib/rom/rate-suggestion";
 import { isUuid } from "@/lib/uuid";
 
 // LA-1245. POST { projectId, costCode } asks Claude for a supporting item's
@@ -62,7 +62,8 @@ export async function POST(request: Request) {
   const driverLabel = driver.rows[0]?.label ?? found.driver_cost_code;
 
   try {
-    const suggestion = await suggestRate(client, {
+    // Three asks at once, so the panel can show how far the figure moves.
+    const suggestion = await suggestRateFromAsks(client, {
       itemLabel: found.supporting_label,
       quantityBasis: `${driverLabel} brings this in, one per structure coming down`,
       unit: "each",

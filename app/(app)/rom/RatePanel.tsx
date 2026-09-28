@@ -23,9 +23,17 @@ import { useEffect, useState } from "react";
 
 type Saved = { projectRate: { value: number; suggested: boolean } | null; sharedRate: { value: number } | null };
 
-type Suggestion = { value: number; low: number; high: number; reasoning: string; model: string };
+type Suggestion = { value: number; low: number; high: number; reasoning: string; model: string; asks?: number[] };
 
 const money = (value: number) => `$${value.toLocaleString("en-US")}`;
+
+/** "Three asks gave $2,500, $3,200 and $4,500." The figure shown is the middle one. */
+export function asksWords(asks: number[]): string {
+  const figures = asks.map(money);
+  const list = figures.length > 1 ? `${figures.slice(0, -1).join(", ")} and ${figures[figures.length - 1]}` : figures[0];
+  const count = ["", "One", "Two", "Three", "Four", "Five"][asks.length] ?? String(asks.length);
+  return `${count} asks gave ${list}.`;
+}
 
 export function RatePanel({
   projectId,
@@ -162,6 +170,7 @@ export function RatePanel({
         <div className="rt-sug">
           <p className="rb-pp">
             <b>{money(suggestion.value)} each</b>, range {money(suggestion.low)} to {money(suggestion.high)}.
+            {suggestion.asks && suggestion.asks.length > 1 ? ` ${asksWords(suggestion.asks)}` : ""}
           </p>
           <p className="rb-pp">{suggestion.reasoning}</p>
           {missing.length > 0 ? (

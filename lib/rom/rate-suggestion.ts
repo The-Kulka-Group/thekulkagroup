@@ -29,7 +29,15 @@ export type RateSuggestionInput = {
   facts: Record<string, string | number | null>;
 };
 
-export type RateSuggestion = { value: number; low: number; high: number; reasoning: string; model: string };
+export type RateSuggestion = {
+  value: number;
+  low: number;
+  high: number;
+  reasoning: string;
+  model: string;
+  /** Every ask's figure, lowest first, when the suggestion came from several asks. */
+  asks?: number[];
+};
 
 export class RateSuggestionFailed extends Error {}
 
@@ -102,6 +110,37 @@ export async function suggestRate(client: RateClient, input: RateSuggestionInput
   }
   const round = (value: number) => Math.round(value);
   return { value: round(rate), low: round(low), high: round(high), reasoning: firstSentence(reasoning), model: response.model };
+}
+
+/**
+ * LA-1252. Matt, 2026-09-28: back-to-back asks for the same item came back $14,000
+ * and $6,500, so the estimator sees how far the model moves. This asks three
+ * times at once. The figure and reason are the middle answer's, the range
+ * runs from the lowest low to the highest high, and `asks` lists every
+ * figure. One or two failed asks still leave a suggestion.
+ */
+export async function suggestRateFromAsks(
+  client: RateClient,
+  input: RateSuggestionInput,
+  count = 3,
+): Promise<RateSuggestion> {
+  const settled = await Promise.allSettled(Array.from({ length: count }, () => suggestRate(client, input)));
+  const answers = settled
+    .flatMap((result) => (result.status === "fulfilled" ? [result.value] : []))
+    .sort((a, b) => a.value - b.value);
+  if (answers.length === 0) {
+    const failed = settled.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    throw failed?.reason instanceof Error ? failed.reason : new RateSuggestionFailed("The model returned no rate.");
+  }
+  const middle = answers[Math.floor((answers.length - 1) / 2)];
+  return {
+    value: middle.value,
+    low: Math.min(...answers.map((answer) => answer.low)),
+    high: Math.max(...answers.map((answer) => answer.high)),
+    reasoning: middle.reasoning,
+    model: middle.model,
+    asks: answers.map((answer) => answer.value),
+  };
 }
 
 /** The reasoning's first sentence, in case the model writes more than asked. */

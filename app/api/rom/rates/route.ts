@@ -99,7 +99,7 @@ export async function POST(request: Request) {
 
 function readProposal(value: unknown) {
   if (!value || typeof value !== "object") return null;
-  const { value: rate, low, high, reasoning, model } = value as Record<string, unknown>;
+  const { value: rate, low, high, reasoning, model, asks } = value as Record<string, unknown>;
   if (
     typeof rate !== "number" ||
     typeof low !== "number" ||
@@ -109,5 +109,6 @@ function readProposal(value: unknown) {
   ) {
     return null;
   }
-  return { value: rate, low, high, reasoning, model };
+  const figures = Array.isArray(asks) && asks.every((ask) => typeof ask === "number") ? (asks as number[]) : undefined;
+  return { value: rate, low, high, reasoning, model, ...(figures ? { asks: figures } : {}) };
 }

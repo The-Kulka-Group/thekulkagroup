@@ -7,7 +7,7 @@ import {
   type Rom,
 } from "@kulka/engine";
 
-import { readFlowAnswers, type FlowDefinition, type Responses } from "./question-flow";
+import { readFlowAnswers, visibleQuestions, type FlowDefinition, type Responses } from "./question-flow";
 
 // LA-1142: the New budget flow shows the budget building while its questions
 // are answered. The browser runs the same pure engine a run does, over the
@@ -72,13 +72,60 @@ export function previewAnswers(
  * is added up here. `full` is the ROM the answers give as they stand, whose
  * "not in this job" and TBD lists are what the estimator actually answered.
  */
-export function knownScopeRom(answers: Answers, snapshot: DataSnapshot): { known: Rom; full: Rom } {
+export function knownScopeRom(
+  answers: Answers,
+  snapshot: DataSnapshot,
+  awaitingFollowUps: ReadonlySet<string> = new Set(),
+): { known: Rom; full: Rom } {
   const full = computeRom(answers, snapshot);
   const waiting = new Set(full.assumedPresentItems.map((item) => item.costCode));
+  // A section answered yes whose follow-up questions are still open stays
+  // off the field too, with every line in the same element, so demolition
+  // never shows a figure before the building behind it is described.
+  const gateCodes = (snapshot.branchGateItems ?? [])
+    .filter((item) => awaitingFollowUps.has(item.section))
+    .map((item) => item.costCode);
+  const elements = new Set(
+    (snapshot.classifications ?? [])
+      .filter((one) => gateCodes.includes(one.costCode) && one.element)
+      .map((one) => one.element),
+  );
+  for (const code of gateCodes) waiting.add(code);
+  for (const one of snapshot.classifications ?? []) if (one.element && elements.has(one.element)) waiting.add(one.costCode);
   if (waiting.size === 0) return { known: full, full };
   const known = computeRom(answers, {
     ...snapshot,
     benchmarks: snapshot.benchmarks.filter((benchmark) => !waiting.has(benchmark.costCode)),
   });
   return { known, full };
+}
+
+/**
+ * The scope sections answered "yes" whose follow-up questions are open but
+ * not all answered yet: demolition before its structure count, square
+ * footage and type, or the elevator before its count. Matt, 2026-09-27: the
+ * live budget priced $18k of demolition "without asking any questions about
+ * the building", because Site Demolition is a lump sum that prices on the
+ * yes alone. Until the follow-ups are answered, the preview leaves the whole
+ * element off the field and out of the total.
+ */
+export function sectionsAwaitingFollowUps(definition: FlowDefinition, responses: Responses): Set<string> {
+  const visible = visibleQuestions(definition, responses);
+  const byId = new Map(visible.map((question) => [question.id, question]));
+  const awaiting = new Set<string>();
+  for (const gate of visible) {
+    if (gate.kind !== "branch_gate" || gate.mapsTo.target !== "branch_gate" || responses[gate.id] !== "yes") continue;
+    const stack = [...(gate.opens ?? [])];
+    while (stack.length > 0) {
+      const followUp = byId.get(stack.pop() as string);
+      if (!followUp) continue;
+      const value = responses[followUp.id];
+      if (value === undefined || value === "") {
+        awaiting.add(gate.mapsTo.section);
+        break;
+      }
+      stack.push(...(followUp.opens ?? []));
+    }
+  }
+  return awaiting;
 }

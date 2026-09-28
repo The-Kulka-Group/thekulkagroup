@@ -73,8 +73,8 @@
       "kind": "choice",
       "required": false,
       "choices": [
-        { "value": "union", "label": "Union" },
         { "value": "open_shop", "label": "Open Shop" },
+        { "value": "union", "label": "Union" },
         { "value": "prevailing_wage", "label": "Prevailing Wage" }
       ],
       "mapsTo": { "target": "intake_field", "name": "laborType" }

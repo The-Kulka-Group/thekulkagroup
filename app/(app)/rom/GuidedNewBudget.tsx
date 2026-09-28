@@ -152,6 +152,9 @@ export function GuidedNewBudget({
     // LA-1199: Building Count defaults to 1, matching projects.building_count's
     // own NOT NULL DEFAULT 1 (20260920140000_rom_spec_decisions_catchup.sql).
     building_count: "1",
+    // Matt, 2026-09-28: Kulka's work is nearly always open shop, so Labor
+    // Type starts there and changes only when a job is union or prevailing wage.
+    labor_type: "open_shop",
   });
   const [markupForm, setMarkupForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, null));
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -229,7 +232,7 @@ export function GuidedNewBudget({
         ? Number(current.demolition_structure_square_feet)
         : null,
       demolitionStructureType: current.demolition_structure_type || null,
-      laborType: current.labor_type || null,
+      laborType: current.labor_type || "open_shop",
     };
   }
 

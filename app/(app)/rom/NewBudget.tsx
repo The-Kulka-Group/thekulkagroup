@@ -37,7 +37,7 @@ export type Form = {
   demolitionStructureCount: string;
   demolitionStructureSquareFeet: string;
   demolitionStructureType: string;
-  /** LA-1245: Union, Open Shop or Prevailing Wage, or blank. */
+  /** LA-1245: Union, Open Shop or Prevailing Wage. Open Shop unless stated (Matt, 2026-09-28). */
   laborType: string;
 };
 
@@ -55,7 +55,7 @@ export const EMPTY: Form = {
   demolitionStructureCount: "",
   demolitionStructureSquareFeet: "",
   demolitionStructureType: "",
-  laborType: "",
+  laborType: "open_shop",
 };
 
 /** The structure types, worded as config/rom/tier1-flow.json words them. */
@@ -163,7 +163,6 @@ export function ProjectFields({
             disabled={busy}
             onChange={(e) => set({ laborType: e.target.value })}
           >
-            <option value="">Not Set</option>
             {LABOR_TYPE_CHOICES.map((choice) => (
               <option key={choice.value} value={choice.value}>
                 {choice.label}

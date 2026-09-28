@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       unit: "each",
       facts: {
         zip: project.zip ?? null,
-        laborType: project.laborType ? LABOR_WORDS[project.laborType] ?? project.laborType : null,
+        laborType: LABOR_WORDS[project.laborType ?? "open_shop"] ?? project.laborType,
         projectType: project.projectType,
         constructionKind: project.constructionKind,
         grossSquareFeet: project.grossSquareFeet,
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         structureType: project.demolitionStructureType ?? null,
       },
     });
-    return NextResponse.json({ suggestion, missing: [project.zip ? null : "ZIP", project.laborType ? null : "Labor Type"].filter(Boolean) });
+    return NextResponse.json({ suggestion, missing: project.zip ? [] : ["ZIP"] });
   } catch (cause) {
     if (cause instanceof RateSuggestionFailed) return NextResponse.json({ error: cause.message }, { status: 502 });
     return NextResponse.json({ error: "The rate could not be suggested. Try again." }, { status: 502 });

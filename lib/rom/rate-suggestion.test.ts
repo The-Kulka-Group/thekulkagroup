@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 
-import { RateSuggestionFailed, suggestRate, type RateClient } from "./rate-suggestion";
+import { firstSentence, RateSuggestionFailed, suggestRate, type RateClient } from "./rate-suggestion";
 
 // LA-1245. The fake stands in for Claude; nothing reaches the network.
 
@@ -53,5 +53,17 @@ describe("suggestRate", () => {
     );
     await expect(suggestRate(fake({}, "refusal").client, input)).rejects.toBeInstanceOf(RateSuggestionFailed);
     await expect(suggestRate(fake("not json").client, input)).rejects.toBeInstanceOf(RateSuggestionFailed);
+  });
+});
+
+describe("firstSentence (Matt, 2026-09-28: one-sentence reasons)", () => {
+  it("keeps only the first sentence", () => {
+    expect(firstSentence("Rockland is a high-cost market. Labor type was not stated. The range is wide.")).toBe(
+      "Rockland is a high-cost market.",
+    );
+  });
+
+  it("leaves a single sentence alone", () => {
+    expect(firstSentence("  Open shop pricing in Rockland County, 10920.  ")).toBe("Open shop pricing in Rockland County, 10920.");
   });
 });

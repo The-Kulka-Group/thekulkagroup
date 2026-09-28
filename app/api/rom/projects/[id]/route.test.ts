@@ -157,6 +157,14 @@ describe("PATCH /api/rom/projects/[id]", () => {
     expect((await patch(TEST_PROJECT_ID, { ...edit, laborType: "piecework" })).status).toBe(400);
   });
 
+  // Matt, 2026-09-28: no labor type means Open Shop.
+  it("saves Open Shop when an edit sends no labor type", async () => {
+    await patch(TEST_PROJECT_ID, { ...edit, laborType: "union" });
+    expect((await patch(TEST_PROJECT_ID, { ...edit, laborType: null })).status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    expect((await get.json()).project).toMatchObject({ laborType: "open_shop" });
+  });
+
   // LA-1212: Edit project sets, clears and reloads Elevator Count through the
   // same PATCH/GET pair, the same as the four LA-1199 fields above. Zero is
   // its own case, since it is a legal count (no elevator) rather than a clear.

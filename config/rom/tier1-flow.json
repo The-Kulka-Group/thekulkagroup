@@ -136,7 +136,8 @@
     },
     {
       "id": "levels_below_grade",
-      "prompt": "Does the building go below grade?",
+      "prompt": "Does the new building go below grade?",
+      "help": "The building being built, such as a basement or underground garage. The demolition questions are done.",
       "kind": "branch_gate",
       "required": true,
       "mapsTo": { "target": "branch_gate", "section": "levels_below_grade" }
@@ -164,7 +165,7 @@
     },
     {
       "id": "elevator",
-      "prompt": "Does the building have an elevator?",
+      "prompt": "Does the new building have an elevator?",
       "kind": "branch_gate",
       "required": true,
       "opens": ["elevator_count"],
@@ -193,7 +194,7 @@
     },
     {
       "id": "radio_amplifier",
-      "prompt": "Does the building need an emergency radio amplifier (BDA)?",
+      "prompt": "Does the new building need an emergency radio amplifier (BDA)?",
       "kind": "branch_gate",
       "required": true,
       "mapsTo": { "target": "branch_gate", "section": "radio_amplifier" }

@@ -323,3 +323,60 @@ describe("the package card", () => {
     expect(itemsLabel(1)).toBe("1 Item");
   });
 });
+
+describe("LA-1210: a canonical item number is not a division", () => {
+  it("does not read a bare item number's own digits as a division", () => {
+    // Before the fix, "10" (Millwork, Division 06) read as division "10"
+    // (Specialties) and "31f" (Electrical Service Disconnect, Division 26)
+    // read as division "31" -- exactly the bug docs/precon/masterformat-divisions.md
+    // exists to fix with real data.
+    expect(divisionFor("10", new Map())).toBeNull();
+    expect(divisionFor("31f", new Map())).toBeNull();
+    expect(divisionFor("28a", new Map())).toBeNull();
+  });
+
+  it("still reads a benchmark cost code's own digits, dash and all", () => {
+    expect(divisionFor("09-900", new Map())).toBe("09");
+    expect(divisionFor("26-100", new Map())).toBe("26");
+  });
+
+  it("a stated division still wins over everything", () => {
+    expect(divisionFor("31f", new Map([["31f", "26"]]))).toBe("26");
+  });
+
+  it("sorts items with no division in canonical item order, not cost-code text", () => {
+    const lines = [
+      line({ costCode: "10", label: "Millwork", low: 5, high: 5 }),
+      line({ costCode: "2", label: "Foundations", low: 5, high: 5 }),
+      line({ costCode: "31f", label: "Electrical Service Disconnect", low: 5, high: 5 }),
+    ];
+    // Cost-code text would read "10" ahead of "2"; canonical item order does not.
+    const ordered = orderField(buildField("scope", rom(lines), []), "masterformat");
+    expect(labels(ordered)).toEqual(["Foundations", "Millwork", "Electrical Service Disconnect"]);
+    expect(ordered.every((entry) => entry.division === null)).toBe(true);
+  });
+});
+
+describe("LA-1210: the Unassigned Package card", () => {
+  it("shows no division, even when its only item would otherwise resolve one", () => {
+    const lines = [
+      line({ costCode: "09-900", label: "Finishes", low: 10, high: 10 }), // no buyoutPackage: Unassigned
+      line({ costCode: "03-300", label: "Concrete", low: 1, high: 1, buyoutPackage: "Concrete" }),
+    ];
+    const field = buildField("package", rom(lines), []);
+    const unassigned = field.find((entry) => entry.label === "Unassigned Package")!;
+    expect(unassigned.division).toBeNull();
+  });
+
+  it("always sorts last, in every order, even when it is by far the largest", () => {
+    const lines = [
+      line({ costCode: "31f", label: "Electrical Service Disconnect", low: 100, high: 100 }), // Unassigned
+      line({ costCode: "03-300", label: "Concrete", low: 1, high: 1, buyoutPackage: "Concrete" }),
+    ];
+    const masterformat = orderField(buildField("package", rom(lines), []), "masterformat");
+    expect(labels(masterformat)).toEqual(["Concrete", "Unassigned Package"]);
+
+    const largest = orderField(buildField("package", rom(lines), []), "largest");
+    expect(labels(largest)).toEqual(["Concrete", "Unassigned Package"]);
+  });
+});

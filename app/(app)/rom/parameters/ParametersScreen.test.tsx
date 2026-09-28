@@ -85,7 +85,7 @@ describe("ParametersScreen", () => {
     expect(html).toContain("$23.41");
     expect(html).toContain("Medium, ±20%");
     expect(html).toContain("3 comparables. High needs 5.");
-    expect(html).toContain("3 of 5 jobs");
+    expect(html).toContain("3 jobs, needs 5");
     expect(html).toContain("Misses it");
     expect(html).toContain("59% of blend");
     // The saved run, unchanged.

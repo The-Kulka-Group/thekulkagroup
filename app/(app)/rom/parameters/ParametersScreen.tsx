@@ -563,7 +563,7 @@ function TierRow({
             <i style={{ width: `${Math.min(100, (meter.count / Math.max(1, meter.need)) * 100)}%` }} />
           </span>
           <span className="num">
-            {meter.count} of {meter.need} jobs
+            {meter.count} jobs, needs {meter.need}
           </span>
           <span className="num">
             {wholePercent(meter.dispersion)} off, allows {wholePercent(meter.allows)}

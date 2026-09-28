@@ -1,0 +1,36 @@
+/* LA-1317: the Design and Engineering stage, edge to edge across the top of
+   the budget field. Its background matches the model's so the canvas has no seam. */
+.stg {
+  position: relative;
+  margin: -16px -24px 16px;
+  height: clamp(260px, 38vh, 400px);
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+  overflow: hidden;
+}
+.stg-cv {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.stg-replay {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-light);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.stg-replay:hover { color: var(--ink); border-color: #b9b7af; }
+.stg-replay:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 860px) {
+  .stg { margin: -14px -16px 16px; height: 240px; }
+}

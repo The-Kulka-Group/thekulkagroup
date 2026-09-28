@@ -29,10 +29,27 @@ export function loadedRunFrom(record: RunRecord): LoadedRun | null {
   };
 }
 
-/** This project's finished runs, newest first. A failed run has no ROM to load. */
+/**
+ * Runs closer together than this are one burst of edits. Run Settings and
+ * Edit Project record a run on every change (LA-1227, LA-1240), so a few
+ * quick edits leave a row of near-copies.
+ */
+export const BURST_MS = 2 * 60 * 1000;
+
+/**
+ * This project's finished runs, newest first, showing only the last run of
+ * each burst (Matt, 2026-09-28). A run is left off the strip when a newer
+ * one started within BURST_MS of it. Nothing is deleted: every run stays in
+ * the database and on the runs page, since runs are the audit trail. A
+ * failed run has no ROM to load.
+ */
 export function savedRunsFor(runs: RunSummary[], projectId: string | undefined): RunSummary[] {
   if (!projectId) return [];
-  return runs
-    .filter((run) => run.projectId === projectId && run.status === "succeeded")
+  const finished = runs.filter((run) => run.projectId === projectId && run.status === "succeeded");
+  return finished
+    .filter((run, index) => {
+      const newer = finished[index - 1];
+      return !newer || Date.parse(newer.startedAt) - Date.parse(run.startedAt) > BURST_MS;
+    })
     .slice(0, STRIP_RUNS);
 }

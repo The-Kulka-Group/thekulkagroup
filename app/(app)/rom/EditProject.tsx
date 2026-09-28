@@ -62,7 +62,7 @@ function formFrom(project: EditableProject): Form {
       ? String(project.demolitionStructureSquareFeet)
       : "",
     demolitionStructureType: project.demolitionStructureType ?? "",
-    laborType: project.laborType ?? "",
+    laborType: project.laborType ?? "open_shop",
   };
 }
 
@@ -155,7 +155,7 @@ export function EditProjectForm({
             Number(form.demolitionStructureCount) > 0 && form.demolitionStructureType
               ? form.demolitionStructureType
               : null,
-          laborType: form.laborType || null,
+          laborType: form.laborType || "open_shop",
         }),
       });
       const body = await response.json().catch(() => ({}));

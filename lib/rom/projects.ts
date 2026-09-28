@@ -271,7 +271,9 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       demolitionStructureCount: (demolitionStructureCount ?? null) as number | null,
       demolitionStructureSquareFeet: (demolitionStructureSquareFeet ?? null) as number | null,
       demolitionStructureType: (demolitionStructureType ?? null) as string | null,
-      laborType: (laborType ?? null) as string | null,
+      // Matt, 2026-09-28: Kulka's work is nearly always open shop, so a
+      // project without a stated labor type is open shop.
+      laborType: (laborType ?? "open_shop") as string,
     },
   };
 }
@@ -300,7 +302,7 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
       budget.demolitionStructureCount ?? null,
       budget.demolitionStructureSquareFeet ?? null,
       budget.demolitionStructureType ?? null,
-      budget.laborType ?? null,
+      budget.laborType ?? "open_shop",
     ],
   );
   return rows[0].id;
@@ -343,7 +345,7 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
       budget.demolitionStructureCount ?? null,
       budget.demolitionStructureSquareFeet ?? null,
       budget.demolitionStructureType ?? null,
-      budget.laborType ?? null,
+      budget.laborType ?? "open_shop",
     ],
   );
   if (!rows[0]) throw new ProjectNotFoundForEdit(projectId);

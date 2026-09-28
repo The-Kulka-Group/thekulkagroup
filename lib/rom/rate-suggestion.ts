@@ -41,7 +41,7 @@ const SCHEMA = {
     high: { type: "number", description: "The high end of a reasonable range, US dollars each." },
     reasoning: {
       type: "string",
-      description: "Two or three plain sentences on what drives the figure: location, labor type and scope.",
+      description: "One plain sentence, under 30 words, on what drives the figure.",
     },
   },
   required: ["rate", "low", "high", "reasoning"],
@@ -52,7 +52,8 @@ const SYSTEM = [
   "You estimate construction unit costs for a general contractor's conceptual (rough order of magnitude) budget.",
   "Give a rate for one line item, in US dollars, for the unit stated, as a subcontractor would price it in the project's location today.",
   "Weigh the location from the ZIP code and the labor type (union, open shop or prevailing wage).",
-  "If a fact you need is missing, say so in the reasoning and widen the range rather than guessing narrowly.",
+  "If a fact you need is missing, widen the range rather than guessing narrowly.",
+  "Write the reasoning as one short sentence (Matt, 2026-09-28: four rows of paragraphs were too much to read).",
   "This is a planning figure the estimator will review, not a quote or a design.",
 ].join(" ");
 
@@ -100,7 +101,13 @@ export async function suggestRate(client: RateClient, input: RateSuggestionInput
     throw new RateSuggestionFailed("The model's rate did not hold together (it needs low, rate and high in order, above zero).");
   }
   const round = (value: number) => Math.round(value);
-  return { value: round(rate), low: round(low), high: round(high), reasoning: reasoning.trim(), model: response.model };
+  return { value: round(rate), low: round(low), high: round(high), reasoning: firstSentence(reasoning), model: response.model };
+}
+
+/** The reasoning's first sentence, in case the model writes more than asked. */
+export function firstSentence(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.split(/(?<=[.!?])\s+(?=[A-Z])/)[0] ?? trimmed;
 }
 
 let clientForTests: RateClient | null = null;

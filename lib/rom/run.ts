@@ -409,7 +409,7 @@ export function answersFromProject(
     facts.demolitionStructureSquareFeet = project.demolition_structure_square_feet;
   }
   if (project.demolition_structure_type) facts.demolitionStructureType = project.demolition_structure_type;
-  if (project.labor_type) facts.laborType = project.labor_type;
+  facts.laborType = project.labor_type ?? "open_shop";
 
   return {
     projectType: project.project_type,

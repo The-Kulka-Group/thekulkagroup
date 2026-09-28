@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Matt, 2026-09-28: a supporting item showing "No Rate Yet" takes a rate on
 // its card. This is the panel the card opens. The rate is dollars each, one
@@ -15,6 +15,13 @@ import { useState } from "react";
 // figure never solely determines a line). A rate that began as a suggestion
 // prices this budget only (Matt, 2026-09-28), with the suggestion kept
 // beside it; a rate typed without one is the shared rate, as before.
+//
+// LA-1249. Matt, 2026-09-28: a saved rate can be edited. A priced supporting item's
+// panel opens this in edit mode, filled with the rate it has. The change
+// stays where the rate lives: a budget-only rate changes for this budget, a
+// shared rate changes for every budget of this kind.
+
+type Saved = { projectRate: { value: number; suggested: boolean } | null; sharedRate: { value: number } | null };
 
 type Suggestion = { value: number; low: number; high: number; reasoning: string; model: string };
 
@@ -24,12 +31,15 @@ export function RatePanel({
   projectId,
   costCode,
   driverLabel,
+  editing = false,
   onSaved,
 }: {
   projectId: string;
   costCode: string;
   /** The driver that brings the item in, such as Structure Demolition. */
   driverLabel: string | null;
+  /** True when the item is priced and this panel changes its saved rate. */
+  editing?: boolean;
   onSaved: () => void;
 }) {
   const [value, setValue] = useState("");
@@ -38,6 +48,29 @@ export function RatePanel({
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [suggesting, setSuggesting] = useState(false);
+  const [saved, setSaved] = useState<Saved | null>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    let live = true;
+    void fetch(`/api/rom/rates?projectId=${projectId}&costCode=${encodeURIComponent(costCode)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: Saved | null) => {
+        if (!live || !body) return;
+        setSaved(body);
+        const current = body.projectRate?.value ?? body.sharedRate?.value;
+        if (current !== undefined) setValue((existing) => (existing === "" ? String(current) : existing));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [editing, projectId, costCode]);
+
+  // Where a save lands: a suggestion or a budget-only rate stays on this
+  // budget; a shared card rate being edited is changed in place.
+  const target: "project" | "replace" | "shared" =
+    suggestion || saved?.projectRate ? "project" : saved?.sharedRate ? "replace" : "shared";
 
   async function suggest() {
     if (suggesting || busy) return;
@@ -79,9 +112,9 @@ export function RatePanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          suggestion
+          target === "project"
             ? { projectId, costCode, value: amount, scope: "project", proposal: suggestion }
-            : { projectId, costCode, value: amount },
+            : { projectId, costCode, value: amount, replace: target === "replace" },
         ),
       });
       const body = await response.json().catch(() => ({}));
@@ -100,7 +133,14 @@ export function RatePanel({
   return (
     <form onSubmit={save}>
       <p className="rb-pp">
-        No rate yet.{driverLabel ? ` It comes in with ${driverLabel}, one for each structure coming down.` : ""}
+        {editing
+          ? saved?.projectRate
+            ? `This budget has its own rate${saved.projectRate.suggested ? ", which began as a suggestion" : ""}.`
+            : saved?.sharedRate
+              ? "This rate is shared by every budget of this project type and construction kind."
+              : "Reading the saved rate."
+          : "No rate yet."}
+        {driverLabel ? ` It comes in with ${driverLabel}, one for each structure coming down.` : ""}
       </p>
       <label className="rt-field">
         <span className="field-label t-label">Dollars Each, per Structure</span>
@@ -135,7 +175,11 @@ export function RatePanel({
       <p className="rb-pp">
         {suggestion
           ? "A suggested rate prices this budget only. Keep the figure or change it, then save. The suggestion is kept with it."
-          : "A rate you type prices the item on every budget of this project type and construction kind. Use Suggest a Rate for a figure fitted to this budget's location and labor type."}{" "}
+          : target === "project"
+            ? "The change applies to this budget only."
+            : target === "replace"
+              ? "The change applies to every budget of this project type and construction kind. Use Suggest a Rate for a figure for this budget only."
+              : "A rate you type prices the item on every budget of this project type and construction kind. Use Suggest a Rate for a figure fitted to this budget's location and labor type."}{" "}
         Saving records a new run of this budget.
       </p>
       {error ? (

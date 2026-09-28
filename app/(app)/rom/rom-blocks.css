@@ -1073,3 +1073,13 @@ button.lb-blk.rb-blk--sel:hover { border-color: var(--rb-black); }
   .pk-seg i, .pk-pulse, .sb-chip { animation: none; }
   .pk-card:active, button.lb-blk:active { scale: none; }
 }
+
+/* Suggest Missing Rates (BulkRatePanel.tsx): one row per item, the figure
+   editable on the right, the range and reason under it. */
+.br-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; }
+.br-row { border: 1px solid var(--rb-pnl-line); border-radius: var(--r-lg); padding: 10px 12px; }
+.br-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.br-name { font-weight: 600; min-width: 0; }
+.br-in { width: 110px; flex: none; text-align: right; }
+.br-state { font-size: var(--meta-size); color: var(--rb-pnl-mute); flex: none; }
+.br-note { margin: 6px 0 0; font-size: var(--meta-size); color: var(--rb-pnl-mute); }

@@ -5,11 +5,30 @@ import { getDb } from "@/lib/db";
 import { recordedByFor, todayInNewYork } from "@/lib/rom/parameters";
 import { readRomProjectDetail } from "@/lib/rom/projects";
 import { ProjectRateRefused, saveProjectRate } from "@/lib/rom/project-rates";
-import { addSupportingItemRate, RateRefused } from "@/lib/rom/stated-rates";
+import {
+  addSupportingItemRate,
+  RateRefused,
+  readSupportingItemRates,
+  updateSupportingItemRate,
+} from "@/lib/rom/stated-rates";
 import { isUuid } from "@/lib/uuid";
 
-// POST a rate for a supporting item that has none yet (lib/rom/stated-rates.ts).
-// The page records a new run afterward so the budget shows it priced.
+// POST a rate for a supporting item (lib/rom/stated-rates.ts). The page
+// records a new run afterward so the budget shows it priced. GET reads the
+// rates an item already has on a project, so the panel can edit one.
+
+export async function GET(request: Request) {
+  const auth = await authorizeRequest(request);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const params = new URL(request.url).searchParams;
+  const projectId = params.get("projectId");
+  const costCode = params.get("costCode");
+  if (!projectId || !isUuid(projectId)) return NextResponse.json({ error: "Send the projectId." }, { status: 400 });
+  if (!costCode) return NextResponse.json({ error: "Send the item's costCode." }, { status: 400 });
+  const rates = await readSupportingItemRates(getDb(), projectId, costCode);
+  if (!rates) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  return NextResponse.json(rates);
+}
 
 export async function POST(request: Request) {
   const auth = await authorizeRequest(request);
@@ -21,7 +40,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Send a JSON body." }, { status: 400 });
   }
-  const { projectId, costCode, value, scope, proposal } = body;
+  const { projectId, costCode, value, scope, proposal, replace } = body;
   if (typeof projectId !== "string" || !isUuid(projectId)) {
     return NextResponse.json({ error: "Send the projectId." }, { status: 400 });
   }
@@ -60,8 +79,10 @@ export async function POST(request: Request) {
   const project = await readRomProjectDetail(db, projectId);
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
 
+  // `replace` changes the shared rate stated earlier on a card, which moves
+  // every budget of this kind with it.
   try {
-    await addSupportingItemRate(db, {
+    await (replace === true ? updateSupportingItemRate : addSupportingItemRate)(db, {
       costCode,
       value,
       projectType: project.projectType,

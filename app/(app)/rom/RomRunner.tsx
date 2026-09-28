@@ -31,6 +31,7 @@ import {
 } from "./DerivedCriteria";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
 import { ElementBoxBlock } from "./ElementBox";
+import { BulkRatePanel } from "./BulkRatePanel";
 import { RatePanel } from "./RatePanel";
 import {
   type BarModel,
@@ -89,7 +90,9 @@ type Panel =
   | { kind: "new" }
   | { kind: "edit" }
   /** A supporting item with no rate yet, taking one on its card (RatePanel.tsx). */
-  | { kind: "rate"; costCode: string };
+  | { kind: "rate"; costCode: string; editing?: boolean }
+  /** Matt, 2026-09-28: suggested rates for every item with none, in one go (BulkRatePanel.tsx). */
+  | { kind: "rates" };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -425,7 +428,13 @@ export function RomRunner({
 
   const openBlock = panel?.kind === "block" ? blocks.find((b) => b.costCode === panel.costCode) : undefined;
   const rateItem =
-    panel?.kind === "rate" && run ? run.rom.unpricedItems.find((item) => item.costCode === panel.costCode) : undefined;
+    panel?.kind === "rate" && run
+      ? panel.editing
+        ? run.rom.lines.find((line) => line.costCode === panel.costCode && line.driverCostCode)
+        : run.rom.unpricedItems.find((item) => item.costCode === panel.costCode)
+      : undefined;
+  // Only a supporting item has a rate unit, so only those can take a rate.
+  const rateable = run ? run.rom.unpricedItems.filter((item) => item.driverCostCode) : [];
   const openPackage =
     panel?.kind === "package"
       ? entries.find((entry): entry is Extract<FieldEntry, { kind: "package" }> => entry.key === panel.key)
@@ -607,6 +616,17 @@ export function RomRunner({
                 ) : null}
                 {notesLabel(held, run.rom)}
               </button>
+              {projectId && rateable.length > 0 ? (
+                <button
+                  type="button"
+                  className="rb-oq"
+                  aria-expanded={panel?.kind === "rates"}
+                  onClick={(e) => openPanel({ kind: "rates" }, e.currentTarget)}
+                >
+                  <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
+                  {rateable.length === 1 ? "Suggest the Missing Rate" : `Suggest ${rateable.length} Missing Rates`}
+                </button>
+              ) : null}
               <ShareChip chip={chip} />
               {bar ? <SavedBar bar={bar} litKey={litKey} /> : null}
             </>
@@ -820,6 +840,17 @@ export function RomRunner({
                 onClose={closePanel}
                 titleRef={titleRef}
               />
+              {projectId && openBlock.line.driverCostCode ? (
+                <div className="rb-acts">
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => setPanel({ kind: "rate", costCode: openBlock.costCode, editing: true })}
+                  >
+                    Edit Rate
+                  </button>
+                </div>
+              ) : null}
               <BlockPanel block={openBlock} drilldown={drilldown} grossSquareFeet={run.grossSquareFeet} />
             </>
           ) : null}
@@ -833,9 +864,10 @@ export function RomRunner({
                 titleRef={titleRef}
               />
               <RatePanel
-                key={rateItem.costCode}
+                key={`${rateItem.costCode}-${panel.editing ? "edit" : "new"}`}
                 projectId={projectId}
                 costCode={rateItem.costCode}
+                editing={panel.editing}
                 driverLabel={
                   run.rom.lines.find((line) => line.costCode === rateItem.driverCostCode)?.label ?? null
                 }
@@ -845,6 +877,29 @@ export function RomRunner({
                   queueRun();
                 }}
               />
+            </>
+          ) : null}
+
+          {panel.kind === "rates" && run && projectId ? (
+            <>
+              <PanelHead
+                title="Suggest Missing Rates"
+                sub={runWords(run)}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              {rateable.length > 0 ? (
+                <BulkRatePanel
+                  projectId={projectId}
+                  items={rateable.map((item) => ({ costCode: item.costCode, label: titleCase(item.label) }))}
+                  onSaved={() => {
+                    closePanel();
+                    queueRun();
+                  }}
+                />
+              ) : (
+                <p className="rb-pp">Every item in this budget has a rate.</p>
+              )}
             </>
           ) : null}
 

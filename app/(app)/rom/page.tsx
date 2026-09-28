@@ -6,7 +6,7 @@ import { readProjectGateAnswers } from "@/lib/rom/gates";
 import { readMarkupOptions, readProjectMarkupChoices } from "@/lib/rom/markup";
 import { listRomProjects, resolveRomProjectId } from "@/lib/rom/projects";
 import { getRun, listRuns } from "@/lib/rom/run-records";
-import { readClassifications } from "@/lib/rom/run";
+import { readCanonicalDivisions, readClassifications } from "@/lib/rom/run";
 
 import { RomRunner } from "./RomRunner";
 import { loadedRunFrom, savedRunsFor } from "./saved-runs";
@@ -51,7 +51,14 @@ export default async function RomPage({
   const { project, new: newParam } = await searchParams;
   const openNewOnLoad = (Array.isArray(newParam) ? newParam[0] : newParam) === "1";
   const { projectId, notFound, archivedAt } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
-  const [projects, markupOptions] = await Promise.all([listRomProjects(db), readMarkupOptions(db)]);
+  const [projects, markupOptions, canonicalDivisions] = await Promise.all([
+    listRomProjects(db),
+    readMarkupOptions(db),
+    // LA-1214: read unconditionally, like markupOptions above, since the
+    // guided New budget preview's field sorts by division before a project
+    // even resolves.
+    readCanonicalDivisions(db),
+  ]);
   if (!projectId) {
     return (
       <RomRunner
@@ -59,6 +66,7 @@ export default async function RomPage({
         projectNotFound={notFound}
         markupOptions={markupOptions}
         openNewOnLoad={openNewOnLoad}
+        canonicalDivisions={canonicalDivisions}
       />
     );
   }
@@ -105,6 +113,7 @@ export default async function RomPage({
       isEnvProject={projectId === process.env.ROM_PROJECT_ID}
       openNewOnLoad={openNewOnLoad}
       classifications={classifications}
+      canonicalDivisions={canonicalDivisions}
       derivedAssumptions={derivedAssumptions}
     />
   );

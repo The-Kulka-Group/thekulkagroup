@@ -429,6 +429,24 @@ export async function readClassifications(db: Db): Promise<BlockClassification[]
   return rows.map(toClassification);
 }
 
+/** One canonical item's own MasterFormat division, read from `canonical_work_items` (LA-1214). */
+export type CanonicalItemDivision = { itemNumber: string; division: string };
+
+/**
+ * Every canonical item's stated MasterFormat division (LA-1214), read so the
+ * /rom screen's MasterFormat order can resolve a bare item-number cost code
+ * ("10", "31f") to its real division when `block_classification.division`
+ * states none. `docs/precon/masterformat-divisions.md` is the reference for
+ * where each value comes from; this just reads what `canonical_work_items`
+ * stores today.
+ */
+export async function readCanonicalDivisions(db: Db): Promise<CanonicalItemDivision[]> {
+  const { rows } = await db.query<{ item_number: string; masterformat_division: string }>(
+    `select item_number, masterformat_division from canonical_work_items order by item_number`,
+  );
+  return rows.map((row) => ({ itemNumber: row.item_number, division: row.masterformat_division }));
+}
+
 export async function readBenchmarkData(
   db: Db,
   projectType: Answers["projectType"],

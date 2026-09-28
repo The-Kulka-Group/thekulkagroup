@@ -357,6 +357,67 @@ describe("LA-1210: a canonical item number is not a division", () => {
   });
 });
 
+describe("LA-1214: a bare item number falls back to canonical_work_items", () => {
+  it("reads the item's own division once nothing is stated", () => {
+    const canonicalDivisions = new Map([["10", "06"]]);
+    expect(divisionFor("10", new Map(), canonicalDivisions)).toBe("06");
+  });
+
+  it("still names no division for an item with no row anywhere", () => {
+    // 31f is not a canonical_work_items row (LA-1214); it only carries a
+    // division through a stated classification.
+    expect(divisionFor("31f", new Map(), new Map([["10", "06"]]))).toBeNull();
+  });
+
+  it("a stated classification still wins over the canonical item's own division", () => {
+    const stated = statedDivisions([classification({ costCode: "22", division: "10" })]);
+    // canonical_work_items says 11 (Matt's LA-1214 correction); a stated
+    // classification of 10 still wins, the same way it wins over a benchmark
+    // code's own digits.
+    expect(divisionFor("22", stated, new Map([["22", "11"]]))).toBe("10");
+  });
+
+  it("sorts a ROM's item-number cost codes in MasterFormat order, 11, 27 and 33 included", () => {
+    // 22 (Residential Appliances, Division 11), 31a (Low Voltage, Division
+    // 27) and 35 (Site Drainage and Stormwater, Division 33) are the three
+    // divisions LA-1214 added to the check constraint. Real canonical
+    // divisions, from docs/precon/masterformat-divisions.md as Matt confirmed
+    // it on 2026-09-27.
+    const canonicalDivisions = new Map([
+      ["2", "03"], // Foundations
+      ["22", "11"], // Residential appliances
+      ["31a", "27"], // Low voltage
+      ["35", "33"], // Site drainage and stormwater
+    ]);
+    const lines = [
+      line({ costCode: "35", label: "Site Drainage", low: 5, high: 5 }),
+      line({ costCode: "22", label: "Residential Appliances", low: 5, high: 5 }),
+      line({ costCode: "2", label: "Foundations", low: 5, high: 5 }),
+      line({ costCode: "31a", label: "Low Voltage", low: 5, high: 5 }),
+    ];
+    const ordered = orderField(buildField("scope", rom(lines), [], canonicalDivisions), "masterformat");
+    expect(labels(ordered)).toEqual(["Foundations", "Residential Appliances", "Low Voltage", "Site Drainage"]);
+    expect(ordered.map((entry) => entry.division)).toEqual(["03", "11", "27", "33"]);
+  });
+
+  it("still lets block_classification.division win over the canonical item's own division", () => {
+    // Item 22's real division is 11, but a stated classification of 26 (say,
+    // bought under Electrical instead) sorts it there, not at 11.
+    const canonicalDivisions = new Map([
+      ["2", "03"],
+      ["22", "11"],
+    ]);
+    const lines = [
+      line({ costCode: "2", label: "Foundations", low: 5, high: 5 }),
+      line({ costCode: "22", label: "Residential Appliances", low: 5, high: 5 }),
+    ];
+    const classifications = [classification({ costCode: "22", buyoutPackage: "Electrical", division: "26" })];
+    const ordered = orderField(buildField("scope", rom(lines), classifications, canonicalDivisions), "masterformat");
+    expect(labels(ordered)).toEqual(["Foundations", "Residential Appliances"]);
+    expect(ordered.map((entry) => entry.division)).toEqual(["03", "26"]);
+  });
+});
+
 describe("LA-1210: the Unassigned Package card", () => {
   it("shows no division, even when its only item would otherwise resolve one", () => {
     const lines = [

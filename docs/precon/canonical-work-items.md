@@ -3186,12 +3186,20 @@ which open the street for the new building's tap.
 
 **Sources:** none in any of the six files.
 
+---
+
+## Division 32 — Exterior Improvements
+
 ### 37. Landscaping and irrigation
 
 **Changed 2026-09-23 (LA-1015, Matt).** Was "Site grading, topsoil, and
 landscaping/irrigation." Grading and topsoil moved to item 34 (Site work). Division moved
 from 31 to 32, where planting and irrigation sit in MasterFormat. Grading sources below
 now count toward item 34.
+
+**Moved 2026-09-27 (LA-1214).** This section sat under Division 31 after the 2026-09-23
+division change above moved the item itself but not its place in this file. It now sits
+under Division 32, where the item has been priced since 2026-09-23.
 
 **Sources:**
 - JF: "2'-3' Tree" 3.00 EA $200; "6'-7' Tree" 12.00 EA $400; "Seeding" 2,365.98 SF $1.50
@@ -3225,10 +3233,6 @@ the canonical item mapping already reads past the division code to the descripti
 missing, distinct from item 33's perimeter silt fence, a slope-stabilization matting
 product. Tree Protection Fencing, conditional on existing trees required to remain, a
 common code requirement during construction. Zero evidence for either in any file.
-
----
-
-## Division 32 — Exterior Improvements
 
 ### 38. Paving and base courses
 

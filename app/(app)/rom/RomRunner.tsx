@@ -316,9 +316,14 @@ export function RomRunner({
     if (autoTimer.current) clearTimeout(autoTimer.current);
     autoTimer.current = setTimeout(() => {
       autoTimer.current = null;
-      if (inFlight.current) rerun.current = true;
-      else void runRom(latestSettings.current, true);
+      queueRun();
     }, 700);
+  }
+
+  /** Records a run from the settings as they stand, or once the one in flight lands. */
+  function queueRun() {
+    if (inFlight.current) rerun.current = true;
+    else void runRom(latestSettings.current, true);
   }
 
   async function runRom(
@@ -742,11 +747,36 @@ export function RomRunner({
 
           {panel.kind === "edit" && projectId ? (
             <>
-              <PanelHead title="Edit Project" sub="Saved runs are untouched." onClose={closePanel} titleRef={titleRef} />
+              <PanelHead
+                title="Edit Project"
+                sub="Each change saves to this project and records a new run. Earlier runs are untouched."
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <p className="nb-save rs-status" role="status">
+                {state.phase === "running" ? "Saving a new run" : run ? `Showing ${runWords(run)}` : ""}
+              </p>
+              {state.phase === "failed" ? (
+                <p className="rb-pp rb-pp--error" role="alert">
+                  {state.error}{" "}
+                  <button className="nb-retry" type="button" onClick={() => void runRom()}>
+                    Try Again
+                  </button>
+                </p>
+              ) : null}
               <EditProjectPanelBody
                 projectId={projectId}
-                onSaved={() => {
-                  closePanel();
+                onSaved={(savedFraming) => {
+                  // Framing is on this form and in Run settings. The run
+                  // saves Run settings' copy first, so bring it in line with
+                  // what was just saved here, or the run would undo it.
+                  latestSettings.current = { ...latestSettings.current, framing: savedFraming };
+                  setFraming(savedFraming);
+                  // LA-1240: a fact change records a new run, read from the
+                  // project row just saved, and the panel stays open for the
+                  // next change. The refresh carries the new name and area
+                  // into the header's picker.
+                  queueRun();
                   router.refresh();
                 }}
                 onArchived={() => {
@@ -1084,7 +1114,7 @@ function EditProjectPanelBody({
   onArchived,
 }: {
   projectId: string;
-  onSaved: () => void;
+  onSaved: (framing: FramingSystem | "") => void;
   onArchived: () => void;
 }) {
   const [state, setState] = useState<

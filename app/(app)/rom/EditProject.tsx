@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { areaOf, EMPTY, ProjectFields, type Form } from "./NewBudget";
 
 // LA-1110. Edit project: prefilled from the project's own row, saved through
 // PATCH /api/rom/projects/[id] with the same parseNewBudget validation New
 // budget uses. Saved runs are untouched.
+//
+// LA-1240: there is no Save button. Each change saves once the estimator
+// pauses typing, and the page records a new run from the saved facts
+// (onSaved), the way Run settings does for its answers (LA-1227). A value
+// that does not validate yet saves nothing until it does.
 //
 // Archive project: sets projects.archived_at through POST
 // /api/rom/projects/[id]/archive, behind a plain confirm step. It never
@@ -64,22 +69,60 @@ export function EditProjectForm({
   onArchived,
 }: {
   project: EditableProject;
-  onSaved: () => void;
+  /** Called after each save with the framing just saved, so Run settings can match it. */
+  onSaved: (framing: "wood" | "metal" | "") => void;
   onArchived: () => void;
 }) {
   const [form, setForm] = useState<Form>(() => formFrom(project) || EMPTY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
-  const set = (patch: Partial<Form>) => setForm((current) => ({ ...current, ...patch }));
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef(form);
+  const saving = useRef<Promise<void>>(Promise.resolve());
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  function set(patch: Partial<Form>) {
+    const next = { ...latest.current, ...patch };
+    latest.current = next;
+    setForm(next);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      void save(latest.current);
+    }, 700);
+  }
 
   const area = areaOf(form);
   const ready = form.name.trim() !== "" && Number.isInteger(area) && area > 0;
 
-  async function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!ready || busy) return;
-    setBusy(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    void save(latest.current);
+  }
+
+  /** Saves the form as it stands. Saves run in order, so a slow one never lands last. */
+  function save(form: Form) {
+    saving.current = saving.current.then(() => saveNow(form));
+    return saving.current;
+  }
+
+  async function saveNow(form: Form) {
+    const area = areaOf(form);
+    if (form.name.trim() === "" || !Number.isInteger(area) || area <= 0) {
+      setError("A project needs a name and a gross area above zero. Nothing saves until it has both.");
+      return;
+    }
+    setSaveState("saving");
     setError(null);
     try {
       const response = await fetch(`/api/rom/projects/${encodeURIComponent(project.id)}`, {
@@ -114,14 +157,14 @@ export function EditProjectForm({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         setError(body.error ?? "The project could not be saved.");
-        setBusy(false);
+        setSaveState("idle");
         return;
       }
-      setBusy(false);
-      onSaved();
+      setSaveState("saved");
+      onSaved(form.framingSystem);
     } catch {
       setError("The project could not be saved. Check the connection and try again.");
-      setBusy(false);
+      setSaveState("idle");
     }
   }
 
@@ -156,11 +199,9 @@ export function EditProjectForm({
           {error}
         </p>
       ) : null}
-      <div className="rb-acts">
-        <button className="btn btn--primary" type="submit" disabled={!ready || busy}>
-          {busy ? "Saving" : "Save Changes"}
-        </button>
-      </div>
+      <p className="nb-save" role="status">
+        {saveState === "saving" ? "Saving" : saveState === "saved" && ready ? "Saved" : ""}
+      </p>
       <div className="rb-acts">
         {confirmingArchive ? (
           <>

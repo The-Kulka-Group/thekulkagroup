@@ -3,15 +3,22 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
+import { GLAZING, type GlazingBand, GSF_PER_TON, SERVICE_RATINGS } from "@/lib/rom/engineering-tables";
 
 import {
   carsPerRoom,
   choicesFor,
   CRITERION_DISCIPLINE,
   CRITERION_GAUGE,
+  CRITERION_PRICING_NOTE,
   type Gauge,
+  ladderPosition,
+  ratingLabel,
   stepNumber,
+  stepText,
   travelFeet,
+  valueText,
+  windowBays,
   zoneIndex,
 } from "./engineering";
 import { reducedMotion } from "./motion";
@@ -77,8 +84,8 @@ export function EngineeringStep({
 
   const steps = criterion?.steps ?? [];
   const shown = criterion ? (criterion.correction?.value ?? criterion.value) : null;
-  const shownText = shown ? (shown.kind === "spec" ? shown.text : `${shown.amount} ${shown.unit}`) : "";
-  const derivedText = criterion?.value.kind === "spec" ? criterion.value.text : "";
+  const shownText = shown ? valueText(shown) : "";
+  const derivedText = criterion ? valueText(criterion.value) : "";
 
   // The arithmetic ticks in one line at a time, then the answer lands.
   const hasCriterion = criterion !== null;
@@ -113,6 +120,22 @@ export function EngineeringStep({
   const rooms = criterion ? stepNumber(criterion, "Machine Rooms") : null;
   const choices = criterion ? choicesFor(criterion) : [];
   const corrected = Boolean(criterion?.correction);
+  // LA-1281: E-1 slides its load up the ladder of standard ratings.
+  const serviceAmps = criterion && code === "E-1" ? stepNumber(criterion, "Service Load") : null;
+  const serviceRating = shown?.kind === "quantity" && code === "E-1" ? shown.amount : null;
+  // LA-1282: M-0 draws a facade glazed to its band; M-1 lights its climate zone.
+  const band: GlazingBand | null =
+    code === "M-0" && shown?.kind === "spec"
+      ? shown.text.toLowerCase().startsWith("elevated")
+        ? "elevated"
+        : "standard"
+      : code === "M-1" && criterion
+        ? (stepText(criterion, "DOE Model") ?? "").includes("High-Rise")
+          ? "elevated"
+          : "standard"
+        : null;
+  const zone = criterion && code === "M-1" ? Number(/Zone (\d)/.exec(stepText(criterion, "Climate Zone") ?? "")?.[1] ?? 0) : 0;
+  const pricingNote = CRITERION_PRICING_NOTE[code];
 
   return (
     <div
@@ -171,6 +194,18 @@ export function EngineeringStep({
           {code === "V-3" && cars !== null && rooms !== null ? (
             <RoomsDiagram cars={cars} rooms={rooms} on={shownSteps >= 2 || phase === "landed"} />
           ) : null}
+          {code === "E-1" && serviceAmps !== null ? (
+            <ServiceLadder amps={serviceAmps} rating={serviceRating} on={shownSteps >= 7 || phase === "landed"} landed={phase === "landed"} />
+          ) : null}
+          {code === "M-0" && band && criterion ? (
+            <GlazingFacade
+              band={band}
+              storefronts={stepText(criterion, "Storefronts") === "Yes"}
+              balconies={stepText(criterion, "Balconies") === "Yes"}
+              on={shownSteps >= 3 || phase === "landed"}
+            />
+          ) : null}
+          {code === "M-1" && band && zone ? <ZoneStrip zone={zone} band={band} on={shownSteps >= 1 || phase === "landed"} /> : null}
 
           <div className="eng-answer" aria-live="polite">
             {phase === "landed" ? (
@@ -183,6 +218,7 @@ export function EngineeringStep({
                   {corrected ? "Set by You" : criterion.confidence === "high" ? "High Confidence" : "Low Confidence"}
                 </span>
                 <p className="eng-why">{corrected ? `The rule said ${derivedText}.` : criterion.confidenceReason}</p>
+                {pricingNote ? <p className="eng-note">{pricingNote}</p> : null}
               </>
             ) : (
               <span className="eng-working">Working It Out</span>
@@ -292,3 +328,104 @@ function RoomsDiagram({ cars, rooms, on }: { cars: number; rooms: number; on: bo
   );
 }
 
+
+/**
+ * LA-1281: E-1's load on the ladder of NEC 240.6(A) ratings. The cells charge
+ * up to the load, the marker settles at it, and the rating the service rounds
+ * up to lights. Past 4,000 A the marker runs off the end.
+ */
+function ServiceLadder({ amps, rating, on, landed }: { amps: number; rating: number | null; on: boolean; landed: boolean }) {
+  const at = ladderPosition(amps);
+  const lit = rating === null ? -1 : SERVICE_RATINGS.findIndex((one) => one === rating);
+  return (
+    <div
+      className={`eng-ladder${on ? " eng-ladder--on" : ""}${landed ? " eng-ladder--landed" : ""}`}
+      role="img"
+      aria-label={`${Math.round(amps).toLocaleString("en-US")} A of load${rating ? `, a ${rating.toLocaleString("en-US")} A service` : ", past one 4,000 A service"}`}
+    >
+      <div className="eng-ladder-track">
+        {SERVICE_RATINGS.map((one, index) => (
+          <span
+            key={one}
+            className={`eng-rung${ladderPosition(one) <= at ? " eng-rung--fed" : ""}${index === lit ? " eng-rung--hit" : ""}`}
+            style={{ "--eng-rung": index } as CSSProperties}
+          />
+        ))}
+        <span className="eng-mark" style={{ "--eng-at": `${on ? at : 0}%` } as CSSProperties}>
+          <span className="eng-mark-lbl num">{Math.round(amps).toLocaleString("en-US")} A</span>
+        </span>
+      </div>
+      <div className="eng-ladder-lbls">
+        {SERVICE_RATINGS.map((one, index) => (
+          <span key={one} className={index === lit ? "eng-zl eng-zl--hit" : "eng-zl"}>
+            {ratingLabel(one)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const FLOORS = 5;
+const BAYS = 10;
+
+/**
+ * LA-1282: M-0's band drawn as a wall: five floors of ten bays, with windows
+ * lighting in bay by bay until the glass reaches the band (2 of 10 is 19.9
+ * percent, 3 of 10 is 29.8). Storefronts glaze the ground floor; balconies
+ * hang a rail under the upper windows.
+ */
+function GlazingFacade({ band, storefronts, balconies, on }: { band: GlazingBand; storefronts: boolean; balconies: boolean; on: boolean }) {
+  const windows = windowBays(band === "elevated" ? 3 : 2, BAYS);
+  let order = 0;
+  return (
+    <div
+      className={`eng-facade${on ? " eng-facade--on" : ""}`}
+      role="img"
+      aria-label={`${GLAZING[band].percent} percent of the wall is glass${storefronts ? ", with ground-floor storefronts" : ""}${balconies ? ", with balconies" : ""}`}
+    >
+      <div className="eng-wall">
+        {Array.from({ length: FLOORS }, (_, row) => {
+          const floor = FLOORS - row;
+          const ground = floor === 1;
+          return (
+            <div key={floor} className={`eng-floor${ground && storefronts ? " eng-floor--store" : ""}`}>
+              {Array.from({ length: BAYS }, (_, bay) => {
+                const glass = ground && storefronts ? bay > 0 && bay < BAYS - 1 : windows.includes(bay);
+                const k = glass ? order++ : 0;
+                return (
+                  <span
+                    key={bay}
+                    className={`eng-bay${glass ? " eng-bay--glass" : ""}${glass && balconies && !ground ? " eng-bay--rail" : ""}`}
+                    style={glass ? ({ "--eng-win": k } as CSSProperties) : undefined}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      <p className="eng-facade-cap">
+        <b className="num">{GLAZING[band].percent}%</b> of the Wall Is Glass
+      </p>
+    </div>
+  );
+}
+
+/**
+ * LA-1282: the three New York climate zones side by side, each with the GSF
+ * per ton DOE's model gives for this building's band, and the project's zone
+ * lit. It shows how much the zone moves the ratio (a few percent) at a glance.
+ */
+function ZoneStrip({ zone, band, on }: { zone: number; band: GlazingBand; on: boolean }) {
+  return (
+    <div className={`eng-zones-strip${on ? " eng-zones-strip--on" : ""}`} role="img" aria-label={`Climate zone ${zone}`}>
+      {([4, 5, 6] as const).map((one, index) => (
+        <span key={one} className={`eng-zchip${one === zone ? " eng-zchip--hit" : ""}`} style={{ "--eng-z": index } as CSSProperties}>
+          <span className="eng-zchip-z">Zone {one}</span>
+          <span className="eng-zchip-r num">{GSF_PER_TON[one][band].toLocaleString("en-US")} SF per Ton</span>
+        </span>
+      ))}
+    </div>
+  );
+}

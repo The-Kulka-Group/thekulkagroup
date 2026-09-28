@@ -25,7 +25,9 @@ import {
 
 import type { Db } from "@/lib/db";
 import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
+import { applyElectricalCriterion } from "@/lib/rom/electrical-criterion";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
+import { applyHvacCriteria } from "@/lib/rom/hvac-criterion";
 import { applyJackCriterion } from "@/lib/rom/jack-criterion";
 import { applyMachineRoomCriterion } from "@/lib/rom/machine-room-criterion";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
@@ -287,8 +289,13 @@ export async function runRom(
     // LA-1265: V-2 reads V-1's type and sets the jack the well hole checks.
     const withV2 = await applyJackCriterion(db, projectId, withV1, framingSystem);
     // LA-1269: V-3 counts the machine rooms item 26g prices per room.
-    const withElevator = await applyMachineRoomCriterion(db, projectId, withV2);
-    const answers: Answers = markups ? { ...withElevator, markups } : withElevator;
+    const withV3 = await applyMachineRoomCriterion(db, projectId, withV2);
+    // LA-1281, LA-1282: E-1 sizes the service, M-0 and M-1 the cooling. They
+    // set no fact yet (items 30 and 31 still price per square foot), so the
+    // answers come back as they went in.
+    const withE1 = await applyElectricalCriterion(db, projectId, withV3);
+    const withCriteria = await applyHvacCriteria(db, projectId, withE1);
+    const answers: Answers = markups ? { ...withCriteria, markups } : withCriteria;
     const recordedBase = framingSystem ? { ...intake.recorded, framingSystem } : intake.recorded;
     // LA-1205: record the same elevatorType fact V-1 fed into `answers`, so a
     // run's stored record reproduces the price it actually computed.

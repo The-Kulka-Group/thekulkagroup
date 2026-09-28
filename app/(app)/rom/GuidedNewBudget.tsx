@@ -15,7 +15,7 @@ import {
   type Responses,
 } from "@/lib/rom/question-flow";
 
-import { factsFor } from "./engineering";
+import { factsFor, valueFromChoice, valueText } from "./engineering";
 import { EngineeringStep } from "./EngineeringStep";
 import type { BudgetDraft } from "./LiveBudget";
 import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
@@ -54,7 +54,7 @@ type Slot =
   | { kind: "markup_setup" }
   | { kind: "markup_method" }
   /** LA-1265: Design and Engineering, a question the app answers itself (EngineeringStep.tsx). */
-  | { kind: "engineering"; code: "V-1" | "V-2" | "V-3" }
+  | { kind: "engineering"; code: EngineeringCode }
   /** LA-1256: the GRs/GCs rate, so New Budget never finishes with GRs/GCs TBD. */
   | { kind: "markup_rate" }
   | { kind: "markup_detail" };
@@ -67,9 +67,18 @@ function slotKey(slot: Slot): string {
   return slot.kind;
 }
 
-const ENGINEERING_LABEL = { "V-1": "Elevator Type", "V-2": "Hydraulic Jack Type", "V-3": "Elevator Machine Rooms" } as const;
+type EngineeringCode = "V-1" | "V-2" | "V-3" | "M-0" | "M-1" | "E-1";
 
-/** The answers V-1 and V-2 read. A change to any of them works both out again. */
+const ENGINEERING_LABEL: Record<EngineeringCode, string> = {
+  "V-1": "Elevator Type",
+  "V-2": "Hydraulic Jack Type",
+  "V-3": "Elevator Machine Rooms",
+  "M-0": "Window Area and Orientation",
+  "M-1": "HVAC Tonnage",
+  "E-1": "Electrical Service Size",
+};
+
+/** The answers the criteria read. A change to any of them works them out again. */
 function engineeringInputs(responses: Responses, framing: string): string {
   return JSON.stringify([
     responses.stories_above_grade,
@@ -80,7 +89,26 @@ function engineeringInputs(responses: Responses, framing: string): string {
     responses.retail_storefronts,
     responses.zip,
     framing,
+    // LA-1281, LA-1282: what E-1, M-0 and M-1 read.
+    responses.project_type,
+    responses.construction_kind,
+    responses.gross_square_feet,
+    responses.unit_count,
+    responses.building_count,
+    responses.parking_type,
+    responses.amenity_scope,
+    responses.balconies,
   ]);
+}
+
+/**
+ * LA-1281: E-1 applies from 3 units per building (NEC 220.84), the same test
+ * the server runs, so its card is never waited on when none will come.
+ */
+function electricalReady(responses: Responses): boolean {
+  const units = Number(responses.unit_count);
+  const buildings = Number(responses.building_count) > 0 ? Number(responses.building_count) : 1;
+  return responses.project_type === "multifamily" && units > 0 && Math.ceil(units / buildings) >= 3;
 }
 
 /** Whether the elevator criteria have what they need: an elevator, a count and a height. */
@@ -207,6 +235,9 @@ export function GuidedNewBudget({
   const [engBusy, setEngBusy] = useState(false);
   const [engError, setEngError] = useState<string | null>(null);
   const derivedFor = useRef<string | null>(null);
+  // The same inputs, as state, for laying out the slots during render: which
+  // answers the criteria on hand were last worked out from.
+  const [derivedInputs, setDerivedInputs] = useState<string | null>(null);
   const questionRef = useRef<HTMLDivElement>(null);
 
   const setup = factsQuestions(definition, responses).filter((q) => q.id !== "parking_type");
@@ -231,6 +262,17 @@ export function GuidedNewBudget({
         }
         // LA-1269: V-3 counts the machine rooms, after V-2 or straight after V-1.
         if (criteria["V-3"]) slots.push({ kind: "engineering", code: "V-3" });
+      }
+      // LA-1281, LA-1282: once balconies is in, the last fact M-0 reads, the
+      // app sizes the cooling (M-0, then M-1) and the electrical service
+      // (E-1). A card stays in line while its answer is being worked out, and
+      // drops out if the server says it does not apply.
+      if (question.id === "balconies" && current.project_type === "multifamily") {
+        const pending = engBusy || derivedInputs !== engineeringInputs(current, framingSystem);
+        const ready: Record<"M-0" | "M-1" | "E-1", boolean> = { "M-0": true, "M-1": true, "E-1": electricalReady(current) };
+        for (const code of ["M-0", "M-1", "E-1"] as const) {
+          if (ready[code] && (criteria[code] || pending)) slots.push({ kind: "engineering", code });
+        }
       }
     }
     if (markupOptions) {
@@ -407,11 +449,7 @@ export function GuidedNewBudget({
     // answer they read (retail storefronts comes after Elevator Count) works
     // them out again, so the live budget prices what the run will.
     const arriving = nextSlots[nextIndex]?.kind === "engineering";
-    if (
-      elevatorReady(current) &&
-      (arriving || Object.keys(criteria).length > 0) &&
-      derivedFor.current !== engineeringInputs(current, framingSystem)
-    ) {
+    if ((arriving || Object.keys(criteria).length > 0) && derivedFor.current !== engineeringInputs(current, framingSystem)) {
       void deriveEngineering(id, current).then((next) => {
         if (next && !arriving) setAppliedFacts((existing) => ({ ...existing, ...factsOf(next) }));
       });
@@ -513,6 +551,7 @@ export function GuidedNewBudget({
         const next: Record<string, StoredDerivedAssumption> = {};
         for (const one of (body.criteria ?? []) as StoredDerivedAssumption[]) next[one.code] = one;
         setCriteria(next);
+        setDerivedInputs(engineeringInputs(current, framingSystem));
         return next;
       } catch {
         setEngError("The site could not reach the server. Check the connection and try again.");
@@ -567,7 +606,9 @@ export function GuidedNewBudget({
   async function pickEngineering(code: string, text: string) {
     const criterion = criteria[code];
     if (!criterion || !projectId || engBusy) return;
-    const derived = criterion.value.kind === "spec" ? criterion.value.text : "";
+    const derived = valueText(criterion.value);
+    const value = valueFromChoice(criterion, text);
+    if (!value) return;
     setEngBusy(true);
     setEngError(null);
     let saved: StoredDerivedAssumption | null = null;
@@ -576,7 +617,7 @@ export function GuidedNewBudget({
         headers: { "Content-Type": "application/json" },
         ...(text === derived
           ? { method: "DELETE" }
-          : { method: "POST", body: JSON.stringify({ value: { kind: "spec", text }, reason: "Set in New Budget" }) }),
+          : { method: "POST", body: JSON.stringify({ value, reason: "Set in New Budget" }) }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -598,7 +639,8 @@ export function GuidedNewBudget({
     // V-2 and V-3 read V-1's type, so a change to V-1 works them out again
     // (V-2 may come or go, V-3's rooms may change). V-2 only moves V-3's
     // confidence, which the run at the end works out, so it waits for that.
-    if (code === "V-1") {
+    // LA-1282: M-1 reads M-0's band, so a change to M-0 works M-1 out again.
+    if (code === "V-1" || code === "M-0") {
       const next = await deriveEngineering(projectId, responses);
       if (next) setAppliedFacts(factsOf(next));
     }

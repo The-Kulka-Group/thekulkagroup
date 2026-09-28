@@ -277,19 +277,78 @@ export function RomRunner({
     setPanel(next);
   }
 
-  async function runRom() {
+  // LA-1227: Run settings has no Run ROM button. Each change saves to the
+  // project and records a new run on its own, the way New Budget's last
+  // answer does (LA-1225). POST /api/rom already saves the settings before it
+  // runs (LA-1109), so the run request is the save. A change waits for the
+  // estimator to pause, so typing a percent records one run, not one per
+  // keystroke. A change made while a run is in flight runs again once that
+  // run lands, with whatever the settings are by then.
+  const latestSettings = useRef({ form, scopeForm, framing });
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inFlight = useRef(false);
+  const rerun = useRef(false);
+  const [settingsNote, setSettingsNote] = useState<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (autoTimer.current) clearTimeout(autoTimer.current);
+    },
+    [],
+  );
+
+  function changeSettings(next: Partial<{ form: MarkupForm; scopeForm: ScopeForm; framing: FramingSystem | "" }>) {
+    latestSettings.current = { ...latestSettings.current, ...next };
+    if (next.form) setForm(next.form);
+    if (next.scopeForm) setScopeForm(next.scopeForm);
+    if (next.framing !== undefined) setFraming(next.framing);
+    if (autoTimer.current) clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(() => {
+      autoTimer.current = null;
+      if (inFlight.current) rerun.current = true;
+      else void runRom(latestSettings.current, true);
+    }, 700);
+  }
+
+  async function runRom(
+    settings: { form: MarkupForm; scopeForm: ScopeForm; framing: FramingSystem | "" } = latestSettings.current,
+    auto = false,
+  ) {
     if (!projectId) return;
     // Without the options the page could not read the rate tables, so the
     // request names no markups and the run uses the recorded defaults.
-    const choices = markupOptions ? markupChoicesFrom(form, markupOptions) : null;
+    const choices = markupOptions ? markupChoicesFrom(settings.form, markupOptions) : null;
     if (choices && !choices.ok) {
-      setState({ phase: "failed", error: choices.error });
+      // A half-typed value saves nothing and records no run until it parses.
+      if (auto) setSettingsNote(choices.error);
+      else setState({ phase: "failed", error: choices.error });
       return;
     }
+    setSettingsNote(null);
     // Without a defaults object the page could not read the project's gate
     // columns, so the request names no gates and the run reads them itself.
-    const gates = scopeDefaults ? gateAnswersFrom(scopeForm) : null;
+    const gates = scopeDefaults ? gateAnswersFrom(settings.scopeForm) : null;
+    const framing = settings.framing;
+    inFlight.current = true;
     setState({ phase: "running" });
+    try {
+      await postRun(choices, gates, framing, auto);
+    } finally {
+      inFlight.current = false;
+      if (rerun.current) {
+        rerun.current = false;
+        void runRom(latestSettings.current, true);
+      }
+    }
+  }
+
+  async function postRun(
+    choices: ReturnType<typeof markupChoicesFrom> | null,
+    gates: ReturnType<typeof gateAnswersFrom> | null,
+    framing: FramingSystem | "",
+    auto: boolean,
+  ) {
+    if (!projectId || (choices && !choices.ok)) return;
     try {
       const response = await fetch("/api/rom", {
         method: "POST",
@@ -322,7 +381,8 @@ export function RomRunner({
         },
       );
       setState({ phase: "idle" });
-      setPanel(null);
+      // An auto run keeps Run settings open, so the next change can follow.
+      if (!auto) setPanel(null);
       void refreshRuns();
     } catch {
       setState({ phase: "failed", error: "The site could not reach the engine." });
@@ -459,14 +519,19 @@ export function RomRunner({
               Run Settings
             </button>
           ) : null}
-          <button
-            className="btn btn--primary"
-            type="button"
-            onClick={runRom}
-            disabled={!projectId || busy}
-          >
-            {!projectId ? "Project Required" : state.phase === "running" ? "Running" : "Run ROM"}
-          </button>
+          {/* LA-1227: once a project has a run, a change in Run settings
+              records the next one on its own. The button stays only for a
+              project with no run yet, such as a New Budget closed midway. */}
+          {!run ? (
+            <button
+              className="btn btn--primary"
+              type="button"
+              onClick={() => void runRom()}
+              disabled={!projectId || busy}
+            >
+              {!projectId ? "Project Required" : state.phase === "running" ? "Running" : "Run ROM"}
+            </button>
+          ) : null}
         </div>
 
         <div className="rb-t2">
@@ -602,25 +667,46 @@ export function RomRunner({
             <>
               <PanelHead
                 title="Run Settings"
-                sub="These settings save to this project when you run."
+                sub="Each change saves to this project and records a new run."
                 onClose={closePanel}
                 titleRef={titleRef}
               />
+              <p className="nb-save rs-status" role="status">
+                {state.phase === "running" ? "Saving a new run" : settingsNote ? "" : run ? `Showing ${runWords(run)}` : ""}
+              </p>
+              {/* Editing stays open while a run is in flight; a change made
+                  then runs again once that run lands. */}
               {projectId && framingDefault !== undefined ? (
-                <FramingControl value={framing} onChange={setFraming} disabled={busy} />
+                <FramingControl
+                  value={framing}
+                  onChange={(value) => changeSettings({ framing: value })}
+                  disabled={state.phase === "loading"}
+                />
               ) : null}
               {projectId && scopeDefaults ? (
-                <ScopeControls form={scopeForm} onChange={setScopeForm} disabled={busy} />
+                <ScopeControls
+                  form={scopeForm}
+                  onChange={(value) => changeSettings({ scopeForm: value })}
+                  disabled={state.phase === "loading"}
+                />
               ) : null}
               {projectId && markupOptions ? (
-                <MarkupControls options={markupOptions} form={form} onChange={setForm} disabled={busy} />
+                <MarkupControls
+                  options={markupOptions}
+                  form={form}
+                  onChange={(value) => changeSettings({ form: value })}
+                  disabled={state.phase === "loading"}
+                />
               ) : null}
-              {state.phase === "failed" ? <p className="rb-pp rb-pp--error">{state.error}</p> : null}
-              <div className="rb-acts">
-                <button className="btn btn--primary" type="button" onClick={runRom} disabled={busy}>
-                  {state.phase === "running" ? "Running" : "Run ROM"}
-                </button>
-              </div>
+              {settingsNote ? <p className="rb-pp">{settingsNote} Nothing saves until it does.</p> : null}
+              {state.phase === "failed" ? (
+                <p className="rb-pp rb-pp--error" role="alert">
+                  {state.error}{" "}
+                  <button className="nb-retry" type="button" onClick={() => void runRom()}>
+                    Try Again
+                  </button>
+                </p>
+              ) : null}
             </>
           ) : null}
 

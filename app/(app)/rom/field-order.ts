@@ -16,21 +16,23 @@ import { groupByPackage, type PackageGroup, type PackageItem, type RomView } fro
 //     lowest division among its items, since a package has no stated division
 //     of its own anywhere in the schema. A block takes its line's division and
 //     an element its driver's. A division comes from
-//     `block_classification.division` where stated, and otherwise from the
-//     cost code's first two digits (`divisionOf`, lib/rom/board.ts), but only
-//     for a benchmark-style cost code ("09-900"): its own digits really are
-//     its division. A canonical item number ("10", "31f") is an ordinal, not
-//     a division, and reading its digits as one is the LA-1210 bug: item 10
-//     (Millwork, Division 06) read as division "10" (Specialties), item 31f
-//     (Electrical Service Disconnect, Division 26) read as division "31". Until
-//     `docs/precon/masterformat-divisions.md` is confirmed and the real
-//     divisions are stated, an item-number code names no division at all.
-//     Anything with no division sorts last, in canonical item order (LA-1210)
-//     rather than by cost-code text, so Concrete (item 2) still sorts ahead of
-//     Site Work (items 33-39) even though neither carries a stated division
-//     yet. Kulka's 90 series sorts after the standard divisions because
-//     divisions compare as numbers. The Unassigned Package card (LA-1210)
-//     never shows a division and always sorts last of all, in every order.
+//     `block_classification.division` where stated; otherwise, for a
+//     benchmark-style cost code ("09-900"), from the cost code's own first two
+//     digits (`divisionOf`, lib/rom/board.ts), since those digits really are
+//     its division; otherwise, for a bare canonical item number ("10", "31f"),
+//     from that item's own row in `canonical_work_items`
+//     (`docs/precon/masterformat-divisions.md`, LA-1214). A canonical item
+//     number's own digits are an ordinal, not a division, and reading them as
+//     one was the LA-1210 bug: item 10 (Millwork, Division 06) read as
+//     division "10" (Specialties), item 31f (Electrical Service Disconnect,
+//     Division 26) read as division "31". Only an item with no row in any of
+//     the three sources carries no division at all; that sorts last, in
+//     canonical item order (LA-1210) rather than by cost-code text, so
+//     Concrete (item 2) still sorts ahead of Site Work (items 33-39) even
+//     when neither carries a stated division. Kulka's 90 series sorts after
+//     the standard divisions because divisions compare as numbers. The
+//     Unassigned Package card (LA-1210) never shows a division and always
+//     sorts last of all, in every order.
 //   - Largest First sorts by priced total, biggest first, and puts anything
 //     with nothing priced last.
 
@@ -42,17 +44,28 @@ export function statedDivisions(classifications: readonly BlockClassification[])
 }
 
 /**
- * A cost code's division: the stated one, else, only for a benchmark-style
- * code that opens with its own division and a dash ("09-900", "22-100"), the
- * cost code's first two digits. A bare canonical item number ("10", "28a",
+ * A cost code's division: the stated one (`block_classification.division`);
+ * else, only for a benchmark-style code that opens with its own division and
+ * a dash ("09-900", "22-100"), the cost code's first two digits, since those
+ * digits really are its division. A bare canonical item number ("10", "28a",
  * "31f") never falls back this way (LA-1210): its digits are an ordinal, not
- * a division, and reading them as one is the bug this ticket fixes.
+ * a division, and reading them as one was the bug. Instead, a bare item
+ * number falls back to its own row in `canonical_work_items`
+ * (`canonicalDivisions`, LA-1214) when it has one. A code with no row
+ * anywhere carries no division at all.
  */
-export function divisionFor(costCode: string, stated: ReadonlyMap<string, string | null>): string | null {
+export function divisionFor(
+  costCode: string,
+  stated: ReadonlyMap<string, string | null>,
+  canonicalDivisions: ReadonlyMap<string, string> = EMPTY_DIVISIONS,
+): string | null {
   const explicit = stated.get(costCode);
   if (explicit) return explicit;
-  return /^\d{2}-/.test(costCode) ? divisionOf(costCode) : null;
+  if (/^\d{2}-/.test(costCode)) return divisionOf(costCode);
+  return canonicalDivisions.get(costCode) ?? null;
 }
+
+const EMPTY_DIVISIONS: ReadonlyMap<string, string> = new Map();
 
 /** Divisions compare as numbers, so 02 < 22 < 33 < 90; none sorts last. */
 export function divisionRank(division: string | null): number {
@@ -97,9 +110,14 @@ export type FieldEntry =
  * buyout package. Either way every line that adds to the total and every
  * unpriced item appears exactly once.
  */
-export function buildField(view: RomView, rom: Rom, classifications: readonly BlockClassification[]): FieldEntry[] {
+export function buildField(
+  view: RomView,
+  rom: Rom,
+  classifications: readonly BlockClassification[],
+  canonicalDivisions: ReadonlyMap<string, string> = EMPTY_DIVISIONS,
+): FieldEntry[] {
   const stated = statedDivisions(classifications);
-  const div = (costCode: string) => divisionFor(costCode, stated);
+  const div = (costCode: string) => divisionFor(costCode, stated, canonicalDivisions);
 
   if (view === "package") {
     return groupByPackage(rom, classifications).groups.map((group) => ({

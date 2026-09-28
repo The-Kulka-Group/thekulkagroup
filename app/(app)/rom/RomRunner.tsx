@@ -10,6 +10,7 @@ import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 import type { LineProvenance } from "@/lib/rom/provenance";
 import type { RomProjectOption } from "@/lib/rom/projects";
+import type { CanonicalItemDivision } from "@/lib/rom/run";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
@@ -100,6 +101,7 @@ export function RomRunner({
   isEnvProject = false,
   openNewOnLoad = false,
   classifications = [],
+  canonicalDivisions = [],
   derivedAssumptions = [],
 }: {
   projectId?: string;
@@ -131,6 +133,14 @@ export function RomRunner({
    * way the New budget preview does (LA-1158, ADR 0006).
    */
   classifications?: BlockClassification[];
+  /**
+   * Every canonical item's stated MasterFormat division (LA-1214), read once
+   * on the server, so the MasterFormat order can resolve a bare item-number
+   * cost code to its real division (field-order.ts's `divisionFor`) instead
+   * of falling back to "no division" the way it does for an item with no row
+   * here.
+   */
+  canonicalDivisions?: CanonicalItemDivision[];
   /**
    * LA-860: the project's derived assumptions, read on the server. Empty
    * means the Design Criteria section does not show at all.
@@ -168,11 +178,17 @@ export function RomRunner({
   // Every line that adds to the total, since the side panel opens any of them
   // by cost code whether or not it is shown inside a box or a card.
   const blocks = useMemo(() => (run ? tradeBlocks(run.rom) : []), [run]);
+  // LA-1214: a bare item number's own division, for field-order.ts's
+  // `divisionFor` to fall back on once no classification states one.
+  const canonicalDivisionMap = useMemo(
+    () => new Map(canonicalDivisions.map((item) => [item.itemNumber, item.division])),
+    [canonicalDivisions],
+  );
   // LA-1181: the field in the chosen view and order (field-order.ts), and the
   // header bar's shares for it, so the dividers follow the field's order.
   const entries = useMemo(
-    () => (run ? orderField(buildField(view, run.rom, classifications), order) : []),
-    [run, classifications, view, order],
+    () => (run ? orderField(buildField(view, run.rom, classifications, canonicalDivisionMap), order) : []),
+    [run, classifications, canonicalDivisionMap, view, order],
   );
   const bar = useMemo(() => (run ? barModel(run.rom, entries) : null), [run, entries]);
 
@@ -180,8 +196,11 @@ export function RomRunner({
   const liveRom = live.phase === "ready" || live.phase === "waiting" ? live.rom : null;
   const liveClassifications = live.phase === "ready" || live.phase === "waiting" ? live.classifications : null;
   const liveEntries = useMemo(
-    () => (liveRom && liveClassifications ? orderField(buildField(view, liveRom, liveClassifications), order) : []),
-    [liveRom, liveClassifications, view, order],
+    () =>
+      liveRom && liveClassifications
+        ? orderField(buildField(view, liveRom, liveClassifications, canonicalDivisionMap), order)
+        : [],
+    [liveRom, liveClassifications, canonicalDivisionMap, view, order],
   );
   const liveBar = useMemo(
     () => (live.phase === "ready" ? barModel(live.rom, liveEntries) : null),

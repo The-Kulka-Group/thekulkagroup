@@ -23,7 +23,10 @@ import "./scope.css";
 // answer brings its boxes onto the budget behind the panel as it is given,
 // and there is no Generate or Run button at the end.
 //
-// - Finishing the setup card creates the project (POST /api/rom/projects).
+// - The first question appears under the setup fields as soon as the
+//   required ones are filled in. Answering it creates the project (POST
+//   /api/rom/projects), and setup folds to one line (LA-1230: there is no
+//   Start button, which on a phone sat below the screen's edge).
 // - Every answer after that saves: the facts through PATCH
 //   /api/rom/projects/[id], the gate answers and GRs/GCs choices through PUT
 //   /api/rom/projects/[id]/answers. Closing the panel midway leaves a saved
@@ -137,7 +140,9 @@ export function GuidedNewBudget({
   onDraft?: (draft: BudgetDraft) => void;
 }) {
   const definition = tier1Flow();
-  const [phase, setPhase] = useState<"setup" | "questions">("setup");
+  // Setup stays open until the first answer creates the project, then
+  // folds to one line with an Edit link (LA-1230).
+  const [editingSetup, setEditingSetup] = useState(false);
   const [index, setIndex] = useState(0);
   const [name, setName] = useState("");
   const [framingSystem, setFramingSystem] = useState<"wood" | "metal" | "">("");
@@ -155,6 +160,7 @@ export function GuidedNewBudget({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [finishFailed, setFinishFailed] = useState(false);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
+  const questionRef = useRef<HTMLDivElement>(null);
 
   const setup = factsQuestions(definition, responses).filter((q) => q.id !== "parking_type");
   const setupReady = name.trim() !== "" && requiredAnswered(setup, responses);
@@ -173,7 +179,14 @@ export function GuidedNewBudget({
   }
 
   const slots = slotsFor(responses, markupForm);
-  const slot = phase === "questions" ? slots[Math.min(index, slots.length - 1)] : undefined;
+  const slot = setupReady ? slots[Math.min(index, slots.length - 1)] : undefined;
+  const showSetup = !projectId || editingSetup;
+  const questionShowing = slot !== undefined;
+  // On a phone the setup fields fill the sheet, so bring the first question
+  // into view the moment it appears.
+  useEffect(() => {
+    if (questionShowing && !projectId) questionRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [questionShowing, projectId]);
   // LA-1142: markups join the preview once the estimator reaches them, and
   // stay after, even going back, so the total never loses GRs/GCs already
   // seen. `advance` sets it on the way into the first GRs/GCs question.
@@ -242,39 +255,33 @@ export function GuidedNewBudget({
       .catch(() => setSaveState("failed"));
   }
 
-  /** Creates the project, or saves the setup card's changes to it after Back. */
-  async function startQuestions() {
-    if (busy || !setupReady) return;
+  /** Creates the project from the setup fields and the first answer. */
+  async function createProject(current: Responses): Promise<string | null> {
     setBusy(true);
     setError(null);
     try {
-      if (projectId) {
-        persist(projectId, responses, markupForm, reachedMarkups);
-      } else {
-        const response = await fetch("/api/rom/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(projectBody(responses)),
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || typeof body.projectId !== "string") {
-          setError(body.error ?? "The project could not be added.");
-          return;
-        }
-        setProjectId(body.projectId as string);
-        setSaveState("saved");
+      const response = await fetch("/api/rom/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(projectBody(current)),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || typeof body.projectId !== "string") {
+        setError(body.error ?? "The project could not be added.");
+        return null;
       }
-      setPhase("questions");
+      setProjectId(body.projectId as string);
+      return body.projectId as string;
     } catch {
       setError("The project could not be added. Check the connection and try again.");
+      return null;
     } finally {
       setBusy(false);
     }
   }
 
   /** Records the run once the last question is answered, then opens the saved budget. */
-  async function finish(current: Responses, form: MarkupForm) {
-    if (!projectId) return;
+  async function finish(projectId: string, current: Responses, form: MarkupForm) {
     setBusy(true);
     setError(null);
     setFinishFailed(false);
@@ -309,15 +316,19 @@ export function GuidedNewBudget({
   }
 
   /** Saves this answer and moves on, or finishes after the last question. */
-  function advance(current: Responses, form: MarkupForm) {
-    if (!projectId) return;
+  async function advance(current: Responses, form: MarkupForm) {
+    // LA-1230: there is no Start button. The first answer creates the
+    // project, with that answer already on it.
+    const id = projectId ?? (await createProject(current));
+    if (!id) return;
+    setEditingSetup(false);
     const nextSlots = slotsFor(current, form);
     const nextIndex = index + 1;
     const reached = reachedMarkups || (nextIndex < nextSlots.length && nextSlots[nextIndex].kind !== "flow");
     if (reached) setReachedMarkups(true);
-    persist(projectId, current, form, reached);
+    persist(id, current, form, reached);
     if (nextIndex >= nextSlots.length) {
-      void finish(current, form);
+      void finish(id, current, form);
     } else {
       setIndex(nextIndex);
     }
@@ -328,7 +339,7 @@ export function GuidedNewBudget({
     const current = { ...responses, [id]: value };
     setResponses(current);
     setError(null);
-    advance(current, markupForm);
+    void advance(current, markupForm);
   }
 
   function submitNumber(question: Question) {
@@ -339,7 +350,7 @@ export function GuidedNewBudget({
       return;
     }
     setError(null);
-    advance(responses, markupForm);
+    void advance(responses, markupForm);
   }
 
   function pickMarkup(change: Partial<MarkupForm>) {
@@ -347,7 +358,7 @@ export function GuidedNewBudget({
     const form = { ...markupForm, ...change };
     setMarkupForm(form);
     setError(null);
-    advance(responses, form);
+    void advance(responses, form);
   }
 
   function submitMarkupDetail() {
@@ -358,78 +369,104 @@ export function GuidedNewBudget({
       return;
     }
     setError(null);
-    advance(responses, markupForm);
+    void advance(responses, markupForm);
   }
 
   function back() {
     if (busy) return;
     setError(null);
-    if (index === 0) setPhase("setup");
-    else setIndex(index - 1);
+    if (index > 0) setIndex(index - 1);
   }
 
-  if (phase === "setup") {
-    return (
-      <div>
-        <section className="markup-module" aria-label="Project Setup">
-          <div className="markup-grid">
-            <label>
-              <span className="field-label t-label">Project Name *</span>
-              <input
-                className="input"
-                value={name}
-                disabled={busy}
-                autoFocus
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            {setup.map((question) => (
-              <SetupField
-                key={question.id}
-                question={question}
-                value={responses[question.id] ?? ""}
-                onAnswer={(id, value) => setResponses((current) => ({ ...current, [id]: value }))}
-                disabled={busy}
-                required={isQuestionRequired(question, responses)}
-              />
+  const setupFields = (
+    <section className="markup-module nb-setup" aria-label="Project Setup">
+      <div className="markup-grid">
+        <label>
+          <span className="field-label t-label">Project Name *</span>
+          <input className="input" value={name} disabled={busy} autoFocus onChange={(e) => setName(e.target.value)} />
+        </label>
+        {setup.map((question) => (
+          <SetupField
+            key={question.id}
+            question={question}
+            value={responses[question.id] ?? ""}
+            onAnswer={(id, value) => setResponses((current) => ({ ...current, [id]: value }))}
+            disabled={busy}
+            required={isQuestionRequired(question, responses)}
+          />
+        ))}
+        <label>
+          <span className="field-label t-label">Framing System</span>
+          <select
+            className="input"
+            value={framingSystem}
+            disabled={busy}
+            onChange={(e) => setFramingSystem(e.target.value as "wood" | "metal" | "")}
+          >
+            {FRAMING_CHOICES.map((choice) => (
+              <option key={choice.label} value={choice.value}>
+                {choice.label}
+              </option>
             ))}
-            <label>
-              <span className="field-label t-label">Framing System</span>
-              <select
-                className="input"
-                value={framingSystem}
-                disabled={busy}
-                onChange={(e) => setFramingSystem(e.target.value as "wood" | "metal" | "")}
-              >
-                {FRAMING_CHOICES.map((choice) => (
-                  <option key={choice.label} value={choice.value}>
-                    {choice.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </section>
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+
+  // What setup still lacks, by name, so the first question's absence is
+  // never a mystery (LA-1230).
+  const missing = [
+    ...(name.trim() === "" ? ["Project Name"] : []),
+    ...setup.filter((question) => !requiredAnswered([question], responses)).map((question) => question.prompt),
+  ];
+
+  const summary = (
+    <p className="nb-sum">
+      <b>{name.trim()}</b>, <span className="num">{Number(responses.gross_square_feet).toLocaleString("en-US")}</span> SF{" "}
+      <button className="nb-back" type="button" disabled={busy} onClick={() => setEditingSetup(true)}>
+        Edit
+      </button>
+    </p>
+  );
+
+  if (!slot) {
+    return (
+      <div className="nb">
+        {setupFields}
+        <p className="nb-help nb-missing">Fill in {missing.join(", ")} and the first question appears here.</p>
         {error ? (
           <p className="rb-pp rb-pp--error" role="alert">
             {error}
           </p>
         ) : null}
-        <div className="rb-acts">
-          <button className="btn btn--primary" type="button" onClick={startQuestions} disabled={busy || !setupReady}>
-            {busy ? "Saving" : "Start Questions"}
-          </button>
-        </div>
       </div>
     );
   }
-
-  if (!slot) return null;
   const position = Math.min(index, slots.length - 1) + 1;
+  // Until the first answer the estimator may still be typing in setup, so the
+  // question must not take the focus away from them.
+  const focusQuestion = projectId !== null && !editingSetup;
 
   return (
     <div className="nb">
-      <div className="nb-top">
+      {showSetup ? setupFields : summary}
+      {editingSetup && projectId ? (
+        <p className="nb-help">
+          Changes save with the next answer.{" "}
+          <button
+            className="nb-back"
+            type="button"
+            onClick={() => {
+              setEditingSetup(false);
+              persist(projectId, responses, markupForm, reachedMarkups);
+            }}
+          >
+            Done
+          </button>
+        </p>
+      ) : null}
+      <div className="nb-top" ref={questionRef}>
         <span className="nb-count">
           Question <span className="num">{position}</span> of <span className="num">{slots.length}</span>
         </span>
@@ -462,7 +499,7 @@ export function GuidedNewBudget({
                     label={answer.label}
                     picked={responses[slot.question.id] === answer.value}
                     disabled={busy}
-                    autoFocus={i === 0}
+                    autoFocus={focusQuestion && i === 0}
                     onPick={() => pickAnswer(slot.question.id, answer.value)}
                   />
                 ))}
@@ -475,7 +512,7 @@ export function GuidedNewBudget({
                     label={choice.label}
                     picked={responses[slot.question.id] === choice.value}
                     disabled={busy}
-                    autoFocus={i === 0}
+                    autoFocus={focusQuestion && i === 0}
                     onPick={() => pickAnswer(slot.question.id, choice.value)}
                   />
                 ))}
@@ -492,7 +529,7 @@ export function GuidedNewBudget({
                   className="input num"
                   inputMode="numeric"
                   aria-label={slot.question.prompt}
-                  autoFocus
+                  autoFocus={focusQuestion}
                   disabled={busy}
                   value={responses[slot.question.id] ?? ""}
                   onChange={(e) => setResponses((current) => ({ ...current, [slot.question.id]: e.target.value }))}
@@ -515,7 +552,7 @@ export function GuidedNewBudget({
                   label={one.label}
                   picked={markupForm.setup === one.value}
                   disabled={busy}
-                  autoFocus={i === 0}
+                  autoFocus={focusQuestion && i === 0}
                   onPick={() => pickMarkup({ setup: one.value })}
                 />
               ))}
@@ -532,7 +569,7 @@ export function GuidedNewBudget({
                   label={one.label}
                   picked={markupForm.method === one.value}
                   disabled={busy}
-                  autoFocus={i === 0}
+                  autoFocus={focusQuestion && i === 0}
                   onPick={() => pickMarkup({ method: one.value })}
                 />
               ))}
@@ -557,7 +594,7 @@ export function GuidedNewBudget({
           {finishFailed && !busy ? (
             <>
               {" "}
-              <button className="nb-retry" type="button" onClick={() => void finish(responses, markupForm)}>
+              <button className="nb-retry" type="button" onClick={() => projectId && void finish(projectId, responses, markupForm)}>
                 Try Again
               </button>
             </>
@@ -565,11 +602,13 @@ export function GuidedNewBudget({
         </p>
       ) : null}
 
-      <div className="nb-foot">
-        <button className="nb-back" type="button" onClick={back} disabled={busy}>
-          Back
-        </button>
-      </div>
+      {index > 0 ? (
+        <div className="nb-foot">
+          <button className="nb-back" type="button" onClick={back} disabled={busy}>
+            Back
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -20,6 +20,7 @@ export const CRITERION_DISCIPLINE: Record<string, string> = {
   "V-1": "Vertical Transportation",
   "V-2": "Vertical Transportation",
   "V-3": "Vertical Transportation",
+  "A-1": "Architectural",
   "E-1": "Electrical",
   "M-0": "Mechanical",
   "M-1": "Mechanical",
@@ -31,6 +32,7 @@ export const CRITERION_DISCIPLINE: Record<string, string> = {
  * reads as intended. Each waits on Matt's pricing answer.
  */
 export const CRITERION_PRICING_NOTE: Record<string, string> = {
+  "A-1": "The type is shown for reference. The podium deck, exterior walls, rated drywall and sprinklers still price as they do today.",
   "E-1": "Electrical still prices per square foot. The service size is shown for reference until a rate per amp is set.",
   "M-0": "The band feeds M-1's tonnage. HVAC still prices per square foot.",
   "M-1": "HVAC still prices per square foot. The tonnage is shown for reference until a rate per ton is set.",
@@ -121,6 +123,12 @@ function roomsIn(text: string): number | null {
 export function choicesFor(criterion: Pick<DerivedAssumption, "code" | "steps" | "value">): readonly string[] {
   const fixed = CRITERION_CHOICES[criterion.code];
   if (fixed) return fixed;
+  // LA-1298: A-1 offers its own type and the others the code allows, as its
+  // "Also Allowed" step names them.
+  if (criterion.code === "A-1" && criterion.value.kind === "spec") {
+    const also = criterion.steps.find((one) => one.label === "Also Allowed")?.result ?? "None";
+    return [criterion.value.text, ...(also === "None" ? [] : also.split("; "))];
+  }
   // LA-1281: E-1 offers the rating either side of the one it landed on.
   if (criterion.code === "E-1" && criterion.value.kind === "quantity") {
     const { amount, unit } = criterion.value;

@@ -34,6 +34,17 @@ describe("choicesFor", () => {
     expect(choicesFor({ ...E1, value: { kind: "quantity", amount: 4300, unit: "A Service" } })).toEqual([]);
   });
 
+  it("offers A-1 its type and the others the code allows", () => {
+    const steps = [{ label: "Also Allowed", result: "Type IIIB over Type IA Podium" }];
+    expect(choicesFor({ code: "A-1", steps, value: { kind: "spec", text: "Type IIIA over Type IA Podium" } })).toEqual([
+      "Type IIIA over Type IA Podium",
+      "Type IIIB over Type IA Podium",
+    ]);
+    expect(choicesFor({ code: "A-1", steps: [{ label: "Also Allowed", result: "None" }], value: { kind: "spec", text: "Type VA" } })).toEqual([
+      "Type VA",
+    ]);
+  });
+
   it("offers M-0 its two bands", () => {
     expect(choicesFor({ code: "M-0", steps: [], value: { kind: "spec", text: "Standard Glazing Band" } })).toEqual([
       "Standard Glazing Band",

@@ -136,6 +136,25 @@ export function EngineeringStep({
         : null;
   const zone = criterion && code === "M-1" ? Number(/Zone (\d)/.exec(stepText(criterion, "Climate Zone") ?? "")?.[1] ?? 0) : 0;
   const pricingNote = CRITERION_PRICING_NOTE[code];
+  // LA-1298: A-1 stacks the building's stories against the type's height limit.
+  const stack =
+    criterion && code === "A-1"
+      ? (() => {
+          const stories = stepNumber(criterion, "Stories");
+          const podiumText = stepText(criterion, "Podium Stories") ?? "";
+          const heights = /(\d+) ft(?: against (\d+) ft)?/.exec(stepText(criterion, "Height") ?? "");
+          if (!stories || !heights) return null;
+          return {
+            stories,
+            podium: stepNumber(criterion, "Podium Stories") ?? 0,
+            retail: podiumText.includes("retail"),
+            below: podiumText.includes("below grade"),
+            steel: (stepText(criterion, "Framed Stories") ?? "").includes("steel"),
+            height: Number(heights[1]),
+            limit: heights[2] ? Number(heights[2]) : null,
+          };
+        })()
+      : null;
 
   return (
     <div
@@ -206,6 +225,7 @@ export function EngineeringStep({
             />
           ) : null}
           {code === "M-1" && band && zone ? <ZoneStrip zone={zone} band={band} on={shownSteps >= 1 || phase === "landed"} /> : null}
+          {stack ? <StoryStack {...stack} on={shownSteps >= 3 || phase === "landed"} landed={phase === "landed"} /> : null}
 
           <div className="eng-answer" aria-live="polite">
             {phase === "landed" ? (
@@ -426,6 +446,77 @@ function ZoneStrip({ zone, band, on }: { zone: number; band: GlazingBand; on: bo
           <span className="eng-zchip-r num">{GSF_PER_TON[one][band].toLocaleString("en-US")} SF per Ton</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+const STACK_PX = 150;
+
+/**
+ * LA-1298: A-1's building, drawn to scale. Stories rise from the ground one
+ * at a time, concrete podium first, then the frame, and a dashed line marks
+ * the height the type allows. A garage below grade sits under the ground line.
+ */
+function StoryStack({
+  stories,
+  podium,
+  retail,
+  below,
+  steel,
+  height,
+  limit,
+  on,
+  landed,
+}: {
+  stories: number;
+  podium: number;
+  retail: boolean;
+  below: boolean;
+  steel: boolean;
+  height: number;
+  limit: number | null;
+  on: boolean;
+  landed: boolean;
+}) {
+  const scaleMax = Math.max(limit ?? 0, height) + 10;
+  const px = (feet: number) => (feet / scaleMax) * STACK_PX;
+  const floors = Array.from({ length: stories }, (_, index) => {
+    const concrete = index < podium;
+    return { concrete, feet: concrete ? (index === 0 && retail ? 15 : 12) : 10 };
+  });
+  const clear = limit !== null && limit - height > 5;
+  return (
+    <div
+      className={`eng-stack${on ? " eng-stack--on" : ""}${landed ? " eng-stack--landed" : ""}`}
+      role="img"
+      aria-label={`${stories} stories, ${podium} of them concrete podium, ${height} ft${limit ? ` against a ${limit} ft limit` : ""}`}
+    >
+      <div className="eng-stack-field" style={{ height: STACK_PX }}>
+        <div className="eng-bldg">
+          {floors.map((floor, index) => (
+            <span
+              key={index}
+              className={`eng-flr ${floor.concrete ? "eng-flr--podium" : steel ? "eng-flr--steel" : "eng-flr--wood"}`}
+              style={{ height: px(floor.feet), "--eng-flr": index } as CSSProperties}
+            />
+          ))}
+        </div>
+        {limit !== null ? (
+          <span className={`eng-limit${clear ? "" : " eng-limit--tight"}`} style={{ bottom: px(limit) }}>
+            <span className="num">{limit} ft Limit</span>
+          </span>
+        ) : null}
+        <span className="eng-top" style={{ bottom: px(height) }}>
+          <span className="num">{height} ft</span>
+        </span>
+      </div>
+      <div className="eng-ground" />
+      {below ? <span className="eng-flr eng-flr--below" style={{ height: px(10) }} /> : null}
+      <div className="eng-stack-key">
+        {podium > 0 ? <span className="eng-key eng-key--podium">Concrete Podium</span> : null}
+        {podium < stories ? <span className={`eng-key ${steel ? "eng-key--steel" : "eng-key--wood"}`}>{steel ? "Light-Gauge Steel" : "Wood Frame"}</span> : null}
+        {below ? <span className="eng-key eng-key--below">Garage Below Grade</span> : null}
+      </div>
     </div>
   );
 }

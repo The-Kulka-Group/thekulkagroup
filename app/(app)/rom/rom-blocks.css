@@ -1083,3 +1083,69 @@ button.lb-blk.rb-blk--sel:hover { border-color: var(--rb-black); }
 .br-in { width: 110px; flex: none; text-align: right; }
 .br-state { font-size: var(--meta-size); color: var(--rb-pnl-mute); flex: none; }
 .br-note { margin: 6px 0 0; font-size: var(--meta-size); color: var(--rb-pnl-mute); }
+
+/* LA-1254: the schedule-of-values ledger (LedgerView.tsx). One grid for every
+   row so the columns line up; the card field's own surface and hairlines. */
+.lg {
+  border: 1px solid var(--rb-blk-line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--rb-blk-ink);
+  overflow: hidden;
+}
+.lg-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 96px 84px 64px 96px 190px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 16px;
+  border: 0;
+  border-top: 1px solid var(--rb-blk-line);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--ui-size);
+  text-align: left;
+}
+.lg-row:first-child { border-top: 0; }
+button.lg-row { cursor: pointer; }
+button.lg-row:hover { background: color-mix(in srgb, var(--rb-blk-ink) 4%, transparent); }
+.lg-row--sel { background: color-mix(in srgb, var(--rb-blk-ink) 7%, transparent); }
+.lg-cols { font-size: var(--meta-size); color: var(--rb-blk-ink2); padding-top: 10px; padding-bottom: 10px; }
+.lg-head { font-weight: 600; }
+.lg-item:not(.lg-child) .lg-name { font-weight: 600; }
+.lg-child { color: var(--rb-blk-ink2); padding-top: 7px; padding-bottom: 7px; }
+.lg-child .lg-name { padding-left: 22px; }
+.lg-name { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-div, .lg-psf, .lg-pct { color: var(--rb-blk-ink2); }
+.lg-amt, .lg-psf, .lg-pct { text-align: right; }
+.lg-cols .lg-amt, .lg-cols .lg-psf, .lg-cols .lg-pct { text-align: right; }
+.lg-bar { display: block; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--rb-blk-ink) 8%, transparent); }
+.lg-bar i { display: block; height: 6px; border-radius: 3px; background: var(--rb-blk-ink); }
+.lg-cols .lg-bar, .lg-sum .lg-bar, .lg-cap .lg-bar { height: auto; background: none; }
+.lg-child .lg-bar { background: none; }
+.lg-src { display: inline-flex; align-items: center; gap: 7px; font-size: var(--meta-size); color: var(--rb-blk-ink2); min-width: 0; }
+.lg-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.lg-dot--high { background: var(--done-bright); }
+.lg-dot--medium, .lg-dot--low, .lg-dot--none { background: var(--working); }
+.lg-chev { width: 12px; height: 12px; flex: none; transition: transform .2s var(--ease); }
+.lg-chev--open { transform: rotate(90deg); }
+.lg-sum { font-weight: 600; }
+.lg-sum + .lg-sum:not(.lg-sum--total) { font-weight: 400; color: var(--rb-blk-ink2); border-top-style: dashed; }
+.lg-sum--total { font-size: calc(var(--ui-size) + 2px); font-weight: 700; border-top-width: 2px; border-top-color: var(--rb-blk-ink); }
+.lg-cap { font-size: var(--meta-size); color: var(--rb-blk-ink2); }
+
+/* Columns drop by the ledger's own width, since the side panel and the
+   sidebar change it more than the window does. */
+.lg { container-type: inline-size; }
+@container (max-width: 820px) {
+  .lg-row { grid-template-columns: 36px minmax(0, 1fr) 90px 60px 150px; }
+  .lg-psf, .lg-bar { display: none; }
+}
+@container (max-width: 560px) {
+  .lg-row { grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; padding: 9px 12px; }
+  .lg-div, .lg-pct { display: none; }
+  .lg-src { grid-column: 1 / -1; margin-top: -4px; }
+  .lg-cols .lg-src, .lg-sum .lg-src, .lg-head .lg-src, .lg-cap .lg-src { display: none; }
+}

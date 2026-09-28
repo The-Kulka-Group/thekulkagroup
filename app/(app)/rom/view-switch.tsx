@@ -3,6 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 import type { RomOrder } from "./field-order";
+import type { LedgerGrouping } from "./ledger";
 import type { RomView } from "./view-groups";
 
 // LA-1159, ADR 0006, CONTEXT.md: View. The two-way switch in the header band
@@ -131,5 +132,80 @@ export function ViewSwitch({ view, onChange }: { view: RomView; onChange: (view:
         By Package
       </button>
     </div>
+  );
+}
+
+// LA-1254: the schedule-of-values layout, and how it groups, remembered per
+// viewer the same way as the view and the order.
+export type RomLayout = "cards" | "ledger";
+const layoutStore = rememberedChoice<RomLayout>("kulka.rom.layout", ["cards", "ledger"]);
+const groupingStore = rememberedChoice<LedgerGrouping>("kulka.rom.ledgerGrouping", ["element", "division"]);
+
+export function useRomLayout(): [RomLayout, (layout: RomLayout) => void] {
+  const stored = useSyncExternalStore(layoutStore.subscribe, layoutStore.read, getServerSnapshot);
+  const change = useCallback((next: RomLayout) => layoutStore.write(next), []);
+  return [stored ?? "cards", change];
+}
+
+export function useLedgerGrouping(): [LedgerGrouping, (grouping: LedgerGrouping) => void] {
+  const stored = useSyncExternalStore(groupingStore.subscribe, groupingStore.read, getServerSnapshot);
+  const change = useCallback((next: LedgerGrouping) => groupingStore.write(next), []);
+  return [stored ?? "element", change];
+}
+
+/** A two-way pill, the same look as the view and order switches. */
+function TwoWay<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly [{ value: T; text: string }, { value: T; text: string }];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="rb-vsw" role="group" aria-label={label}>
+      <button type="button" className="rb-vopt" aria-pressed={value === options[0].value} onClick={() => onChange(options[0].value)}>
+        {options[0].text}
+      </button>
+      <span className="rb-vdot" aria-hidden="true">
+        ·
+      </span>
+      <button type="button" className="rb-vopt" aria-pressed={value === options[1].value} onClick={() => onChange(options[1].value)}>
+        {options[1].text}
+      </button>
+    </div>
+  );
+}
+
+/** "Cards · Ledger". */
+export function LayoutSwitch({ layout, onChange }: { layout: RomLayout; onChange: (layout: RomLayout) => void }) {
+  return (
+    <TwoWay
+      label="Layout"
+      value={layout}
+      options={[
+        { value: "cards", text: "Cards" },
+        { value: "ledger", text: "Ledger" },
+      ]}
+      onChange={onChange}
+    />
+  );
+}
+
+/** "By Element · By Division", shown only with the ledger. */
+export function GroupingSwitch({ grouping, onChange }: { grouping: LedgerGrouping; onChange: (grouping: LedgerGrouping) => void }) {
+  return (
+    <TwoWay
+      label="Group"
+      value={grouping}
+      options={[
+        { value: "element", text: "By Element" },
+        { value: "division", text: "By Division" },
+      ]}
+      onChange={onChange}
+    />
   );
 }

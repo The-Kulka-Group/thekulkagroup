@@ -25,6 +25,7 @@ import {
 
 import type { Db } from "@/lib/db";
 import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
+import { applyConstructionTypeCriterion } from "@/lib/rom/construction-type-criterion";
 import { applyElectricalCriterion } from "@/lib/rom/electrical-criterion";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
 import { applyHvacCriteria } from "@/lib/rom/hvac-criterion";
@@ -293,7 +294,9 @@ export async function runRom(
     // LA-1281, LA-1282: E-1 sizes the service, M-0 and M-1 the cooling. They
     // set no fact yet (items 30 and 31 still price per square foot), so the
     // answers come back as they went in.
-    const withE1 = await applyElectricalCriterion(db, projectId, withV3);
+    // LA-1298: A-1 works out the construction type; it sets no fact yet.
+    const withA1 = await applyConstructionTypeCriterion(db, projectId, withV3, framingSystem);
+    const withE1 = await applyElectricalCriterion(db, projectId, withA1);
     const withCriteria = await applyHvacCriteria(db, projectId, withE1);
     const answers: Answers = markups ? { ...withCriteria, markups } : withCriteria;
     const recordedBase = framingSystem ? { ...intake.recorded, framingSystem } : intake.recorded;

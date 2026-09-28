@@ -15,7 +15,8 @@ import { reducedMotion } from "./motion";
 import { SpringMoney } from "./SpringMoney";
 import "./derived-criteria.css";
 
-// LA-860. Design Criteria on the ROM face: one card per derived assumption,
+// LA-860. Design and Engineering (Matt renamed it from Design Criteria,
+// 2026-09-28) on the ROM face: one card per derived assumption,
 // the approved criteria-card design of 2026-09-27. A card leads with its code
 // and a Derived pill, then the value, then the label; hover swaps the label
 // for the method line in the same space. Clicking opens the black side panel
@@ -191,9 +192,9 @@ export function DerivedCriteriaSection({
   const leaning = items.filter(showsAssumedFact);
 
   return (
-    <section className="dc" aria-label="Design Criteria">
+    <section className="dc" aria-label="Design and Engineering">
       <div className="dc-hd">
-        <h2>Design Criteria</h2>
+        <h2>Design and Engineering</h2>
         <div className="dc-legend">
           {leaning.length > 0 ? (
             <button
@@ -236,7 +237,7 @@ export function DerivedCriteriaSection({
         ))}
       </div>
       <p className="dc-foot">
-        Design criteria are planning assumptions for the budget. They are not a design and nobody has engineered them.
+        These are planning assumptions for the budget, worked out from the project's facts. Nobody has designed or engineered the building.
       </p>
     </section>
   );

@@ -28,6 +28,8 @@ export type EditableProject = {
   unitCount: number | null;
   buildingCount: number;
   zip: string | null;
+  /** LA-1212. Null on a project never run through New budget's guided flow, or that answered no elevator gate. */
+  elevatorCount: number | null;
 };
 
 function formFrom(project: EditableProject): Form {
@@ -41,6 +43,10 @@ function formFrom(project: EditableProject): Form {
     unitCount: project.unitCount ? String(project.unitCount) : "",
     buildingCount: String(project.buildingCount || 1),
     zip: project.zip ?? "",
+    // `?? ""` rather than the `||` the other counts above use: zero is a
+    // legal, meaningful Elevator Count (no elevator), and `||` would blank it
+    // back out on every reload.
+    elevatorCount: project.elevatorCount !== null ? String(project.elevatorCount) : "",
   };
 }
 
@@ -84,6 +90,9 @@ export function EditProjectForm({
           unitCount: form.unitCount ? Number(form.unitCount) : null,
           buildingCount: form.buildingCount ? Number(form.buildingCount) : null,
           zip: form.zip || null,
+          // `!== ""` rather than the truthy checks above: "0" is a legal,
+          // meaningful Elevator Count and must not be sent as null.
+          elevatorCount: form.elevatorCount !== "" ? Number(form.elevatorCount) : null,
         }),
       });
       const body = await response.json().catch(() => ({}));

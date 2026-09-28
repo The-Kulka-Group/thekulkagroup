@@ -210,6 +210,16 @@ export function GuidedNewBudget({
           unitCount: responses.unit_count ? Number(responses.unit_count) : null,
           buildingCount: responses.building_count ? Number(responses.building_count) : null,
           zip: responses.zip || null,
+          // LA-1212: the Scope step's Elevator Count, opened by the elevator
+          // gate (config/rom/tier1-flow.json's "elevator_count"), saved onto
+          // the project the same way the Facts step's four counts are just
+          // above, so a later Run ROM off the saved project (no `responses`)
+          // already has it. `!== undefined && !== ""` rather than a truthy
+          // check: "0" is a legal, meaningful answer (no elevator).
+          elevatorCount:
+            responses.elevator_count !== undefined && responses.elevator_count !== ""
+              ? Number(responses.elevator_count)
+              : null,
         }),
       });
       const body = await response.json().catch(() => ({}));

@@ -100,6 +100,14 @@ export type NewBudget = {
   buildingCount?: number | null;
   /** First three digits only, matching `projects.zip`'s own check constraint. */
   zip?: string | null;
+  /**
+   * LA-1212: the guided New budget flow's Scope step asks Elevator Count once
+   * the elevator gate answers yes (config/rom/tier1-flow.json's
+   * "elevator_count"), and the answer had nowhere to land on the project
+   * until now. Zero is a legal answer (no elevator), so this is checked
+   * `>= 0` rather than `> 0` the way the other four counts above are.
+   */
+  elevatorCount?: number | null;
 };
 
 const PROJECT_TYPES: ReadonlySet<string> = new Set(["multifamily", "self_storage"]);
@@ -128,6 +136,7 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
     unitCount,
     buildingCount,
     zip,
+    elevatorCount,
   } = body as Record<string, unknown>;
   if (typeof name !== "string" || name.trim() === "") return { ok: false, error: "Send a project name." };
   if (name.trim().length > 200) return { ok: false, error: "Keep the project name under 200 characters." };
@@ -178,6 +187,16 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
   if (zip !== undefined && zip !== null && (typeof zip !== "string" || !ZIP_PATTERN.test(zip))) {
     return { ok: false, error: "Send zip as its first three digits, or null." };
   }
+  // LA-1212: unlike storiesAboveGrade and unitCount above, zero is a legal
+  // Elevator Count (no elevator), so this only refuses a negative or
+  // non-integer value, never zero.
+  if (
+    elevatorCount !== undefined &&
+    elevatorCount !== null &&
+    (typeof elevatorCount !== "number" || !Number.isInteger(elevatorCount) || elevatorCount < 0)
+  ) {
+    return { ok: false, error: "Send elevatorCount as a whole number of zero or more, or null." };
+  }
   return {
     ok: true,
     budget: {
@@ -191,6 +210,7 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       unitCount: (unitCount ?? null) as number | null,
       buildingCount: (buildingCount ?? null) as number | null,
       zip: (zip ?? null) as string | null,
+      elevatorCount: (elevatorCount ?? null) as number | null,
     },
   };
 }
@@ -199,8 +219,8 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
   const { rows } = await db.query<{ id: string }>(
     `insert into projects
        (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type,
-        stories_above_grade, unit_count, building_count, zip, rom_budget)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, true)
+        stories_above_grade, unit_count, building_count, zip, elevator_count, rom_budget)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, true)
      returning id`,
     [
       budget.name,
@@ -213,6 +233,7 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
       budget.unitCount ?? null,
       budget.buildingCount ?? null,
       budget.zip ?? null,
+      budget.elevatorCount ?? null,
     ],
   );
   return rows[0].id;
@@ -240,7 +261,8 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
     `update projects
         set name = $2, gross_square_feet = $3, project_type = $4,
             construction_kind = $5, framing_system = $6,
-            stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10
+            stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10,
+            elevator_count = $11
       where id = $1
       returning id`,
     [
@@ -254,6 +276,7 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
       budget.unitCount ?? null,
       budget.buildingCount ?? null,
       budget.zip ?? null,
+      budget.elevatorCount ?? null,
     ],
   );
   if (!rows[0]) throw new ProjectNotFoundForEdit(projectId);
@@ -300,10 +323,11 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     unit_count: number | null;
     building_count: number;
     zip: string | null;
+    elevator_count: number | null;
     archived_at: string | null;
   }>(
     `select id, name, gross_square_feet, project_type, construction_kind, framing_system,
-            stories_above_grade, unit_count, building_count, zip, archived_at
+            stories_above_grade, unit_count, building_count, zip, elevator_count, archived_at
        from projects where id = $1`,
     [projectId],
   );
@@ -320,6 +344,7 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     unitCount: row.unit_count,
     buildingCount: row.building_count,
     zip: row.zip,
+    elevatorCount: row.elevator_count,
     archivedAt: row.archived_at,
   };
 }

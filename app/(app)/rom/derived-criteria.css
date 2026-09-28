@@ -310,3 +310,6 @@
   .rb-vflip [data-dc-entry] { animation: none !important; transition: none !important; }
   .dc-card--recheck .dc-val { color: inherit; background: none; }
 }
+
+/* The saved budget's correction panel offers a spec criterion's answers as buttons. */
+.dc-choices { display: flex; flex-wrap: wrap; gap: 8px; }

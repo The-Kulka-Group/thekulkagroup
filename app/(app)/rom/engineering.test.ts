@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { choicesFor, gaugeValue, ladderPosition, ratingLabel, stepNumber, valueFromChoice, valueText, windowBays } from "./engineering";
+import { choicesFor, factsFor, stepNumber, valueText } from "./engineering";
 
-// LA-1281, LA-1282: the helpers the Design and Engineering card draws E-1,
-// M-0 and M-1 with.
+// LA-1281, LA-1282, LA-1318: the helpers that show a Design and Engineering
+// criterion's answer, the answers it offers, and the facts it sets.
 
 const E1 = {
   code: "E-1",
@@ -11,15 +11,18 @@ const E1 = {
   value: { kind: "quantity" as const, amount: 2500, unit: "A Service" },
 };
 
-describe("valueText and valueFromChoice", () => {
-  it("formats a quantity with its unit, and reads a picked one back in the same unit", () => {
+describe("valueText and factsFor", () => {
+  it("formats a quantity with its unit", () => {
     expect(valueText(E1.value)).toBe("2,500 A Service");
     expect(valueText({ kind: "spec", text: "Hydraulic" })).toBe("Hydraulic");
-    expect(valueFromChoice(E1, "3,000 A Service")).toEqual({ kind: "quantity", amount: 3000, unit: "A Service" });
-    expect(valueFromChoice({ value: { kind: "spec", text: "Standard Glazing Band" } }, "Elevated Glazing Band")).toEqual({
-      kind: "spec",
-      text: "Elevated Glazing Band",
-    });
+  });
+
+  it("sets the facts the live budget prices the elevator cards by", () => {
+    expect(factsFor("V-1", "Traction")).toEqual({ elevatorType: "traction" });
+    expect(factsFor("V-2", "In-Ground")).toEqual({ hydraulicJackType: "in_ground" });
+    expect(factsFor("V-3", "2 Machine Rooms")).toEqual({ elevatorMachineRooms: "2", elevatorMachineRoomHvac: "yes" });
+    expect(factsFor("V-3", "None")).toEqual({ elevatorMachineRooms: "0", elevatorMachineRoomHvac: "no" });
+    expect(factsFor("S-1", "Deep Foundations")).toEqual({});
   });
 });
 
@@ -53,34 +56,8 @@ describe("choicesFor", () => {
   });
 });
 
-describe("gaugeValue", () => {
-  it("reads S-1's coverage and the elevator cards' travel", () => {
-    expect(gaugeValue("S-1", { steps: [{ label: "Coverage", result: "32% of the footprint at 2,000 psf" }] })).toBe(32);
-    expect(gaugeValue("V-1", { steps: [{ label: "Travel", result: `42'-0" (42.0 ft)` }] })).toBe(42);
-  });
-});
-
-describe("the ladder, the facade and step numbers", () => {
+describe("stepNumber", () => {
   it("reads a step's number with its commas", () => {
     expect(stepNumber(E1, "Service Load")).toBe(2274);
-  });
-
-  it("places a load between the centres of the ratings around it", () => {
-    // 13 rungs: 2,000 A is rung 9's centre, 2,500 A rung 10's.
-    expect(ladderPosition(2000)).toBeCloseTo((9.5 / 13) * 100);
-    expect(ladderPosition(2250)).toBeCloseTo((10 / 13) * 100);
-    expect(ladderPosition(200)).toBeCloseTo((0.25 / 13) * 100);
-    expect(ladderPosition(5000)).toBe(100);
-  });
-
-  it("labels ratings short enough for a rung", () => {
-    expect(ratingLabel(450)).toBe("450");
-    expect(ratingLabel(1200)).toBe("1.2k");
-    expect(ratingLabel(2000)).toBe("2k");
-  });
-
-  it("spreads each floor's windows evenly: 2 of 10 bays, or 3", () => {
-    expect(windowBays(2, 10)).toEqual([2, 7]);
-    expect(windowBays(3, 10)).toEqual([1, 5, 8]);
   });
 });

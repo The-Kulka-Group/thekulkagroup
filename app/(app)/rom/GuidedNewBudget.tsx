@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MarkupChoices } from "@kulka/engine";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
@@ -15,12 +15,12 @@ import {
   type Responses,
 } from "@/lib/rom/question-flow";
 
-import { factsFor, valueFromChoice, valueText } from "./engineering";
-import { EngineeringStep } from "./EngineeringStep";
+import { answerMoment, CARD_ORDER, cardMoment, setupMoment, type StageMoment } from "@/lib/rom/stage-scenes";
+
+import { factsFor, valueText } from "./engineering";
 import type { BudgetDraft } from "./LiveBudget";
 import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
 import "./scope.css";
-import "./engineering.css";
 
 // LA-1225. New Budget is a setup card, then one question at a time. Matt
 // (2026-09-27): the questions start as soon as the project is set up, each
@@ -53,8 +53,6 @@ type Slot =
   | { kind: "flow"; question: Question }
   | { kind: "markup_setup" }
   | { kind: "markup_method" }
-  /** LA-1265: Design and Engineering, a question the app answers itself (EngineeringStep.tsx). */
-  | { kind: "engineering"; code: EngineeringCode }
   /** LA-1256: the GRs/GCs rate, so New Budget never finishes with GRs/GCs TBD. */
   | { kind: "markup_rate" }
   | { kind: "markup_detail" };
@@ -63,21 +61,23 @@ type SaveState = "idle" | "saving" | "saved" | "failed";
 
 function slotKey(slot: Slot): string {
   if (slot.kind === "flow") return slot.question.id;
-  if (slot.kind === "engineering") return `eng:${slot.code}`;
   return slot.kind;
 }
 
-type EngineeringCode = "V-1" | "V-2" | "V-3" | "A-1" | "S-1" | "M-0" | "M-1" | "E-1";
-
-const ENGINEERING_LABEL: Record<EngineeringCode, string> = {
-  "V-1": "Elevator Type",
-  "V-2": "Hydraulic Jack Type",
-  "V-3": "Elevator Machine Rooms",
-  "A-1": "Construction Type",
-  "S-1": "Foundation System",
-  "M-0": "Window Area and Orientation",
-  "M-1": "HVAC Tonnage",
-  "E-1": "Electrical Service Size",
+/**
+ * LA-1318: which Design and Engineering cards belong to which answer. The
+ * elevator cards follow Elevator Count; the building's own cards follow
+ * Balconies, the last fact M-0 reads.
+ */
+const CARD_GROUP: Record<(typeof CARD_ORDER)[number], "elevators" | "building"> = {
+  "V-1": "elevators",
+  "V-2": "elevators",
+  "V-3": "elevators",
+  "A-1": "building",
+  "S-1": "building",
+  "M-0": "building",
+  "M-1": "building",
+  "E-1": "building",
 };
 
 /** The answers the criteria read. A change to any of them works them out again. */
@@ -197,15 +197,25 @@ export function GuidedNewBudget({
   markupOptions,
   onCreated,
   onDraft,
-  onEngineeringFocus,
+  onStageEvent,
+  onCriteria,
+  landedCards = [],
 }: {
   /** Rate tables, fee and insurance parameters (LA-1016). Missing means the GRs/GCs questions are skipped and the run uses its recorded defaults. */
   markupOptions?: MarkupOptions;
   onCreated: (projectId: string) => void;
   /** Every change to the answers, so the page can show the budget building behind the panel (LA-1142). */
   onDraft?: (draft: BudgetDraft) => void;
-  /** LA-1265: a Design and Engineering answer landed (light what it feeds), or the card left (null). */
-  onEngineeringFocus?: (focus: { code: string; costCodes: string[] } | null) => void;
+  /**
+   * LA-1318: an answer, a Design and Engineering card or the finished setup,
+   * for the stage to play. The cards no longer show in this panel; the stage
+   * plays them across the top of the budget.
+   */
+  onStageEvent?: (moment: StageMoment) => void;
+  /** The Design and Engineering cards as the server last worked them out, for the stage to draw. */
+  onCriteria?: (criteria: Record<string, StoredDerivedAssumption>) => void;
+  /** The cards whose moment has landed on the stage. Only these price the live budget, so the budget moves as each lands. */
+  landedCards?: readonly string[];
 }) {
   const definition = tier1Flow();
   // Setup stays open until the first answer creates the project, then
@@ -231,17 +241,26 @@ export function GuidedNewBudget({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [finishFailed, setFinishFailed] = useState(false);
   const saveChain = useRef<Promise<void>>(Promise.resolve());
-  // LA-1265: the elevator criteria as the server worked them out, the facts
-  // they set, and which facts the live budget prices by. Facts apply when an
-  // answer lands, so the boxes change the moment the card says so.
+  // LA-1265, LA-1318: the Design and Engineering cards as the server worked
+  // them out. A card prices the live budget only once its moment lands on the
+  // stage, so the boxes change the moment the stage says so.
   const [criteria, setCriteria] = useState<Record<string, StoredDerivedAssumption>>({});
-  const [appliedFacts, setAppliedFacts] = useState<Record<string, string>>({});
-  const [engBusy, setEngBusy] = useState(false);
-  const [engError, setEngError] = useState<string | null>(null);
   const derivedFor = useRef<string | null>(null);
-  // The same inputs, as state, for laying out the slots during render: which
-  // answers the criteria on hand were last worked out from.
-  const [derivedInputs, setDerivedInputs] = useState<string | null>(null);
+  // Which card groups the answers have reached, and the answer each card last played.
+  const [dueGroups, setDueGroups] = useState<ReadonlySet<"elevators" | "building">>(new Set());
+  const played = useRef<Record<string, string>>({});
+  const setupPlayed = useRef(false);
+  const landedKey = landedCards.join(",");
+  const landedFacts = useMemo(() => {
+    const landed = new Set(landedKey.split(","));
+    const facts: Record<string, string> = {};
+    for (const one of Object.values(criteria)) {
+      if (!landed.has(one.code)) continue;
+      const value = one.correction?.value ?? one.value;
+      if (value.kind === "spec") Object.assign(facts, factsFor(one.code, value.text));
+    }
+    return facts;
+  }, [criteria, landedKey]);
   const questionRef = useRef<HTMLDivElement>(null);
 
   const setup = factsQuestions(definition, responses).filter((q) => q.id !== "parking_type");
@@ -255,36 +274,6 @@ export function GuidedNewBudget({
     const slots: Slot[] = [];
     for (const question of flow) {
       slots.push({ kind: "flow", question });
-      // LA-1265: once Elevator Count is in, the app answers V-1 itself, and
-      // V-2 after it when V-1 comes out hydraulic.
-      if (question.id === "elevator_count" && elevatorReady(current)) {
-        slots.push({ kind: "engineering", code: "V-1" });
-        const v1 = criteria["V-1"];
-        const v1Text = v1 ? (v1.correction?.value ?? v1.value) : null;
-        if (v1Text?.kind === "spec" && v1Text.text.toLowerCase().startsWith("hydraulic") && criteria["V-2"]) {
-          slots.push({ kind: "engineering", code: "V-2" });
-        }
-        // LA-1269: V-3 counts the machine rooms, after V-2 or straight after V-1.
-        if (criteria["V-3"]) slots.push({ kind: "engineering", code: "V-3" });
-      }
-      // LA-1281, LA-1282: once balconies is in, the last fact M-0 reads, the
-      // app sizes the cooling (M-0, then M-1) and the electrical service
-      // (E-1). A card stays in line while its answer is being worked out, and
-      // drops out if the server says it does not apply.
-      // LA-1298, LA-1300: A-1 and S-1 lead them, architecture then structure.
-      if (question.id === "balconies" && current.project_type === "multifamily") {
-        const pending = engBusy || derivedInputs !== engineeringInputs(current, framingSystem);
-        const ready: Record<"A-1" | "S-1" | "M-0" | "M-1" | "E-1", boolean> = {
-          "A-1": current.construction_kind === "new" && Number(current.stories_above_grade) > 0,
-          "S-1": Number(current.stories_above_grade) > 0,
-          "M-0": true,
-          "M-1": true,
-          "E-1": electricalReady(current),
-        };
-        for (const code of ["A-1", "S-1", "M-0", "M-1", "E-1"] as const) {
-          if (ready[code] && (criteria[code] || pending)) slots.push({ kind: "engineering", code });
-        }
-      }
     }
     if (markupOptions) {
       slots.push({ kind: "markup_setup" }, { kind: "markup_method" });
@@ -317,9 +306,9 @@ export function GuidedNewBudget({
     }
     const markups = reachedMarkups && markupOptions ? lastMarkups.current : null;
     // The criteria's facts count only while the job still has its elevator.
-    const facts = elevatorReady(responses) ? appliedFacts : {};
+    const facts = elevatorReady(responses) ? landedFacts : {};
     onDraft?.({ named, responses, framing: framingSystem, markups, derivedFacts: facts });
-  }, [onDraft, named, responses, framingSystem, reachedMarkups, markupForm, markupOptions, appliedFacts]);
+  }, [onDraft, named, responses, framingSystem, reachedMarkups, markupForm, markupOptions, landedFacts]);
 
   function projectBody(current: Responses) {
     return {
@@ -445,7 +434,7 @@ export function GuidedNewBudget({
   }
 
   /** Saves this answer and moves on, or finishes after the last question. */
-  async function advance(current: Responses, form: MarkupForm) {
+  async function advance(current: Responses, form: MarkupForm, answered: string | null = null) {
     // LA-1230: there is no Start button. The first answer creates the
     // project, with that answer already on it.
     const id = projectId ?? (await createProject(current));
@@ -456,14 +445,18 @@ export function GuidedNewBudget({
     const reached = reachedMarkups || (nextIndex < nextSlots.length && nextSlots[nextIndex].kind !== "flow");
     if (reached) setReachedMarkups(true);
     persist(id, current, form, reached);
-    // LA-1265: arriving at V-1 works the elevator criteria out, and a later
-    // answer they read (retail storefronts comes after Elevator Count) works
+    // LA-1265, LA-1318: Elevator Count brings the elevator cards and
+    // Balconies the building's own; after that, any answer they read works
     // them out again, so the live budget prices what the run will.
-    const arriving = nextSlots[nextIndex]?.kind === "engineering";
-    if ((arriving || Object.keys(criteria).length > 0) && derivedFor.current !== engineeringInputs(current, framingSystem)) {
-      void deriveEngineering(id, current).then((next) => {
-        if (next && !arriving) setAppliedFacts((existing) => ({ ...existing, ...factsOf(next) }));
-      });
+    const group =
+      answered === "elevator_count" && elevatorReady(current)
+        ? "elevators"
+        : answered === "balconies" && current.project_type === "multifamily"
+          ? "building"
+          : null;
+    if (group && !dueGroups.has(group)) setDueGroups((due) => new Set([...due, group]));
+    if ((group || Object.keys(criteria).length > 0) && derivedFor.current !== engineeringInputs(current, framingSystem)) {
+      void deriveEngineering(id, current);
     }
     if (nextIndex >= nextSlots.length) {
       void finish(id, current, form);
@@ -472,12 +465,19 @@ export function GuidedNewBudget({
     }
   }
 
-  function pickAnswer(id: string, value: string) {
+  /** LA-1318: the answer's moment goes to the stage as it is given. */
+  function playAnswer(question: Question, value: string) {
+    const moment = answerMoment(question, value);
+    if (moment) onStageEvent?.(moment);
+  }
+
+  function pickAnswer(question: Question, value: string) {
     if (busy) return;
-    const current = { ...responses, [id]: value };
+    const current = { ...responses, [question.id]: value };
     setResponses(current);
     setError(null);
-    void advance(current, markupForm);
+    playAnswer(question, value);
+    void advance(current, markupForm, question.id);
   }
 
   function submitNumber(question: Question) {
@@ -488,7 +488,8 @@ export function GuidedNewBudget({
       return;
     }
     setError(null);
-    void advance(responses, markupForm);
+    playAnswer(question, value);
+    void advance(responses, markupForm, question.id);
   }
 
   function pickMarkup(change: Partial<MarkupForm>) {
@@ -538,14 +539,14 @@ export function GuidedNewBudget({
   }
 
   /**
-   * LA-1265: works V-1 and V-2 out on the server from the answers as they
-   * stand (after the saves queued so far), and keeps what comes back.
+   * LA-1265: works the Design and Engineering cards out on the server from
+   * the answers as they stand (after the saves queued so far), and keeps what
+   * comes back. A failure keeps the cards on hand; the run at the end works
+   * them out again regardless.
    */
   const deriveEngineering = useCallback(
-    async (id: string, current: Responses): Promise<Record<string, StoredDerivedAssumption> | null> => {
+    async (id: string, current: Responses) => {
       derivedFor.current = engineeringInputs(current, framingSystem);
-      setEngBusy(true);
-      setEngError(null);
       try {
         await saveChain.current;
         const response = await fetch(`/api/rom/projects/${id}/derive`, {
@@ -555,115 +556,67 @@ export function GuidedNewBudget({
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) {
-          setEngError(body.error ?? "The engineering could not be worked out.");
           derivedFor.current = null;
-          return null;
+          return;
         }
         const next: Record<string, StoredDerivedAssumption> = {};
         for (const one of (body.criteria ?? []) as StoredDerivedAssumption[]) next[one.code] = one;
         setCriteria(next);
-        setDerivedInputs(engineeringInputs(current, framingSystem));
-        return next;
       } catch {
-        setEngError("The site could not reach the server. Check the connection and try again.");
         derivedFor.current = null;
-        return null;
-      } finally {
-        setEngBusy(false);
       }
     },
     [framingSystem],
   );
 
-  const engineeringSlot = slot?.kind === "engineering" ? slot : null;
-
-  // The card left the slot: stop lighting what it fed.
-  const engineeringCode = engineeringSlot?.code ?? null;
   useEffect(() => {
-    if (engineeringCode === null) onEngineeringFocus?.(null);
-  }, [engineeringCode, onEngineeringFocus]);
+    onCriteria?.(criteria);
+  }, [criteria, onCriteria]);
 
-  function factsOf(next: Record<string, StoredDerivedAssumption>): Record<string, string> {
-    const facts: Record<string, string> = {};
-    for (const one of Object.values(next)) {
-      const value = one.correction?.value ?? one.value;
-      if (value.kind !== "spec") continue;
-      Object.assign(facts, factsFor(one.code, value.text));
+  // LA-1318: each card the answers have reached plays on the stage, in order,
+  // and plays again if a later answer changes what it says.
+  useEffect(() => {
+    if (!onStageEvent) return;
+    const v1 = criteria["V-1"];
+    const hydraulic = v1 ? valueText(v1.correction?.value ?? v1.value).toLowerCase().startsWith("hydraulic") : false;
+    const applies: Record<(typeof CARD_ORDER)[number], boolean> = {
+      "V-1": elevatorReady(responses),
+      "V-2": elevatorReady(responses) && hydraulic,
+      "V-3": elevatorReady(responses),
+      "A-1": responses.construction_kind === "new" && Number(responses.stories_above_grade) > 0,
+      "S-1": Number(responses.stories_above_grade) > 0,
+      "M-0": true,
+      "M-1": true,
+      "E-1": electricalReady(responses),
+    };
+    for (const code of CARD_ORDER) {
+      const card = criteria[code];
+      if (!card || !dueGroups.has(CARD_GROUP[code]) || !applies[code]) continue;
+      const text = valueText(card.correction?.value ?? card.value);
+      if (played.current[code] === text) continue;
+      played.current[code] = text;
+      onStageEvent(cardMoment(code, text));
     }
-    if (!next["V-2"]) delete facts.hydraulicJackType;
-    return facts;
-  }
+  }, [criteria, dueGroups, responses, onStageEvent]);
 
-  function landEngineering(code: string) {
-    const criterion = criteria[code];
-    if (!criterion) return;
-    setAppliedFacts((current) => {
-      const next = { ...current, ...factsOf({ ...criteria }) };
-      // A later card's facts count only once that card itself has landed.
-      if (code === "V-1" && !current.hydraulicJackType) delete next.hydraulicJackType;
-      if (code !== "V-3" && current.elevatorMachineRooms === undefined) {
-        delete next.elevatorMachineRooms;
-        delete next.elevatorMachineRoomHvac;
-      }
-      return next;
-    });
-    onEngineeringFocus?.({ code, costCodes: criterion.costCodes });
-  }
-
-  /**
-   * The estimator picked another answer: record it as a correction (or go
-   * back to the rule's answer), then work V-2 out again from it.
-   */
-  async function pickEngineering(code: string, text: string) {
-    const criterion = criteria[code];
-    if (!criterion || !projectId || engBusy) return;
-    const derived = valueText(criterion.value);
-    const value = valueFromChoice(criterion, text);
-    if (!value) return;
-    setEngBusy(true);
-    setEngError(null);
-    let saved: StoredDerivedAssumption | null = null;
-    try {
-      const response = await fetch(`/api/rom/derived-assumptions/${encodeURIComponent(criterion.id)}/correction`, {
-        headers: { "Content-Type": "application/json" },
-        ...(text === derived
-          ? { method: "DELETE" }
-          : { method: "POST", body: JSON.stringify({ value, reason: "Set in New Budget" }) }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setEngError(body.error ?? "The answer could not be saved.");
-        return;
-      }
-      saved = (body.derivedAssumption as StoredDerivedAssumption | undefined) ?? null;
-    } catch {
-      setEngError("The site could not reach the server. Check the connection and try again.");
-      return;
-    } finally {
-      setEngBusy(false);
-    }
-    // The saved answer shows at once, and the budget prices it at once.
-    const updated = saved ? { ...criteria, [code]: saved } : criteria;
-    setCriteria(updated);
-    setAppliedFacts(factsOf(updated));
-    onEngineeringFocus?.({ code, costCodes: criterion.costCodes });
-    // V-2 and V-3 read V-1's type, so a change to V-1 works them out again
-    // (V-2 may come or go, V-3's rooms may change). V-2 only moves V-3's
-    // confidence, which the run at the end works out, so it waits for that.
-    // LA-1282: M-1 reads M-0's band, so a change to M-0 works M-1 out again.
-    if (code === "V-1" || code === "M-0") {
-      const next = await deriveEngineering(projectId, responses);
-      if (next) setAppliedFacts(factsOf(next));
-    }
-  }
-
-  function continueEngineering() {
-    if (busy || engBusy || !projectId) return;
-    const nextSlots = slotsFor(responses, markupForm);
-    const nextIndex = index + 1;
-    if (nextIndex >= nextSlots.length) void finish(projectId, responses, markupForm);
-    else setIndex(nextIndex);
-  }
+  // LA-1318: the building appears once setup has its size and the typing has
+  // paused, so it does not rebuild with every keystroke of Stories.
+  const setupKey = setupReady
+    ? `${responses.stories_above_grade}|${responses.gross_square_feet}|${responses.building_count}`
+    : null;
+  useEffect(() => {
+    if (!setupKey || setupPlayed.current || !onStageEvent) return;
+    const timer = window.setTimeout(() => {
+      const stories = Number(responses.stories_above_grade);
+      const gsf = Number(responses.gross_square_feet);
+      if (!(stories > 0 && gsf > 0)) return;
+      setupPlayed.current = true;
+      onStageEvent(setupMoment(stories, gsf, responses.project_type === "multifamily"));
+    }, 700);
+    return () => window.clearTimeout(timer);
+    // The key carries every answer the moment reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupKey, onStageEvent]);
 
   function back() {
     if (busy) return;
@@ -761,8 +714,7 @@ export function GuidedNewBudget({
       ) : null}
       <div className="nb-top" ref={questionRef}>
         <span className="nb-count">
-          {slot.kind === "engineering" ? "Answered for You, " : "Question "}
-          <span className="num">{position}</span> of <span className="num">{slots.length}</span>
+          Question <span className="num">{position}</span> of <span className="num">{slots.length}</span>
         </span>
         <span className={`nb-save nb-save--${saveState}`} role="status">
           {busy && position === slots.length
@@ -781,20 +733,7 @@ export function GuidedNewBudget({
       </div>
 
       <section className="nb-q" key={slotKey(slot)} aria-live="polite">
-        {slot.kind === "engineering" ? (
-          <EngineeringStep
-            key={criteria[slot.code]?.id ?? "working"}
-            code={slot.code}
-            label={ENGINEERING_LABEL[slot.code]}
-            criterion={engBusy && !criteria[slot.code] ? null : (criteria[slot.code] ?? null)}
-            failed={engError}
-            busy={engBusy}
-            onPick={(text) => void pickEngineering(slot.code, text)}
-            onLanded={() => landEngineering(slot.code)}
-            onContinue={continueEngineering}
-            onRetry={() => projectId && void deriveEngineering(projectId, responses)}
-          />
-        ) : slot.kind === "flow" ? (
+        {slot.kind === "flow" ? (
           <>
             {slot.question.id === "levels_below_grade" ? (
               <p className="nb-divider">Now the New Building</p>
@@ -810,7 +749,7 @@ export function GuidedNewBudget({
                     picked={responses[slot.question.id] === answer.value}
                     disabled={busy}
                     autoFocus={focusQuestion && i === 0}
-                    onPick={() => pickAnswer(slot.question.id, answer.value)}
+                    onPick={() => pickAnswer(slot.question, answer.value)}
                   />
                 ))}
               </div>
@@ -823,7 +762,7 @@ export function GuidedNewBudget({
                     picked={responses[slot.question.id] === choice.value}
                     disabled={busy}
                     autoFocus={focusQuestion && i === 0}
-                    onPick={() => pickAnswer(slot.question.id, choice.value)}
+                    onPick={() => pickAnswer(slot.question, choice.value)}
                   />
                 ))}
               </div>

@@ -2,7 +2,10 @@
 // `docs/precon/rom-spec.md` and defined under Engine in `CONTEXT.md`.
 
 export {
+  blendExample,
   computeRom,
+  type ExampleBlend,
+  type ExampleFigure,
   type Answers,
   type Benchmark,
   type BlockClassification,
@@ -31,6 +34,14 @@ export {
   type FramingLineStatus,
   type UnpricedItem,
 } from "./rom";
+
+export {
+  PARAMETER_NAMES,
+  parameterProblems,
+  tierProblems,
+  weightProblem,
+  type ParameterProblem,
+} from "./rom-parameters";
 
 export {
   FRAMING_ITEM_CODES,

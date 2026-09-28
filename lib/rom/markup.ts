@@ -301,7 +301,7 @@ export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
         reason: string;
       }>(
         `select name, value, provenance_kind, provenance_recorded_by, provenance_recorded_at, reason
-           from engine_parameters where name in ('fee.rate', 'insurance.rate')`,
+           from engine_parameters_current where name in ('fee.rate', 'insurance.rate')`,
       )
       .then((r) => r.rows),
   ]);

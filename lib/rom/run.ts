@@ -220,6 +220,8 @@ type RelationshipRow = {
   supporting_cost_code: string;
   supporting_label: string;
   quantity_rule: ScopeRelationship["quantityRule"];
+  condition_fact: string | null;
+  condition_equals: string | null;
   stated_by: string;
   stated_on: Date | string;
   reason: string;
@@ -516,7 +518,7 @@ export async function readBenchmarkData(
   // only when there are some.
   const { rows: relationships } = await db.query<RelationshipRow>(
     `select driver_cost_code, supporting_cost_code, supporting_label,
-            quantity_rule, stated_by, stated_on, reason
+            quantity_rule, condition_fact, condition_equals, stated_by, stated_on, reason
        from scope_relationships
       order by driver_cost_code, supporting_cost_code`,
   );
@@ -728,6 +730,9 @@ function toRelationship(row: RelationshipRow): ScopeRelationship {
     supportingCostCode: row.supporting_cost_code,
     supportingLabel: row.supporting_label,
     quantityRule: row.quantity_rule,
+    // LA-1257: a fact the driver needs before it brings the item in.
+    condition:
+      row.condition_fact && row.condition_equals ? { fact: row.condition_fact, equals: row.condition_equals } : null,
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),
     reason: row.reason,

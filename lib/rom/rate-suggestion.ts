@@ -25,7 +25,7 @@ export type RateSuggestionInput = {
   itemLabel: string;
   /** What brings the item in, and how many: "Structure Demolition, one per structure coming down". */
   quantityBasis: string;
-  unit: "each";
+  unit: "each" | "per stop";
   facts: Record<string, string | number | null>;
 };
 

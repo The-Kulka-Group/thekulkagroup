@@ -86,7 +86,9 @@ describe("GET /api/rom/snapshot", () => {
     );
 
     const snapshot = await snapshotFor();
-    expect(snapshot.scopeRelationships?.map((r) => r.supportingCostCode)).toEqual([
+    expect(
+      snapshot.scopeRelationships?.filter((r) => r.driverCostCode === "1a").map((r) => r.supportingCostCode),
+    ).toEqual([
       "28a",
       "28b",
       "31f",

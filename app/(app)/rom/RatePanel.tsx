@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 // Matt, 2026-09-28: a supporting item showing "No Rate Yet" takes a rate on
-// its card. This is the panel the card opens. The rate is dollars each, one
-// per structure coming down (lib/rom/stated-rates.ts), and it joins the
+// its card. This is the panel the card opens. The rate prices on the item's
+// counting rule (lib/rom/quantity-rules.ts, LA-1257), and it joins the
 // benchmarks for this project's type and construction kind, so every such
 // budget prices the item from then on. That reach is why this panel keeps a
 // Save Rate button where the other panels save as you type.
@@ -21,7 +21,12 @@ import { useEffect, useState } from "react";
 // stays where the rate lives: a budget-only rate changes for this budget, a
 // shared rate changes for every budget of this kind.
 
-type Saved = { projectRate: { value: number; suggested: boolean } | null; sharedRate: { value: number } | null };
+type Saved = {
+  projectRate: { value: number; suggested: boolean } | null;
+  sharedRate: { value: number } | null;
+  /** LA-1257: how the item is counted, so the panel says per structure, per elevator or per stop. */
+  basis: { fieldLabel: string; count: string; per: string } | null;
+};
 
 type Suggestion = { value: number; low: number; high: number; reasoning: string; model: string; asks?: number[] };
 
@@ -58,8 +63,9 @@ export function RatePanel({
   const [suggesting, setSuggesting] = useState(false);
   const [saved, setSaved] = useState<Saved | null>(null);
 
+  // Read the item's saved rates and counting rule. Only an edit fills the
+  // field with the saved figure; a new rate starts blank.
   useEffect(() => {
-    if (!editing) return;
     let live = true;
     void fetch(`/api/rom/rates?projectId=${projectId}&costCode=${encodeURIComponent(costCode)}`)
       .then((response) => (response.ok ? response.json() : null))
@@ -67,7 +73,7 @@ export function RatePanel({
         if (!live || !body) return;
         setSaved(body);
         const current = body.projectRate?.value ?? body.sharedRate?.value;
-        if (current !== undefined) setValue((existing) => (existing === "" ? String(current) : existing));
+        if (editing && current !== undefined) setValue((existing) => (existing === "" ? String(current) : existing));
       })
       .catch(() => undefined);
     return () => {
@@ -148,10 +154,10 @@ export function RatePanel({
               ? "This rate is shared by every budget of this project type and construction kind."
               : "Reading the saved rate."
           : "No rate yet."}
-        {driverLabel ? ` It comes in with ${driverLabel}, one for each structure coming down.` : ""}
+        {driverLabel && saved?.basis ? ` It comes in with ${driverLabel}, ${saved.basis.count}.` : ""}
       </p>
       <label className="rt-field">
-        <span className="field-label t-label">Dollars Each, per Structure</span>
+        <span className="field-label t-label">{saved?.basis?.fieldLabel ?? "Rate"}</span>
         <input
           className="input num"
           inputMode="decimal"
@@ -169,7 +175,10 @@ export function RatePanel({
       {suggestion ? (
         <div className="rt-sug">
           <p className="rb-pp">
-            <b>{money(suggestion.value)} each</b>, range {money(suggestion.low)} to {money(suggestion.high)}.
+            <b>
+              {money(suggestion.value)} {saved?.basis?.per ?? "each"}
+            </b>
+            , range {money(suggestion.low)} to {money(suggestion.high)}.
             {suggestion.asks && suggestion.asks.length > 1 ? ` ${asksWords(suggestion.asks)}` : ""}
           </p>
           <p className="rb-pp">{suggestion.reasoning}</p>

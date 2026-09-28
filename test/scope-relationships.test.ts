@@ -39,7 +39,7 @@ describe("scope_relationships", () => {
       stated_on: Date;
     }>(
       `select driver_cost_code, supporting_cost_code, quantity_rule, stated_by, stated_on
-         from scope_relationships order by supporting_cost_code`,
+         from scope_relationships where driver_cost_code = '1a' order by supporting_cost_code`,
     );
 
     expect(rows.map((r) => [r.driver_cost_code, r.supporting_cost_code])).toEqual([
@@ -53,6 +53,39 @@ describe("scope_relationships", () => {
     expect(new Set(rows.map((r) => new Date(r.stated_on).toISOString().slice(0, 10)))).toEqual(
       new Set(["2026-09-26"]),
     );
+  });
+
+  it("seeds Matt's Elevator element of 2026-09-28 (LA-1257): item 26 brings in 26b to 26h, two on a condition", async () => {
+    const { rows } = await db.query<{
+      supporting_cost_code: string;
+      quantity_rule: string;
+      condition_fact: string | null;
+      condition_equals: string | null;
+    }>(
+      `select supporting_cost_code, quantity_rule, condition_fact, condition_equals
+         from scope_relationships where driver_cost_code = '26' order by supporting_cost_code`,
+    );
+
+    expect(rows.map((r) => [r.supporting_cost_code, r.quantity_rule, r.condition_fact, r.condition_equals])).toEqual([
+      ["26b", "one_per_elevator", null, null],
+      ["26c", "one_per_elevator", null, null],
+      ["26d", "one_per_elevator", "levels_below_grade", "yes"],
+      ["26e", "one_per_elevator", null, null],
+      ["26f", "one_per_elevator", null, null],
+      ["26g", "one_per_elevator", "elevatorType", "hydraulic"],
+      ["26h", "one_per_stop", null, null],
+    ]);
+  });
+
+  it("refuses half a condition", async () => {
+    await expect(
+      db.query(
+        `insert into scope_relationships
+           (driver_cost_code, supporting_cost_code, supporting_label, quantity_rule,
+            condition_fact, stated_by, stated_on, reason)
+         values ('26', '99', 'Synthetic', 'one_per_elevator', 'elevatorType', 'automated test', date '2026-09-28', 'synthetic')`,
+      ),
+    ).rejects.toThrow();
   });
 
   it("refuses a second row for the same pairing", async () => {

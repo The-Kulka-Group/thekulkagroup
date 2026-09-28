@@ -137,7 +137,7 @@ export function BulkRatePanel({
                 <input
                   className="input num br-in"
                   inputMode="decimal"
-                  aria-label={`${row.label}, dollars each per structure`}
+                  aria-label={`${row.label}, rate`}
                   value={row.value}
                   disabled={saving}
                   onChange={(e) => patch(row.costCode, { value: e.target.value })}
@@ -151,7 +151,7 @@ export function BulkRatePanel({
             {row.suggestion ? (
               <p className="br-note">
                 {row.suggestion.asks && row.suggestion.asks.length > 1 ? `${asksWords(row.suggestion.asks)} ` : ""}
-                Range {money(row.suggestion.low)} to {money(row.suggestion.high)} each. {row.suggestion.reasoning}
+                Range {money(row.suggestion.low)} to {money(row.suggestion.high)}. {row.suggestion.reasoning}
               </p>
             ) : null}
             {row.status === "failed" ? (

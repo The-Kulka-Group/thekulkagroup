@@ -2,6 +2,8 @@ import type { Benchmark, BenchmarkUnit, ConstructionKind, DataSnapshot, ProjectT
 
 import type { Db } from "@/lib/db";
 
+import { basisFor, isQuantityRule } from "./quantity-rules";
+
 // LA-1245. A rate for one project (project_rates), the first rate that is not
 // shared by every project of the same type and construction kind. Matt,
 // 2026-09-28: a rate the model suggests from the project's location and
@@ -98,7 +100,7 @@ export type NewProjectRate = {
 /**
  * Records a supporting item's rate for one project. Like the shared rate
  * (lib/rom/stated-rates.ts), only a stated supporting item takes one here,
- * priced each, one per structure coming down. Saving again replaces the
+ * priced on its counting rule's unit (lib/rom/quantity-rules.ts). Saving again replaces the
  * project's earlier rate for the item.
  */
 export async function saveProjectRate(db: Db, rate: NewProjectRate): Promise<void> {
@@ -110,9 +112,10 @@ export async function saveProjectRate(db: Db, rate: NewProjectRate): Promise<voi
   );
   const found = relationship.rows[0];
   if (!found) throw new ProjectRateRefused("Only a supporting item can take a rate here.");
-  if (found.quantity_rule !== "one_per_structure") {
+  if (!isQuantityRule(found.quantity_rule)) {
     throw new ProjectRateRefused("This item's quantity rule has no rate unit yet.");
   }
+  const basis = basisFor(found.quantity_rule);
   const project = await db.query<{ project_type: string; construction_kind: string }>(
     `select project_type, construction_kind from projects where id = $1`,
     [rate.projectId],
@@ -125,14 +128,14 @@ export async function saveProjectRate(db: Db, rate: NewProjectRate): Promise<voi
   );
   const sides = driver.rows[0] ?? { scope_side: "building", contract_side: "kulka" };
   const note = rate.modelProposal
-    ? `Began as ${rate.modelProposal.model}'s suggestion of $${rate.modelProposal.value} each ($${rate.modelProposal.low} to $${rate.modelProposal.high}); saved at $${rate.value} each, one per structure coming down.`
-    : `Stated on the item's card, $${rate.value} each, one per structure coming down.`;
+    ? `Began as ${rate.modelProposal.model}'s suggestion of $${rate.modelProposal.value} ${basis.per} ($${rate.modelProposal.low} to $${rate.modelProposal.high}); saved at $${rate.value} ${basis.per}, ${basis.count}.`
+    : `Stated on the item's card, $${rate.value} ${basis.per}, ${basis.count}.`;
 
   await db.query(
     `insert into project_rates
        (project_id, cost_code, label, unit, value, scope_side, contract_side, provenance_kind,
         provenance_note, recorded_by, recorded_at, model_proposal)
-     values ($1, $2, $3, 'usd_each_structure', $4, $5, $6, 'reviewed_judgment', $7, $8, $9, $10)
+     values ($1, $2, $3, $11, $4, $5, $6, 'reviewed_judgment', $7, $8, $9, $10)
      on conflict (project_id, cost_code) do update
        set value = excluded.value, provenance_note = excluded.provenance_note,
            recorded_by = excluded.recorded_by, recorded_at = excluded.recorded_at,
@@ -148,6 +151,7 @@ export async function saveProjectRate(db: Db, rate: NewProjectRate): Promise<voi
       rate.recordedBy,
       rate.recordedAt,
       rate.modelProposal ? JSON.stringify(rate.modelProposal) : null,
+      basis.unit,
     ],
   );
 }

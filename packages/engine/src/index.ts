@@ -115,6 +115,7 @@ export {
   type QuantityRule,
   type ScopeRelationship,
   type SupportingItems,
+  type RelationshipCondition,
 } from "./rom-relationships";
 
 export {

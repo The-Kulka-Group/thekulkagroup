@@ -627,7 +627,15 @@ export function RomRunner({
                 </span>
               </button>
               {headline.tbd.length > 0 ? (
-                <span className="rb-td">{headline.tbd.join(", ")} TBD, Outside the Total</span>
+                // LA-1256: a blank markup rate is fixed in Run Settings, so the
+                // note opens it.
+                <button
+                  type="button"
+                  className="rb-td rb-td--btn"
+                  onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
+                >
+                  {headline.tbd.join(", ")} TBD, Outside the Total. Enter a Rate
+                </button>
               ) : null}
               <button
                 type="button"

@@ -49,6 +49,8 @@ type Slot =
   | { kind: "flow"; question: Question }
   | { kind: "markup_setup" }
   | { kind: "markup_method" }
+  /** LA-1256: the GRs/GCs rate, so New Budget never finishes with GRs/GCs TBD. */
+  | { kind: "markup_rate" }
   | { kind: "markup_detail" };
 
 type SaveState = "idle" | "saving" | "saved" | "failed";
@@ -177,6 +179,7 @@ export function GuidedNewBudget({
     if (markupOptions) {
       slots.push({ kind: "markup_setup" }, { kind: "markup_method" });
       if (form.method === "staffing_duration") slots.push({ kind: "markup_detail" });
+      else slots.push({ kind: "markup_rate" });
     }
     return slots;
   }
@@ -386,6 +389,33 @@ export function GuidedNewBudget({
     void advance(responses, markupForm);
   }
 
+  /**
+   * LA-1256 (Matt, 2026-09-28): the last question requires a rate. A blank
+   * rate is allowed only when imported budgets carry history for the setup,
+   * and then only through Use History, so the run never lands on TBD.
+   */
+  function submitMarkupRate(useHistory: boolean) {
+    if (busy || !markupOptions) return;
+    const form = useHistory ? { ...markupForm, overridePercent: "", overridePerSf: "" } : markupForm;
+    const typed = form.method === "pct_of_subtotal" ? form.overridePercent : form.overridePerSf;
+    if (!useHistory && typed.trim() === "") {
+      setError(
+        form.method === "pct_of_subtotal"
+          ? "Enter the GRs/GCs percent of subtotal."
+          : "Enter the GRs/GCs rate in dollars per GSF.",
+      );
+      return;
+    }
+    const parsed = markupChoicesFrom(form, markupOptions);
+    if (!parsed.ok) {
+      setError(parsed.error);
+      return;
+    }
+    setMarkupForm(form);
+    setError(null);
+    void advance(responses, form);
+  }
+
   function back() {
     if (busy) return;
     setError(null);
@@ -588,6 +618,56 @@ export function GuidedNewBudget({
                 />
               ))}
             </div>
+          </>
+        ) : slot.kind === "markup_rate" && markupOptions ? (
+          <>
+            <h3 className="nb-prompt">
+              {markupForm.method === "pct_of_subtotal"
+                ? "What GRs/GCs rate should this budget carry, as a percent of subtotal?"
+                : "What GRs/GCs rate should this budget carry, in dollars per GSF?"}
+            </h3>
+            <p className="nb-help">
+              {markupOptions.historyCounts[markupForm.setup] > 0
+                ? `Imported budgets carry a figure for this setup (${
+                    markupOptions.historyCounts[markupForm.setup] === 1
+                      ? "1 job"
+                      : `${markupOptions.historyCounts[markupForm.setup]} jobs`
+                  }). Enter your own rate or use theirs.`
+                : "No imported budget has a figure for this setup, so enter the rate."}
+            </p>
+            <form
+              className="nb-num"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitMarkupRate(false);
+              }}
+            >
+              <input
+                className="input num"
+                inputMode="decimal"
+                aria-label={markupForm.method === "pct_of_subtotal" ? "GRs/GCs, % of Subtotal" : "GRs/GCs, $ per GSF"}
+                autoFocus={focusQuestion}
+                disabled={busy}
+                value={markupForm.method === "pct_of_subtotal" ? markupForm.overridePercent : markupForm.overridePerSf}
+                onChange={(e) =>
+                  setMarkupForm(
+                    markupForm.method === "pct_of_subtotal"
+                      ? { ...markupForm, overridePercent: e.target.value }
+                      : { ...markupForm, overridePerSf: e.target.value },
+                  )
+                }
+              />
+              <button className="btn btn--primary" type="submit" disabled={busy}>
+                Next
+              </button>
+            </form>
+            {markupOptions.historyCounts[markupForm.setup] > 0 ? (
+              <div className="rb-acts">
+                <button className="btn" type="button" onClick={() => submitMarkupRate(true)} disabled={busy}>
+                  Use History
+                </button>
+              </div>
+            ) : null}
           </>
         ) : markupOptions ? (
           <>

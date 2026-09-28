@@ -31,6 +31,7 @@ import {
 } from "./DerivedCriteria";
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
 import { ElementBoxBlock } from "./ElementBox";
+import { RatePanel } from "./RatePanel";
 import {
   type BarModel,
   barModel,
@@ -86,7 +87,9 @@ type Panel =
   | { kind: "notes" }
   | { kind: "settings" }
   | { kind: "new" }
-  | { kind: "edit" };
+  | { kind: "edit" }
+  /** A supporting item with no rate yet, taking one on its card (RatePanel.tsx). */
+  | { kind: "rate"; costCode: string };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -279,7 +282,8 @@ export function RomRunner({
       panel.kind === next.kind &&
       (panel.kind !== "block" || (next.kind === "block" && panel.costCode === next.costCode)) &&
       (panel.kind !== "package" || (next.kind === "package" && panel.key === next.key)) &&
-      (panel.kind !== "criterion" || (next.kind === "criterion" && panel.code === next.code));
+      (panel.kind !== "criterion" || (next.kind === "criterion" && panel.code === next.code)) &&
+      (panel.kind !== "rate" || (next.kind === "rate" && panel.costCode === next.costCode));
     if (same) {
       closePanel();
       return;
@@ -420,6 +424,8 @@ export function RomRunner({
   }
 
   const openBlock = panel?.kind === "block" ? blocks.find((b) => b.costCode === panel.costCode) : undefined;
+  const rateItem =
+    panel?.kind === "rate" && run ? run.rom.unpricedItems.find((item) => item.costCode === panel.costCode) : undefined;
   const openPackage =
     panel?.kind === "package"
       ? entries.find((entry): entry is Extract<FieldEntry, { kind: "package" }> => entry.key === panel.key)
@@ -673,7 +679,14 @@ export function RomRunner({
               selectedPackage={openPackage?.key ?? null}
               link={link}
               mark={criterionMark}
-              onOpen={(costCode, el) => openPanel({ kind: "block", costCode }, el)}
+              onOpen={(costCode, el) =>
+                openPanel(
+                  run.rom.unpricedItems.some((item) => item.costCode === costCode && item.driverCostCode)
+                    ? { kind: "rate", costCode }
+                    : { kind: "block", costCode },
+                  el,
+                )
+              }
               onOpenPackage={(key, el) => openPanel({ kind: "package", key }, el)}
             />
           )
@@ -808,6 +821,30 @@ export function RomRunner({
                 titleRef={titleRef}
               />
               <BlockPanel block={openBlock} drilldown={drilldown} grossSquareFeet={run.grossSquareFeet} />
+            </>
+          ) : null}
+
+          {panel.kind === "rate" && run && projectId && rateItem ? (
+            <>
+              <PanelHead
+                title={titleCase(rateItem.label)}
+                sub={`${rateItem.costCode} · ${runWords(run)}`}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <RatePanel
+                key={rateItem.costCode}
+                projectId={projectId}
+                costCode={rateItem.costCode}
+                driverLabel={
+                  run.rom.lines.find((line) => line.costCode === rateItem.driverCostCode)?.label ?? null
+                }
+                onSaved={() => {
+                  // The new rate is in the benchmarks; a run shows it priced.
+                  closePanel();
+                  queueRun();
+                }}
+              />
             </>
           ) : null}
 

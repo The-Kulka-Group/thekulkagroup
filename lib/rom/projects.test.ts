@@ -6,7 +6,6 @@ import { readBenchmarkData } from "./run";
 
 import {
   archiveRomProject,
-  CannotArchiveEnvProject,
   listRomProjects,
   ProjectNotFoundForEdit,
   readRomProjectDetail,
@@ -285,7 +284,7 @@ describe("updateRomProject", () => {
 
 describe("archiveRomProject / restoreRomProject", () => {
   it("sets and clears archived_at, without deleting the row", async () => {
-    await archiveRomProject(db, TEST_PROJECT_ID, undefined);
+    await archiveRomProject(db, TEST_PROJECT_ID);
     let row = await db.query<{ archived_at: string | null }>(`select archived_at from projects where id = $1`, [
       TEST_PROJECT_ID,
     ]);
@@ -296,19 +295,23 @@ describe("archiveRomProject / restoreRomProject", () => {
     expect(row.rows[0].archived_at).toBeNull();
   });
 
-  it("refuses to archive the project configured for this environment", async () => {
-    await expect(archiveRomProject(db, TEST_PROJECT_ID, TEST_PROJECT_ID)).rejects.toBeInstanceOf(
-      CannotArchiveEnvProject,
-    );
+  it("archives the project configured for this environment like any other (Matt, 2026-09-27)", async () => {
+    await archiveRomProject(db, TEST_PROJECT_ID);
     const row = await db.query<{ archived_at: string | null }>(`select archived_at from projects where id = $1`, [
       TEST_PROJECT_ID,
     ]);
-    expect(row.rows[0].archived_at).toBeNull();
+    expect(row.rows[0].archived_at).not.toBeNull();
+    // A bare /rom then opens on no project, not on the archived one.
+    expect(await resolveRomProjectId(db, undefined, TEST_PROJECT_ID)).toEqual({
+      projectId: undefined,
+      notFound: false,
+      archivedAt: null,
+    });
   });
 
   it("throws archiving or restoring a project that does not exist", async () => {
     await expect(
-      archiveRomProject(db, "00000000-0000-4000-8000-00000000abcd", undefined),
+      archiveRomProject(db, "00000000-0000-4000-8000-00000000abcd"),
     ).rejects.toBeInstanceOf(ProjectNotFoundForEdit);
     await expect(
       restoreRomProject(db, "00000000-0000-4000-8000-00000000abcd"),
@@ -337,7 +340,7 @@ describe("archived project still feeds benchmark blends", () => {
       TEST_PROJECT_ID,
     ]);
 
-    await archiveRomProject(db, TEST_PROJECT_ID, undefined);
+    await archiveRomProject(db, TEST_PROJECT_ID);
 
     const { rows } = await db.query<{ project_id: string }>(
       `select bsp.project_id
@@ -349,7 +352,7 @@ describe("archived project still feeds benchmark blends", () => {
   });
 
   it("still appears in readBenchmarkData's provenance for the benchmark it built (LA-1110)", async () => {
-    await archiveRomProject(db, TEST_PROJECT_ID, undefined);
+    await archiveRomProject(db, TEST_PROJECT_ID);
     const data = await readBenchmarkData(db, "multifamily", "new");
     const testLine = data.benchmarks.find((b) => b.costCode === "TEST");
     expect(testLine?.provenance.sourceProjectIds).toContain(TEST_PROJECT_ID);

@@ -37,9 +37,11 @@ export async function resolveRomProjectId(
       `select archived_at from projects where id = $1`,
       [fromEnv],
     );
-    return rows[0]
-      ? { projectId: fromEnv, notFound: false, archivedAt: rows[0].archived_at }
-      : { projectId: fromEnv, notFound: false, archivedAt: null };
+    // Matt, 2026-09-27: the environment's project can be archived like any
+    // other. Once it is, a bare /rom opens on no project (choose one or start
+    // a new budget) rather than on an archived one.
+    if (rows[0]?.archived_at) return { projectId: undefined, notFound: false, archivedAt: null };
+    return { projectId: fromEnv, notFound: false, archivedAt: null };
   }
   if (!isUuid(asked)) return { projectId: undefined, notFound: true, archivedAt: null };
   const { rows } = await db.query<{ id: string; archived_at: string | null }>(
@@ -245,11 +247,6 @@ export class ProjectNotFoundForEdit extends Error {
   }
 }
 
-export class CannotArchiveEnvProject extends Error {
-  constructor() {
-    super("The project configured for this environment cannot be archived.");
-  }
-}
 
 /**
  * Edit (LA-1110): updates the same fields New budget writes. Saved runs are
@@ -290,8 +287,7 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
  * (ROM_PROJECT_ID); it can never be archived, so the tool that always resolves
  * to it never goes dark.
  */
-export async function archiveRomProject(db: Db, projectId: string, envProjectId: string | undefined): Promise<void> {
-  if (envProjectId && projectId === envProjectId) throw new CannotArchiveEnvProject();
+export async function archiveRomProject(db: Db, projectId: string): Promise<void> {
   const { rows } = await db.query<{ id: string }>(
     `update projects set archived_at = now() where id = $1 returning id`,
     [projectId],

@@ -12,9 +12,8 @@ import { areaOf, EMPTY, ProjectFields, type Form } from "./NewBudget";
 // /api/rom/projects/[id]/archive, behind a plain confirm step. It never
 // deletes the row -- projects also holds past jobs the ROM prices benchmarks
 // from, so a delete would strip their data out of every other project's
-// blend. The project configured for this environment (ROM_PROJECT_ID) cannot
-// be archived; the button disables itself with a short reason and the API
-// refuses it too.
+// blend. The project configured for this environment (ROM_PROJECT_ID)
+// archives like any other (Matt, 2026-09-27).
 
 export type EditableProject = {
   id: string;
@@ -52,13 +51,10 @@ function formFrom(project: EditableProject): Form {
 
 export function EditProjectForm({
   project,
-  isEnvProject,
   onSaved,
   onArchived,
 }: {
   project: EditableProject;
-  /** True for the project ROM_PROJECT_ID names; that project cannot be archived. */
-  isEnvProject: boolean;
   onSaved: () => void;
   onArchived: () => void;
 }) {
@@ -160,17 +156,13 @@ export function EditProjectForm({
           <button
             type="button"
             className="btn btn--redline"
-            disabled={busy || isEnvProject}
-            title={isEnvProject ? "This project is configured for this environment and cannot be archived." : undefined}
+            disabled={busy}
             onClick={() => setConfirmingArchive(true)}
           >
             Archive Project
           </button>
         )}
       </div>
-      {isEnvProject ? (
-        <p className="rb-pp">This project is configured for this environment and cannot be archived.</p>
-      ) : null}
     </form>
   );
 }

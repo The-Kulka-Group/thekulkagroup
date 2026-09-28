@@ -24,6 +24,7 @@ import {
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
@@ -113,6 +114,10 @@ export type ProjectRow = {
    * see `answersFromProject`.
    */
   elevator_count: number | null;
+  /** LA-1239: demolition's building answers, carried into `facts` like the counts above. */
+  demolition_structure_count: number | null;
+  demolition_structure_square_feet: number | null;
+  demolition_structure_type: string | null;
 };
 
 /**
@@ -315,7 +320,10 @@ export async function runRom(
     ]);
 
     const rom = await step(db, runId, ++seq, "compute_rom", async () =>
-      computeRom(answers, snapshot),
+      // LA-1239: the snapshot's hash above is of everything read; the
+      // Demolition element sits out of the pricing until its building
+      // questions are answered.
+      computeRom(answers, holdUnansweredDemolition(answers, snapshot)),
     );
 
     await db.query(
@@ -383,6 +391,13 @@ export function answersFromProject(
   // elevator, read by packages/engine/src/elevator.ts as "no line" rather
   // than "not asked yet") and a truthy check would drop it back to unset.
   if (project.elevator_count !== null) facts.elevatorCount = project.elevator_count;
+  // LA-1239: the intake-field names the engine reads (readDemolitionFacts).
+  // `!= null` for the count, since zero structures is a real answer.
+  if (project.demolition_structure_count !== null) facts.demolitionStructureCount = project.demolition_structure_count;
+  if (project.demolition_structure_square_feet) {
+    facts.demolitionStructureSquareFeet = project.demolition_structure_square_feet;
+  }
+  if (project.demolition_structure_type) facts.demolitionStructureType = project.demolition_structure_type;
 
   return {
     projectType: project.project_type,
@@ -568,7 +583,8 @@ export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross
             site_conditions_gate, amenity_scope_gate, elevator_gate,
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
             parking_type, framing_system,
-            stories_above_grade, unit_count, building_count, zip, elevator_count`;
+            stories_above_grade, unit_count, building_count, zip, elevator_count,
+            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type`;
 
 export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(

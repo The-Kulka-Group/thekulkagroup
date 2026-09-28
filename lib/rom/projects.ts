@@ -110,7 +110,26 @@ export type NewBudget = {
    * `>= 0` rather than `> 0` the way the other four counts above are.
    */
   elevatorCount?: number | null;
+  /**
+   * LA-1239: demolition's three building answers. Saved on the project so a
+   * later run still has them; until they are answered, a run leaves the
+   * Demolition element out (lib/rom/demolition-hold.ts). Zero structures is
+   * a real answer (site work only).
+   */
+  demolitionStructureCount?: number | null;
+  demolitionStructureSquareFeet?: number | null;
+  demolitionStructureType?: string | null;
 };
+
+/** The demolition structure types config/rom/tier1-flow.json offers, matching the column's check. */
+export const DEMOLITION_STRUCTURE_TYPES: ReadonlySet<string> = new Set([
+  "wood_frame_type_v",
+  "masonry_bearing_wall_type_iii",
+  "pre_engineered_metal_or_light_steel",
+  "steel_frame_concrete_metal_deck_type_ii",
+  "cast_in_place_concrete_frame_type_i",
+  "dont_know",
+]);
 
 const PROJECT_TYPES: ReadonlySet<string> = new Set(["multifamily", "self_storage"]);
 const CONSTRUCTION_KINDS: ReadonlySet<string> = new Set(["new", "renovation"]);
@@ -139,6 +158,9 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
     buildingCount,
     zip,
     elevatorCount,
+    demolitionStructureCount,
+    demolitionStructureSquareFeet,
+    demolitionStructureType,
   } = body as Record<string, unknown>;
   if (typeof name !== "string" || name.trim() === "") return { ok: false, error: "Send a project name." };
   if (name.trim().length > 200) return { ok: false, error: "Keep the project name under 200 characters." };
@@ -199,6 +221,31 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
   ) {
     return { ok: false, error: "Send elevatorCount as a whole number of zero or more, or null." };
   }
+  if (
+    demolitionStructureCount !== undefined &&
+    demolitionStructureCount !== null &&
+    (typeof demolitionStructureCount !== "number" ||
+      !Number.isInteger(demolitionStructureCount) ||
+      demolitionStructureCount < 0)
+  ) {
+    return { ok: false, error: "Send demolitionStructureCount as a whole number of zero or more, or null." };
+  }
+  if (
+    demolitionStructureSquareFeet !== undefined &&
+    demolitionStructureSquareFeet !== null &&
+    (typeof demolitionStructureSquareFeet !== "number" ||
+      !Number.isInteger(demolitionStructureSquareFeet) ||
+      demolitionStructureSquareFeet <= 0)
+  ) {
+    return { ok: false, error: "Send demolitionStructureSquareFeet as a whole number above zero, or null." };
+  }
+  if (
+    demolitionStructureType !== undefined &&
+    demolitionStructureType !== null &&
+    (typeof demolitionStructureType !== "string" || !DEMOLITION_STRUCTURE_TYPES.has(demolitionStructureType))
+  ) {
+    return { ok: false, error: "Send demolitionStructureType as one of the flow's structure types, or null." };
+  }
   return {
     ok: true,
     budget: {
@@ -213,6 +260,9 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       buildingCount: (buildingCount ?? null) as number | null,
       zip: (zip ?? null) as string | null,
       elevatorCount: (elevatorCount ?? null) as number | null,
+      demolitionStructureCount: (demolitionStructureCount ?? null) as number | null,
+      demolitionStructureSquareFeet: (demolitionStructureSquareFeet ?? null) as number | null,
+      demolitionStructureType: (demolitionStructureType ?? null) as string | null,
     },
   };
 }
@@ -221,8 +271,9 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
   const { rows } = await db.query<{ id: string }>(
     `insert into projects
        (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type,
-        stories_above_grade, unit_count, building_count, zip, elevator_count, rom_budget)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, true)
+        stories_above_grade, unit_count, building_count, zip, elevator_count,
+        demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, rom_budget)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, $12, $13, $14, true)
      returning id`,
     [
       budget.name,
@@ -236,6 +287,9 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
       budget.buildingCount ?? null,
       budget.zip ?? null,
       budget.elevatorCount ?? null,
+      budget.demolitionStructureCount ?? null,
+      budget.demolitionStructureSquareFeet ?? null,
+      budget.demolitionStructureType ?? null,
     ],
   );
   return rows[0].id;
@@ -259,7 +313,8 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
         set name = $2, gross_square_feet = $3, project_type = $4,
             construction_kind = $5, framing_system = $6,
             stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10,
-            elevator_count = $11
+            elevator_count = $11, demolition_structure_count = $12,
+            demolition_structure_square_feet = $13, demolition_structure_type = $14
       where id = $1
       returning id`,
     [
@@ -274,6 +329,9 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
       budget.buildingCount ?? null,
       budget.zip ?? null,
       budget.elevatorCount ?? null,
+      budget.demolitionStructureCount ?? null,
+      budget.demolitionStructureSquareFeet ?? null,
+      budget.demolitionStructureType ?? null,
     ],
   );
   if (!rows[0]) throw new ProjectNotFoundForEdit(projectId);
@@ -283,9 +341,8 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
  * Archive (LA-1110): sets a timestamp, never deletes the row. Hides the
  * project from listRomProjects (both /rom and /rom/intake pickers) only --
  * every benchmark, run, cost import and classification keeps reading it.
- * `envProjectId` is the project configured for this environment
- * (ROM_PROJECT_ID); it can never be archived, so the tool that always resolves
- * to it never goes dark.
+ * The environment's own project (ROM_PROJECT_ID) archives like any other
+ * (LA-1236); a bare /rom then opens on no project.
  */
 export async function archiveRomProject(db: Db, projectId: string): Promise<void> {
   const { rows } = await db.query<{ id: string }>(
@@ -320,10 +377,14 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     building_count: number;
     zip: string | null;
     elevator_count: number | null;
+    demolition_structure_count: number | null;
+    demolition_structure_square_feet: number | null;
+    demolition_structure_type: string | null;
     archived_at: string | null;
   }>(
     `select id, name, gross_square_feet, project_type, construction_kind, framing_system,
-            stories_above_grade, unit_count, building_count, zip, elevator_count, archived_at
+            stories_above_grade, unit_count, building_count, zip, elevator_count,
+            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, archived_at
        from projects where id = $1`,
     [projectId],
   );
@@ -341,6 +402,9 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     buildingCount: row.building_count,
     zip: row.zip,
     elevatorCount: row.elevator_count,
+    demolitionStructureCount: row.demolition_structure_count,
+    demolitionStructureSquareFeet: row.demolition_structure_square_feet,
+    demolitionStructureType: row.demolition_structure_type,
     archivedAt: row.archived_at,
   };
 }

@@ -29,6 +29,10 @@ export type EditableProject = {
   zip: string | null;
   /** LA-1212. Null on a project never run through New budget's guided flow, or that answered no elevator gate. */
   elevatorCount: number | null;
+  /** LA-1239. Null until answered; zero structures is a real answer. */
+  demolitionStructureCount: number | null;
+  demolitionStructureSquareFeet: number | null;
+  demolitionStructureType: string | null;
 };
 
 function formFrom(project: EditableProject): Form {
@@ -46,6 +50,11 @@ function formFrom(project: EditableProject): Form {
     // legal, meaningful Elevator Count (no elevator), and `||` would blank it
     // back out on every reload.
     elevatorCount: project.elevatorCount !== null ? String(project.elevatorCount) : "",
+    demolitionStructureCount: project.demolitionStructureCount !== null ? String(project.demolitionStructureCount) : "",
+    demolitionStructureSquareFeet: project.demolitionStructureSquareFeet
+      ? String(project.demolitionStructureSquareFeet)
+      : "",
+    demolitionStructureType: project.demolitionStructureType ?? "",
   };
 }
 
@@ -89,6 +98,17 @@ export function EditProjectForm({
           // `!== ""` rather than the truthy checks above: "0" is a legal,
           // meaningful Elevator Count and must not be sent as null.
           elevatorCount: form.elevatorCount !== "" ? Number(form.elevatorCount) : null,
+          demolitionStructureCount: form.demolitionStructureCount !== "" ? Number(form.demolitionStructureCount) : null,
+          // The square feet and type only mean something with structures
+          // coming down; with none, they are cleared.
+          demolitionStructureSquareFeet:
+            Number(form.demolitionStructureCount) > 0 && form.demolitionStructureSquareFeet
+              ? Number(form.demolitionStructureSquareFeet)
+              : null,
+          demolitionStructureType:
+            Number(form.demolitionStructureCount) > 0 && form.demolitionStructureType
+              ? form.demolitionStructureType
+              : null,
         }),
       });
       const body = await response.json().catch(() => ({}));

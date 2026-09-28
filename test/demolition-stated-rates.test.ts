@@ -82,9 +82,16 @@ describe("demolition stated rates (LA-1156)", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("prices Site Demolition once, whatever the project's size, when a run leaves demolition unanswered", async () => {
-    // CONTEXT.md and ADR 0006: a run prices silence as assumed present. The
-    // guided New Budget flow requires the question, so its runs never do.
+  it("leaves Site Demolition out while the building questions are unanswered (LA-1239)", async () => {
+    // Matt, 2026-09-27: hide Site Demolition until the building questions
+    // are answered. A run used to price the lump sum on silence alone.
+    const { rom } = await runRom(db, TEST_PROJECT_ID);
+    expect(rom.lines.some((line) => line.costCode === "1")).toBe(false);
+    expect(rom.lines.some((line) => line.costCode === "1a")).toBe(false);
+  });
+
+  it("prices Site Demolition once, whatever the project's size, once the building questions say no structures", async () => {
+    await db.query(`update projects set demolition_structure_count = 0 where id = $1`, [TEST_PROJECT_ID]);
     const { rom } = await runRom(db, TEST_PROJECT_ID);
     const site = rom.lines.find((line) => line.costCode === "1")!;
     expect((site.low + site.high) / 2).toBe(25000);

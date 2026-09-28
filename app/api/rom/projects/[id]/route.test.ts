@@ -127,6 +127,28 @@ describe("PATCH /api/rom/projects/[id]", () => {
     expect(project).toMatchObject({ storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "10956" });
   });
 
+  // LA-1239: demolition's building answers save on the project and reload,
+  // and a bad structure type is refused.
+  it("saves the demolition building answers, and GET reloads them", async () => {
+    const response = await patch(TEST_PROJECT_ID, {
+      ...edit,
+      demolitionStructureCount: 2,
+      demolitionStructureSquareFeet: 8000,
+      demolitionStructureType: "wood_frame_type_v",
+    });
+    expect(response.status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    const { project } = await get.json();
+    expect(project).toMatchObject({
+      demolitionStructureCount: 2,
+      demolitionStructureSquareFeet: 8000,
+      demolitionStructureType: "wood_frame_type_v",
+    });
+
+    const bad = await patch(TEST_PROJECT_ID, { ...edit, demolitionStructureType: "tent" });
+    expect(bad.status).toBe(400);
+  });
+
   // LA-1212: Edit project sets, clears and reloads Elevator Count through the
   // same PATCH/GET pair, the same as the four LA-1199 fields above. Zero is
   // its own case, since it is a legal count (no elevator) rather than a clear.

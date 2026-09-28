@@ -12,11 +12,11 @@ import {
   CRITERION_GAUGE,
   CRITERION_PRICING_NOTE,
   type Gauge,
+  gaugeValue,
   ladderPosition,
   ratingLabel,
   stepNumber,
   stepText,
-  travelFeet,
   valueText,
   windowBays,
   zoneIndex,
@@ -114,7 +114,7 @@ export function EngineeringStep({
   }, [phase, held, busy, criterion]);
 
   const gauge = CRITERION_GAUGE[code];
-  const travel = criterion ? travelFeet(criterion) : null;
+  const travel = criterion ? gaugeValue(code, criterion) : null;
   // LA-1269: V-3 draws its cars grouped into the rooms that serve them.
   const cars = criterion ? stepNumber(criterion, "Elevators") : null;
   const rooms = criterion ? stepNumber(criterion, "Machine Rooms") : null;
@@ -305,7 +305,10 @@ function TravelGauge({ gauge, value, on }: { gauge: Gauge; value: number; on: bo
           />
         ))}
         <span className="eng-mark" style={{ "--eng-at": `${on ? at : 0}%` } as CSSProperties}>
-          <span className="eng-mark-lbl num">{Math.round(value)} ft</span>
+          <span className="eng-mark-lbl num">
+            {Math.round(value)}
+            {gauge.mark ?? " ft"}
+          </span>
         </span>
       </div>
       <div className="eng-zones">

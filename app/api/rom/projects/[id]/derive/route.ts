@@ -6,6 +6,7 @@ import { A1_CODE, applyConstructionTypeCriterion } from "@/lib/rom/construction-
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
 import { applyElectricalCriterion, E1_CODE } from "@/lib/rom/electrical-criterion";
 import { applyElevatorCriterion, V1_CODE } from "@/lib/rom/elevator-criterion";
+import { applyFoundationCriterion, S1_CODE } from "@/lib/rom/foundation-criterion";
 import { applyHvacCriteria, M0_CODE, M1_CODE } from "@/lib/rom/hvac-criterion";
 import { applyJackCriterion, V2_CODE } from "@/lib/rom/jack-criterion";
 import { applyMachineRoomCriterion, V3_CODE } from "@/lib/rom/machine-room-criterion";
@@ -23,7 +24,7 @@ import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
 
-const CODES = new Set([V1_CODE, V2_CODE, V3_CODE, A1_CODE, E1_CODE, M0_CODE, M1_CODE]);
+const CODES = new Set([V1_CODE, V2_CODE, V3_CODE, A1_CODE, S1_CODE, E1_CODE, M0_CODE, M1_CODE]);
 
 export async function POST(request: Request, context: Context) {
   const denied = await requireApiUser(request);
@@ -54,7 +55,8 @@ export async function POST(request: Request, context: Context) {
   const withV3 = await applyMachineRoomCriterion(db, id, withV2);
   // LA-1281, LA-1282: E-1, then M-0 and M-1 (M-1 reads M-0's band).
   const withA1 = await applyConstructionTypeCriterion(db, id, withV3, project.framingSystem ?? null);
-  const withE1 = await applyElectricalCriterion(db, id, withA1);
+  const withS1 = await applyFoundationCriterion(db, id, withA1, project.framingSystem ?? null);
+  const withE1 = await applyElectricalCriterion(db, id, withS1);
   const derived = await applyHvacCriteria(db, id, withE1);
 
   const facts: Record<string, string> = {};

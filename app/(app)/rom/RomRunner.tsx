@@ -32,6 +32,8 @@ import {
 import { type EditableProject, EditProjectForm, RestorePanel } from "./EditProject";
 import { ElementBoxBlock } from "./ElementBox";
 import { BulkRatePanel } from "./BulkRatePanel";
+import { buildLedger } from "./ledger";
+import { LedgerView } from "./LedgerView";
 import { RatePanel } from "./RatePanel";
 import {
   type BarModel,
@@ -53,7 +55,16 @@ import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
 import { type FieldLink, ShareBar, ShareChip, useHoverIntent } from "./ShareBar";
 import { defaultRomView, type RomView } from "./view-groups";
-import { OrderSwitch, useRomOrder, useRomView, ViewSwitch } from "./view-switch";
+import {
+  GroupingSwitch,
+  LayoutSwitch,
+  OrderSwitch,
+  useLedgerGrouping,
+  useRomLayout,
+  useRomOrder,
+  useRomView,
+  ViewSwitch,
+} from "./view-switch";
 import "./rom-blocks.css";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
@@ -190,6 +201,9 @@ export function RomRunner({
 
   // LA-1181: MasterFormat or Largest First, remembered per viewer like the view.
   const [order, setOrder] = useRomOrder();
+  // LA-1254: cards or the schedule-of-values ledger, and how the ledger groups.
+  const [layout, setLayout] = useRomLayout();
+  const [grouping, setGrouping] = useLedgerGrouping();
 
   const busy = state.phase === "running" || state.phase === "loading";
   // Every line that adds to the total, since the side panel opens any of them
@@ -208,6 +222,12 @@ export function RomRunner({
     [run, classifications, canonicalDivisionMap, view, order],
   );
   const bar = useMemo(() => (run ? barModel(run.rom, entries) : null), [run, entries]);
+  // The ledger always reads the By Scope field, so an element keeps its items.
+  const ledger = useMemo(() => {
+    if (!run || layout !== "ledger") return null;
+    const scopeEntries = view === "scope" ? entries : orderField(buildField("scope", run.rom, classifications, canonicalDivisionMap), order);
+    return buildLedger(run.rom, scopeEntries, grouping, order, classifications, canonicalDivisionMap);
+  }, [run, layout, view, entries, grouping, order, classifications, canonicalDivisionMap]);
 
   // The live preview's field and bar, the same way.
   const liveRom = live.phase === "ready" || live.phase === "waiting" ? live.rom : null;
@@ -525,6 +545,10 @@ export function RomRunner({
               answer into one Unassigned Package card (Matt, 2026-09-27). */}
           {packagesAssigned && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
           {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
+          {run && panel?.kind !== "new" ? <LayoutSwitch layout={layout} onChange={setLayout} /> : null}
+          {run && panel?.kind !== "new" && layout === "ledger" ? (
+            <GroupingSwitch grouping={grouping} onChange={setGrouping} />
+          ) : null}
           <button
             type="button"
             className="rb-hbtn"
@@ -687,7 +711,23 @@ export function RomRunner({
             onLeave={criterionHover.leave}
           />
         ) : null}
-        {run ? (
+        {run && layout === "ledger" && ledger && bar && panel?.kind !== "new" ? (
+          <LedgerView
+            rom={run.rom}
+            ledger={ledger}
+            bar={bar}
+            grossSquareFeet={run.grossSquareFeet}
+            selected={openBlock?.costCode ?? (panel?.kind === "rate" ? panel.costCode : null)}
+            onOpen={(costCode, el) =>
+              openPanel(
+                run.rom.unpricedItems.some((item) => item.costCode === costCode && item.driverCostCode)
+                  ? { kind: "rate", costCode }
+                  : { kind: "block", costCode },
+                el,
+              )
+            }
+          />
+        ) : run ? (
           entries.length === 0 ? (
             <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
           ) : (

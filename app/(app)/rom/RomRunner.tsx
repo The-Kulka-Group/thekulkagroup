@@ -63,6 +63,13 @@ import "./rom-blocks.css";
 // "Run settings" so the first screen is the answer, not the form.
 
 /** What the page is doing. The run on screen is held apart, so a failed run or a bad setting leaves it in place. */
+// One shared empty list for a page with no project. useDerivedCriteria resets
+// its state whenever it is handed a different list, and a fresh `[]` default
+// on every render made that an endless loop: the no-project page (an unknown
+// link, or the environment's project archived) crashed with "Too many
+// re-renders".
+const NO_DERIVED_ASSUMPTIONS: StoredDerivedAssumption[] = [];
+
 type Status =
   | { phase: "idle" }
   | { phase: "running" }
@@ -98,11 +105,10 @@ export function RomRunner({
   projects = [],
   projectNotFound = false,
   projectArchivedAt = null,
-  isEnvProject = false,
   openNewOnLoad = false,
   classifications = [],
   canonicalDivisions = [],
-  derivedAssumptions = [],
+  derivedAssumptions = NO_DERIVED_ASSUMPTIONS,
 }: {
   projectId?: string;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
@@ -123,8 +129,6 @@ export function RomRunner({
   projectNotFound?: boolean;
   /** Set when the URL names an archived project (LA-1110); blocks the pricing UI for a Restore prompt. */
   projectArchivedAt?: string | null;
-  /** Whether projectId is the project configured for this environment (ROM_PROJECT_ID); it cannot be archived (LA-1110). */
-  isEnvProject?: boolean;
   /** /rom/intake redirects here with ?new=1 (LA-1141), since the guided New budget flow now covers what it asked. */
   openNewOnLoad?: boolean;
   /**
@@ -741,7 +745,6 @@ export function RomRunner({
               <PanelHead title="Edit Project" sub="Saved runs are untouched." onClose={closePanel} titleRef={titleRef} />
               <EditProjectPanelBody
                 projectId={projectId}
-                isEnvProject={isEnvProject}
                 onSaved={() => {
                   closePanel();
                   router.refresh();
@@ -1077,12 +1080,10 @@ function runWords(run: LoadedRun): string {
 /** Fetches the project's own row for the Edit panel's prefill (LA-1110). */
 function EditProjectPanelBody({
   projectId,
-  isEnvProject,
   onSaved,
   onArchived,
 }: {
   projectId: string;
-  isEnvProject: boolean;
   onSaved: () => void;
   onArchived: () => void;
 }) {
@@ -1109,7 +1110,7 @@ function EditProjectPanelBody({
   if (state.phase === "loading") return <p className="rb-none">Reading the project.</p>;
   if (state.phase === "failed") return <p className="rb-none rb-none--error">The project could not be read.</p>;
   return (
-    <EditProjectForm project={state.project} isEnvProject={isEnvProject} onSaved={onSaved} onArchived={onArchived} />
+    <EditProjectForm project={state.project} onSaved={onSaved} onArchived={onArchived} />
   );
 }
 

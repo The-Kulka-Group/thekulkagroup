@@ -4,7 +4,8 @@ import type { Db } from "@/lib/db";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
 // LA-1110. Archive project: sets archived_at, never deletes the row, and
-// refuses the project this environment is configured for (ROM_PROJECT_ID).
+// archives the project this environment is configured for (ROM_PROJECT_ID)
+// like any other (Matt, 2026-09-27).
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 
@@ -53,14 +54,14 @@ describe("POST /api/rom/projects/[id]/archive", () => {
     expect(count.rows[0].n).toBe(1);
   });
 
-  it("refuses to archive the project configured for ROM_PROJECT_ID", async () => {
+  it("archives the project configured for ROM_PROJECT_ID like any other", async () => {
     process.env.ROM_PROJECT_ID = TEST_PROJECT_ID;
     const response = await post(TEST_PROJECT_ID);
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(200);
     const row = await db.query<{ archived_at: string | null }>(`select archived_at from projects where id = $1`, [
       TEST_PROJECT_ID,
     ]);
-    expect(row.rows[0].archived_at).toBeNull();
+    expect(row.rows[0].archived_at).not.toBeNull();
   });
 
   it("404s for a project that does not exist", async () => {

@@ -81,7 +81,6 @@ export default async function RomPage({
         projectId={projectId}
         projects={projects}
         projectArchivedAt={archivedAt}
-        isEnvProject={projectId === process.env.ROM_PROJECT_ID}
       />
     );
   }
@@ -110,7 +109,6 @@ export default async function RomPage({
       initialRuns={runs}
       initialRun={initialRun}
       projects={projects}
-      isEnvProject={projectId === process.env.ROM_PROJECT_ID}
       openNewOnLoad={openNewOnLoad}
       classifications={classifications}
       canonicalDivisions={canonicalDivisions}

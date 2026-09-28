@@ -56,6 +56,12 @@ export type BudgetDraft = {
   framing: FramingSystem | "";
   /** Null until the Markups step, so the total reads as trade cost first. */
   markups: MarkupChoices | null;
+  /**
+   * LA-1265: facts Design and Engineering set once its answers land, such as
+   * elevatorType from V-1 and hydraulicJackType from V-2, so the live budget
+   * prices the elevator and the well hole the way the run will.
+   */
+  derivedFacts?: Record<string, string>;
 };
 
 export type LiveBudget =
@@ -138,7 +144,8 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
     if (loaded.error || !loaded.snapshot) return { phase: "failed", error: loaded.error ?? "The data could not be read." };
     if (!draft.named) return { phase: "empty" };
     const definition = tier1Flow();
-    const answers = previewAnswers(definition, draft.responses, draft.framing, draft.markups);
+    const read = previewAnswers(definition, draft.responses, draft.framing, draft.markups);
+    const answers = read && draft.derivedFacts ? { ...read, facts: { ...read.facts, ...draft.derivedFacts } } : read;
     const classifications = loaded.snapshot.classifications ?? [];
     const awaiting = sectionsAwaitingFollowUps(definition, draft.responses);
     try {
@@ -173,8 +180,11 @@ export function LiveTotal({
   bar,
   chip,
   litKey,
+  source = null,
 }: {
   live: LiveBudget;
+  /** LA-1265: the criterion code that moved the total, named beside the change. */
+  source?: string | null;
   /** LA-1181: the markup bar for the field's current view and order. */
   bar: BarModel | null;
   /** What is hovered or selected, named beside the total; null names nothing. */
@@ -183,7 +193,11 @@ export function LiveTotal({
 }) {
   const ready = live.phase === "ready" ? live : null;
   const headline = useMemo(() => (ready ? headlineOf(ready.rom) : null), [ready]);
-  const [delta, setDelta] = useState<{ id: number; amount: number } | null>(null);
+  const [delta, setDelta] = useState<{ id: number; amount: number; source: string | null } | null>(null);
+  const sourceRef = useRef(source);
+  useEffect(() => {
+    sourceRef.current = source;
+  });
   const previous = useRef<{ midpoint: number; area: number } | null>(null);
 
   // LA-1153: named whether the area is known yet or not, the same way the
@@ -214,7 +228,7 @@ export function LiveTotal({
     if (!before || before.area !== ready.grossSquareFeet) return;
     const amount = headline.midpoint - before.midpoint;
     if (Math.abs(amount) < 1) return;
-    setDelta((current) => ({ id: (current?.id ?? 0) + 1, amount }));
+    setDelta((current) => ({ id: (current?.id ?? 0) + 1, amount, source: sourceRef.current }));
   }, [headline, ready]);
 
   if (live.phase === "idle" || live.phase === "empty") return <p className="rb-tnone">New Budget</p>;
@@ -247,6 +261,7 @@ export function LiveTotal({
         <span key={delta.id} className={`lb-delta num lb-delta--${delta.amount > 0 ? "up" : "down"}`} aria-hidden="true">
           {delta.amount > 0 ? "+" : "−"}
           {shortMoney(Math.abs(delta.amount)).replace("-", "")}
+          {delta.source ? <span className="lb-delta-src"> from {delta.source}</span> : null}
         </span>
       ) : null}
       <span className="lb-tag">Live, Saves at the Last Answer</span>
@@ -278,11 +293,14 @@ export function LiveField({
   selectedKey,
   onSelect,
   link,
+  mark = null,
 }: {
   live: LiveBudget;
   view: RomView;
   order: RomOrder;
   entries: FieldEntry[];
+  /** LA-1265: the entries a landed Design and Engineering answer feeds, lit and marked with its code. */
+  mark?: { code: string; keys: Set<string> } | null;
   /** The card or block the viewer clicked, which keeps its share lit. */
   selectedKey: string | null;
   onSelect: (key: string) => void;
@@ -292,6 +310,27 @@ export function LiveField({
   const layer = useRef<HTMLDivElement>(null);
   const ghosts = useRef<HTMLDivElement>(null);
   const lastOrder = useRef(order);
+
+  // LA-1265: each entry's root carries its key, and the lit ones the
+  // criterion's code, so the stylesheet fades the rest and draws the mark
+  // (the saved field's BlockField does the same). Tiles inside a box track
+  // under their own cost codes and are left alone.
+  const entryKeys = new Set(entries.map((entry) => entry.key));
+  const register = (key: string) => {
+    const track = flip.register(key);
+    return (el: HTMLElement | null) => {
+      track(el);
+      if (!el || !entryKeys.has(key)) return;
+      el.dataset.dcEntry = key;
+      if (mark?.keys.has(key)) {
+        el.dataset.dcLit = "";
+        el.dataset.dcMark = mark.code;
+      } else {
+        delete el.dataset.dcLit;
+        delete el.dataset.dcMark;
+      }
+    };
+  };
 
   // What was answered No or Don't know, from the ROM as the answers stand.
   // The scope-known ROM cannot say: it leaves unanswered lines out entirely.
@@ -357,7 +396,7 @@ export function LiveField({
           group={entry.group}
           waiting={waiting}
           rollDelay={rollDelay}
-          register={flip.register}
+          register={register}
           link={link}
         />
       );
@@ -372,12 +411,12 @@ export function LiveField({
           rollDelay={rollDelay}
           link={link}
           onSelect={onSelect}
-          register={flip.register(entry.key)}
+          register={register(entry.key)}
         />
       );
     }
     if (entry.kind === "unpriced") {
-      return <UnpricedBlock key={entry.key} entry={entry} link={link} register={flip.register(entry.key)} />;
+      return <UnpricedBlock key={entry.key} entry={entry} link={link} register={register(entry.key)} />;
     }
     return (
       <LiveBlock
@@ -389,13 +428,13 @@ export function LiveField({
         rollDelay={rollDelay}
         link={link}
         onSelect={onSelect}
-        register={flip.register(entry.key)}
+        register={register(entry.key)}
       />
     );
   };
 
   return (
-    <div className={`lb${waiting ? " lb--waiting" : ""}`} ref={layer}>
+    <div className={`lb${waiting ? " lb--waiting" : ""}${mark ? " dc-hl" : ""}`} ref={layer}>
       <div className="lb-ghosts" ref={ghosts} aria-hidden="true" />
       {waiting ? (
         <p className="rb-none lb-hint">Enter the gross area and each trade fills in.</p>

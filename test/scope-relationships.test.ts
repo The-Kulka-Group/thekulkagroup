@@ -55,7 +55,7 @@ describe("scope_relationships", () => {
     );
   });
 
-  it("seeds Matt's Elevator element of 2026-09-28 (LA-1257): item 26 brings in 26b to 26h, two on a condition", async () => {
+  it("seeds Matt's Elevator element of 2026-09-28 (LA-1257, LA-1265): item 26 brings in 26b to 26i, three on a condition", async () => {
     const { rows } = await db.query<{
       supporting_cost_code: string;
       quantity_rule: string;
@@ -74,6 +74,7 @@ describe("scope_relationships", () => {
       ["26f", "one_per_elevator", null, null],
       ["26g", "one_per_elevator", "elevatorType", "hydraulic"],
       ["26h", "one_per_stop", null, null],
+      ["26i", "one_per_elevator", "hydraulicJackType", "in_ground"],
     ]);
   });
 

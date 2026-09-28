@@ -1,0 +1,168 @@
+/* LA-1265: Design and Engineering, answered in the flow (EngineeringStep.tsx).
+   It sits in the black New Budget panel, so it wears the derived card's dark
+   blue (the side panel's Derived pill) rather than the light tint the cards
+   on the white field wear. */
+
+.eng {
+  --eng-blue: #8CC2FF;
+  --eng-blue-deep: #10233A;
+  --eng-blue-line: #1E4470;
+  --eng-spring: cubic-bezier(.22, 1.2, .36, 1);
+  --eng-ease: cubic-bezier(.2, .7, .2, 1);
+  display: grid;
+  gap: 14px;
+  animation: eng-in 280ms var(--eng-ease) both;
+}
+@keyframes eng-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.eng-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--chip-size);
+  font-weight: 600;
+  color: var(--eng-blue);
+}
+.eng-disc { margin-left: auto; font-weight: 500; color: var(--rb-pnl-mute); }
+.eng-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--eng-blue); }
+.eng--working .eng-pulse { animation: eng-pulse 1s ease-in-out infinite; }
+@keyframes eng-pulse { 50% { opacity: .3; transform: scale(.7); } }
+
+.rb-pnl h3.eng-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: var(--t3-size);
+  color: var(--rb-ink-on-black);
+}
+.eng-code {
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--eng-blue-deep);
+  color: var(--eng-blue);
+  font-family: var(--family-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The arithmetic, one line at a time. */
+.eng-tape {
+  margin: 0;
+  padding: 2px 0 2px 14px;
+  list-style: none;
+  border-left: 2px solid var(--eng-blue-line);
+  display: grid;
+  gap: 7px;
+}
+.eng-tape li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--meta-size);
+  color: var(--rb-sel-ink2);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity .22s var(--eng-ease), transform .22s var(--eng-ease);
+}
+.eng-tape li.eng-on { opacity: 1; transform: none; }
+.eng-tape li b { color: var(--rb-ink-on-black); font-weight: 600; text-align: right; }
+.eng-tape li.eng-res b { color: var(--eng-blue); }
+.eng-tape--wait { display: grid; gap: 9px; }
+.eng-tape--wait i {
+  display: block;
+  height: 9px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--rb-pnl-line) 0%, var(--rb-pnl-line2) 50%, var(--rb-pnl-line) 100%);
+  background-size: 200% 100%;
+  animation: eng-shimmer 1.1s linear infinite;
+}
+.eng-tape--wait i:nth-child(2) { width: 78%; }
+.eng-tape--wait i:nth-child(3) { width: 56%; }
+@keyframes eng-shimmer { to { background-position: -200% 0; } }
+
+/* The scale the rule draws, and the marker sliding to the deciding number. */
+.eng-gauge { padding-top: 22px; opacity: .35; transition: opacity .3s var(--eng-ease); }
+.eng-gauge--on { opacity: 1; }
+.eng-track { position: relative; display: flex; gap: 2px; height: 8px; }
+.eng-zone { height: 8px; border-radius: 3px; background: var(--rb-pnl-line2); transition: background .3s var(--eng-ease); }
+.eng-gauge--on .eng-zone--hit { background: var(--eng-blue); }
+.eng-mark {
+  position: absolute;
+  top: -5px;
+  left: var(--eng-at, 0%);
+  width: 2px;
+  height: 18px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--rb-ink-on-black);
+  transition: left .75s var(--eng-spring);
+}
+.eng-mark-lbl {
+  position: absolute;
+  bottom: 21px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--rb-ink-on-black);
+}
+.eng-zones { display: flex; gap: 2px; margin-top: 6px; }
+.eng-zl { font-size: 10.5px; line-height: 1.25; color: var(--rb-pnl-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eng-zl--hit { color: var(--eng-blue); font-weight: 600; }
+
+/* The answer lands. */
+.eng-answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; min-height: 30px; }
+.eng-val {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--rb-ink-on-black);
+  animation: eng-land .5s var(--eng-spring) both;
+}
+@keyframes eng-land { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+.eng-conf { display: inline-flex; align-items: center; gap: 6px; font-size: var(--chip-size); color: var(--rb-sel-ink2); }
+.eng-why { flex-basis: 100%; margin: 0; font-size: var(--meta-size); line-height: 1.45; color: var(--rb-sel-ink2); }
+.eng-working { font-size: var(--meta-size); color: var(--rb-pnl-mute); }
+
+.eng-choices { margin-top: 0; }
+.eng-tag {
+  margin-left: 7px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--eng-blue-deep);
+  color: var(--eng-blue);
+  font-size: 10.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.nb-choice--picked .eng-tag { background: #DCEBFB; color: #0059B3; }
+
+/* Moves on by itself: a hairline fills, and pauses while the card is held. */
+.eng-foot { display: flex; align-items: center; gap: 10px; }
+.eng-bar { position: relative; flex: 1; height: 2px; border-radius: 1px; background: var(--rb-pnl-line); overflow: hidden; }
+.eng-bar i { position: absolute; inset: 0; transform: scaleX(0); transform-origin: left; background: var(--eng-blue); }
+.eng-bar--run i { animation: eng-fill var(--eng-ms, 3600ms) linear forwards; }
+@keyframes eng-fill { to { transform: scaleX(1); } }
+.eng-hint { font-size: var(--chip-size); color: var(--rb-pnl-mute); white-space: nowrap; }
+.eng-foot .nb-back { margin: 0; }
+.eng-fail { margin: 0; font-size: var(--meta-size); color: #FF8A9B; }
+
+/* The boxes a landed answer feeds, on the white live field. An element box
+   carries its total top right, so its code sits on the top edge instead. */
+.eb-box[data-dc-lit]::after { top: -9px; right: 14px; }
+.lb.dc-hl [data-dc-entry] { opacity: .38; transition: opacity .25s, border-color .25s; }
+.lb.dc-hl [data-dc-lit] { opacity: 1; border-color: var(--rb-blk-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .eng, .eng-val, .eng--working .eng-pulse, .eng-tape--wait i { animation: none; }
+  .eng-tape li, .eng-mark, .eng-gauge, .eng-zone { transition: none; }
+  .eng-bar--run i { animation: none; transform: scaleX(1); }
+}
+
+/* "+$379k from V-1" beside the live total. */
+.lb-delta-src { font-weight: 500; opacity: .85; }
+
+/* The saved budget's correction panel offers a spec criterion's answers as buttons. */
+.dc-choices { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -11,11 +11,13 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
+import { CRITERION_CHOICES } from "./engineering";
 import { reducedMotion } from "./motion";
 import { SpringMoney } from "./SpringMoney";
 import "./derived-criteria.css";
 
-// LA-860. Design Criteria on the ROM face: one card per derived assumption,
+// LA-860. Design and Engineering (Matt renamed it from Design Criteria,
+// 2026-09-28) on the ROM face: one card per derived assumption,
 // the approved criteria-card design of 2026-09-27. A card leads with its code
 // and a Derived pill, then the value, then the label; hover swaps the label
 // for the method line in the same space. Clicking opens the black side panel
@@ -191,9 +193,9 @@ export function DerivedCriteriaSection({
   const leaning = items.filter(showsAssumedFact);
 
   return (
-    <section className="dc" aria-label="Design Criteria">
+    <section className="dc" aria-label="Design and Engineering">
       <div className="dc-hd">
-        <h2>Design Criteria</h2>
+        <h2>Design and Engineering</h2>
         <div className="dc-legend">
           {leaning.length > 0 ? (
             <button
@@ -236,7 +238,7 @@ export function DerivedCriteriaSection({
         ))}
       </div>
       <p className="dc-foot">
-        Design criteria are planning assumptions for the budget. They are not a design and nobody has engineered them.
+        These are planning assumptions for the budget, worked out from the project&apos;s facts. Nobody has designed or engineered the building.
       </p>
     </section>
   );
@@ -429,7 +431,7 @@ export function CriterionPanel({
           {item.steps.map((step, index) => (
             <li key={index} className={index === item.steps.length - 1 ? "dc-res" : undefined}>
               <span>{step.label}</span>
-              <b>{step.result}</b>
+              <b>{step.result.replace(/\s*->\s*/g, " → ")}</b>
             </li>
           ))}
         </ol>
@@ -465,7 +467,26 @@ export function CriterionPanel({
             }}
           >
             <label htmlFor={`dc-v-${item.code}`}>Correct This Value</label>
-            <span className="dc-unit">
+            {item.value.kind === "spec" && CRITERION_CHOICES[item.code] ? (
+              // LA-1265: a criterion with set answers (V-1, V-2) offers them as buttons.
+              <div className="dc-choices" role="radiogroup" aria-label={item.label}>
+                {CRITERION_CHOICES[item.code]
+                  .filter((choice) => item.value.kind === "spec" && choice !== item.value.text)
+                  .map((choice) => (
+                    <button
+                      key={choice}
+                      type="button"
+                      role="radio"
+                      aria-checked={value === choice}
+                      className={`nb-choice${value === choice ? " nb-choice--picked" : ""}`}
+                      onClick={() => setValue(choice)}
+                    >
+                      {choice}
+                    </button>
+                  ))}
+              </div>
+            ) : null}
+            <span className="dc-unit" hidden={item.value.kind === "spec" && Boolean(CRITERION_CHOICES[item.code])}>
               <input
                 id={`dc-v-${item.code}`}
                 inputMode={item.value.kind === "quantity" ? "decimal" : undefined}

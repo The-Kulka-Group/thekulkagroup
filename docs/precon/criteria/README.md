@@ -14,6 +14,7 @@ pricing. A build ticket follows each once Matt answers its open questions.
 | LA-777 | `la-777-hvac-tonnage.md` | M-0 Window Area and Orientation, M-1 HVAC Tonnage |
 | LA-781 | `la-781-insulation.md` | I-1 Thermal Envelope Insulation, I-2 Acoustic Insulation |
 | LA-784 | `la-784-elevator-type.md` | V-1 Elevator Type |
+| LA-1265 | `../research/la-hydraulic-jack-type.md` | V-2 Hydraulic Jack Type. Built: in-ground, holeless or roped from travel, wet ground and ZIP, deciding whether item 26i (the well hole) comes in. |
 
 ## The intake gap all six share
 

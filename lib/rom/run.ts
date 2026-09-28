@@ -26,6 +26,7 @@ import {
 import type { Db } from "@/lib/db";
 import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
+import { applyJackCriterion } from "@/lib/rom/jack-criterion";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
 import { readProjectRates, withProjectRates } from "@/lib/rom/project-rates";
@@ -281,7 +282,9 @@ export async function runRom(
     // its effective value feeds facts.elevatorType before computeRom prices
     // item 26 by type. A no-op project (elevator gate not yes, or no Stories
     // Above Grade yet) gets `withFraming` back unchanged.
-    const withElevator = await applyElevatorCriterion(db, projectId, withFraming, framingSystem);
+    const withV1 = await applyElevatorCriterion(db, projectId, withFraming, framingSystem);
+    // LA-1265: V-2 reads V-1's type and sets the jack the well hole checks.
+    const withElevator = await applyJackCriterion(db, projectId, withV1, framingSystem);
     const answers: Answers = markups ? { ...withElevator, markups } : withElevator;
     const recordedBase = framingSystem ? { ...intake.recorded, framingSystem } : intake.recorded;
     // LA-1205: record the same elevatorType fact V-1 fed into `answers`, so a

@@ -237,6 +237,36 @@ describe("updateRomProject", () => {
     });
   });
 
+  // LA-1212: Elevator Count saves and reloads through the same PATCH path,
+  // and clears back to null the same way the four fields above do. It gets
+  // its own block because zero is a legal, distinct value from null (no
+  // elevator, vs. never answered), unlike any of the four above.
+  describe("elevator count (LA-1212)", () => {
+    it("saves and reloads a count", async () => {
+      await updateRomProject(db, TEST_PROJECT_ID, { ...editBudget, elevatorCount: 2 });
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.elevatorCount).toBe(2);
+    });
+
+    it("saves and reloads zero, distinct from null", async () => {
+      await updateRomProject(db, TEST_PROJECT_ID, { ...editBudget, elevatorCount: 0 });
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.elevatorCount).toBe(0);
+    });
+
+    it("reads back null for a project that never answered the elevator question", async () => {
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.elevatorCount).toBeNull();
+    });
+
+    it("clears an elevator count back to null", async () => {
+      await updateRomProject(db, TEST_PROJECT_ID, { ...editBudget, elevatorCount: 2 });
+      await updateRomProject(db, TEST_PROJECT_ID, editBudget);
+      const detail = await readRomProjectDetail(db, TEST_PROJECT_ID);
+      expect(detail?.elevatorCount).toBeNull();
+    });
+  });
+
   it("leaves saved runs untouched", async () => {
     const { rows } = await db.query<{ id: string }>(`insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'succeeded') returning id`, [
       TEST_PROJECT_ID,

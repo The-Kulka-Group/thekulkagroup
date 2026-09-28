@@ -20,6 +20,13 @@ export type Form = {
   unitCount: string;
   buildingCount: string;
   zip: string;
+  /**
+   * LA-1212: New budget's Scope step already asks Elevator Count once the
+   * elevator gate answers yes (config/rom/tier1-flow.json); this is Edit
+   * project's own field for the same fact, so a saved project can have its
+   * count set, cleared or corrected without re-running the guided flow.
+   */
+  elevatorCount: string;
 };
 
 export const EMPTY: Form = {
@@ -32,6 +39,7 @@ export const EMPTY: Form = {
   unitCount: "",
   buildingCount: "1",
   zip: "",
+  elevatorCount: "",
 };
 
 export function areaOf(form: Form): number {
@@ -121,6 +129,16 @@ export function ProjectFields({
             value={form.zip}
             disabled={busy}
             onChange={(e) => set({ zip: e.target.value })}
+          />
+        </label>
+        <label>
+          <span className="field-label t-label">Elevator Count</span>
+          <input
+            className="input num"
+            inputMode="numeric"
+            value={form.elevatorCount}
+            disabled={busy}
+            onChange={(e) => set({ elevatorCount: e.target.value })}
           />
         </label>
         <label>

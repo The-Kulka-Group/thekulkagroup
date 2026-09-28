@@ -172,4 +172,47 @@ describe("POST /api/rom/projects", () => {
       expect(await projectCount()).toBe(before);
     });
   });
+
+  // LA-1212: the guided New budget flow's Scope step asks Elevator Count once
+  // the elevator gate answers yes, so New budget's insert carries it the same
+  // way it already carries the four LA-1199 fields above.
+  describe("elevator count (LA-1212)", () => {
+    it("stores the count the Scope step sends", async () => {
+      const response = await post({ ...valid, elevatorCount: 2 });
+      const { projectId } = await response.json();
+      const { rows } = await db.query<{ elevator_count: number | null }>(
+        `select elevator_count from projects where id = $1`,
+        [projectId],
+      );
+      expect(rows[0].elevator_count).toBe(2);
+    });
+
+    it("stores zero, unlike storiesAboveGrade and unitCount which refuse it", async () => {
+      const response = await post({ ...valid, elevatorCount: 0 });
+      expect(response.status).toBe(201);
+      const { projectId } = await response.json();
+      const { rows } = await db.query<{ elevator_count: number | null }>(
+        `select elevator_count from projects where id = $1`,
+        [projectId],
+      );
+      expect(rows[0].elevator_count).toBe(0);
+    });
+
+    it("leaves it null when the Scope step never asked (no elevator gate reached)", async () => {
+      const response = await post(valid);
+      const { projectId } = await response.json();
+      const { rows } = await db.query<{ elevator_count: number | null }>(
+        `select elevator_count from projects where id = $1`,
+        [projectId],
+      );
+      expect(rows[0].elevator_count).toBeNull();
+    });
+
+    it("refuses a negative elevator count, and writes nothing", async () => {
+      const before = await projectCount();
+      const response = await post({ ...valid, elevatorCount: -1 });
+      expect(response.status).toBe(400);
+      expect(await projectCount()).toBe(before);
+    });
+  });
 });

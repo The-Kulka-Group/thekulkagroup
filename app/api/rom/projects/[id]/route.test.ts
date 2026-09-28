@@ -127,6 +127,34 @@ describe("PATCH /api/rom/projects/[id]", () => {
     expect(project).toMatchObject({ storiesAboveGrade: 4, unitCount: 120, buildingCount: 3, zip: "212" });
   });
 
+  // LA-1212: Edit project sets, clears and reloads Elevator Count through the
+  // same PATCH/GET pair, the same as the four LA-1199 fields above. Zero is
+  // its own case, since it is a legal count (no elevator) rather than a clear.
+  it("sets an elevator count and GET reloads it", async () => {
+    const response = await patch(TEST_PROJECT_ID, { ...edit, elevatorCount: 2 });
+    expect(response.status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    const { project } = await get.json();
+    expect(project).toMatchObject({ elevatorCount: 2 });
+  });
+
+  it("sets an elevator count of zero and GET reloads it, distinct from clearing it", async () => {
+    const response = await patch(TEST_PROJECT_ID, { ...edit, elevatorCount: 0 });
+    expect(response.status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    const { project } = await get.json();
+    expect(project).toMatchObject({ elevatorCount: 0 });
+  });
+
+  it("clears an elevator count back to null", async () => {
+    await patch(TEST_PROJECT_ID, { ...edit, elevatorCount: 2 });
+    const response = await patch(TEST_PROJECT_ID, { ...edit, elevatorCount: null });
+    expect(response.status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    const { project } = await get.json();
+    expect(project.elevatorCount).toBeNull();
+  });
+
   it("keeps an older project's saved run and still opens it once these fields are edited in", async () => {
     const run = await db.query<{ id: string }>(
       `insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'succeeded') returning id`,

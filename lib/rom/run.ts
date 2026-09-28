@@ -104,6 +104,15 @@ export type ProjectRow = {
   unit_count: number | null;
   building_count: number;
   zip: string | null;
+  /**
+   * LA-1212: item 26's per-stop count (Elevators) and item 26a's per-shaft
+   * count (the bulkhead) both read Elevator Count off the project record for
+   * a run that gets no `responses`, the same way stories_above_grade does
+   * just above. Zero is a legal, distinct answer from unset (no elevator, vs.
+   * not asked yet), so this reads differently from the other counts below --
+   * see `answersFromProject`.
+   */
+  elevator_count: number | null;
 };
 
 /**
@@ -369,6 +378,11 @@ export function answersFromProject(
   if (project.unit_count) facts.unitCount = project.unit_count;
   facts.buildingCount = project.building_count;
   if (project.zip) facts.zip = project.zip;
+  // LA-1212: `!= null` rather than the truthy check the other counts above
+  // use, because zero is itself a legal, meaningful Elevator Count (no
+  // elevator, read by packages/engine/src/elevator.ts as "no line" rather
+  // than "not asked yet") and a truthy check would drop it back to unset.
+  if (project.elevator_count !== null) facts.elevatorCount = project.elevator_count;
 
   return {
     projectType: project.project_type,
@@ -536,7 +550,7 @@ export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross
             site_conditions_gate, amenity_scope_gate, elevator_gate,
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
             parking_type, framing_system,
-            stories_above_grade, unit_count, building_count, zip`;
+            stories_above_grade, unit_count, building_count, zip, elevator_count`;
 
 export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(

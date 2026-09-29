@@ -6,6 +6,8 @@ import { WEEKS_PER_MONTH, type MarkupChoices, type MarkupMethod, type MarkupSetu
 import { personName } from "@/lib/format/person-name";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
+import { GrRateCard } from "./GrRateCard";
+
 import "./markups.css";
 
 // LA-1016. The GRs/GCs module in Run settings. Every figure the module offers
@@ -488,6 +490,8 @@ export function MarkupControls({
               </option>
             ))}
           </select>
+
+          <GrRateCard rates={options.grRates ?? []} />
         </>
       ) : null}
     </section>

@@ -14,6 +14,7 @@ import type { Db } from "@/lib/db";
 import { isUuid } from "@/lib/uuid";
 
 import { toDateOnly, toIso } from "./date";
+import { readGrRates, type GrRate } from "./gr-rates";
 import {
   CostImportAlreadyApproved,
   CostImportLineNotFound,
@@ -286,6 +287,8 @@ export async function readFieldOfficeRates(db: Db): Promise<FieldOfficeRate[]> {
 export type MarkupOptions = {
   staffingRates: StaffingRate[];
   fieldOfficeRates: FieldOfficeRate[];
+  /** The General Requirements rate card from one warehouse job (LA-1396). Display only. */
+  grRates?: GrRate[];
   feeRate: EngineParameter | null;
   insuranceRate: EngineParameter | null;
   /**
@@ -298,9 +301,10 @@ export type MarkupOptions = {
 
 /** What the /rom page needs to offer the GRs/GCs choices. */
 export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
-  const [staffingRates, fieldOfficeRates, history, parameterRows] = await Promise.all([
+  const [staffingRates, fieldOfficeRates, grRates, history, parameterRows] = await Promise.all([
     readStaffingRates(db),
     readFieldOfficeRates(db),
+    readGrRates(db),
     readMarkupHistory(db),
     db
       .query<{
@@ -337,6 +341,7 @@ export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
   return {
     staffingRates,
     fieldOfficeRates,
+    grRates,
     feeRate: parameter("fee.rate"),
     insuranceRate: parameter("insurance.rate"),
     historyCounts,

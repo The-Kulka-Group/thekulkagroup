@@ -185,6 +185,8 @@ type BenchmarkRow = {
   elevator_type: Benchmark["elevatorType"] | null;
   /** Item 26a's rate for this shaft configuration or the door package (LA-1205). Null on every other benchmark. */
   elevator_bulkhead_config: Benchmark["elevatorBulkheadConfig"] | null;
+  /** LA-1323: the source jobs' GSF per unit, null unless every source job recorded area and units. */
+  source_gsf_per_unit: string | null;
 };
 
 type ClassificationRow = {
@@ -512,7 +514,12 @@ export async function readBenchmarkData(
             ) as provenance_source_project_ids,
             b.provenance_export_label, b.provenance_recorded_by,
             b.provenance_recorded_at, b.scope_side, b.contract_side, b.structure_type,
-            b.elevator_type, b.elevator_bulkhead_config
+            b.elevator_type, b.elevator_bulkhead_config,
+            (select case when count(*) > 0 and bool_and(p.gross_square_feet > 0 and p.unit_count > 0)
+                         then sum(p.gross_square_feet)::numeric / sum(p.unit_count) end
+               from benchmark_source_projects bsp
+               join projects p on p.id = bsp.project_id
+              where bsp.benchmark_id = b.id) as source_gsf_per_unit
        from benchmarks b
       where b.project_type = $1 and b.construction_kind = $2
       order by b.cost_code, b.provenance_kind, b.provenance_recorded_at, b.id`,
@@ -700,6 +707,10 @@ function toBenchmark(row: BenchmarkRow): Benchmark {
     // item 26a's three configuration rows.
     ...(row.elevator_type ? { elevatorType: row.elevator_type } : {}),
     ...(row.elevator_bulkhead_config ? { elevatorBulkheadConfig: row.elevator_bulkhead_config } : {}),
+    // LA-1323: only when every source job recorded area and units.
+    ...(row.source_gsf_per_unit !== null && row.source_gsf_per_unit !== undefined
+      ? { sourceGsfPerUnit: Number(row.source_gsf_per_unit) }
+      : {}),
   };
 }
 

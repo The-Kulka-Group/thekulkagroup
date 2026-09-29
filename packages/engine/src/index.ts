@@ -61,6 +61,7 @@ export {
   type BenchmarkUnit,
   type DemolitionFacts,
 } from "./rom-units";
+export { PER_UNIT_COST_CODES, readUnitCount, scaleRowsToUnits, type PerUnitLine } from "./rom-per-unit";
 
 export {
   bulkheadCost,

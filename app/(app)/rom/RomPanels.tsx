@@ -226,8 +226,15 @@ export function BlockPanel({
       ) : null}
       {line.framing?.reason ? <p className="rb-pp">{line.framing.reason}</p> : null}
       {line.buyoutPackage ? <p className="rb-pp">Bought as {line.buyoutPackage}.</p> : null}
+      {/* LA-1323: a unit trade says how it priced. */}
+      {line.perUnit ? (
+        <p className="rb-pp">
+          Priced per unit: <b className="num">{DOLLARS.format(line.perUnit.usdPerUnit)}</b> a unit across{" "}
+          <span className="num">{AREA.format(line.perUnit.unitCount)}</span> units.
+        </p>
+      ) : null}
 
-      <Provenance drilldown={drilldown} costCode={line.costCode} label={line.label} />
+      <Provenance drilldown={drilldown} costCode={line.costCode} label={line.label} perUnit={line.perUnit} />
 
       {block.breakouts.length > 0 ? (
         <>
@@ -265,10 +272,13 @@ function Provenance({
   drilldown,
   costCode,
   label,
+  perUnit,
 }: {
   drilldown: Drilldown;
   costCode: string;
   label: string;
+  /** LA-1323: set on a unit trade, whose signals then read in dollars per unit. */
+  perUnit?: RomLine["perUnit"];
 }) {
   if (drilldown.phase === "loading") {
     return <p className="rb-pp">Reading where this line came from.</p>;
@@ -295,7 +305,11 @@ function Provenance({
         <Row
           key={`${signal.kind}-${signal.recordedAt}-${index}`}
           name={projectWords(signal)}
-          amount={`${PER_SF.format(signal.rate)}/SF`}
+          amount={
+            perUnit
+              ? `${DOLLARS.format(signal.rate * perUnit.projectGsfPerUnit)}/Unit`
+              : `${PER_SF.format(signal.rate)}/SF`
+          }
           sub={signalWords(signal)}
         />
       ))}

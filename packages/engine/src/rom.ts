@@ -32,6 +32,7 @@ import {
   type StaffingRate,
 } from "./rom-markups";
 import { tierProblems, weightProblem } from "./rom-parameters";
+import { type PerUnitLine, readUnitCount, scaleRowsToUnits } from "./rom-per-unit";
 import { bringInSupportingItems, type ScopeRelationship } from "./rom-relationships";
 import {
   hasStructureDemolitionScope,
@@ -122,6 +123,12 @@ export type Benchmark = {
   elevatorType?: ElevatorType;
   /** Item 26a's rate for this shaft configuration or the door package (LA-1205). Absent on every other benchmark. */
   elevatorBulkheadConfig?: BulkheadConfig;
+  /**
+   * LA-1323: the source jobs' gross square feet per dwelling unit, when every
+   * source job recorded both. A per-unit trade (rom-per-unit.ts) reads it to
+   * turn this rate into dollars per unit. Absent otherwise.
+   */
+  sourceGsfPerUnit?: number;
 };
 
 /**
@@ -413,6 +420,12 @@ export type RomLine = {
    * it (LA-1154, ADR 0006). Present on supporting items only.
    */
   driverCostCode?: string;
+  /**
+   * LA-1323: present when this line priced per dwelling unit. Its comparables'
+   * rates are then the source jobs' figures rescaled to this project's units
+   * (rom-per-unit.ts), still in dollars per gross square foot of this project.
+   */
+  perUnit?: PerUnitLine;
 };
 
 /** One item a branch gate named on the face of the ROM (LA-1028). */
@@ -517,7 +530,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const elevatorFacts = readElevatorFacts(answers.facts);
   const elevatorStops = totalElevatorStops(elevatorFacts);
 
-  const blend = (costCode: string, rows: Benchmark[]) =>
+  const blendOne = (costCode: string, rows: Benchmark[]) =>
     blendLine(
       rows,
       answers.grossSquareFeet,
@@ -530,6 +543,23 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       elevatorFacts.elevatorCount,
       elevatorFacts.machineRooms,
     );
+
+  // LA-1323: the unit count a per-unit trade prices against, read once per run.
+  const unitCount = readUnitCount(answers.facts);
+
+  const blend = (costCode: string, rows: Benchmark[]) => {
+    const scaled = scaleRowsToUnits(costCode, rows, unitCount, answers.grossSquareFeet);
+    const line = blendOne(costCode, scaled ?? rows);
+    if (!scaled || unitCount === null) return line;
+    return {
+      ...line,
+      perUnit: {
+        unitCount,
+        usdPerUnit: Math.round((line.low + line.high) / 2 / unitCount),
+        projectGsfPerUnit: answers.grossSquareFeet / unitCount,
+      },
+    };
+  };
 
   const blended = [...byCostCode.keys()]
     .sort((a, b) => a.localeCompare(b))

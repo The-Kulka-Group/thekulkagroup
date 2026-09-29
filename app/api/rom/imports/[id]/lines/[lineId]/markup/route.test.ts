@@ -160,6 +160,16 @@ describe("POST /api/rom/imports/:id/lines/:lineId/markup", () => {
     expect(await historyRows()).toHaveLength(1);
   });
 
+  it("returns 409 when a split budget's two lines come from two imports (LA-1389)", async () => {
+    const first = await staged();
+    expect((await post(first.costImport.id, first.unmapped.id, { setup: "gc_only" })).status).toBe(200);
+
+    const second = await staged();
+    const response = await post(second.costImport.id, second.unmapped.id, { setup: "gr_only" });
+    expect(response.status).toBe(409);
+    expect(await historyRows()).toHaveLength(1);
+  });
+
   it("returns 409 when the import has no other trade line to divide by", async () => {
     const { costImport, trade, unmapped } = await staged();
     await remapCostImportLine(db as Db, costImport.id, trade.id, { exclude: true }, "r@kulka.com");

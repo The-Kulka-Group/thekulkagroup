@@ -92,3 +92,34 @@ notice.
 
 Villa's 75/25 split is one job and must not become a default ratio. Estimating has to say
 how a combined figure typically divides, which is a question for the questionnaire.
+
+### Measuring a split budget (clarification, 2026-09-29)
+
+This section clarifies the decision above and does not change it. The waterfall stays as
+written: a split budget's General Conditions computes on trade cost, and trade cost
+includes General Requirements.
+
+A rate learned from history has to be measured on the base it will be charged on. Before
+LA-1389 it was not. The import routes a split budget's General Requirements line out of
+trade cost, so its General Conditions rate came out as General Conditions over trade cost
+without General Requirements. Pricing then applied that rate to trade cost with General
+Requirements, which overstated General Conditions by about the rate times General
+Requirements. On Villa at Glen Cove's figures that is roughly $130,000.
+
+Matt chose to fix the measurement rather than the waterfall. When a budget records both a
+General Requirements line and a General Conditions line, the import measures them this
+way:
+
+- General Requirements is its value over trade cost without either line. That is the same
+  rule as before.
+- General Conditions is its value over trade cost plus General Requirements. That is the
+  base the waterfall charges it on.
+
+Whichever line is routed second completes the pair, and the import measures the first
+line's rate again at that point, so the routing order does not change either rate. Both
+lines must come from the same import, and the import refuses a pair split across two.
+
+Nothing else changes. A combined line and a General Conditions line with no General
+Requirements line beside it (The Vue) are still measured over trade cost. The General
+Requirements Only setup is unchanged. A combined figure is still never divided, and no
+stored run is rewritten.

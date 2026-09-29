@@ -13,6 +13,7 @@ import {
   LineNotRoutable,
   MARKUP_HISTORY_SETUPS,
   MarkupHistoryExists,
+  MarkupSplitAcrossImports,
   MarkupSubtotalMissing,
   routeLineToMarkup,
 } from "@/lib/rom/markup";
@@ -59,6 +60,7 @@ export async function POST(request: Request, context: Context) {
       cause instanceof CostImportAlreadyApproved ||
       cause instanceof LineNotRoutable ||
       cause instanceof MarkupHistoryExists ||
+      cause instanceof MarkupSplitAcrossImports ||
       cause instanceof MarkupSubtotalMissing
     ) {
       return NextResponse.json({ error: cause.message }, { status: 409 });

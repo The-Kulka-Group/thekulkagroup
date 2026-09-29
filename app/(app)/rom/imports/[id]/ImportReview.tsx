@@ -139,8 +139,16 @@ export function ImportReview({
       }
       const updated: StagedLine = body.line;
       setLines((current) => current.map((line) => (line.id === lineId ? updated : line)));
+      // LA-1389: a split budget's General Conditions is measured over trade
+      // cost plus its General Requirements, so the notice names that base.
+      const partner = body.partner ?? null;
+      const base = partner && setup === "gc_only" ? "trade subtotal plus its General Requirements" : "trade subtotal";
+      const remeasured =
+        partner && partner.setup === "gc_only"
+          ? ` General Conditions on this import is now ${PERCENT.format(partner.pctOfSubtotal)} of the trade subtotal plus General Requirements.`
+          : "";
       setNotice(
-        `Row ${updated.rowNumber} recorded as GRs/GCs: ${PER_SF.format(body.history.usdPerGsf)} / SF, ${PERCENT.format(body.history.pctOfSubtotal)} of this import's trade subtotal.`,
+        `Row ${updated.rowNumber} recorded as GRs/GCs: ${PER_SF.format(body.history.usdPerGsf)} / SF, ${PERCENT.format(body.history.pctOfSubtotal)} of this import's ${base}.${remeasured}`,
       );
     } catch {
       setError("The site could not reach the server.");

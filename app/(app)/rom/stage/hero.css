@@ -14,6 +14,10 @@
   background: #ffffff;
   border-bottom: 1px solid var(--border-light);
 }
+/* LA-1328: the Building View at the right end, the full height of the stage. */
+.hs--side { grid-template-columns: minmax(170px, 230px) minmax(0, 1fr) minmax(190px, 260px); }
+.hs-side { grid-row: 1 / -1; grid-column: 3; min-height: 0; }
+.hs-side .stg--card { min-height: 0; }
 .hs-cap { grid-row: 1; align-self: start; min-width: 0; }
 .hs-cap-in {
   display: grid;
@@ -142,8 +146,10 @@
     margin: -14px -16px 16px;
     padding: 14px 16px 10px;
   }
+  .hs--side { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 120px 170px auto; }
   .hs-scene { grid-row: 2; grid-column: 1; }
-  .hs-rail { grid-row: 3; }
+  .hs-side { grid-row: 3; grid-column: 1; margin-top: 10px; }
+  .hs-rail { grid-row: 4; }
   .hs-ans { font-size: 20px; min-height: 26px; }
 }
 

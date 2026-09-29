@@ -218,7 +218,7 @@ export function createStage(
     const room = 1 + Math.max(Math.abs(slide.x), Math.abs(slide.y));
     // The share of the canvas's height the controls leave clear.
     const clear = Math.max(0.35, 1 - (cam.insetTop + cam.insetBottom) / cam.height);
-    const halfH = (Math.max(hy / clear, hx / cam.aspect) * 1.1 * room) / cam.zoom;
+    const halfH = (Math.max(hy / clear, hx / cam.aspect) * 1.22 * room) / cam.zoom;
     const halfW = halfH * cam.aspect;
     const lift = ((cam.insetTop - cam.insetBottom) / cam.height) * halfH;
     camera.position.addScaledVector(right, slide.x * halfW).addScaledVector(upward, slide.y * halfH + lift);

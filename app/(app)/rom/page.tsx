@@ -30,9 +30,11 @@ export const dynamic = "force-dynamic";
 // newest one opens on the first screen so the page leads with an answer. A
 // project with no finished run opens empty and says so.
 //
-// LA-1107: the project comes from `?project=<id>` and falls back to
-// ROM_PROJECT_ID. The id is checked against the projects table before
-// anything reads by it. The header's picker lists every project with a run.
+// LA-1107: the project comes from `?project=<id>`. The id is checked against
+// the projects table before anything reads by it. The header's picker lists
+// every project with a run. LA-1329: with no project in the link the page
+// opens fresh, on "Choose a project or start a new budget", rather than on
+// the environment's ROM_PROJECT_ID (Matt, 2026-09-28).
 //
 // LA-1141: `?new=1` opens the guided New budget panel on load -- /rom/intake
 // redirects here with it set, since the guided flow now covers what intake
@@ -46,14 +48,14 @@ export default async function RomPage({
   searchParams: Promise<{ project?: string | string[]; new?: string | string[]; edit?: string | string[] }>;
 }) {
   const auth = await authorizeRequest();
-  if (!auth.ok) return <RomRunner projectId={process.env.ROM_PROJECT_ID} />;
+  if (!auth.ok) return <RomRunner />;
 
   const db = getDb();
   const { project, new: newParam, edit: editParam } = await searchParams;
   const openNewOnLoad = (Array.isArray(newParam) ? newParam[0] : newParam) === "1";
   // LA-1322: the All Budgets menu's Edit opens the project with Edit Project showing.
   const openEditOnLoad = (Array.isArray(editParam) ? editParam[0] : editParam) === "1";
-  const { projectId, notFound, archivedAt } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
+  const { projectId, notFound, archivedAt } = await resolveRomProjectId(db, project, undefined);
   const [projects, markupOptions, canonicalDivisions] = await Promise.all([
     listRomProjects(db),
     readMarkupOptions(db),

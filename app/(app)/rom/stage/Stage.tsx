@@ -23,9 +23,11 @@ import "./stage.css";
 //   price tag can fly), and the part settles to the model's own colour. The
 //   queue runs faster while it is behind, so answering never waits on it.
 //
-// LA-1325: the building sits in the field's lower right corner as an
-// axonometric card, so the budget has the page. On a saved budget, clicking
-// it opens the Building View across the top of the field: drag or use the
+// LA-1325, LA-1328: the building is an axonometric card with a home of its
+// own, never floating over the budget: the last card of the Design and
+// Engineering grid on a saved budget, the right end of the hero stage in New
+// Budget. On a saved budget, clicking it opens the Building View in place,
+// across the whole grid: drag or use the
 // arrow keys to turn it, scroll or plus and minus to zoom, cut a plan through
 // a level or a section across it, and click a part (or its row beneath) to
 // open the Design and Engineering card that decided it in the side panel.
@@ -151,7 +153,7 @@ export function Stage(props: Props) {
         const c = createStage(canvas.current, {
           occlusion: !narrow,
           pixelRatio: Math.min(window.devicePixelRatio || 1, narrow ? 1.5 : 2),
-          captionRoom: latest.current.mode === "live",
+          captionRoom: latest.current.mode === "live" && !latest.current.quiet,
         });
         ctl.current = c;
         const spec = latest.current.building;
@@ -390,33 +392,17 @@ export function Stage(props: Props) {
     }
   }, [open]);
 
-  // The corner card holds the field's lower right corner, whatever the field
-  // scrolls to and wherever the side panel leaves its edge. Open, the view
-  // fills the field's height, so its decisions are in sight and the wheel,
-  // which zooms it, has nothing below to reach for.
+  // Open, the view fills the field's height, so its decisions are in sight
+  // and the wheel, which zooms it, has nothing below to reach for.
   useEffect(() => {
     const el = wrap.current;
     const field = el?.closest(".rb-fld");
-    if (!el || !field) return;
-    const place = () => {
-      if (open) {
-        el.style.setProperty("--stg-open-height", `${Math.max(320, field.clientHeight)}px`);
-        return;
-      }
-      const rect = field.getBoundingClientRect();
-      el.style.setProperty("--stg-right", `${Math.max(16, window.innerWidth - rect.right + 16)}px`);
-      el.style.setProperty("--stg-bottom", `${Math.max(16, window.innerHeight - rect.bottom + 16)}px`);
-    };
+    if (!open || !el || !field) return;
+    const place = () => el.style.setProperty("--stg-open-height", `${Math.max(320, field.clientHeight - 32)}px`);
     place();
     const observer = new ResizeObserver(place);
     observer.observe(field);
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, { passive: true });
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place);
-    };
+    return () => observer.disconnect();
   }, [open, hasBuilding, failed]);
 
   // The wheel zooms the open view; it needs a listener that can stop the page scrolling.
@@ -503,7 +489,7 @@ export function Stage(props: Props) {
   const shapeLine = [building.form.shape, `${stories} ${stories === 1 ? "Story" : "Stories"}`].filter(Boolean).join(", ");
   return (
     <section
-      className={`stg ${open ? "stg--open" : "stg--corner"}${props.mode === "live" ? " stg--live" : ""}`}
+      className={`stg ${open ? "stg--open" : "stg--card"}${props.mode === "live" ? " stg--live" : ""}`}
       ref={wrap}
       aria-label="Building View"
     >

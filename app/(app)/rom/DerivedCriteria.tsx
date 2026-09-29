@@ -7,7 +7,7 @@ import {
   isCorrected,
   showsAssumedFact,
 } from "@kulka/engine";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
@@ -169,6 +169,7 @@ export function DerivedCriteriaSection({
   onOpen,
   onEnter,
   onLeave,
+  trailing = null,
 }: {
   items: Criterion[];
   recheck?: string[];
@@ -180,6 +181,8 @@ export function DerivedCriteriaSection({
   /** Hover intent (LA-1181's 70ms in, 140ms out) for lighting the blocks a criterion feeds. */
   onEnter: (code: string) => void;
   onLeave: () => void;
+  /** LA-1328: the Building View, the grid's last card, so it never floats over the budget. */
+  trailing?: ReactNode;
 }) {
   // Cards rise in one after another on first load only.
   const [entering, setEntering] = useState(true);
@@ -189,14 +192,14 @@ export function DerivedCriteriaSection({
     return () => window.clearTimeout(timer);
   }, []);
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && !trailing) return null;
   const leaning = items.filter(showsAssumedFact);
 
   return (
     <section className="dc" aria-label="Design and Engineering">
       <div className="dc-hd">
         <h2>Design and Engineering</h2>
-        <div className="dc-legend">
+        <div className="dc-legend" hidden={items.length === 0}>
           {leaning.length > 0 ? (
             <button
               type="button"
@@ -236,8 +239,9 @@ export function DerivedCriteriaSection({
             onLeave={onLeave}
           />
         ))}
+        {trailing}
       </div>
-      <p className="dc-foot">
+      <p className="dc-foot" hidden={items.length === 0}>
         These are planning assumptions for the budget, worked out from the project&apos;s facts. Nobody has designed or engineered the building.
       </p>
     </section>

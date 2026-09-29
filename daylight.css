@@ -1209,7 +1209,10 @@ textarea.input { border-radius: var(--r-lg); }
 
 /* LA-1321: above the phone breakpoint the rail rests at icon width and opens
    over the field while hovered or focused. It is fixed, so opening it never
-   reflows the page; the labels fade rather than collapse, so nothing jumps. */
+   reflows the page; the labels fade rather than collapse, so nothing jumps.
+   LA-1327: keyboard focus opens it, not any focus. A clicked link keeps
+   focus after the page changes, and :focus-within held the rail open over
+   the page until something else was clicked. */
 @media (min-width: 861px) {
   .app { grid-template-columns: var(--rail-mini, 64px) minmax(0, 1fr); }
   .field { grid-column: 2; }
@@ -1224,7 +1227,7 @@ textarea.input { border-radius: var(--r-lg); }
     transition: width var(--motion-base) var(--ease), box-shadow var(--motion-base) var(--ease);
   }
   .rail:hover,
-  .rail:focus-within { width: var(--rail-w); box-shadow: var(--shadow-card); }
+  .rail:has(:focus-visible) { width: var(--rail-w); box-shadow: var(--shadow-card); }
   .rail .rail-section,
   .rail .rail-search,
   .rail .rail-item > span,
@@ -1233,14 +1236,14 @@ textarea.input { border-radius: var(--r-lg); }
   .rail .rail-logo-word {
     transition: opacity var(--motion-fast) var(--ease);
   }
-  .rail:not(:hover):not(:focus-within) .rail-section,
-  .rail:not(:hover):not(:focus-within) .rail-search,
-  .rail:not(:hover):not(:focus-within) .rail-item > span,
-  .rail:not(:hover):not(:focus-within) .rail-user .t-ui,
-  .rail:not(:hover):not(:focus-within) .rail-user form { opacity: 0; pointer-events: none; }
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-section,
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-search,
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-item > span,
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-user .t-ui,
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-user form { opacity: 0; pointer-events: none; }
   .rail-logo-word { display: inline-block; max-width: 80px; overflow: hidden; transition: max-width var(--motion-base) var(--ease), opacity var(--motion-fast) var(--ease); }
-  .rail:not(:hover):not(:focus-within) .rail-logo-word { max-width: 0; opacity: 0; }
-  .rail:not(:hover):not(:focus-within) .rail-logo .logo-ai { margin-left: 0; }
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-logo-word { max-width: 0; opacity: 0; }
+  .rail:not(:hover):not(:has(:focus-visible)) .rail-logo .logo-ai { margin-left: 0; }
 }
 
 @media (max-width: 1180px) {

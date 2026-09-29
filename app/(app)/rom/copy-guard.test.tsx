@@ -7,6 +7,7 @@ import {
   type DataSnapshot,
   type DerivedAssumption,
   type EngineParameters,
+  type MarkupChoices,
   type Rom,
 } from "@kulka/engine";
 
@@ -23,7 +24,10 @@ import { deriveMachineRooms } from "@/lib/rom/machine-room-criterion";
 
 import { headlineOf, tradeBlocks } from "./block-layout";
 import { CriterionCard, CriterionPanel, type Criterion } from "./DerivedCriteria";
+import { initialMarkupForm } from "./Markups";
 import { BlockPanel, type Drilldown, NotesPanel, TotalPanel } from "./RomPanels";
+import { ResourcePlanEditor } from "./ResourcePlanEditor";
+import { linesFromRateCard } from "./resource-plan-form";
 
 // LA-1333. A budget is a document Kulka hands a developer, so nothing on it
 // may read like the inside of the software: no repository path, no internal
@@ -228,6 +232,58 @@ describe("the copy guard", () => {
     expect(leaksIn(html)).toEqual([]);
   });
 
+  it("finds nothing internal on an Allocated Resources plan, in the Total panel or its editor (LA-1397)", () => {
+    const figure = (value: number, origin: "estimator" | "rate_card" | "proposed" | "fact" = "estimator") => ({
+      value,
+      origin,
+      ...(origin === "rate_card" ? { ref: "00000000-0000-4000-8000-0000000000a1", source: "C-00379" } : {}),
+      ...(origin === "fact" ? { ref: "grossSquareFeet" } : {}),
+    });
+    const rom = recordedRun({
+      setup: "separate",
+      method: "allocated_resources",
+      grOverrideRate: 0.02,
+      resourcePlan: {
+        schedule: { precon: figure(4, "proposed"), construction: figure(60), closeout: figure(4) },
+        confidence: "medium",
+        lines: [
+          { id: "a", label: "Senior Superintendent", group: "Staff", basis: "time", per: "day", daysPerWeek: figure(5), phases: ["construction", "closeout"], quantity: figure(1), rate: figure(1177.6, "rate_card") },
+          { id: "b", label: "single wide trailer rental", group: "Field Office", basis: "time", per: "month", phases: ["construction"], quantity: figure(1), rate: figure(800, "rate_card") },
+          { id: "c", label: "Final Cleaning", group: "General Expenses", basis: "unit", unit: "SF", quantity: figure(100_000, "fact"), rate: figure(0.25, "proposed") },
+          { id: "d", label: "Permits", group: "General Expenses", basis: "lump_sum", quantity: figure(1), rate: figure(5000) },
+        ],
+      },
+    });
+    const html = renderToStaticMarkup(
+      <TotalPanel rom={rom} headline={headlineOf(rom, { grossSquareFeet: 100_000, unitCount: null })} grossSquareFeet={100_000} />,
+    );
+    expect(html).toContain("Single Wide Trailer Rental");
+    expect(html).toContain("Rate from the rate card, C-00379");
+    expect(leaksIn(html)).toEqual([]);
+
+    const options = {
+      staffingRates: [
+        { id: "s", role: "Senior Superintendent", daysPerWeek: 5, weeklyRateLow: 5888, weeklyRateHigh: 5888, sourceEstimate: "C-00379" },
+      ],
+      fieldOfficeRates: [],
+      feeRate: recordedParameter(0.0325),
+      insuranceRate: recordedParameter(0.054),
+      historyCounts: { both: 0, gc_only: 0, gr_only: 0 },
+    };
+    const form = initialMarkupForm(options, rom.markups!.choices);
+    const editor = renderToStaticMarkup(
+      <ResourcePlanEditor
+        options={options}
+        plan={{ ...form.plan, lines: [...form.plan.lines, ...linesFromRateCard("staff", "s", options, form.plan.lines)] }}
+        onChange={noop}
+        disabled={false}
+        lineName="General Conditions"
+      />,
+    );
+    expect(editor).toContain("Add Your Own Line");
+    expect(leaksIn(editor)).toEqual([]);
+  });
+
   it("reads a Total panel saved before LA-1336 without the parameter key or who recorded it", () => {
     // How a run stored a parameter-priced markup before LA-1336. The stored run is never rewritten.
     const rom = recordedRun();
@@ -256,7 +312,7 @@ function recordedParameter(value: number) {
   };
 }
 
-function recordedRun(): Rom {
+function recordedRun(markups: MarkupChoices = { setup: "both", method: "pct_of_subtotal", overrideRate: 0.08 }): Rom {
   const values: Record<string, number> = {
     "weight.actuals": 5,
     "weight.proest_budget": 1,
@@ -298,7 +354,7 @@ function recordedRun(): Rom {
       projectType: "multifamily",
       constructionKind: "new",
       grossSquareFeet: 100_000,
-      markups: { setup: "both", method: "pct_of_subtotal", overrideRate: 0.08 },
+      markups,
     },
     snapshot,
   );

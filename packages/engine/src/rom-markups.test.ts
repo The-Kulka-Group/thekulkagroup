@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { computeRom, type Benchmark, type EngineParameters } from "./rom";
+import type { ResourcePlan } from "./resource-plan";
+import { computeRom, type Benchmark, type ConfidenceFlag, type EngineParameters } from "./rom";
 import {
   computeMarkups,
   overheadLines,
@@ -498,5 +499,126 @@ describe("overheadLines", () => {
       ["gr", "General Requirements"],
       ["gc", "General Conditions"],
     ]);
+  });
+});
+
+// LA-1397: Allocated Resources. The plan's total enters the ADR 0004 waterfall
+// where the percent method's figure would, at a range around it.
+describe("computeMarkups, allocated resources", () => {
+  const typed = (value: number) => ({ value, origin: "estimator" as const });
+  const spreadParameters = { high: parameter(0.1), medium: parameter(0.2), low: parameter(0.35) };
+  // $1,000 a day, 5 days, 40 weeks = $200,000; one $10,000 lump sum; 1,000 SF at $5.
+  const plan = (confidence: ConfidenceFlag = "high"): ResourcePlan => ({
+    schedule: { precon: typed(0), construction: typed(40), closeout: typed(0) },
+    confidence,
+    lines: [
+      { id: "sup", label: "Superintendent", group: "Staff", basis: "time", per: "day", daysPerWeek: typed(5), phases: ["construction"], quantity: typed(1), rate: typed(1000) },
+      { id: "permit", label: "Permits", group: "General Expenses", basis: "lump_sum", quantity: typed(1), rate: typed(10_000) },
+      { id: "clean", label: "Final Cleaning", group: "General Expenses", basis: "unit", unit: "SF", quantity: typed(1000), rate: typed(5) },
+    ],
+  });
+  const allocated = (over: Partial<MarkupChoices> = {}): MarkupChoices => ({
+    setup: "gc_only",
+    method: "allocated_resources",
+    resourcePlan: plan(),
+    ...over,
+  });
+
+  it("prices the plan and runs fee and insurance on top of it, in the ADR 0004 order", () => {
+    const m = computeMarkups(inputs({ history: [], spreadParameters, choices: allocated() }));
+
+    expect(m.generalConditions).toMatchObject({
+      code: "90 20 00",
+      label: "General Conditions",
+      low: 193_500,
+      high: 236_500,
+      tbd: false,
+      source: "allocated",
+    });
+    expect(m.generalConditions.plan?.total).toBe(215_000);
+    expect(m.generalConditions.basis).toContain("3 lines over 40 weeks");
+    expect(m.generalConditions.basis).toContain("high confidence");
+
+    const low = waterfall(1_000_000, m.generalConditions.low);
+    const high = waterfall(1_200_000, m.generalConditions.high);
+    expect([m.fee.low, m.insurance.low, m.total.low]).toEqual([low.fee, low.insurance, low.total]);
+    expect([m.fee.high, m.insurance.high, m.total.high]).toEqual([high.fee, high.insurance, high.total]);
+  });
+
+  it("widens the range at a lower confidence and keeps the same figure in the middle", () => {
+    const m = computeMarkups(inputs({ history: [], spreadParameters, choices: allocated({ resourcePlan: plan("low") }) }));
+    expect([m.generalConditions.low, m.generalConditions.high]).toEqual([Math.round(215_000 * 0.65), Math.round(215_000 * 1.35)]);
+  });
+
+  it("does not move with the subtotal the way a percent does", () => {
+    const small = computeMarkups(inputs({ spreadParameters, choices: allocated(), subtotal: { low: 500_000, high: 500_000 } }));
+    const large = computeMarkups(inputs({ spreadParameters, choices: allocated(), subtotal: { low: 5_000_000, high: 5_000_000 } }));
+    expect(large.generalConditions.low).toBe(small.generalConditions.low);
+  });
+
+  it("prices the one line of the combined setup, and names it GRs/GCs", () => {
+    const m = computeMarkups(inputs({ spreadParameters, choices: allocated({ setup: "both" }) }));
+    expect(m.generalConditions.label).toBe("General Requirements & General Conditions");
+    expect(m.generalConditions.plan?.total).toBe(215_000);
+  });
+
+  it("prices General Conditions from the plan and General Requirements as a percent beside it, under separate lines", () => {
+    const m = computeMarkups(
+      inputs({ history: [], spreadParameters, choices: allocated({ setup: "separate", grOverrideRate: 0.02 }) }),
+    );
+    expect(m.generalRequirements).toMatchObject({ low: 20_000, high: 24_000, source: "override" });
+    expect(m.generalConditions.plan?.total).toBe(215_000);
+    // Fee computes on subtotal, General Requirements and General Conditions.
+    expect(m.fee.low).toBe(Math.round((1_000_000 + 20_000 + 215_000 * 0.9) * 0.0325));
+  });
+
+  it("is TBD when the plan has no lines, rather than zero", () => {
+    const m = computeMarkups(
+      inputs({ spreadParameters, choices: allocated({ resourcePlan: { ...plan(), lines: [] } }) }),
+    );
+    expect(m.generalConditions.tbd).toBe(true);
+    expect(m.generalConditions.basis).toBe("No line was added to the Allocated Resources plan");
+  });
+
+  it("refuses to run without a plan or without the confidence's spread", () => {
+    expect(() => computeMarkups(inputs({ spreadParameters, choices: allocated({ resourcePlan: undefined }) }))).toThrow(
+      /needs a resource plan/,
+    );
+    expect(() => computeMarkups(inputs({ choices: allocated() }))).toThrow(/No engine parameter "spread.high"/);
+  });
+
+  it("keeps pricing a run recorded under Staffing and Duration exactly as it was", () => {
+    const m = computeMarkups(
+      inputs({ choices: { setup: "both", method: "staffing_duration", durationWeeks: 10, staff: [{ rateId: "s-pm" }] } }),
+    );
+    expect([m.generalConditions.low, m.generalConditions.source]).toEqual([52_000, "staffing"]);
+  });
+
+  it("reaches computeRom through the snapshot's spread parameters", () => {
+    const rom = computeRom(
+      {
+        projectType: "multifamily",
+        constructionKind: "new",
+        grossSquareFeet: 1000,
+        markups: allocated({ setup: "both" }),
+      },
+      {
+        benchmarks: [],
+        parameters: {
+          "weight.actuals": parameter(5),
+          "weight.proest_budget": parameter(1),
+          "weight.reviewed_judgment": parameter(2),
+          "weight.llm_proposal": parameter(0.5),
+          "flag.high_min_comparables": parameter(5),
+          "flag.medium_min_comparables": parameter(2),
+          "fee.rate": parameter(0.0325),
+          "insurance.rate": parameter(0.054),
+          "spread.high": parameter(0.1),
+          "spread.medium": parameter(0.2),
+          "spread.low": parameter(0.35),
+        } as EngineParameters,
+      },
+    );
+    expect(rom.markups?.generalConditions.low).toBe(193_500);
   });
 });

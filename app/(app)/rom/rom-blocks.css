@@ -1230,3 +1230,8 @@ button.lg-row:hover { background: color-mix(in srgb, var(--rb-blk-ink) 4%, trans
 .ab-confirm p { font-size: var(--meta-size); color: var(--rb-ink-on-black); }
 .ab-note { font-size: var(--meta-size); color: var(--rb-ink2-on-black); }
 .ab-note--error { color: #FF8A80; }
+
+/* LA-1397: an Allocated Resources plan's lines, indented under the markup
+   line they price in the Total panel. */
+.rb-plan { margin-left: 12px; padding-left: 10px; border-left: 1px solid var(--rb-pnl-line); }
+.rb-plan .rb-row { padding: 6px 0; }

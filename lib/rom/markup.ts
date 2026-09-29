@@ -1,5 +1,6 @@
 import {
   DEFAULT_MARKUP_CHOICES,
+  planFromStaffingChoices,
   type EngineParameter,
   type FieldOfficeRate,
   type MarkupChoices,
@@ -11,9 +12,9 @@ import {
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
-import { isUuid } from "@/lib/uuid";
 
 import { toDateOnly, toIso } from "./date";
+import { parseResourcePlan } from "./resource-plan";
 import {
   CostImportAlreadyApproved,
   CostImportLineNotFound,
@@ -35,10 +36,16 @@ export const MARKUP_SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_onl
  * two lines records one of each, so "separate" is not among them (LA-1383).
  */
 export const MARKUP_HISTORY_SETUPS: readonly MarkupHistorySetup[] = ["both", "gc_only", "gr_only"];
+/**
+ * The methods a new ROM request or a project save may name. Staffing and
+ * Duration is retired (LA-1397): a run recorded under it still prices as
+ * recorded, and a project that saved it opens as the equivalent plan, but
+ * nothing new is priced by it.
+ */
 export const MARKUP_METHODS: readonly MarkupMethod[] = [
   "pct_of_subtotal",
   "usd_per_gsf",
-  "staffing_duration",
+  "allocated_resources",
 ];
 
 /** The line is already approved, excluded, or routed, or has no value, so it cannot become a GRs/GCs figure. */
@@ -354,7 +361,33 @@ export async function readProjectMarkupChoices(db: Db, projectId: string): Promi
     `select markup_choices from projects where id = $1`,
     [projectId],
   );
-  return rows[0]?.markup_choices ?? null;
+  const saved = rows[0]?.markup_choices ?? null;
+  if (saved?.method !== "staffing_duration") return saved;
+  const [staffingRates, fieldOfficeRates] = await Promise.all([readStaffingRates(db), readFieldOfficeRates(db)]);
+  return openSavedChoices(saved, staffingRates, fieldOfficeRates);
+}
+
+/**
+ * A project's saved markup choice as Run Settings opens it (LA-1397). A choice
+ * saved under the retired Staffing and Duration method opens as the
+ * equivalent Allocated Resources plan: its weeks become the construction
+ * phase and its roles construction-phase lines. The stored row is left as it
+ * is until the estimator saves again; every other choice opens unchanged.
+ */
+export function openSavedChoices(
+  saved: MarkupChoices,
+  staffingRates: StaffingRate[],
+  fieldOfficeRates: FieldOfficeRate[],
+): MarkupChoices {
+  if (saved.method !== "staffing_duration") return saved;
+  const { durationWeeks, staff, fieldOffice, ...rest } = saved;
+  // The staffing method never read an override rate.
+  delete rest.overrideRate;
+  return {
+    ...rest,
+    method: "allocated_resources",
+    resourcePlan: planFromStaffingChoices({ durationWeeks, staff, fieldOffice }, staffingRates, fieldOfficeRates),
+  };
 }
 
 /** Writes the Run settings markup choice back onto the project (LA-1109). */
@@ -388,7 +421,7 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
   if (!MARKUP_METHODS.includes(method as MarkupMethod)) {
     return {
       ok: false,
-      error: 'Send markups.method as "pct_of_subtotal", "usd_per_gsf", or "staffing_duration".',
+      error: 'Send markups.method as "pct_of_subtotal", "usd_per_gsf", or "allocated_resources".',
     };
   }
   const choices: MarkupChoices = { setup: setup as MarkupSetup, method: method as MarkupMethod };
@@ -402,62 +435,27 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
     choices[name] = rate;
   }
 
-  if (choices.method !== "staffing_duration") {
-    const override = value.overrideRate;
-    if (override !== undefined && override !== null) {
-      if (!isNumber(override) || override <= 0) {
-        return { ok: false, error: "Send markups.overrideRate as a number above zero." };
-      }
-      if (choices.method === "pct_of_subtotal" && override >= 1) {
-        return { ok: false, error: "Send a percent override as a fraction below one." };
-      }
-      choices.overrideRate = override;
-    }
+  if (choices.method === "allocated_resources") {
+    const plan = parseResourcePlan(value.resourcePlan);
+    if (!plan.ok) return plan;
+    choices.resourcePlan = plan.plan;
     const grOverride = readGrOverride(value, choices);
     if (!grOverride.ok) return grOverride;
     return { ok: true, choices };
   }
 
-  const weeks = value.durationWeeks;
-  if (!isNumber(weeks) || weeks <= 0) {
-    return { ok: false, error: "Send markups.durationWeeks as a number of weeks above zero." };
+  const override = value.overrideRate;
+  if (override !== undefined && override !== null) {
+    if (!isNumber(override) || override <= 0) {
+      return { ok: false, error: "Send markups.overrideRate as a number above zero." };
+    }
+    if (choices.method === "pct_of_subtotal" && override >= 1) {
+      return { ok: false, error: "Send a percent override as a fraction below one." };
+    }
+    choices.overrideRate = override;
   }
-  choices.durationWeeks = weeks;
   const grOverride = readGrOverride(value, choices);
   if (!grOverride.ok) return grOverride;
-
-  const staff = value.staff ?? [];
-  if (!Array.isArray(staff)) return { ok: false, error: "Send markups.staff as a list." };
-  choices.staff = [];
-  for (const pick of staff) {
-    if (!isObject(pick) || typeof pick.rateId !== "string" || !isUuid(pick.rateId)) {
-      return { ok: false, error: "Each staff pick needs a rateId." };
-    }
-    if (pick.weeks !== undefined && pick.weeks !== null && (!isNumber(pick.weeks) || pick.weeks <= 0)) {
-      return { ok: false, error: "Each staff pick's weeks must be above zero." };
-    }
-    choices.staff.push(isNumber(pick.weeks) ? { rateId: pick.rateId, weeks: pick.weeks } : { rateId: pick.rateId });
-  }
-
-  const office = value.fieldOffice ?? [];
-  if (!Array.isArray(office)) return { ok: false, error: "Send markups.fieldOffice as a list." };
-  choices.fieldOffice = [];
-  for (const pick of office) {
-    if (!isObject(pick) || typeof pick.rateId !== "string" || !isUuid(pick.rateId)) {
-      return { ok: false, error: "Each field-office pick needs a rateId." };
-    }
-    if (
-      pick.quantity !== undefined &&
-      pick.quantity !== null &&
-      (!isNumber(pick.quantity) || pick.quantity <= 0)
-    ) {
-      return { ok: false, error: "Each field-office pick's quantity must be above zero." };
-    }
-    choices.fieldOffice.push(
-      isNumber(pick.quantity) ? { rateId: pick.rateId, quantity: pick.quantity } : { rateId: pick.rateId },
-    );
-  }
-
   return { ok: true, choices };
 }
 

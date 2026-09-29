@@ -403,23 +403,39 @@ describe("POST /api/rom markups", () => {
     expect((await response.json()).rom.markups.generalRequirements).toBeUndefined();
   });
 
-  it("prices the staffing method off the rate tables and records the plan", async () => {
-    const { rows } = await db.query<{ id: string }>(
-      `select id from gc_staffing_rates where role = 'Project Manager' and days_per_week = 5`,
-    );
+  it("prices an Allocated Resources plan and records the plan with the run", async () => {
+    const figure = (value: number) => ({ value, origin: "estimator" });
     const markups = {
       setup: "both",
-      method: "staffing_duration",
-      durationWeeks: 10,
-      staff: [{ rateId: rows[0].id }],
-      fieldOffice: [],
+      method: "allocated_resources",
+      resourcePlan: {
+        schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) },
+        confidence: "high",
+        lines: [
+          {
+            id: "pm",
+            label: "Project Manager",
+            group: "Staff",
+            basis: "time",
+            per: "day",
+            daysPerWeek: figure(5),
+            phases: ["construction"],
+            quantity: figure(1),
+            rate: figure(1040),
+          },
+        ],
+      },
     };
     const response = await post({ projectId: TEST_PROJECT_ID, markups });
     expect(response.status).toBe(200);
     const { rom } = await response.json();
 
-    // Project Manager, 5 days a week, $5,200 a week, for 10 weeks.
-    expect(rom.markups.generalConditions.low).toBe(52_000);
+    // Project Manager, 5 days a week at $1,040 a day, for 10 weeks: $52,000,
+    // at the recorded high-confidence spread either side.
+    expect(rom.markups.generalConditions.plan.total).toBe(52_000);
+    expect(rom.markups.generalConditions.source).toBe("allocated");
+    expect(rom.markups.generalConditions.low).toBeLessThan(52_000);
+    expect(rom.markups.generalConditions.high).toBeGreaterThan(52_000);
     const [run] = await markupRuns();
     expect(run.answers.markups).toEqual(markups);
   });
@@ -462,6 +478,8 @@ describe("POST /api/rom markups", () => {
       { method: "guess" },
       { feeRate: 3.25 },
       { method: "staffing_duration" },
+      { method: "allocated_resources" },
+      { method: "allocated_resources", resourcePlan: { schedule: {}, lines: [] } },
       { method: "pct_of_subtotal", overrideRate: 15 },
       { setup: "separate", method: "pct_of_subtotal", grOverrideRate: 3 },
     ]) {

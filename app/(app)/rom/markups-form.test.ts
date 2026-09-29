@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { MarkupOptions } from "@/lib/rom/markup";
 
-import { initialMarkupForm, markupChoicesFrom, missingRates, setupHistory } from "./Markups";
+import { initialMarkupForm, markupChoicesFrom, METHODS, missingRates, setupHistory, type MarkupForm } from "./Markups";
+import { linesFromRateCard, TYPED } from "./resource-plan-form";
 
 // LA-1383: the Run Settings form with General Requirements and General
 // Conditions carried as two lines. Counts and rates are synthetic.
@@ -76,5 +77,93 @@ describe("New Budget's rate question", () => {
     const form = initialMarkupForm(options);
     expect(missingRates(form, counts, false)).toEqual(["GRs/GCs"]);
     expect(missingRates(form, counts, true)).toEqual([]);
+  });
+});
+
+// LA-1397: Allocated Resources in the same form. Rates are synthetic.
+describe("the GRs/GCs form, Allocated Resources", () => {
+  const rates: MarkupOptions = {
+    ...options,
+    staffingRates: [
+      { id: "s-spm", role: "Sr. Project Manager", daysPerWeek: 2, weeklyRateLow: 2600, weeklyRateHigh: 2615.2, sourceEstimate: "C-00379" },
+    ],
+    fieldOfficeRates: [
+      { id: "f-power", category: "office_setup", item: "Electric connect", rateBasis: "lump_sum_then_monthly", rate: 500, recurringRate: 175, sourceEstimate: "C-00379" },
+    ],
+  };
+  const withPlan = (): MarkupForm => {
+    const form = { ...initialMarkupForm(rates), method: "allocated_resources" as const };
+    const lines = linesFromRateCard("staff", "s-spm", rates, []);
+    return {
+      ...form,
+      plan: { ...form.plan, weeks: { precon: "0", construction: "65", closeout: "4" }, lines },
+    };
+  };
+
+  it("offers Percent, Dollars per GSF and Allocated Resources, and no longer Staffing and Duration", () => {
+    expect(METHODS.map((m) => m.label)).toEqual(["Percent of Subtotal", "Dollars per GSF", "Allocated Resources"]);
+  });
+
+  it("sends the plan with each figure's origin, a rate-card rate as rate card until it is changed", () => {
+    const sent = markupChoicesFrom(withPlan(), rates);
+    expect(sent.ok && sent.markups.resourcePlan?.lines[0]).toMatchObject({
+      label: "Sr. Project Manager",
+      basis: "time",
+      per: "day",
+      phases: ["construction"],
+      daysPerWeek: { value: 2, origin: "rate_card", ref: "s-spm", source: "C-00379" },
+      rate: { value: 1300, origin: "rate_card", ref: "s-spm", source: "C-00379" },
+    });
+
+    const form = withPlan();
+    form.plan.lines[0] = { ...form.plan.lines[0], rate: "1400", rateFrom: TYPED };
+    const edited = markupChoicesFrom(form, rates);
+    expect(edited.ok && edited.markups.resourcePlan?.lines[0].rate).toEqual({ value: 1400, origin: "estimator" });
+  });
+
+  it("adds a connect-then-monthly item as its connect and its monthly service", () => {
+    const lines = linesFromRateCard("office", "f-power", rates, []);
+    expect(lines.map((line) => [line.label, line.basis, line.per])).toEqual([
+      ["Electric connect", "lump_sum", "week"],
+      ["Electric connect, Monthly Service", "time", "month"],
+    ]);
+    // Adding the same row twice keeps every line's id its own.
+    const again = linesFromRateCard("office", "f-power", rates, lines);
+    expect(new Set([...lines, ...again].map((line) => line.id)).size).toBe(4);
+  });
+
+  it("refuses a plan with a phase left blank or no lines, in words the screen shows", () => {
+    const form = withPlan();
+    expect(markupChoicesFrom({ ...form, plan: { ...form.plan, weeks: { ...form.plan.weeks, precon: "" } } }, rates)).toEqual({
+      ok: false,
+      error: "Enter Precon weeks, 0 or more. Type 0 for a phase the job skips.",
+    });
+    expect(markupChoicesFrom({ ...form, plan: { ...form.plan, lines: [] } }, rates)).toEqual({
+      ok: false,
+      error: "Add at least one line to the plan.",
+    });
+  });
+
+  it("round-trips a saved plan, and opens a Staffing and Duration choice as a plan", () => {
+    const sent = markupChoicesFrom(withPlan(), rates);
+    if (!sent.ok) throw new Error(sent.error);
+    expect(markupChoicesFrom(initialMarkupForm(rates, sent.markups), rates)).toEqual(sent);
+
+    const legacy = initialMarkupForm(rates, {
+      setup: "both",
+      method: "staffing_duration",
+      durationWeeks: 30,
+      staff: [{ rateId: "s-spm" }],
+    });
+    expect(legacy.method).toBe("allocated_resources");
+    expect(legacy.plan.weeks.construction).toBe("30");
+    expect(legacy.plan.lines.map((line) => line.label)).toEqual(["Sr. Project Manager"]);
+  });
+
+  it("asks New Budget for a General Requirements rate beside a plan under separate lines", () => {
+    const form = { ...withPlan(), setup: "separate" as const };
+    expect(missingRates(form, options.historyCounts, false)).toEqual(["General Requirements"]);
+    expect(missingRates({ ...form, grOverridePercent: "2" }, options.historyCounts, false)).toEqual([]);
+    expect(missingRates({ ...form, setup: "gc_only" }, options.historyCounts, false)).toEqual([]);
   });
 });

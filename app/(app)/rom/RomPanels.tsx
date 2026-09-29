@@ -1,13 +1,23 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { overheadLines, type ConfidenceFlag, type ProvenanceKind, type Rom, type RomLine } from "@kulka/engine";
+import { Fragment, type ReactNode } from "react";
+import {
+  overheadLines,
+  PHASE_LABEL,
+  SCHEDULE_PHASES,
+  type ConfidenceFlag,
+  type PricedPlan,
+  type ProvenanceKind,
+  type Rom,
+  type RomLine,
+} from "@kulka/engine";
 
 import { personName } from "@/lib/format/person-name";
 import { titleCase } from "@/lib/format/title-case";
 import type { LineProvenance, ProvenanceSignal } from "@/lib/rom/provenance";
 
 import { type Headline, type TradeBlock, midpoint, perSquareFoot } from "./block-layout";
+import { originWords } from "./resource-plan-form";
 
 // LA-1101. What the black side panel shows. Every figure is read off the run:
 // the ROM the engine returned, and the provenance drill-down (LA-18) that
@@ -29,6 +39,8 @@ const PER_SF = new Intl.NumberFormat("en-US", {
 const SHARE = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
 
 const AREA = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+const WEEKS = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 function range(value: { low: number; high: number }): string {
   return `${DOLLARS.format(value.low)} to ${DOLLARS.format(value.high)}`;
@@ -99,6 +111,28 @@ function Row({
   );
 }
 
+/**
+ * LA-1397: the lines of an Allocated Resources plan under the markup line it
+ * priced, each with its quantity, basis and rate and where the rate came
+ * from, then the schedule it ran over.
+ */
+function PlanRows({ plan, name }: { plan: PricedPlan; name: string }) {
+  const weeks = SCHEDULE_PHASES.map((phase) => `${PHASE_LABEL[phase]} ${WEEKS.format(plan.weeks[phase])}`).join(", ");
+  return (
+    <div className="rb-plan" aria-label={`${name}, Allocated Resources`}>
+      {plan.lines.map((line) => (
+        <Row
+          key={line.id}
+          name={titleCase(line.label)}
+          amount={DOLLARS.format(line.amount)}
+          sub={`${line.basisWords}. Rate from ${originWords(line.rate)}.`}
+        />
+      ))}
+      <Row name="Schedule, Weeks" sub={`${weeks}. Monthly lines count 30.42 days a month.`} />
+    </div>
+  );
+}
+
 /** The total, opened from the header: the markup breakdown and the range. */
 export function TotalPanel({
   rom,
@@ -123,12 +157,14 @@ export function TotalPanel({
         <>
           <h3>Markups on the Subtotal</h3>
           {[markups.subtotal, ...overheadLines(markups).map(({ line }) => line), markups.fee, markups.insurance].map((line) => (
-            <Row
-              key={line.label}
-              name={line.code ? `${line.code} ${titleCase(line.label)}` : titleCase(line.label)}
-              amount={line.tbd ? "TBD" : range(line)}
-              sub={markupBasisWords(line.basis)}
-            />
+            <Fragment key={line.label}>
+              <Row
+                name={line.code ? `${line.code} ${titleCase(line.label)}` : titleCase(line.label)}
+                amount={line.tbd ? "TBD" : range(line)}
+                sub={markupBasisWords(line.basis)}
+              />
+              {line.plan ? <PlanRows plan={line.plan} name={titleCase(line.label)} /> : null}
+            </Fragment>
           ))}
           <Row name={titleCase(markups.total.label)} amount={range(markups.total)} sub={markupBasisWords(markups.total.basis)} sum />
           {owner ? (

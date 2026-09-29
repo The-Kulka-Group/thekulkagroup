@@ -278,7 +278,7 @@ export function GuidedNewBudget({
     }
     if (markupOptions) {
       slots.push({ kind: "markup_setup" }, { kind: "markup_method" });
-      if (form.method === "staffing_duration") slots.push({ kind: "markup_detail" });
+      if (form.method === "allocated_resources") slots.push({ kind: "markup_detail" });
       else slots.push({ kind: "markup_rate" });
     }
     return slots;
@@ -503,6 +503,13 @@ export function GuidedNewBudget({
 
   function submitMarkupDetail() {
     if (busy || !markupOptions) return;
+    // LA-1256: never finish on a TBD line, so separate lines still need a
+    // General Requirements rate unless it has history of its own.
+    const blanks = missingRates(markupForm, markupOptions.historyCounts, false);
+    if (blanks.length > 0) {
+      setError(`Enter the ${blanks.join(" and ")} percent of subtotal.`);
+      return;
+    }
     const parsed = markupChoicesFrom(markupForm, markupOptions);
     if (!parsed.ok) {
       setError(parsed.error);
@@ -840,7 +847,7 @@ export function GuidedNewBudget({
           />
         ) : markupOptions ? (
           <>
-            <h3 className="nb-prompt">Staffing and duration</h3>
+            <h3 className="nb-prompt">What resources does this job carry, phase by phase?</h3>
             <MarkupControls options={markupOptions} form={markupForm} onChange={setMarkupForm} disabled={busy} />
             <div className="rb-acts">
               <button className="btn btn--primary" type="button" onClick={submitMarkupDetail} disabled={busy}>

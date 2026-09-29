@@ -120,6 +120,27 @@ export {
 } from "./rom-relationships";
 
 export {
+  DAYS_PER_MONTH,
+  monthsIn,
+  PHASE_LABEL,
+  planFromStaffingChoices,
+  priceResourcePlan,
+  SCHEDULE_PHASES,
+  type FigureOrigin,
+  type LumpSumPlanLine,
+  type PlanBasis,
+  type PlanFigure,
+  type PlanLine,
+  type PlanSchedule,
+  type PricedPlan,
+  type PricedPlanLine,
+  type ResourcePlan,
+  type SchedulePhase,
+  type TimePlanLine,
+  type UnitPlanLine,
+} from "./resource-plan";
+
+export {
   computeMarkups,
   DEFAULT_MARKUP_CHOICES,
   GENERAL_REQUIREMENTS_CODE,

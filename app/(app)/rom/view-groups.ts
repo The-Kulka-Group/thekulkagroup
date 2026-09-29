@@ -19,7 +19,7 @@ import { groupElements, type GroupedField } from "./element-groups";
 export type RomView = "scope" | "package";
 
 /** The synthetic block an item with no stated package lands in, never hidden. */
-export const UNASSIGNED_PACKAGE = "Unassigned Package";
+export const UNASSIGNED_PACKAGE = "Not Yet Packaged";
 
 /** One tile inside a package block: a priced line, or an item with no rate yet. */
 export type PackageItem =

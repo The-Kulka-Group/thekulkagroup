@@ -15,7 +15,25 @@ export type LoadedRun = {
   /** The unit count the run was computed on, for $/unit. Null when nobody gave one. */
   unitCount: number | null;
   startedAt: string | null;
+  /** How many questions the run's flow recorded, or null for a run with no flow. */
+  answerCount: number | null;
 };
+
+const STAMP = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+const CLOCK = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+
+/**
+ * LA-1335. A run's name on screen: when it started, and how many questions
+ * its flow recorded, "Sep 28, 11:55 PM · 14 answers". A run with no flow
+ * (one run off the project record) has the date and time only. The id is
+ * not part of the name; the screens keep it on hover for support.
+ */
+export function runName(startedAt: string, answerCount: number | null): string {
+  const started = new Date(startedAt);
+  const when = `${STAMP.format(started)}, ${CLOCK.format(started)}`;
+  if (answerCount === null) return when;
+  return `${when} · ${answerCount} ${answerCount === 1 ? "answer" : "answers"}`;
+}
 
 /** How many saved runs the strip shows. The rest are one click away on R-110. */
 export const STRIP_RUNS = 8;
@@ -29,6 +47,7 @@ export function loadedRunFrom(record: RunRecord): LoadedRun | null {
     grossSquareFeet: record.answers?.grossSquareFeet ?? null,
     unitCount: readUnitCount(record.answers?.facts),
     startedAt: record.startedAt,
+    answerCount: record.answerCount,
   };
 }
 

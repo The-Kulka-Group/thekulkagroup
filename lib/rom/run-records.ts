@@ -59,6 +59,8 @@ export type RunSummary = {
   finishedAt: string | null;
   error: string | null;
   stepCount: number;
+  /** How many questions the run's flow recorded, or null for a run with no flow (LA-1335). */
+  answerCount: number | null;
 };
 
 export type RunRecord = RunSummary & {
@@ -86,6 +88,7 @@ type SummaryRow = {
   finished_at: Date | string | null;
   error: string | null;
   step_count: string | number;
+  answer_count: string | number | null;
 };
 
 type DetailRow = SummaryRow & {
@@ -105,7 +108,10 @@ type StepRow = {
 
 const SUMMARY_COLUMNS = `r.id, r.project_id, p.name as project_name, r.skill, r.status,
          r.started_at, r.finished_at, r.error,
-         (select count(*) from run_steps s where s.run_id = r.id) as step_count`;
+         (select count(*) from run_steps s where s.run_id = r.id) as step_count,
+         case when jsonb_typeof(r.answers->'flow'->'responses') = 'object'
+              then (select count(*) from jsonb_object_keys(r.answers->'flow'->'responses'))
+         end as answer_count`;
 
 /** Past runs, newest first, so one can be picked out and reopened. */
 export async function listRuns(db: Db, limit = 50): Promise<RunSummary[]> {
@@ -165,6 +171,7 @@ function toSummary(row: SummaryRow): RunSummary {
     finishedAt: row.finished_at === null ? null : isoTime(row.finished_at),
     error: row.error,
     stepCount: Number(row.step_count),
+    answerCount: row.answer_count === null ? null : Number(row.answer_count),
   };
 }
 

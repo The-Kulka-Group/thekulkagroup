@@ -169,7 +169,7 @@ describe("ordering packages", () => {
       line({ costCode: "03-300", label: "Concrete", low: 1, high: 1, buyoutPackage: "Concrete" }),
     ];
     const ordered = orderField(buildField("package", rom(lines), []), "masterformat");
-    expect(labels(ordered)).toEqual(["Concrete", "Kulka Items", "Unassigned Package"]);
+    expect(labels(ordered)).toEqual(["Concrete", "Kulka Items", "Not Yet Packaged"]);
   });
 });
 
@@ -425,7 +425,7 @@ describe("LA-1210: the Unassigned Package card", () => {
       line({ costCode: "03-300", label: "Concrete", low: 1, high: 1, buyoutPackage: "Concrete" }),
     ];
     const field = buildField("package", rom(lines), []);
-    const unassigned = field.find((entry) => entry.label === "Unassigned Package")!;
+    const unassigned = field.find((entry) => entry.label === "Not Yet Packaged")!;
     expect(unassigned.division).toBeNull();
   });
 
@@ -435,9 +435,9 @@ describe("LA-1210: the Unassigned Package card", () => {
       line({ costCode: "03-300", label: "Concrete", low: 1, high: 1, buyoutPackage: "Concrete" }),
     ];
     const masterformat = orderField(buildField("package", rom(lines), []), "masterformat");
-    expect(labels(masterformat)).toEqual(["Concrete", "Unassigned Package"]);
+    expect(labels(masterformat)).toEqual(["Concrete", "Not Yet Packaged"]);
 
     const largest = orderField(buildField("package", rom(lines), []), "largest");
-    expect(labels(largest)).toEqual(["Concrete", "Unassigned Package"]);
+    expect(labels(largest)).toEqual(["Concrete", "Not Yet Packaged"]);
   });
 });

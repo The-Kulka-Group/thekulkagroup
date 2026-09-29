@@ -169,7 +169,7 @@ describe("groupByPackage", () => {
     expect(driverTile.driverLabel).toBeNull();
   });
 
-  it("puts a line with no stated package in Unassigned Package rather than dropping it", () => {
+  it("puts a line with no stated package in Not Yet Packaged rather than dropping it", () => {
     const { r, classifications } = demolitionScenario();
     const { groups } = groupByPackage(r, classifications);
     const unassigned = groups.find((g) => g.package === UNASSIGNED_PACKAGE)!;
@@ -192,7 +192,7 @@ describe("groupByPackage", () => {
     expect(electrical.total).toEqual({ low: 0, high: 0 });
   });
 
-  it("leaves an unpriced item with no stated classification in Unassigned Package", () => {
+  it("leaves an unpriced item with no stated classification in Not Yet Packaged", () => {
     const item = unpriced({ costCode: "99z", label: "Something Not Yet Classified" });
     const { groups } = groupByPackage(rom([], [item]), []);
     const unassigned = groups.find((g) => g.package === UNASSIGNED_PACKAGE)!;

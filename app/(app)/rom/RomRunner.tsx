@@ -57,7 +57,7 @@ import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
 import { BlockPanel, type Drilldown, NOTES_TBD_ID, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
-import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
+import { type LoadedRun, loadedRunFrom, runName, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
 import { type FieldLink, ShareBar, ShareChip, useHoverIntent } from "./ShareBar";
 import { defaultRomView, type RomView } from "./view-groups";
@@ -480,6 +480,7 @@ export function RomRunner({
           grossSquareFeet: null,
           unitCount: null,
           startedAt: null,
+          answerCount: null,
         },
       );
       setState({ phase: "idle" });
@@ -605,7 +606,7 @@ export function RomRunner({
           <span className="rb-sp" />
           {/* New Budget always builds By Scope: production has almost no
               buyout packages stated yet, so By Package would pour every
-              answer into one Unassigned Package card (Matt, 2026-09-27). */}
+              answer into one Not Yet Packaged card (Matt, 2026-09-27). */}
           <button
             type="button"
             className="rb-hbtn"
@@ -1040,7 +1041,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title={titleCase(headline.label)}
-                sub={runWords(run)}
+                sub={runLabel(run)}
                 onClose={closePanel}
                 titleRef={titleRef}
               />
@@ -1052,7 +1053,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title={titleCase(openBlock.label)}
-                sub={`${openBlock.costCode} · ${runWords(run)}`}
+                sub={`${openBlock.costCode} · ${runLabel(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
               />
@@ -1075,7 +1076,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title={titleCase(rateItem.label)}
-                sub={`${rateItem.costCode} · ${runWords(run)}`}
+                sub={`${rateItem.costCode} · ${runLabel(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
               />
@@ -1100,7 +1101,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title="Suggest Missing Rates"
-                sub={runWords(run)}
+                sub={runLabel(run)}
                 onClose={closePanel}
                 titleRef={titleRef}
               />
@@ -1123,7 +1124,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title={titleCase(openPackage.label)}
-                sub={`${openPackage.division ? `Division ${openPackage.division} · ` : ""}${runWords(run)}`}
+                sub={`${openPackage.division ? `Division ${openPackage.division} · ` : ""}${runLabel(run)}`}
                 onClose={closePanel}
                 titleRef={titleRef}
               />
@@ -1157,7 +1158,7 @@ export function RomRunner({
             <>
               <PanelHead
                 title="Scope and Assumptions"
-                sub={runWords(run)}
+                sub={runLabel(run)}
                 onClose={closePanel}
                 titleRef={titleRef}
               />
@@ -1189,13 +1190,20 @@ export function RomRunner({
                   aria-current={current}
                   disabled={busy}
                   onClick={() => loadRun(one.id)}
-                  aria-label={`Load run ${one.id.slice(0, 8)}, ${STAMP.format(started)} at ${CLOCK.format(started)}`}
+                  // LA-1335: named by when it ran and how much was answered; the
+                  // id stays on hover for support.
+                  aria-label={`Load the run from ${runName(one.startedAt, one.answerCount)}`}
+                  title={`Run ${one.id}`}
                 >
                   <span className="rb-r1">
                     <b>{STAMP.format(started)}</b>
                     <span className="rb-rd num">{CLOCK.format(started)}</span>
                   </span>
-                  <span className="rb-rk num">Run {one.id.slice(0, 8)}</span>
+                  {one.answerCount !== null ? (
+                    <span className="rb-rk num">
+                      {one.answerCount} {one.answerCount === 1 ? "Answer" : "Answers"}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -1418,11 +1426,17 @@ function Chevron() {
   );
 }
 
+/** A run's name as a panel subtitle: "Sep 28, 11:55 PM · 14 answers". */
+function runLabel(run: LoadedRun): string {
+  return run.startedAt ? runName(run.startedAt, run.answerCount) : "Run Just Made";
+}
+
+/** A run's name inside a sentence: "the run from Sep 28, 11:55 PM · 14 answers". */
 function runWords(run: LoadedRun): string {
-  const id = `Run ${run.runId.slice(0, 8)}`;
-  if (!run.startedAt) return id;
-  const started = new Date(run.startedAt);
-  return `${id}, ${STAMP.format(started)} at ${CLOCK.format(started)}`;
+  // A run just made is shown before its record is read back, with no start
+  // time yet: it is the run just made.
+  if (!run.startedAt) return "the run just made";
+  return `the run from ${runName(run.startedAt, run.answerCount)}`;
 }
 
 /** Fetches the project's own row for the Edit panel's prefill (LA-1110). */

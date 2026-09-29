@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Sheet, Sep } from "@/components/Sheet";
 import { getDb } from "@/lib/db";
 import { listRuns } from "@/lib/rom/run-records";
+import { runName } from "../saved-runs";
 import { RUN_STATUS_CHIP, RUN_STATUS_LABEL, formatTime } from "./run-presentation";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,9 @@ export default async function RomRunsPage() {
             {runs.map((run) => (
               <tr className={`row${run.status === "failed" ? " row--stuck" : ""}`} key={run.id}>
                 <td className="num">
-                  <Link href={`/rom/runs/${run.id}`}>{run.id.slice(0, 8)}</Link>
+                  <Link href={`/rom/runs/${run.id}`} title={`Run ${run.id}`}>
+                    {runName(run.startedAt, run.answerCount)}
+                  </Link>
                 </td>
                 <td>{run.projectName}</td>
                 <td className="num">{formatTime(run.startedAt)}</td>

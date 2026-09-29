@@ -409,7 +409,7 @@ export function NotesPanel({
       ) : null}
 
       <ScopeList title="Not in This Job" items={rom.notInThisJob} />
-      <ScopeList title="TBD, Outside the Total" items={rom.tbdGateItems} />
+      <ScopeList title="TBD, Outside the Total" items={rom.tbdGateItems} id={NOTES_TBD_ID} />
       <ScopeList title="Assumed Present, Nobody Answered" items={rom.assumedPresentItems} />
 
       {carved.length > 0 ? (
@@ -436,11 +436,14 @@ export function NotesPanel({
   );
 }
 
-function ScopeList({ title, items }: { title: string; items: Rom["notInThisJob"] }) {
+/** The notes panel's TBD list, which the chip on the saved total scrolls to (LA-1337). */
+export const NOTES_TBD_ID = "rb-notes-tbd";
+
+function ScopeList({ title, items, id }: { title: string; items: Rom["notInThisJob"]; id?: string }) {
   if (items.length === 0) return null;
   return (
     <>
-      <h3>{title}</h3>
+      <h3 id={id}>{title}</h3>
       {items.map((item) => (
         <Row key={item.costCode} name={titleCase(item.label)} sub={item.question} />
       ))}

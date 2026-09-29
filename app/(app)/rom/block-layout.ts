@@ -1,4 +1,6 @@
-import type { MarkupLine, Rom, RomLine } from "@kulka/engine";
+import type { GateItemSummary, MarkupLine, Rom, RomLine } from "@kulka/engine";
+
+import { titleCase } from "@/lib/format/title-case";
 
 // LA-1101. What the Round 14 block layout on /rom reads off a finished ROM.
 // Every figure here is one the engine already made. The only arithmetic is the
@@ -88,6 +90,13 @@ export type Headline = {
   high: number;
   /** Short names of the markup lines with nothing behind them, left out of the total. */
   tbd: string[];
+  /**
+   * LA-1337: the scope answered Don't Know, by name, drivers first. It sits
+   * outside the figure (ADR 0006); nothing here adds it back.
+   */
+  tbdScope: string[];
+  /** How many trades add to the figure, for New Budget's count. */
+  pricedTrades: number;
   /** The midpoint over the gross area, or null when the area is not known. */
   perGrossSquareFoot: number | null;
   /** The midpoint over the unit count, or null when the project has none. */
@@ -100,6 +109,12 @@ export type HeadlineFacts = {
   unitCount: number | null;
   /** New Budget, still asking: a figure without markups is trade cost so far. */
   live?: boolean;
+  /**
+   * The TBD scope to name, when it comes from another ROM than the figure.
+   * New Budget prices the scope it knows but reads Don't Know answers off
+   * the ROM of every answer so far. Defaults to the figure's own ROM.
+   */
+  tbdScope?: GateItemSummary[];
 };
 
 /**
@@ -135,6 +150,10 @@ export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
     low: range.low,
     high: range.high,
     tbd: lines.filter(([line]) => line.tbd).map(([, name]) => name),
+    tbdScope: [...(facts.tbdScope ?? rom.tbdGateItems ?? [])]
+      .sort((a, b) => Number(Boolean(a.driverCostCode)) - Number(Boolean(b.driverCostCode)))
+      .map((item) => titleCase(item.label)),
+    pricedTrades: rom.lines.filter(addsToTotal).length,
     perGrossSquareFoot: perSquareFoot(mid, facts.grossSquareFeet),
     perUnit: facts.unitCount && facts.unitCount > 0 ? mid / facts.unitCount : null,
   };
@@ -152,6 +171,28 @@ export function headlineRates(headline: Pick<Headline, "perGrossSquareFoot" | "p
     headline.perUnit !== null ? `${shortMoney(headline.perUnit)}/unit` : null,
   ].filter((part): part is string => part !== null);
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/** How many named before the rest are counted. */
+const TBD_NAMED = 3;
+
+/**
+ * The chip on the total when scope is TBD: "Excludes 2 TBD: Concrete,
+ * Sitework". Past three names the rest are counted. Null with none.
+ */
+export function tbdScopeWords(names: string[]): string | null {
+  if (names.length === 0) return null;
+  const named = names.slice(0, TBD_NAMED).join(", ");
+  const rest = names.length - TBD_NAMED;
+  return `Excludes ${names.length} TBD: ${named}${rest > 0 ? ` +${rest} More` : ""}`;
+}
+
+/**
+ * New Budget's count under the total: "5 trades priced". It follows the
+ * includes line, which already says "so far" where the figure is partial.
+ */
+export function pricedTradesWords(count: number): string {
+  return `${count} ${count === 1 ? "trade" : "trades"} priced`;
 }
 
 /** A block's figure: $4.21M, $640k, $8.5k. */

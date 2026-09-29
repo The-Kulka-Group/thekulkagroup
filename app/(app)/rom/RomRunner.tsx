@@ -22,6 +22,7 @@ import {
   headlineMoney,
   headlineOf,
   headlineRates,
+  tbdScopeWords,
   shortMoney,
   tradeBlocks,
   valueTier,
@@ -55,7 +56,7 @@ import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm }
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
-import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
+import { BlockPanel, type Drilldown, NOTES_TBD_ID, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
 import { type FieldLink, ShareBar, ShareChip, useHoverIntent } from "./ShareBar";
@@ -723,6 +724,27 @@ export function RomRunner({
           {/* LA-1321: the status pills get their own line under the total. */}
           {run && headline ? (
             <div className="rb-status">
+            {/* LA-1337: TBD scope and a TBD markup are fixed in different
+                places, so each gets its own chip. This one opens the notes,
+                which list the scope. */}
+            {tbdScopeWords(headline.tbdScope) ? (
+              <button
+                type="button"
+                className="rb-td rb-td--btn"
+                aria-expanded={panel?.kind === "notes"}
+                onClick={(e) => {
+                  openPanel({ kind: "notes" }, e.currentTarget);
+                  // The TBD list sits under the held lines, so the panel
+                  // opens scrolled to it once it has drawn.
+                  requestAnimationFrame(() =>
+                    document.getElementById(NOTES_TBD_ID)?.scrollIntoView({ block: "start" }),
+                  );
+                }}
+              >
+                <span className="rb-dot rb-dot--working" aria-hidden="true" />
+                {tbdScopeWords(headline.tbdScope)}
+              </button>
+            ) : null}
             {headline.tbd.length > 0 ? (
               // LA-1256: a blank markup rate is fixed in Run Settings, so the
               // note opens it.
@@ -1383,7 +1405,6 @@ export function Block({
 function notesLabel(held: number, rom: Rom): string {
   const parts: string[] = [];
   if (held > 0) parts.push(`${held} Held for Review`);
-  if (rom.tbdGateItems.length > 0) parts.push(`${rom.tbdGateItems.length} TBD`);
   if (rom.assumedPresentItems.length > 0) parts.push(`${rom.assumedPresentItems.length} Assumed Present`);
   return parts.length > 0 ? parts.join(", ") : "Scope and Assumptions";
 }

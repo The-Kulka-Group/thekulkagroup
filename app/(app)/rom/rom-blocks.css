@@ -825,6 +825,8 @@
 .lb-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .lb-chip--tbd { background: var(--working-tint); }
 .lb-chip--tbd::before { background: var(--working); }
+/* LA-1337: the chip on the live total lands here; the ring says where. */
+.lb-tray:focus { outline: 2px solid var(--working); outline-offset: 6px; border-radius: var(--r-lg); }
 .lb-chip--out { background: var(--rb-track); color: var(--rb-blk-ink2); }
 .lb-chip--out::before { background: var(--rb-blk-mute); }
 

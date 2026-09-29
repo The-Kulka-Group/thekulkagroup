@@ -6,23 +6,17 @@ import type { Rom } from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
 
-import { perSquareFoot, shortMoney } from "./block-layout";
+import { perSquareFoot, tradeBlocks } from "./block-layout";
 import type { BarModel } from "./field-order";
 import { markupRows, type Ledger, type LedgerItem, type LedgerRow, type Source } from "./ledger";
+import { coarseMoney, coarsePercent, coarsePerSf, initiallyFolded, widestRangeFirst } from "./ledger-rail-model";
 
 // LA-1254. The schedule-of-values layout (ledger.ts builds the rows): one row
-// per trade with its division, amount, $/SF, share of the total and source.
-// A group row (an element, or a division under By Division) folds its items
-// open and shut; an item row opens the same side panel a card does.
-
-const PER_SF = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function percent(amount: number, total: number): string {
-  if (total <= 0) return "";
-  const share = amount / total;
-  if (share > 0 && share < 0.001) return "<0.1%";
-  return `${(share * 100).toFixed(1)}%`;
-}
+// per trade with its division, amount, $/SF, share of the total, range and
+// source. A group row (an element, or a division under By Division) folds its
+// items open and shut; an item row opens the same side panel a card does.
+// LA-1384: numbers round to the confidence a conceptual budget has, every row
+// carries its range on one scale from $0, and small groups start folded.
 
 function SourceCell({ source }: { source: Source }) {
   return (
@@ -40,6 +34,8 @@ export function LedgerView({
   grossSquareFeet,
   selected,
   onOpen,
+  mark = null,
+  bySpread,
 }: {
   rom: Rom;
   ledger: Ledger;
@@ -47,17 +43,51 @@ export function LedgerView({
   grossSquareFeet: number | null;
   selected: string | null;
   onOpen: (costCode: string, el: HTMLElement) => void;
+  /** The criterion hovered or open, and the items it prices, lit like the cards light. */
+  mark?: { code: string; costCodes: Set<string> } | null;
+  /** Widest Range First: rows with the widest range lead, groups and their items alike. */
+  bySpread: boolean;
 }) {
-  const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const total = bar.parts.reduce((sum, part) => sum + Math.max(0, part.value), 0);
   const trade = bar.parts.find((part) => part.key === "trade")?.value ?? 0;
   const owner = bar.parts.find((part) => part.key === "owner")?.value ?? 0;
-  const biggest = Math.max(1, ...ledger.trade.map((row) => (row.kind === "group" ? row.amount : row.amount ?? 0)));
+  // A group under 5% of the total starts folded, so the first screen goes to
+  // the trades that carry the budget.
+  const [closed, setClosed] = useState<Set<string>>(() => initiallyFolded([...ledger.trade, ...ledger.ownerDirect], total));
 
   const perSf = (amount: number) => {
     const value = perSquareFoot(amount, grossSquareFeet);
-    return value === null ? "" : PER_SF.format(value);
+    return value === null ? "" : coarsePerSf(value);
   };
+  const money = coarseMoney;
+  const pct = (amount: number, whole: number) => (whole > 0 ? coarsePercent(amount / whole) : "");
+
+  // Each row's low and high, from the run's own lines.
+  const spans = new Map(tradeBlocks(rom).map((block) => [block.costCode, { low: block.low, high: block.high }]));
+  const spanOfItems = (items: readonly LedgerItem[]) =>
+    items.reduce(
+      (acc, item) => {
+        const one = spans.get(item.costCode);
+        return one ? { low: acc.low + one.low, high: acc.high + one.high } : acc;
+      },
+      { low: 0, high: 0 },
+    );
+  const spanOf = (entry: LedgerRow | LedgerItem) =>
+    "items" in entry ? spanOfItems(entry.items) : spans.get(entry.costCode) ?? { low: 0, high: 0 };
+  const scale = Math.max(1, ...[...ledger.trade, ...ledger.ownerDirect].map((entry) => spanOf(entry).high)) * 1.04;
+  const rangeMark = (span: { low: number; high: number }) => {
+    if (span.high <= 0) return null;
+    const left = (span.low / scale) * 100;
+    const width = Math.max(0.6, ((span.high - span.low) / scale) * 100);
+    const mid = ((span.low + span.high) / 2 / scale) * 100;
+    return (
+      <>
+        <i className="lg-rb" style={{ left: `${left}%`, width: `${width}%` }} />
+        <b className="lg-rm" style={{ left: `${mid}%` }} />
+      </>
+    );
+  };
+  const ordered = <T extends LedgerRow | LedgerItem>(rows: readonly T[]): readonly T[] => (bySpread ? widestRangeFirst(rows, spanOf) : rows);
 
   const toggle = (key: string) =>
     setClosed((current) => {
@@ -67,20 +97,36 @@ export function LedgerView({
       return next;
     });
 
+  const lit = (costCode: string) => mark?.costCodes.has(costCode) ?? false;
+  const anyLit =
+    mark !== null &&
+    [...ledger.trade, ...ledger.ownerDirect].some((entry) =>
+      entry.kind === "item" ? lit(entry.costCode) : entry.items.some((item) => lit(item.costCode)),
+    );
+  const markTag = mark ? <span className="lg-mark num">{mark.code}</span> : null;
+
   const itemRow = (item: LedgerItem, child: boolean) => (
     <button
       key={item.key}
       type="button"
       className={`lg-row lg-item${child ? " lg-child" : ""}${selected === item.costCode ? " lg-row--sel" : ""}`}
+      data-lg-lit={lit(item.costCode) ? "" : undefined}
       onClick={(e) => onOpen(item.costCode, e.currentTarget)}
     >
       <span className="lg-div num">{child ? "" : item.division ?? ""}</span>
-      <span className="lg-name">{titleCase(item.label)}</span>
-      <span className="lg-amt num">{item.amount === null ? "No Rate Yet" : shortMoney(item.amount)}</span>
+      <span className="lg-name">
+        {titleCase(item.label)}
+        {lit(item.costCode) ? markTag : null}
+      </span>
+      <span className="lg-amt num">{item.amount === null ? "No Rate Yet" : money(item.amount)}</span>
       <span className="lg-psf num">{item.amount === null ? "" : perSf(item.amount)}</span>
-      <span className="lg-pct num">{item.amount === null ? "" : percent(item.amount, total)}</span>
-      <span className="lg-bar" aria-hidden="true">
-        {child || item.amount === null ? null : <i style={{ width: `${(item.amount / biggest) * 100}%` }} />}
+      <span className="lg-pct num">{item.amount === null ? "" : pct(item.amount, total)}</span>
+      <span
+        className={`lg-bar lg-rng${child ? " lg-rng--child" : ""}`}
+        title={item.amount === null ? undefined : `Range ${coarseMoney(spanOf(item).low)} to ${coarseMoney(spanOf(item).high)}`}
+        aria-hidden="true"
+      >
+        {item.amount === null ? null : rangeMark(spanOf(item))}
       </span>
       <SourceCell source={item.source} />
     </button>
@@ -91,7 +137,13 @@ export function LedgerView({
     const open = !closed.has(entry.key);
     return (
       <div key={entry.key} className="lg-grp">
-        <button type="button" className="lg-row lg-head" aria-expanded={open} onClick={() => toggle(entry.key)}>
+        <button
+          type="button"
+          className="lg-row lg-head"
+          aria-expanded={open}
+          data-lg-lit={entry.items.some((item) => lit(item.costCode)) ? "" : undefined}
+          onClick={() => toggle(entry.key)}
+        >
           <span className="lg-div num">{entry.key.startsWith("division:") ? "" : entry.division ?? ""}</span>
           <span className="lg-name">
             <svg className={`lg-chev${open ? " lg-chev--open" : ""}`} viewBox="0 0 12 12" aria-hidden="true">
@@ -99,11 +151,15 @@ export function LedgerView({
             </svg>
             {titleCase(entry.label)}
           </span>
-          <span className="lg-amt num">{entry.amount > 0 ? shortMoney(entry.amount) : "No Rate Yet"}</span>
+          <span className="lg-amt num">{entry.amount > 0 ? money(entry.amount) : "No Rate Yet"}</span>
           <span className="lg-psf num">{entry.amount > 0 ? perSf(entry.amount) : ""}</span>
-          <span className="lg-pct num">{entry.amount > 0 ? percent(entry.amount, total) : ""}</span>
-          <span className="lg-bar" aria-hidden="true">
-            {entry.amount > 0 ? <i style={{ width: `${(entry.amount / biggest) * 100}%` }} /> : null}
+          <span className="lg-pct num">{entry.amount > 0 ? pct(entry.amount, total) : ""}</span>
+          <span
+            className="lg-bar lg-rng"
+            title={entry.amount > 0 ? `Range ${coarseMoney(spanOf(entry).low)} to ${coarseMoney(spanOf(entry).high)}` : undefined}
+            aria-hidden="true"
+          >
+            {entry.amount > 0 ? rangeMark(spanOf(entry)) : null}
           </span>
           <span className="lg-src">
             {entry.unpricedCount > 0 ? (
@@ -116,7 +172,7 @@ export function LedgerView({
             )}
           </span>
         </button>
-        {open ? entry.items.map((item) => itemRow(item, true)) : null}
+        {open ? ordered(entry.items).map((item) => itemRow(item, true)) : null}
       </div>
     );
   };
@@ -125,26 +181,26 @@ export function LedgerView({
     <div key={key} className={`lg-row lg-sum${strong ? " lg-sum--total" : ""}`}>
       <span className="lg-div" />
       <span className="lg-name">{label}</span>
-      <span className="lg-amt num">{shortMoney(amount)}</span>
+      <span className="lg-amt num">{money(amount)}</span>
       <span className="lg-psf num">{perSf(amount)}</span>
-      <span className="lg-pct num">{strong ? "" : percent(amount, total)}</span>
+      <span className="lg-pct num">{strong ? "" : pct(amount, total)}</span>
       <span className="lg-bar" />
       <span className="lg-src" />
     </div>
   );
 
   return (
-    <div className="lg" role="table" aria-label="Schedule of Values">
+    <div className={`lg${anyLit ? " lg--hl" : ""}`} role="table" aria-label="Schedule of Values">
       <div className="lg-row lg-cols" role="row">
         <span className="lg-div">Div</span>
         <span className="lg-name">Item</span>
         <span className="lg-amt">Amount</span>
         <span className="lg-psf">$/SF</span>
         <span className="lg-pct">%</span>
-        <span className="lg-bar">Share</span>
+        <span className="lg-bar">Range, From $0</span>
         <span className="lg-src">Source</span>
       </div>
-      {ledger.trade.map(row)}
+      {ordered(ledger.trade).map(row)}
       {sumRow("trade", "Trade Cost", trade, false)}
       {markupRows(rom).map((markup) => sumRow(markup.key, markup.label, markup.amount))}
       {ledger.ownerDirect.length > 0 ? (
@@ -153,7 +209,7 @@ export function LedgerView({
             <span className="lg-div" />
             <span className="lg-name">Bought by the Owner Direct</span>
           </div>
-          {ledger.ownerDirect.map(row)}
+          {ordered(ledger.ownerDirect).map(row)}
           {sumRow("owner", "Owner Direct", owner)}
         </>
       ) : null}

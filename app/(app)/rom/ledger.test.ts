@@ -1,8 +1,11 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { BlockClassification, Rom, RomLine, UnpricedItem } from "@kulka/engine";
 
 import { addsToTotal } from "./block-layout";
-import { buildField, orderField, type RomOrder } from "./field-order";
+import { barModel, buildField, orderField, type RomOrder } from "./field-order";
+import { LedgerView } from "./LedgerView";
 import { buildLedger, divisionTitle, sourceOf, type LedgerGrouping, type LedgerRow } from "./ledger";
 
 // LA-1254. The schedule-of-values ledger, on the same synthetic pilot the
@@ -184,5 +187,53 @@ describe("sourceOf", () => {
   it("titles a division, or says it has none", () => {
     expect(divisionTitle("26")).toBe("26 Electrical");
     expect(divisionTitle(null)).toBe("No Division");
+  });
+});
+
+// LA-1384: the Ledger as the saved budget shows it.
+describe("the Ledger view", () => {
+  function render(bySpread: boolean) {
+    const { r, classifications } = pilot();
+    const entries = orderField(buildField("scope", r, classifications), "masterformat");
+    const ledger = buildLedger(r, entries, "element", "masterformat", classifications, new Map());
+    return renderToStaticMarkup(
+      createElement(LedgerView, {
+        rom: r,
+        ledger,
+        bar: barModel(r, entries),
+        grossSquareFeet: 100_000,
+        selected: null,
+        onOpen: () => {},
+        bySpread,
+      }),
+    );
+  }
+  const names = (html: string) => [...html.matchAll(/class="lg-name">(?:<svg[^]*?<\/svg>)?([^<]+)/g)].map((m) => m[1]);
+
+  it("starts a group under 5% of the total folded, so its items are not drawn", () => {
+    const html = render(false);
+    expect(html).toMatch(/aria-expanded="false"[^>]*>(?:(?!<\/button>)[^])*Demolition/);
+    expect(html).not.toContain("Plumbing Disconnect and Cap");
+  });
+
+  it("gives every trade row a range mark on the shared scale", () => {
+    const html = render(false);
+    const rows = html.match(/class="lg-row lg-(?:item|head)/g) ?? [];
+    const marks = html.match(/class="lg-rb"/g) ?? [];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(marks.length).toBe(rows.length);
+  });
+
+  it("puts the widest range first when asked, and MasterFormat order otherwise", () => {
+    // Electrical spreads $400k; Finishes and Plumbing Rough-In $200k each and
+    // keep their MasterFormat order; Demolition's $22k comes last.
+    expect(names(render(true)).slice(1, 5)).toEqual(["Electrical", "Finishes", "Plumbing Rough-in", "Demolition"]);
+    expect(names(render(false)).slice(1, 5)).toEqual(["Demolition", "Finishes", "Plumbing Rough-in", "Electrical"]);
+  });
+
+  it("rounds its figures to the budget's confidence", () => {
+    const html = render(false);
+    expect(html).toContain("$2.2M");
+    expect(html).not.toMatch(/\$\d+\.\d\d\b/);
   });
 });

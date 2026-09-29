@@ -1,0 +1,477 @@
+/* LA-1384. The saved budget's Ledger and Rail layout, with ledger-rail.tsx.
+   It layers on rom-blocks.css: the header's menus and range band, the facts
+   rail on the left, panels beside the budget rather than over it, the
+   Ledger's range marks, one accent color, and the phone layout. */
+/* --- Header: New Budget, one Settings menu, one View menu --------------- */
+
+.rb .rb-t1 { flex-wrap: nowrap; }
+.pm { position: relative; flex: none; }
+.pm-btn { display: inline-flex; align-items: center; gap: 8px; }
+.pm-sum { font-weight: 500; color: var(--rb-ink2-on-black); }
+.pm-car { width: 12px; height: 12px; }
+.pm-btn[aria-expanded="true"] .pm-car { transform: rotate(180deg); }
+.pm-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  z-index: 30;
+  min-width: 280px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  background: var(--rb-pnl-raise);
+  border: 1px solid var(--rb-pnl-line2);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  color: var(--rb-ink-on-black);
+}
+.pm-pop--right { right: 0; }
+.pm-pop--left { left: 0; }
+.pm-pop:has(.pm-item) { gap: 2px; padding: 6px; }
+.pm-item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: var(--ui-size);
+  font-weight: 600;
+  text-align: left;
+  color: var(--rb-ink-on-black);
+  text-decoration: none;
+  cursor: pointer;
+}
+.pm-item:hover, .pm-item:focus-visible { background: var(--rb-hover-on-black); }
+.pm-sep { height: 1px; margin: 4px 6px; background: var(--rb-pnl-line); }
+.pm-row { display: grid; gap: 6px; }
+.pm-row > span { font-size: var(--label-size); font-weight: 700; letter-spacing: var(--label-track); text-transform: uppercase; color: var(--rb-pnl-mute); }
+
+/* The total's row: the total at left, View at right. */
+.rb .rb-t2 { align-items: center; }
+.rb .pv { margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 8px; }
+/* The Order button names its setting to screen readers only, so the controls fit beside the total. */
+.rb .pv .pm-sum { display: none; }
+
+/* --- Panels lay over the field instead of squeezing it (finding 13) ----- */
+
+.rb.rb--open { grid-template-columns: minmax(0, 1fr) 0; }
+@media (min-width: 861px) {
+  .rb .rb-pnl {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+    width: min(460px, 100%);
+    height: 100%;
+    z-index: 20;
+    box-shadow: -18px 0 40px rgba(11, 11, 10, 0.22);
+    animation: pp-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+}
+@keyframes pp-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rb .rb-pnl { animation: none; } }
+
+/* --- A fact: value first, what it is under it, one mark for assumed ----- */
+
+.pf {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px 9px;
+  border: 1px solid var(--rb-blk-line);
+  border-radius: 10px;
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  color: var(--rb-blk-ink);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease);
+}
+.pf:hover { border-color: var(--rb-blk-hover); }
+.pf--on { border-color: var(--rb-blk-ink); box-shadow: inset 0 0 0 1px var(--rb-blk-ink); }
+.pf-v { display: flex; align-items: center; gap: 6px; font-size: var(--t3-size); line-height: 1.25; font-weight: 700; min-width: 0; }
+.pf-l { font-size: var(--chip-size); line-height: 1.35; color: var(--rb-blk-ink2); min-width: 0; }
+.pf-c { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--rb-blk-mute); }
+.pf-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--working); flex: none; }
+
+.pb .pf {
+  padding: 6px 12px 7px;
+  background: transparent;
+  border-color: var(--rb-pnl-line2);
+  color: var(--rb-ink-on-black);
+}
+.pb .pf:hover { border-color: var(--rb-pnl-mute); background: var(--rb-hover-on-black); }
+.pb .pf--on { border-color: var(--rb-ink-on-black); box-shadow: inset 0 0 0 1px var(--rb-ink-on-black); }
+.pb .pf .pf-v { font-size: var(--ui-size); }
+.pb .pf .pf-l, .pb .pf .pf-c { color: var(--rb-ink2-on-black); }
+
+.ps-hd { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
+.ps-hd h2 { margin: 0; font-size: var(--meta-size); line-height: 1.3; font-weight: 600; color: var(--rb-blk-ink2); }
+.ps-note { display: inline-flex; align-items: center; gap: 6px; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); }
+
+/* --- The budget with the facts rail beside it ------------------------- */
+
+/* The ledger and the rail are two panes that scroll on their own, so the
+   rail never runs past the fold and the building can be seen properly. */
+.rb .rb-fld:has(> .pl) { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.pl { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 272px; gap: 20px; }
+.pl-main { min-height: 0; overflow: auto; padding-bottom: 20px; }
+.pr { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 8px; padding-bottom: 4px; scrollbar-width: thin; }
+.pr .ps-hd { margin: 4px 0 0; }
+.pr-list { display: grid; gap: 4px; }
+.pr .pf { padding: 6px 10px 7px; }
+.pr .pf-v { font-size: var(--ui-size); }
+
+.pr-bld { margin-top: 4px; }
+.pr-bld .stg--card { min-height: 136px; height: 136px; }
+.pl:has(.stg--open) { grid-template-columns: minmax(0, 1fr); }
+.pl:has(.stg--open) .pr { order: -1; overflow: visible; }
+.pl:has(.stg--open) { overflow: auto; }
+
+.pb { flex-basis: 100%; display: flex; align-items: stretch; gap: 6px; margin-top: 2px; }
+.pb-row { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.pb-hd { display: grid; align-content: center; gap: 2px; padding-right: 6px; font-size: var(--chip-size); font-weight: 700; color: var(--rb-ink2-on-black); }
+.pb-note { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+
+/* --- The trade cards: names on one line so rows stay even (finding 31) -- */
+
+.rb .pk-top .rb-bn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* --- Phone: the total first, every action in one menu (finding 25) ------ */
+
+.pm-phone { display: none; }
+@media (max-width: 860px) {
+  .rb .rb-t1 { flex-wrap: wrap; row-gap: 8px; }
+  .rb .rb-t1 .rb-pick { order: 5; flex: 1 1 100%; max-width: none; }
+  .rb .rb-t1 .num { display: none; }
+  .rb .pm-wide { display: none; }
+  .pm-phone { display: block; margin-left: auto; }
+  .rb .rb-title { font-size: 18px; }
+  .rb .rb-t1 { column-gap: 8px; }
+  .rb .pm-phone .pm-btn { padding-inline: 12px; }
+  .rb .pv { margin-left: 0; flex-wrap: wrap; }
+  .rb .pv .pm-sum { display: none; }
+  .pl { grid-template-columns: minmax(0, 1fr); }
+  .rb .rb-fld:has(> .pl) { display: block; overflow: visible; }
+  .pl-main, .pr { overflow: visible; }
+  .pr { order: 2; }
+  .pr-bld { display: none; }
+  .pb { display: grid; gap: 6px; min-width: 0; }
+  .pb-hd { display: flex; gap: 10px; align-items: center; padding: 0; }
+  .pb-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
+  .pb-row .pf { flex: none; }
+}
+
+/* The hovered card's share sits at the right end of the status row, so it
+   never draws over the View menu (finding 9) and never moves the pills. */
+@media (min-width: 861px) {
+  .rb .sb-chip { position: static; margin-left: auto; }
+}
+
+/* --- The ledger lights what a fact prices, the way the cards do --------- */
+
+.lg--hl .lg-item:not([data-lg-lit]),
+.lg--hl .lg-head:not([data-lg-lit]) { opacity: 0.4; transition: opacity 0.2s; }
+.lg [data-lg-lit] { box-shadow: inset 3px 0 0 var(--primary); }
+.lg-mark {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--dc-blue-tint, #E3F0FD);
+  color: var(--dc-blue-ink, #0059B3);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* --- The rail on a desk, one swipe row of facts on a phone ------------- */
+
+@media (min-width: 861px) {
+  .rb .pb { display: none; }
+}
+@media (max-width: 860px) {
+  .rb .pr { display: none; }
+  /* Status pills and view controls keep to one line each, scrolling sideways. */
+  .rb .rb-status { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
+  .rb .rb-status > * { flex: none; }
+}
+
+/* --- The left is the building, the middle is the money, the
+   right is what you are doing. Nothing that opens on the right covers
+   Design and Engineering (Matt, 2026-09-29). ---------------------------- */
+
+@media (min-width: 861px) {
+  /* The facts rail on the left, in the saved budget as in New Budget. */
+  .rb .pl { grid-template-columns: 272px minmax(0, 1fr); }
+  .rb .pr { order: -1; }
+
+  /* Any panel, the questions included, opens beside the budget rather
+     than over it, so nothing on screen is covered. */
+  .rb.rb--open { grid-template-columns: minmax(0, 1fr) 460px; }
+  .rb .rb-pnl {
+    grid-column: 2;
+    justify-self: stretch;
+    width: auto;
+    box-shadow: none;
+    animation: none;
+  }
+  /* And Design and Engineering's stage becomes the same left column the
+     saved budget's facts use: the question's name, its picture, the
+     building, and the cards, top to bottom. */
+  .rb.rb--fresh .rb-fld { overflow: hidden; padding: 0; display: flex; }
+  .rb.rb--fresh .rb-fld > .rb-fresh-note {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+  .rb.rb--fresh .hs,
+  .rb.rb--fresh .hs--side {
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 150px 170px auto;
+    align-content: start;
+    row-gap: 12px;
+    height: auto;
+    margin: 0;
+    padding: 18px 20px;
+    border-bottom: 0;
+    border-right: 1px solid var(--border-light);
+    overflow: auto;
+  }
+  .rb.rb--fresh .hs-cap { grid-row: 1; grid-column: 1; }
+  .rb.rb--fresh .hs-scene { grid-row: 2; grid-column: 1; }
+  .rb.rb--fresh .hs-side { grid-row: 3; grid-column: 1; }
+  .rb.rb--fresh .hs-rail { grid-row: 4; grid-column: 1; margin: 0; }
+  .rb.rb--fresh .rb-fresh-note > :not(.hs) {
+    grid-column: 2;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px 20px 20px;
+  }
+}
+
+/* With a panel open the ledger is narrower, so it drops the Share bar
+   and the Source column and keeps Div, Item, Amount, $/SF and %. */
+.rb .pl-main { container-type: inline-size; }
+@container (min-width: 440px) and (max-width: 760px) {
+  .rb .lg .lg-row { grid-template-columns: 40px minmax(0, 1fr) 88px 80px 56px; gap: 12px; padding: 9px 16px; }
+  .rb .lg .lg-row > .lg-div,
+  .rb .lg .lg-row > .lg-psf,
+  .rb .lg .lg-row > .lg-pct { display: block; }
+  .rb .lg .lg-row > .lg-bar,
+  .rb .lg .lg-row > .lg-src { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   The range drawn, a range mark per ledger row, one plain
+   line under the total, and one accent: ink and grey for everything, the
+   Daylight blue only for what is lit or selected, orange only where
+   something needs doing (a rate to enter, an item with no rate). */
+
+.p-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* The total's range, on a scale from $0. */
+.prb { display: inline-flex; flex-direction: column; gap: 4px; width: 260px; vertical-align: middle; }
+.prb-track { position: relative; display: block; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--rb-ink-on-black) 10%, transparent); }
+.prb-band { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--rb-ink-on-black) 42%, transparent); }
+.prb-mid { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--rb-ink-on-black); }
+.prb-lbls { position: relative; display: block; height: 16px; font-size: var(--meta-size); line-height: 16px; color: var(--rb-ink2-on-black); font-variant-numeric: tabular-nums; }
+.prb-lbl { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.prb-lbl--end { transform: translateX(-100%); }
+.rb .rb-tot { align-items: center; }
+.rb .rb-tb { display: inline-flex; align-items: center; gap: 0; }
+
+.psl { flex-basis: 100%; margin: 2px 0 0; font-size: 15px; line-height: 22px; color: var(--rb-ink2-on-black); }
+.psl b { color: var(--rb-ink-on-black); font-weight: 600; }
+
+/* One accent. Status pills on the band go grey unless they ask for an action. */
+.rb .rb-status .rb-dot--working { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-ink2-on-black); }
+.rb .rb-oq .rb-dot--stuck { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-ink2-on-black); }
+/* ...but the rate to enter and the rates to suggest stay orange. */
+.rb .rb-td--btn .rb-dot--stuck,
+.rb .rb-oq[aria-expanded] + .rb-oq .rb-dot--stuck { background: var(--working); box-shadow: none; }
+/* Low confidence is a grey ring, not an orange dot. */
+.rb .pf-dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+/* Ledger source: ink for high, a ring for medium and low, orange only for no rate. */
+.lg .lg-dot--high { background: var(--rb-blk-ink); }
+.lg .lg-dot--medium,
+.lg .lg-dot--low { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+.lg .lg-dot--none { background: var(--working); }
+
+/* The range mark in each ledger row, on one scale from $0. */
+.lg .lg-rng { position: relative; height: 12px; background: none; }
+.lg .lg-rng::before { content: ""; position: absolute; left: 0; right: 0; top: 5px; height: 2px; background: color-mix(in srgb, var(--rb-blk-ink) 7%, transparent); }
+.lg .lg-cols .lg-rng::before, .lg .lg-sum .lg-rng::before { display: none; }
+.lg .lg-rng .lg-rb { position: absolute; top: 2px; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--rb-blk-ink) 22%, transparent); }
+.lg .lg-rng .lg-rm { position: absolute; top: 0; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: var(--rb-blk-ink); }
+.lg .lg-rng--child .lg-rb { background: color-mix(in srgb, var(--rb-blk-ink) 12%, transparent); }
+.lg .lg-rng--child .lg-rm { background: var(--rb-blk-ink2); }
+/* The wide ledger only; narrower containers keep their own columns. */
+@container (min-width: 821px) {
+  .lg .lg-row { grid-template-columns: 44px minmax(0, 1fr) 84px 64px 52px 160px 170px; }
+}
+.lg .lg-cols .lg-bar { white-space: nowrap; }
+
+/* Order menu: three choices as one list. */
+.pos { display: grid; gap: 2px; min-width: 200px; }
+.pos .pm-item { display: flex; justify-content: space-between; align-items: center; }
+.pos-on { font-size: 12px; }
+
+@media (max-width: 860px) {
+  .prb { width: 100%; }
+  .rb .rb-tb { display: flex; flex-direction: column; align-items: stretch; width: 100%; }
+}
+
+/* ---------------------------------------------------------------------------
+   The black band is two rows: the project and the total.
+   The view controls and notes sit on a toolbar on the ledger they change;
+   the missing rate is said in the sentence; the facts rank by the share of
+   the range they price. */
+
+.ptb { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 0 0 10px; }
+.ptb-l, .ptb-r { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ptb .pv { margin: 0; }
+.ptb .sb-chip { display: none; }
+/* The band's pill controls, restated for the light surface. */
+.ptb .rb-vsw { background: var(--surface); border-color: var(--rb-blk-line); }
+.ptb .rb-vopt { color: var(--rb-blk-mute, #8A8980); }
+.ptb .rb-vopt:hover { color: var(--rb-blk-ink2); }
+.ptb .rb-vopt[aria-pressed="true"] { color: var(--rb-blk-ink); }
+.ptb .rb-vdot { color: var(--rb-blk-line); }
+.ptb .rb-hbtn { color: var(--rb-blk-ink); border-color: var(--rb-blk-line); background: var(--surface); }
+.ptb .rb-hbtn:hover { border-color: var(--rb-blk-ink2); }
+.ptb .rb-hbtn[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #FFFFFF; }
+.ptb .rb-oq,
+.ptb .rb-td--btn { color: var(--rb-blk-ink2); border-color: var(--rb-blk-line); background: var(--surface); }
+.ptb .rb-oq:hover,
+.ptb .rb-td--btn:hover,
+.ptb .rb-oq[aria-expanded="true"] { color: var(--rb-blk-ink); border-color: var(--rb-blk-ink2); background: var(--surface); }
+.rb .ptb .rb-status .rb-dot--working,
+.rb .ptb .rb-dot--working,
+.rb .ptb .rb-oq .rb-dot--stuck { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+
+/* The missing rate, said in the sentence. Orange is the one alert color. */
+.psl-alert { display: inline-flex; align-items: center; gap: 7px; color: var(--rb-ink-on-black); font-weight: 600; }
+.psl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--working); flex: none; }
+.psl-act {
+  border: 1px solid var(--rb-pnl-line2); border-radius: var(--r-pill); background: transparent;
+  height: 26px; padding: 0 10px; margin-left: 2px; font: inherit; font-size: 13px; font-weight: 600;
+  color: var(--rb-ink-on-black); cursor: pointer; vertical-align: 1px;
+}
+.psl-act:hover, .psl-act:focus-visible { border-color: var(--rb-pnl-mute); background: var(--rb-hover-on-black); }
+
+/* Each fact's share of the spread: a thin bar and the words. */
+.pr-sub { margin: -2px 0 2px; font-size: var(--meta-size); color: var(--rb-blk-ink2); }
+.pf-sh { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.pf-shb { flex: 1; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--rb-blk-ink) 8%, transparent); overflow: hidden; }
+.pf-shb i { display: block; height: 4px; border-radius: 2px; background: var(--rb-blk-ink); }
+.pf-sht { font-size: 12px; color: var(--rb-blk-ink2); white-space: nowrap; }
+.pb .pf .pf-shb { background: color-mix(in srgb, var(--rb-ink-on-black) 12%, transparent); }
+.pb .pf .pf-shb i { background: var(--rb-ink-on-black); }
+.pb .pf .pf-sht { color: var(--rb-ink2-on-black); }
+.pr .pf { display: flex; flex-direction: column; align-items: stretch; }
+
+/* The black band keeps its own rows tight now it holds two. */
+@media (min-width: 861px) {
+  .rb .rb-t2 { align-items: center; }
+}
+
+@media (max-width: 860px) {
+  /* A phone's ledger rows carry the range mark under the amount. */
+  .rb .ptb { margin-bottom: 8px; }
+  .rb .ptb .rb-vsw, .rb .ptb .rb-hbtn { padding: 0 12px; font-size: 14px; }
+  .rb .ptb .rb-oq, .rb .ptb .rb-td--btn { height: 30px; padding: 0 12px; font-size: 13px; }
+}
+
+/* On a narrow ledger (a phone) each row keeps its range mark, a full
+   row under the name and amount, on the same shared scale. */
+@container (max-width: 560px) {
+  .lg .lg-item > .lg-rng,
+  .lg .lg-head > .lg-rng { display: block; grid-column: 1 / -1; margin: 2px 0 0; }
+  .lg .lg-cols > .lg-rng, .lg .lg-sum > .lg-rng { display: none; }
+}
+.pr-sub--q { margin-top: 8px; }
+.pr-list--q { gap: 0; border: 1px solid var(--rb-blk-line); border-radius: var(--r-md, 8px); overflow: hidden; }
+.pr-list--q .pf { border: 0; border-radius: 0; border-top: 1px solid var(--rb-blk-line); flex-direction: row; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 10px; }
+.pr-list--q .pf:first-child { border-top: 0; }
+.pr-list--q .pf .pf-v { order: 2; font-weight: 600; white-space: nowrap; }
+.pr-list--q .pf .pf-l { order: 1; color: var(--rb-blk-ink2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-list--q .pf { flex-wrap: wrap; row-gap: 0; }
+.pr-list--q .pf .pf-l { white-space: normal; overflow: visible; }
+.pr-list--q .pf .pf-v { margin-left: auto; }
+.ptb-ph { display: none; }
+@media (max-width: 860px) {
+  .rb .ptb .ptb-l.pm-wide { display: none; }
+  .rb .ptb .ptb-ph { display: flex; flex-wrap: nowrap; }
+}
+/* A long TBD name stays one line on the toolbar; the full name is in its title and the notes. */
+.ptb .rb-td--btn { display: inline-block; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 30px; }
+.ptb .rb-td--btn .rb-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
+
+/* On a phone the status pills sit on one row that scrolls sideways
+   (none of them opens a popover, so nothing gets clipped). */
+@media (max-width: 860px) {
+  .rb .ptb-r { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; padding-bottom: 2px; }
+  .rb .ptb-r::-webkit-scrollbar { display: none; }
+  .rb .ptb-r > * { flex: none; }
+}
+@media (max-width: 860px) {
+  .rb .ptb { flex-wrap: nowrap; }
+  .rb .ptb-r { flex: 1 1 0; min-width: 0; width: auto; }
+}
+
+/* ---------------------------------------------------------------------------
+   A quieter header: a small label, the number, the range
+   drawn, the rates in grey, and one line only when something needs doing.
+   What the total includes moves to the total's panel, its title and the
+   screen-reader text; the trades that drive the range lead the ledger. */
+.rb .rb-ti { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.rb .rb-tl { font-size: 13px; font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
+.rb .rb-tv { font-weight: 600; letter-spacing: -0.035em; }
+.rb .rb-rate { font-size: 15px; font-weight: 500; color: var(--rb-ink2-on-black); }
+.rb .prb-lbls { font-size: 12px; }
+.rb .prb-band { background: color-mix(in srgb, var(--rb-ink-on-black) 34%, transparent); }
+.psl--compact { display: inline-flex; align-items: center; gap: 10px; flex-basis: auto; margin: 0 0 0 auto; font-size: 14px; }
+.psl--compact .psl-alert { font-weight: 500; color: var(--rb-ink2-on-black); gap: 8px; }
+.psl--compact .psl-dot { width: 7px; height: 7px; }
+@media (max-width: 860px) {
+  .rb .rb-tv { font-size: 40px; }
+  .psl--compact { flex-basis: 100%; margin: 2px 0 0; justify-content: space-between; }
+}
+@media (max-width: 860px) {
+  .rb .rb-tot { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .rb .rb-tb { margin-top: 8px; }
+}
+@media (max-width: 860px) {
+  .rb .rb-tot { display: flex; width: 100%; margin: 0; padding: 4px 0; }
+  .rb .rb-tot .rb-tb { align-self: stretch; }
+}
+
+/* ---------------------------------------------------------------------------
+   The rail's heading is one line, each fact shows its share
+   as a bar and a number, and the toolbar keeps two short pills. */
+.rb .pr .ps-hd { flex-wrap: nowrap; justify-content: space-between; margin: 2px 0 2px; }
+.rb .pr .ps-note { font-weight: 500; font-size: 12px; }
+.rb .pf-sht { min-width: 32px; text-align: right; font-size: 12px; font-weight: 600; color: var(--rb-blk-ink2); }
+.rb .pb .pf .pf-sht { color: var(--rb-ink2-on-black); }
+.rb .ptb .ptb-alert { background: var(--working) !important; box-shadow: none !important; }
+
+/* A fact whose value just changed shimmers, then springs the new value in,
+   the way the old criterion cards did; hovering an assumed input in a fact's
+   panel lights the facts that rest on it and dims the rest. */
+.pf--recheck .pf-v {
+  color: transparent;
+  background: linear-gradient(90deg, var(--rb-track) 0, #F6F5F1 40%, var(--rb-track) 80%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: dc-shim .9s linear infinite;
+}
+.pf--flip .pf-v { animation: dc-flip .55s cubic-bezier(.22, 1.2, .36, 1); }
+.pf--ping { border-color: var(--working); box-shadow: 0 0 0 1px var(--working); }
+.pf--dim { opacity: .4; }
+@media (prefers-reduced-motion: reduce) {
+  .pf--recheck .pf-v { color: inherit; background: none; animation: none; }
+  .pf--flip .pf-v { animation: none; }
+}

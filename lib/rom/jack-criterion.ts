@@ -177,7 +177,8 @@ export function deriveJackType(facts: JackCriterionFacts): DerivedAssumption | n
     code: V2_CODE,
     label: V2_LABEL,
     value: { kind: "spec", text: value },
-    method: "Travel against each jack's reach in the manufacturers' planning guides (docs/precon/research/la-hydraulic-jack-type.md).",
+    // Source: docs/precon/research/la-hydraulic-jack-type.md.
+    method: "Travel against each jack's reach in the manufacturers' planning guides.",
     inputs,
     steps,
     confidence: confident ? "high" : "low",

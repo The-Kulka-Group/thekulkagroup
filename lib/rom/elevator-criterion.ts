@@ -73,7 +73,8 @@ function direct(
     code: V1_CODE,
     label: V1_LABEL,
     value: { kind: "spec", text: value },
-    method: "Travel from Stories Above Grade against the hydraulic-to-traction band (docs/precon/criteria/la-784-elevator-type.md).",
+    // Source: docs/precon/criteria/la-784-elevator-type.md.
+    method: "Travel from Stories Above Grade against the hydraulic-to-traction band.",
     inputs,
     steps,
     confidence,
@@ -96,13 +97,13 @@ function candidatesFor(
     hydraulic: {
       description: `Travel of ${travelFeet.toFixed(1)} ft, inside the either band (over 35 ft, up to 55 ft); hydraulic is the cheaper of the two types and the more common choice at this travel.`,
       value: { kind: "spec", text: "Hydraulic" },
-      method: "Travel sits in the either band; Jev picked Hydraulic from the facts given.",
+      method: "Travel sits in the either band; picked Hydraulic from the facts given.",
       steps: [...commonSteps, { label: "Band", result: `${band} -> Hydraulic` }],
     },
     traction: {
       description: `Travel of ${travelFeet.toFixed(1)} ft, inside the either band (over 35 ft, up to 55 ft); traction is also common at this travel and fits a faster car speed or a below-grade or tall ground floor pushing travel toward the hydraulic ceiling.`,
       value: { kind: "spec", text: "Traction" },
-      method: "Travel sits in the either band; Jev picked Traction from the facts given.",
+      method: "Travel sits in the either band; picked Traction from the facts given.",
       steps: [...commonSteps, { label: "Band", result: `${band} -> Traction` }],
     },
   };
@@ -197,9 +198,9 @@ export async function deriveElevatorType(
     assumption: direct(
       "Hydraulic",
       "low",
-      `${reasons.low} No Jev client is configured, so V-1 proposes Hydraulic without calling Jev.`,
+      `${reasons.low} Nothing is set up to choose between the two, so V-1 proposes Hydraulic, the cheaper type.`,
       inputs,
-      [...steps, { label: "Band", result: "Either -- no Jev client configured, proposing Hydraulic" }],
+      [...steps, { label: "Band", result: "Either; nothing set up to choose, so Hydraulic" }],
     ),
     jev: null,
   };

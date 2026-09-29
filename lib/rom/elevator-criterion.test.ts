@@ -80,7 +80,7 @@ describe("deriveElevatorType", () => {
     });
     expect(result!.assumption.value).toEqual({ kind: "spec", text: "Hydraulic" });
     expect(result!.assumption.confidence).toBe("low");
-    expect(result!.assumption.confidenceReason).toMatch(/no jev client is configured/i);
+    expect(result!.assumption.confidenceReason).toMatch(/nothing is set up to choose/i);
     expect(result!.jev).toBeNull();
   });
 

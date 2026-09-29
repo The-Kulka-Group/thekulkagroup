@@ -246,7 +246,8 @@ export function deriveElectricalService(facts: ElectricalFacts): DerivedAssumpti
     code: E1_CODE,
     label: E1_LABEL,
     value: { kind: "quantity", amount, unit: serviceUnit(result.buildings) },
-    method: "NEC 220.84 optional multifamily calculation, one service per building (docs/precon/criteria/la-776-electrical-service-size.md).",
+    // Source: docs/precon/criteria/la-776-electrical-service-size.md.
+    method: "NEC 220.84 optional multifamily calculation, one service per building.",
     inputs,
     steps,
     confidence: triggers.length === 0 ? "high" : "low",

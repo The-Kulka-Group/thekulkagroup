@@ -61,7 +61,8 @@ export function deriveBuildingForm(facts: BuildingFormFacts): DerivedAssumption 
     code: A2_CODE,
     label: A2_LABEL,
     value: { kind: "spec", text: form.shape },
-    method: `Double-loaded corridor wings ${WING_DEPTH} ft deep; past ${FOLD_AT["L-Shape"]} ft of corridor the plate folds into an L, past ${FOLD_AT["U-Shape"]} ft a U, past ${FOLD_AT.Courtyard} ft a courtyard (docs/precon/criteria/la-1325-building-form.md).`,
+    // Source: docs/precon/criteria/la-1325-building-form.md.
+    method: `Double-loaded corridor wings ${WING_DEPTH} ft deep; past ${FOLD_AT["L-Shape"]} ft of corridor the plate folds into an L, past ${FOLD_AT["U-Shape"]} ft a U, past ${FOLD_AT.Courtyard} ft a courtyard.`,
     inputs: [
       { name: "Gross Square Feet", value: fmt(facts.grossSquareFeet), basis: "stated" },
       { name: "Stories Above Grade", value: String(stories), basis: "stated" },

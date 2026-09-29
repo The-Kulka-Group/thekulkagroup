@@ -68,7 +68,8 @@ export function deriveGlazing(facts: { balconies: Gate; storefronts: Gate }): De
     code: M0_CODE,
     label: M0_LABEL,
     value: { kind: "spec", text: GLAZING[band].text },
-    method: "Glazing band from balconies and storefronts, mapped to DOE's apartment prototypes (docs/precon/criteria/la-777-hvac-tonnage.md).",
+    // Source: docs/precon/criteria/la-777-hvac-tonnage.md.
+    method: "Glazing band from balconies and storefronts, mapped to DOE's apartment prototypes.",
     inputs: [
       { name: "Balconies", value: facts.balconies ? GATE_WORDS[facts.balconies] : "Not answered", basis: facts.balconies ? "stated" : "assumed" },
       {
@@ -178,7 +179,8 @@ export function deriveTonnage(facts: TonnageFacts): DerivedAssumption {
     code: M1_CODE,
     label: M1_LABEL,
     value: { kind: "quantity", amount: result.tons, unit: "Tons" },
-    method: "Gross square feet over DOE's IECC 2021 apartment prototype GSF per ton, by climate zone and glazing band (docs/precon/criteria/la-777-hvac-tonnage.md).",
+    // Source: docs/precon/criteria/la-777-hvac-tonnage.md.
+    method: "Gross square feet over DOE's IECC 2021 apartment prototype GSF per ton, by climate zone and glazing band.",
     inputs,
     steps,
     confidence: triggers.length === 0 ? "high" : "low",

@@ -21,6 +21,7 @@ every step, as V-2 does (`lib/rom/jack-criterion.ts`).
 | LA-784 | `la-784-elevator-type.md` | V-1 Elevator Type |
 | LA-1265 | `../research/la-hydraulic-jack-type.md` | V-2 Hydraulic Jack Type. Built: in-ground, holeless or roped from travel, wet ground and ZIP, deciding whether item 26i (the well hole) comes in. |
 | LA-1269 | `../research/la-elevator-machine-rooms.md` | V-3 Elevator Machine Rooms. Built: one room per building for hydraulic, none for machine-room-less traction; item 26g prices per room. |
+| LA-1325 | `la-1325-building-form.md` | A-2 Building Form. Built: bar, L, U or courtyard from the floor plate's corridor length, with stepped wings and 28 ft bays. The Building View draws it; it prices nothing yet. |
 
 ## The intake gap, now mostly closed
 

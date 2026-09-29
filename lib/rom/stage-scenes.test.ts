@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Question } from "./question-flow";
-import { answerMoment, cardMoment, setupMoment } from "./stage-scenes";
+import { answerMoment, CARD_ORDER, cardForPart, cardMoment, decisionsFor, setupMoment } from "./stage-scenes";
 import { stageFactsFromResponses } from "./stage-model";
 
 // LA-1318: what each New Budget answer and Design and Engineering card plays
@@ -95,5 +95,53 @@ describe("stageFactsFromResponses", () => {
   it("draws no elevator until the job has one", () => {
     expect(stageFactsFromResponses({ elevator: "no", elevator_count: "2" }).elevatorCount).toBe(0);
     expect(stageFactsFromResponses({ gross_square_feet: "abc" }).grossSquareFeet).toBeNull();
+  });
+});
+
+describe("A-2 and cardForPart (LA-1325)", () => {
+  it("plays Building Form after Construction Type and builds the massing", () => {
+    expect(CARD_ORDER.indexOf("A-2")).toBe(CARD_ORDER.indexOf("A-1") + 1);
+    expect(cardMoment("A-2", "L-Shape")).toMatchObject({ source: "A-2", tag: "A-2", title: "Building Form", parts: ["massing"] });
+  });
+
+  it("opens the card that decided the part clicked", () => {
+    const all = new Set(["A-1", "A-2", "S-1", "V-1", "V-2", "V-3", "M-0", "M-1", "E-1"]);
+    expect(cardForPart("foundation", all)).toBe("S-1");
+    expect(cardForPart("basement", all)).toBe("S-1");
+    expect(cardForPart("podium", all)).toBe("A-1");
+    expect(cardForPart("massing", all)).toBe("A-2");
+    expect(cardForPart("glass", all)).toBe("M-0");
+    expect(cardForPart("elevators", all)).toBe("V-1");
+    expect(cardForPart("units", all)).toBe("M-1");
+    expect(cardForPart("service", all)).toBe("E-1");
+    expect(cardForPart("balconies", all)).toBeNull();
+  });
+
+  it("falls back to the next card that shaped the part, or none", () => {
+    expect(cardForPart("massing", new Set(["A-1"]))).toBe("A-1");
+    expect(cardForPart("elevators", new Set(["V-3"]))).toBe("V-3");
+    expect(cardForPart("service", new Set(["A-1"]))).toBeNull();
+  });
+});
+
+describe("decisionsFor (LA-1325)", () => {
+  it("lists each card once, bottom up, with every part it decided", () => {
+    const codes = new Set(["A-1", "A-2", "S-1", "V-1", "V-2", "M-0", "M-1", "E-1"]);
+    expect(decisionsFor(["foundation", "basement", "podium", "massing", "glass", "balconies", "elevators", "units", "service"], codes)).toEqual([
+      { code: "S-1", title: "Foundation System", parts: ["foundation", "basement"] },
+      { code: "A-1", title: "Construction Type", parts: ["podium"] },
+      { code: "A-2", title: "Building Form", parts: ["massing"] },
+      { code: "M-0", title: "Window Area", parts: ["glass"] },
+      { code: "V-1", title: "Elevator Type", parts: ["elevators"] },
+      { code: "M-1", title: "HVAC Tonnage", parts: ["units"] },
+      { code: "E-1", title: "Electrical Service", parts: ["service"] },
+    ]);
+  });
+
+  it("leaves out a part the building does not have, and a card it does not have", () => {
+    expect(decisionsFor(["foundation", "massing", "glass"], new Set(["A-1", "S-1"]))).toEqual([
+      { code: "S-1", title: "Foundation System", parts: ["foundation"] },
+      { code: "A-1", title: "Construction Type", parts: ["massing"] },
+    ]);
   });
 });

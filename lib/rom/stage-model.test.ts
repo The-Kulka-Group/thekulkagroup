@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { type StageFacts, stageBuilding } from "./stage-model";
+import { partsOf, type StageFacts, stageBuilding } from "./stage-model";
 
 // LA-1317: the stage's building comes only from the project's facts and its
 // Design and Engineering cards.
@@ -79,5 +79,44 @@ describe("stageBuilding", () => {
     expect(two.width * two.depth).toBeCloseTo(118_000 / 2 / 6, 0);
     expect(stageBuilding(facts({ stories: null }), harborView)).toBeNull();
     expect(stageBuilding(facts({ grossSquareFeet: 0 }), harborView)).toBeNull();
+  });
+});
+
+describe("stageBuilding's plan (LA-1325)", () => {
+  const floorArea = (b: NonNullable<ReturnType<typeof stageBuilding>>) =>
+    b.form.wings.reduce((sum, w) => sum + (w.x1 - w.x0) * (w.z1 - w.z0) * w.stories, 0);
+
+  it("draws A-2's shape: Harbor View as an L, its front wing a story lower", () => {
+    const b = stageBuilding(facts(), [...harborView, spec("A-2", "L-Shape")])!;
+    expect(b.form.shape).toBe("L-Shape");
+    expect(b.form.wings.map((w) => w.stories)).toEqual([5, 6]);
+    expect(b.form.bayWidth).toBe(28);
+    expect(floorArea(b)).toBeCloseTo(118_000, 0);
+    // The tallest wing sets the height; the plan's extent sets width and depth.
+    expect(b.height).toBe(62);
+    expect(b.width).toBeCloseTo(Math.max(...b.form.wings.map((w) => w.x1)) * 2, 6);
+  });
+
+  it("follows a corrected shape", () => {
+    const corrected = spec("A-2", "L-Shape");
+    const card = { ...corrected, correction: { value: { kind: "spec" as const, text: "Bar" }, reason: "", correctedBy: "", correctedAt: "" } };
+    const b = stageBuilding(facts(), [...harborView, card])!;
+    expect(b.form.shape).toBe("Bar");
+    expect(b.form.wings).toHaveLength(1);
+  });
+
+  it("keeps the plain block until A-2 has played", () => {
+    const b = stageBuilding(facts(), harborView)!;
+    expect(b.form.shape).toBeNull();
+    expect(b.form.bayWidth).toBeNull();
+    expect(b.form.wings).toEqual([{ x0: -b.width / 2, x1: b.width / 2, z0: -b.depth / 2, z1: b.depth / 2, stories: 6 }]);
+  });
+});
+
+describe("partsOf (LA-1325)", () => {
+  it("names the parts the building has", () => {
+    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual(["foundation", "podium", "massing", "glass", "balconies", "elevators", "units", "service"]);
+    const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
+    expect(partsOf(plain)).toEqual(["foundation", "basement", "massing", "glass"]);
   });
 });

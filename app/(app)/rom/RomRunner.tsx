@@ -289,6 +289,8 @@ export function RomRunner({
     () => (stageFacts ? stageBuilding(stageFacts, criteria.items) : null),
     [stageFacts, criteria.items],
   );
+  // LA-1325: the codes the Building View's parts open.
+  const criterionCodes = useMemo(() => criteria.items.map((item) => item.code), [criteria.items]);
   const [ping, setPing] = useState<Ping>(null);
   const drilldown = useProvenance(run?.runId ?? null);
 
@@ -778,7 +780,17 @@ export function RomRunner({
             {run ? ` The blocks below are still ${runWords(run)}.` : ""}
           </p>
         ) : null}
-        {run && panel?.kind !== "new" ? <Stage key="saved" mode="assemble" building={stageSpec} projectId={projectId ?? null} /> : null}
+        {run && panel?.kind !== "new" ? (
+          <Stage
+            key="saved"
+            mode="assemble"
+            building={stageSpec}
+            projectId={projectId ?? null}
+            cards={criterionCodes}
+            openCode={openCriterion?.code ?? null}
+            onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
+          />
+        ) : null}
         {run && panel?.kind !== "new" ? (
           <DerivedCriteriaSection
             items={criteria.items}

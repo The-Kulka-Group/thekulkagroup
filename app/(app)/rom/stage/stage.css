@@ -1,12 +1,30 @@
-/* LA-1317: the Design and Engineering stage, edge to edge across the top of
-   the budget field. Its background matches the model's so the canvas has no seam. */
+/* LA-1317: the Design and Engineering stage. Its background matches the
+   model's so the canvas has no seam.
+   LA-1325: it sits in the field's lower right corner as a card, stuck to the
+   bottom of the scrolling field, and takes no room in the flow. Open, it
+   runs edge to edge across the top of the field. */
 .stg {
   position: relative;
-  margin: -16px -24px 16px;
-  height: clamp(260px, 38vh, 400px);
   background: #ffffff;
-  border-bottom: 1px solid var(--border-light);
   overflow: hidden;
+}
+.stg--corner {
+  position: fixed;
+  right: var(--stg-right, 24px);
+  bottom: var(--stg-bottom, 24px);
+  z-index: 20;
+  width: 320px;
+  height: 236px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  box-shadow: 0 1px 2px rgba(18, 18, 17, 0.06), 0 10px 28px rgba(18, 18, 17, 0.12);
+}
+/* The last row of boxes can scroll clear of the card. */
+.rb-fld:has(.stg--corner) { padding-bottom: 268px; }
+.stg--open {
+  margin: -16px -24px 16px;
+  height: var(--stg-open-height, clamp(440px, 72vh, 820px));
+  border-bottom: 1px solid var(--border-light);
 }
 .stg-cv {
   position: absolute;
@@ -14,25 +32,122 @@
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
 }
-.stg-replay {
+.stg--open .stg-cv { cursor: grab; }
+.stg--open .stg-cv:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* The corner card's label and the button that opens it. */
+.stg-lbl {
   position: absolute;
+  left: 14px;
+  top: 12px;
+  display: grid;
+  gap: 1px;
+  pointer-events: none;
+}
+.stg-lbl-t { color: var(--ink); font-size: 13px; font-weight: 700; }
+.stg-lbl-s { color: var(--ink-2); font-size: 12px; font-weight: 600; }
+.stg-hit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: zoom-in;
+}
+.stg-hit:hover { background: rgba(0, 115, 234, 0.03); }
+.stg-hit:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* The open view: its name and tools across the top, the decisions along the bottom. */
+.stg-bar {
+  position: absolute;
+  left: 24px;
   right: 16px;
-  bottom: 14px;
+  top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+  pointer-events: none;
+}
+.stg-bar > * { pointer-events: auto; }
+.stg-head { display: grid; gap: 2px; }
+.stg-head-t { color: var(--ink); font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.stg-head-s { color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.stg-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.stg-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+}
+.stg-seg .stg-pill { border-color: transparent; }
+.stg-pill {
   min-height: 30px;
   padding: 0 12px;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   border: 1px solid var(--border-light);
   background: var(--surface);
   color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
+  transition: color 150ms var(--ease), background 150ms var(--ease), border-color 150ms var(--ease);
 }
-.stg-replay:hover { color: var(--ink); border-color: #b9b7af; }
-.stg-replay:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stg-pill:hover { color: var(--ink); border-color: #b9b7af; }
+.stg-seg .stg-pill:hover { border-color: transparent; }
+.stg-pill[aria-pressed="true"],
+.stg-pill--ink { background: var(--ink); border-color: var(--ink); color: #ffffff; }
+.stg-pill[aria-pressed="true"]:hover,
+.stg-pill--ink:hover { color: #ffffff; border-color: var(--ink); }
+.stg-pill:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stg-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.stg-range span { min-width: 76px; }
+.stg-range input { width: 140px; accent-color: var(--primary); }
+.stg-parts {
+  position: absolute;
+  left: 24px;
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: none;
+}
+.stg-parts > * { pointer-events: auto; }
+.stg-part { display: inline-flex; align-items: center; gap: 6px; }
+.stg-part-c { color: var(--primary); font-weight: 700; }
+.stg-part[aria-pressed="true"] .stg-part-c { color: #9cc8ff; }
 @media (max-width: 860px) {
-  .stg { margin: -14px -16px 16px; height: 240px; }
+  .stg--corner { width: 200px; height: 150px; }
+  .rb-fld:has(.stg--corner) { padding-bottom: 180px; }
+  .stg--open { margin: -14px -16px 16px; height: 78vh; }
+  .stg-bar { left: 14px; right: 12px; top: 12px; }
+  .stg-parts { left: 14px; right: 12px; bottom: 10px; }
+  .stg-range input { width: 100px; }
 }
 
 /* LA-1318: New Budget's caption. The decision's name shows as its moment
@@ -117,6 +232,15 @@
 @media (max-width: 860px) {
   .stg-cap { left: 16px; top: 12px; }
   .stg-ans { font-size: 19px; min-height: 24px; }
+}
+/* LA-1325: in the corner card the caption shrinks to fit above the building. */
+.stg--corner .stg-cap { left: 12px; top: 10px; column-gap: 6px; }
+.stg--corner .stg-code { font-size: 11px; padding: 1px 6px; }
+.stg--corner .stg-title { font-size: 12px; }
+.stg--corner .stg-ans { font-size: 17px; min-height: 22px; }
+@media (max-width: 860px) {
+  .stg--corner .stg-title { display: none; }
+  .stg--corner .stg-ans { font-size: 14px; min-height: 18px; }
 }
 
 /* The boxes a landed moment moved, lit on the white live field. An element

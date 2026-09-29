@@ -29,19 +29,21 @@ type Props = {
   criteria: Readonly<Record<string, StoredDerivedAssumption>>;
   building: StageBuilding | null;
   rail: readonly { code: string; state: RailState }[];
+  /** LA-1328: the Building View, at the stage's right end, so it never floats over the budget. */
+  side?: React.ReactNode;
 };
 
 /** Where a moment's price tag starts: the answer line, so it flies from what decided it. */
 export type HeroHandle = HTMLDivElement;
 
-export const HeroStage = forwardRef<HeroHandle, Props>(function HeroStage({ moment, criteria, building, rail }, capRef) {
+export const HeroStage = forwardRef<HeroHandle, Props>(function HeroStage({ moment, criteria, building, rail, side = null }, capRef) {
   const event = moment?.event ?? null;
   const landed = moment?.landed ?? false;
   const card = event && CARD_CODES.has(event.source) ? criteria[event.source] : undefined;
   const scene = useMemo(() => (card ? heroScene(card) : null), [card]);
 
   return (
-    <section className="hs" aria-label="Design and Engineering">
+    <section className={`hs${side ? " hs--side" : ""}`} aria-label="Design and Engineering">
       <div className="hs-cap" ref={capRef}>
         {event ? (
           <div className="hs-cap-in" key={event.id}>
@@ -61,6 +63,7 @@ export const HeroStage = forwardRef<HeroHandle, Props>(function HeroStage({ mome
       <div className="hs-scene" data-phase={landed ? "land" : "play"} key={event?.id ?? "idle"}>
         {scene ? <Scene scene={scene} building={building} /> : null}
       </div>
+      {side ? <div className="hs-side">{side}</div> : null}
       {rail.length > 0 ? (
         <ol className="hs-rail" aria-label="Design and Engineering cards">
           {rail.map((one) => (

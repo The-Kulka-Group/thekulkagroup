@@ -1,28 +1,26 @@
 /* LA-1317: the Design and Engineering stage. Its background matches the
    model's so the canvas has no seam.
-   LA-1325: it sits in the field's lower right corner as a card, stuck to the
-   bottom of the scrolling field, and takes no room in the flow. Open, it
-   runs edge to edge across the top of the field. */
+   LA-1325, LA-1328: it is a card with a home in the page, never floating over
+   the budget: the last card of the Design and Engineering grid, or the right
+   end of the hero stage. Open, it runs across the whole grid. */
 .stg {
   position: relative;
   background: #ffffff;
   overflow: hidden;
 }
-.stg--corner {
-  position: fixed;
-  right: var(--stg-right, 24px);
-  bottom: var(--stg-bottom, 24px);
-  z-index: 20;
-  width: 320px;
-  height: 236px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--r-lg);
-  box-shadow: 0 1px 2px rgba(18, 18, 17, 0.06), 0 10px 28px rgba(18, 18, 17, 0.12);
+/* LA-1328: a card in the page's flow, the size of the cell it sits in. */
+.stg--card {
+  height: 100%;
+  min-height: 212px;
+  border: 1px solid var(--rb-blk-line, var(--border-light));
+  border-radius: 12px;
 }
-/* The last row of boxes can scroll clear of the card. */
-.rb-fld:has(.stg--corner) { padding-bottom: 268px; }
+.stg--card:hover { border-color: var(--rb-blk-hover, #9a9992); }
+/* Open in place across the whole Design and Engineering grid. */
 .stg--open {
-  margin: -16px -24px 16px;
+  grid-column: 1 / -1;
+  border: 1px solid var(--rb-blk-line, var(--border-light));
+  border-radius: 12px;
   height: var(--stg-open-height, clamp(440px, 72vh, 820px));
   border-bottom: 1px solid var(--border-light);
 }
@@ -37,7 +35,7 @@
 .stg--open .stg-cv { cursor: grab; }
 .stg--open .stg-cv:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 
-/* The corner card's label and the button that opens it. */
+/* The card's label and the button that opens it. */
 .stg-lbl {
   position: absolute;
   left: 14px;
@@ -142,9 +140,8 @@
 .stg-part-c { color: var(--primary); font-weight: 700; }
 .stg-part[aria-pressed="true"] .stg-part-c { color: #9cc8ff; }
 @media (max-width: 860px) {
-  .stg--corner { width: 200px; height: 150px; }
-  .rb-fld:has(.stg--corner) { padding-bottom: 180px; }
-  .stg--open { margin: -14px -16px 16px; height: 78vh; }
+  .stg--card { min-height: 180px; }
+  .stg--open { height: 78vh; }
   .stg-bar { left: 14px; right: 12px; top: 12px; }
   .stg-parts { left: 14px; right: 12px; bottom: 10px; }
   .stg-range input { width: 100px; }
@@ -233,14 +230,14 @@
   .stg-cap { left: 16px; top: 12px; }
   .stg-ans { font-size: 19px; min-height: 24px; }
 }
-/* LA-1325: in the corner card the caption shrinks to fit above the building. */
-.stg--corner .stg-cap { left: 12px; top: 10px; column-gap: 6px; }
-.stg--corner .stg-code { font-size: 11px; padding: 1px 6px; }
-.stg--corner .stg-title { font-size: 12px; }
-.stg--corner .stg-ans { font-size: 17px; min-height: 22px; }
+/* LA-1325: in the card the caption shrinks to fit above the building. */
+.stg--card .stg-cap { left: 12px; top: 10px; column-gap: 6px; }
+.stg--card .stg-code { font-size: 11px; padding: 1px 6px; }
+.stg--card .stg-title { font-size: 12px; }
+.stg--card .stg-ans { font-size: 17px; min-height: 22px; }
 @media (max-width: 860px) {
-  .stg--corner .stg-title { display: none; }
-  .stg--corner .stg-ans { font-size: 14px; min-height: 18px; }
+  .stg--card .stg-title { display: none; }
+  .stg--card .stg-ans { font-size: 14px; min-height: 18px; }
 }
 
 /* The boxes a landed moment moved, lit on the white live field. An element

@@ -594,7 +594,8 @@ export function RomRunner({
           {run?.grossSquareFeet ? (
             <span className="num">{AREA.format(run.grossSquareFeet)} SF</span>
           ) : null}
-          {!projectId ? <span>{projectNotFound ? "Project Not Found" : "No Project Configured"}</span> : null}
+          {/* LA-1329: a fresh page says nothing about a project; the picker beside it asks. */}
+          {!projectId && projectNotFound ? <span>Project Not Found</span> : null}
           <span className="rb-sp" />
           {/* New Budget always builds By Scope: production has almost no
               buyout packages stated yet, so By Package would pour every
@@ -643,14 +644,10 @@ export function RomRunner({
           {/* LA-1227: once a project has a run, a change in Run settings
               records the next one on its own. The button stays only for a
               project with no run yet, such as a New Budget closed midway. */}
-          {!run ? (
-            <button
-              className="btn btn--primary"
-              type="button"
-              onClick={() => void runRom()}
-              disabled={!projectId || busy}
-            >
-              {!projectId ? "Project Required" : state.phase === "running" ? "Running" : "Run ROM"}
+          {/* A fresh page has nothing to run, so it shows no Run ROM (LA-1329). */}
+          {!run && projectId ? (
+            <button className="btn btn--primary" type="button" onClick={() => void runRom()} disabled={busy}>
+              {state.phase === "running" ? "Running" : "Run ROM"}
             </button>
           ) : null}
         </div>
@@ -771,17 +768,17 @@ export function RomRunner({
               criteria={newStage.criteria}
               building={newStage.building}
               rail={newStage.rail}
-            />
-          ) : null}
-          {panel?.kind === "new" ? (
-            <Stage
-              key="live"
-              mode="live"
-              quiet
-              building={newStage.building}
-              events={newStage.events}
-              onStart={newStage.onStart}
-              onLand={onStageLand}
+              side={
+                <Stage
+                  key="live"
+                  mode="live"
+                  quiet
+                  building={newStage.building}
+                  events={newStage.events}
+                  onStart={newStage.onStart}
+                  onLand={onStageLand}
+                />
+              }
             />
           ) : null}
           {panel?.kind === "new" ? (
@@ -817,17 +814,6 @@ export function RomRunner({
           </p>
         ) : null}
         {run && panel?.kind !== "new" ? (
-          <Stage
-            key="saved"
-            mode="assemble"
-            building={stageSpec}
-            projectId={projectId ?? null}
-            cards={criterionCodes}
-            openCode={openCriterion?.code ?? null}
-            onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
-          />
-        ) : null}
-        {run && panel?.kind !== "new" ? (
           <DerivedCriteriaSection
             items={criteria.items}
             recheck={criteria.recheck}
@@ -838,6 +824,19 @@ export function RomRunner({
             onOpen={(code, el) => openPanel({ kind: "criterion", code }, el)}
             onEnter={criterionHover.enter}
             onLeave={criterionHover.leave}
+            trailing={
+              stageSpec ? (
+                <Stage
+                  key="saved"
+                  mode="assemble"
+                  building={stageSpec}
+                  projectId={projectId ?? null}
+                  cards={criterionCodes}
+                  openCode={openCriterion?.code ?? null}
+                  onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
+                />
+              ) : null
+            }
           />
         ) : null}
         {run && layout === "ledger" && ledger && bar && panel?.kind !== "new" ? (

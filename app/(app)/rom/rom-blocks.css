@@ -205,6 +205,18 @@
   font-variant-numeric: tabular-nums;
 }
 .rb-tb { font-size: 18px; color: var(--rb-ink2-on-black); }
+/* LA-1334: the label never changes; the line under it says what the figure
+   includes. The column's baseline is the label's, so the row still lines up. */
+.rb-tlab { display: inline-flex; flex-direction: column; gap: 3px; }
+.rb-ti { font-size: var(--meta-size); font-weight: 500; line-height: var(--meta-line); color: var(--rb-ink2-on-black); }
+/* $/GSF and $/unit beside the range, split from it by a hairline. */
+.rb-rate {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--rb-pnl-line2);
+  color: var(--rb-ink-on-black);
+  font-weight: 600;
+}
 .rb-tb b { color: var(--rb-ink-on-black); font-weight: 600; }
 .rb-tot:hover .rb-tb b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .rb-td { font-size: 15px; color: var(--rb-ink2-on-black); }
@@ -604,6 +616,7 @@
   .rb-hdr { padding: 10px 16px; border-radius: var(--r-lg) var(--r-lg) 0 0; }
   .rb-tv { font-size: 34px; }
   .rb-tb { font-size: 15px; }
+  .rb-rate { display: block; margin: 4px 0 0; padding: 0; border: 0; }
   .rb-fld { padding: 14px 16px 18px; overflow: visible; }
   .rb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rb-revs { padding: 10px 16px 14px; border-radius: 0 0 var(--r-lg) var(--r-lg); }

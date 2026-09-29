@@ -8,6 +8,7 @@ import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 import {
   headlineMoney,
   headlineOf,
+  headlineRates,
   midpoint,
   perSquareFoot,
   shortMoney,
@@ -105,27 +106,52 @@ describe("the /rom block layout", () => {
     expect(byCode.get("11 3000")!.ownerDirect).toBe(true);
   });
 
-  it("heads a run without markups with trade cost", () => {
-    const headline = headlineOf(rom(lines));
+  // LA-1334: the header is always a total; the line under it says what it holds.
+  const markupsOf = (ownerDirect = { low: 0, high: 0 }): Markups => ({
+    choices: { setup: "both", method: "pct_of_subtotal" },
+    subtotal: markupLine("Subtotal", 3000, 4000),
+    generalConditions: markupLine("General Requirements & General Conditions", 0, 0, true),
+    fee: markupLine("Fee", 100, 130),
+    insurance: markupLine("Insurance", 50, 60),
+    total: markupLine("Total", 3150, 4190),
+    ownerDirect,
+    totalProjectCost: { low: 3150 + ownerDirect.low, high: 4190 + ownerDirect.high },
+    assumptions: [],
+  });
+  const facts = { grossSquareFeet: 10, unitCount: 2 };
 
-    expect(headline.label).toBe("Trade cost");
-    expect(headline.low).toBe(900 + 1800 + 450 + 80);
-    expect(headline.midpoint).toBe(midpoint(headline));
+  it("labels a figure without markups Total, and says it is trade cost", () => {
+    const live = headlineOf(rom(lines), { ...facts, live: true });
+    const saved = headlineOf(rom(lines), facts);
+
+    expect(live.label).toBe("Total");
+    expect(live.includes).toBe("trade cost so far");
+    expect(saved.label).toBe("Total");
+    expect(saved.includes).toBe("trade cost only, before GRs/GCs, fee and insurance");
+    expect(live.low).toBe(900 + 1800 + 450 + 80);
+    expect(live.midpoint).toBe(midpoint(live));
+  });
+
+  it("keeps the label and changes the includes line once markups are answered", () => {
+    const before = headlineOf(rom(lines), { ...facts, live: true });
+    const after = headlineOf(rom(lines, markupsOf()), { ...facts, live: true });
+
+    expect(after.label).toBe(before.label);
+    expect(after.includes).toBe("with GRs/GCs, fee and insurance");
+    expect(after.includes).not.toBe(before.includes);
+  });
+
+  it("labels a figure with owner-direct scope Total project cost", () => {
+    const headline = headlineOf(rom(lines, markupsOf({ low: 80, high: 120 })), facts);
+
+    expect(headline.label).toBe("Total project cost");
+    expect(headline.includes).toContain("plus owner-direct scope");
+    expect(headline.low).toBe(3230);
   });
 
   it("heads a run with markups with the total, and names a TBD markup", () => {
-    const markups: Markups = {
-      choices: { setup: "both", method: "pct_of_subtotal" },
-      subtotal: markupLine("Subtotal", 3000, 4000),
-      generalConditions: markupLine("General Requirements & General Conditions", 0, 0, true),
-      fee: markupLine("Fee", 100, 130),
-      insurance: markupLine("Insurance", 50, 60),
-      total: markupLine("Total", 3150, 4190),
-      ownerDirect: { low: 0, high: 0 },
-      totalProjectCost: { low: 3150, high: 4190 },
-      assumptions: [],
-    };
-    const headline = headlineOf(rom(lines, markups));
+    const markups = markupsOf();
+    const headline = headlineOf(rom(lines, markups), { grossSquareFeet: 1000, unitCount: null });
 
     expect(headline.label).toBe("Total");
     expect(headline.low).toBe(3150);
@@ -139,6 +165,28 @@ describe("the /rom block layout", () => {
     expect(html).toContain("$3,150 to $4,190");
     expect(html).toContain("1,000 SF");
     expect(html).toContain("no narrower likely band");
+  });
+
+  it("puts $/GSF and $/unit on the midpoint", () => {
+    const headline = headlineOf(rom(lines, markupsOf()), { grossSquareFeet: 10, unitCount: 2 });
+
+    // A $3,670 midpoint over 10 GSF and 2 units.
+    expect(headline.perGrossSquareFoot).toBe(367);
+    expect(headline.perUnit).toBe(1835);
+    expect(headlineRates(headline)).toBe("$367/GSF · $1.8k/unit");
+  });
+
+  it("leaves out $/unit with no unit count, and both rates with no area", () => {
+    const noUnits = headlineOf(rom(lines), { grossSquareFeet: 10, unitCount: null });
+    expect(noUnits.perUnit).toBeNull();
+    expect(headlineRates(noUnits)).toBe(`$${Math.round(noUnits.midpoint / 10)}/GSF`);
+
+    for (const grossSquareFeet of [0, null]) {
+      const noArea = headlineOf(rom(lines), { grossSquareFeet, unitCount: null });
+      expect(noArea.perGrossSquareFoot).toBeNull();
+      expect(headlineRates(noArea)).toBeNull();
+    }
+    expect(headlineOf(rom(lines), { grossSquareFeet: 10, unitCount: 0 }).perUnit).toBeNull();
   });
 
   it("formats the figures the way Round 14 does", () => {
@@ -291,6 +339,9 @@ describe("the saved-runs strip", () => {
     } as unknown as RunRecord;
 
     expect(loadedRunFrom(record)?.grossSquareFeet).toBe(100_000);
+    expect(loadedRunFrom(record)?.unitCount).toBeNull();
+    const withUnits = { ...record, answers: { ...record.answers, facts: { unitCount: 120 } } } as RunRecord;
+    expect(loadedRunFrom(withUnits)?.unitCount).toBe(120);
     expect(loadedRunFrom({ ...record, rom: null })).toBeNull();
 
     function lines(): RomLine[] {

@@ -82,6 +82,6 @@ describe("General Requirements rate card", () => {
     const staffing = await db.query<{ n: string }>(`select count(*) n from gc_staffing_rates`);
     const office = await db.query<{ n: string }>(`select count(*) n from gc_field_office_rates`);
     expect(Number(staffing.rows[0].n)).toBe(26);
-    expect(Number(office.rows[0].n)).toBe(29);
+    expect(Number(office.rows[0].n)).toBe(33);
   });
 });

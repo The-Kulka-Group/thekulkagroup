@@ -144,7 +144,8 @@ const groupingStore = rememberedChoice<LedgerGrouping>("kulka.rom.ledgerGrouping
 export function useRomLayout(): [RomLayout, (layout: RomLayout) => void] {
   const stored = useSyncExternalStore(layoutStore.subscribe, layoutStore.read, getServerSnapshot);
   const change = useCallback((next: RomLayout) => layoutStore.write(next), []);
-  return [stored ?? "cards", change];
+  // LA-1384: the saved budget leads with the Ledger until the viewer picks Cards.
+  return [stored ?? "ledger", change];
 }
 
 export function useLedgerGrouping(): [LedgerGrouping, (grouping: LedgerGrouping) => void] {

@@ -30,7 +30,6 @@ import {
 import {
   CriteriaToast,
   CriterionPanel,
-  DerivedCriteriaSection,
   type Ping,
   useDerivedCriteria,
 } from "./DerivedCriteria";
@@ -41,7 +40,6 @@ import { buildLedger } from "./ledger";
 import { LedgerView } from "./LedgerView";
 import { RatePanel } from "./RatePanel";
 import {
-  type BarModel,
   barModel,
   buildField,
   chipFor,
@@ -59,7 +57,7 @@ import { AllBudgetsPanel } from "./AllBudgetsPanel";
 import { BlockPanel, type Drilldown, NOTES_TBD_ID, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, runName, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
-import { type FieldLink, ShareBar, ShareChip, useHoverIntent } from "./ShareBar";
+import { type FieldLink, ShareChip, useHoverIntent } from "./ShareBar";
 import { defaultRomView, type RomView } from "./view-groups";
 import {
   GroupingSwitch,
@@ -75,6 +73,17 @@ import { markStageBuilt, Stage } from "./stage/Stage";
 import { HeroStage } from "./stage/HeroStage";
 import { useNewBudgetStage } from "./stage/useNewBudgetStage";
 import "./rom-blocks.css";
+import "./ledger-rail.css";
+import {
+  CriteriaRail,
+  FactsRow,
+  LedgerOrderChoice,
+  Menu,
+  MenuItem,
+  RangeBand,
+  RateAlert,
+} from "./ledger-rail";
+import { factSpreadShares } from "./ledger-rail-model";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
 // header band with the total, one block per trade biggest first, a black side
@@ -221,6 +230,9 @@ export function RomRunner({
   const [order, setOrder] = useRomOrder();
   // LA-1254: cards or the schedule-of-values ledger, and how the ledger groups.
   const [layout, setLayout] = useRomLayout();
+  // LA-1384: the Ledger opens Widest Range First, the trades that drive the
+  // range at the top. Order also offers Largest First and MasterFormat.
+  const [bySpread, setBySpread] = useState(true);
   const [grouping, setGrouping] = useLedgerGrouping();
 
   const busy = state.phase === "running" || state.phase === "loading";
@@ -570,6 +582,232 @@ export function RomRunner({
     );
   }
 
+  // The Building View, under the rail, and the budget body.
+  const savedStage = stageSpec ? (
+                <Stage
+      key="saved"
+      mode="assemble"
+      building={stageSpec}
+      projectId={projectId ?? null}
+      cards={criterionCodes}
+      openCode={openCriterion?.code ?? null}
+      onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
+    />
+  ) : null;
+  const budgetField = (
+    <>
+        {run && layout === "ledger" && ledger && bar && panel?.kind !== "new" ? (
+          <LedgerView
+            rom={run.rom}
+            ledger={ledger}
+            bar={bar}
+            grossSquareFeet={run.grossSquareFeet}
+            mark={litCriterion ? { code: litCriterion.code, costCodes: new Set(litCriterion.costCodes) } : null}
+            bySpread={bySpread}
+            selected={openBlock?.costCode ?? (panel?.kind === "rate" ? panel.costCode : null)}
+            onOpen={(costCode, el) =>
+              openPanel(
+                run.rom.unpricedItems.some((item) => item.costCode === costCode && item.driverCostCode)
+                  ? { kind: "rate", costCode }
+                  : { kind: "block", costCode },
+                el,
+              )
+            }
+          />
+        ) : run ? (
+          entries.length === 0 ? (
+            <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
+          ) : (
+            <BlockField
+              view={view}
+              order={order}
+              entries={entries}
+              selected={openBlock?.costCode ?? null}
+              selectedPackage={openPackage?.key ?? null}
+              link={link}
+              mark={criterionMark}
+              onOpen={(costCode, el) =>
+                openPanel(
+                  run.rom.unpricedItems.some((item) => item.costCode === costCode && item.driverCostCode)
+                    ? { kind: "rate", costCode }
+                    : { kind: "block", costCode },
+                  el,
+                )
+              }
+              onOpenPackage={(key, el) => openPanel({ kind: "package", key }, el)}
+            />
+          )
+        ) : null}
+    </>
+  );
+  // The Ledger's order adds Widest Range First; Cards keep their two orders.
+  const orderChoice =
+    layout === "ledger" ? (
+      <LedgerOrderChoice
+        order={order}
+        bySpread={bySpread}
+        onChange={(next, spread) => {
+          setOrder(next);
+          setBySpread(spread);
+        }}
+      />
+    ) : (
+      <div className="pm-row">
+        <span>Order</span>
+        <OrderSwitch order={order} onChange={setOrder} />
+      </div>
+    );
+  // The toolbar's view controls on a desk. The two choices made often stay one
+  // click each; order and ledger rows live in the Order menu.
+  const ledgerViews = (
+    <div className="pv">
+      {packagesAssigned ? <ViewSwitch view={view} onChange={setView} /> : null}
+      <LayoutSwitch layout={layout} onChange={setLayout} />
+      <Menu
+        label="Order"
+        summary={[
+          bySpread && layout === "ledger" ? "Widest Range First" : order === "largest" ? "Largest First" : "MasterFormat",
+          layout === "ledger" ? (grouping === "division" ? "By Division" : "By Element") : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      >
+        {() => (
+          <>
+            {orderChoice}
+            {layout === "ledger" ? (
+              <div className="pm-row">
+                <span>Ledger Rows</span>
+                <GroupingSwitch grouping={grouping} onChange={setGrouping} />
+              </div>
+            ) : null}
+          </>
+        )}
+      </Menu>
+    </div>
+  );
+  const statusPills = (withRate: boolean) =>
+    run && headline ? (
+      <>
+            {/* LA-1337: TBD scope and a TBD markup are fixed in different
+                places, so each gets its own chip. This one opens the notes,
+                which list the scope. */}
+            {tbdScopeWords(headline.tbdScope) ? (
+              <button
+                type="button"
+                className="rb-td rb-td--btn"
+                title={tbdScopeWords(headline.tbdScope) ?? undefined}
+                aria-expanded={panel?.kind === "notes"}
+                onClick={(e) => {
+                  openPanel({ kind: "notes" }, e.currentTarget);
+                  // The TBD list sits under the held lines, so the panel
+                  // opens scrolled to it once it has drawn.
+                  requestAnimationFrame(() =>
+                    document.getElementById(NOTES_TBD_ID)?.scrollIntoView({ block: "start" }),
+                  );
+                }}
+              >
+                <span className="rb-dot rb-dot--working" aria-hidden="true" />
+                {tbdScopeWords(headline.tbdScope)}
+              </button>
+            ) : null}
+            {withRate && headline.tbd.length > 0 ? (
+              // LA-1256: a blank markup rate is fixed in Run Settings, so the
+              // note opens it.
+              <button
+                type="button"
+                className="rb-td rb-td--btn"
+                onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
+              >
+                <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
+                {headline.tbd.join(", ")} TBD, Enter a Rate
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="rb-oq"
+              aria-expanded={panel?.kind === "notes"}
+              onClick={(e) => openPanel({ kind: "notes" }, e.currentTarget)}
+            >
+              {noteCount > 0 ? (
+                <span className={`rb-dot rb-dot--${held > 0 ? "stuck" : "working"}`} aria-hidden="true" />
+              ) : null}
+              {notesLabel(held, run.rom)}
+            </button>
+            {projectId && rateable.length > 0 ? (
+              <button
+                type="button"
+                className="rb-oq"
+                aria-expanded={panel?.kind === "rates"}
+                onClick={(e) => openPanel({ kind: "rates" }, e.currentTarget)}
+              >
+                <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
+                {rateable.length === 1 ? "Suggest the Missing Rate" : `Suggest ${rateable.length} Missing Rates`}
+              </button>
+            ) : null}
+            <ShareChip chip={chip} />
+      </>
+    ) : null;
+  // The toolbar keeps two short pills: the notes (held lines and TBD scope)
+  // open one panel, and missing rates open another.
+  const toolbarPills = () => {
+    if (!run || !headline) return null;
+    const tbdCount = headline.tbdScope.length;
+    const notes = [held > 0 ? `${held} Held` : null, tbdCount > 0 ? `${tbdCount} TBD` : null].filter(Boolean).join(" · ");
+    return (
+      <>
+        {notes ? (
+          <button
+            type="button"
+            className="rb-oq"
+            aria-expanded={panel?.kind === "notes"}
+            aria-label={`Notes: ${held} held for review${tbdCount > 0 ? `, ${tbdCount} TBD` : ""}`}
+            onClick={(e) => openPanel({ kind: "notes" }, e.currentTarget)}
+          >
+            {notes}
+          </button>
+        ) : null}
+        {projectId && rateable.length > 0 ? (
+          <button
+            type="button"
+            className="rb-oq"
+            aria-expanded={panel?.kind === "rates"}
+            aria-label={rateable.length === 1 ? "Suggest the missing rate" : `Suggest ${rateable.length} missing rates`}
+            onClick={(e) => openPanel({ kind: "rates" }, e.currentTarget)}
+          >
+            <span className="rb-dot rb-dot--stuck ptb-alert" aria-hidden="true" />
+            {rateable.length === 1 ? "1 Missing Rate" : `${rateable.length} Missing Rates`}
+          </button>
+        ) : null}
+      </>
+    );
+  };
+  const factsProps = {
+    items: criteria.items,
+    shares: factSpreadShares(blocks, criteria.items),
+    selectedCode: openCriterion?.code ?? null,
+    recheck: criteria.recheck,
+    flip: criteria.flip,
+    ping,
+    onOpen: (code: string, el: HTMLElement | null) => openPanel({ kind: "criterion", code }, el),
+    onEnter: criterionHover.enter,
+    onLeave: criterionHover.leave,
+  };
+  // The Settings menu's rows; the phone's one Menu adds New Budget first.
+  const settingsItems = (close: () => void, withNew: boolean) => (
+    <>
+      {withNew ? <MenuItem onClick={() => { close(); openPanel({ kind: "new" }); }}>New Budget</MenuItem> : null}
+      <MenuItem onClick={() => { close(); openPanel({ kind: "budgets" }); }}>All Budgets</MenuItem>
+      {projectId ? <MenuItem onClick={() => { close(); openPanel({ kind: "edit" }); }}>Edit Project</MenuItem> : null}
+      {projectId && (markupOptions || scopeDefaults) ? (
+        <MenuItem onClick={() => { close(); openPanel({ kind: "settings" }); }}>Run Settings</MenuItem>
+      ) : null}
+      <div className="pm-sep" />
+      {/* LA-1321: Engine Parameters belongs to Conceptual Budget, so it lives here rather than in the sidebar. */}
+      <MenuItem href="/rom/parameters">Engine Parameters</MenuItem>
+    </>
+  );
+
   return (
     // New budget clears the screen behind its form, so the new project starts
     // blank rather than over the last project's blocks and runs.
@@ -607,47 +845,21 @@ export function RomRunner({
           {/* New Budget always builds By Scope: production has almost no
               buyout packages stated yet, so By Package would pour every
               answer into one Not Yet Packaged card (Matt, 2026-09-27). */}
+          {/* LA-1384: New Budget stays out; the rest is one Settings menu. On a phone, one Menu holds all of it. */}
           <button
             type="button"
-            className="rb-hbtn"
-            aria-expanded={panel?.kind === "budgets"}
-            onClick={(e) => openPanel({ kind: "budgets" }, e.currentTarget)}
-          >
-            All Budgets
-          </button>
-          <button
-            type="button"
-            className="rb-hbtn"
+            className="rb-hbtn pm-wide"
             aria-expanded={panel?.kind === "new"}
             onClick={(e) => openPanel({ kind: "new" }, e.currentTarget)}
           >
             New Budget
           </button>
-          {projectId ? (
-            <button
-              type="button"
-              className="rb-hbtn"
-              aria-expanded={panel?.kind === "edit"}
-              onClick={(e) => openPanel({ kind: "edit" }, e.currentTarget)}
-            >
-              Edit Project
-            </button>
-          ) : null}
-          {projectId && (markupOptions || scopeDefaults) ? (
-            <button
-              type="button"
-              className="rb-hbtn"
-              aria-expanded={panel?.kind === "settings"}
-              onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
-            >
-              Run Settings
-            </button>
-          ) : null}
-          {/* LA-1321: Engine Parameters belongs to Conceptual Budget, so it
-              lives here as a pill instead of in the sidebar. */}
-          <Link className="rb-hbtn rb-hlink" href="/rom/parameters">
-            Engine Parameters
-          </Link>
+          <div className="pm-wide">
+            <Menu label="Settings">{(close) => settingsItems(close, false)}</Menu>
+          </div>
+          <div className="pm-phone">
+            <Menu label="Menu">{(close) => settingsItems(close, true)}</Menu>
+          </div>
           {/* LA-1227: once a project has a run, a change in Run settings
               records the next one on its own. The button stays only for a
               project with no run yet, such as a New Budget closed midway. */}
@@ -676,6 +888,7 @@ export function RomRunner({
               <button
                 type="button"
                 className="rb-tot"
+                title={`${titleCase(headline.label)}, ${headline.includes}`}
                 aria-expanded={panel?.kind === "total"}
                 onClick={(e) => openPanel({ kind: "total" }, e.currentTarget)}
               >
@@ -685,10 +898,7 @@ export function RomRunner({
                 </span>
                 <span className="rb-tv num">{headlineMoney(headline.midpoint, headline)}</span>
                 <span className="rb-tb">
-                  Range{" "}
-                  <b className="num">
-                    {headlineMoney(headline.low, headline)} to {headlineMoney(headline.high, headline)}
-                  </b>
+                  <RangeBand low={headline.low} mid={headline.midpoint} high={headline.high} format={(v) => headlineMoney(v, headline)} />
                   {/* The chevron rides inside the last piece so it never wraps onto a
                       line of its own; on a phone the rates take their own line. */}
                   {headlineRates(headline) ? (
@@ -711,79 +921,19 @@ export function RomRunner({
                   : "No ROM on screen yet."}
             </p>
           )}
-          {/* LA-1321: the view switches sit at the right of the total's row,
-              beside the numbers they change, so the first row holds only the
-              project and its actions. */}
-          <div className="rb-views">
-            {packagesAssigned && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
-            {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
-            {run && panel?.kind !== "new" ? <LayoutSwitch layout={layout} onChange={setLayout} /> : null}
-            {run && panel?.kind !== "new" && layout === "ledger" ? (
-              <GroupingSwitch grouping={grouping} onChange={setGrouping} />
-            ) : null}
-          </div>
-          {/* LA-1321: the status pills get their own line under the total. */}
-          {run && headline ? (
-            <div className="rb-status">
-            {/* LA-1337: TBD scope and a TBD markup are fixed in different
-                places, so each gets its own chip. This one opens the notes,
-                which list the scope. */}
-            {tbdScopeWords(headline.tbdScope) ? (
-              <button
-                type="button"
-                className="rb-td rb-td--btn"
-                aria-expanded={panel?.kind === "notes"}
-                onClick={(e) => {
-                  openPanel({ kind: "notes" }, e.currentTarget);
-                  // The TBD list sits under the held lines, so the panel
-                  // opens scrolled to it once it has drawn.
-                  requestAnimationFrame(() =>
-                    document.getElementById(NOTES_TBD_ID)?.scrollIntoView({ block: "start" }),
-                  );
-                }}
-              >
-                <span className="rb-dot rb-dot--working" aria-hidden="true" />
-                {tbdScopeWords(headline.tbdScope)}
-              </button>
-            ) : null}
-            {headline.tbd.length > 0 ? (
-              // LA-1256: a blank markup rate is fixed in Run Settings, so the
-              // note opens it.
-              <button
-                type="button"
-                className="rb-td rb-td--btn"
-                onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
-              >
-                <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
-                {headline.tbd.join(", ")} TBD, Enter a Rate
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="rb-oq"
-              aria-expanded={panel?.kind === "notes"}
-              onClick={(e) => openPanel({ kind: "notes" }, e.currentTarget)}
-            >
-              {noteCount > 0 ? (
-                <span className={`rb-dot rb-dot--${held > 0 ? "stuck" : "working"}`} aria-hidden="true" />
-              ) : null}
-              {notesLabel(held, run.rom)}
-            </button>
-            {projectId && rateable.length > 0 ? (
-              <button
-                type="button"
-                className="rb-oq"
-                aria-expanded={panel?.kind === "rates"}
-                onClick={(e) => openPanel({ kind: "rates" }, e.currentTarget)}
-              >
-                <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
-                {rateable.length === 1 ? "Suggest the Missing Rate" : `Suggest ${rateable.length} Missing Rates`}
-              </button>
-            ) : null}
-            <ShareChip chip={chip} />
+          {/* During New Budget the live field's order sits beside the running total. */}
+          {panel?.kind === "new" ? (
+            <div className="rb-views">
+              <OrderSwitch order={order} onChange={setOrder} />
             </div>
           ) : null}
-          {run && headline && bar ? <SavedBar bar={bar} litKey={litKey} /> : null}
+          {/* LA-1321: New Budget's status pills get their own line under the total. */}
+          {run && headline && panel?.kind === "new" ? <div className="rb-status">{statusPills(true)}</div> : null}
+          {run && panel?.kind !== "new" ? <FactsRow {...factsProps} /> : null}
+          {/* The header's one line that appears only when something needs doing. */}
+          {run && headline && panel?.kind !== "new" ? (
+            <RateAlert tbd={headline.tbd} onEnterRate={(el) => openPanel({ kind: "settings" }, el)} />
+          ) : null}
         </div>
       </header>
 
@@ -843,72 +993,45 @@ export function RomRunner({
             {run ? ` The blocks below are still ${runWords(run)}.` : ""}
           </p>
         ) : null}
+        {/* LA-1384: three columns, each with one job. Design and Engineering on
+            the left, the budget in the middle, and whatever is open on the
+            right, so nothing that opens covers the rail or the budget. */}
         {run && panel?.kind !== "new" ? (
-          <DerivedCriteriaSection
-            items={criteria.items}
-            recheck={criteria.recheck}
-            flip={criteria.flip}
-            selectedCode={openCriterion?.code ?? null}
-            ping={ping}
-            onPing={setPing}
-            onOpen={(code, el) => openPanel({ kind: "criterion", code }, el)}
-            onEnter={criterionHover.enter}
-            onLeave={criterionHover.leave}
-            trailing={
-              stageSpec ? (
-                <Stage
-                  key="saved"
-                  mode="assemble"
-                  building={stageSpec}
-                  projectId={projectId ?? null}
-                  cards={criterionCodes}
-                  openCode={openCriterion?.code ?? null}
-                  onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
-                />
-              ) : null
-            }
-          />
-        ) : null}
-        {run && layout === "ledger" && ledger && bar && panel?.kind !== "new" ? (
-          <LedgerView
-            rom={run.rom}
-            ledger={ledger}
-            bar={bar}
-            grossSquareFeet={run.grossSquareFeet}
-            selected={openBlock?.costCode ?? (panel?.kind === "rate" ? panel.costCode : null)}
-            onOpen={(costCode, el) =>
-              openPanel(
-                run.rom.unpricedItems.some((item) => item.costCode === costCode && item.driverCostCode)
-                  ? { kind: "rate", costCode }
-                  : { kind: "block", costCode },
-                el,
-              )
-            }
-          />
-        ) : run ? (
-          entries.length === 0 ? (
-            <p className="rb-none">No benchmark matched this project, so the ROM has no lines.</p>
-          ) : (
-            <BlockField
-              view={view}
-              order={order}
-              entries={entries}
-              selected={openBlock?.costCode ?? null}
-              selectedPackage={openPackage?.key ?? null}
-              link={link}
-              mark={criterionMark}
-              onOpen={(costCode, el) =>
-                openPanel(
-                  run.rom.unpricedItems.some((item) => item.costCode === costCode && item.driverCostCode)
-                    ? { kind: "rate", costCode }
-                    : { kind: "block", costCode },
-                  el,
-                )
-              }
-              onOpenPackage={(key, el) => openPanel({ kind: "package", key }, el)}
-            />
-          )
-        ) : null}
+          <div className="pl">
+            <div className="pl-main">
+              {/* The view controls and notes sit on the budget they change, off the black band. */}
+              <div className="ptb" role="toolbar" aria-label="Budget View">
+                <div className="ptb-l pm-wide">{ledgerViews}</div>
+                {/* On a phone: the scope switch, and one View menu for the rest, so the controls take one line. */}
+                <div className="ptb-l ptb-ph">
+                  {packagesAssigned ? <ViewSwitch view={view} onChange={setView} /> : null}
+                  <Menu label="View">
+                    {() => (
+                      <>
+                        <div className="pm-row">
+                          <span>Show</span>
+                          <LayoutSwitch layout={layout} onChange={setLayout} />
+                        </div>
+                        {orderChoice}
+                        {layout === "ledger" ? (
+                          <div className="pm-row">
+                            <span>Ledger Rows</span>
+                            <GroupingSwitch grouping={grouping} onChange={setGrouping} />
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </Menu>
+                </div>
+                <div className="ptb-r">{toolbarPills()}</div>
+              </div>
+              {budgetField}
+            </div>
+            <CriteriaRail {...factsProps} building={savedStage} />
+          </div>
+        ) : (
+          budgetField
+        )}
       </main>
 
       {panel ? (
@@ -1219,15 +1342,6 @@ export function RomRunner({
       </footer>
       <CriteriaToast toast={criteria.toast} onDismiss={criteria.dismissToast} />
     </div>
-  );
-}
-
-/** The saved ROM's markup bar, on its own line under the total. */
-function SavedBar({ bar, litKey }: { bar: BarModel; litKey: string | null }) {
-  return (
-    <span className="rb-sbar">
-      <ShareBar bar={bar} litKey={litKey} />
-    </span>
   );
 }
 

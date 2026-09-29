@@ -127,7 +127,7 @@ export type HeadlineFacts = {
  * label says so rather than the label changing.
  */
 /** "a", "a and b", "a, b and c". Empty for none. */
-function listWords(words: string[]): string {
+export function listWords(words: string[]): string {
   if (words.length <= 1) return words[0] ?? "";
   return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }

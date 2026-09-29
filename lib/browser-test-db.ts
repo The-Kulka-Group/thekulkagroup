@@ -108,8 +108,6 @@ async function seedRomFixtures(database: PGlite) {
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-06'),
       ('40000000-0000-4000-8000-000000000006', '22-100', 'Plumbing rough-in', 'usd_per_gsf', 14,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-06'),
-      ('40000000-0000-4000-8000-000000000007', '14-200', 'Elevator', 'usd_per_gsf', 2.6,
-       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
       ('40000000-0000-4000-8000-000000000008', '26-200', 'Elevator wiring', 'usd_per_gsf', 0.72,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-07'),
       ('40000000-0000-4000-8000-000000000009', '22-300', 'Elevator pit sump', 'usd_per_gsf', 0.26,
@@ -119,9 +117,7 @@ async function seedRomFixtures(database: PGlite) {
       ('40000000-0000-4000-8000-00000000000b', '22-400', 'Bathroom fixtures', 'usd_per_gsf', 4.4,
        'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08'),
       ('40000000-0000-4000-8000-00000000000c', '22-500', 'Toilets, labor and material', 'usd_per_gsf', 0.35,
-       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08'),
-      ('40000000-0000-4000-8000-00000000000d', '14-201', 'Elevator Bulkhead', 'usd_per_gsf', 0.18,
-       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-27');
+       'multifamily', 'new', 1, 'proest_budget', 'Synthetic browser test export', 'Browser test fixture', '2026-09-08');
 
     insert into benchmark_source_projects (benchmark_id, project_id)
     values
@@ -130,7 +126,6 @@ async function seedRomFixtures(database: PGlite) {
       ('40000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000002'),
       ('40000000-0000-4000-8000-000000000005', '30000000-0000-4000-8000-000000000002'),
       ('40000000-0000-4000-8000-000000000006', '30000000-0000-4000-8000-000000000002'),
-      ('40000000-0000-4000-8000-000000000007', '30000000-0000-4000-8000-000000000003'),
       ('40000000-0000-4000-8000-000000000008', '30000000-0000-4000-8000-000000000003'),
       ('40000000-0000-4000-8000-000000000009', '30000000-0000-4000-8000-000000000003'),
       ('40000000-0000-4000-8000-00000000000a', '30000000-0000-4000-8000-000000000003'),
@@ -144,6 +139,10 @@ async function seedRomFixtures(database: PGlite) {
     -- has an unclassified block to show. The three elevator breakouts sit
     -- inside level 1 lumps whose rates already cover them, so they are priced
     -- on the board and excluded from both totals.
+    -- LA-1332: the Elevator element's priced lines are the migrated items 26
+    -- (Elevators) and 26a (Elevator Bulkhead), with their stated rates,
+    -- classification and gate. This fixture used to add its own 14-200 and
+    -- 14-201 beside them, so a local budget priced the elevator twice.
     insert into block_classification
       (cost_code, detail_level, element, breakout_of_cost_code, buyout_package,
        stated_by, stated_on, reason)
@@ -160,9 +159,6 @@ async function seedRomFixtures(database: PGlite) {
       ('22-100', 1, null, null, 'Plumbing',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture standing in for the plumbing rough-in lump that a breakout is carved out of. Not a Kulka classification.'),
-      ('14-200', 2, 'Elevator', null, 'Elevator',
-       'Browser test fixture', '2026-09-09',
-       'A synthetic fixture so the Elevator element has a block that adds to the total. Not a Kulka classification.'),
       ('26-200', 2, 'Elevator', '26-100', 'Electrical',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the board has a block carved out of the electrical lump. Not a Kulka classification.'),
@@ -172,9 +168,6 @@ async function seedRomFixtures(database: PGlite) {
       ('28-300', 2, 'Elevator', '26-100', 'Electrical',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the Elevator element reaches a fourth division. Not a Kulka classification.'),
-      ('14-201', 2, 'Elevator', null, 'Masonry',
-       'Browser test fixture', '2026-09-27',
-       'A synthetic fixture so the Elevator element shows the LA-1205 bulkhead as its own block. Not a Kulka classification.'),
       ('22-400', 3, 'Bathroom', null, 'Plumbing',
        'Browser test fixture', '2026-09-09',
        'A synthetic fixture so the board has a level 3 block counted in fixture points. Not a Kulka classification.'),
@@ -196,22 +189,18 @@ async function seedRomFixtures(database: PGlite) {
     -- answer takes a block out locally the way the shipped rules do on real
     -- item numbers (supabase/migrations/20260924140000_branch_gate_items.sql).
     -- Each mirrors a shipped rule's shape: the elevator gate closes the
-    -- elevator line and its breakouts like item 26, site conditions closes
+    -- elevator's breakouts the way it closes item 26, site conditions closes
     -- sitework, and concrete closes only on two answers, the way item 34a
     -- reads levels below grade and site conditions together.
     insert into branch_gate_items
       (section, cost_code, closes_on, requires_all_sections, stated_by, stated_on, reason)
     values
-      ('elevator', '14-200', array['no'], null, 'Browser test fixture', '2026-09-26',
-       'A synthetic fixture so the elevator question takes the elevator block out. Not a Kulka rule.'),
       ('elevator', '26-200', array['no'], null, 'Browser test fixture', '2026-09-26',
        'A synthetic fixture so the elevator question takes its electrical breakout out. Not a Kulka rule.'),
       ('elevator', '22-300', array['no'], null, 'Browser test fixture', '2026-09-26',
        'A synthetic fixture so the elevator question takes its plumbing breakout out. Not a Kulka rule.'),
       ('elevator', '28-300', array['no'], null, 'Browser test fixture', '2026-09-26',
        'A synthetic fixture so the elevator question takes its fire alarm breakout out. Not a Kulka rule.'),
-      ('elevator', '14-201', array['no'], null, 'Browser test fixture', '2026-09-27',
-       'A synthetic fixture so the elevator question takes the LA-1205 bulkhead block out. Not a Kulka rule.'),
       ('site_conditions', '31-200', array['no'], null, 'Browser test fixture', '2026-09-26',
        'A synthetic fixture so the site conditions question takes the sitework block out. Not a Kulka rule.'),
       ('levels_below_grade', '03-300', array['no'], array['site_conditions'], 'Browser test fixture', '2026-09-26',
@@ -247,7 +236,7 @@ async function seedRomFixtures(database: PGlite) {
        '[{"name":"Stories","value":"4","basis":"stated"},{"name":"Units","value":"60","basis":"stated"}]',
        '[{"label":"Stories","result":"4"},{"label":"Floor to floor, typical","result":"10.5 ft"},{"label":"Travel","result":"31.5 ft"},{"label":"Hydraulic limit, planning","result":"50 ft"}]',
        'high', 'Synthetic fixture: travel sits well inside the hydraulic range.',
-       array['14-200'], 'Browser test fixture', 0.88);
+       array['26'], 'Browser test fixture', 0.88);
   `);
 }
 

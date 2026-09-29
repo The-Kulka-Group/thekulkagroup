@@ -46,7 +46,7 @@ export type StageMoment = {
 export type StageEvent = StageMoment & { id: number };
 
 /** The Design and Engineering cards New Budget works out, in the order they play. */
-export const CARD_ORDER = ["V-1", "V-2", "V-3", "A-1", "S-1", "M-0", "M-1", "E-1"] as const;
+export const CARD_ORDER = ["V-1", "V-2", "V-3", "A-1", "A-2", "S-1", "M-0", "M-1", "E-1"] as const;
 export type CardCode = (typeof CARD_ORDER)[number];
 
 const CARD_TITLE: Record<CardCode, string> = {
@@ -54,6 +54,7 @@ const CARD_TITLE: Record<CardCode, string> = {
   "V-2": "Hydraulic Jack Type",
   "V-3": "Elevator Machine Rooms",
   "A-1": "Construction Type",
+  "A-2": "Building Form",
   "S-1": "Foundation System",
   "M-0": "Window Area",
   "M-1": "HVAC Tonnage",
@@ -65,11 +66,54 @@ const CARD_PART: Record<CardCode, StagePart> = {
   "V-2": "elevators",
   "V-3": "elevators",
   "A-1": "massing",
+  "A-2": "massing",
   "S-1": "foundation",
   "M-0": "glass",
   "M-1": "units",
   "E-1": "service",
 };
+
+/**
+ * LA-1325: the cards that decided each part, first choice first, so clicking
+ * a part of the model opens its decision. The podium and frame are A-1's
+ * type; the frame's shape is A-2's. Balconies are an answer, not a card.
+ */
+const PART_CARDS: Record<StagePart, readonly string[]> = {
+  foundation: ["S-1"],
+  basement: ["S-1"],
+  podium: ["A-1"],
+  massing: ["A-2", "A-1"],
+  glass: ["M-0"],
+  balconies: [],
+  elevators: ["V-1", "V-2", "V-3"],
+  units: ["M-1"],
+  service: ["E-1"],
+};
+
+/** The card a part opens, from the cards the budget has. None when no card decided it. */
+export function cardForPart(part: StagePart, codes: ReadonlySet<string>): string | null {
+  return PART_CARDS[part].find((code) => codes.has(code)) ?? null;
+}
+
+export type StageDecision = { code: string; title: string; parts: StagePart[] };
+
+/**
+ * LA-1325: the decisions behind the parts a building has, each card once,
+ * from the ground up, with every part it decided. The open building view
+ * lists them so each one is a keyboard stop, not only a click on the model.
+ */
+export function decisionsFor(parts: readonly StagePart[], codes: ReadonlySet<string>): StageDecision[] {
+  const out: StageDecision[] = [];
+  for (const part of STAGE_PARTS) {
+    if (!parts.includes(part)) continue;
+    const code = cardForPart(part, codes);
+    if (!code) continue;
+    const found = out.find((one) => one.code === code);
+    if (found) found.parts.push(part);
+    else out.push({ code, title: CARD_TITLE[code as CardCode] ?? code, parts: [part] });
+  }
+  return out;
+}
 
 /** The short name an answer goes by on its tag and caption. */
 const ANSWER_TAG: Record<string, string> = {

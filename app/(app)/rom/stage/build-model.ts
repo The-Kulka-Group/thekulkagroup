@@ -20,10 +20,19 @@ import { STAGE_PARTS, type StagePart } from "@/lib/rom/stage-scenes";
 // units, service) is posed on its own: `arrive` brings it in, `tint` settles
 // it from blue to the model's own colour. The saved budget's assembly is the
 // same parts on one timeline (assemblyStates).
+//
+// LA-1325: the building is A-2's wings, each with its own story count, so an
+// L, a U or a courtyard steps and reads in 28 ft facade bays. The camera is
+// axonometric (orthographic). In the open view it orbits and zooms, a plan
+// or section cut shows the solids black where they are cut, and a part under
+// the pointer lights and can be picked.
 
 /** A part's pose: arrive 0 is hidden and 1 is in place; tint 0 is blue and 1 is settled. */
 export type PartState = { arrive: number; tint: number };
 export type PartStates = Partial<Record<StagePart, PartState>>;
+
+/** LA-1325: no cut, a plan cut through one level (0 is the ground floor), or a section a share of the way across. */
+export type StageCut = { kind: "none" } | { kind: "plan"; level: number } | { kind: "section"; at: number };
 
 export type StageController = {
   setBuilding: (spec: StageBuilding) => void;
@@ -36,6 +45,18 @@ export type StageController = {
   resize: (width: number, height: number) => void;
   /** Where a part sits on screen, in CSS pixels from the canvas's top-left. */
   pointOf: (part: StagePart) => { x: number; y: number } | null;
+  /** LA-1325: turns the view by radians around and up, on top of its framing. */
+  orbit: (around: number, up: number) => void;
+  /** LA-1325: above 1 is closer. */
+  zoom: (factor: number) => void;
+  resetView: () => void;
+  setCut: (cut: StageCut) => void;
+  /** LA-1325: the part under a point in CSS pixels from the canvas's top-left, ignoring what a cut has removed. */
+  pick: (x: number, y: number) => StagePart | null;
+  /** LA-1325: lights these parts blue until set again. */
+  setHighlight: (parts: readonly StagePart[]) => void;
+  /** LA-1325: CSS pixels at the top and bottom that controls cover, so the building frames between them. */
+  setInsets: (top: number, bottom: number) => void;
   dispose: () => void;
 };
 
@@ -54,6 +75,20 @@ const addBox: Box = (arr, w, h, d, x, y, z) => {
   g.translate(x, y, z);
   arr.push(g);
 };
+
+type Wing = StageBuilding["form"]["wings"][number];
+const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+
+/** What is left of the span a0 to a1 once the cut intervals are taken out. */
+function remaining(a0: number, a1: number, cuts: [number, number][]): [number, number][] {
+  let spans: [number, number][] = [[a0, a1]];
+  for (const [c0, c1] of cuts) {
+    spans = spans.flatMap(([s0, s1]): [number, number][] =>
+      c1 <= s0 || c0 >= s1 ? [[s0, s1]] : ([[s0, c0], [c1, s1]] as [number, number][]).filter(([x0, x1]) => x1 - x0 > 0.5),
+    );
+  }
+  return spans;
+}
 
 /** The site depth and framing the camera needs, from the building alone. */
 function siteDepthOf(spec: StageBuilding): number {
@@ -127,6 +162,10 @@ export function createStage(
     site: new THREE.MeshStandardMaterial({ color: 0xf7f7f5, roughness: 0.95 }),
     cut: new THREE.MeshStandardMaterial({ color: 0x1c1b19, roughness: 1 }),
     fan: new THREE.MeshStandardMaterial({ color: 0x6b6a64, roughness: 0.8 }),
+    // LA-1325: what a cut shows. Walls, slabs and ground cut black, the way a
+    // drawn section does; a room's volume cuts a light gray.
+    poche: new THREE.MeshBasicMaterial({ color: 0x1c1b19, side: THREE.BackSide }),
+    pocheLight: new THREE.MeshBasicMaterial({ color: 0xd9d6ce, side: THREE.BackSide }),
   };
   const lasting: { dispose: () => void }[] = [env, pmrem, ...Object.values(M)];
 
@@ -139,18 +178,53 @@ export function createStage(
   scene.add(sun, sun.target);
   scene.add(new THREE.HemisphereLight(0xffffff, 0xe4dfd3, 0.3));
 
-  // Camera: a long lens at a three-quarter view, sized to the building.
-  const camera = new THREE.PerspectiveCamera(17, 16 / 9, 10, 20000);
-  const cam = { target: new THREE.Vector3(), radius: 100, goalTarget: new THREE.Vector3(), goalRadius: 100, drift: 1, set: false };
+  // Camera: axonometric at a three-quarter view from above, framed on the
+  // building's box so the whole of it fits whatever the canvas's shape.
+  const DISTANCE = 6000;
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 10, 20000);
+  const cam = {
+    box: new THREE.Box3(),
+    goal: new THREE.Box3(),
+    drift: 1,
+    set: false,
+    aspect: 16 / 9,
+    height: 1,
+    insetTop: 0,
+    insetBottom: 0,
+    around: 0,
+    up: 0,
+    zoom: 1,
+  };
+  // New Budget's caption sits top left, so the view slides the building right and down.
+  const slide = opts.captionRoom ? { x: -0.2, y: 0.12 } : { x: 0, y: 0 };
+  const corners = Array.from({ length: 8 }, () => new THREE.Vector3());
   const place = () => {
-    const az = 0.6 + 0.09 * inOut(clamp(cam.drift));
-    const el = 0.33;
-    const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
-    const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
-    const dist = cam.radius / Math.sin(Math.min(vHalf, hHalf));
-    const t = cam.target;
-    camera.position.set(t.x + Math.sin(az) * Math.cos(el) * dist, t.y + Math.sin(el) * dist, t.z + Math.cos(az) * Math.cos(el) * dist);
-    camera.lookAt(t);
+    const az = 0.6 + 0.09 * inOut(clamp(cam.drift)) + cam.around;
+    const el = Math.max(0.06, Math.min(1.5, 0.5 + cam.up));
+    const center = cam.box.getCenter(new THREE.Vector3());
+    const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+    camera.position.copy(center).addScaledVector(dir, DISTANCE);
+    camera.lookAt(center);
+    camera.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const upward = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const { min, max } = cam.box;
+    let hx = 0, hy = 0;
+    corners.forEach((c, i) => {
+      c.set(i & 1 ? max.x : min.x, i & 2 ? max.y : min.y, i & 4 ? max.z : min.z).sub(center);
+      hx = Math.max(hx, Math.abs(c.dot(right)));
+      hy = Math.max(hy, Math.abs(c.dot(upward)));
+    });
+    const room = 1 + Math.max(Math.abs(slide.x), Math.abs(slide.y));
+    // The share of the canvas's height the controls leave clear.
+    const clear = Math.max(0.35, 1 - (cam.insetTop + cam.insetBottom) / cam.height);
+    const halfH = (Math.max(hy / clear, hx / cam.aspect) * 1.1 * room) / cam.zoom;
+    const halfW = halfH * cam.aspect;
+    const lift = ((cam.insetTop - cam.insetBottom) / cam.height) * halfH;
+    camera.position.addScaledVector(right, slide.x * halfW).addScaledVector(upward, slide.y * halfH + lift);
+    Object.assign(camera, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
   };
 
   const composer = new EffectComposer(renderer);
@@ -169,9 +243,16 @@ export function createStage(
   let built: { disposables: { dispose: () => void }[] } = { disposables: [] };
   let appliers: Partial<Record<StagePart, (s: PartState) => void>> = {};
   let anchors: Partial<Record<StagePart, THREE.Vector3>> = {};
+  let glows: Partial<Record<StagePart, (THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial)[]>> = {};
   let current: PartStates = {};
+  let lit = new Set<StagePart>();
+  let spec: StageBuilding | null = null;
+  let span = 0;
+  const cutPlane = new THREE.Plane();
+  let cut: StageCut = { kind: "none" };
 
-  function build(spec: StageBuilding) {
+  function build(next: StageBuilding) {
+    spec = next;
     scene.remove(content);
     built.disposables.forEach((d) => d.dispose());
     content = new THREE.Group();
@@ -179,6 +260,7 @@ export function createStage(
     const disposables: { dispose: () => void }[] = [];
     built = { disposables };
     const tints: Partial<Record<StagePart, { mat: THREE.MeshStandardMaterial; base: THREE.Color }[]>> = {};
+    const nextGlows: typeof glows = {};
     const nextAnchors: typeof anchors = {};
     const nextAppliers: typeof appliers = {};
 
@@ -187,43 +269,60 @@ export function createStage(
       const mat = new THREE.MeshStandardMaterial({ color, roughness });
       disposables.push(mat);
       (tints[part] ??= []).push({ mat, base: new THREE.Color(color) });
+      (nextGlows[part] ??= []).push(mat);
       return mat;
     };
-    const glassMat = () => {
+    const glassMat = (part: StagePart) => {
       const mat = new THREE.MeshPhysicalMaterial({
         color: 0x8cbcf0, roughness: 0.06, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.05,
         envMapIntensity: 1.8, transparent: true, opacity: 0,
       });
       disposables.push(mat);
+      (nextGlows[part] ??= []).push(mat);
       return mat;
     };
-    const mesh = (geos: THREE.BufferGeometry[], mat: THREE.Material, parent: THREE.Object3D, cast = true) => {
+    /** Merged boxes as one mesh, with a black (or light) inside that only a cut shows. */
+    const mesh = (geos: THREE.BufferGeometry[], mat: THREE.Material, parent: THREE.Object3D, cast = true, poche: "dark" | "light" | null = "dark") => {
       const m = new THREE.Mesh(mergeGeometries(geos), mat);
       m.castShadow = cast;
       m.receiveShadow = true;
       parent.add(m);
       disposables.push(m.geometry);
       geos.forEach((g) => g.dispose());
+      if (poche) m.add(new THREE.Mesh(m.geometry, poche === "dark" ? M.poche : M.pocheLight));
       return m;
     };
     const applyTint = (part: StagePart, tint: number) => {
       for (const { mat, base } of tints[part] ?? []) mat.color.copy(BLUE).lerp(base, outCubic(clamp(tint)));
     };
+    const tag = <T extends THREE.Object3D>(obj: T, part: StagePart): T => {
+      obj.userData.part = part;
+      return obj;
+    };
 
-    const W = spec.width, D = spec.depth, hw = W / 2, hd = D / 2;
-    const count = Math.min(3, spec.buildingCount);
+    const { form, levels } = next;
+    const W = next.width, D = next.depth, hw = W / 2, hd = D / 2;
+    const count = Math.min(3, next.buildingCount);
     const gap = 40;
-    const span = count * W + (count - 1) * gap;
+    span = count * W + (count - 1) * gap;
     const offsets = Array.from({ length: count }, (_, i) => -span / 2 + hw + i * (W + gap));
     const lastX = offsets[offsets.length - 1];
     const zCut = hd - 7;
     const xCut = lastX + hw - 7;
-    const below = spec.basement ? 10 : 0;
-    const siteDepth = siteDepthOf(spec);
+    const below = next.basement ? 10 : 0;
+    const siteDepth = siteDepthOf(next);
     const SX0 = -span / 2 - Math.max(80, W * 0.6);
     const SZ0 = -hd - Math.max(70, D * 0.8);
-    const P = spec.podiumLevels;
-    const podiumTop = spec.levels[P - 1] ? spec.levels[P - 1].base + spec.levels[P - 1].height : 0;
+    const P = next.podiumLevels;
+    const topOf = (stories: number) => (stories > 0 ? levels[stories - 1].base + levels[stories - 1].height : 0);
+    const podiumTop = topOf(P);
+    const wingTop = (w: Wing) => topOf(Math.min(w.stories, levels.length));
+    const tallest = form.wings.reduce((best, w) => (w.stories > best.stories ? w : best), form.wings[0]);
+    // A wing's long side, the way its corridor runs.
+    const alongX = (w: Wing) => w.x1 - w.x0 >= w.z1 - w.z0;
+    const bay = form.bayWidth;
+    /** Window columns along a face: three to a bay once A-2 sets the bays. */
+    const colsFor = (len: number) => (bay ? Math.max(1, Math.round(len / bay)) * 3 : Math.max(3, Math.round(len / 11.25)));
 
     // Site base, cut along two planes through the last building.
     {
@@ -233,12 +332,12 @@ export function createStage(
       const faces: THREE.BufferGeometry[] = [];
       addBox(faces, 0.4, siteDepth - 0.3, zCut - SZ0, xCut + 0.21, -siteDepth / 2, (SZ0 + zCut) / 2);
       addBox(faces, xCut - SX0, siteDepth - 0.3, 0.4, (SX0 + xCut) / 2, -siteDepth / 2, zCut + 0.21);
-      mesh(faces, M.cut, content, false);
+      mesh(faces, M.cut, content, false, null);
     }
 
     // The service at grade, out in front of the first building's corner (E-1).
-    if (spec.serviceAmps) {
-      const service = new THREE.Group();
+    if (next.serviceAmps) {
+      const service = tag(new THREE.Group(), "service");
       const sx = offsets[0] - hw - 34, sz = hd - 14;
       service.position.set(sx, 0, sz);
       const s: THREE.BufferGeometry[] = [];
@@ -256,7 +355,7 @@ export function createStage(
 
     const floorsAll: { g: THREE.Group; base: number }[][] = [];
     const glassAll: { pane: THREE.Mesh; mat: THREE.MeshPhysicalMaterial }[][] = [];
-    const balconiesAll: THREE.Group[][] = [];
+    const balconiesAll: { g: THREE.Group; axis: "x" | "z" }[][] = [];
     const pilesAll: THREE.Mesh[][] = [];
     const footings: THREE.Mesh[] = [];
     const podiums: THREE.Group[] = [];
@@ -275,7 +374,7 @@ export function createStage(
     const balconyMat = tinted("balconies", 0xffffff, 0.8);
     const bulkheadMat = tinted("elevators", 0xffffff, 0.9);
     const unitMat = tinted("units", 0xffffff, 0.9);
-    const storefront = glassMat();
+    const storefront = glassMat("podium");
     storefront.opacity = 1;
 
     offsets.forEach((ox, bi) => {
@@ -285,38 +384,39 @@ export function createStage(
       const exposed = bi === count - 1;
       const foundationTop = -below - 1.6;
 
-      // Below grade: a basement level and the foundation, both seen in the cut.
+      // Below grade: a basement level under every wing, and the foundation, both seen in the cut.
       if (below) {
         const b: THREE.BufferGeometry[] = [];
-        addBox(b, W, below, D, 0, below / 2, 0);
-        const m = mesh(b, concreteMat, root);
+        for (const w of form.wings) addBox(b, w.x1 - w.x0, below, w.z1 - w.z0, (w.x0 + w.x1) / 2, below / 2, (w.z0 + w.z1) / 2);
+        const m = tag(mesh(b, concreteMat, root), "basement");
         m.position.y = -below;
         basements.push(m);
       }
       const piles: THREE.Mesh[] = [];
-      if (spec.foundation.depth > 0 && exposed) {
-        const deep = spec.foundation.system === "Deep Foundations";
+      if (next.foundation.depth > 0 && exposed) {
+        const deep = next.foundation.system === "Deep Foundations";
         const r = deep ? 0.9 : 1.6;
-        const geo = new THREE.CylinderGeometry(r, r, spec.foundation.depth, deep ? 14 : 10);
-        geo.translate(0, -spec.foundation.depth / 2, 0);
+        const geo = new THREE.CylinderGeometry(r, r, next.foundation.depth, deep ? 14 : 10);
+        geo.translate(0, -next.foundation.depth / 2, 0);
         disposables.push(geo);
         const at = (x: number, z: number) => {
-          const p = new THREE.Mesh(geo, pileMat);
+          const p = tag(new THREE.Mesh(geo, pileMat), "foundation");
           p.position.set(x, foundationTop, z);
           p.castShadow = true;
           root.add(p);
           piles.push(p);
         };
+        // Under the front and right walls, which every shape builds solid, where the cut shows them.
         const nx = Math.max(4, Math.round(W / 20)), nz = Math.max(3, Math.round(D / 22));
         for (let i = 0; i < nx; i++) at(-hw + 12 + i * ((W - 24) / (nx - 1)), hd - 3.5);
         for (let i = 1; i < nz; i++) at(hw - 3.5, hd - 3.5 - i * ((D - 20) / (nz - 1)));
-        nextAnchors.foundation = new THREE.Vector3(ox + hw * 0.6, foundationTop - spec.foundation.depth * 0.45, hd);
+        nextAnchors.foundation = new THREE.Vector3(ox + hw * 0.6, foundationTop - next.foundation.depth * 0.45, hd);
       } else if (exposed) {
-        // Spread footings or a mat: a thick concrete band under the building, in the cut.
+        // Spread footings or a mat: a thick concrete band under every wing, in the cut.
         const f: THREE.BufferGeometry[] = [];
-        const t = spec.foundation.system === "Mat Foundation" ? 4 : 2.5;
-        addBox(f, W + 2, t, D + 2, 0, t / 2, 0);
-        const m = mesh(f, footingMat, root);
+        const t = next.foundation.system === "Mat Foundation" ? 4 : 2.5;
+        for (const w of form.wings) addBox(f, w.x1 - w.x0 + 2, t, w.z1 - w.z0 + 2, (w.x0 + w.x1) / 2, t / 2, (w.z0 + w.z1) / 2);
+        const m = tag(mesh(f, footingMat, root), "foundation");
         m.position.y = foundationTop - t;
         footings.push(m);
         nextAnchors.foundation = new THREE.Vector3(ox + hw * 0.6, foundationTop - t / 2, hd);
@@ -324,94 +424,123 @@ export function createStage(
       pilesAll.push(piles);
       if (exposed && below) nextAnchors.basement = new THREE.Vector3(ox + hw * 0.5, -below / 2, hd);
 
-      // Podium levels: recessed openings (garage or storefront) between piers.
-      const podium = new THREE.Group();
+      // Podium levels: recessed openings (garage or storefront) between piers, on every wing.
+      const podium = tag(new THREE.Group(), "podium");
       root.add(podium);
       {
         const beam: THREE.BufferGeometry[] = [];
-        addBox(beam, W, 1.6, D, 0, -0.8, 0);
+        for (const w of form.wings) addBox(beam, w.x1 - w.x0, 1.6, w.z1 - w.z0, (w.x0 + w.x1) / 2, -0.8, (w.z0 + w.z1) / 2);
         mesh(beam, podiumMat, podium);
         if (P > 0) {
           const core: THREE.BufferGeometry[] = [];
-          addBox(core, W - 3, podiumTop, D - 3, 0, podiumTop / 2, 0);
-          mesh(core, spec.retail ? storefront : M.opening, podium, false);
           const parts: THREE.BufferGeometry[] = [];
-          const bays = Math.max(4, Math.round(W / 20)), bw = W / bays;
-          for (let i = 0; i <= bays; i++) {
-            const edge = i === 0 || i === bays;
-            addBox(parts, edge ? 3 : 2.4, podiumTop, 1.6, -hw + i * bw + (i === 0 ? 1.5 : i === bays ? -1.5 : 0), podiumTop / 2, hd - 0.8);
+          // A stepped wing can have fewer stories than the podium (a concrete
+          // building stepped down two), so each wing's podium stops at its own top.
+          const bands = (along: "x" | "z", a0: number, len: number, at: number, levelsUp: number, top: number) => {
+            const bays = Math.max(2, Math.round(len / 20)), bw = len / bays;
+            for (let i = 0; i <= bays; i++) {
+              const edge = i === 0 || i === bays;
+              const p = a0 + i * bw + (i === 0 ? 1.5 : i === bays ? -1.5 : 0);
+              if (along === "x") addBox(parts, edge ? 3 : 2.4, top, 1.6, p, top / 2, at);
+              else addBox(parts, 1.6, top, edge ? 3 : 2.4, at, top / 2, p);
+            }
+            for (let l = 0; l < levelsUp; l++) {
+              const band = levels[l].base + levels[l].height;
+              if (along === "x") addBox(parts, len, 3, 1.6, a0 + len / 2, band - 1.5, at);
+              else addBox(parts, 1.6, 3, len, at, band - 1.5, a0 + len / 2);
+            }
+          };
+          for (const w of form.wings) {
+            const ww = w.x1 - w.x0, wd = w.z1 - w.z0;
+            const levelsUp = Math.min(P, w.stories), top = topOf(levelsUp);
+            addBox(core, ww - 3, top, wd - 3, (w.x0 + w.x1) / 2, top / 2, (w.z0 + w.z1) / 2);
+            bands("x", w.x0, ww, w.z1 - 0.8, levelsUp, top);
+            bands("x", w.x0, ww, w.z0 + 0.8, levelsUp, top);
+            bands("z", w.z0, wd, w.x1 - 0.8, levelsUp, top);
+            bands("z", w.z0, wd, w.x0 + 0.8, levelsUp, top);
           }
-          const sb = Math.max(3, Math.round(D / 18)), sw = D / sb;
-          for (let i = 0; i <= sb; i++) {
-            const edge = i === 0 || i === sb;
-            addBox(parts, 1.6, podiumTop, edge ? 3 : 2.4, hw - 0.8, podiumTop / 2, -hd + i * sw + (i === 0 ? 1.5 : i === sb ? -1.5 : 0));
-          }
-          for (let l = 0; l < P; l++) {
-            const top = spec.levels[l].base + spec.levels[l].height;
-            addBox(parts, W, 3, 1.6, 0, top - 1.5, hd - 0.8);
-            addBox(parts, 1.6, 3, D, hw - 0.8, top - 1.5, 0);
-          }
-          addBox(parts, W, podiumTop, 1.6, 0, podiumTop / 2, -hd + 0.8);
-          addBox(parts, 1.6, podiumTop, D, -hw + 0.8, podiumTop / 2, 0);
+          mesh(core, next.retail ? storefront : M.opening, podium, false, next.retail ? null : "light");
           mesh(parts, podiumMat, podium);
           if (bi === 0) nextAnchors.podium = new THREE.Vector3(ox, podiumTop / 2, hd);
         }
       }
       podiums.push(podium);
 
-      // Frame floors: piers and bands around recessed glass, and balconies.
+      // Frame floors: piers and bands around recessed glass, and balconies,
+      // one group a level holding every wing that reaches it.
       const floors: { g: THREE.Group; base: number }[] = [];
       const glass: { pane: THREE.Mesh; mat: THREE.MeshPhysicalMaterial }[] = [];
-      const balconies: THREE.Group[] = [];
-      const big = spec.glazing === "elevated";
-      spec.levels.forEach((lv) => {
+      const balconies: { g: THREE.Group; axis: "x" | "z" }[] = [];
+      const big = next.glazing === "elevated";
+      levels.forEach((lv, li) => {
         if (lv.kind !== "frame") return;
-        const g = new THREE.Group();
-        const slab: THREE.BufferGeometry[] = [];
-        addBox(slab, W + 1.6, 1, D + 1.6, 0, 0.5, 0);
-        mesh(slab, slabMat, g);
-        const skin: THREE.BufferGeometry[] = [], panes: THREE.BufferGeometry[] = [], inner: THREE.BufferGeometry[] = [];
+        const reaching = form.wings.filter((w) => li < w.stories);
+        if (reaching.length === 0) return;
+        const g = tag(new THREE.Group(), "massing");
+        const slab: THREE.BufferGeometry[] = [], skin: THREE.BufferGeometry[] = [], panes: THREE.BufferGeometry[] = [], inner: THREE.BufferGeometry[] = [];
         const T = 1.4, h = lv.height, wh = big ? 7.2 : 6.4, sill = big ? 1.6 : 2.2, head = 1 + sill + wh, pier = big ? 2.2 : 3;
-        const faceX = (z: number, s: number, cols: number) => {
-          const pitch = W / cols, ww = pitch - pier;
-          addBox(skin, W, sill, T, 0, 1 + sill / 2, z - (s * T) / 2);
-          addBox(skin, W, h - head, T, 0, head + (h - head) / 2, z - (s * T) / 2);
-          for (let c = 0; c <= cols; c++) addBox(skin, pier, wh, T, -hw + c * pitch + (c === 0 ? pier / 2 : c === cols ? -pier / 2 : 0), 1 + sill + wh / 2, z - (s * T) / 2);
-          for (let c = 0; c < cols; c++) addBox(panes, ww, wh, 0.3, -hw + pitch * (c + 0.5), 1 + sill + wh / 2, z - s * (T + 0.15));
+        /** A wall running along x at z, facing s (+1 faces +z), from x0 for len. */
+        const faceX = (x0: number, len: number, z: number, s: number) => {
+          const cols = colsFor(len), pitch = len / cols, ww = pitch - pier;
+          addBox(skin, len, sill, T, x0 + len / 2, 1 + sill / 2, z - (s * T) / 2);
+          addBox(skin, len, h - head, T, x0 + len / 2, head + (h - head) / 2, z - (s * T) / 2);
+          for (let c = 0; c <= cols; c++) addBox(skin, pier, wh, T, x0 + c * pitch + (c === 0 ? pier / 2 : c === cols ? -pier / 2 : 0), 1 + sill + wh / 2, z - (s * T) / 2);
+          for (let c = 0; c < cols; c++) addBox(panes, ww, wh, 0.3, x0 + pitch * (c + 0.5), 1 + sill + wh / 2, z - s * (T + 0.15));
+          // A-2's bays: a pilaster standing proud of the wall every 28 ft or so.
+          if (bay) for (let c = 3; c < cols; c += 3) addBox(skin, 2.4, h - 1, 1.6, x0 + c * pitch, 1 + (h - 1) / 2, z + s * 0.3);
         };
-        const faceZ = (x: number, s: number, cols: number) => {
-          const pitch = D / cols, ww = pitch - pier;
-          addBox(skin, T, sill, D, x - (s * T) / 2, 1 + sill / 2, 0);
-          addBox(skin, T, h - head, D, x - (s * T) / 2, head + (h - head) / 2, 0);
-          for (let c = 0; c <= cols; c++) addBox(skin, T, wh, pier, x - (s * T) / 2, 1 + sill + wh / 2, -hd + c * pitch + (c === 0 ? pier / 2 : c === cols ? -pier / 2 : 0));
-          for (let c = 0; c < cols; c++) addBox(panes, 0.3, wh, ww, x - s * (T + 0.15), 1 + sill + wh / 2, -hd + pitch * (c + 0.5));
+        const faceZ = (z0: number, len: number, x: number, s: number) => {
+          const cols = colsFor(len), pitch = len / cols, ww = pitch - pier;
+          addBox(skin, T, sill, len, x - (s * T) / 2, 1 + sill / 2, z0 + len / 2);
+          addBox(skin, T, h - head, len, x - (s * T) / 2, head + (h - head) / 2, z0 + len / 2);
+          for (let c = 0; c <= cols; c++) addBox(skin, T, wh, pier, x - (s * T) / 2, 1 + sill + wh / 2, z0 + c * pitch + (c === 0 ? pier / 2 : c === cols ? -pier / 2 : 0));
+          for (let c = 0; c < cols; c++) addBox(panes, 0.3, wh, ww, x - s * (T + 0.15), 1 + sill + wh / 2, z0 + pitch * (c + 0.5));
+          if (bay) for (let c = 3; c < cols; c += 3) addBox(skin, 1.6, h - 1, 2.4, x + s * 0.3, 1 + (h - 1) / 2, z0 + c * pitch);
         };
-        const colsX = Math.max(4, Math.round(W / 11.25)), colsZ = Math.max(3, Math.round(D / 11));
-        faceX(hd, 1, colsX); faceX(-hd, -1, colsX); faceZ(hw, 1, colsZ); faceZ(-hw, -1, colsZ);
-        addBox(inner, W - 2 * T - 0.8, h - 1, D - 2 * T - 0.8, 0, 1 + (h - 1) / 2, 0);
+        for (const w of reaching) {
+          const ww = w.x1 - w.x0, wd = w.z1 - w.z0, cx = (w.x0 + w.x1) / 2, cz = (w.z0 + w.z1) / 2;
+          addBox(slab, ww + 1.6, 1, wd + 1.6, cx, 0.5, cz);
+          faceX(w.x0, ww, w.z1, 1);
+          faceX(w.x0, ww, w.z0, -1);
+          faceZ(w.z0, wd, w.x1, 1);
+          faceZ(w.z0, wd, w.x0, -1);
+          addBox(inner, ww - 2 * T - 0.8, h - 1, wd - 2 * T - 0.8, cx, 1 + (h - 1) / 2, cz);
+          if (next.balconies) {
+            // On the wing's outward long face, built out from the wall so they
+            // can grow outward when they arrive.
+            const x = alongX(w);
+            const len = x ? ww : wd;
+            const s = x ? (cz >= 0 ? 1 : -1) : cx >= 0 ? 1 : -1;
+            const bg = tag(new THREE.Group(), "balconies");
+            if (x) bg.position.z = s > 0 ? w.z1 : w.z0;
+            else bg.position.x = s > 0 ? w.x1 : w.x0;
+            const bal: THREE.BufferGeometry[] = [];
+            const a0 = x ? w.x0 : w.z0;
+            const cols = colsFor(len), pitch = len / cols;
+            const at = (p: number, wide: number, tall: number, deep: number, px: number, py: number, out: number) =>
+              x ? addBox(bal, wide, tall, deep, a0 + p + px, py, s * out) : addBox(bal, deep, tall, wide, s * out, py, a0 + p + px);
+            // With bays, one on the middle window of every other bay; before
+            // A-2, one every third column as LA-1317 drew them.
+            for (let c = 1; c < cols; c += bay ? 6 : 3) {
+              const p = bay ? pitch * (c + 0.5) : pitch * (c + 1);
+              const bw = pitch * 1.6;
+              at(p, bw, 0.7, 5.5, 0, 1.35, 2.75);
+              at(p, bw, 0.25, 0.25, 0, 4.6, 5.4);
+              at(p, 0.25, 3.2, 0.25, -bw / 2 + 0.2, 3.1, 5.4);
+              at(p, 0.25, 3.2, 0.25, bw / 2 - 0.2, 3.1, 5.4);
+            }
+            if (bal.length) mesh(bal, balconyMat, bg);
+            g.add(bg);
+            balconies.push({ g: bg, axis: x ? "z" : "x" });
+          }
+        }
+        mesh(slab, slabMat, g);
         mesh(skin, skinMat, g);
-        mesh(inner, M.inner, g, false);
-        const pane = glassMat();
-        const paneMesh = mesh(panes, pane, g, false);
+        mesh(inner, M.inner, g, false, "light");
+        const pane = glassMat("glass");
+        const paneMesh = tag(mesh(panes, pane, g, false, null), "glass");
         paneMesh.visible = false;
         glass.push({ pane: paneMesh, mat: pane });
-        if (spec.balconies) {
-          // Built out from the wall, so they can grow outward when they arrive.
-          const bg = new THREE.Group();
-          bg.position.z = hd;
-          const bal: THREE.BufferGeometry[] = [];
-          const pitch = W / colsX;
-          for (let c = 1; c < colsX; c += 3) {
-            const x = -hw + pitch * (c + 1);
-            addBox(bal, pitch * 1.6, 0.7, 5.5, x, 1.35, 2.75);
-            addBox(bal, pitch * 1.6, 0.25, 0.25, x, 4.6, 5.4);
-            addBox(bal, 0.25, 3.2, 0.25, x - pitch * 0.8 + 0.2, 3.1, 5.4);
-            addBox(bal, 0.25, 3.2, 0.25, x + pitch * 0.8 - 0.2, 3.1, 5.4);
-          }
-          if (bal.length) mesh(bal, balconyMat, bg);
-          g.add(bg);
-          balconies.push(bg);
-        }
         g.position.y = lv.base;
         root.add(g);
         floors.push({ g, base: lv.base });
@@ -420,55 +549,83 @@ export function createStage(
       glassAll.push(glass);
       balconiesAll.push(balconies);
 
-      // Roof: the parapet lands with the top floor; the bulkhead and rooftop
-      // units are their own parts.
-      const roof = new THREE.Group();
-      roof.position.y = spec.height;
-      {
+      // Roofs: each wing's parapet lands with its top floor, except along a
+      // wall it shares with a wing as tall or taller. The bulkhead and
+      // rooftop units are their own parts.
+      for (const w of form.wings) {
+        const ww = w.x1 - w.x0, wd = w.z1 - w.z0, cx = (w.x0 + w.x1) / 2, cz = (w.z0 + w.z1) / 2;
+        const roof = tag(new THREE.Group(), "massing");
+        roof.position.set(cx, wingTop(w), cz);
         const r: THREE.BufferGeometry[] = [];
-        addBox(r, W + 1.4, 1, D + 1.4, 0, 0.5, 0);
-        addBox(r, W + 1.4, 3, 1, 0, 2.5, hd + 0.2);
-        addBox(r, W + 1.4, 3, 1, 0, 2.5, -hd - 0.2);
-        addBox(r, 1, 3, D + 1.4, hw + 0.2, 2.5, 0);
-        addBox(r, 1, 3, D + 1.4, -hw - 0.2, 2.5, 0);
+        addBox(r, ww + 1.4, 1, wd + 1.4, 0, 0.5, 0);
+        const others = form.wings.filter((v) => v !== w && v.stories >= w.stories);
+        const along = (edge: "front" | "back" | "right" | "left"): [number, number][] =>
+          others.flatMap((v): [number, number][] => {
+            if (edge === "front" && near(v.z0, w.z1)) return [[v.x0, v.x1]];
+            if (edge === "back" && near(v.z1, w.z0)) return [[v.x0, v.x1]];
+            if (edge === "right" && near(v.x0, w.x1)) return [[v.z0, v.z1]];
+            if (edge === "left" && near(v.x1, w.x0)) return [[v.z0, v.z1]];
+            return [];
+          });
+        for (const [a, b] of remaining(w.x0 - 0.7, w.x1 + 0.7, along("front"))) addBox(r, b - a, 3, 1, (a + b) / 2 - cx, 2.5, wd / 2 + 0.2);
+        for (const [a, b] of remaining(w.x0 - 0.7, w.x1 + 0.7, along("back"))) addBox(r, b - a, 3, 1, (a + b) / 2 - cx, 2.5, -wd / 2 - 0.2);
+        for (const [a, b] of remaining(w.z0 - 0.7, w.z1 + 0.7, along("right"))) addBox(r, 1, 3, b - a, ww / 2 + 0.2, 2.5, (a + b) / 2 - cz);
+        for (const [a, b] of remaining(w.z0 - 0.7, w.z1 + 0.7, along("left"))) addBox(r, 1, 3, b - a, -ww / 2 - 0.2, 2.5, (a + b) / 2 - cz);
         mesh(r, skinMat, roof);
+        root.add(roof);
+        roofs.push(roof);
       }
-      root.add(roof);
-      roofs.push(roof);
 
-      if (spec.elevators) {
-        const bulk = new THREE.Group();
-        bulk.position.set(W * 0.18, spec.height + 1, -D * 0.08);
+      if (next.elevators) {
+        // On the tallest wing, running along it.
+        const w = tallest, x = alongX(w);
+        const ww = w.x1 - w.x0, wd = w.z1 - w.z0;
+        const bulk = tag(new THREE.Group(), "elevators");
+        const bx = (w.x0 + w.x1) / 2 + (x ? ww * 0.18 : -wd * 0.08);
+        const bz = (w.z0 + w.z1) / 2 + (x ? -wd * 0.08 : ww * 0.18);
+        bulk.position.set(bx, wingTop(w) + 1, bz);
         const b: THREE.BufferGeometry[] = [];
-        addBox(b, 10 + spec.elevators.cars * 8, 11, 18, 0, 5.5, 0);
+        const long = 10 + next.elevators.cars * 8;
+        addBox(b, x ? long : 18, 11, x ? 18 : long, 0, 5.5, 0);
         mesh(b, bulkheadMat, bulk);
         root.add(bulk);
         bulkheads.push(bulk);
-        if (bi === 0) nextAnchors.elevators = new THREE.Vector3(ox + W * 0.18, spec.height + 10, -D * 0.08);
+        if (bi === 0) nextAnchors.elevators = new THREE.Vector3(ox + bx, wingTop(w) + 10, bz);
       }
-      if (spec.rooftopUnits > 0) {
-        const units = new THREE.Group();
-        units.position.y = spec.height + 1;
-        const n = spec.rooftopUnits;
-        const u: THREE.BufferGeometry[] = [], fans: THREE.BufferGeometry[] = [];
-        for (let i = 0; i < n; i++) {
-          const row = i % 2, col = Math.floor(i / 2);
-          const x = -hw + 22 + col * 22, z = row ? -D * 0.24 : D * 0.24;
-          addBox(u, 8, 3.6, 11, x, 1.8, z);
-          const f = new THREE.CylinderGeometry(2, 2, 0.4, 20);
-          f.translate(x, 3.8, z);
-          fans.push(f);
+      if (next.rooftopUnits > 0) {
+        // Down the wings' roofs, tallest first, two rows to a wing.
+        let left = next.rooftopUnits;
+        const order = [...form.wings].sort((a, b) => b.stories - a.stories);
+        for (const w of order) {
+          if (left <= 0) break;
+          const x = alongX(w);
+          const len = x ? w.x1 - w.x0 : w.z1 - w.z0, across = x ? w.z1 - w.z0 : w.x1 - w.x0;
+          const a0 = x ? w.x0 : w.z0, mid = x ? (w.z0 + w.z1) / 2 : (w.x0 + w.x1) / 2;
+          const units = tag(new THREE.Group(), "units");
+          units.position.y = wingTop(w) + 1;
+          const u: THREE.BufferGeometry[] = [], fans: THREE.BufferGeometry[] = [];
+          for (let col = 0; left > 0 && 22 + col * 22 < len - 12; col++) {
+            for (let row = 0; row < 2 && left > 0; row++, left--) {
+              const a = a0 + 22 + col * 22, b = mid + (row ? -across * 0.24 : across * 0.24);
+              const [px, pz] = x ? [a, b] : [b, a];
+              addBox(u, x ? 8 : 11, 3.6, x ? 11 : 8, px, 1.8, pz);
+              const f = new THREE.CylinderGeometry(2, 2, 0.4, 20);
+              f.translate(px, 3.8, pz);
+              fans.push(f);
+              if (bi === 0 && !nextAnchors.units) nextAnchors.units = new THREE.Vector3(ox + px, wingTop(w) + 5, pz);
+            }
+          }
+          if (u.length === 0) continue;
+          mesh(u, unitMat, units);
+          mesh(fans, M.fan, units, false, null);
+          root.add(units);
+          unitGroups.push(units);
         }
-        mesh(u, unitMat, units);
-        mesh(fans, M.fan, units, false);
-        root.add(units);
-        unitGroups.push(units);
-        if (bi === 0) nextAnchors.units = new THREE.Vector3(ox - hw + 30, spec.height + 5, 0);
       }
       if (bi === 0) {
-        nextAnchors.massing = new THREE.Vector3(ox, spec.height * 0.55, hd);
-        nextAnchors.glass = new THREE.Vector3(ox, spec.height * 0.6, hd);
-        if (spec.balconies) nextAnchors.balconies = new THREE.Vector3(ox, spec.height * 0.5, hd + 5);
+        nextAnchors.massing = new THREE.Vector3(ox, next.height * 0.55, hd);
+        nextAnchors.glass = new THREE.Vector3(ox, next.height * 0.6, hd);
+        if (next.balconies) nextAnchors.balconies = new THREE.Vector3(ox, next.height * 0.5, hd + 5);
       }
     });
 
@@ -527,10 +684,10 @@ export function createStage(
     };
     nextAppliers.balconies = ({ arrive, tint }) => {
       for (const balconies of balconiesAll) {
-        balconies.forEach((b, i) => {
+        balconies.forEach(({ g, axis }, i) => {
           const q = staggered(arrive, i, balconies.length, 0.25);
-          b.visible = q > 0.001;
-          b.scale.z = Math.max(0.0001, outCubic(q));
+          g.visible = q > 0.001;
+          g.scale[axis] = Math.max(0.0001, outCubic(q));
         });
       }
       applyTint("balconies", tint);
@@ -543,48 +700,66 @@ export function createStage(
       applyTint("elevators", tint);
     };
     nextAppliers.units = ({ arrive, tint }) => {
-      for (const u of unitGroups) {
-        u.children.forEach((c, i) => {
-          c.visible = arrive > 0.001;
-          c.position.y = (1 - outCubic(staggered(arrive, i, u.children.length, 0.4))) * 14;
-        });
-      }
+      const all = unitGroups.flatMap((u) => u.children);
+      all.forEach((c, i) => {
+        c.visible = arrive > 0.001;
+        c.position.y = (1 - outCubic(staggered(arrive, i, all.length, 0.4))) * 14;
+      });
       applyTint("units", tint);
     };
 
     appliers = nextAppliers;
     anchors = nextAnchors;
+    glows = nextGlows;
 
     // Sun and camera follow the building's size.
     const reach = Math.max(span, D) * 1.6 + 120;
     sun.position.set(-reach * 0.5, reach, reach);
     Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 10, far: reach * 4 });
     sun.shadow.camera.updateProjectionMatrix();
-    const radius = Math.hypot(span / 2 + 20, spec.height + siteDepth * 0.7, hd + 20) * 0.6;
-    cam.goalTarget.set(count > 1 ? 0 : 6, spec.height * 0.28 - siteDepth * 0.3, 6);
-    cam.goalRadius = radius;
-    if (opts.captionRoom) {
-      // Slide the view so the building sits right of the caption and a little
-      // lower, and pull back a touch so it still fits.
-      const az = 0.69;
-      const shift = radius * 0.2;
-      cam.goalTarget.x -= Math.cos(az) * shift;
-      cam.goalTarget.z += Math.sin(az) * shift;
-      cam.goalTarget.y += radius * 0.05;
-      cam.goalRadius = radius * 1.08;
-    }
+    cam.goal.set(
+      new THREE.Vector3(-span / 2 - 16, -siteDepth * 0.6, -hd - 16),
+      new THREE.Vector3(span / 2 + 16, next.height + 14, hd + 16),
+    );
     if (!cam.set) {
-      cam.target.copy(cam.goalTarget);
-      cam.radius = cam.goalRadius;
+      cam.box.copy(cam.goal);
       cam.set = true;
     }
+    applyCut();
     pose(current);
   }
 
   function pose(states: PartStates) {
     current = states;
     for (const part of STAGE_PARTS) appliers[part]?.(states[part] ?? { arrive: 0, tint: 1 });
+    for (const part of STAGE_PARTS) {
+      for (const mat of glows[part] ?? []) {
+        mat.emissive.copy(BLUE);
+        mat.emissiveIntensity = lit.has(part) ? 0.45 : 0;
+      }
+    }
   }
+
+  function applyCut() {
+    if (!spec || cut.kind === "none") {
+      renderer.clippingPlanes = [];
+      return;
+    }
+    if (cut.kind === "plan") {
+      const lv = spec.levels[Math.max(0, Math.min(spec.levels.length - 1, cut.level))];
+      // Through the windows, the way a floor plan is cut.
+      cutPlane.set(new THREE.Vector3(0, -1, 0), lv.base + Math.min(5, lv.height * 0.5));
+    } else {
+      cutPlane.set(new THREE.Vector3(-1, 0, 0), -span / 2 + clamp(cut.at) * span);
+    }
+    renderer.clippingPlanes = [cutPlane];
+  }
+
+  const raycaster = new THREE.Raycaster();
+  const shown = (obj: THREE.Object3D | null): boolean => {
+    for (let o = obj; o; o = o.parent) if (!o.visible) return false;
+    return true;
+  };
 
   return {
     setBuilding: build,
@@ -594,10 +769,10 @@ export function createStage(
     },
     tick: (seconds) => {
       const k = 1 - Math.exp(-seconds * 5);
-      cam.target.lerp(cam.goalTarget, k);
-      cam.radius += (cam.goalRadius - cam.radius) * k;
+      cam.box.min.lerp(cam.goal.min, k);
+      cam.box.max.lerp(cam.goal.max, k);
       place();
-      return cam.target.distanceTo(cam.goalTarget) > 0.05 || Math.abs(cam.radius - cam.goalRadius) > 0.05;
+      return cam.box.min.distanceTo(cam.goal.min) > 0.05 || cam.box.max.distanceTo(cam.goal.max) > 0.05;
     },
     render: () => {
       place();
@@ -606,15 +781,57 @@ export function createStage(
     resize: (w, h) => {
       renderer.setSize(w, h, false);
       composer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+      cam.aspect = w / h;
+      cam.height = h;
     },
     pointOf: (part) => {
       const at = anchors[part];
       if (!at) return null;
+      place();
       const v = at.clone().project(camera);
       const w = canvas.clientWidth, h = canvas.clientHeight;
       return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
+    },
+    orbit: (around, up) => {
+      cam.around += around;
+      cam.up = Math.max(-0.44, Math.min(1.0, cam.up + up));
+    },
+    zoom: (factor) => {
+      cam.zoom = Math.max(0.6, Math.min(6, cam.zoom * factor));
+    },
+    resetView: () => {
+      cam.around = 0;
+      cam.up = 0;
+      cam.zoom = 1;
+    },
+    setCut: (next) => {
+      cut = next;
+      applyCut();
+    },
+    pick: (x, y) => {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) return null;
+      place();
+      raycaster.setFromCamera(new THREE.Vector2((x / w) * 2 - 1, 1 - (y / h) * 2), camera);
+      const clipped = renderer.clippingPlanes.length > 0;
+      for (const hit of raycaster.intersectObject(content, true)) {
+        if (!shown(hit.object)) continue;
+        if (clipped && cutPlane.distanceToPoint(hit.point) < 0) continue;
+        for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
+          if (o.userData.part) return o.userData.part as StagePart;
+        }
+        // The site: nothing to pick, and it hides what is behind it.
+        return null;
+      }
+      return null;
+    },
+    setInsets: (top, bottom) => {
+      cam.insetTop = top;
+      cam.insetBottom = bottom;
+    },
+    setHighlight: (parts) => {
+      lit = new Set(parts);
+      pose(current);
     },
     dispose: () => {
       built.disposables.forEach((d) => d.dispose());

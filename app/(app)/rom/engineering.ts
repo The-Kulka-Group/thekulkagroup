@@ -1,5 +1,6 @@
 import type { DerivedAssumption, DerivedValue } from "@kulka/engine";
 
+import { FORM_SHAPES } from "@/lib/rom/building-form";
 import { SERVICE_RATINGS } from "@/lib/rom/engineering-tables";
 
 // LA-1265, LA-1318. What the page needs to show a Design and Engineering
@@ -14,6 +15,8 @@ export const CRITERION_CHOICES: Record<string, readonly string[]> = {
   "V-2": ["In-Ground", "Holeless", "Roped"],
   "M-0": ["Standard Glazing Band", "Elevated Glazing Band"],
   "S-1": ["Spread Footings", "Mat Foundation", "Deep Foundations", "Ground Improvement"],
+  // LA-1325: the stage redraws a picked shape, or the largest one the plate can hold.
+  "A-2": FORM_SHAPES,
 };
 
 /** A value as the card and its choices show it: "Hydraulic", "2,500 A Service", "189 Tons". */

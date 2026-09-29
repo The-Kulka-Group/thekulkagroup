@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { A2_CODE, applyBuildingFormCriterion } from "@/lib/rom/building-form-criterion";
 import { A1_CODE, applyConstructionTypeCriterion } from "@/lib/rom/construction-type-criterion";
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
 import { applyElectricalCriterion, E1_CODE } from "@/lib/rom/electrical-criterion";
@@ -24,7 +25,7 @@ import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
 
-const CODES = new Set([V1_CODE, V2_CODE, V3_CODE, A1_CODE, S1_CODE, E1_CODE, M0_CODE, M1_CODE]);
+const CODES = new Set([V1_CODE, V2_CODE, V3_CODE, A1_CODE, A2_CODE, S1_CODE, E1_CODE, M0_CODE, M1_CODE]);
 
 export async function POST(request: Request, context: Context) {
   const denied = await requireApiUser(request);
@@ -55,7 +56,9 @@ export async function POST(request: Request, context: Context) {
   const withV3 = await applyMachineRoomCriterion(db, id, withV2);
   // LA-1281, LA-1282: E-1, then M-0 and M-1 (M-1 reads M-0's band).
   const withA1 = await applyConstructionTypeCriterion(db, id, withV3, project.framingSystem ?? null);
-  const withS1 = await applyFoundationCriterion(db, id, withA1, project.framingSystem ?? null);
+  // LA-1325: A-2, the building's plan shape.
+  const withA2 = await applyBuildingFormCriterion(db, id, withA1);
+  const withS1 = await applyFoundationCriterion(db, id, withA2, project.framingSystem ?? null);
   const withE1 = await applyElectricalCriterion(db, id, withS1);
   const derived = await applyHvacCriteria(db, id, withE1);
 

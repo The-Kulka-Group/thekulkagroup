@@ -61,3 +61,9 @@ describe("stepNumber", () => {
     expect(stepNumber(E1, "Service Load")).toBe(2274);
   });
 });
+
+describe("A-2 (LA-1325)", () => {
+  it("offers the four shapes", () => {
+    expect(choicesFor({ code: "A-2", steps: [], value: { kind: "spec", text: "L-Shape" } })).toEqual(["Bar", "L-Shape", "U-Shape", "Courtyard"]);
+  });
+});

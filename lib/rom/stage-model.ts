@@ -1,5 +1,8 @@
 import type { DerivedAssumption } from "@kulka/engine";
 
+import { buildingForm, type FormShape, type FormWing, shapeFromText } from "./building-form";
+import type { StagePart } from "./stage-scenes";
+
 
 // LA-1317: the Design and Engineering stage's building, as plain numbers.
 // The stage draws whatever this returns; nothing here knows about 3D. Every
@@ -46,9 +49,14 @@ export function stageFactsFromResponses(responses: Readonly<Record<string, strin
 export type StageLevel ={ kind: "podium" | "frame"; base: number; height: number };
 
 export type StageBuilding = {
-  /** Footprint in feet, the long side along x. */
+  /** The plan's overall extent in feet, the long side along x. */
   width: number;
   depth: number;
+  /**
+   * LA-1325: the plan as wings, each an extruded rectangle with its own story
+   * count. Before A-2 plays it is one block; `shape` and `bayWidth` are null.
+   */
+  form: { shape: FormShape | null; wings: FormWing[]; bayWidth: number | null };
   levels: StageLevel[];
   height: number;
   podiumLevels: number;
@@ -118,9 +126,19 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   const by = (code: string) => cards.find((c) => c.code === code);
   const buildings = Math.max(1, facts.buildingCount || 1);
 
-  const footprint = gsf / buildings / stories;
-  const width = Math.sqrt(footprint * ASPECT);
-  const depth = footprint / width;
+  // LA-1325: A-2's shape, as corrected, when its card has played; a plain block before.
+  const a2 = text(by("A-2"));
+  const planned = a2 ? buildingForm({ grossSquareFeet: gsf, stories, buildingCount: buildings }, shapeFromText(a2)) : null;
+  let width: number, depth: number, form: StageBuilding["form"];
+  if (planned) {
+    ({ width, depth } = planned);
+    form = { shape: planned.shape, wings: planned.wings, bayWidth: planned.bayWidth };
+  } else {
+    const footprint = gsf / buildings / stories;
+    width = Math.sqrt(footprint * ASPECT);
+    depth = footprint / width;
+    form = { shape: null, wings: [{ x0: -width / 2, x1: width / 2, z0: -depth / 2, z1: depth / 2, stories }], bayWidth: null };
+  }
 
   const podium = podiumLevels(facts, by("A-1"), stories);
   const levels: StageLevel[] = [];
@@ -160,6 +178,7 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   return {
     width,
     depth,
+    form,
     levels,
     height: base,
     podiumLevels: podium,
@@ -173,4 +192,20 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
     serviceAmps: amps,
     buildingCount: buildings,
   };
+}
+
+/** LA-1325: the parts this building has, in assembly order, so the open view lists only what it draws. */
+export function partsOf(b: StageBuilding): StagePart[] {
+  const has: Record<StagePart, boolean> = {
+    foundation: true,
+    basement: b.basement,
+    podium: b.podiumLevels > 0,
+    massing: true,
+    glass: true,
+    balconies: b.balconies,
+    elevators: b.elevators !== null,
+    units: b.rooftopUnits > 0,
+    service: b.serviceAmps !== null,
+  };
+  return (["foundation", "basement", "podium", "massing", "glass", "balconies", "elevators", "units", "service"] as const).filter((p) => has[p]);
 }

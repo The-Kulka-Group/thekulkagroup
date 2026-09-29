@@ -25,6 +25,7 @@ import {
 
 import type { Db } from "@/lib/db";
 import { holdUnansweredDemolition } from "@/lib/rom/demolition-hold";
+import { applyBuildingFormCriterion } from "@/lib/rom/building-form-criterion";
 import { applyConstructionTypeCriterion } from "@/lib/rom/construction-type-criterion";
 import { applyElectricalCriterion } from "@/lib/rom/electrical-criterion";
 import { applyElevatorCriterion } from "@/lib/rom/elevator-criterion";
@@ -299,8 +300,10 @@ export async function runRom(
     // answers come back as they went in.
     // LA-1298: A-1 works out the construction type; it sets no fact yet.
     const withA1 = await applyConstructionTypeCriterion(db, projectId, withV3, framingSystem);
+    // LA-1325: A-2 works out the building's plan shape; it sets no fact.
+    const withA2 = await applyBuildingFormCriterion(db, projectId, withA1);
     // LA-1300: S-1 works out the foundation system; it sets no fact yet.
-    const withS1 = await applyFoundationCriterion(db, projectId, withA1, framingSystem);
+    const withS1 = await applyFoundationCriterion(db, projectId, withA2, framingSystem);
     const withE1 = await applyElectricalCriterion(db, projectId, withS1);
     const withCriteria = await applyHvacCriteria(db, projectId, withE1);
     const answers: Answers = markups ? { ...withCriteria, markups } : withCriteria;

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { StageBuilding } from "@/lib/rom/stage-model";
-import { STAGE_PARTS, type StageEvent, type StagePart } from "@/lib/rom/stage-scenes";
+import { partsOf, type StageBuilding } from "@/lib/rom/stage-model";
+import { cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, type StagePart } from "@/lib/rom/stage-scenes";
 
 import { reducedMotion } from "../motion";
-import type { PartState, PartStates, StageController } from "./build-model";
+import type { PartState, PartStates, StageController, StageCut } from "./build-model";
 import "./stage.css";
 
 // LA-1317, LA-1318: the Design and Engineering stage across the top of the
@@ -22,9 +22,26 @@ import "./stage.css";
 //   fills in the answer, `onLand` fires (so the budget can price it and the
 //   price tag can fly), and the part settles to the model's own colour. The
 //   queue runs faster while it is behind, so answering never waits on it.
+//
+// LA-1325: the building sits in the field's lower right corner as an
+// axonometric card, so the budget has the page. On a saved budget, clicking
+// it opens the Building View across the top of the field: drag or use the
+// arrow keys to turn it, scroll or plus and minus to zoom, cut a plan through
+// a level or a section across it, and click a part (or its row beneath) to
+// open the Design and Engineering card that decided it in the side panel.
+// Nothing covers the page, so the panel opens beside the view as it does
+// for any card.
 
 type Props = { building: StageBuilding | null } & (
-  | { mode: "assemble"; projectId: string | null }
+  | {
+      mode: "assemble";
+      projectId: string | null;
+      /** LA-1325: the budget's Design and Engineering codes, so a part opens the card that decided it. */
+      cards?: readonly string[];
+      /** The card open in the side panel, whose parts stay lit. */
+      openCode?: string | null;
+      onOpenCard?: (code: string, from: HTMLElement) => void;
+    }
   | {
       mode: "live";
       events: readonly StageEvent[];
@@ -63,6 +80,16 @@ const CAPTION_ONLY = 0.55;
 
 type Scene = { event: StageEvent; start: number; land: number; end: number; build: StagePart[]; mark: StagePart[]; landed: boolean };
 type Caption = { event: StageEvent; landed: boolean };
+type CutKind = StageCut["kind"];
+
+const CUTS: { kind: CutKind; label: string }[] = [
+  { kind: "none", label: "No Cut" },
+  { kind: "plan", label: "Plan Cut" },
+  { kind: "section", label: "Section Cut" },
+];
+/** Radians a pixel of drag turns the view. */
+const TURN = 0.008;
+const EMPTY: readonly string[] = [];
 
 export function Stage(props: Props) {
   const { building } = props;
@@ -75,6 +102,17 @@ export function Stage(props: Props) {
   const [caption, setCaption] = useState<Caption | null>(null);
   const replayRef = useRef<() => void>(() => {});
   const kick = useRef<() => void>(() => {});
+  // LA-1325: the open Building View, its cut, and the parts the pointer or a row lights.
+  const [open, setOpen] = useState(false);
+  const [cutKind, setCutKind] = useState<CutKind>("none");
+  const [level, setLevel] = useState(0);
+  const [across, setAcross] = useState(0.5);
+  const [hover, setHover] = useState<readonly StagePart[]>([]);
+  const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const partsRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const hoverFrame = useRef(0);
 
   // Live mode's working state, kept out of React so a frame never re-renders.
   const parts = useRef<Record<StagePart, PartState>>(
@@ -286,11 +324,203 @@ export function Stage(props: Props) {
     kick.current();
   }, [events, ready]);
 
+  // LA-1325: what the open view knows about the budget's cards.
+  const assemble = props.mode === "assemble" ? props : null;
+  const cards = assemble?.cards ?? EMPTY;
+  const openCode = assemble?.openCode ?? null;
+  const codes = useMemo(() => new Set(cards), [cards]);
+  const decisions = useMemo(() => (building ? decisionsFor(partsOf(building), codes) : []), [building, codes]);
+  const openable = props.mode === "assemble" && !failed;
+  const stories = building?.levels.length ?? 0;
+
+  const cut: StageCut = useMemo(
+    () =>
+      cutKind === "plan"
+        ? { kind: "plan", level: Math.min(level, Math.max(0, stories - 1)) }
+        : cutKind === "section"
+          ? { kind: "section", at: across }
+          : { kind: "none" },
+    [cutKind, level, across, stories],
+  );
+  const lit = useMemo(
+    () => (hover.length > 0 ? hover : (decisions.find((d) => d.code === openCode)?.parts ?? [])),
+    [hover, decisions, openCode],
+  );
+
+  // Only the open view is cut; closing it puts the whole building back.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!c) return;
+    c.setCut(open ? cut : { kind: "none" });
+    c.setHighlight(lit);
+    c.render();
+  }, [open, cut, lit, ready]);
+
+  // The open view's controls cover its top and bottom, so the building frames between them.
+  useEffect(() => {
+    const el = wrap.current;
+    const c = ctl.current;
+    if (!el || !c) return;
+    const inset = () => {
+      const box = el.getBoundingClientRect();
+      // Open, the tools sit on top and the decisions below; closed, the card's label on top.
+      const top = (open ? barRef.current : labelRef.current)?.getBoundingClientRect();
+      const row = open ? partsRef.current?.getBoundingClientRect() : undefined;
+      c.setInsets(top ? top.bottom - box.top + 6 : 0, row ? box.bottom - row.top + 8 : 0);
+      c.render();
+    };
+    inset();
+    const observer = new ResizeObserver(inset);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [open, ready, decisions.length]);
+
+  // Opening scrolls the view into sight; closing returns the camera to its framing.
+  useEffect(() => {
+    if (open) wrap.current?.scrollIntoView({ block: "start", behavior: reducedMotion() ? "auto" : "smooth" });
+    else {
+      ctl.current?.resetView();
+      ctl.current?.render();
+    }
+  }, [open]);
+
+  // The corner card holds the field's lower right corner, whatever the field
+  // scrolls to and wherever the side panel leaves its edge. Open, the view
+  // fills the field's height, so its decisions are in sight and the wheel,
+  // which zooms it, has nothing below to reach for.
+  useEffect(() => {
+    const el = wrap.current;
+    const field = el?.closest(".rb-fld");
+    if (!el || !field) return;
+    const place = () => {
+      if (open) {
+        el.style.setProperty("--stg-open-height", `${Math.max(320, field.clientHeight)}px`);
+        return;
+      }
+      const rect = field.getBoundingClientRect();
+      el.style.setProperty("--stg-right", `${Math.max(16, window.innerWidth - rect.right + 16)}px`);
+      el.style.setProperty("--stg-bottom", `${Math.max(16, window.innerHeight - rect.bottom + 16)}px`);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(field);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place);
+    };
+  }, [open, hasBuilding, failed]);
+
+  // The wheel zooms the open view; it needs a listener that can stop the page scrolling.
+  useEffect(() => {
+    const el = canvas.current;
+    if (!open || !el) return;
+    const onWheel = (event: WheelEvent) => {
+      const c = ctl.current;
+      if (!c) return;
+      event.preventDefault();
+      c.zoom(Math.exp(-event.deltaY * 0.0015));
+      c.render();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [open, ready]);
+
   if (!building || failed) return null;
   const cap = caption?.event;
+
+  const pointAt = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  };
+  const openCard = (code: string, from: HTMLElement) => assemble?.onOpenCard?.(code, from);
+  const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!open || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { x: event.clientX, y: event.clientY, moved: false, id: event.pointerId };
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!open) return;
+    const c = ctl.current;
+    const d = drag.current;
+    if (c && d && d.id === event.pointerId) {
+      const dx = event.clientX - d.x, dy = event.clientY - d.y;
+      if (!d.moved && Math.hypot(dx, dy) < 4) return;
+      d.moved = true;
+      d.x = event.clientX;
+      d.y = event.clientY;
+      c.orbit(-dx * TURN, dy * TURN * 0.75);
+      c.render();
+      return;
+    }
+    // Hovering lights the part under the pointer, at most once a frame.
+    const at = pointAt(event);
+    const target = event.currentTarget;
+    cancelAnimationFrame(hoverFrame.current);
+    hoverFrame.current = requestAnimationFrame(() => {
+      const part = ctl.current?.pick(at.x, at.y) ?? null;
+      const code = part ? cardForPart(part, codes) : null;
+      target.style.cursor = code ? "pointer" : "grab";
+      const parts = code ? (decisions.find((one) => one.code === code)?.parts ?? [part!]) : [];
+      setHover((now) => (now.join() === parts.join() ? now : parts));
+    });
+  };
+  const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!open || !d || d.id !== event.pointerId || d.moved) return;
+    const at = pointAt(event);
+    const part = ctl.current?.pick(at.x, at.y) ?? null;
+    const code = part ? cardForPart(part, codes) : null;
+    if (code) openCard(code, event.currentTarget);
+  };
+  const onKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const c = ctl.current;
+    if (!open || !c) return;
+    const moves: Record<string, () => void> = {
+      ArrowLeft: () => c.orbit(0.12, 0),
+      ArrowRight: () => c.orbit(-0.12, 0),
+      ArrowUp: () => c.orbit(0, 0.08),
+      ArrowDown: () => c.orbit(0, -0.08),
+      "+": () => c.zoom(1.2),
+      "=": () => c.zoom(1.2),
+      "-": () => c.zoom(1 / 1.2),
+    };
+    const move = moves[event.key];
+    if (!move) return;
+    event.preventDefault();
+    move();
+    c.render();
+  };
+  const shapeLine = [building.form.shape, `${stories} ${stories === 1 ? "Story" : "Stories"}`].filter(Boolean).join(", ");
   return (
-    <section className="stg" ref={wrap} aria-label="Design and Engineering model">
-      <canvas ref={canvas} className="stg-cv" role="img" aria-label="3D model of the building this budget assumes" />
+    <section
+      className={`stg ${open ? "stg--open" : "stg--corner"}${props.mode === "live" ? " stg--live" : ""}`}
+      ref={wrap}
+      aria-label="Building View"
+    >
+      <canvas
+        ref={canvas}
+        className="stg-cv"
+        role={open ? "application" : "img"}
+        tabIndex={open ? 0 : -1}
+        aria-label={
+          open
+            ? "3D model of the building. Drag or use the arrow keys to turn it, and scroll or press plus and minus to zoom."
+            : "3D model of the building this budget assumes"
+        }
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => (drag.current = null)}
+        onPointerLeave={() => {
+          cancelAnimationFrame(hoverFrame.current);
+          if (!drag.current) setHover([]);
+        }}
+        onKeyDown={onKeyDown}
+      />
       {props.mode === "live" && cap ? (
         <div className="stg-cap" ref={capRef} key={cap.id}>
           {cap.tag && cap.tag !== cap.title ? <span className="stg-code num">{cap.tag}</span> : null}
@@ -301,10 +531,115 @@ export function Stage(props: Props) {
       <span className="lb-sr" aria-live="polite">
         {caption?.landed && cap ? `${cap.title}: ${cap.answer}` : ""}
       </span>
-      {props.mode === "assemble" && ready && !reducedMotion() ? (
-        <button type="button" className="stg-replay" onClick={() => replayRef.current()}>
-          Replay
-        </button>
+      {openable && !open ? (
+        <>
+          <span className="stg-lbl" ref={labelRef} aria-hidden="true">
+            <span className="stg-lbl-t">Building View</span>
+            <span className="stg-lbl-s">{shapeLine}</span>
+          </span>
+          <button type="button" className="stg-hit" aria-expanded={false} onClick={() => setOpen(true)}>
+            <span className="lb-sr">Open the Building View</span>
+          </button>
+        </>
+      ) : null}
+      {open ? (
+        <>
+          <div className="stg-bar" ref={barRef}>
+            <div className="stg-head">
+              <span className="stg-head-t">Building View</span>
+              <span className="stg-head-s">{shapeLine}</span>
+            </div>
+            <div className="stg-tools">
+              <div className="stg-seg" role="group" aria-label="Cut">
+                {CUTS.map((one) => (
+                  <button
+                    key={one.kind}
+                    type="button"
+                    className="stg-pill"
+                    aria-pressed={cutKind === one.kind}
+                    onClick={() => setCutKind(one.kind)}
+                  >
+                    {one.label}
+                  </button>
+                ))}
+              </div>
+              {cutKind === "plan" ? (
+                <label className="stg-range">
+                  <span className="num">Level {Math.min(level, stories - 1) + 1}</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, stories - 1)}
+                    step={1}
+                    value={Math.min(level, stories - 1)}
+                    onChange={(e) => setLevel(Number(e.target.value))}
+                    aria-label="Level to cut through"
+                  />
+                </label>
+              ) : null}
+              {cutKind === "section" ? (
+                <label className="stg-range">
+                  <span className="num">{Math.round(across * 100)}% Across</span>
+                  <input
+                    type="range"
+                    min={0.02}
+                    max={0.98}
+                    step={0.01}
+                    value={across}
+                    onChange={(e) => setAcross(Number(e.target.value))}
+                    aria-label="How far across to cut"
+                  />
+                </label>
+              ) : null}
+              <button
+                type="button"
+                className="stg-pill"
+                onClick={() => {
+                  ctl.current?.resetView();
+                  ctl.current?.render();
+                }}
+              >
+                Reset View
+              </button>
+              {!reducedMotion() ? (
+                <button type="button" className="stg-pill" onClick={() => replayRef.current()}>
+                  Replay
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="stg-pill stg-pill--ink"
+                aria-expanded={true}
+                onClick={() => {
+                  setOpen(false);
+                  setHover([]);
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          {decisions.length > 0 ? (
+            <div className="stg-parts" ref={partsRef} role="group" aria-label="Design and Engineering decisions in the model">
+              {decisions.map((one) => (
+                <button
+                  key={one.code}
+                  type="button"
+                  className="stg-pill stg-part"
+                  aria-pressed={openCode === one.code}
+                  onClick={(e) => openCard(one.code, e.currentTarget)}
+                  onPointerEnter={() => setHover(one.parts)}
+                  onPointerLeave={() => setHover([])}
+                  onFocus={() => setHover(one.parts)}
+                  onBlur={() => setHover([])}
+                >
+                  <span className="stg-part-c num">{one.code}</span>
+                  {one.title}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

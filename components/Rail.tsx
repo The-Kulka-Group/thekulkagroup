@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar, SlidersHorizontal, List } from "@phosphor-icons/react";
+import { House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar, List } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
@@ -26,7 +26,6 @@ const NAV_GROUPS = [
     label: "Pre-Construction",
     items: [
       { href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator },
-      { href: "/rom/parameters", label: "Engine Parameters", count: undefined, Icon: SlidersHorizontal },
       { href: "/estimating", label: "Estimating", count: undefined, Icon: ChartBar },
     ],
   },
@@ -38,8 +37,9 @@ const NAV_GROUPS = [
 
 /**
  * Which rail item a path belongs to. An item owns every path under it (/rom
- * covers /rom/runs and /rom/backtest), and the longest match wins, so
- * /rom/parameters lights its own item (LA-866).
+ * covers /rom/runs, /rom/backtest and /rom/parameters), and the longest match
+ * wins. Engine Parameters moved into Conceptual Budget (LA-1321), so
+ * /rom/parameters now lights Conceptual Budget.
  */
 export function activeRailHref(path: string): string | null {
   if (path === "/") return "/";
@@ -106,9 +106,13 @@ export function Rail({ email, openAccess = false }: { email: string; openAccess?
       {open ? (
         <button type="button" className="rail-backdrop" aria-hidden="true" tabIndex={-1} onClick={() => setOpen(false)} />
       ) : null}
+      {/* LA-1321: above the phone breakpoint the rail rests as a column of
+          icons and opens over the page while hovered or focused, so the
+          budget gets the width. */}
       <nav id="rail-nav" className={`rail${open ? " rail--open" : ""}`}>
         <div className="rail-logo">
-          Kulka<span className="logo-ai">AI</span>
+          <span className="rail-logo-word">Kulka</span>
+          <span className="logo-ai">AI</span>
         </div>
         <div className="rail-search">
           <input className="input" type="search" placeholder="Search Sheets" />
@@ -128,8 +132,7 @@ export function Rail({ email, openAccess = false }: { email: string; openAccess?
             <div className="rail-group" key={group.label}>
               <div className="rail-section t-label">{group.label}</div>
               {group.items.map(({ href, label, count, Icon }) => {
-                // The longest href that matches the path wins, so /rom/parameters
-                // lights Engine Parameters rather than Conceptual Budget too.
+                // The longest href that matches the path wins.
                 const active = href === activeHref;
                 return (
                   <Link

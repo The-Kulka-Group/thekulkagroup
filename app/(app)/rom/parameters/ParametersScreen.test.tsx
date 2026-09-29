@@ -77,7 +77,7 @@ describe("ParametersScreen", () => {
     }
     expect(html).toContain("Confidence and Range");
     expect(html).toContain("Comparables Needed");
-    expect(html).toContain("Anything that misses Medium");
+    expect(html).toContain("Anything That Misses Medium");
     expect(html).toContain("Markups");
     expect(html).toContain('value="3.25"');
     expect(html).toContain('value="5.4"');
@@ -85,12 +85,12 @@ describe("ParametersScreen", () => {
     expect(html).toContain("$23.41");
     expect(html).toContain("Medium, ±20%");
     expect(html).toContain("3 comparables. High needs 5.");
-    expect(html).toContain("3 jobs, needs 5");
-    expect(html).toContain("Misses it");
-    expect(html).toContain("59% of blend");
+    expect(html).toContain("3 Jobs, Needs 5");
+    expect(html).toContain("Misses It");
+    expect(html).toContain("59% of Blend");
     // The saved run, unchanged.
     expect(html).toContain("Synthetic Project");
-    expect(html).toContain("No change");
+    expect(html).toContain("No Change");
     // The tray is there but closed and out of the tab order.
     expect(html).toMatch(/class="pm-tray"[^>]*aria-hidden="true"/);
     expect(html).not.toContain("pm-row--changed");

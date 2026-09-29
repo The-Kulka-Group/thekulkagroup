@@ -24,7 +24,7 @@ export default async function RomBlocksPage({
   const runId = run ?? (await newestFinishedRun());
   if (!runId) {
     return (
-      <Sheet number="R-120" title="Block Board" meta={<span>no finished run</span>}>
+      <Sheet number="R-120" title="Block Board" meta={<span>No Finished Run</span>}>
         <p className="empty">
           No ROM has finished yet, so there are no blocks to show. Run one from the
           conceptual budget and come back.

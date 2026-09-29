@@ -69,8 +69,8 @@ describe("number boxes", () => {
 
   it("format a value with its unit", () => {
     expect(formatValue("weight.actuals", 5)).toBe("5");
-    expect(formatValue("flag.high_min_comparables", 5)).toBe("5 jobs");
-    expect(formatValue("flag.high_min_comparables", 1)).toBe("1 job");
+    expect(formatValue("flag.high_min_comparables", 5)).toBe("5 Jobs");
+    expect(formatValue("flag.high_min_comparables", 1)).toBe("1 Job");
     expect(formatValue("insurance.rate", 0.054)).toBe("5.4%");
   });
 });

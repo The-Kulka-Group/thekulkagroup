@@ -28,7 +28,7 @@ export default async function CostImportsPage() {
         <>
           <span>{imports.length === 1 ? "1 import" : `${imports.length} imports`}</span>
           <Sep />
-          <span>newest first</span>
+          <span>Newest First</span>
         </>
       }
     >

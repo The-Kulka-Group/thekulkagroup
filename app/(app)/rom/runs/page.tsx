@@ -24,13 +24,13 @@ export default async function RomRunsPage() {
       }
       meta={
         <>
-          <span>{runs.length === 1 ? "1 run" : `${runs.length} runs`}</span>
+          <span>{runs.length === 1 ? "1 Run" : `${runs.length} Runs`}</span>
           <Sep />
-          <span>newest first</span>
+          <span>Newest First</span>
           {running ? (
             <>
               <Sep />
-              <span className="num">{running} going now</span>
+              <span className="num">{running} Going Now</span>
             </>
           ) : null}
         </>

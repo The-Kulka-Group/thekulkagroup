@@ -99,9 +99,21 @@
   color: var(--rb-ink-on-black);
 }
 .rb-proj { color: var(--rb-ink-on-black); font-weight: 600; }
-.rb-links { display: inline-flex; gap: 12px; }
-.rb-links a { color: var(--rb-ink2-on-black); text-decoration: none; }
-.rb-links a:hover { color: var(--rb-ink-on-black); text-decoration: underline; text-underline-offset: 3px; }
+.rb-links { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.rb-links a {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--rb-pnl-line2);
+  border-radius: var(--r-pill);
+  font-size: var(--ui-size);
+  font-weight: 600;
+  color: var(--rb-ink2-on-black);
+  text-decoration: none;
+  transition: border-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+.rb-links a:hover { color: var(--rb-ink-on-black); border-color: var(--rb-pnl-mute); }
 .rb-sp { flex: 1; }
 
 .rb-hbtn {
@@ -196,8 +208,27 @@
 .rb-tb b { color: var(--rb-ink-on-black); font-weight: 600; }
 .rb-tot:hover .rb-tb b { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .rb-td { font-size: 15px; color: var(--rb-ink2-on-black); }
-.rb-td--btn { border: 0; background: none; padding: 0; font: inherit; font-size: 15px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.rb-td--btn:hover { color: var(--rb-ink-on-black); }
+/* LA-1321: anything clickable is a pill, so the TBD note and the status
+   items share one outlined pill on the black band. */
+.rb-td--btn,
+.rb-oq {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--rb-pnl-line2);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rb-ink2-on-black);
+  cursor: pointer;
+  align-self: center;
+  transition: border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+.rb-td--btn:hover { color: var(--rb-ink-on-black); border-color: var(--rb-pnl-mute); background: var(--rb-hover-on-black); }
 .rb-tb { white-space: nowrap; }
 .rb-chev {
   display: inline-block;
@@ -211,20 +242,15 @@
 .rb-tot:hover .rb-chev,
 .rb-tot:focus-visible .rb-chev { color: var(--rb-ink-on-black); transform: translateX(2px); }
 
-.rb-oq {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  background: transparent;
-  padding: 6px 12px;
-  border-radius: var(--r-pill);
-  font-size: 15px;
-  color: var(--rb-ink2-on-black);
-  cursor: pointer;
-}
 .rb-oq:hover,
-.rb-oq[aria-expanded="true"] { background: var(--rb-hover-on-black); color: var(--rb-ink-on-black); }
+.rb-oq[aria-expanded="true"] { background: var(--rb-hover-on-black); color: var(--rb-ink-on-black); border-color: var(--rb-pnl-mute); }
+
+/* The view switches ride the right end of the total's row. */
+.rb-views { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: auto; align-self: center; }
+.rb-views:empty { display: none; }
+.rb-status { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rb-status:empty { display: none; }
+.rb-hlink { display: inline-flex; align-items: center; text-decoration: none; }
 
 .rb-tnone { font-size: 18px; color: var(--rb-ink2-on-black); padding: 10px 0; }
 
@@ -602,11 +628,8 @@
   min-width: 160px;
   max-width: 320px;
   flex: 0 1 auto;
-  border-color: transparent;
-  background: transparent;
   font-weight: 600;
   text-overflow: ellipsis;
-  padding: 0 var(--s2);
 }
 .rb-t1 > * { flex-shrink: 0; }
 /* The spacer's auto margin holds the title left on the first line; any
@@ -616,6 +639,10 @@
 .rb-t1 > .rb-pick, .rb-t1 > .rb-sp { flex-shrink: 1; }
 @media (max-width: 1100px) {
   .rb-t1 { white-space: normal; }
+}
+@media (max-width: 860px) {
+  .rb-t1 { justify-content: flex-start; }
+  .rb-views { margin-left: 0; }
 }
 
 /* New budget open: the screen behind the form is blank. The last project's
@@ -630,6 +657,7 @@
 .rb--fresh .rb-t1 .num,
 .rb--fresh .rb-t1 .btn--primary,
 .rb--fresh .rb-t1 .rb-hbtn:not([aria-expanded="true"]) { display: none; }
+.rb--fresh .rb-t2 > .rb-views { display: inline-flex; }
 
 /* LA-1142: the budget building behind New budget. LiveBudget.tsx drives the
    moves (FLIP, the figure springs, the tray flights) with the Web Animations

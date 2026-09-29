@@ -66,7 +66,8 @@ import {
   useRomView,
   ViewSwitch,
 } from "./view-switch";
-import { Stage } from "./stage/Stage";
+import { markStageBuilt, Stage } from "./stage/Stage";
+import { useNewBudgetStage } from "./stage/useNewBudgetStage";
 import "./rom-blocks.css";
 
 // LA-1101. The live conceptual budget in the Round 14 block layout: a black
@@ -244,18 +245,15 @@ export function RomRunner({
         : [],
     [liveRom, liveClassifications, canonicalDivisionMap, order],
   );
-  // LA-1265: the Design and Engineering answer that just landed in New
-  // Budget, and the entries it feeds, lit with its code.
-  const [engineeringFocus, setEngineeringFocus] = useState<{ code: string; costCodes: string[] } | null>(null);
-  const liveMark = useMemo(() => {
-    if (!engineeringFocus) return null;
-    const keys = new Set(
-      liveEntries
-        .filter((entry) => entry.costCodes.some((code) => engineeringFocus.costCodes.includes(code)))
-        .map((entry) => entry.key),
-    );
-    return keys.size > 0 ? { code: engineeringFocus.code, keys } : null;
-  }, [engineeringFocus, liveEntries]);
+  // LA-1318: New Budget's stage. Each answer and Design and Engineering card
+  // plays on it, and what each moved flies into its boxes, which stay lit
+  // with its name for a moment and keep its source line.
+  const newStage = useNewBudgetStage(
+    panel?.kind === "new",
+    draft,
+    liveEntries,
+    live.phase === "ready" ? live.grossSquareFeet : null,
+  );
   const liveBar = useMemo(
     () => (live.phase === "ready" ? barModel(live.rom, liveEntries) : null),
     [live, liveEntries],
@@ -626,7 +624,7 @@ export function RomRunner({
                 bar={liveBar}
                 chip={liveChip}
                 litKey={liveLitKey}
-                source={engineeringFocus?.code ?? null}
+                source={newStage.totalSource}
               /> : null}
           </div>
           {run && headline ? (
@@ -706,8 +704,18 @@ export function RomRunner({
       </header>
 
       <main className="rb-fld" aria-busy={busy}>
-        {/* LA-1142: and the field shows the budget building. */}
+        {/* LA-1142: and the field shows the budget building, under the stage (LA-1318). */}
         <div className="rb-fresh-note">
+          {panel?.kind === "new" ? (
+            <Stage
+              key="live"
+              mode="live"
+              building={newStage.building}
+              events={newStage.events}
+              onStart={newStage.onStart}
+              onLand={newStage.onLand}
+            />
+          ) : null}
           {panel?.kind === "new" ? (
             <LiveField
               live={live}
@@ -717,7 +725,8 @@ export function RomRunner({
               selectedKey={liveSelected}
               onSelect={(key) => setLiveSelected((current) => (current === key ? null : key))}
               link={link}
-              mark={liveMark}
+              mark={newStage.mark}
+              sources={newStage.sources}
             />
           ) : null}
         </div>
@@ -738,7 +747,7 @@ export function RomRunner({
             {run ? ` The blocks below are still ${runWords(run)}.` : ""}
           </p>
         ) : null}
-        {run && panel?.kind !== "new" ? <Stage building={stageSpec} /> : null}
+        {run && panel?.kind !== "new" ? <Stage key="saved" mode="assemble" building={stageSpec} projectId={projectId ?? null} /> : null}
         {run && panel?.kind !== "new" ? (
           <DerivedCriteriaSection
             items={criteria.items}
@@ -854,8 +863,14 @@ export function RomRunner({
               <GuidedNewBudget
                 markupOptions={markupOptions}
                 onDraft={setDraft}
-                onEngineeringFocus={setEngineeringFocus}
-                onCreated={(id) => router.push(`/rom?project=${id}`)}
+                onStageEvent={newStage.onStageEvent}
+                onCriteria={newStage.onCriteria}
+                landedCards={newStage.landedCards}
+                onCreated={(id) => {
+                  // The viewer just watched it go up, so the saved budget opens on the finished building.
+                  markStageBuilt(id);
+                  router.push(`/rom?project=${id}`);
+                }}
               />
             </>
           ) : null}

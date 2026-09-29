@@ -294,6 +294,7 @@ export function LiveField({
   onSelect,
   link,
   mark = null,
+  sources = {},
 }: {
   live: LiveBudget;
   view: RomView;
@@ -301,6 +302,8 @@ export function LiveField({
   entries: FieldEntry[];
   /** LA-1265: the entries a landed Design and Engineering answer feeds, lit and marked with its code. */
   mark?: { code: string; keys: Set<string> } | null;
+  /** LA-1318: each box's source line, the last moment that moved it: "S-1 +$472k". */
+  sources?: Readonly<Record<string, string>>;
   /** The card or block the viewer clicked, which keeps its share lit. */
   selectedKey: string | null;
   onSelect: (key: string) => void;
@@ -396,6 +399,7 @@ export function LiveField({
           group={entry.group}
           waiting={waiting}
           rollDelay={rollDelay}
+          source={sources[entry.key]}
           register={register}
           link={link}
         />
@@ -424,6 +428,7 @@ export function LiveField({
         entryKey={entry.key}
         block={entry.block}
         waiting={waiting}
+        source={sources[entry.key]}
         selected={selectedKey === entry.key}
         rollDelay={rollDelay}
         link={link}
@@ -488,6 +493,7 @@ export function LiveBlock({
   entryKey,
   block,
   waiting,
+  source,
   selected,
   rollDelay,
   link,
@@ -497,6 +503,8 @@ export function LiveBlock({
   entryKey: string;
   block: TradeBlock;
   waiting: boolean;
+  /** LA-1318: the moment that last moved it, "S-1 +$472k". */
+  source?: string;
   selected: boolean;
   rollDelay: number;
   link: FieldLink;
@@ -531,6 +539,11 @@ export function LiveBlock({
         format={shortMoney}
         delay={rollDelay}
       />
+      {source && !waiting ? (
+        <span className="lb-src num" key={source}>
+          {source}
+        </span>
+      ) : null}
       <span className="rb-bar" aria-hidden="true">
         <i style={{ transform: `scaleX(${waiting ? 0 : Math.max(0.02, Math.min(1, block.share)).toFixed(4)})` }} />
       </span>

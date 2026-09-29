@@ -167,6 +167,7 @@ export function LiveElementBox({
   group,
   waiting,
   rollDelay,
+  source,
   register,
   link,
 }: {
@@ -174,6 +175,8 @@ export function LiveElementBox({
   waiting: boolean;
   /** When the box itself lands, same units as a lone block's roll delay. */
   rollDelay: number;
+  /** LA-1318: the moment that last moved it, "V-1 +$420k". */
+  source?: string;
   register: (key: string) => (el: HTMLElement | null) => void;
   link: FieldLink;
 }) {
@@ -204,6 +207,11 @@ export function LiveElementBox({
           />
         )}
       </div>
+      {source && !waiting ? (
+        <span className="lb-src lb-src--box num" key={source}>
+          {source}
+        </span>
+      ) : null}
       <span className="rb-bar eb-hbar" aria-hidden="true">
         <i style={{ transform: `scaleX(${waiting || noRate ? 0 : 1})` }} />
       </span>

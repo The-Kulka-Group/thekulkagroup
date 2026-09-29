@@ -19,7 +19,31 @@ export type StageFacts = {
   retail: boolean;
 };
 
-export type StageLevel = { kind: "podium" | "frame"; base: number; height: number };
+/**
+ * LA-1318: the same facts from New Budget's answers as they stand, so the
+ * stage draws the building while it is still being answered.
+ */
+export function stageFactsFromResponses(responses: Readonly<Record<string, string | undefined>>): StageFacts {
+  const count = (id: string) => {
+    const raw = responses[id];
+    if (raw === undefined || raw.trim() === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  return {
+    grossSquareFeet: count("gross_square_feet"),
+    stories: count("stories_above_grade"),
+    unitCount: count("unit_count"),
+    buildingCount: count("building_count") || 1,
+    parkingType: responses.parking_type || null,
+    elevatorCount: responses.elevator === "yes" ? count("elevator_count") : 0,
+    belowGrade: responses.levels_below_grade === "yes",
+    balconies: responses.balconies === "yes",
+    retail: responses.retail_storefronts === "yes",
+  };
+}
+
+export type StageLevel ={ kind: "podium" | "frame"; base: number; height: number };
 
 export type StageBuilding = {
   /** Footprint in feet, the long side along x. */

@@ -42,12 +42,12 @@ describe("sidebar navigation", () => {
     expect(homeLink).toBe('<a class="rail-item" href="/">');
   });
 
-  it("lights Engine Parameters, not Conceptual Budget, on /rom/parameters (LA-866)", () => {
+  it("lights Conceptual Budget on /rom/parameters, which has no rail item of its own (LA-1321)", () => {
     pathname = "/rom/parameters";
 
     const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
-    expect(html).toContain('<a class="rail-item" aria-current="page" href="/rom/parameters">');
-    expect(html).toContain('<a class="rail-item" href="/rom">');
+    expect(html).toContain('<a class="rail-item" aria-current="page" href="/rom">');
+    expect(html).not.toContain('href="/rom/parameters"');
   });
 
   it("keeps Conceptual Budget lit on the other ROM pages", () => {
@@ -55,7 +55,6 @@ describe("sidebar navigation", () => {
 
     const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
     expect(html).toContain('<a class="rail-item" aria-current="page" href="/rom">');
-    expect(html).toContain('<a class="rail-item" href="/rom/parameters">');
   });
 
   it("shows the account and Sign Out when sign-in is on", () => {

@@ -225,8 +225,8 @@ export function ParametersScreen({ history: initialHistory, impact, initialDraft
             <div className="pm-rows">
               {(
                 [
-                  ["fee.rate", "Fee", "Kulka's fee, computed on trade cost plus GRs/GCs"],
-                  ["insurance.rate", "Insurance", "Kulka's insurance, computed on cost plus fee"],
+                  ["fee.rate", "Fee", "Kulka's Fee, Computed on Trade Cost Plus GRs/GCs"],
+                  ["insurance.rate", "Insurance", "Kulka's Insurance, Computed on Cost Plus Fee"],
                 ] as const
               ).map(([name, label, sub]) => (
                 <ParameterRow
@@ -276,7 +276,7 @@ export function ParametersScreen({ history: initialHistory, impact, initialDraft
                   <li className="pm-imp" key={row.runId}>
                     <span>
                       {row.projectName}
-                      <span className="pm-imp-gsf num"> · {Math.round(row.grossSquareFeet / 1000)}k GSF</span>
+                      <span className="pm-imp-gsf num"> · {Math.round(row.grossSquareFeet / 1000)}K GSF</span>
                     </span>
                     {row.error !== null ? (
                       <span className="pm-imp-err">Could not recompute: {row.error}</span>
@@ -339,7 +339,7 @@ export function ParametersScreen({ history: initialHistory, impact, initialDraft
 
 function ChangeChip({ change }: { change: number }) {
   const cls = Math.abs(change) < 0.0005 ? "same" : change > 0 ? "up" : "down";
-  return <span className={`pm-delta pm-delta--${cls}`}>{cls === "same" ? "No change" : signedPercent(change)}</span>;
+  return <span className={`pm-delta pm-delta--${cls}`}>{cls === "same" ? "No Change" : signedPercent(change)}</span>;
 }
 
 function HistoryButton({ label, open, onToggle, controls }: { label: string; open: boolean; onToggle: () => void; controls: string }) {
@@ -533,7 +533,7 @@ function TierRow({
           <NumberBox
             name={countName}
             label={`${label} comparables needed`}
-            unit="jobs"
+            unit="Jobs"
             draft={drafts[countName]}
             problem={problems[countName]}
             onChange={(t) => onChange(countName, t)}
@@ -541,7 +541,7 @@ function TierRow({
           />
         </label>
       ) : (
-        <div className="pm-fixed">Anything that misses Medium</div>
+        <div className="pm-fixed">Anything That Misses Medium</div>
       )}
       <label className="pm-field">
         {flag === "low" ? "Range Width" : "Within and Range Width"}
@@ -558,17 +558,17 @@ function TierRow({
       <HistoryButton label={label} open={open} onToggle={onToggle} controls={`pm-hist-tier-${flag}`} />
       {meter ? (
         <div className="pm-meter">
-          <span>Your example</span>
+          <span>Your Example</span>
           <span className="pm-bar" aria-hidden="true">
             <i style={{ width: `${Math.min(100, (meter.count / Math.max(1, meter.need)) * 100)}%` }} />
           </span>
           <span className="num">
-            {meter.count} jobs, needs {meter.need}
+            {meter.count} Jobs, Needs {meter.need}
           </span>
           <span className="num">
-            {wholePercent(meter.dispersion)} off, allows {wholePercent(meter.allows)}
+            {wholePercent(meter.dispersion)} Off, Allows {wholePercent(meter.allows)}
           </span>
-          <span className={`pm-ok${meter.meets ? " pm-ok--yes" : " pm-ok--no"}`}>{meter.meets ? "Meets it" : "Misses it"}</span>
+          <span className={`pm-ok${meter.meets ? " pm-ok--yes" : " pm-ok--no"}`}>{meter.meets ? "Meets It" : "Misses It"}</span>
         </div>
       ) : null}
       {tierProblems.map((p) => (
@@ -587,7 +587,7 @@ function ExampleBody({ example }: { example: WorkedExampleView }) {
     <>
       <div className="pm-big">
         <span className="pm-v num">${blend.rate.toFixed(2)}</span>
-        <span className="pm-u">per GSF</span>
+        <span className="pm-u">Per GSF</span>
         <span className={`chip chip--${blend.confidence}`}>
           <span className="dot" />
           {FLAG_WORDS[blend.confidence]}, ±{wholePercent(blend.spread)}
@@ -605,10 +605,10 @@ function ExampleBody({ example }: { example: WorkedExampleView }) {
               <span className={`pm-sw pm-sw--round pm-k--${s.kind}`} />
               <span>
                 {s.exampleWords}
-                {s.kind === "llm_proposal" ? <span className="pm-muted"> (not a comparable)</span> : null}
+                {s.kind === "llm_proposal" ? <span className="pm-muted"> (Not a Comparable)</span> : null}
               </span>
               <span className="pm-r num">${figure.rate.toFixed(2)}</span>
-              <span className="pm-w num">{Math.round((example.shares[s.kind] ?? 0) * 100)}% of blend</span>
+              <span className="pm-w num">{Math.round((example.shares[s.kind] ?? 0) * 100)}% of Blend</span>
             </li>
           );
         })}

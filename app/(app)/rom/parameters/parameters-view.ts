@@ -36,29 +36,29 @@ export const SOURCES: readonly Source[] = [
     kind: "actuals",
     name: "weight.actuals",
     label: "Actual Job Cost",
-    sub: "Autodesk Cost actuals",
-    exampleWords: "A real job",
+    sub: "Autodesk Cost Actuals",
+    exampleWords: "A Real Job",
   },
   {
     kind: "proest_budget",
     name: "weight.proest_budget",
     label: "ProEst Budget",
-    sub: "A budget, not a cost",
-    exampleWords: "A ProEst budget",
+    sub: "A Budget, Not a Cost",
+    exampleWords: "A ProEst Budget",
   },
   {
     kind: "reviewed_judgment",
     name: "weight.reviewed_judgment",
     label: "Estimator Judgment",
-    sub: "A stated, approved rule",
-    exampleWords: "An estimator's rule of thumb",
+    sub: "A Stated, Approved Rule",
+    exampleWords: "An Estimator's Rule of Thumb",
   },
   {
     kind: "llm_proposal",
     name: "weight.llm_proposal",
     label: "Model Proposal",
-    sub: "Never prices a line alone",
-    exampleWords: "A model's figure",
+    sub: "Never Prices a Line Alone",
+    exampleWords: "A Model's Figure",
   },
 ];
 
@@ -120,7 +120,7 @@ export function formatValue(name: ParameterName, value: number): string {
   if (!Number.isFinite(value)) return "?";
   const kind = kindOf(name);
   if (kind === "weight") return trim(value, 4);
-  if (kind === "count") return `${trim(value, 4)} ${value === 1 ? "job" : "jobs"}`;
+  if (kind === "count") return `${trim(value, 4)} ${value === 1 ? "Job" : "Jobs"}`;
   return `${trim(value * 100, 4)}%`;
 }
 

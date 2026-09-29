@@ -566,12 +566,6 @@ export function RomRunner({
           {/* New Budget always builds By Scope: production has almost no
               buyout packages stated yet, so By Package would pour every
               answer into one Unassigned Package card (Matt, 2026-09-27). */}
-          {packagesAssigned && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
-          {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
-          {run && panel?.kind !== "new" ? <LayoutSwitch layout={layout} onChange={setLayout} /> : null}
-          {run && panel?.kind !== "new" && layout === "ledger" ? (
-            <GroupingSwitch grouping={grouping} onChange={setGrouping} />
-          ) : null}
           <button
             type="button"
             className="rb-hbtn"
@@ -600,6 +594,11 @@ export function RomRunner({
               Run Settings
             </button>
           ) : null}
+          {/* LA-1321: Engine Parameters belongs to Conceptual Budget, so it
+              lives here as a pill instead of in the sidebar. */}
+          <Link className="rb-hbtn rb-hlink" href="/rom/parameters">
+            Engine Parameters
+          </Link>
           {/* LA-1227: once a project has a run, a change in Run settings
               records the next one on its own. The button stays only for a
               project with no run yet, such as a New Budget closed midway. */}
@@ -638,7 +637,7 @@ export function RomRunner({
                 <span className="rb-tl">{titleCase(headline.label)}</span>
                 <span className="rb-tv num">{headlineMoney(headline.midpoint, headline)}</span>
                 <span className="rb-tb">
-                  range{" "}
+                  Range{" "}
                   <b className="num">
                     {headlineMoney(headline.low, headline)} to {headlineMoney(headline.high, headline)}
                   </b>
@@ -655,43 +654,8 @@ export function RomRunner({
                   </svg>
                 </span>
               </button>
-              {headline.tbd.length > 0 ? (
-                // LA-1256: a blank markup rate is fixed in Run Settings, so the
-                // note opens it.
-                <button
-                  type="button"
-                  className="rb-td rb-td--btn"
-                  onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
-                >
-                  {headline.tbd.join(", ")} TBD, Outside the Total. Enter a Rate
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="rb-oq"
-                aria-expanded={panel?.kind === "notes"}
-                onClick={(e) => openPanel({ kind: "notes" }, e.currentTarget)}
-              >
-                {noteCount > 0 ? (
-                  <span className={`rb-dot rb-dot--${held > 0 ? "stuck" : "working"}`} aria-hidden="true" />
-                ) : null}
-                {notesLabel(held, run.rom)}
-              </button>
-              {projectId && rateable.length > 0 ? (
-                <button
-                  type="button"
-                  className="rb-oq"
-                  aria-expanded={panel?.kind === "rates"}
-                  onClick={(e) => openPanel({ kind: "rates" }, e.currentTarget)}
-                >
-                  <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
-                  {rateable.length === 1 ? "Suggest the Missing Rate" : `Suggest ${rateable.length} Missing Rates`}
-                </button>
-              ) : null}
-              <ShareChip chip={chip} />
-              {bar ? <SavedBar bar={bar} litKey={litKey} /> : null}
             </>
-          ) : (
+          ) : panel?.kind === "new" ? null : (
             <p className="rb-tnone">
               {state.phase === "running"
                 ? "Reading data and computing lines."
@@ -700,6 +664,58 @@ export function RomRunner({
                   : "No ROM on screen yet."}
             </p>
           )}
+          {/* LA-1321: the view switches sit at the right of the total's row,
+              beside the numbers they change, so the first row holds only the
+              project and its actions. */}
+          <div className="rb-views">
+            {packagesAssigned && panel?.kind !== "new" ? <ViewSwitch view={view} onChange={setView} /> : null}
+            {run || panel?.kind === "new" ? <OrderSwitch order={order} onChange={setOrder} /> : null}
+            {run && panel?.kind !== "new" ? <LayoutSwitch layout={layout} onChange={setLayout} /> : null}
+            {run && panel?.kind !== "new" && layout === "ledger" ? (
+              <GroupingSwitch grouping={grouping} onChange={setGrouping} />
+            ) : null}
+          </div>
+          {/* LA-1321: the status pills get their own line under the total. */}
+          {run && headline ? (
+            <div className="rb-status">
+            {headline.tbd.length > 0 ? (
+              // LA-1256: a blank markup rate is fixed in Run Settings, so the
+              // note opens it.
+              <button
+                type="button"
+                className="rb-td rb-td--btn"
+                onClick={(e) => openPanel({ kind: "settings" }, e.currentTarget)}
+              >
+                <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
+                {headline.tbd.join(", ")} TBD, Enter a Rate
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="rb-oq"
+              aria-expanded={panel?.kind === "notes"}
+              onClick={(e) => openPanel({ kind: "notes" }, e.currentTarget)}
+            >
+              {noteCount > 0 ? (
+                <span className={`rb-dot rb-dot--${held > 0 ? "stuck" : "working"}`} aria-hidden="true" />
+              ) : null}
+              {notesLabel(held, run.rom)}
+            </button>
+            {projectId && rateable.length > 0 ? (
+              <button
+                type="button"
+                className="rb-oq"
+                aria-expanded={panel?.kind === "rates"}
+                onClick={(e) => openPanel({ kind: "rates" }, e.currentTarget)}
+              >
+                <span className="rb-dot rb-dot--stuck" aria-hidden="true" />
+                {rateable.length === 1 ? "Suggest the Missing Rate" : `Suggest ${rateable.length} Missing Rates`}
+              </button>
+            ) : null}
+            <ShareChip chip={chip} />
+            </div>
+          ) : null}
+          {run && headline && bar ? <SavedBar bar={bar} litKey={litKey} /> : null}
         </div>
       </header>
 
@@ -1076,7 +1092,7 @@ export function RomRunner({
                     <b>{STAMP.format(started)}</b>
                     <span className="rb-rd num">{CLOCK.format(started)}</span>
                   </span>
-                  <span className="rb-rk num">run {one.id.slice(0, 8)}</span>
+                  <span className="rb-rk num">Run {one.id.slice(0, 8)}</span>
                 </button>
               );
             })}
@@ -1087,7 +1103,6 @@ export function RomRunner({
         <nav className="rb-links rb-rall" aria-label="ROM pages">
           {run ? <Link href={`/rom/blocks?run=${run.runId}`}>Block Board</Link> : null}
           <Link href="/rom/backtest">Backtest</Link>
-          <Link href="/rom/parameters">Engine Parameters</Link>
           <Link href="/rom/runs">All Runs</Link>
         </nav>
       </footer>
@@ -1286,14 +1301,14 @@ export function Block({
 
 function notesLabel(held: number, rom: Rom): string {
   const parts: string[] = [];
-  if (held > 0) parts.push(`${held} held for review`);
+  if (held > 0) parts.push(`${held} Held for Review`);
   if (rom.tbdGateItems.length > 0) parts.push(`${rom.tbdGateItems.length} TBD`);
-  if (rom.assumedPresentItems.length > 0) parts.push(`${rom.assumedPresentItems.length} assumed present`);
+  if (rom.assumedPresentItems.length > 0) parts.push(`${rom.assumedPresentItems.length} Assumed Present`);
   return parts.length > 0 ? parts.join(", ") : "Scope and Assumptions";
 }
 
 function runWords(run: LoadedRun): string {
-  const id = `run ${run.runId.slice(0, 8)}`;
+  const id = `Run ${run.runId.slice(0, 8)}`;
   if (!run.startedAt) return id;
   const started = new Date(run.startedAt);
   return `${id}, ${STAMP.format(started)} at ${CLOCK.format(started)}`;

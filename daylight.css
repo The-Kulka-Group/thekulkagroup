@@ -1207,6 +1207,42 @@ textarea.input { border-radius: var(--r-lg); }
 
 /* --- 20. Narrow widths --------------------------------------------------- */
 
+/* LA-1321: above the phone breakpoint the rail rests at icon width and opens
+   over the field while hovered or focused. It is fixed, so opening it never
+   reflows the page; the labels fade rather than collapse, so nothing jumps. */
+@media (min-width: 861px) {
+  .app { grid-template-columns: var(--rail-mini, 64px) minmax(0, 1fr); }
+  .field { grid-column: 2; }
+  .rail-item > svg { flex: none; }
+  .rail {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--rail-mini, 64px);
+    z-index: 60;
+    transition: width var(--motion-base) var(--ease), box-shadow var(--motion-base) var(--ease);
+  }
+  .rail:hover,
+  .rail:focus-within { width: var(--rail-w); box-shadow: var(--shadow-card); }
+  .rail .rail-section,
+  .rail .rail-search,
+  .rail .rail-item > span,
+  .rail .rail-user .t-ui,
+  .rail .rail-user form,
+  .rail .rail-logo-word {
+    transition: opacity var(--motion-fast) var(--ease);
+  }
+  .rail:not(:hover):not(:focus-within) .rail-section,
+  .rail:not(:hover):not(:focus-within) .rail-search,
+  .rail:not(:hover):not(:focus-within) .rail-item > span,
+  .rail:not(:hover):not(:focus-within) .rail-user .t-ui,
+  .rail:not(:hover):not(:focus-within) .rail-user form { opacity: 0; pointer-events: none; }
+  .rail-logo-word { display: inline-block; max-width: 80px; overflow: hidden; transition: max-width var(--motion-base) var(--ease), opacity var(--motion-fast) var(--ease); }
+  .rail:not(:hover):not(:focus-within) .rail-logo-word { max-width: 0; opacity: 0; }
+  .rail:not(:hover):not(:focus-within) .rail-logo .logo-ai { margin-left: 0; }
+}
+
 @media (max-width: 1180px) {
   .record-grid { grid-template-columns: minmax(0, 1fr); }
 }

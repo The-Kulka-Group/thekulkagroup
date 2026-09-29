@@ -80,15 +80,28 @@ than one row per role, since the rate doesn't vary by who sits in the office.
 
 **Per-office setup and utility connection:**
 
-| Item | Rate |
-| --- | --- |
-| Office fit-out/furniture allowance | $2,750 ls (per office) |
-| Field equipment (desks, file cabinets) | $2,000 ls (per office) |
-| Computers | $2,500 ls (per office) |
-| Electric connect | $500 ls, then $175/mo service |
-| Phone/data connect | $2,000 ls, then $150/mo service |
-| Plumbing connect | $500 ls, then $100/mo service |
-| Trailer alarm, central station monitoring | $100/mo |
+Corrected by LA-1403. Every row was checked against the sheet rows it cites. The
+first load carried mislabeled figures, and the table below matches the sheet.
+
+| Item | Rate | Sheet rows |
+| --- | --- | --- |
+| Electric Connect | $0 ls | 94 to 100 |
+| Plumbing Connect | $0 ls | 102 to 107 |
+| Office Supplies | $500 ls (per office) | 109 to 114 |
+| Field equipment (desks, file cabinets) | $2,000 ls (per office) | 116 to 121 |
+| Computers | $2,750 ls (per person) | 123 to 143 |
+| Field Office Fit-Out (Kitchens, Plan Tables, Racks, Conference Table) | $2,500 ls (per office) | 145 to 150 |
+| Tel/Data Service | $500 ls (per office) | 152 to 157 |
+| Networking/Printer Setup | $3,200 ls (per office) | 159 to 164 |
+| ISP Service | $175/mo | 166 to 171 |
+| Tel/Data Bill | $100/mo | 173 to 178 |
+| Trailer alarm, central station monitoring | $150/mo | 183 to 188 |
+
+What LA-1403 changed: the $500 first filed as Electric Connect is Office Supplies, and
+Electric Connect and Plumbing Connect are $0 on the sheet. The $2,000 Phone/data connect is
+Tel/Data Service at $500. The $2,750 and $2,500 figures were swapped between the office
+fit-out and the computers. Trailer alarm is $150, not $100. The card gained Office
+Supplies, Networking/Printer Setup, ISP Service and Tel/Data Bill.
 
 **General field costs, monthly unless noted:**
 

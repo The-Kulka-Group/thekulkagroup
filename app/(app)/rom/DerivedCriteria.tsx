@@ -119,7 +119,7 @@ export function useDerivedCriteria(initial: Criterion[]) {
     const correctionId = item.correctionId;
     const next = await send(item.id, { method: "DELETE" });
     if (next && withToast && correctionId) {
-      setToast({ text: "Back to Jev's value.", undo: () => void restore(next, correctionId) });
+      setToast({ text: "Back to the worked-out value.", undo: () => void restore(next, correctionId) });
     }
   };
 
@@ -278,7 +278,7 @@ export function CriterionCard({
   const name = [
     `${item.code} ${item.label}: ${formatDerivedValue(shown)}.`,
     corrected
-      ? `Corrected by ${personName(item.correction!.correctedBy)}; Jev's value was ${formatDerivedValue(item.value)}.`
+      ? `Corrected by ${personName(item.correction!.correctedBy)}; the worked-out value was ${formatDerivedValue(item.value)}.`
       : `${confidence} confidence${leans ? ", rests on an assumed fact" : ""}.`,
   ].join(" ");
 
@@ -430,7 +430,7 @@ export function CriterionPanel({
       </div>
 
       <div>
-        <h3 className="dc-blockh">How Jev Got Here</h3>
+        <h3 className="dc-blockh">How It Was Worked Out</h3>
         <ol className="dc-steps">
           {item.steps.map((step, index) => (
             <li key={index} className={index === item.steps.length - 1 ? "dc-res" : undefined}>
@@ -453,12 +453,12 @@ export function CriterionPanel({
           <>
             <p className="dc-hist">
               {personName(corrected.correctedBy)} set this to <b>{formatDerivedValue(corrected.value)}</b> on{" "}
-              {STAMP.format(new Date(corrected.correctedAt))}. Reason: {corrected.reason}. Jev&apos;s value was{" "}
+              {STAMP.format(new Date(corrected.correctedAt))}. Reason: {corrected.reason}. the worked-out value was{" "}
               {formatDerivedValue(item.value)}.
             </p>
             <div className="dc-row">
               <button type="button" className="dc-btn" disabled={busy} onClick={onRevert}>
-                Use Jev&apos;s Value
+                Use the Worked-Out Value
               </button>
             </div>
           </>

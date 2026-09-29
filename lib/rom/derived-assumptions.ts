@@ -62,6 +62,23 @@ const SELECT = `
     left join derived_assumption_corrections c
       on c.derived_assumption_id = a.id and c.reverted_at is null`;
 
+/**
+ * LA-1333. A criterion saved before LA-1333 carries wording from inside the
+ * software: a repository path after its method, and the internal model's
+ * name. The stored row stays as it was written; only what is read for the
+ * screen drops them, so an old budget reads like a new one.
+ */
+export function publicWording(text: string): string {
+  return text
+    .replace(/ \(docs\/[^)]*\.md\)/g, "")
+    .replace(/\bJev picked\b/g, "picked")
+    .replace(
+      / No Jev client is configured, so V-1 proposes Hydraulic without calling Jev\./g,
+      " Nothing is set up to choose between the two, so V-1 proposes Hydraulic, the cheaper type.",
+    )
+    .replace(/Either -- no Jev client configured, proposing Hydraulic/g, "Either; nothing set up to choose, so Hydraulic");
+}
+
 function fromRow(row: Row): StoredDerivedAssumption {
   const correction: DerivedCorrection | null =
     row.correction_id && row.correction_value && row.correction_reason && row.corrected_by && row.corrected_at
@@ -78,11 +95,11 @@ function fromRow(row: Row): StoredDerivedAssumption {
     code: row.code,
     label: row.label,
     value: row.value,
-    method: row.method,
+    method: publicWording(row.method),
     inputs: row.inputs,
-    steps: row.steps,
+    steps: row.steps.map((step) => ({ ...step, result: publicWording(step.result) })),
     confidence: row.confidence,
-    confidenceReason: row.confidence_reason,
+    confidenceReason: publicWording(row.confidence_reason),
     costCodes: row.cost_codes,
     correction,
     correctionId: correction ? row.correction_id : null,

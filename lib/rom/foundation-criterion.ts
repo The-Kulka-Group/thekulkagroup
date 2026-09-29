@@ -216,7 +216,8 @@ export function deriveFoundation(facts: FoundationFacts): DerivedAssumption {
     code: S1_CODE,
     label: S1_LABEL,
     value: { kind: "spec", text: result.system },
-    method: "Bearing pressure over IBC Class 4's presumptive value, then ground and basement (docs/precon/research/la-foundation-system.md).",
+    // Source: docs/precon/research/la-foundation-system.md.
+    method: "Bearing pressure over IBC Class 4's presumptive value, then ground and basement.",
     inputs,
     steps,
     confidence: high && !existing ? "high" : "low",

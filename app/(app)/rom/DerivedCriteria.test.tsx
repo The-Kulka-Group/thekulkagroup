@@ -81,18 +81,18 @@ describe("CriterionPanel", () => {
     );
     expect(html).toContain("From These Facts");
     expect(html).toContain("dc-fact dc-fact--assumed");
-    expect(html).toContain("How Jev Got Here");
+    expect(html).toContain("How It Was Worked Out");
     expect(html).toMatch(/class="dc-res"><span>Wall minimum<\/span><b>R-20<\/b>/);
     expect(html).toContain("High confidence.");
     expect(html).toContain("Correct This Value");
     expect(html).toMatch(/<button type="submit" class="dc-btn dc-btn--pri" disabled="">Save Correction/);
   });
 
-  it("offers Use Jev's Value once corrected", () => {
+  it("offers Use the Worked-Out Value once corrected", () => {
     const html = renderToStaticMarkup(
       <CriterionPanel item={corrected} busy={false} error={null} onSave={noop} onRevert={noop} onPing={noop} />,
     );
-    expect(html).toContain("Use Jev&#x27;s Value");
+    expect(html).toContain("Use the Worked-Out Value");
     expect(html).toContain("estimator set this to <b>R-21 Walls, R-49 Attic</b> on Sep 27");
     expect(html).not.toContain("Save Correction");
   });

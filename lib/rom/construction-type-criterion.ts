@@ -282,7 +282,8 @@ export function deriveConstructionType(facts: ConstructionTypeFacts): DerivedAss
     code: A1_CODE,
     label: A1_LABEL,
     value: { kind: "spec", text: result.text },
-    method: "IBC 2021 and 2025 BCNYS R-2 limits by stories, framing and podium (docs/precon/research/la-construction-type.md).",
+    // Source: docs/precon/research/la-construction-type.md.
+    method: "IBC 2021 and 2025 BCNYS R-2 limits by stories, framing and podium.",
     inputs,
     steps,
     confidence: reasons.length === 0 ? "high" : "low",

@@ -138,7 +138,8 @@ export function deriveMachineRooms(facts: MachineRoomFacts): DerivedAssumption {
     code: V3_CODE,
     label: V3_LABEL,
     value: { kind: "spec", text: machineRoomsText(rooms) },
-    method: "Machine rooms by elevator type, count and building (docs/precon/research/la-elevator-machine-rooms.md).",
+    // Source: docs/precon/research/la-elevator-machine-rooms.md.
+    method: "Machine rooms by elevator type, count and building.",
     inputs,
     steps,
     confidence: confident ? "high" : "low",

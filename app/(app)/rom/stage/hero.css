@@ -1,0 +1,153 @@
+/* LA-1324: Design and Engineering's stage, edge to edge across the top of the
+   New Budget field. The moment's name and answer on the left, its picture on
+   the right, and the cards' progress along the bottom. White, ink and one
+   blue, on Daylight's tokens. */
+.hs {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  column-gap: 24px;
+  margin: -16px -24px 16px;
+  padding: 18px 24px 12px;
+  height: 212px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+}
+.hs-cap { grid-row: 1; align-self: start; min-width: 0; }
+.hs-cap-in {
+  display: grid;
+  gap: 6px;
+  animation: hs-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.hs-head { display: flex; align-items: baseline; gap: 8px; }
+.hs-code {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 115, 234, 0.08);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.hs-title { color: var(--ink-2); font-size: 14px; font-weight: 600; }
+.hs-idle { color: var(--ink-2); font-size: 13px; max-width: 30ch; }
+.hs-ans {
+  min-height: 34px;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 220ms var(--ease), transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.hs-ans--on { opacity: 1; transform: none; }
+
+.hs-scene { grid-row: 1; grid-column: 2; min-width: 0; min-height: 0; display: flex; }
+.hs-svg { width: 100%; height: 100%; overflow: visible; font-family: inherit; }
+
+/* The cards along the bottom: a dot and the code, done in green, playing in blue. */
+.hs-rail {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.hs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  transition: color 200ms var(--ease), border-color 200ms var(--ease), background 200ms var(--ease);
+}
+.hs-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--primary); box-sizing: border-box; }
+.hs-chip[data-state="playing"] { color: var(--primary); border-color: rgba(0, 115, 234, 0.4); background: rgba(0, 115, 234, 0.06); }
+.hs-chip[data-state="playing"] .hs-dot { background: var(--primary); animation: hs-pulse 900ms ease-in-out infinite; }
+.hs-chip[data-state="done"] { color: var(--ink); }
+.hs-chip[data-state="done"] .hs-dot { border-color: var(--done-bright); background: var(--done-bright); }
+
+/* --- The pictures --- */
+.hs-svg text { font-size: 14px; font-weight: 600; fill: var(--ink-2); }
+.hs-svg .hs-val { font-size: 18px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.hs-svg .hs-note { font-size: 13px; font-weight: 600; fill: var(--ink-2); }
+.hs-axis { stroke: var(--ink); stroke-width: 1.25; }
+.hs-tick line { stroke: #b9b7af; stroke-width: 1; }
+.hs-tick text { font-size: 12px; font-variant-numeric: tabular-nums; }
+.hs-band rect { fill: #f4f3ef; transition: fill 240ms var(--ease); }
+.hs-band[data-tone="1"] rect { fill: #ecebe6; }
+.hs-band[data-tone="2"] rect { fill: #e4e2dc; }
+.hs-scene[data-phase="land"] .hs-band--hit rect { fill: rgba(0, 115, 234, 0.12); }
+.hs-scene[data-phase="land"] .hs-band--hit text { fill: var(--primary); font-weight: 700; }
+.hs-fill { fill: var(--primary); }
+.hs-mark { stroke: var(--primary); stroke-width: 2; }
+.hs-shaft { fill: #f7f6f2; stroke: var(--primary); stroke-width: 1.25; }
+.hs-room { fill: rgba(0, 115, 234, 0.12); stroke: var(--primary); stroke-width: 1.5; }
+.hs-feed { stroke: var(--primary); stroke-width: 1.25; stroke-dasharray: 3 3; }
+.hs-soil { fill: #f4f3ef; }
+.hs-soil--poor { fill: #ebe6da; }
+.hs-bldg { fill: #ffffff; stroke: var(--ink); stroke-width: 1.25; }
+.hs-floor { stroke: #dedcd5; stroke-width: 1; }
+.hs-conc { fill: #d6d2c8; stroke: var(--ink); stroke-width: 1; }
+.hs-pile { stroke: var(--primary); stroke-width: 3; stroke-linecap: round; }
+.hs-pier { fill: #d8d6ce; stroke: var(--ink); stroke-width: 1; }
+.hs-exist { fill: none; stroke: var(--ink-2); stroke-dasharray: 4 3; }
+.hs-glass { fill: #d7e8fb; stroke: var(--primary); stroke-width: 0.8; }
+.hs-meter { fill: #efeee9; }
+.hs-cap-line { stroke: var(--ink); stroke-width: 1.25; stroke-dasharray: 3 2; }
+.hs-zone rect { fill: #f4f3ef; stroke: var(--border-light); transition: fill 240ms var(--ease), stroke 240ms var(--ease); }
+.hs-zone text { font-size: 15px; font-weight: 700; fill: var(--ink-2); }
+.hs-scene[data-phase="land"] .hs-zone--hit rect { fill: var(--primary); stroke: var(--primary); }
+.hs-scene[data-phase="land"] .hs-zone--hit text { fill: #ffffff; }
+.hs-rail-line { stroke: var(--ink); stroke-width: 1.25; }
+.hs-rung { stroke: #b9b7af; stroke-width: 1.25; transition: stroke 240ms var(--ease), stroke-width 240ms var(--ease); }
+.hs-scene[data-phase="land"] .hs-rung--hit { stroke: var(--ink); stroke-width: 3.5; }
+.hs-wing { fill: #f7f6f2; stroke: var(--ink); stroke-width: 1.25; }
+.hs-wing--low { fill: #ffffff; stroke-dasharray: 5 3; }
+
+/* Built while the moment plays, then marked when it lands. The build runs
+   about as long as the stage's card moment (1.5 s before the queue speeds up). */
+.hs-grow-x { transform-box: fill-box; transform-origin: left center; animation: hs-grow-x 1100ms cubic-bezier(0.3, 0.7, 0.2, 1) both; }
+.hs-grow-y { transform-box: fill-box; transform-origin: center bottom; animation: hs-grow-y 700ms cubic-bezier(0.3, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.hs-down { transform-origin: center top; }
+.hs-pop { transform-box: fill-box; transform-origin: center; animation: hs-pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.hs-on-land { opacity: 0; transition: opacity 260ms var(--ease); }
+.hs-scene[data-phase="land"] .hs-on-land { opacity: 1; }
+
+@keyframes hs-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes hs-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes hs-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes hs-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+@keyframes hs-pulse { 50% { opacity: 0.35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hs-cap-in, .hs-grow-x, .hs-grow-y, .hs-pop, .hs-chip[data-state="playing"] .hs-dot { animation: none; }
+  .hs-ans, .hs-on-land { transition: none; }
+}
+@media (max-width: 860px) {
+  .hs {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 120px auto;
+    height: auto;
+    margin: -14px -16px 16px;
+    padding: 14px 16px 10px;
+  }
+  .hs-scene { grid-row: 2; grid-column: 1; }
+  .hs-rail { grid-row: 3; }
+  .hs-ans { font-size: 20px; min-height: 26px; }
+}
+
+/* LA-1324: a box a card has yet to decide: no figure, and a blue Designing mark. */
+.lb-design { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 12px; font-weight: 600; }
+.lb-design i { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: hs-pulse 1100ms ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .lb-design i { animation: none; } }

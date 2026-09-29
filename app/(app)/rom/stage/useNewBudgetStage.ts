@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { heldCards, holdsCostCode } from "@/lib/rom/design-holds";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 import { stageBuilding, stageFactsFromResponses } from "@/lib/rom/stage-model";
 import { CARD_ORDER, type StageEvent, type StageMoment } from "@/lib/rom/stage-scenes";
@@ -10,6 +11,7 @@ import { shortMoney } from "../block-layout";
 import type { FieldEntry } from "../field-order";
 import type { BudgetDraft } from "../LiveBudget";
 import { flyTag, type Move, movesBetween, type Snapshot, snapshotOf } from "./attribution";
+import type { RailState } from "./HeroStage";
 
 // LA-1318: New Budget's stage, wired to the live budget.
 //
@@ -22,6 +24,10 @@ import { flyTag, type Move, movesBetween, type Snapshot, snapshotOf } from "./at
 // - When a moment lands, a tag carrying its change flies from its part of the
 //   model into each box it moved (the three largest), and each box keeps a
 //   source line such as "S-1 +$472k".
+// - LA-1324: a box a card has yet to decide (Elevator, Concrete, HVAC,
+//   Electrical) counts as zero until the card lands, so no design-linked
+//   price shows early, and the landing itself is the move that flies its
+//   price into the box.
 
 const CARD_CODES: ReadonlySet<string> = new Set(CARD_ORDER);
 /** How long a moment waits for the budget to move before it counts as moving nothing. */
@@ -37,6 +43,8 @@ export function useNewBudgetStage(active: boolean, draft: BudgetDraft | null, en
   const [sources, setSources] = useState<Record<string, string>>({});
   const [mark, setMark] = useState<{ code: string; keys: Set<string> } | null>(null);
   const [totalSource, setTotalSource] = useState<string | null>(null);
+  // LA-1324: the moment on the hero stage, and whether it has landed.
+  const [moment, setMoment] = useState<{ event: StageEvent; landed: boolean } | null>(null);
 
   const nextId = useRef(0);
   const tags = useRef(new Map<number, string>());
@@ -60,6 +68,7 @@ export function useNewBudgetStage(active: boolean, draft: BudgetDraft | null, en
       setSources({});
       setMark(null);
       setTotalSource(null);
+      setMoment(null);
     }
   }
   useEffect(() => {
@@ -121,9 +130,30 @@ export function useNewBudgetStage(active: boolean, draft: BudgetDraft | null, en
     [settle],
   );
 
-  // The boxes as they stand. A change of area resets the baseline, since it
-  // moves every figure at once and no single answer caused it.
-  const current = useMemo(() => snapshotOf(entries, area), [entries, area]);
+  // LA-1324: the cards still designing, and the boxes that wait on them.
+  const landedKey = landed.join(",");
+  const designingCards = useMemo(
+    () => (active && draft ? heldCards(draft.responses, new Set(landedKey.split(","))) : []),
+    [active, draft, landedKey],
+  );
+  const holds = useMemo(() => holdsCostCode(designingCards), [designingCards]);
+  const designing = useMemo(
+    () => new Set(entries.filter((entry) => entry.costCodes.some(holds)).map((entry) => entry.key)),
+    [entries, holds],
+  );
+  // Every line in a designing box waits with it, so the total leaves out
+  // exactly what the field shows as Designing, the whole Elevator box included.
+  const held = useMemo(() => {
+    const codes = new Set(entries.filter((entry) => designing.has(entry.key)).flatMap((entry) => entry.costCodes));
+    return (costCode: string) => codes.has(costCode);
+  }, [entries, designing]);
+
+  // The boxes as they stand, a designing one at zero. A change of area resets
+  // the baseline, since it moves every figure at once and no single answer caused it.
+  const current = useMemo(
+    () => snapshotOf(entries.map((entry) => (designing.has(entry.key) ? { ...entry, midpoint: 0 } : entry)), area),
+    [entries, area, designing],
+  );
   useEffect(() => {
     snapshot.current = current;
     if (pending.current) settle();
@@ -142,12 +172,14 @@ export function useNewBudgetStage(active: boolean, draft: BudgetDraft | null, en
   );
 
   const onStart = useCallback((event: StageEvent) => {
+    setMoment({ event, landed: false });
     if (CARD_CODES.has(event.source)) setStarted((list) => (list.includes(event.source) ? list : [...list, event.source]));
   }, []);
 
   const onLand = useCallback(
     (event: StageEvent, point: { x: number; y: number }) => {
       points.current.set(event.id, point);
+      setMoment({ event, landed: true });
       if (CARD_CODES.has(event.source)) {
         claim(event.id, event.tag);
         setLanded((list) => (list.includes(event.source) ? list : [...list, event.source]));
@@ -168,10 +200,24 @@ export function useNewBudgetStage(active: boolean, draft: BudgetDraft | null, en
     );
   }, [active, draft, criteria, startedKey]);
 
+  // LA-1324: each card the job will get, along the bottom of the hero stage.
+  const rail = useMemo(() => {
+    const codes = new Set([...Object.keys(criteria), ...designingCards, ...landed]);
+    return CARD_ORDER.filter((code) => codes.has(code)).map((code): { code: string; state: RailState } => ({
+      code,
+      state: landed.includes(code) ? "done" : moment && !moment.landed && moment.event.source === code ? "playing" : "designing",
+    }));
+  }, [criteria, designingCards, landed, moment]);
+
   return {
     events,
+    designing,
+    held,
+    rail,
     building,
     landedCards: landed,
+    moment,
+    criteria,
     sources,
     mark,
     totalSource,

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { partsOf, type StageBuilding } from "@/lib/rom/stage-model";
-import { cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, type StagePart } from "@/lib/rom/stage-scenes";
+import { CARD_ORDER, cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, type StagePart } from "@/lib/rom/stage-scenes";
 
 import { reducedMotion } from "../motion";
 import type { PartState, PartStates, StageController, StageCut } from "./build-model";
@@ -49,6 +49,8 @@ type Props = { building: StageBuilding | null } & (
       onStart: (event: StageEvent) => void;
       /** A moment landed. `point` is where its part sits on screen, in client pixels. */
       onLand: (event: StageEvent, point: { x: number; y: number }) => void;
+      /** LA-1324: the hero stage names each moment, so the model shows no caption of its own. */
+      quiet?: boolean;
     }
 );
 
@@ -77,6 +79,9 @@ const BUILD = 0.85;
 const MARK = 0.4;
 const SETTLE = 0.5;
 const CAPTION_ONLY = 0.55;
+/** LA-1324: a Design and Engineering card plays its picture on the hero stage, so it runs longer. */
+const CARD_BUILD = 1.5;
+const CARD_CODES: ReadonlySet<string> = new Set(CARD_ORDER);
 
 type Scene = { event: StageEvent; start: number; land: number; end: number; build: StagePart[]; mark: StagePart[]; landed: boolean };
 type Caption = { event: StageEvent; landed: boolean };
@@ -255,7 +260,8 @@ export function Stage(props: Props) {
       // Behind by several moments, each plays at under half length.
       const behind = queue.current.length;
       const speed = behind >= 3 ? 0.45 : behind >= 1 ? 0.7 : 1;
-      const landAt = (build.length ? BUILD : drawn.length ? MARK : CAPTION_ONLY) * speed;
+      const card = CARD_CODES.has(event.source);
+      const landAt = (card ? CARD_BUILD : build.length ? BUILD : drawn.length ? MARK : CAPTION_ONLY) * speed;
       const end = landAt + (drawn.length ? SETTLE : 0.3) * speed;
       for (const part of mark) parts.current[part] = { arrive: 1, tint: 0 };
       scene.current = { event, start: now, land: landAt, end, build, mark, landed: false };
@@ -521,16 +527,18 @@ export function Stage(props: Props) {
         }}
         onKeyDown={onKeyDown}
       />
-      {props.mode === "live" && cap ? (
+      {props.mode === "live" && !props.quiet && cap ? (
         <div className="stg-cap" ref={capRef} key={cap.id}>
           {cap.tag && cap.tag !== cap.title ? <span className="stg-code num">{cap.tag}</span> : null}
           <span className="stg-title">{cap.title}</span>
           <span className={`stg-ans${caption.landed ? " stg-ans--on" : ""}`}>{caption.landed ? cap.answer : ""}</span>
         </div>
       ) : null}
-      <span className="lb-sr" aria-live="polite">
-        {caption?.landed && cap ? `${cap.title}: ${cap.answer}` : ""}
-      </span>
+      {props.mode === "live" && props.quiet ? null : (
+        <span className="lb-sr" aria-live="polite">
+          {caption?.landed && cap ? `${cap.title}: ${cap.answer}` : ""}
+        </span>
+      )}
       {openable && !open ? (
         <>
           <span className="stg-lbl" ref={labelRef} aria-hidden="true">

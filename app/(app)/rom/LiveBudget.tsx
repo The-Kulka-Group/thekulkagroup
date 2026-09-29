@@ -295,6 +295,7 @@ export function LiveField({
   link,
   mark = null,
   sources = {},
+  designing,
 }: {
   live: LiveBudget;
   view: RomView;
@@ -304,6 +305,8 @@ export function LiveField({
   mark?: { code: string; keys: Set<string> } | null;
   /** LA-1318: each box's source line, the last moment that moved it: "S-1 +$472k". */
   sources?: Readonly<Record<string, string>>;
+  /** LA-1324: the entries a Design and Engineering card has yet to decide, shown as Designing with no figure. */
+  designing?: ReadonlySet<string>;
   /** The card or block the viewer clicked, which keeps its share lit. */
   selectedKey: string | null;
   onSelect: (key: string) => void;
@@ -392,12 +395,14 @@ export function LiveField({
   const waiting = live.phase === "waiting";
   const tile = (entry: FieldEntry) => {
     const rollDelay = Math.min((rank.get(entry.key) ?? 0) * 22, 520);
+    const held = !waiting && (designing?.has(entry.key) ?? false);
     if (entry.kind === "element") {
       return (
         <LiveElementBox
           key={entry.key}
           group={entry.group}
-          waiting={waiting}
+          waiting={waiting || held}
+          designing={held}
           rollDelay={rollDelay}
           source={sources[entry.key]}
           register={register}
@@ -427,7 +432,8 @@ export function LiveField({
         key={entry.key}
         entryKey={entry.key}
         block={entry.block}
-        waiting={waiting}
+        waiting={waiting || held}
+        designing={held}
         source={sources[entry.key]}
         selected={selectedKey === entry.key}
         rollDelay={rollDelay}
@@ -493,6 +499,7 @@ export function LiveBlock({
   entryKey,
   block,
   waiting,
+  designing = false,
   source,
   selected,
   rollDelay,
@@ -503,6 +510,8 @@ export function LiveBlock({
   entryKey: string;
   block: TradeBlock;
   waiting: boolean;
+  /** LA-1324: a card has yet to decide it, so it waits with a Designing mark. */
+  designing?: boolean;
   /** LA-1318: the moment that last moved it, "S-1 +$472k". */
   source?: string;
   selected: boolean;
@@ -517,7 +526,13 @@ export function LiveBlock({
       type="button"
       className={`rb-blk lb-blk${waiting ? " lb-blk--wait" : ""}${selected ? " rb-blk--sel" : ""}`}
       aria-pressed={selected}
-      aria-label={waiting ? titleCase(block.label) : `${titleCase(block.label)}, ${shortMoney(block.midpoint)}`}
+      aria-label={
+        designing
+          ? `${titleCase(block.label)}, Designing`
+          : waiting
+            ? titleCase(block.label)
+            : `${titleCase(block.label)}, ${shortMoney(block.midpoint)}`
+      }
       onClick={() => onSelect(entryKey)}
       onMouseEnter={() => link.onEnter(entryKey)}
       onMouseLeave={link.onLeave}
@@ -525,8 +540,13 @@ export function LiveBlock({
       onBlur={link.onLeave}
     >
       <span className="rb-bn">{titleCase(block.label)}</span>
-      <span className={`rb-st lb-st${!waiting && block.status ? " lb-st--on" : ""}`}>
-        {!waiting && block.status ? (
+      <span className={`rb-st lb-st${designing || (!waiting && block.status) ? " lb-st--on" : ""}`}>
+        {designing ? (
+          <span className="lb-design">
+            <i aria-hidden="true" />
+            Designing
+          </span>
+        ) : !waiting && block.status ? (
           <>
             <span className={`rb-dot rb-dot--${block.status.tone}`} aria-hidden="true" />
             {block.status.word}

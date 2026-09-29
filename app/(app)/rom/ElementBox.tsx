@@ -166,6 +166,7 @@ function StaticTile({
 export function LiveElementBox({
   group,
   waiting,
+  designing = false,
   rollDelay,
   source,
   register,
@@ -173,6 +174,8 @@ export function LiveElementBox({
 }: {
   group: ElementGroup;
   waiting: boolean;
+  /** LA-1324: a Design and Engineering card has yet to decide it, so it waits with a Designing mark. */
+  designing?: boolean;
   /** When the box itself lands, same units as a lone block's roll delay. */
   rollDelay: number;
   /** LA-1318: the moment that last moved it, "V-1 +$420k". */
@@ -190,7 +193,13 @@ export function LiveElementBox({
     <div
       ref={register(key)}
       className={`rb-blk lb-blk eb-box${waiting ? " lb-blk--wait" : ""}${noRate ? " pk-card--none" : ""}`}
-      aria-label={waiting ? titleCase(group.element) : `${titleCase(group.element)}, ${noRate ? "No Rate Yet" : shortMoney(mid)}`}
+      aria-label={
+        designing
+          ? `${titleCase(group.element)}, Designing`
+          : waiting
+            ? titleCase(group.element)
+            : `${titleCase(group.element)}, ${noRate ? "No Rate Yet" : shortMoney(mid)}`
+      }
       onMouseEnter={() => link.onEnter(key)}
       onMouseLeave={link.onLeave}
     >
@@ -215,6 +224,12 @@ export function LiveElementBox({
       <span className="rb-bar eb-hbar" aria-hidden="true">
         <i style={{ transform: `scaleX(${waiting || noRate ? 0 : 1})` }} />
       </span>
+      {designing ? (
+        <span className="eb-unpriced lb-design">
+          <i aria-hidden="true" />
+          Designing
+        </span>
+      ) : null}
       {!waiting && !noRate && group.unpricedCount > 0 ? (
         <span className="eb-unpriced">
           <UnpricedDot />

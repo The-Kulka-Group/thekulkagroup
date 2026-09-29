@@ -12,8 +12,10 @@ import type { LineProvenance } from "@/lib/rom/provenance";
 import type { RomProjectOption } from "@/lib/rom/projects";
 import type { CanonicalItemDivision } from "@/lib/rom/run";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
+import { holdBack } from "@/lib/rom/design-holds";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 import { type StageFacts, stageBuilding } from "@/lib/rom/stage-model";
+import type { StageEvent } from "@/lib/rom/stage-scenes";
 
 import {
   type TradeBlock,
@@ -68,6 +70,7 @@ import {
   ViewSwitch,
 } from "./view-switch";
 import { markStageBuilt, Stage } from "./stage/Stage";
+import { HeroStage } from "./stage/HeroStage";
 import { useNewBudgetStage } from "./stage/useNewBudgetStage";
 import "./rom-blocks.css";
 
@@ -261,9 +264,30 @@ export function RomRunner({
     liveEntries,
     live.phase === "ready" ? live.grossSquareFeet : null,
   );
+  // LA-1324: what a Design and Engineering card has yet to decide stays out
+  // of the total and the bar until its moment lands.
+  const heldLive = useMemo(
+    () => (live.phase === "ready" ? { ...live, rom: holdBack(live.rom, newStage.held) } : live),
+    [live, newStage.held],
+  );
   const liveBar = useMemo(
-    () => (live.phase === "ready" ? barModel(live.rom, liveEntries) : null),
-    [live, liveEntries],
+    () =>
+      heldLive.phase === "ready"
+        ? barModel(
+            heldLive.rom,
+            liveEntries.map((entry) => (newStage.designing.has(entry.key) ? { ...entry, midpoint: 0 } : entry)),
+          )
+        : null,
+    [heldLive, liveEntries, newStage.designing],
+  );
+  const heroRef = useRef<HTMLDivElement>(null);
+  // A moment's price tag flies from the hero stage's answer, where it was decided.
+  const onStageLand = useCallback(
+    (event: StageEvent, point: { x: number; y: number }) => {
+      const at = heroRef.current?.getBoundingClientRect();
+      newStage.onLand(event, at ? { x: at.left + 48, y: at.bottom - 18 } : point);
+    },
+    [newStage],
   );
 
   // LA-1181: hovering a card previews its share in the bar after a short
@@ -636,7 +660,7 @@ export function RomRunner({
               answers so far add up to. */}
           <div className="rb-fresh-note lb-hd">
             {panel?.kind === "new" ? <LiveTotal
-                live={live}
+                live={heldLive}
                 bar={liveBar}
                 chip={liveChip}
                 litKey={liveLitKey}
@@ -737,16 +761,27 @@ export function RomRunner({
       </header>
 
       <main className="rb-fld" aria-busy={busy}>
-        {/* LA-1142: and the field shows the budget building, under the stage (LA-1318). */}
+        {/* LA-1142: and the field shows the budget building, under Design and
+            Engineering's stage (LA-1324), with the model in the corner (LA-1325). */}
         <div className="rb-fresh-note">
+          {panel?.kind === "new" ? (
+            <HeroStage
+              ref={heroRef}
+              moment={newStage.moment}
+              criteria={newStage.criteria}
+              building={newStage.building}
+              rail={newStage.rail}
+            />
+          ) : null}
           {panel?.kind === "new" ? (
             <Stage
               key="live"
               mode="live"
+              quiet
               building={newStage.building}
               events={newStage.events}
               onStart={newStage.onStart}
-              onLand={newStage.onLand}
+              onLand={onStageLand}
             />
           ) : null}
           {panel?.kind === "new" ? (
@@ -760,6 +795,7 @@ export function RomRunner({
               link={link}
               mark={newStage.mark}
               sources={newStage.sources}
+              designing={newStage.designing}
             />
           ) : null}
         </div>

@@ -2,12 +2,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Rail } from "@/components/Rail";
+import { readFileSync } from "node:fs";
+
+import { Rail, railMatches } from "@/components/Rail";
 
 let pathname = "/";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname,
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock("@/app/login/actions", () => ({
@@ -78,5 +81,38 @@ describe("sidebar navigation", () => {
     // Closed by default: the drawer's own open class and its backdrop are absent.
     expect(html).not.toContain("rail--open");
     expect(html).not.toContain("rail-backdrop");
+  });
+
+  it("names the rail and its search field, and offers Keep Open with its key (LA-1330)", () => {
+    const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
+    expect(html).toContain('aria-label="Sheets"');
+    expect(html).toContain('aria-label="Jump to a Sheet"');
+    expect(html).toMatch(/<button[^>]*class="rail-item rail-pin"[^>]*aria-pressed="false"/);
+    expect(html).toContain("Keep Open");
+    expect(html).toContain("rail-logo-mark");
+  });
+
+  it("renders pinned when the cookie said so (LA-1330)", () => {
+    const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com", initialPinned: true }));
+    expect(html).toMatch(/aria-pressed="true"/);
+    expect(html).toContain("Let It Rest");
+  });
+
+  it("opens after a short rest and forgives a brief overshoot, inside the eval's bands (LA-1330)", () => {
+    const css = readFileSync("daylight.css", "utf8");
+    const open = Number(css.match(/--rail-open-delay:\s*(\d+)ms/)?.[1]);
+    const close = Number(css.match(/--rail-close-delay:\s*(\d+)ms/)?.[1]);
+    expect(open).toBeGreaterThanOrEqual(100);
+    expect(open).toBeLessThanOrEqual(200);
+    expect(close).toBeGreaterThanOrEqual(250);
+    expect(close).toBeLessThanOrEqual(600);
+  });
+
+  it("filters sheets by name, section, or spoken address (LA-1330)", () => {
+    expect(railMatches("", { label: "Clients" })).toBe(true);
+    expect(railMatches("budg", { label: "Conceptual Budget" })).toBe(true);
+    expect(railMatches("pre-con", { label: "Estimating", group: "Pre-Construction" })).toBe(true);
+    expect(railMatches("h-100", { label: "Home", code: "H-100" })).toBe(true);
+    expect(railMatches("zzz", { label: "Clients", group: "Sales and Marketing" })).toBe(false);
   });
 });

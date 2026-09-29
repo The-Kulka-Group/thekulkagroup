@@ -79,54 +79,79 @@ export function tradeBlocks(rom: Rom): TradeBlock[] {
 
 /** The figure in the black header band, and what it counts. */
 export type Headline = {
+  /** Total, or Total project cost with owner-direct scope. Never trade cost (LA-1334). */
   label: string;
-  /** Says what the figure includes, for the total panel. */
+  /** Says what the figure includes, under the label and in the total panel. */
   includes: string;
   midpoint: number;
   low: number;
   high: number;
   /** Short names of the markup lines with nothing behind them, left out of the total. */
   tbd: string[];
+  /** The midpoint over the gross area, or null when the area is not known. */
+  perGrossSquareFoot: number | null;
+  /** The midpoint over the unit count, or null when the project has none. */
+  perUnit: number | null;
+};
+
+/** What the headline needs beside the ROM, all of which a run already records. */
+export type HeadlineFacts = {
+  grossSquareFeet: number | null;
+  unitCount: number | null;
+  /** New Budget, still asking: a figure without markups is trade cost so far. */
+  live?: boolean;
 };
 
 /**
- * With markups, the total is Kulka's contract with GRs/GCs, fee and insurance,
- * plus any owner-direct scope (CONTEXT.md: Total project cost). A run recorded
- * before LA-1016 has no markups, so its headline is trade cost and says so.
+ * The one place that decides what the header says, for New Budget and a saved
+ * budget alike. With markups, the total is Kulka's contract with GRs/GCs, fee
+ * and insurance, plus any owner-direct scope (CONTEXT.md: Total project cost).
+ * Without them, which is New Budget before its markup questions or a run
+ * recorded before LA-1016, the figure is trade cost, and the line under the
+ * label says so rather than the label changing.
  */
-export function headlineOf(rom: Rom): Headline {
+export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
   const markups = rom.markups;
-  if (!markups) {
-    return {
-      label: "Trade cost",
-      includes: "trade cost, before GRs/GCs, fee and insurance",
-      midpoint: midpoint(rom.total),
-      low: rom.total.low,
-      high: rom.total.high,
-      tbd: [],
-    };
-  }
-  const owner = markups.ownerDirect.low > 0 || markups.ownerDirect.high > 0;
-  const lines: [MarkupLine, string][] = [
-    [markups.generalConditions, "GRs/GCs"],
-    [markups.fee, "Fee"],
-    [markups.insurance, "Insurance"],
-  ];
+  const owner = markups ? markups.ownerDirect.low > 0 || markups.ownerDirect.high > 0 : false;
+  const range = markups ? markups.totalProjectCost : rom.total;
+  const mid = midpoint(range);
+  const lines: [MarkupLine, string][] = markups
+    ? [
+        [markups.generalConditions, "GRs/GCs"],
+        [markups.fee, "Fee"],
+        [markups.insurance, "Insurance"],
+      ]
+    : [];
   return {
     label: owner ? "Total project cost" : "Total",
-    includes: owner
-      ? "Kulka's contract with GRs/GCs, fee and insurance, plus owner-direct scope"
-      : "with GRs/GCs, fee and insurance",
-    midpoint: midpoint(markups.totalProjectCost),
-    low: markups.totalProjectCost.low,
-    high: markups.totalProjectCost.high,
+    includes: !markups
+      ? facts.live
+        ? "trade cost so far"
+        : "trade cost only, before GRs/GCs, fee and insurance"
+      : owner
+        ? "Kulka's contract with GRs/GCs, fee and insurance, plus owner-direct scope"
+        : "with GRs/GCs, fee and insurance",
+    midpoint: mid,
+    low: range.low,
+    high: range.high,
     tbd: lines.filter(([line]) => line.tbd).map(([, name]) => name),
+    perGrossSquareFoot: perSquareFoot(mid, facts.grossSquareFeet),
+    perUnit: facts.unitCount && facts.unitCount > 0 ? mid / facts.unitCount : null,
   };
 }
 
 /** Dollars per gross square foot, or null when the run's area is not known. */
 export function perSquareFoot(amount: number, grossSquareFeet: number | null): number | null {
   return grossSquareFeet && grossSquareFeet > 0 ? amount / grossSquareFeet : null;
+}
+
+/** The header's rates beside the range: "$75/GSF · $82k/unit", or null with neither. */
+export function headlineRates(headline: Pick<Headline, "perGrossSquareFoot" | "perUnit">): string | null {
+  const parts = [
+    headline.perGrossSquareFoot !== null ? `$${Math.round(headline.perGrossSquareFoot).toLocaleString("en-US")}/GSF` : null,
+    headline.perUnit !== null ? `${shortMoney(headline.perUnit)}/unit` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /** A block's figure: $4.21M, $640k, $8.5k. */

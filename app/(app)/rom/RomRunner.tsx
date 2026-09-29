@@ -21,6 +21,7 @@ import {
   type TradeBlock,
   headlineMoney,
   headlineOf,
+  headlineRates,
   shortMoney,
   tradeBlocks,
   valueTier,
@@ -302,7 +303,10 @@ export function RomRunner({
   // New budget has no side panel to open, so a click there only keeps the
   // card's share lit.
   const [liveSelected, setLiveSelected] = useState<string | null>(null);
-  const headline = useMemo(() => (run ? headlineOf(run.rom) : null), [run]);
+  const headline = useMemo(
+    () => (run ? headlineOf(run.rom, { grossSquareFeet: run.grossSquareFeet, unitCount: run.unitCount }) : null),
+    [run],
+  );
 
   // LA-860: Design Criteria. Hovering a card lights the blocks it feeds on
   // LA-1181's hover intent (70ms in, 140ms out); an open card keeps them lit.
@@ -473,6 +477,7 @@ export function RomRunner({
           rom: body.rom,
           projectName: null,
           grossSquareFeet: null,
+          unitCount: null,
           startedAt: null,
         },
       );
@@ -672,24 +677,26 @@ export function RomRunner({
                 aria-expanded={panel?.kind === "total"}
                 onClick={(e) => openPanel({ kind: "total" }, e.currentTarget)}
               >
-                <span className="rb-tl">{titleCase(headline.label)}</span>
+                <span className="rb-tlab">
+                  <span className="rb-tl">{titleCase(headline.label)}</span>
+                  <span className="rb-ti">{headline.includes}</span>
+                </span>
                 <span className="rb-tv num">{headlineMoney(headline.midpoint, headline)}</span>
                 <span className="rb-tb">
                   Range{" "}
                   <b className="num">
                     {headlineMoney(headline.low, headline)} to {headlineMoney(headline.high, headline)}
                   </b>
-                  {/* Inside the range so it never wraps onto a line of its own. */}
-                  <svg className="rb-chev" viewBox="0 0 12 12" aria-hidden="true">
-                    <path
-                      d="M4.5 2.5 8 6 4.5 9.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  {/* The chevron rides inside the last piece so it never wraps onto a
+                      line of its own; on a phone the rates take their own line. */}
+                  {headlineRates(headline) ? (
+                    <span className="rb-rate num">
+                      {headlineRates(headline)}
+                      <Chevron />
+                    </span>
+                  ) : (
+                    <Chevron />
+                  )}
                 </span>
               </button>
             </>
@@ -1379,6 +1386,15 @@ function notesLabel(held: number, rom: Rom): string {
   if (rom.tbdGateItems.length > 0) parts.push(`${rom.tbdGateItems.length} TBD`);
   if (rom.assumedPresentItems.length > 0) parts.push(`${rom.assumedPresentItems.length} Assumed Present`);
   return parts.length > 0 ? parts.join(", ") : "Scope and Assumptions";
+}
+
+/** The total's open-the-panel mark. */
+function Chevron() {
+  return (
+    <svg className="rb-chev" viewBox="0 0 12 12" aria-hidden="true">
+      <path d="M4.5 2.5 8 6 4.5 9.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 function runWords(run: LoadedRun): string {

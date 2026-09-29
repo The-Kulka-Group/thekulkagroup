@@ -1,4 +1,4 @@
-import type { Rom } from "@kulka/engine";
+import { readUnitCount, type Rom } from "@kulka/engine";
 
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 
@@ -12,6 +12,8 @@ export type LoadedRun = {
   projectName: string | null;
   /** The area the run was computed on, for $/SF. Null when the record has no answers. */
   grossSquareFeet: number | null;
+  /** The unit count the run was computed on, for $/unit. Null when nobody gave one. */
+  unitCount: number | null;
   startedAt: string | null;
 };
 
@@ -25,6 +27,7 @@ export function loadedRunFrom(record: RunRecord): LoadedRun | null {
     rom: record.rom,
     projectName: record.projectName,
     grossSquareFeet: record.answers?.grossSquareFeet ?? null,
+    unitCount: readUnitCount(record.answers?.facts),
     startedAt: record.startedAt,
   };
 }

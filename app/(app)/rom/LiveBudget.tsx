@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { BlockClassification, DataSnapshot, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
+import {
+  readUnitCount,
+  type BlockClassification,
+  type DataSnapshot,
+  type FramingSystem,
+  type MarkupChoices,
+  type Rom,
+} from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
 import { knownScopeRom, previewAnswers, sectionsAwaitingFollowUps } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
-import { headlineMoney, headlineOf, shortMoney, valueTier, type TradeBlock } from "./block-layout";
+import { headlineMoney, headlineOf, headlineRates, shortMoney, valueTier, type TradeBlock } from "./block-layout";
 import { LiveElementBox } from "./ElementBox";
 import type { BarModel, Chip, FieldEntry, RomOrder } from "./field-order";
 import { useFieldFlip } from "./motion";
@@ -86,6 +93,7 @@ export type LiveBudget =
       answered: Rom;
       classifications: BlockClassification[];
       grossSquareFeet: number;
+      unitCount: number | null;
     };
 
 // Only used for tile order before the area is known; no figure from it shows.
@@ -167,6 +175,7 @@ export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
         answered: full,
         classifications,
         grossSquareFeet: answers.grossSquareFeet,
+        unitCount: readUnitCount(answers.facts),
       };
     } catch (cause) {
       return { phase: "failed", error: cause instanceof Error ? cause.message : String(cause) };
@@ -192,7 +201,13 @@ export function LiveTotal({
   litKey: string | null;
 }) {
   const ready = live.phase === "ready" ? live : null;
-  const headline = useMemo(() => (ready ? headlineOf(ready.rom) : null), [ready]);
+  const headline = useMemo(
+    () =>
+      ready
+        ? headlineOf(ready.rom, { grossSquareFeet: ready.grossSquareFeet, unitCount: ready.unitCount, live: true })
+        : null,
+    [ready],
+  );
   const [delta, setDelta] = useState<{ id: number; amount: number; source: string | null } | null>(null);
   const sourceRef = useRef(source);
   useEffect(() => {
@@ -237,7 +252,10 @@ export function LiveTotal({
   if (live.phase === "waiting" || !headline || !ready) {
     return (
       <div className="lb-tot">
-        <span className="rb-tl">Trade Cost</span>
+        <span className="rb-tlab">
+          <span className="rb-tl">Total</span>
+          <span className="rb-ti">trade cost so far</span>
+        </span>
         <span className="rb-tv num lb-wait">&mdash;</span>
         <span className="rb-tb">waiting on the gross area</span>
         <span className="lb-tag">Live, Saves at the Last Answer</span>
@@ -247,15 +265,21 @@ export function LiveTotal({
   }
 
   const fmt = (value: number) => headlineMoney(value, headline);
+  const rates = headlineRates(headline);
   return (
     <div className="lb-tot">
-      <span className="rb-tl lb-lbl" key={headline.label}>
-        {titleCase(headline.label)}
+      {/* LA-1334: the label stays put; the line under it says what changed. */}
+      <span className="rb-tlab">
+        <span className="rb-tl">{titleCase(headline.label)}</span>
+        <span className="rb-ti lb-lbl" key={headline.includes}>
+          {headline.includes}
+        </span>
       </span>
       <SpringMoney className="rb-tv num" value={headline.midpoint} format={fmt} />
       <span className="rb-tb">
         range <SpringMoney className="num lb-b" value={headline.low} format={fmt} /> to{" "}
         <SpringMoney className="num lb-b" value={headline.high} format={fmt} />
+        {rates ? <span className="rb-rate num">{rates}</span> : null}
       </span>
       {delta ? (
         <span key={delta.id} className={`lb-delta num lb-delta--${delta.amount > 0 ? "up" : "down"}`} aria-hidden="true">
@@ -269,7 +293,8 @@ export function LiveTotal({
       <ShareChip chip={chip} />
       {bar ? <ShareBar bar={bar} litKey={litKey} /> : null}
       <span className="lb-sr" aria-live="polite">
-        {titleCase(headline.label)} {headlineMoney(headline.midpoint, headline)}
+        {titleCase(headline.label)} {headlineMoney(headline.midpoint, headline)}, {headline.includes}
+        {rates ? `, ${rates.replace(" · ", ", ")}` : ""}
       </span>
     </div>
   );

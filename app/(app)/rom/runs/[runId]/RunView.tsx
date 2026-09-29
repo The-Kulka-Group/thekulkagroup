@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { Sheet, Sep } from "@/components/Sheet";
 import { titleCase } from "@/lib/format/title-case";
 import type { RunRecord } from "@/lib/rom/run-records";
+
+import { runName } from "../../saved-runs";
 import {
   RUN_STATUS_CHIP,
   RUN_STATUS_LABEL,
@@ -66,7 +68,7 @@ export function RunView({ initialRun }: { initialRun: RunRecord }) {
   return (
     <Sheet
       number="R-111"
-      title={`ROM Run ${run.id.slice(0, 8)}`}
+      title={`ROM Run, ${runName(run.startedAt, run.answerCount)}`}
       actions={
         <Link className="btn btn--secondary" href="/rom/runs">
           Back to the Run List

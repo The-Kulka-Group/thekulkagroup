@@ -20,7 +20,7 @@ import {
 import { Block } from "./RomRunner";
 import { BlockPanel, TotalPanel } from "./RomPanels";
 import { LiveBlock } from "./LiveBudget";
-import { loadedRunFrom, savedRunsFor, STRIP_RUNS } from "./saved-runs";
+import { loadedRunFrom, runName, savedRunsFor, STRIP_RUNS } from "./saved-runs";
 import type { FieldLink } from "./ShareBar";
 
 const noLink: FieldLink = { onEnter: () => {}, onLeave: () => {}, item: null, onItem: () => {} };
@@ -351,6 +351,7 @@ describe("the saved-runs strip", () => {
     finishedAt: null,
     error: null,
     stepCount: 5,
+    answerCount: null,
   });
 
   it("lists only this project's finished runs, newest first, capped", () => {
@@ -380,6 +381,13 @@ describe("the saved-runs strip", () => {
       summary("earlier", "p1", "succeeded", "2026-09-28T03:30:00.000Z"),
     ];
     expect(savedRunsFor(runs, "p1").map((run) => run.id)).toEqual(["burst-3", "earlier"]);
+  });
+
+  it("names a run by when it ran and how many questions it answered, never by its id", () => {
+    // 2026-09-29 03:55 UTC is 11:55 PM on Sep 28 in New York.
+    expect(runName("2026-09-29T03:55:00.000Z", 14)).toBe("Sep 28, 11:55 PM · 14 answers");
+    expect(runName("2026-09-29T03:55:00.000Z", 1)).toBe("Sep 28, 11:55 PM · 1 answer");
+    expect(runName("2026-09-29T03:55:00.000Z", null)).toBe("Sep 28, 11:55 PM");
   });
 
   it("loads a run with its area, and refuses one with no ROM", () => {

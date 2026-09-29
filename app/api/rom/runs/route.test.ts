@@ -160,6 +160,21 @@ describe("GET /api/rom/runs", () => {
     expect((await read(runs[1].id)).id).toBe(first.runId);
   });
 
+  // LA-1335: a run is named by how many questions its flow recorded.
+  it("counts the answers a run's flow recorded, and gives null for a run with no flow", async () => {
+    const plain = await startRun();
+    const flowed = await startRun();
+    await db.query(
+      `update runs set answers = jsonb_set(answers, '{flow}', '{"responses": {"a": "1", "b": "2", "c": "3"}}')
+        where id = $1`,
+      [flowed.runId],
+    );
+
+    const byId = new Map((await listed()).map((run) => [run.id, run.answerCount]));
+    expect(byId.get(plain.runId)).toBeNull();
+    expect(byId.get(flowed.runId)).toBe(3);
+  });
+
   it("lists a failed run beside a finished one", async () => {
     await startRun();
     await startRun(await unbudgetableProject());

@@ -121,10 +121,17 @@ export type HeadlineFacts = {
  * The one place that decides what the header says, for New Budget and a saved
  * budget alike. With markups, the total is Kulka's contract with GRs/GCs, fee
  * and insurance, plus any owner-direct scope (CONTEXT.md: Total project cost).
+ * The line under the label names only the markups that are in it (LA-1369).
  * Without them, which is New Budget before its markup questions or a run
  * recorded before LA-1016, the figure is trade cost, and the line under the
  * label says so rather than the label changing.
  */
+/** "a", "a and b", "a, b and c". Empty for none. */
+function listWords(words: string[]): string {
+  if (words.length <= 1) return words[0] ?? "";
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
 export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
   const markups = rom.markups;
   const owner = markups ? markups.ownerDirect.low > 0 || markups.ownerDirect.high > 0 : false;
@@ -137,6 +144,10 @@ export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
         [markups.insurance, "Insurance"],
       ]
     : [];
+  // LA-1369: the includes line names only the markups in the total. A TBD
+  // markup sits outside it, and its own chip says so.
+  const included = listWords(lines.filter(([line]) => !line.tbd).map(([, name]) => (name === "GRs/GCs" ? name : name.toLowerCase())));
+  const contract = included ? `with ${included}` : "before GRs/GCs, fee and insurance";
   return {
     label: owner ? "Total project cost" : "Total",
     includes: !markups
@@ -144,8 +155,8 @@ export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
         ? "trade cost so far"
         : "trade cost only, before GRs/GCs, fee and insurance"
       : owner
-        ? "Kulka's contract with GRs/GCs, fee and insurance, plus owner-direct scope"
-        : "with GRs/GCs, fee and insurance",
+        ? `Kulka's contract ${contract}, plus owner-direct scope`
+        : contract,
     midpoint: mid,
     low: range.low,
     high: range.high,

@@ -120,6 +120,10 @@ describe("the /rom block layout", () => {
     totalProjectCost: { low: 3150 + ownerDirect.low, high: 4190 + ownerDirect.high },
     assumptions: [],
   });
+  const pricedMarkups = (): Markups => ({
+    ...markupsOf(),
+    generalConditions: markupLine("General Requirements & General Conditions", 200, 260),
+  });
   const facts = { grossSquareFeet: 10, unitCount: 2 };
 
   it("labels a figure without markups Total, and says it is trade cost", () => {
@@ -136,11 +140,21 @@ describe("the /rom block layout", () => {
 
   it("keeps the label and changes the includes line once markups are answered", () => {
     const before = headlineOf(rom(lines), { ...facts, live: true });
-    const after = headlineOf(rom(lines, markupsOf()), { ...facts, live: true });
+    const after = headlineOf(rom(lines, pricedMarkups()), { ...facts, live: true });
 
     expect(after.label).toBe(before.label);
     expect(after.includes).toBe("with GRs/GCs, fee and insurance");
     expect(after.includes).not.toBe(before.includes);
+  });
+
+  // LA-1369: a TBD markup sits outside the total, so the line must not claim it.
+  it("leaves a TBD markup out of the includes line", () => {
+    const total = headlineOf(rom(lines, markupsOf()), facts);
+    const project = headlineOf(rom(lines, markupsOf({ low: 80, high: 120 })), facts);
+
+    expect(total.includes).toBe("with fee and insurance");
+    expect(project.includes).toBe("Kulka's contract with fee and insurance, plus owner-direct scope");
+    expect(total.tbd).toEqual(["GRs/GCs"]);
   });
 
   it("labels a figure with owner-direct scope Total project cost", () => {

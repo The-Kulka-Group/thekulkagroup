@@ -41,6 +41,13 @@ export const MARKUP_METHODS: readonly MarkupMethod[] = [
   "staffing_duration",
 ];
 
+/** The other half of a split budget, for the two setups that can be one (LA-1389). */
+const SPLIT_PARTNER: Record<MarkupHistorySetup, MarkupHistorySetup | null> = {
+  both: null,
+  gc_only: "gr_only",
+  gr_only: "gc_only",
+};
+
 /** The line is already approved, excluded, or routed, or has no value, so it cannot become a GRs/GCs figure. */
 export class LineNotRoutable extends Error {
   constructor(
@@ -70,6 +77,24 @@ export class MarkupHistoryExists extends Error {
   ) {
     super(`Project ${projectId} already has a GRs/GCs figure recorded for setup "${setup}".`);
     this.name = "MarkupHistoryExists";
+  }
+}
+
+/**
+ * The project's other General Requirements or General Conditions line was
+ * routed from a different import. A split budget's General Conditions is
+ * measured over that import's trade cost plus its own General Requirements
+ * (LA-1389), so the two lines have to come from the same file.
+ */
+export class MarkupSplitAcrossImports extends Error {
+  constructor(
+    readonly projectId: string,
+    readonly setup: MarkupHistorySetup,
+  ) {
+    super(
+      `Project ${projectId} already has ${setup === "gc_only" ? "General Requirements" : "General Conditions"} recorded from a different import. Route both lines of a split budget from the same import.`,
+    );
+    this.name = "MarkupSplitAcrossImports";
   }
 }
 
@@ -124,6 +149,16 @@ function toRecord(row: HistoryRow): MarkupHistoryRecord {
  * trade lines: 'approved' lines once the import is approved, 'staged' lines
  * before. Owner-direct lines stay out of that sum, because CONTEXT.md keeps
  * owner-direct scope out of Kulka's General Conditions benchmarks.
+ *
+ * A split budget records one gr_only and one gc_only line for the same
+ * project (LA-1389). ADR 0004 charges General Conditions on trade cost
+ * including General Requirements, so General Conditions is measured on that
+ * same base: its value over the trade subtotal plus the General Requirements
+ * line. General Requirements stays its value over the trade subtotal. Both
+ * leave the other line out of the trade subtotal. Whichever line is routed
+ * second completes the pair, and the first line's rate is measured again at
+ * that point, so the order the lines are routed in does not change either
+ * rate. `partner` is that re-measured first line, or null.
  */
 export async function routeLineToMarkup(
   db: Db,
@@ -131,7 +166,7 @@ export async function routeLineToMarkup(
   lineId: string,
   setup: MarkupHistorySetup,
   recordedBy: string,
-): Promise<{ line: StagedLine; history: MarkupHistoryRecord }> {
+): Promise<{ line: StagedLine; history: MarkupHistoryRecord; partner: MarkupHistoryRecord | null }> {
   return db.withTransaction(async (tx) => {
     const { rows: importRows } = await tx.query<{
       id: string;
@@ -159,14 +194,40 @@ export async function routeLineToMarkup(
       throw new LineNotRoutable(lineId, `is ${line.status}`);
     }
 
+    const { rows: existing } = await tx.query<{ id: string }>(
+      `select id from markup_history where project_id = $1 and setup = $2`,
+      [costImport.source_project_id, setup],
+    );
+    if (existing[0]) throw new MarkupHistoryExists(costImport.source_project_id, setup);
+
+    // The other half of a split budget, when this line is one half of one.
+    const partnerSetup = SPLIT_PARTNER[setup];
+    const partner = partnerSetup
+      ? (
+          await tx.query<{ id: string; cost_import_line_id: string; usd_per_gsf: string; cost_import_id: string }>(
+            `select h.id, h.cost_import_line_id, h.usd_per_gsf, l.cost_import_id
+               from markup_history h
+               join cost_import_lines l on l.id = h.cost_import_line_id
+              where h.project_id = $1 and h.setup = $2`,
+            [costImport.source_project_id, partnerSetup],
+          )
+        ).rows[0]
+      : undefined;
+    if (partner && partner.cost_import_id !== costImportId) {
+      throw new MarkupSplitAcrossImports(costImport.source_project_id, setup);
+    }
+
+    // Trade cost without this line or its partner. The partner is normally
+    // routed already, but it is left out by id as well, so neither line
+    // counts in the other's base whatever state it was in when it was routed.
     const subtotalStatus = costImport.status === "approved" ? "approved" : "staged";
     const { rows: sumRows } = await tx.query<{ subtotal: string | null }>(
       `select sum(l.value_usd_per_gsf)::text as subtotal
          from cost_import_lines l
          join canonical_work_items c on c.id = l.candidate_canonical_item_id
-        where l.cost_import_id = $1 and l.status = $2 and l.id <> $3
+        where l.cost_import_id = $1 and l.status = $2 and l.id <> $3 and l.id <> $4
           and c.contract_side = 'kulka'`,
-      [costImportId, subtotalStatus, lineId],
+      [costImportId, subtotalStatus, lineId, partner?.cost_import_line_id ?? lineId],
     );
     const subtotal = Number(sumRows[0]?.subtotal ?? 0);
     if (!(subtotal > 0)) throw new MarkupSubtotalMissing(costImportId);
@@ -174,11 +235,15 @@ export async function routeLineToMarkup(
     const value = Number(line.value_usd_per_gsf);
     if (!(value > 0)) throw new LineNotRoutable(lineId, "is $0");
 
-    const { rows: existing } = await tx.query<{ id: string }>(
-      `select id from markup_history where project_id = $1 and setup = $2`,
-      [costImport.source_project_id, setup],
-    );
-    if (existing[0]) throw new MarkupHistoryExists(costImport.source_project_id, setup);
+    // ADR 0004: General Conditions is charged on trade cost including General
+    // Requirements, so a split budget's General Conditions is measured there.
+    const partnerValue = partner ? Number(partner.usd_per_gsf) : 0;
+    const pctOfSubtotal = setup === "gc_only" ? value / (subtotal + partnerValue) : value / subtotal;
+    const partnerPct = partner
+      ? partnerSetup === "gc_only"
+        ? partnerValue / (subtotal + value)
+        : partnerValue / subtotal
+      : null;
 
     // Guarded on the status read above, so a remap or approval that lands in
     // between cannot be overwritten.
@@ -202,14 +267,25 @@ export async function routeLineToMarkup(
         costImport.source_project_id,
         setup,
         value,
-        value / subtotal,
+        pctOfSubtotal,
         lineId,
         recordedBy,
         costImport.export_label,
       ],
     );
 
-    return { line: await readStagedLine(tx, lineId), history: toRecord(inserted[0]) };
+    let partnerRecord: MarkupHistoryRecord | null = null;
+    if (partner && partnerPct !== null) {
+      const { rows: remeasured } = await tx.query<HistoryRow>(
+        `update markup_history set pct_of_subtotal = $2 where id = $1
+         returning id, project_id, setup, usd_per_gsf, pct_of_subtotal, cost_import_line_id,
+                   recorded_by, recorded_at, export_label`,
+        [partner.id, partnerPct],
+      );
+      partnerRecord = toRecord(remeasured[0]);
+    }
+
+    return { line: await readStagedLine(tx, lineId), history: toRecord(inserted[0]), partner: partnerRecord };
   });
 }
 

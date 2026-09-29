@@ -19,7 +19,7 @@ import { answerMoment, CARD_ORDER, cardMoment, setupMoment, type StageMoment } f
 
 import { factsFor, valueText } from "./engineering";
 import type { BudgetDraft } from "./LiveBudget";
-import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, SETUPS, type MarkupForm } from "./Markups";
+import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, missingRates, SETUPS, setupHistory, type MarkupForm } from "./Markups";
 import "./scope.css";
 
 // LA-1225. New Budget is a setup card, then one question at a time. Matt
@@ -519,13 +519,16 @@ export function GuidedNewBudget({
    */
   function submitMarkupRate(useHistory: boolean) {
     if (busy || !markupOptions) return;
-    const form = useHistory ? { ...markupForm, overridePercent: "", overridePerSf: "" } : markupForm;
-    const typed = form.method === "pct_of_subtotal" ? form.overridePercent : form.overridePerSf;
-    if (!useHistory && typed.trim() === "") {
+    const form = useHistory
+      ? { ...markupForm, overridePercent: "", overridePerSf: "", grOverridePercent: "", grOverridePerSf: "" }
+      : markupForm;
+    const perSf = form.method === "usd_per_gsf";
+    const blanks = missingRates(form, markupOptions.historyCounts, useHistory);
+    if (blanks.length > 0) {
       setError(
-        form.method === "pct_of_subtotal"
-          ? "Enter the GRs/GCs percent of subtotal."
-          : "Enter the GRs/GCs rate in dollars per GSF.",
+        perSf
+          ? `Enter the ${blanks.join(" and ")} rate in dollars per GSF.`
+          : `Enter the ${blanks.join(" and ")} percent of subtotal.`,
       );
       return;
     }
@@ -827,55 +830,14 @@ export function GuidedNewBudget({
             </div>
           </>
         ) : slot.kind === "markup_rate" && markupOptions ? (
-          <>
-            <h3 className="nb-prompt">
-              {markupForm.method === "pct_of_subtotal"
-                ? "What GRs/GCs rate should this budget carry, as a percent of subtotal?"
-                : "What GRs/GCs rate should this budget carry, in dollars per GSF?"}
-            </h3>
-            <p className="nb-help">
-              {markupOptions.historyCounts[markupForm.setup] > 0
-                ? `Imported budgets carry a figure for this setup (${
-                    markupOptions.historyCounts[markupForm.setup] === 1
-                      ? "1 job"
-                      : `${markupOptions.historyCounts[markupForm.setup]} jobs`
-                  }). Enter your own rate or use theirs.`
-                : "No imported budget has a figure for this setup, so enter the rate."}
-            </p>
-            <form
-              className="nb-num"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submitMarkupRate(false);
-              }}
-            >
-              <input
-                className="input num"
-                inputMode="decimal"
-                aria-label={markupForm.method === "pct_of_subtotal" ? "GRs/GCs, % of Subtotal" : "GRs/GCs, $ per GSF"}
-                autoFocus={focusQuestion}
-                disabled={busy}
-                value={markupForm.method === "pct_of_subtotal" ? markupForm.overridePercent : markupForm.overridePerSf}
-                onChange={(e) =>
-                  setMarkupForm(
-                    markupForm.method === "pct_of_subtotal"
-                      ? { ...markupForm, overridePercent: e.target.value }
-                      : { ...markupForm, overridePerSf: e.target.value },
-                  )
-                }
-              />
-              <button className="btn btn--primary" type="submit" disabled={busy}>
-                Next
-              </button>
-            </form>
-            {markupOptions.historyCounts[markupForm.setup] > 0 ? (
-              <div className="rb-acts">
-                <button className="btn" type="button" onClick={() => submitMarkupRate(true)} disabled={busy}>
-                  Use History
-                </button>
-              </div>
-            ) : null}
-          </>
+          <MarkupRateQuestion
+            options={markupOptions}
+            form={markupForm}
+            busy={busy}
+            autoFocus={focusQuestion}
+            onChange={setMarkupForm}
+            onSubmit={submitMarkupRate}
+          />
         ) : markupOptions ? (
           <>
             <h3 className="nb-prompt">Staffing and duration</h3>
@@ -911,5 +873,128 @@ export function GuidedNewBudget({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * New Budget's last GRs/GCs question: the rate. One field for a single line;
+ * with separate lines (LA-1383), one field each for General Requirements and
+ * General Conditions, where a line with history may stay blank to use it.
+ */
+function MarkupRateQuestion({
+  options,
+  form,
+  busy,
+  autoFocus,
+  onChange,
+  onSubmit,
+}: {
+  options: MarkupOptions;
+  form: MarkupForm;
+  busy: boolean;
+  autoFocus: boolean;
+  onChange: (form: MarkupForm) => void;
+  onSubmit: (useHistory: boolean) => void;
+}) {
+  const perSf = form.method === "usd_per_gsf";
+  const history = setupHistory(options.historyCounts, form.setup);
+  const unit = perSf ? "in dollars per GSF" : "as a percent of subtotal";
+  const jobs = (count: number) => (count === 1 ? "1 job" : `${count} jobs`);
+
+  if (form.setup === "separate") {
+    const fields = [
+      {
+        name: "General Requirements",
+        count: history.gr ?? 0,
+        value: perSf ? form.grOverridePerSf : form.grOverridePercent,
+        set: (text: string) => onChange(perSf ? { ...form, grOverridePerSf: text } : { ...form, grOverridePercent: text }),
+      },
+      {
+        name: "General Conditions",
+        count: history.gc,
+        value: perSf ? form.overridePerSf : form.overridePercent,
+        set: (text: string) => onChange(perSf ? { ...form, overridePerSf: text } : { ...form, overridePercent: text }),
+      },
+    ];
+    return (
+      <>
+        <h3 className="nb-prompt">What General Requirements and General Conditions rates should this budget carry, {unit}?</h3>
+        <p className="nb-help">
+          {fields
+            .map((field) =>
+              field.count > 0
+                ? `Imported budgets carry ${field.name} alone on ${jobs(field.count)}, so it can stay blank to use them.`
+                : `No imported budget carries ${field.name} alone, so enter it.`,
+            )
+            .join(" ")}
+          {perSf ? "" : " General Conditions computes on the subtotal plus General Requirements."}
+        </p>
+        <form
+          className="nb-num nb-num--pair"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit(false);
+          }}
+        >
+          {fields.map((field, i) => (
+            <input
+              key={field.name}
+              className="input num"
+              inputMode="decimal"
+              aria-label={`${field.name}, ${perSf ? "$ per GSF" : "% of Subtotal"}`}
+              placeholder={field.count > 0 ? `${field.name}: Use History` : field.name}
+              autoFocus={autoFocus && i === 0}
+              disabled={busy}
+              value={field.value}
+              onChange={(e) => field.set(e.target.value)}
+            />
+          ))}
+          <button className="btn btn--primary" type="submit" disabled={busy}>
+            Next
+          </button>
+        </form>
+      </>
+    );
+  }
+
+  const count = history.gc;
+  return (
+    <>
+      <h3 className="nb-prompt">What GRs/GCs rate should this budget carry, {unit}?</h3>
+      <p className="nb-help">
+        {count > 0
+          ? `Imported budgets carry a figure for this setup (${jobs(count)}). Enter your own rate or use theirs.`
+          : "No imported budget has a figure for this setup, so enter the rate."}
+      </p>
+      <form
+        className="nb-num"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(false);
+        }}
+      >
+        <input
+          className="input num"
+          inputMode="decimal"
+          aria-label={perSf ? "GRs/GCs, $ per GSF" : "GRs/GCs, % of Subtotal"}
+          autoFocus={autoFocus}
+          disabled={busy}
+          value={perSf ? form.overridePerSf : form.overridePercent}
+          onChange={(e) =>
+            onChange(perSf ? { ...form, overridePerSf: e.target.value } : { ...form, overridePercent: e.target.value })
+          }
+        />
+        <button className="btn btn--primary" type="submit" disabled={busy}>
+          Next
+        </button>
+      </form>
+      {count > 0 ? (
+        <div className="rb-acts">
+          <button className="btn" type="button" onClick={() => onSubmit(true)} disabled={busy}>
+            Use History
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }

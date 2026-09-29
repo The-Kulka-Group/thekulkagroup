@@ -4,6 +4,7 @@ import {
   type FieldOfficeRate,
   type MarkupChoices,
   type MarkupHistoryRow,
+  type MarkupHistorySetup,
   type MarkupMethod,
   type MarkupSetup,
   type StaffingRate,
@@ -27,7 +28,13 @@ import {
 // history and rate tables a run needs, and checking the markup choices a ROM
 // request carries. The math is in packages/engine/src/rom-markups.ts.
 
-export const MARKUP_SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only"];
+/** The setups a ROM can run with. */
+export const MARKUP_SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only", "separate"];
+/**
+ * The setups an imported line can be recorded under. A budget that splits the
+ * two lines records one of each, so "separate" is not among them (LA-1383).
+ */
+export const MARKUP_HISTORY_SETUPS: readonly MarkupHistorySetup[] = ["both", "gc_only", "gr_only"];
 export const MARKUP_METHODS: readonly MarkupMethod[] = [
   "pct_of_subtotal",
   "usd_per_gsf",
@@ -59,7 +66,7 @@ export class MarkupSubtotalMissing extends Error {
 export class MarkupHistoryExists extends Error {
   constructor(
     readonly projectId: string,
-    readonly setup: MarkupSetup,
+    readonly setup: MarkupHistorySetup,
   ) {
     super(`Project ${projectId} already has a GRs/GCs figure recorded for setup "${setup}".`);
     this.name = "MarkupHistoryExists";
@@ -69,7 +76,7 @@ export class MarkupHistoryExists extends Error {
 export type MarkupHistoryRecord = {
   id: string;
   projectId: string;
-  setup: MarkupSetup;
+  setup: MarkupHistorySetup;
   usdPerGsf: number;
   pctOfSubtotal: number;
   costImportLineId: string;
@@ -81,7 +88,7 @@ export type MarkupHistoryRecord = {
 type HistoryRow = {
   id: string;
   project_id: string;
-  setup: MarkupSetup;
+  setup: MarkupHistorySetup;
   usd_per_gsf: string;
   pct_of_subtotal: string;
   cost_import_line_id: string;
@@ -122,7 +129,7 @@ export async function routeLineToMarkup(
   db: Db,
   costImportId: string,
   lineId: string,
-  setup: MarkupSetup,
+  setup: MarkupHistorySetup,
   recordedBy: string,
 ): Promise<{ line: StagedLine; history: MarkupHistoryRecord }> {
   return db.withTransaction(async (tx) => {
@@ -281,8 +288,12 @@ export type MarkupOptions = {
   fieldOfficeRates: FieldOfficeRate[];
   feeRate: EngineParameter | null;
   insuranceRate: EngineParameter | null;
-  /** How many jobs stand behind each setup, so the page can say when a line will be TBD. */
-  historyCounts: Record<MarkupSetup, number>;
+  /**
+   * How many jobs stand behind each recorded setup, so the page can say when a
+   * line will be TBD. "separate" reads gr_only for General Requirements and
+   * gc_only for General Conditions.
+   */
+  historyCounts: Record<MarkupHistorySetup, number>;
 };
 
 /** What the /rom page needs to offer the GRs/GCs choices. */
@@ -320,7 +331,7 @@ export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
     };
   };
 
-  const historyCounts: Record<MarkupSetup, number> = { both: 0, gc_only: 0, gr_only: 0 };
+  const historyCounts: Record<MarkupHistorySetup, number> = { both: 0, gc_only: 0, gr_only: 0 };
   for (const row of history) historyCounts[row.setup] += 1;
 
   return {
@@ -372,7 +383,7 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
   const setup = value.setup ?? DEFAULT_MARKUP_CHOICES.setup;
   const method = value.method ?? DEFAULT_MARKUP_CHOICES.method;
   if (!MARKUP_SETUPS.includes(setup as MarkupSetup)) {
-    return { ok: false, error: 'Send markups.setup as "both", "gc_only", or "gr_only".' };
+    return { ok: false, error: 'Send markups.setup as "both", "gc_only", "gr_only", or "separate".' };
   }
   if (!MARKUP_METHODS.includes(method as MarkupMethod)) {
     return {
@@ -402,6 +413,8 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
       }
       choices.overrideRate = override;
     }
+    const grOverride = readGrOverride(value, choices);
+    if (!grOverride.ok) return grOverride;
     return { ok: true, choices };
   }
 
@@ -410,6 +423,8 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
     return { ok: false, error: "Send markups.durationWeeks as a number of weeks above zero." };
   }
   choices.durationWeeks = weeks;
+  const grOverride = readGrOverride(value, choices);
+  if (!grOverride.ok) return grOverride;
 
   const staff = value.staff ?? [];
   if (!Array.isArray(staff)) return { ok: false, error: "Send markups.staff as a list." };
@@ -444,4 +459,22 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
   }
 
   return { ok: true, choices };
+}
+
+/**
+ * The General Requirements rate a "separate" setup can carry (LA-1383). It is
+ * kept only for that setup, in dollars per GSF under usd_per_gsf and as a
+ * fraction of the subtotal otherwise.
+ */
+function readGrOverride(value: Record<string, unknown>, choices: MarkupChoices): { ok: true } | { ok: false; error: string } {
+  const rate = value.grOverrideRate;
+  if (rate === undefined || rate === null || choices.setup !== "separate") return { ok: true };
+  if (!isNumber(rate) || rate <= 0) {
+    return { ok: false, error: "Send markups.grOverrideRate as a number above zero." };
+  }
+  if (choices.method !== "usd_per_gsf" && rate >= 1) {
+    return { ok: false, error: "Send a General Requirements percent as a fraction below one." };
+  }
+  choices.grOverrideRate = rate;
+  return { ok: true };
 }

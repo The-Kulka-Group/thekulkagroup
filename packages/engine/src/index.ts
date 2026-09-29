@@ -122,6 +122,8 @@ export {
 export {
   computeMarkups,
   DEFAULT_MARKUP_CHOICES,
+  GENERAL_REQUIREMENTS_CODE,
+  overheadLines,
   SETUP_LABEL,
   WEEKS_PER_MONTH,
   type FieldOfficePick,
@@ -129,6 +131,7 @@ export {
   type FieldOfficeRateBasis,
   type MarkupChoices,
   type MarkupHistoryRow,
+  type MarkupHistorySetup,
   type MarkupInputs,
   type MarkupLine,
   type MarkupMethod,

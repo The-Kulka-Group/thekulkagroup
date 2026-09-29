@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { computeRom, type Benchmark, type EngineParameters } from "./rom";
 import {
   computeMarkups,
+  overheadLines,
   WEEKS_PER_MONTH,
   type FieldOfficeRate,
   type MarkupChoices,
@@ -368,5 +369,134 @@ describe("computeRom with markups", () => {
       snapshot,
     );
     expect(rom.markups).toBeUndefined();
+  });
+});
+
+// LA-1383: General Requirements and General Conditions carried as two lines,
+// the way Villa at Glen Cove files them. The rates are synthetic.
+describe("computeMarkups, separate lines", () => {
+  const VILLA = "22222222-2222-4222-8222-222222222222";
+  const gr = history({ projectId: VILLA, projectName: "Villa at Glen Cove", setup: "gr_only", pctOfSubtotal: 0.03, usdPerGsf: 4 });
+  const gc = history({ projectId: VILLA, projectName: "Villa at Glen Cove", setup: "gc_only", pctOfSubtotal: 0.1, usdPerGsf: 12 });
+  const separate = (over: Partial<MarkupChoices> = {}): MarkupChoices => ({
+    setup: "separate",
+    method: "pct_of_subtotal",
+    ...over,
+  });
+
+  it("puts General Requirements inside trade cost and rates General Conditions, fee and insurance on top of it", () => {
+    const m = computeMarkups(inputs({ choices: separate(), history: [gr, gc, history()] }));
+
+    expect(m.generalRequirements).toMatchObject({
+      code: "01 00 00",
+      label: "General Requirements",
+      low: 30_000,
+      high: 36_000,
+      tbd: false,
+      source: "history",
+      basis: "3.00% of subtotal, from 1 job: Villa at Glen Cove",
+    });
+    expect(m.generalConditions).toMatchObject({
+      code: "90 20 00",
+      label: "General Conditions",
+      low: 103_000,
+      high: 123_600,
+      tbd: false,
+      basis: "10.00% of subtotal plus General Requirements, from 1 job: Villa at Glen Cove",
+    });
+
+    const low = waterfall(1_030_000, 103_000);
+    const high = waterfall(1_236_000, 123_600);
+    expect([m.fee.low, m.insurance.low, m.total.low]).toEqual([low.fee, low.insurance, low.total]);
+    expect([m.fee.high, m.insurance.high, m.total.high]).toEqual([high.fee, high.insurance, high.total]);
+    expect(m.fee.basis).toBe("3.25% of subtotal plus General Requirements and General Conditions, recorded 2026-09-23");
+    expect(m.total.basis).toBe("Kulka's contract with every markup above");
+  });
+
+  it("leaves General Requirements TBD on its own and rates General Conditions on the subtotal alone", () => {
+    const m = computeMarkups(inputs({ choices: separate(), history: [gc] }));
+
+    expect(m.generalRequirements?.tbd).toBe(true);
+    expect([m.generalRequirements?.low, m.generalRequirements?.high]).toEqual([0, 0]);
+    expect([m.generalConditions.low, m.generalConditions.high]).toEqual([100_000, 120_000]);
+    expect(m.total.low).toBe(waterfall(1_000_000, 100_000).total);
+    expect(m.total.basis).toBe(
+      "Kulka's contract with General Conditions, fee and insurance; General Requirements is TBD and not in it",
+    );
+    expect(m.assumptions[0]).toMatch(/^General Requirements is TBD and sits outside the total/);
+  });
+
+  it("leaves General Conditions TBD on its own while General Requirements still prices", () => {
+    const m = computeMarkups(inputs({ choices: separate(), history: [gr] }));
+
+    expect(m.generalRequirements?.tbd).toBe(false);
+    expect(m.generalConditions.tbd).toBe(true);
+    expect(m.total.low).toBe(waterfall(1_030_000, 0).total);
+    expect(m.fee.basis).toBe("3.25% of subtotal plus General Requirements, recorded 2026-09-23");
+    expect(m.total.basis).toBe(
+      "Kulka's contract with General Requirements, fee and insurance; General Conditions is TBD and not in it",
+    );
+  });
+
+  it("never divides a combined figure: with only combined history, both lines are TBD", () => {
+    const m = computeMarkups(inputs({ choices: separate(), history: [history({ setup: "both" })] }));
+
+    expect(m.generalRequirements?.tbd).toBe(true);
+    expect(m.generalConditions.tbd).toBe(true);
+    expect(m.total.low).toBe(waterfall(1_000_000, 0).total);
+    expect(m.total.basis).toBe(
+      "Kulka's contract with fee and insurance; General Requirements and General Conditions are TBD and not in it",
+    );
+    expect(m.assumptions.filter((a) => a.includes("is TBD and sits outside the total"))).toHaveLength(2);
+  });
+
+  it("prices each line from its own override", () => {
+    const m = computeMarkups(inputs({ choices: separate({ grOverrideRate: 0.02, overrideRate: 0.08 }), history: [] }));
+
+    expect([m.generalRequirements?.low, m.generalRequirements?.source]).toEqual([20_000, "override"]);
+    expect([m.generalConditions.low, m.generalConditions.source]).toEqual([81_600, "override"]);
+    expect(m.generalConditions.basis).toBe("8.00% of subtotal plus General Requirements, user override");
+  });
+
+  it("prices each line per GSF", () => {
+    const m = computeMarkups(inputs({ choices: separate({ method: "usd_per_gsf" }), history: [gr, gc] }));
+
+    expect([m.generalRequirements?.low, m.generalRequirements?.high]).toEqual([200_000, 200_000]);
+    expect([m.generalConditions.low, m.generalConditions.high]).toEqual([600_000, 600_000]);
+    expect(m.total.low).toBe(waterfall(1_200_000, 600_000).total);
+  });
+
+  it("prices General Conditions from staffing and General Requirements as a percent beside it", () => {
+    const m = computeMarkups(
+      inputs({
+        choices: separate({ method: "staffing_duration", durationWeeks: 10, staff: [{ rateId: "s-pm" }] }),
+        history: [gr],
+      }),
+    );
+
+    expect(m.generalRequirements?.low).toBe(30_000);
+    expect([m.generalConditions.low, m.generalConditions.source]).toEqual([52_000, "staffing"]);
+  });
+
+  it("refuses a General Requirements rate outside the separate setup, and a percent of one or more", () => {
+    expect(() => computeMarkups(inputs({ choices: { setup: "both", method: "pct_of_subtotal", grOverrideRate: 0.02 } }))).toThrow(
+      "only when the two lines are carried separately",
+    );
+    expect(() => computeMarkups(inputs({ choices: separate({ grOverrideRate: 1 }) }))).toThrow("fraction below one");
+  });
+});
+
+describe("overheadLines", () => {
+  it("lists the one GRs/GCs line for a combined setup and a stored run", () => {
+    const m = computeMarkups(inputs());
+    expect(overheadLines(m).map(({ key, name }) => [key, name])).toEqual([["gc", "GRs/GCs"]]);
+  });
+
+  it("lists General Requirements then General Conditions for separate lines", () => {
+    const m = computeMarkups(inputs({ choices: { setup: "separate", method: "pct_of_subtotal" }, history: [] }));
+    expect(overheadLines(m).map(({ key, name }) => [key, name])).toEqual([
+      ["gr", "General Requirements"],
+      ["gc", "General Conditions"],
+    ]);
   });
 });

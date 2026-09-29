@@ -516,6 +516,9 @@
 .nb-choice--picked { background: var(--rb-ink-on-black); border-color: var(--rb-ink-on-black); color: var(--rb-black); }
 .nb-num { display: flex; gap: 8px; margin-top: 14px; }
 .nb-num .input { max-width: 180px; }
+/* LA-1383: General Requirements and General Conditions side by side, wrapping on a phone. */
+.nb-num--pair { flex-wrap: wrap; }
+.nb-num--pair .input { flex: 1 1 160px; max-width: 240px; }
 .nb-foot { margin-top: 18px; }
 .nb-back, .nb-retry {
   padding: 0;

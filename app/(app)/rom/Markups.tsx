@@ -24,7 +24,43 @@ export const SETUPS: { value: MarkupSetup; label: string }[] = [
   { value: "both", label: "Both, One Combined Line" },
   { value: "gc_only", label: "General Conditions Only" },
   { value: "gr_only", label: "General Requirements Only" },
+  { value: "separate", label: "Separate Lines" },
 ];
+
+/**
+ * How many imported budgets stand behind a setup's line or lines. A split
+ * budget reads General Requirements alone for its first line and General
+ * Conditions alone for its second (LA-1383).
+ */
+export function setupHistory(
+  counts: MarkupOptions["historyCounts"],
+  setup: MarkupSetup,
+): { gr: number | null; gc: number } {
+  return setup === "separate" ? { gr: counts.gr_only, gc: counts.gc_only } : { gr: null, gc: counts[setup] };
+}
+
+/**
+ * New Budget's rate question must never finish on a TBD line (LA-1256). The
+ * names of the lines still missing a rate: a field may stay blank only
+ * through Use History for one line, or, with separate lines (LA-1383), where
+ * that line has history of its own.
+ */
+export function missingRates(form: MarkupForm, counts: MarkupOptions["historyCounts"], useHistory: boolean): string[] {
+  const perSf = form.method === "usd_per_gsf";
+  const blank = (percent: string, dollars: string) => (perSf ? dollars : percent).trim() === "";
+  if (form.setup !== "separate") {
+    return !useHistory && blank(form.overridePercent, form.overridePerSf) ? ["GRs/GCs"] : [];
+  }
+  const history = setupHistory(counts, form.setup);
+  const missing: string[] = [];
+  if (blank(form.grOverridePercent, form.grOverridePerSf) && !history.gr) missing.push("General Requirements");
+  if (blank(form.overridePercent, form.overridePerSf) && history.gc === 0) missing.push("General Conditions");
+  return missing;
+}
+
+function jobsWords(count: number): string {
+  return count === 1 ? "1 job" : `${count} jobs`;
+}
 
 export const METHODS: { value: MarkupMethod; label: string }[] = [
   { value: "pct_of_subtotal", label: "Percent of Subtotal" },
@@ -44,6 +80,9 @@ export type MarkupForm = {
   method: MarkupMethod;
   overridePercent: string;
   overridePerSf: string;
+  /** General Requirements' own rate, read only when the setup is "separate" (LA-1383). */
+  grOverridePercent: string;
+  grOverridePerSf: string;
   durationWeeks: string;
   staff: { rateId: string; weeks: string }[];
   fieldOffice: { rateId: string; quantity: string }[];
@@ -67,6 +106,8 @@ export function initialMarkupForm(options: MarkupOptions | undefined, saved?: Ma
     method: saved?.method ?? "pct_of_subtotal",
     overridePercent: saved?.method === "pct_of_subtotal" ? percentText(saved.overrideRate) : "",
     overridePerSf: saved?.method === "usd_per_gsf" && saved.overrideRate !== undefined ? String(saved.overrideRate) : "",
+    grOverridePercent: saved?.method !== "usd_per_gsf" ? percentText(saved?.grOverrideRate) : "",
+    grOverridePerSf: saved?.method === "usd_per_gsf" && saved.grOverrideRate !== undefined ? String(saved.grOverrideRate) : "",
     durationWeeks: saved?.durationWeeks !== undefined ? String(saved.durationWeeks) : "",
     staff: (saved?.staff ?? []).map((pick) => ({ rateId: pick.rateId, weeks: pick.weeks !== undefined ? String(pick.weeks) : "" })),
     fieldOffice: (saved?.fieldOffice ?? []).map((pick) => ({
@@ -121,6 +162,21 @@ export function markupChoicesFrom(
     markups.overrideRate = value;
   }
 
+  if (form.setup === "separate") {
+    if (form.method === "usd_per_gsf" && form.grOverridePerSf.trim() !== "") {
+      const value = Number(form.grOverridePerSf);
+      if (!(value > 0)) return { ok: false, error: "The General Requirements rate per GSF must be above zero." };
+      markups.grOverrideRate = value;
+    }
+    if (form.method !== "usd_per_gsf" && form.grOverridePercent.trim() !== "") {
+      const value = Number(form.grOverridePercent) / 100;
+      if (!(value > 0 && value < 1)) {
+        return { ok: false, error: "The General Requirements percent must be above 0 and below 100." };
+      }
+      markups.grOverrideRate = value;
+    }
+  }
+
   if (form.method === "staffing_duration") {
     const weeks = Number(form.durationWeeks);
     if (form.durationWeeks.trim() === "" || !(weeks > 0)) {
@@ -166,8 +222,14 @@ export function MarkupControls({
   const set = (patch: Partial<MarkupForm>) => onChange({ ...form, ...patch });
   const staffById = new Map(options.staffingRates.map((r) => [r.id, r]));
   const officeById = new Map(options.fieldOfficeRates.map((r) => [r.id, r]));
-  const jobs = options.historyCounts[form.setup];
+  const history = setupHistory(options.historyCounts, form.setup);
+  const separate = form.setup === "separate";
+  const perSf = form.method === "usd_per_gsf";
   const weeks = Number(form.durationWeeks);
+  const note = (jobs: number, what: string) =>
+    jobs === 0
+      ? `No imported budget has a figure for ${what} yet. Leave the rate blank and the line shows as TBD, outside the total.`
+      : `History for ${what}: ${jobsWords(jobs)}. Leave the rate blank to use it.`;
 
   return (
     <section className="markup-module" aria-label="GRs / GCs">
@@ -240,31 +302,54 @@ export function MarkupControls({
         <Link href="/rom/parameters">Engine Parameters</Link>.
       </p>
 
-      {form.method === "pct_of_subtotal" || form.method === "usd_per_gsf" ? (
+      {separate ? (
+        // LA-1383: General Requirements on its own line. Staffing and field
+        // office price General Conditions, so beside them it is a percent.
         <div className="markup-grid">
           <label>
             <span className="field-label t-label">
-              {form.method === "pct_of_subtotal" ? "Your Rate, % of Subtotal" : "Your Rate, $ per GSF"}
+              {perSf ? "General Requirements, $ per GSF" : "General Requirements, % of Subtotal"}
             </span>
             <input
               className="input num"
               inputMode="decimal"
               placeholder="Use History"
-              value={form.method === "pct_of_subtotal" ? form.overridePercent : form.overridePerSf}
+              value={perSf ? form.grOverridePerSf : form.grOverridePercent}
               disabled={disabled}
               onChange={(e) =>
-                set(
-                  form.method === "pct_of_subtotal"
-                    ? { overridePercent: e.target.value }
-                    : { overridePerSf: e.target.value },
-                )
+                set(perSf ? { grOverridePerSf: e.target.value } : { grOverridePercent: e.target.value })
+              }
+            />
+          </label>
+          <p className="markup-note markup-note--inline">{note(history.gr ?? 0, "General Requirements alone")}</p>
+        </div>
+      ) : null}
+
+      {form.method === "pct_of_subtotal" || form.method === "usd_per_gsf" ? (
+        <div className="markup-grid">
+          <label>
+            <span className="field-label t-label">
+              {separate
+                ? perSf
+                  ? "General Conditions, $ per GSF"
+                  : "General Conditions, % of Subtotal and GRs"
+                : perSf
+                  ? "Your Rate, $ per GSF"
+                  : "Your Rate, % of Subtotal"}
+            </span>
+            <input
+              className="input num"
+              inputMode="decimal"
+              placeholder="Use History"
+              value={perSf ? form.overridePerSf : form.overridePercent}
+              disabled={disabled}
+              onChange={(e) =>
+                set(perSf ? { overridePerSf: e.target.value } : { overridePercent: e.target.value })
               }
             />
           </label>
           <p className="markup-note markup-note--inline">
-            {jobs === 0
-              ? "No imported budget has a figure for this setup yet. Leave the rate blank and the line shows as TBD, outside the total."
-              : `History for this setup: ${jobs === 1 ? "1 job" : `${jobs} jobs`}. Leave the rate blank to use it.`}
+            {note(history.gc, separate ? "General Conditions alone" : "this setup")}
           </p>
         </div>
       ) : null}

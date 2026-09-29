@@ -1,4 +1,4 @@
-import type { GateItemSummary, MarkupLine, Rom, RomLine } from "@kulka/engine";
+import { overheadLines, type GateItemSummary, type MarkupLine, type Rom, type RomLine } from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
 
@@ -139,14 +139,17 @@ export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
   const mid = midpoint(range);
   const lines: [MarkupLine, string][] = markups
     ? [
-        [markups.generalConditions, "GRs/GCs"],
+        // LA-1383: a split budget names General Requirements and General Conditions apart.
+        ...overheadLines(markups).map(({ name, line }): [MarkupLine, string] => [line, name]),
         [markups.fee, "Fee"],
         [markups.insurance, "Insurance"],
       ]
     : [];
   // LA-1369: the includes line names only the markups in the total. A TBD
   // markup sits outside it, and its own chip says so.
-  const included = listWords(lines.filter(([line]) => !line.tbd).map(([, name]) => (name === "GRs/GCs" ? name : name.toLowerCase())));
+  const included = listWords(
+    lines.filter(([line]) => !line.tbd).map(([, name]) => (name === "Fee" || name === "Insurance" ? name.toLowerCase() : name)),
+  );
   const contract = included ? `with ${included}` : "before GRs/GCs, fee and insurance";
   return {
     label: owner ? "Total project cost" : "Total",

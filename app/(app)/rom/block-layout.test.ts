@@ -17,6 +17,7 @@ import {
   tradeBlocks,
   valueTier,
 } from "./block-layout";
+import { markupRows } from "./ledger";
 import { Block } from "./RomRunner";
 import { BlockPanel, TotalPanel } from "./RomPanels";
 import { LiveBlock } from "./LiveBudget";
@@ -155,6 +156,51 @@ describe("the /rom block layout", () => {
     expect(total.includes).toBe("with fee and insurance");
     expect(project.includes).toBe("Kulka's contract with fee and insurance, plus owner-direct scope");
     expect(total.tbd).toEqual(["GRs/GCs"]);
+  });
+
+  // LA-1383: General Requirements and General Conditions carried as two lines.
+  const separateMarkups = (gr: MarkupLine, gc: MarkupLine): Markups => ({
+    ...markupsOf(),
+    choices: { setup: "separate", method: "pct_of_subtotal" },
+    generalRequirements: { ...gr, code: "01 00 00" },
+    generalConditions: { ...gc, code: "90 20 00" },
+  });
+
+  it("names each unpriced line apart when the two lines are separate", () => {
+    const one = headlineOf(
+      rom(lines, separateMarkups(markupLine("General Requirements", 0, 0, true), markupLine("General Conditions", 200, 260))),
+      facts,
+    );
+    const both = headlineOf(
+      rom(lines, separateMarkups(markupLine("General Requirements", 0, 0, true), markupLine("General Conditions", 0, 0, true))),
+      facts,
+    );
+
+    expect(one.tbd).toEqual(["General Requirements"]);
+    expect(one.includes).toBe("with General Conditions, fee and insurance");
+    expect(both.tbd).toEqual(["General Requirements", "General Conditions"]);
+    expect(both.includes).toBe("with fee and insurance");
+  });
+
+  it("lists both lines in the Total panel and the Ledger's markup rows", () => {
+    const markups = separateMarkups(markupLine("General Requirements", 90, 110), markupLine("General Conditions", 200, 260));
+    const run = rom(lines, markups);
+    const headline = headlineOf(run, facts);
+
+    expect(headline.includes).toBe("with General Requirements, General Conditions, fee and insurance");
+    const html = renderToStaticMarkup(createElement(TotalPanel, { rom: run, headline, grossSquareFeet: 10 }));
+    expect(html).toContain("01 00 00 General Requirements");
+    expect(html).toContain("90 20 00 General Conditions");
+    expect(markupRows(run).map((row) => [row.key, row.label, row.amount])).toEqual([
+      ["gr", "General Requirements", 100],
+      ["gc", "General Conditions", 230],
+      ["fee", "Fee", 115],
+      ["ins", "Insurance", 55],
+    ]);
+  });
+
+  it("keeps a combined setup to one GRs/GCs row", () => {
+    expect(markupRows(rom(lines, pricedMarkups())).map((row) => row.label)).toEqual(["GRs/GCs", "Fee", "Insurance"]);
   });
 
   it("labels a figure with owner-direct scope Total project cost", () => {

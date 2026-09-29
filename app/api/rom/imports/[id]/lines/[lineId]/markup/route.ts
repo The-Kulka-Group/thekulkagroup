@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { MarkupSetup } from "@kulka/engine";
+import type { MarkupHistorySetup } from "@kulka/engine";
 
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
@@ -11,7 +11,7 @@ import {
 } from "@/lib/rom/ingest";
 import {
   LineNotRoutable,
-  MARKUP_SETUPS,
+  MARKUP_HISTORY_SETUPS,
   MarkupHistoryExists,
   MarkupSubtotalMissing,
   routeLineToMarkup,
@@ -42,7 +42,7 @@ export async function POST(request: Request, context: Context) {
   }
 
   const { setup } = (body ?? {}) as Record<string, unknown>;
-  if (!MARKUP_SETUPS.includes(setup as MarkupSetup)) {
+  if (!MARKUP_HISTORY_SETUPS.includes(setup as MarkupHistorySetup)) {
     return NextResponse.json(
       { error: 'Send { "setup": "both" }, { "setup": "gc_only" }, or { "setup": "gr_only" }.' },
       { status: 400 },
@@ -50,7 +50,7 @@ export async function POST(request: Request, context: Context) {
   }
 
   try {
-    const result = await routeLineToMarkup(getDb(), id, lineId, setup as MarkupSetup, auth.user.email);
+    const result = await routeLineToMarkup(getDb(), id, lineId, setup as MarkupHistorySetup, auth.user.email);
     return NextResponse.json(result);
   } catch (cause) {
     if (cause instanceof CostImportNotFound) return missing();

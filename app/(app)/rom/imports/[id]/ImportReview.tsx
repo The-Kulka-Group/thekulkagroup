@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { MarkupSetup } from "@kulka/engine";
+import type { MarkupHistorySetup } from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
 import type { CostImportDetail, LineStatus, StagedLine } from "@/lib/rom/ingest";
@@ -45,7 +45,7 @@ const STATUS_CHIP: Record<LineStatus, string> = {
   markup: "markup",
 };
 
-const SETUP_OPTIONS: { value: MarkupSetup; label: string }[] = [
+const SETUP_OPTIONS: { value: MarkupHistorySetup; label: string }[] = [
   { value: "both", label: "GRs & GCs Combined" },
   { value: "gc_only", label: "GCs Only" },
   { value: "gr_only", label: "GRs Only" },
@@ -80,7 +80,7 @@ export function ImportReview({
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [setups, setSetups] = useState<Record<string, MarkupSetup>>({});
+  const [setups, setSetups] = useState<Record<string, MarkupHistorySetup>>({});
 
   const totals = useMemo(
     () => ({
@@ -279,7 +279,7 @@ export function ImportReview({
                           value={setups[line.id] ?? "both"}
                           disabled={busy}
                           onChange={(event) => {
-                            const setup = event.target.value as MarkupSetup;
+                            const setup = event.target.value as MarkupHistorySetup;
                             setSetups((current) => ({ ...current, [line.id]: setup }));
                           }}
                         >

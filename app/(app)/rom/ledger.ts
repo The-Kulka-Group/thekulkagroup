@@ -1,4 +1,4 @@
-import type { BlockClassification, ConfidenceFlag, Rom, RomLine } from "@kulka/engine";
+import { overheadLines, type BlockClassification, type ConfidenceFlag, type Rom, type RomLine } from "@kulka/engine";
 
 import { midpoint, tradeBlocks } from "./block-layout";
 import { divisionFor, divisionRank, orderField, statedDivisions, type FieldEntry, type RomOrder } from "./field-order";
@@ -217,7 +217,8 @@ export function markupRows(rom: Rom): { key: string; label: string; amount: numb
   const m = rom.markups;
   if (!m) return [];
   return [
-    { key: "gc", label: "GRs/GCs", range: m.generalConditions },
+    // LA-1383: a split budget shows General Requirements and General Conditions as two rows.
+    ...overheadLines(m).map(({ key, name, line }) => ({ key, label: name, range: line })),
     { key: "fee", label: "Fee", range: m.fee },
     { key: "ins", label: "Insurance", range: m.insurance },
   ]

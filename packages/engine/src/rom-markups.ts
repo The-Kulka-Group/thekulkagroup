@@ -15,8 +15,17 @@ import type { EngineParameter } from "./rom";
 /**
  * How a budget files General Requirements and General Conditions. "both" is
  * one combined line, the way four of Kulka's six budgets file it (ADR 0004).
+ * "separate" carries them as two lines, the way Villa at Glen Cove files them
+ * (LA-1383): General Requirements in Division 01, inside trade cost, and
+ * General Conditions at 90 20 00 on top of it.
  */
-export type MarkupSetup = "both" | "gc_only" | "gr_only";
+export type MarkupSetup = "both" | "gc_only" | "gr_only" | "separate";
+
+/**
+ * The setups a history row can carry. A split budget records one gr_only row
+ * and one gc_only row for the same project, so "separate" never needs its own.
+ */
+export type MarkupHistorySetup = Exclude<MarkupSetup, "separate">;
 
 /**
  * How the GRs/GCs line is priced. `pct_of_subtotal` and `usd_per_gsf` read a
@@ -50,6 +59,14 @@ export type MarkupChoices = {
    * `usd_per_gsf`. Ignored by `staffing_duration`.
    */
   overrideRate?: number;
+  /**
+   * The user's own General Requirements rate when the setup is "separate", in
+   * place of history. `overrideRate` then prices General Conditions alone.
+   * Dollars per GSF under `usd_per_gsf`, a fraction of the subtotal otherwise:
+   * staffing and field office price General Conditions, so General
+   * Requirements prices as a percent of subtotal beside them.
+   */
+  grOverrideRate?: number;
   /** Job duration in weeks. Required by `staffing_duration`. */
   durationWeeks?: number;
   staff?: StaffPick[];
@@ -70,7 +87,7 @@ export const DEFAULT_MARKUP_CHOICES: MarkupChoices = {
 export type MarkupHistoryRow = {
   projectId: string;
   projectName: string;
-  setup: MarkupSetup;
+  setup: MarkupHistorySetup;
   usdPerGsf: number;
   /** A fraction: 0.1573 is 15.73 percent of that budget's trade subtotal. */
   pctOfSubtotal: number;
@@ -128,6 +145,12 @@ export type Markups = {
   choices: MarkupChoices;
   /** Kulka's contract trade cost: the base the waterfall computes from. */
   subtotal: MarkupLine;
+  /**
+   * General Requirements on its own line, present only when the setup is
+   * "separate". It files at Division 01, inside trade cost (ADR 0004).
+   */
+  generalRequirements?: MarkupLine;
+  /** The GRs/GCs line, or General Conditions alone when the setup is "separate". */
   generalConditions: MarkupLine;
   fee: MarkupLine;
   insurance: MarkupLine;
@@ -157,10 +180,29 @@ export const SETUP_LABEL: Record<MarkupSetup, string> = {
   both: "General Requirements & General Conditions",
   gc_only: "General Conditions",
   gr_only: "General Requirements",
+  separate: "General Requirements and General Conditions",
 };
 
+/** ADR 0004: General Requirements is MasterFormat Division 01. */
+export const GENERAL_REQUIREMENTS_CODE = "01 00 00";
+
 const METHODS: readonly MarkupMethod[] = ["pct_of_subtotal", "usd_per_gsf", "staffing_duration"];
-const SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only"];
+const SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only", "separate"];
+
+/**
+ * The GRs/GCs line a run carries, or its two lines when the setup is
+ * "separate", each with the name a screen shows it by. Every screen that lists
+ * the markups reads them through here, so a split budget shows both.
+ */
+export function overheadLines(markups: Markups): { key: "gr" | "gc"; name: string; line: MarkupLine }[] {
+  if (!markups.generalRequirements) {
+    return [{ key: "gc", name: "GRs/GCs", line: markups.generalConditions }];
+  }
+  return [
+    { key: "gr", name: "General Requirements", line: markups.generalRequirements },
+    { key: "gc", name: "General Conditions", line: markups.generalConditions },
+  ];
+}
 
 export function computeMarkups(inputs: MarkupInputs): Markups {
   const { choices } = inputs;
@@ -177,12 +219,23 @@ export function computeMarkups(inputs: MarkupInputs): Markups {
     source: "trade",
   };
 
-  const generalConditions = priceGeneralConditions(inputs, assumptions);
+  const separate = choices.setup === "separate";
+  const generalRequirements = separate ? priceGeneralRequirements(inputs) : undefined;
+  const gr = generalRequirements && !generalRequirements.tbd ? generalRequirements : { low: 0, high: 0 };
+  // ADR 0004: trade cost includes General Requirements, and every 90-series
+  // item computes on top of it, so a split budget's General Conditions rates
+  // on the subtotal plus General Requirements.
+  const tradeCost = { low: subtotal.low + gr.low, high: subtotal.high + gr.high };
+  const generalConditions = priceGeneralConditions(inputs, tradeCost, assumptions);
   const gc = generalConditions.tbd ? { low: 0, high: 0 } : generalConditions;
 
+  const overhead = [generalRequirements, generalConditions].filter((line): line is MarkupLine => line !== undefined);
+  const priced = overhead.filter((line) => !line.tbd).map((line) => line.label);
+  const unpriced = overhead.filter((line) => line.tbd).map((line) => line.label);
+
   const feeRate = rateFor(choices.feeRate, inputs.feeParameter, "fee.rate");
-  const feeBase = { low: subtotal.low + gc.low, high: subtotal.high + gc.high };
-  const gcWords = generalConditions.tbd ? "" : ` plus ${SETUP_LABEL[choices.setup]}`;
+  const feeBase = { low: tradeCost.low + gc.low, high: tradeCost.high + gc.high };
+  const gcWords = priced.length > 0 ? ` plus ${andWords(priced)}` : "";
   const fee: MarkupLine = {
     code: "90 30 00",
     label: "Fee",
@@ -210,25 +263,29 @@ export function computeMarkups(inputs: MarkupInputs): Markups {
     label: "Total",
     low: insuranceBase.low + insurance.low,
     high: insuranceBase.high + insurance.high,
-    basis: generalConditions.tbd
-      ? `Kulka's contract with fee and insurance; ${SETUP_LABEL[choices.setup]} is TBD and not in it`
-      : "Kulka's contract with every markup above",
+    basis:
+      unpriced.length > 0
+        ? `Kulka's contract with ${priced.length > 0 ? `${andWords(priced)}, ` : ""}fee and insurance; ${andWords(unpriced)} ${unpriced.length === 1 ? "is" : "are"} TBD and not in it`
+        : "Kulka's contract with every markup above",
     tbd: false,
     source: "total",
   };
 
-  if (generalConditions.tbd) {
+  for (const line of overhead.filter((one) => one.tbd)) {
     assumptions.push(
-      `${SETUP_LABEL[choices.setup]} is TBD and sits outside the total, because ${generalConditions.basis.charAt(0).toLowerCase()}${generalConditions.basis.slice(1)}. Fee and insurance compute without it.`,
+      `${line.label} is TBD and sits outside the total, because ${line.basis.charAt(0).toLowerCase()}${line.basis.slice(1)}. Fee and insurance compute without it.`,
     );
   }
   assumptions.push(
-    "Fee computes on the subtotal plus the GRs/GCs line, and insurance on the subtotal, GRs/GCs, and fee, in the ADR 0004 waterfall order. Markups apply to Kulka's contract only; owner-direct scope carries none.",
+    separate
+      ? "General Requirements sits inside trade cost, General Conditions computes on the subtotal plus General Requirements, fee on both, and insurance on both and fee, in the ADR 0004 waterfall order. Markups apply to Kulka's contract only; owner-direct scope carries none."
+      : "Fee computes on the subtotal plus the GRs/GCs line, and insurance on the subtotal, GRs/GCs, and fee, in the ADR 0004 waterfall order. Markups apply to Kulka's contract only; owner-direct scope carries none.",
   );
 
   return {
     choices,
     subtotal,
+    ...(generalRequirements ? { generalRequirements } : {}),
     generalConditions,
     fee,
     insurance,
@@ -250,6 +307,15 @@ function validateChoices(choices: MarkupChoices): void {
   }
   if (choices.method === "pct_of_subtotal" && choices.overrideRate !== undefined && !(choices.overrideRate < 1)) {
     throw new Error("A GRs/GCs percent override must be a fraction below one.");
+  }
+  if (choices.grOverrideRate !== undefined) {
+    if (choices.setup !== "separate") {
+      throw new Error("A General Requirements rate applies only when the two lines are carried separately.");
+    }
+    if (!(choices.grOverrideRate > 0)) throw new Error("A General Requirements override rate must be above zero.");
+    if (choices.method !== "usd_per_gsf" && !(choices.grOverrideRate < 1)) {
+      throw new Error("A General Requirements percent override must be a fraction below one.");
+    }
   }
   for (const [name, rate] of [
     ["fee", choices.feeRate],
@@ -293,9 +359,15 @@ function rateFor(
   };
 }
 
-function priceGeneralConditions(inputs: MarkupInputs, assumptions: string[]): MarkupLine {
+/**
+ * The GRs/GCs line, or General Conditions alone when the setup is "separate".
+ * `base` is what a percent rate applies to: the subtotal, plus General
+ * Requirements when it is carried on its own line.
+ */
+function priceGeneralConditions(inputs: MarkupInputs, base: Range, assumptions: string[]): MarkupLine {
   const { choices } = inputs;
-  const label = SETUP_LABEL[choices.setup];
+  const separate = choices.setup === "separate";
+  const label = separate ? SETUP_LABEL.gc_only : SETUP_LABEL[choices.setup];
   const line = (over: Omit<MarkupLine, "code" | "label">): MarkupLine => ({
     code: "90 20 00",
     label,
@@ -305,18 +377,61 @@ function priceGeneralConditions(inputs: MarkupInputs, assumptions: string[]): Ma
 
   if (choices.method === "staffing_duration") return priceStaffing(inputs, line, tbd, assumptions);
 
+  // A split budget's General Conditions reads the budgets that record General
+  // Conditions on its own line; it never divides a combined figure (ADR 0004).
+  const setup: MarkupHistorySetup = separate ? "gc_only" : (choices.setup as MarkupHistorySetup);
+  return priceFromHistory(inputs, setup, choices.overrideRate, base, separate ? "subtotal plus General Requirements" : "subtotal", line, tbd);
+}
+
+/**
+ * General Requirements on its own line, for the "separate" setup. It prices
+ * from the budgets that record General Requirements alone, or the user's own
+ * rate, as a percent of the subtotal or dollars per GSF. Staffing and field
+ * office price General Conditions, so under that method General Requirements
+ * prices as a percent of subtotal.
+ */
+function priceGeneralRequirements(inputs: MarkupInputs): MarkupLine {
+  const line = (over: Omit<MarkupLine, "code" | "label">): MarkupLine => ({
+    code: GENERAL_REQUIREMENTS_CODE,
+    label: SETUP_LABEL.gr_only,
+    ...over,
+  });
+  const tbd = (basis: string): MarkupLine => line({ low: 0, high: 0, basis, tbd: true, source: "none" });
+  const method = inputs.choices.method === "usd_per_gsf" ? "usd_per_gsf" : "pct_of_subtotal";
+  return priceFromHistory(
+    { ...inputs, choices: { ...inputs.choices, method } },
+    "gr_only",
+    inputs.choices.grOverrideRate,
+    inputs.subtotal,
+    "subtotal",
+    line,
+    tbd,
+  );
+}
+
+function priceFromHistory(
+  inputs: MarkupInputs,
+  setup: MarkupHistorySetup,
+  overrideRate: number | undefined,
+  base: Range,
+  baseWords: string,
+  line: (over: Omit<MarkupLine, "code" | "label">) => MarkupLine,
+  tbd: (basis: string) => MarkupLine,
+): MarkupLine {
+  const { choices } = inputs;
+  const label = SETUP_LABEL[setup];
   const rows = inputs.history
-    .filter((row) => row.setup === choices.setup)
+    .filter((row) => row.setup === setup)
     .sort((a, b) => a.projectName.localeCompare(b.projectName) || a.projectId.localeCompare(b.projectId));
   const from = historyWords(rows);
 
   if (choices.method === "pct_of_subtotal") {
-    if (choices.overrideRate !== undefined) {
-      const rate = choices.overrideRate;
+    if (overrideRate !== undefined) {
+      const rate = overrideRate;
       return line({
-        low: Math.round(inputs.subtotal.low * rate),
-        high: Math.round(inputs.subtotal.high * rate),
-        basis: `${percent(rate)} of subtotal, user override${rows.length > 0 ? ` (history: ${percent(mean(rows.map((r) => r.pctOfSubtotal)))} ${from})` : ""}`,
+        low: Math.round(base.low * rate),
+        high: Math.round(base.high * rate),
+        basis: `${percent(rate)} of ${baseWords}, user override${rows.length > 0 ? ` (history: ${percent(mean(rows.map((r) => r.pctOfSubtotal)))} ${from})` : ""}`,
         tbd: false,
         source: "override",
       });
@@ -326,21 +441,21 @@ function priceGeneralConditions(inputs: MarkupInputs, assumptions: string[]): Ma
     }
     const rate = mean(rows.map((r) => r.pctOfSubtotal));
     return line({
-      low: Math.round(inputs.subtotal.low * rate),
-      high: Math.round(inputs.subtotal.high * rate),
-      basis: `${percent(rate)} of subtotal, ${from}`,
+      low: Math.round(base.low * rate),
+      high: Math.round(base.high * rate),
+      basis: `${percent(rate)} of ${baseWords}, ${from}`,
       tbd: false,
       source: "history",
     });
   }
 
   // usd_per_gsf: one rate times one area, so low and high are the same figure.
-  if (choices.overrideRate !== undefined) {
-    const amount = Math.round(choices.overrideRate * inputs.grossSquareFeet);
+  if (overrideRate !== undefined) {
+    const amount = Math.round(overrideRate * inputs.grossSquareFeet);
     return line({
       low: amount,
       high: amount,
-      basis: `${perSf(choices.overrideRate)}/GSF × ${area(inputs.grossSquareFeet)} GSF, user override${rows.length > 0 ? ` (history: ${perSf(mean(rows.map((r) => r.usdPerGsf)))}/GSF ${from})` : ""}`,
+      basis: `${perSf(overrideRate)}/GSF × ${area(inputs.grossSquareFeet)} GSF, user override${rows.length > 0 ? ` (history: ${perSf(mean(rows.map((r) => r.usdPerGsf)))}/GSF ${from})` : ""}`,
       tbd: false,
       source: "override",
     });
@@ -436,6 +551,11 @@ function priceStaffing(
     tbd: false,
     source: "staffing",
   });
+}
+
+/** "a", "a and b". */
+function andWords(words: string[]): string {
+  return words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }
 
 function historyWords(rows: MarkupHistoryRow[]): string {

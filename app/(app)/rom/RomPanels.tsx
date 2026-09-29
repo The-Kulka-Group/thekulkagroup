@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { ConfidenceFlag, ProvenanceKind, Rom, RomLine } from "@kulka/engine";
+import { overheadLines, type ConfidenceFlag, type ProvenanceKind, type Rom, type RomLine } from "@kulka/engine";
 
 import { personName } from "@/lib/format/person-name";
 import { titleCase } from "@/lib/format/title-case";
@@ -122,7 +122,7 @@ export function TotalPanel({
       {markups ? (
         <>
           <h3>Markups on the Subtotal</h3>
-          {[markups.subtotal, markups.generalConditions, markups.fee, markups.insurance].map((line) => (
+          {[markups.subtotal, ...overheadLines(markups).map(({ line }) => line), markups.fee, markups.insurance].map((line) => (
             <Row
               key={line.label}
               name={line.code ? `${line.code} ${titleCase(line.label)}` : titleCase(line.label)}

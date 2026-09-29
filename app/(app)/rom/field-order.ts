@@ -1,4 +1,4 @@
-import type { BlockClassification, Rom, UnpricedItem } from "@kulka/engine";
+import { overheadLines, type BlockClassification, type Rom, type UnpricedItem } from "@kulka/engine";
 
 import { divisionOf } from "@/lib/rom/board";
 
@@ -282,7 +282,16 @@ export function barModel(rom: Rom, entries: readonly FieldEntry[]): BarModel {
   const owner = m ? midpoint(m.ownerDirect) : midpoint(rom.total) - midpoint(kulka);
   const raw: Omit<BarPart, "left" | "width">[] = [
     { key: "trade", label: "Trades", value: trade },
-    { key: "gc", label: "GRs/GCs", value: m && !m.generalConditions.tbd ? midpoint(m.generalConditions) : 0 },
+    // LA-1383: a split budget's two lines share the one GRs/GCs part.
+    {
+      key: "gc",
+      label: "GRs/GCs",
+      value: m
+        ? overheadLines(m)
+            .filter(({ line }) => !line.tbd)
+            .reduce((sum, { line }) => sum + midpoint(line), 0)
+        : 0,
+    },
     { key: "fee", label: "Fee", value: m && !m.fee.tbd ? midpoint(m.fee) : 0 },
     { key: "ins", label: "Insurance", value: m && !m.insurance.tbd ? midpoint(m.insurance) : 0 },
     { key: "owner", label: "Owner Direct", value: owner },

@@ -376,6 +376,33 @@ describe("POST /api/rom markups", () => {
     expect(rom.markups.fee.source).toBe("override");
   });
 
+  // LA-1383: General Requirements and General Conditions as two lines.
+  it("records separate lines with a rate for each, and returns both lines", async () => {
+    const markups = { setup: "separate", method: "pct_of_subtotal", overrideRate: 0.08, grOverrideRate: 0.02 };
+    const response = await post({ projectId: TEST_PROJECT_ID, markups });
+    expect(response.status).toBe(200);
+    const { rom } = await response.json();
+
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual(markups);
+    const gr = rom.markups.generalRequirements;
+    expect([gr.code, gr.label, gr.source]).toEqual(["01 00 00", "General Requirements", "override"]);
+    expect(gr.low).toBe(Math.round(rom.markups.subtotal.low * 0.02));
+    expect(rom.markups.generalConditions.label).toBe("General Conditions");
+    expect(rom.markups.generalConditions.low).toBe(Math.round((rom.markups.subtotal.low + gr.low) * 0.08));
+  });
+
+  it("drops a General Requirements rate a combined setup cannot use", async () => {
+    const response = await post({
+      projectId: TEST_PROJECT_ID,
+      markups: { setup: "both", method: "pct_of_subtotal", overrideRate: 0.1, grOverrideRate: 0.02 },
+    });
+    expect(response.status).toBe(200);
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual({ setup: "both", method: "pct_of_subtotal", overrideRate: 0.1 });
+    expect((await response.json()).rom.markups.generalRequirements).toBeUndefined();
+  });
+
   it("prices the staffing method off the rate tables and records the plan", async () => {
     const { rows } = await db.query<{ id: string }>(
       `select id from gc_staffing_rates where role = 'Project Manager' and days_per_week = 5`,
@@ -436,6 +463,7 @@ describe("POST /api/rom markups", () => {
       { feeRate: 3.25 },
       { method: "staffing_duration" },
       { method: "pct_of_subtotal", overrideRate: 15 },
+      { setup: "separate", method: "pct_of_subtotal", grOverrideRate: 3 },
     ]) {
       const response = await post({ projectId: TEST_PROJECT_ID, markups });
       expect(response.status).toBe(400);

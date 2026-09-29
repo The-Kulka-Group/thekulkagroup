@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { planFromStaffingChoices, type MarkupChoices, type MarkupMethod, type MarkupSetup } from "@kulka/engine";
+import {
+  grMethodOf,
+  planFromStaffingChoices,
+  type GrMethod,
+  type MarkupChoices,
+  type MarkupMethod,
+  type MarkupSetup,
+} from "@kulka/engine";
 
 import { personName } from "@/lib/format/person-name";
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -17,7 +24,8 @@ import "./markups.css";
 // the user types. Nothing here supplies a default staffing mix. The waterfall
 // it produces (subtotal, GRs/GCs, fee, insurance, total) shows in the total
 // panel on /rom since LA-1101. LA-1397 replaced Staffing and Duration with
-// Allocated Resources (ResourcePlanEditor.tsx).
+// Allocated Resources (ResourcePlanEditor.tsx). LA-1398 lets General
+// Requirements take its own method under separate lines, a plan included.
 
 export const SETUPS: { value: MarkupSetup; label: string }[] = [
   { value: "both", label: "Both, One Combined Line" },
@@ -45,30 +53,39 @@ export function setupHistory(
  * that line has history of its own.
  */
 export function missingRates(form: MarkupForm, counts: MarkupOptions["historyCounts"], useHistory: boolean): string[] {
-  const perSf = form.method === "usd_per_gsf";
-  const blank = (percent: string, dollars: string) => (perSf ? dollars : percent).trim() === "";
-  if (form.method === "allocated_resources") {
-    // The plan prices General Conditions; with separate lines, General
-    // Requirements is still a percent and needs a rate or its own history.
-    if (form.setup !== "separate") return [];
-    const history = setupHistory(counts, form.setup);
-    return form.grOverridePercent.trim() === "" && !history.gr ? ["General Requirements"] : [];
-  }
+  const blank = (method: MarkupMethod | GrMethod, percent: string, dollars: string) =>
+    (method === "usd_per_gsf" ? dollars : percent).trim() === "";
   if (form.setup !== "separate") {
-    return !useHistory && blank(form.overridePercent, form.overridePerSf) ? ["GRs/GCs"] : [];
+    // A plan prices the one line.
+    if (form.method === "allocated_resources") return [];
+    return !useHistory && blank(form.method, form.overridePercent, form.overridePerSf) ? ["GRs/GCs"] : [];
   }
+  // LA-1398: each line by its own method. A line its plan prices needs no rate.
   const history = setupHistory(counts, form.setup);
+  const grMethod = formGrMethod(form);
   const missing: string[] = [];
-  if (blank(form.grOverridePercent, form.grOverridePerSf) && !history.gr) missing.push("General Requirements");
-  if (blank(form.overridePercent, form.overridePerSf) && history.gc === 0) missing.push("General Conditions");
+  if (grMethod !== "allocated_resources" && blank(grMethod, form.grOverridePercent, form.grOverridePerSf) && !history.gr) {
+    missing.push("General Requirements");
+  }
+  if (form.method !== "allocated_resources" && blank(form.method, form.overridePercent, form.overridePerSf) && history.gc === 0) {
+    missing.push("General Conditions");
+  }
   return missing;
+}
+
+/**
+ * The method General Requirements prices by under separate lines: the one
+ * the estimator picked, or the rule runs before LA-1398 priced by.
+ */
+export function formGrMethod(form: Pick<MarkupForm, "method" | "grMethod">): GrMethod {
+  return grMethodOf({ setup: "separate", method: form.method, ...(form.grMethod ? { grMethod: form.grMethod } : {}) });
 }
 
 function jobsWords(count: number): string {
   return count === 1 ? "1 job" : `${count} jobs`;
 }
 
-export const METHODS: { value: MarkupMethod; label: string }[] = [
+export const METHODS: { value: MarkupMethod & GrMethod; label: string }[] = [
   { value: "pct_of_subtotal", label: "Percent of Subtotal" },
   { value: "usd_per_gsf", label: "Dollars per GSF" },
   { value: "allocated_resources", label: "Allocated Resources" },
@@ -84,6 +101,14 @@ export type MarkupForm = {
   grOverridePerSf: string;
   /** The Allocated Resources plan (LA-1397), read only under that method. */
   plan: PlanForm;
+  /**
+   * General Requirements' own method under separate lines (LA-1398). Null
+   * until the estimator picks one, and then it follows the rule runs before
+   * LA-1398 priced by (formGrMethod).
+   */
+  grMethod: GrMethod | null;
+  /** General Requirements' own plan, read only when it is priced by Allocated Resources. */
+  grPlan: PlanForm;
   feePercent: string;
   insurancePercent: string;
 };
@@ -99,6 +124,7 @@ function percentText(fraction: number | undefined | null): string {
  * as it always has.
  */
 export function initialMarkupForm(options: MarkupOptions | undefined, saved?: MarkupChoices | null): MarkupForm {
+  const savedGrMethod = saved ? grMethodOf(saved) : "pct_of_subtotal";
   return {
     setup: saved?.setup ?? "both",
     // LA-1397: a choice saved under the retired Staffing and Duration method
@@ -106,9 +132,11 @@ export function initialMarkupForm(options: MarkupOptions | undefined, saved?: Ma
     method: saved?.method === "staffing_duration" ? "allocated_resources" : (saved?.method ?? "pct_of_subtotal"),
     overridePercent: saved?.method === "pct_of_subtotal" ? percentText(saved.overrideRate) : "",
     overridePerSf: saved?.method === "usd_per_gsf" && saved.overrideRate !== undefined ? String(saved.overrideRate) : "",
-    grOverridePercent: saved?.method !== "usd_per_gsf" ? percentText(saved?.grOverrideRate) : "",
-    grOverridePerSf: saved?.method === "usd_per_gsf" && saved.grOverrideRate !== undefined ? String(saved.grOverrideRate) : "",
+    grOverridePercent: savedGrMethod !== "usd_per_gsf" ? percentText(saved?.grOverrideRate) : "",
+    grOverridePerSf: savedGrMethod === "usd_per_gsf" && saved?.grOverrideRate !== undefined ? String(saved.grOverrideRate) : "",
     plan: savedPlan(options, saved),
+    grMethod: saved?.grMethod ?? null,
+    grPlan: saved?.grResourcePlan ? planFormFrom(saved.grResourcePlan) : emptyPlanForm(),
     feePercent: percentText(saved?.feeRate ?? options?.feeRate?.value),
     insurancePercent: percentText(saved?.insuranceRate ?? options?.insuranceRate?.value),
   };
@@ -171,12 +199,21 @@ export function markupChoicesFrom(
   }
 
   if (form.setup === "separate") {
-    if (form.method === "usd_per_gsf" && form.grOverridePerSf.trim() !== "") {
+    // LA-1398: General Requirements' own method, recorded only where it
+    // differs from the rule runs before LA-1398 priced by.
+    const grMethod = formGrMethod(form);
+    if (grMethod !== grMethodOf({ setup: "separate", method: form.method })) markups.grMethod = grMethod;
+    if (grMethod === "allocated_resources") {
+      const plan = planFromForm(form.grPlan);
+      if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error.charAt(0).toLowerCase()}${plan.error.slice(1)}` };
+      markups.grResourcePlan = plan.plan;
+    }
+    if (grMethod === "usd_per_gsf" && form.grOverridePerSf.trim() !== "") {
       const value = Number(form.grOverridePerSf);
       if (!(value > 0)) return { ok: false, error: "The General Requirements rate per GSF must be above zero." };
       markups.grOverrideRate = value;
     }
-    if (form.method !== "usd_per_gsf" && form.grOverridePercent.trim() !== "") {
+    if (grMethod === "pct_of_subtotal" && form.grOverridePercent.trim() !== "") {
       const value = Number(form.grOverridePercent) / 100;
       if (!(value > 0 && value < 1)) {
         return { ok: false, error: "The General Requirements percent must be above 0 and below 100." };
@@ -209,6 +246,8 @@ export function MarkupControls({
   const history = setupHistory(options.historyCounts, form.setup);
   const separate = form.setup === "separate";
   const perSf = form.method === "usd_per_gsf";
+  const grMethod = formGrMethod(form);
+  const grPerSf = grMethod === "usd_per_gsf";
   const note = (jobs: number, what: string) =>
     jobs === 0
       ? `No imported budget has a figure for ${what} yet. Leave the rate blank and the line shows as TBD, outside the total.`
@@ -235,8 +274,27 @@ export function MarkupControls({
           </select>
         </label>
 
+        {separate ? (
+          // LA-1398: under separate lines each line picks its own method.
+          <label>
+            <span className="field-label t-label">General Requirements Method</span>
+            <select
+              className="input"
+              value={grMethod}
+              disabled={disabled}
+              onChange={(e) => set({ grMethod: e.target.value as GrMethod })}
+            >
+              {METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <label>
-          <span className="field-label t-label">Method</span>
+          <span className="field-label t-label">{separate ? "General Conditions Method" : "Method"}</span>
           <select
             className="input"
             value={form.method}
@@ -285,23 +343,21 @@ export function MarkupControls({
         <Link href="/rom/parameters">Engine Parameters</Link>.
       </p>
 
-      {separate ? (
-        // LA-1383: General Requirements on its own line. An Allocated
-        // Resources plan prices General Conditions, so beside it General
-        // Requirements is a percent until LA-1398 gives it a plan of its own.
+      {separate && grMethod !== "allocated_resources" ? (
+        // LA-1383: General Requirements on its own line, at its own rate.
         <div className="markup-grid">
           <label>
             <span className="field-label t-label">
-              {perSf ? "General Requirements, $ per GSF" : "General Requirements, % of Subtotal"}
+              {grPerSf ? "General Requirements, $ per GSF" : "General Requirements, % of Subtotal"}
             </span>
             <input
               className="input num"
               inputMode="decimal"
               placeholder="Use History"
-              value={perSf ? form.grOverridePerSf : form.grOverridePercent}
+              value={grPerSf ? form.grOverridePerSf : form.grOverridePercent}
               disabled={disabled}
               onChange={(e) =>
-                set(perSf ? { grOverridePerSf: e.target.value } : { grOverridePercent: e.target.value })
+                set(grPerSf ? { grOverridePerSf: e.target.value } : { grOverridePercent: e.target.value })
               }
             />
           </label>
@@ -338,17 +394,30 @@ export function MarkupControls({
         </div>
       ) : null}
 
+      {separate && grMethod === "allocated_resources" ? (
+        <ResourcePlanEditor
+          options={options}
+          plan={form.grPlan}
+          onChange={(grPlan) => set({ grPlan })}
+          disabled={disabled}
+          lineName="General Requirements"
+          kind="gr"
+        />
+      ) : null}
+
       {form.method === "allocated_resources" ? (
-        <>
-          <ResourcePlanEditor
-            options={options}
-            plan={form.plan}
-            onChange={(plan) => set({ plan })}
-            disabled={disabled}
-            lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
-          />
-          <GrRateCard rates={options.grRates ?? []} />
-        </>
+        <ResourcePlanEditor
+          options={options}
+          plan={form.plan}
+          onChange={(plan) => set({ plan })}
+          disabled={disabled}
+          lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
+          kind={separate || form.setup === "gc_only" ? "gc" : form.setup === "gr_only" ? "gr" : "both"}
+        />
+      ) : null}
+
+      {form.method === "allocated_resources" || (separate && grMethod === "allocated_resources") ? (
+        <GrRateCard rates={options.grRates ?? []} />
       ) : null}
     </section>
   );

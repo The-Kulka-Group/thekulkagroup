@@ -440,6 +440,52 @@ describe("POST /api/rom markups", () => {
     expect(run.answers.markups).toEqual(markups);
   });
 
+  // LA-1398: under separate lines, General Requirements picks its own method.
+  it("prices General Requirements by its own plan beside a percent General Conditions, and records both", async () => {
+    const figure = (value: number) => ({ value, origin: "estimator" });
+    const markups = {
+      setup: "separate",
+      method: "pct_of_subtotal",
+      overrideRate: 0.05,
+      grMethod: "allocated_resources",
+      grResourcePlan: {
+        schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) },
+        confidence: "high",
+        lines: [
+          {
+            id: "row-44",
+            label: "Final Cleaning",
+            group: "Construction Labor & Clean-up",
+            basis: "unit",
+            unit: "SF",
+            quantity: figure(20_000),
+            rate: { value: 0.55, origin: "rate_card", ref: "00000000-0000-4000-8000-0000000000a1", source: "C-00379" },
+          },
+        ],
+      },
+    };
+    const response = await post({ projectId: TEST_PROJECT_ID, markups });
+    expect(response.status).toBe(200);
+    const { rom } = await response.json();
+
+    const gr = rom.markups.generalRequirements;
+    // 20,000 SF at $0.55: $11,000.
+    expect([gr.code, gr.source, gr.plan.total]).toEqual(["01 00 00", "allocated", 11_000]);
+    expect(rom.markups.generalConditions.low).toBe(Math.round((rom.markups.subtotal.low + gr.low) * 0.05));
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual(markups);
+  });
+
+  it("drops a General Requirements method a combined setup cannot use", async () => {
+    const response = await post({
+      projectId: TEST_PROJECT_ID,
+      markups: { setup: "both", method: "pct_of_subtotal", overrideRate: 0.1, grMethod: "usd_per_gsf" },
+    });
+    expect(response.status).toBe(200);
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual({ setup: "both", method: "pct_of_subtotal", overrideRate: 0.1 });
+  });
+
   it("uses recorded GRs/GCs history for the chosen setup", async () => {
     const { rows } = await db.query<{ id: string }>(
       `select id from canonical_work_items order by sort_order limit 1`,
@@ -482,6 +528,9 @@ describe("POST /api/rom markups", () => {
       { method: "allocated_resources", resourcePlan: { schedule: {}, lines: [] } },
       { method: "pct_of_subtotal", overrideRate: 15 },
       { setup: "separate", method: "pct_of_subtotal", grOverrideRate: 3 },
+      { setup: "separate", method: "pct_of_subtotal", grMethod: "guess" },
+      { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources" },
+      { setup: "separate", method: "usd_per_gsf", grMethod: "pct_of_subtotal", grOverrideRate: 4 },
     ]) {
       const response = await post({ projectId: TEST_PROJECT_ID, markups });
       expect(response.status).toBe(400);

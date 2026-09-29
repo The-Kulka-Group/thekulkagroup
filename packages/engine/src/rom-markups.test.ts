@@ -622,3 +622,122 @@ describe("computeMarkups, allocated resources", () => {
     expect(rom.markups?.generalConditions.low).toBe(193_500);
   });
 });
+
+// LA-1398: under Separate Lines, General Requirements picks its own method.
+// It stays in Division 01, inside trade cost, so General Conditions, fee and
+// insurance compute on top of it whichever way each line is priced.
+describe("computeMarkups, a method per line under separate lines", () => {
+  const typed = (value: number) => ({ value, origin: "estimator" as const });
+  const spreadParameters = { high: parameter(0), medium: parameter(0.2), low: parameter(0.35) };
+  const VILLA = "22222222-2222-4222-8222-222222222222";
+  const grHistory = history({ projectId: VILLA, projectName: "Villa at Glen Cove", setup: "gr_only", pctOfSubtotal: 0.03, usdPerGsf: 4 });
+  const gcHistory = history({ projectId: VILLA, projectName: "Villa at Glen Cove", setup: "gc_only", pctOfSubtotal: 0.1, usdPerGsf: 12 });
+  // General Requirements: 40 weeks of a $1,000-a-week laborer, $40,000, and 2,000 SF of cleaning at $5, $10,000.
+  const grPlan: ResourcePlan = {
+    schedule: { precon: typed(0), construction: typed(40), closeout: typed(0) },
+    confidence: "high",
+    lines: [
+      { id: "lab", label: "Laborers", group: "Construction Labor & Clean-up", basis: "time", per: "week", phases: ["construction"], quantity: typed(1), rate: typed(1000) },
+      { id: "clean", label: "Final Cleaning", group: "Construction Labor & Clean-up", basis: "unit", unit: "SF", quantity: typed(2000), rate: typed(5) },
+    ],
+  };
+  // General Conditions: a $2,000-a-week superintendent for 40 weeks, $80,000.
+  const gcPlan: ResourcePlan = {
+    schedule: { precon: typed(0), construction: typed(40), closeout: typed(0) },
+    confidence: "high",
+    lines: [{ id: "sup", label: "Superintendent", group: "Staff", basis: "time", per: "week", phases: ["construction"], quantity: typed(1), rate: typed(2000) }],
+  };
+  const flat = { subtotal: { low: 1_000_000, high: 1_000_000 }, grossSquareFeet: 10_000, history: [grHistory, gcHistory], spreadParameters };
+
+  // Each General Requirements method, and what it prices to on a $1,000,000 subtotal and 10,000 GSF.
+  const grMethods = [
+    { grMethod: "pct_of_subtotal" as const, gr: 30_000, source: "history" },
+    { grMethod: "usd_per_gsf" as const, gr: 40_000, source: "history" },
+    { grMethod: "allocated_resources" as const, gr: 50_000, source: "allocated" },
+  ];
+  // Each General Conditions method, and what it prices to on trade cost including General Requirements.
+  const gcMethods = [
+    { method: "pct_of_subtotal" as const, gc: (tradeCost: number) => Math.round(tradeCost * 0.1) },
+    { method: "usd_per_gsf" as const, gc: () => 120_000 },
+    { method: "allocated_resources" as const, gc: () => 80_000 },
+  ];
+
+  for (const g of grMethods) {
+    for (const c of gcMethods) {
+      it(`prices General Requirements by ${g.grMethod} and General Conditions by ${c.method}`, () => {
+        const m = computeMarkups(
+          inputs({
+            ...flat,
+            choices: {
+              setup: "separate",
+              method: c.method,
+              grMethod: g.grMethod,
+              ...(c.method === "allocated_resources" ? { resourcePlan: gcPlan } : {}),
+              ...(g.grMethod === "allocated_resources" ? { grResourcePlan: grPlan } : {}),
+            },
+          }),
+        );
+        const tradeCost = 1_000_000 + g.gr;
+        const gc = c.gc(tradeCost);
+        expect(m.generalRequirements).toMatchObject({ code: "01 00 00", low: g.gr, high: g.gr, source: g.source, tbd: false });
+        expect(m.generalConditions).toMatchObject({ code: "90 20 00", low: gc, high: gc, tbd: false });
+        const expected = waterfall(tradeCost, gc);
+        expect([m.fee.low, m.insurance.low, m.total.low]).toEqual([expected.fee, expected.insurance, expected.total]);
+      });
+    }
+  }
+
+  it("rates a percent General Conditions on the subtotal plus a plan-priced General Requirements", () => {
+    const m = computeMarkups(
+      inputs({ ...flat, choices: { setup: "separate", method: "pct_of_subtotal", overrideRate: 0.05, grMethod: "allocated_resources", grResourcePlan: grPlan } }),
+    );
+    expect(m.generalRequirements?.plan?.total).toBe(50_000);
+    expect(m.generalConditions.low).toBe(52_500);
+    expect(m.generalConditions.basis).toBe("5.00% of subtotal plus General Requirements, user override (history: 10.00% from 1 job: Villa at Glen Cove)");
+  });
+
+  it("keeps General Requirements following the old rule when no method of its own is named", () => {
+    const perSf = computeMarkups(inputs({ ...flat, choices: { setup: "separate", method: "usd_per_gsf" } }));
+    expect(perSf.generalRequirements?.low).toBe(40_000);
+    const allocated = computeMarkups(
+      inputs({ ...flat, choices: { setup: "separate", method: "allocated_resources", resourcePlan: gcPlan } }),
+    );
+    expect(allocated.generalRequirements?.low).toBe(30_000);
+  });
+
+  it("is TBD when the General Requirements plan has no lines, and General Conditions rates on the subtotal alone", () => {
+    const m = computeMarkups(
+      inputs({ ...flat, choices: { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources", grResourcePlan: { ...grPlan, lines: [] } } }),
+    );
+    expect(m.generalRequirements?.tbd).toBe(true);
+    expect(m.generalConditions.low).toBe(100_000);
+  });
+
+  it("states the monthly conversion once when both lines carry monthly lines", () => {
+    const monthly: ResourcePlan = {
+      ...grPlan,
+      lines: [{ id: "m", label: "Port-a-John", group: "Temporary Utilities", basis: "time", per: "month", phases: ["construction"], quantity: typed(1), rate: typed(90) }],
+    };
+    const m = computeMarkups(
+      inputs({ ...flat, choices: { setup: "separate", method: "allocated_resources", resourcePlan: monthly, grMethod: "allocated_resources", grResourcePlan: monthly } }),
+    );
+    expect(m.assumptions.filter((one) => one.includes("30.42 days a month"))).toHaveLength(1);
+  });
+
+  it("refuses a General Requirements method outside separate lines, a plan-priced one with no plan, and a rate beside a plan", () => {
+    expect(() => computeMarkups(inputs({ ...flat, choices: { setup: "both", method: "pct_of_subtotal", grMethod: "usd_per_gsf" } }))).toThrow(
+      /General Requirements method applies only/,
+    );
+    expect(() =>
+      computeMarkups(inputs({ ...flat, choices: { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources" } })),
+    ).toThrow(/General Requirements plan/);
+    expect(() =>
+      computeMarkups(
+        inputs({ ...flat, choices: { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources", grResourcePlan: grPlan, grOverrideRate: 0.02 } }),
+      ),
+    ).toThrow(/does not apply/);
+    expect(() =>
+      computeMarkups(inputs({ ...flat, choices: { setup: "separate", method: "usd_per_gsf", grMethod: "pct_of_subtotal", grOverrideRate: 4 } })),
+    ).toThrow(/fraction below one/);
+  });
+});

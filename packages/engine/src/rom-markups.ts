@@ -39,6 +39,15 @@ export type MarkupHistorySetup = Exclude<MarkupSetup, "separate">;
  */
 export type MarkupMethod = "pct_of_subtotal" | "usd_per_gsf" | "allocated_resources" | "staffing_duration";
 
+/**
+ * How General Requirements prices on its own line under the "separate" setup
+ * (LA-1398): from history or the user's rate, as a percent of the subtotal or
+ * dollars per GSF, or by its own Allocated Resources plan.
+ */
+export type GrMethod = "pct_of_subtotal" | "usd_per_gsf" | "allocated_resources";
+
+export const GR_METHODS: readonly GrMethod[] = ["pct_of_subtotal", "usd_per_gsf", "allocated_resources"];
+
 export type StaffPick = {
   /** A gc_staffing_rates row id. */
   rateId: string;
@@ -72,9 +81,17 @@ export type MarkupChoices = {
    */
   grOverrideRate?: number;
   /**
+   * General Requirements' own method when the setup is "separate" (LA-1398).
+   * Absent, it follows the rule every run before LA-1398 priced by: dollars
+   * per GSF when `method` is `usd_per_gsf`, a percent of subtotal otherwise.
+   * See `grMethodOf`.
+   */
+  grMethod?: GrMethod;
+  /** The plan General Requirements prices by when `grMethod` is `allocated_resources`. */
+  grResourcePlan?: ResourcePlan;
+  /**
    * The plan `allocated_resources` prices: the GRs/GCs line, or General
-   * Conditions alone when the setup is "separate", where General Requirements
-   * then prices as a percent of subtotal beside it.
+   * Conditions alone when the setup is "separate".
    */
   resourcePlan?: ResourcePlan;
   /** Job duration in weeks. Required by `staffing_duration`, which only stored runs carry. */
@@ -203,6 +220,15 @@ export const SETUP_LABEL: Record<MarkupSetup, string> = {
 /** ADR 0004: General Requirements is MasterFormat Division 01. */
 export const GENERAL_REQUIREMENTS_CODE = "01 00 00";
 
+/**
+ * How General Requirements prices under the "separate" setup: its own method
+ * when the choices name one, otherwise the rule runs before LA-1398 priced by,
+ * so a stored run prices exactly as it was recorded.
+ */
+export function grMethodOf(choices: MarkupChoices): GrMethod {
+  return choices.grMethod ?? (choices.method === "usd_per_gsf" ? "usd_per_gsf" : "pct_of_subtotal");
+}
+
 const METHODS: readonly MarkupMethod[] = ["pct_of_subtotal", "usd_per_gsf", "allocated_resources", "staffing_duration"];
 const SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only", "separate"];
 
@@ -237,7 +263,7 @@ export function computeMarkups(inputs: MarkupInputs): Markups {
   };
 
   const separate = choices.setup === "separate";
-  const generalRequirements = separate ? priceGeneralRequirements(inputs) : undefined;
+  const generalRequirements = separate ? priceGeneralRequirements(inputs, assumptions) : undefined;
   const gr = generalRequirements && !generalRequirements.tbd ? generalRequirements : { low: 0, high: 0 };
   // ADR 0004: trade cost includes General Requirements, and every 90-series
   // item computes on top of it, so a split budget's General Conditions rates
@@ -328,12 +354,27 @@ function validateChoices(choices: MarkupChoices): void {
   if (choices.method === "allocated_resources" && !choices.resourcePlan) {
     throw new Error("The Allocated Resources method needs a resource plan.");
   }
+  if (choices.grMethod !== undefined || choices.grResourcePlan !== undefined) {
+    if (choices.setup !== "separate") {
+      throw new Error("A General Requirements method applies only when the two lines are carried separately.");
+    }
+    if (choices.grMethod !== undefined && !GR_METHODS.includes(choices.grMethod)) {
+      throw new Error(`Unknown General Requirements method "${choices.grMethod}".`);
+    }
+  }
+  const grMethod = grMethodOf(choices);
+  if (choices.setup === "separate" && grMethod === "allocated_resources" && !choices.grResourcePlan) {
+    throw new Error("General Requirements priced by Allocated Resources needs a General Requirements plan.");
+  }
   if (choices.grOverrideRate !== undefined) {
     if (choices.setup !== "separate") {
       throw new Error("A General Requirements rate applies only when the two lines are carried separately.");
     }
+    if (grMethod === "allocated_resources") {
+      throw new Error("A General Requirements rate does not apply when its plan prices it.");
+    }
     if (!(choices.grOverrideRate > 0)) throw new Error("A General Requirements override rate must be above zero.");
-    if (choices.method !== "usd_per_gsf" && !(choices.grOverrideRate < 1)) {
+    if (grMethod !== "usd_per_gsf" && !(choices.grOverrideRate < 1)) {
       throw new Error("A General Requirements percent override must be a fraction below one.");
     }
   }
@@ -408,19 +449,22 @@ function priceGeneralConditions(inputs: MarkupInputs, base: Range, assumptions: 
 
 /**
  * General Requirements on its own line, for the "separate" setup. It prices
- * from the budgets that record General Requirements alone, or the user's own
- * rate, as a percent of the subtotal or dollars per GSF. Under Allocated
- * Resources (and the retired staffing method) the plan prices General
- * Conditions, so General Requirements prices as a percent of subtotal.
+ * by its own method (LA-1398): its own Allocated Resources plan, or from the
+ * budgets that record General Requirements alone, or the user's own rate, as
+ * a percent of the subtotal or dollars per GSF. `grMethodOf` keeps runs
+ * recorded before LA-1398 pricing as they were.
  */
-function priceGeneralRequirements(inputs: MarkupInputs): MarkupLine {
+function priceGeneralRequirements(inputs: MarkupInputs, assumptions: string[]): MarkupLine {
   const line = (over: Omit<MarkupLine, "code" | "label">): MarkupLine => ({
     code: GENERAL_REQUIREMENTS_CODE,
     label: SETUP_LABEL.gr_only,
     ...over,
   });
   const tbd = (basis: string): MarkupLine => line({ low: 0, high: 0, basis, tbd: true, source: "none" });
-  const method = inputs.choices.method === "usd_per_gsf" ? "usd_per_gsf" : "pct_of_subtotal";
+  const method = grMethodOf(inputs.choices);
+  if (method === "allocated_resources") {
+    return priceAllocated(inputs.choices.grResourcePlan!, inputs.spreadParameters, line, tbd, assumptions);
+  }
   return priceFromHistory(
     { ...inputs, choices: { ...inputs.choices, method } },
     "gr_only",
@@ -525,11 +569,9 @@ function priceAllocated(
   const totalWeeks = phases.reduce((sum, phase) => sum + priced.weeks[phase], 0);
   const sources = [...new Set(priced.lines.flatMap((one) => (one.rate.source ? [one.rate.source] : [])))].sort();
   const months = priced.lines.some((one) => one.basisWords.includes("/month"));
-  if (months) {
-    assumptions.push(
-      "Allocated Resources prices monthly lines at 30.42 days a month, the conversion Kulka's own General Conditions sheet uses.",
-    );
-  }
+  const monthWords =
+    "Allocated Resources prices monthly lines at 30.42 days a month, the conversion Kulka's own General Conditions sheet uses.";
+  if (months && !assumptions.includes(monthWords)) assumptions.push(monthWords);
 
   return line({
     low: Math.round(priced.exactTotal * (1 - spread.value)),

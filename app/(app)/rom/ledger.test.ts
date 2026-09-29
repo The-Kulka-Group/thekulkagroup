@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { BlockClassification, Rom, RomLine, UnpricedItem } from "@kulka/engine";
+import { computeMarkups, type BlockClassification, type Rom, type RomLine, type UnpricedItem } from "@kulka/engine";
 
 import { addsToTotal } from "./block-layout";
 import { barModel, buildField, orderField, type RomOrder } from "./field-order";
 import { LedgerView } from "./LedgerView";
-import { buildLedger, divisionTitle, sourceOf, type LedgerGrouping, type LedgerRow } from "./ledger";
+import { buildLedger, divisionTitle, markupRows, sourceOf, type LedgerGrouping, type LedgerRow } from "./ledger";
 
 // LA-1254. The schedule-of-values ledger, on the same synthetic pilot the
 // card field is tested on (field-order.test.ts): demolition with its
@@ -235,5 +235,73 @@ describe("the Ledger view", () => {
     const html = render(false);
     expect(html).toContain("$2.2M");
     expect(html).not.toMatch(/\$\d+\.\d\d\b/);
+  });
+});
+
+// LA-1398: the Ledger lists an Allocated Resources plan's lines under the
+// markup row it priced, General Requirements' and General Conditions' alike.
+describe("the Ledger's markup rows", () => {
+  const typed = (value: number) => ({ value, origin: "estimator" as const });
+  const parameter = (value: number) => ({
+    value,
+    provenance: { kind: "reviewed_judgment" as const, recordedBy: "automated test", recordedAt: "2026-09-29", reason: "synthetic" },
+  });
+  function withPlans(): Rom {
+    const { r } = pilot();
+    const markups = computeMarkups({
+      subtotal: r.kulkaContractTotal,
+      ownerDirect: { low: 0, high: 0 },
+      grossSquareFeet: 100_000,
+      choices: {
+        setup: "separate",
+        method: "pct_of_subtotal",
+        overrideRate: 0.05,
+        grMethod: "allocated_resources",
+        grResourcePlan: {
+          schedule: { precon: typed(0), construction: typed(40), closeout: typed(0) },
+          confidence: "high",
+          lines: [
+            { id: "clean", label: "final cleaning", group: "Construction Labor & Clean-up", basis: "unit", unit: "SF", quantity: typed(100_000), rate: typed(0.55) },
+            { id: "john", label: "Port-a-John", group: "Temporary Utilities", basis: "time", per: "week", phases: ["construction"], quantity: typed(2), rate: typed(100) },
+          ],
+        },
+      },
+      history: [],
+      staffingRates: [],
+      fieldOfficeRates: [],
+      feeParameter: parameter(0.0325),
+      insuranceParameter: parameter(0.054),
+      spreadParameters: { high: parameter(0), medium: parameter(0.2), low: parameter(0.35) },
+    });
+    return { ...r, markups };
+  }
+
+  it("carries each plan line, by name and amount, under the line its plan priced", () => {
+    const rows = markupRows(withPlans());
+    expect(rows.map((row) => row.label)).toEqual(["General Requirements", "General Conditions", "Fee", "Insurance"]);
+    expect(rows[0].lines).toEqual([
+      { key: "gr:clean", label: "final cleaning", amount: 55_000 },
+      { key: "gr:john", label: "Port-a-John", amount: 8_000 },
+    ]);
+    expect(rows[1].lines).toBeUndefined();
+  });
+
+  it("draws them in the Ledger view", () => {
+    const { r, classifications } = pilot();
+    const rom = { ...withPlans(), lines: r.lines };
+    const entries = orderField(buildField("scope", rom, classifications), "masterformat");
+    const html = renderToStaticMarkup(
+      createElement(LedgerView, {
+        rom,
+        ledger: buildLedger(rom, entries, "element", "masterformat", classifications, new Map()),
+        bar: barModel(rom, entries),
+        grossSquareFeet: 100_000,
+        selected: null,
+        onOpen: () => {},
+        bySpread: false,
+      }),
+    );
+    expect(html).toContain("Final Cleaning");
+    expect(html).toContain("Port-a-John");
   });
 });

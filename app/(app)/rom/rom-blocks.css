@@ -1194,6 +1194,8 @@ button.lg-row:hover { background: color-mix(in srgb, var(--rb-blk-ink) 4%, trans
 .lg-sum { font-weight: 600; }
 .lg-sum + .lg-sum:not(.lg-sum--total) { font-weight: 400; color: var(--rb-blk-ink2); border-top-style: dashed; }
 .lg-sum--total { font-size: calc(var(--ui-size) + 2px); font-weight: 700; border-top-width: 2px; border-top-color: var(--rb-blk-ink); }
+/* LA-1398: an Allocated Resources plan's lines under the markup row they price. */
+.lg .lg-sum.lg-plan { font-weight: 400; border-top-style: none; }
 .lg-cap { font-size: var(--meta-size); color: var(--rb-blk-ink2); }
 
 /* Columns drop by the ledger's own width, since the side panel and the

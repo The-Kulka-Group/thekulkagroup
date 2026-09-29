@@ -1,8 +1,11 @@
 import {
   DEFAULT_MARKUP_CHOICES,
+  GR_METHODS,
+  grMethodOf,
   planFromStaffingChoices,
   type EngineParameter,
   type FieldOfficeRate,
+  type GrMethod,
   type MarkupChoices,
   type MarkupHistoryRow,
   type MarkupHistorySetup,
@@ -516,6 +519,9 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
     choices[name] = rate;
   }
 
+  const gr = readGrMethod(value, choices);
+  if (!gr.ok) return gr;
+
   if (choices.method === "allocated_resources") {
     const plan = parseResourcePlan(value.resourcePlan);
     if (!plan.ok) return plan;
@@ -541,17 +547,49 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
 }
 
 /**
+ * General Requirements' own method under a "separate" setup (LA-1398), and
+ * its plan when it is priced by Allocated Resources. Both are kept only for
+ * that setup. A request that names no method keeps the rule runs before
+ * LA-1398 priced by (grMethodOf), and nothing is added to what it recorded.
+ */
+function readGrMethod(value: Record<string, unknown>, choices: MarkupChoices): { ok: true } | { ok: false; error: string } {
+  const method = value.grMethod;
+  if (method === undefined || method === null || choices.setup !== "separate") return { ok: true };
+  if (!GR_METHODS.includes(method as GrMethod)) {
+    return {
+      ok: false,
+      error: 'Send markups.grMethod as "pct_of_subtotal", "usd_per_gsf", or "allocated_resources".',
+    };
+  }
+  choices.grMethod = method as GrMethod;
+  if (method === "allocated_resources") {
+    if (value.grResourcePlan === undefined || value.grResourcePlan === null) {
+      return { ok: false, error: "Send markups.grResourcePlan for General Requirements priced by Allocated Resources." };
+    }
+    const plan = parseResourcePlan(value.grResourcePlan);
+    if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error}` };
+    choices.grResourcePlan = plan.plan;
+  }
+  return { ok: true };
+}
+
+/**
  * The General Requirements rate a "separate" setup can carry (LA-1383). It is
- * kept only for that setup, in dollars per GSF under usd_per_gsf and as a
- * fraction of the subtotal otherwise.
+ * kept only for that setup, in dollars per GSF when General Requirements is
+ * priced per GSF and as a fraction of the subtotal otherwise, and never beside
+ * a General Requirements plan.
  */
 function readGrOverride(value: Record<string, unknown>, choices: MarkupChoices): { ok: true } | { ok: false; error: string } {
   const rate = value.grOverrideRate;
   if (rate === undefined || rate === null || choices.setup !== "separate") return { ok: true };
+  const grMethod = grMethodOf(choices);
+  if (grMethod === "allocated_resources") {
+    return { ok: false, error: "Send no markups.grOverrideRate when General Requirements is priced by its plan." };
+  }
   if (!isNumber(rate) || rate <= 0) {
     return { ok: false, error: "Send markups.grOverrideRate as a number above zero." };
   }
-  if (choices.method !== "usd_per_gsf" && rate >= 1) {
+  if (grMethod !== "usd_per_gsf" && rate >= 1) {
     return { ok: false, error: "Send a General Requirements percent as a fraction below one." };
   }
   choices.grOverrideRate = rate;

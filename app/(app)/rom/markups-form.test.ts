@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import type { GrRate } from "@/lib/rom/gr-rates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
 import { initialMarkupForm, markupChoicesFrom, METHODS, missingRates, setupHistory, type MarkupForm } from "./Markups";
-import { linesFromRateCard, TYPED } from "./resource-plan-form";
+import { grRateOptions, linesFromGrRate, linesFromRateCard, TYPED } from "./resource-plan-form";
 
 // LA-1383: the Run Settings form with General Requirements and General
 // Conditions carried as two lines. Counts and rates are synthetic.
@@ -165,5 +166,133 @@ describe("the GRs/GCs form, Allocated Resources", () => {
     expect(missingRates(form, options.historyCounts, false)).toEqual(["General Requirements"]);
     expect(missingRates({ ...form, grOverridePercent: "2" }, options.historyCounts, false)).toEqual([]);
     expect(missingRates({ ...form, setup: "gc_only" }, options.historyCounts, false)).toEqual([]);
+  });
+});
+
+// LA-1398: General Requirements by Allocated Resources, and a method per line
+// under Separate Lines. Rate card rows are shaped like LA-1396's gr_rates rows.
+describe("the GRs/GCs form, General Requirements by Allocated Resources", () => {
+  const row = (over: Partial<GrRate> & Pick<GrRate, "id" | "section" | "item">): GrRate => ({
+    unit: null,
+    basis: "lump_sum",
+    phase: null,
+    rate: null,
+    jobQuantity: null,
+    note: null,
+    flaggedFor: null,
+    priceable: true,
+    notPriceableReason: null,
+    sourceEstimate: "C-00379",
+    sourceJob: "117 N. Long Beach Rd, one 120,000 SF warehouse",
+    singleJobWarehouse: true,
+    ...over,
+  });
+  const grRates: GrRate[] = [
+    row({ id: "g-clean", section: "Construction Labor & Clean-up", item: "Final Cleaning", unit: "SF", basis: "unit", rate: 0.55, jobQuantity: 120_000 }),
+    row({ id: "g-lab", section: "Construction Labor & Clean-up", item: "Laborers", unit: "Weeks", basis: "phase_weeks", phase: "construction", rate: 1400 }),
+    row({ id: "g-john", section: "Temporary Utilities", item: "Port-a-John", unit: "Months", basis: "phase_months", phase: "construction", rate: 90 }),
+    row({ id: "g-permit", section: "Permits, Fees & Expediting", item: "Building Permit Fee", basis: "not_stated" }),
+    row({ id: "g-wash", section: "Construction Labor & Clean-up", item: "Car Washing", unit: "Weeks", basis: "phase_weeks", rate: 0 }),
+    row({
+      id: "g-bond",
+      section: "Insurances & Bonds",
+      item: "Performance & Payment Bond",
+      basis: "not_stated",
+      priceable: false,
+      notPriceableReason: "Fee and insurance are already markups.",
+    }),
+  ];
+  const rates: MarkupOptions = { ...options, grRates };
+  const grPlan = () => ({
+    weeks: { precon: "0", construction: "40", closeout: "0" },
+    weeksFrom: { precon: TYPED, construction: TYPED, closeout: TYPED },
+    confidence: "high" as const,
+    lines: [...linesFromGrRate("g-lab", grRates, []), ...linesFromGrRate("g-john", grRates, [])],
+  });
+
+  it("adds a rate card line under its own section, at the card's rate and basis", () => {
+    expect(linesFromGrRate("g-lab", grRates, [])).toMatchObject([
+      { label: "Laborers", group: "Construction Labor & Clean-up", basis: "time", per: "week", phases: ["construction"], quantity: "1", rate: "1400", rateFrom: { origin: "rate_card", ref: "g-lab", source: "C-00379" } },
+    ]);
+    expect(linesFromGrRate("g-john", grRates, [])).toMatchObject([{ basis: "time", per: "month", rate: "90" }]);
+    // A unit line's quantity belongs to this job, so it starts blank rather than at the warehouse's 120,000.
+    expect(linesFromGrRate("g-clean", grRates, [])).toMatchObject([{ basis: "unit", unit: "SF", quantity: "", rate: "0.55" }]);
+  });
+
+  it("never adds an Insurances & Bonds row while it is marked not priceable, and never offers one", () => {
+    expect(linesFromGrRate("g-bond", grRates, [])).toEqual([]);
+    const offered = grRateOptions(grRates).flatMap((section) => section.rates.map((rate) => rate.id));
+    expect(offered).not.toContain("g-bond");
+    expect(grRateOptions(grRates).map((section) => section.section)).not.toContain("Insurances & Bonds");
+  });
+
+  it("adds a line the card has no rate for, and refuses to price it until the estimator enters one", () => {
+    for (const id of ["g-permit", "g-wash"]) {
+      const [line] = linesFromGrRate(id, grRates, []);
+      expect([line.rate, line.rateFrom]).toEqual(["", TYPED]);
+    }
+    const form = {
+      ...initialMarkupForm(rates),
+      setup: "separate" as const,
+      grMethod: "allocated_resources" as const,
+      grPlan: { ...grPlan(), lines: linesFromGrRate("g-permit", grRates, []) },
+      overridePercent: "8",
+    };
+    expect(markupChoicesFrom(form, rates)).toEqual({
+      ok: false,
+      error: "General Requirements: enter a rate for Building Permit Fee. The rate card has none for it.",
+    });
+    const typed = { ...form, grPlan: { ...form.grPlan, lines: [{ ...form.grPlan.lines[0], rate: "7500" }] } };
+    const sent = markupChoicesFrom(typed, rates);
+    expect(sent.ok && sent.markups.grResourcePlan?.lines[0].rate).toEqual({ value: 7500, origin: "estimator" });
+  });
+
+  it("saves each line's method on its own under separate lines", () => {
+    const base = { ...initialMarkupForm(rates), setup: "separate" as const };
+
+    // General Requirements by its plan, General Conditions as a percent.
+    const byPlan = markupChoicesFrom({ ...base, overridePercent: "8", grMethod: "allocated_resources", grPlan: grPlan(), grOverridePercent: "2" }, rates);
+    expect(byPlan.ok && byPlan.markups).toMatchObject({ setup: "separate", method: "pct_of_subtotal", overrideRate: 0.08, grMethod: "allocated_resources" });
+    expect(byPlan.ok && byPlan.markups.grOverrideRate).toBeUndefined();
+    expect(byPlan.ok && byPlan.markups.grResourcePlan?.lines.map((line) => line.label)).toEqual(["Laborers", "Port-a-John"]);
+
+    // General Conditions per GSF, General Requirements as a percent.
+    expect(markupChoicesFrom({ ...base, method: "usd_per_gsf", overridePerSf: "12", grMethod: "pct_of_subtotal", grOverridePercent: "2" }, rates)).toEqual({
+      ok: true,
+      markups: { setup: "separate", method: "usd_per_gsf", overrideRate: 12, grMethod: "pct_of_subtotal", grOverrideRate: 0.02 },
+    });
+
+    // Naming the method the old rule would pick records nothing new.
+    expect(markupChoicesFrom({ ...base, overridePercent: "8", grMethod: "pct_of_subtotal", grOverridePercent: "2" }, rates)).toEqual({
+      ok: true,
+      markups: { setup: "separate", method: "pct_of_subtotal", overrideRate: 0.08, grOverrideRate: 0.02 },
+    });
+  });
+
+  it("never sends a General Requirements method or plan outside separate lines", () => {
+    const form = { ...initialMarkupForm(rates), grMethod: "allocated_resources" as const, grPlan: grPlan() };
+    expect(markupChoicesFrom(form, rates)).toEqual({ ok: true, markups: { setup: "both", method: "pct_of_subtotal" } });
+  });
+
+  it("round-trips a saved General Requirements plan", () => {
+    const sent = markupChoicesFrom(
+      { ...initialMarkupForm(rates), setup: "separate", overridePercent: "8", grMethod: "allocated_resources", grPlan: grPlan() },
+      rates,
+    );
+    if (!sent.ok) throw new Error(sent.error);
+    const reopened = initialMarkupForm(rates, sent.markups);
+    expect(reopened.grMethod).toBe("allocated_resources");
+    expect(markupChoicesFrom(reopened, rates)).toEqual(sent);
+  });
+
+  it("asks New Budget for no General Requirements rate when its plan prices it", () => {
+    const form = { ...initialMarkupForm(rates), setup: "separate" as const, grMethod: "allocated_resources" as const, grPlan: grPlan() };
+    expect(missingRates(form, options.historyCounts, false)).toEqual([]);
+    expect(missingRates(form, { ...options.historyCounts, gc_only: 0 }, false)).toEqual(["General Conditions"]);
+  });
+
+  it("names the General Requirements plan in its errors", () => {
+    const form = { ...initialMarkupForm(rates), setup: "separate" as const, overridePercent: "8", grMethod: "allocated_resources" as const, grPlan: { ...grPlan(), lines: [] } };
+    expect(markupChoicesFrom(form, rates)).toEqual({ ok: false, error: "General Requirements: add at least one line to the plan." });
   });
 });

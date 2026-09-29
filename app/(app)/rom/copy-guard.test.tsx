@@ -24,10 +24,10 @@ import { deriveMachineRooms } from "@/lib/rom/machine-room-criterion";
 
 import { headlineOf, tradeBlocks } from "./block-layout";
 import { CriterionCard, CriterionPanel, type Criterion } from "./DerivedCriteria";
-import { initialMarkupForm } from "./Markups";
+import { initialMarkupForm, MarkupControls } from "./Markups";
 import { BlockPanel, type Drilldown, NotesPanel, TotalPanel } from "./RomPanels";
 import { ResourcePlanEditor } from "./ResourcePlanEditor";
-import { linesFromRateCard } from "./resource-plan-form";
+import { linesFromGrRate, linesFromRateCard } from "./resource-plan-form";
 
 // LA-1333. A budget is a document Kulka hands a developer, so nothing on it
 // may read like the inside of the software: no repository path, no internal
@@ -281,6 +281,86 @@ describe("the copy guard", () => {
       />,
     );
     expect(editor).toContain("Add Your Own Line");
+    expect(leaksIn(editor)).toEqual([]);
+  });
+
+  it("finds nothing internal on a General Requirements plan, in the Total panel, Run Settings or its editor (LA-1398)", () => {
+    const figure = (value: number, origin: "estimator" | "rate_card" = "estimator") => ({
+      value,
+      origin,
+      ...(origin === "rate_card" ? { ref: "00000000-0000-4000-8000-0000000000b1", source: "C-00379" } : {}),
+    });
+    const rom = recordedRun({
+      setup: "separate",
+      method: "pct_of_subtotal",
+      overrideRate: 0.05,
+      grMethod: "allocated_resources",
+      grResourcePlan: {
+        schedule: { precon: figure(0), construction: figure(60), closeout: figure(4) },
+        confidence: "medium",
+        lines: [
+          { id: "clean", label: "final cleaning", group: "Construction Labor & Clean-up", basis: "unit", unit: "SF", quantity: figure(100_000), rate: figure(0.55, "rate_card") },
+          { id: "john", label: "Port-a-John", group: "Temporary Utilities", basis: "time", per: "month", phases: ["construction"], quantity: figure(4), rate: figure(90, "rate_card") },
+        ],
+      },
+    });
+    const html = renderToStaticMarkup(
+      <TotalPanel rom={rom} headline={headlineOf(rom, { grossSquareFeet: 100_000, unitCount: null })} grossSquareFeet={100_000} />,
+    );
+    expect(html).toContain("01 00 00 General Requirements");
+    expect(html).toContain("Final Cleaning");
+    expect(html).toContain("Rate from the rate card, C-00379");
+    expect(leaksIn(html)).toEqual([]);
+
+    const grRate = (id: string, section: string, item: string, rate: number | null, priceable = true) => ({
+      id,
+      section,
+      item,
+      unit: "SF",
+      basis: "unit" as const,
+      phase: null,
+      rate,
+      jobQuantity: 120_000,
+      note: null,
+      flaggedFor: null,
+      priceable,
+      notPriceableReason: priceable ? null : "Fee and insurance are already markups.",
+      sourceEstimate: "C-00379",
+      sourceJob: "117 N. Long Beach Rd, one 120,000 SF warehouse",
+      singleJobWarehouse: true,
+    });
+    const options = {
+      staffingRates: [],
+      fieldOfficeRates: [],
+      grRates: [
+        grRate("00000000-0000-4000-8000-0000000000b1", "Construction Labor & Clean-up", "Final Cleaning", 0.55),
+        grRate("00000000-0000-4000-8000-0000000000b2", "Permits, Fees & Expediting", "Building Permit Fee", null),
+        grRate("00000000-0000-4000-8000-0000000000b3", "Insurances & Bonds", "Builder's Risk", null, false),
+      ],
+      feeRate: recordedParameter(0.0325),
+      insuranceRate: recordedParameter(0.054),
+      historyCounts: { both: 0, gc_only: 0, gr_only: 0 },
+    };
+    const form = initialMarkupForm(options, rom.markups!.choices);
+    const settings = renderToStaticMarkup(<MarkupControls options={options} form={form} onChange={noop} disabled={false} />);
+    expect(settings).toContain("General Requirements Method");
+    expect(settings).toContain("General Conditions Method");
+    expect(settings).not.toContain("Builder&#x27;s Risk</option>");
+    expect(leaksIn(settings)).toEqual([]);
+
+    const editor = renderToStaticMarkup(
+      <ResourcePlanEditor
+        options={options}
+        plan={{ ...form.grPlan, lines: [...form.grPlan.lines, ...linesFromGrRate("00000000-0000-4000-8000-0000000000b2", options.grRates, form.grPlan.lines)] }}
+        onChange={noop}
+        disabled={false}
+        lineName="General Requirements"
+        kind="gr"
+      />,
+    );
+    expect(editor).toContain("The rate card has no rate for this line, so enter one.");
+    expect(editor).toContain("Building Permit Fee, No Rate on the Card");
+    expect(editor).not.toContain("Insurances &amp; Bonds");
     expect(leaksIn(editor)).toEqual([]);
   });
 

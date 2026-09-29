@@ -19,7 +19,17 @@ import { answerMoment, CARD_ORDER, cardMoment, setupMoment, type StageMoment } f
 
 import { factsFor, valueText } from "./engineering";
 import type { BudgetDraft } from "./LiveBudget";
-import { initialMarkupForm, markupChoicesFrom, MarkupControls, METHODS, missingRates, SETUPS, setupHistory, type MarkupForm } from "./Markups";
+import {
+  formGrMethod,
+  initialMarkupForm,
+  markupChoicesFrom,
+  MarkupControls,
+  METHODS,
+  missingRates,
+  SETUPS,
+  setupHistory,
+  type MarkupForm,
+} from "./Markups";
 import "./scope.css";
 
 // LA-1225. New Budget is a setup card, then one question at a time. Matt
@@ -52,6 +62,7 @@ const FRAMING_CHOICES: { value: "wood" | "metal" | ""; label: string }[] = [
 type Slot =
   | { kind: "flow"; question: Question }
   | { kind: "markup_setup" }
+  | { kind: "markup_gr_method" }
   | { kind: "markup_method" }
   /** LA-1256: the GRs/GCs rate, so New Budget never finishes with GRs/GCs TBD. */
   | { kind: "markup_rate" }
@@ -277,9 +288,13 @@ export function GuidedNewBudget({
       slots.push({ kind: "flow", question });
     }
     if (markupOptions) {
-      slots.push({ kind: "markup_setup" }, { kind: "markup_method" });
-      if (form.method === "allocated_resources") slots.push({ kind: "markup_detail" });
-      else slots.push({ kind: "markup_rate" });
+      slots.push({ kind: "markup_setup" });
+      // LA-1398: under separate lines, General Requirements picks its own method first.
+      const separate = form.setup === "separate";
+      if (separate) slots.push({ kind: "markup_gr_method" });
+      slots.push({ kind: "markup_method" });
+      const planned = form.method === "allocated_resources" || (separate && formGrMethod(form) === "allocated_resources");
+      slots.push(planned ? { kind: "markup_detail" } : { kind: "markup_rate" });
     }
     return slots;
   }
@@ -507,7 +522,7 @@ export function GuidedNewBudget({
     // General Requirements rate unless it has history of its own.
     const blanks = missingRates(markupForm, markupOptions.historyCounts, false);
     if (blanks.length > 0) {
-      setError(`Enter the ${blanks.join(" and ")} percent of subtotal.`);
+      setError(`Enter the ${blanks.join(" and ")} rate.`);
       return;
     }
     const parsed = markupChoicesFrom(markupForm, markupOptions);
@@ -530,12 +545,15 @@ export function GuidedNewBudget({
       ? { ...markupForm, overridePercent: "", overridePerSf: "", grOverridePercent: "", grOverridePerSf: "" }
       : markupForm;
     const perSf = form.method === "usd_per_gsf";
+    const mixed = form.setup === "separate" && (formGrMethod(form) === "usd_per_gsf") !== perSf;
     const blanks = missingRates(form, markupOptions.historyCounts, useHistory);
     if (blanks.length > 0) {
       setError(
-        perSf
-          ? `Enter the ${blanks.join(" and ")} rate in dollars per GSF.`
-          : `Enter the ${blanks.join(" and ")} percent of subtotal.`,
+        mixed
+          ? `Enter the ${blanks.join(" and ")} rate.`
+          : perSf
+            ? `Enter the ${blanks.join(" and ")} rate in dollars per GSF.`
+            : `Enter the ${blanks.join(" and ")} percent of subtotal.`,
       );
       return;
     }
@@ -819,9 +837,28 @@ export function GuidedNewBudget({
               ))}
             </div>
           </>
+        ) : slot.kind === "markup_gr_method" ? (
+          <>
+            <h3 className="nb-prompt">How should General Requirements be priced?</h3>
+            <p className="nb-help">General Requirements sits inside trade cost, so General Conditions, fee and insurance compute on top of it.</p>
+            <div className="nb-choices">
+              {METHODS.map((one, i) => (
+                <Choice
+                  key={one.value}
+                  label={one.label}
+                  picked={formGrMethod(markupForm) === one.value}
+                  disabled={busy}
+                  autoFocus={focusQuestion && i === 0}
+                  onPick={() => pickMarkup({ grMethod: one.value })}
+                />
+              ))}
+            </div>
+          </>
         ) : slot.kind === "markup_method" ? (
           <>
-            <h3 className="nb-prompt">How should GRs and GCs be priced?</h3>
+            <h3 className="nb-prompt">
+              {markupForm.setup === "separate" ? "How should General Conditions be priced?" : "How should GRs and GCs be priced?"}
+            </h3>
             <p className="nb-help">Fee and insurance use the recorded rates. Run Settings can change them later.</p>
             <div className="nb-choices">
               {METHODS.map((one, i) => (
@@ -909,23 +946,31 @@ function MarkupRateQuestion({
   const jobs = (count: number) => (count === 1 ? "1 job" : `${count} jobs`);
 
   if (form.setup === "separate") {
+    // LA-1398: each line keeps its own method, so each field its own unit.
+    const grPerSf = formGrMethod(form) === "usd_per_gsf";
     const fields = [
       {
         name: "General Requirements",
         count: history.gr ?? 0,
-        value: perSf ? form.grOverridePerSf : form.grOverridePercent,
-        set: (text: string) => onChange(perSf ? { ...form, grOverridePerSf: text } : { ...form, grOverridePercent: text }),
+        perSf: grPerSf,
+        value: grPerSf ? form.grOverridePerSf : form.grOverridePercent,
+        set: (text: string) => onChange(grPerSf ? { ...form, grOverridePerSf: text } : { ...form, grOverridePercent: text }),
       },
       {
         name: "General Conditions",
         count: history.gc,
+        perSf,
         value: perSf ? form.overridePerSf : form.overridePercent,
         set: (text: string) => onChange(perSf ? { ...form, overridePerSf: text } : { ...form, overridePercent: text }),
       },
     ];
     return (
       <>
-        <h3 className="nb-prompt">What General Requirements and General Conditions rates should this budget carry, {unit}?</h3>
+        <h3 className="nb-prompt">
+          {grPerSf === perSf
+            ? `What General Requirements and General Conditions rates should this budget carry, ${unit}?`
+            : `What General Requirements rate, ${grPerSf ? "in dollars per GSF" : "as a percent of subtotal"}, and General Conditions rate, ${unit}, should this budget carry?`}
+        </h3>
         <p className="nb-help">
           {fields
             .map((field) =>
@@ -948,7 +993,7 @@ function MarkupRateQuestion({
               key={field.name}
               className="input num"
               inputMode="decimal"
-              aria-label={`${field.name}, ${perSf ? "$ per GSF" : "% of Subtotal"}`}
+              aria-label={`${field.name}, ${field.perSf ? "$ per GSF" : "% of Subtotal"}`}
               placeholder={field.count > 0 ? `${field.name}: Use History` : field.name}
               autoFocus={autoFocus && i === 0}
               disabled={busy}

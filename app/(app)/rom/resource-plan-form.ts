@@ -12,6 +12,7 @@ import {
   type SchedulePhase,
 } from "@kulka/engine";
 
+import type { GrRate } from "@/lib/rom/gr-rates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
 // LA-1397: the Allocated Resources plan as the Run Settings and New Budget
@@ -41,6 +42,11 @@ export type PlanLineForm = {
   rateFrom: FigureFrom;
   daysFrom: FigureFrom;
   weeksFrom: FigureFrom;
+  /**
+   * The rate card row the line came from carries no rate (LA-1398), so the
+   * estimator has to enter one. A blank rate never prices as zero.
+   */
+  noCardRate?: boolean;
 };
 
 export type PlanForm = {
@@ -51,6 +57,24 @@ export type PlanForm = {
 };
 
 export const PLAN_GROUPS = ["Staff", "Field Office", "General Expenses"] as const;
+
+/**
+ * The General Requirements sections a plan offers (LA-1398), in the order the
+ * C-00379 tab lists them. Insurances & Bonds is not among them: its rows are
+ * not priceable, because fee and insurance are already markups (LA-1394
+ * question 3).
+ */
+export const GR_PLAN_GROUPS = [
+  "Construction Labor & Clean-up",
+  "Site Controls",
+  "Temporary & OSHA Protection",
+  "Security",
+  "Hoists, Cranes & Scaffolding",
+  "Surveying, Site Safety & Consultants",
+  "Permits, Fees & Expediting",
+  "Cold Weather Protection",
+  "Temporary Utilities",
+] as const;
 
 export const BASIS_LABEL: Record<PlanBasis, string> = {
   time: "By Time",
@@ -153,6 +177,9 @@ export function planFromForm(form: PlanForm): { ok: true; plan: ResourcePlan } |
     const quantity = number(line.quantity);
     if (quantity === null || !(quantity > 0)) return { ok: false, error: `${name} needs a quantity above zero.` };
     const rate = number(line.rate);
+    if (rate === null && line.noCardRate && line.rate.trim() === "") {
+      return { ok: false, error: `Enter a rate for ${name}. The rate card has none for it.` };
+    }
     if (rate === null || rate < 0) return { ok: false, error: `${name} needs a rate of 0 or more.` };
     const common = {
       id: line.id,
@@ -236,6 +263,54 @@ export function linesFromRateCard(
   );
   const taken = new Set(existing.map((line) => line.id));
   return plan.lines.map((line) => ({ ...lineForm(line), id: freshId(taken, line.id) }));
+}
+
+/**
+ * The General Requirements rate card rows a plan may add, by section. A row
+ * marked not priceable (Insurances & Bonds) is never offered.
+ */
+export function grRateOptions(rates: GrRate[]): { section: string; rates: GrRate[] }[] {
+  const sections = new Map<string, GrRate[]>();
+  for (const rate of rates) {
+    if (!rate.priceable) continue;
+    sections.set(rate.section, [...(sections.get(rate.section) ?? []), rate]);
+  }
+  return [...sections].map(([section, rows]) => ({ section, rates: rows }));
+}
+
+/**
+ * The line one General Requirements rate card row adds (LA-1398), under its
+ * own section. A weekly or monthly row runs through construction at its rate;
+ * a unit row keeps its unit, with the quantity left for this job, since the
+ * card's quantity is the warehouse's; any other row is a lump sum.
+ *
+ * A row marked not priceable adds nothing. A row with no rate, or a rate of
+ * zero, adds the line with the rate blank, so the plan cannot be priced until
+ * the estimator enters one. It never prices silently at zero.
+ */
+export function linesFromGrRate(rateId: string, rates: GrRate[], existing: PlanLineForm[]): PlanLineForm[] {
+  const rate = rates.find((one) => one.id === rateId);
+  if (!rate || !rate.priceable) return [];
+  const taken = new Set(existing.map((line) => line.id));
+  const hasRate = rate.rate !== null && rate.rate > 0;
+  const common = {
+    ...blankLine([], rate.section),
+    id: freshId(taken, `gr-${rate.id}`),
+    label: rate.item,
+    rate: hasRate ? String(rate.rate) : "",
+    rateFrom: hasRate ? { origin: "rate_card" as const, ref: rate.id, source: rate.sourceEstimate } : TYPED,
+    ...(hasRate ? {} : { noCardRate: true }),
+  };
+  switch (rate.basis) {
+    case "phase_weeks":
+      return [{ ...common, basis: "time", per: "week", phases: ["construction"] }];
+    case "phase_months":
+      return [{ ...common, basis: "time", per: "month", phases: ["construction"] }];
+    case "unit":
+      return [{ ...common, basis: "unit", unit: rate.unit ?? "", quantity: "" }];
+    default:
+      return [{ ...common, basis: "lump_sum" }];
+  }
 }
 
 /** A line of the estimator's own, not from the rate card. */

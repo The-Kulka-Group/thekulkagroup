@@ -162,5 +162,13 @@ priceable Insurances & Bonds row.
   the quotes out.
 - The source's own total, $359,430 for General Requirements, is not loaded. It answers what
   this job's lines summed to, and the same warning as the General Conditions roll-up applies.
+- LA-1394 quotes General Requirements at $389,416. That figure is the Summary tab's cell
+  AF36, which reads BZ36, a typed number in the column headed "Rev.3 Orig. Budget Numbers".
+  No formula links it to the General Requirements tab, and no line or section there makes up
+  the $29,986 gap. The LA-1398 golden test rebuilds the tab's lines and gets $359,430
+  (packages/engine/src/fixtures/c-00379-general-requirements.ts).
+- Two per-area lines on the tab (Final Cleaning, OSHA Protection) use a typed 120,000 SF.
+  The fire extinguisher line divides Project Data's 68,016 GSF by 3,000. LA-1394 question 4
+  asks which area is right.
 - Some source labels have typos that the card corrects: "Subcontractor Binds" reads
   "Subcontractor Bonds". "Main.. Eng. (NYC Only)" reads "Main. Eng. (NYC Only)".

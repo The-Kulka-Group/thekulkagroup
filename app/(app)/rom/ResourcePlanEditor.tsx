@@ -5,10 +5,14 @@ import { PHASE_LABEL, SCHEDULE_PHASES, type ConfidenceFlag, type PlanBasis, type
 import { titleCase } from "@/lib/format/title-case";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
+import { grRateLabel } from "./GrRateCard";
 import {
   BASIS_LABEL,
   blankLine,
   CONFIDENCE_LABEL,
+  GR_PLAN_GROUPS,
+  grRateOptions,
+  linesFromGrRate,
   linesFromRateCard,
   originWords,
   PER_LABEL,
@@ -24,6 +28,22 @@ import {
 // or their own. Each line is priced by time, by unit or as a lump sum, and
 // says where its rate came from. The amounts shown are the engine's, priced
 // from the form as it stands.
+//
+// LA-1398: the same editor builds a General Requirements plan, with the
+// General Requirements rate card's sections as its groups. Insurances & Bonds
+// is never offered, and a row the card has no rate for is added with its rate
+// blank for the estimator to enter.
+
+/** Which rate cards a plan builds from: General Conditions', General Requirements', or both for the combined line. */
+export type PlanKind = "gc" | "gr" | "both";
+
+function groupsFor(kind: PlanKind, plan: PlanForm): string[] {
+  const listed: string[] =
+    kind === "gc" ? [...PLAN_GROUPS] : kind === "gr" ? [...GR_PLAN_GROUPS] : [...PLAN_GROUPS, ...GR_PLAN_GROUPS];
+  // A saved line under a group this kind does not list still shows.
+  for (const line of plan.lines) if (!listed.includes(line.group)) listed.push(line.group);
+  return listed;
+}
 
 const DOLLARS = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
@@ -33,6 +53,7 @@ export function ResourcePlanEditor({
   onChange,
   disabled,
   lineName,
+  kind = "gc",
 }: {
   options: MarkupOptions;
   plan: PlanForm;
@@ -40,7 +61,9 @@ export function ResourcePlanEditor({
   disabled: boolean;
   /** The markup line the plan prices, such as General Conditions. */
   lineName: string;
+  kind?: PlanKind;
 }) {
+  const grSections = new Map(grRateOptions(options.grRates ?? []).map(({ section, rates }) => [section, rates]));
   const priced = pricedPlanOf(plan);
   const amounts = new Map(priced?.lines.map((line) => [line.id, line.amount]) ?? []);
   const setLine = (index: number, patch: Partial<PlanLineForm>) =>
@@ -85,7 +108,7 @@ export function ResourcePlanEditor({
         total carries the engine&rsquo;s range at the confidence picked here.
       </p>
 
-      {PLAN_GROUPS.map((group) => {
+      {groupsFor(kind, plan).map((group) => {
         const rows = plan.lines.map((line, index) => ({ line, index })).filter(({ line }) => line.group === group);
         return (
           <section key={group} className="plan-group" aria-label={group}>
@@ -139,6 +162,25 @@ export function ResourcePlanEditor({
                   {options.fieldOfficeRates.map((rate) => (
                     <option key={rate.id} value={rate.id}>
                       {titleCase(rate.item)}
+                    </option>
+                  ))}
+                </select>
+              ) : grSections.has(group) ? (
+                <select
+                  className="input"
+                  value=""
+                  disabled={disabled}
+                  aria-label={`Add a ${titleCase(group)} Line From the Rate Card`}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      onChange({ ...plan, lines: [...plan.lines, ...linesFromGrRate(e.target.value, options.grRates ?? [], plan.lines)] });
+                    }
+                  }}
+                >
+                  <option value="">Add From the Rate Card&hellip;</option>
+                  {grSections.get(group)!.map((rate) => (
+                    <option key={rate.id} value={rate.id}>
+                      {titleCase(rate.item)}, {rate.rate !== null && rate.rate > 0 ? titleCase(grRateLabel(rate)) : "No Rate on the Card"}
                     </option>
                   ))}
                 </select>
@@ -272,6 +314,7 @@ function PlanLineRow({
           <input
             className="input num"
             inputMode="decimal"
+            placeholder={line.noCardRate ? "Enter a Rate" : undefined}
             value={line.rate}
             disabled={disabled}
             onChange={(e) => onChange({ rate: e.target.value, rateFrom: TYPED })}
@@ -305,7 +348,10 @@ function PlanLineRow({
         </div>
       ) : null}
       <p className="markup-note markup-note--inline">
-        Rate from {originWords(line.rateFrom)}. Quantity from {originWords(line.quantityFrom)}.
+        {line.noCardRate && line.rate.trim() === ""
+          ? "The rate card has no rate for this line, so enter one. "
+          : `Rate from ${originWords(line.rateFrom)}. `}
+        Quantity from {originWords(line.quantityFrom)}.
       </p>
     </li>
   );

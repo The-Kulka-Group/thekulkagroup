@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { deleteRomProject, ProjectFeedsPricing } from "@/lib/rom/budgets";
 import { parseNewBudget, ProjectNotFoundForEdit, readRomProjectDetail, updateRomProject } from "@/lib/rom/projects";
 import { isUuid } from "@/lib/uuid";
 
@@ -48,6 +49,25 @@ export async function PATCH(request: Request, context: Context) {
     if (cause instanceof ProjectNotFoundForEdit) {
       return NextResponse.json({ error: cause.message }, { status: 404 });
     }
+    throw cause;
+  }
+}
+
+// LA-1322: Delete, from the All Budgets menu. It asks first on screen, cannot
+// be undone, and refuses a past job other budgets price from (409).
+export async function DELETE(request: Request, context: Context) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
+
+  const { id } = await context.params;
+  if (!isUuid(id)) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+
+  try {
+    await deleteRomProject(getDb(), id);
+    return NextResponse.json({ projectId: id });
+  } catch (cause) {
+    if (cause instanceof ProjectNotFoundForEdit) return NextResponse.json({ error: cause.message }, { status: 404 });
+    if (cause instanceof ProjectFeedsPricing) return NextResponse.json({ error: cause.message }, { status: 409 });
     throw cause;
   }
 }

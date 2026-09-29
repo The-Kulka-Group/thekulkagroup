@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { listAllRomBudgets } from "@/lib/rom/budgets";
 import { insertRomProject, parseNewBudget } from "@/lib/rom/projects";
+
+// LA-1322: every budget, active and archived, for the All Budgets menu.
+export async function GET(request: Request) {
+  const denied = await requireApiUser(request);
+  if (denied) return denied;
+  return NextResponse.json({ budgets: await listAllRomBudgets(getDb()) });
+}
 
 // New budget (LA-1140): insert the project only. A new budget must open with
 // no saved runs, so this no longer calls runRom -- that used to write a run

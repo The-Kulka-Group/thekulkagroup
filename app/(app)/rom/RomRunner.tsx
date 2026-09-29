@@ -51,6 +51,7 @@ import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } 
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
+import { AllBudgetsPanel } from "./AllBudgetsPanel";
 import { BlockPanel, type Drilldown, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
@@ -106,7 +107,8 @@ type Panel =
   /** A supporting item with no rate yet, taking one on its card (RatePanel.tsx). */
   | { kind: "rate"; costCode: string; editing?: boolean }
   /** Matt, 2026-09-28: suggested rates for every item with none, in one go (BulkRatePanel.tsx). */
-  | { kind: "rates" };
+  | { kind: "rates" }
+  | { kind: "budgets" };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -126,6 +128,7 @@ export function RomRunner({
   projectNotFound = false,
   projectArchivedAt = null,
   openNewOnLoad = false,
+  openEditOnLoad = false,
   classifications = [],
   canonicalDivisions = [],
   derivedAssumptions = NO_DERIVED_ASSUMPTIONS,
@@ -154,6 +157,8 @@ export function RomRunner({
   projectArchivedAt?: string | null;
   /** /rom/intake redirects here with ?new=1 (LA-1141), since the guided New budget flow now covers what it asked. */
   openNewOnLoad?: boolean;
+  /** LA-1322: `?edit=1`, from the All Budgets menu's Edit, opens Edit Project on load. */
+  openEditOnLoad?: boolean;
   /**
    * The stated block classifications (LA-884, LA-1157), read once on the
    * server, so a saved run can group an element into its parent box the same
@@ -178,7 +183,9 @@ export function RomRunner({
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
   const [state, setState] = useState<Status>({ phase: "idle" });
   const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
-  const [panel, setPanel] = useState<Panel | null>(() => (openNewOnLoad ? { kind: "new" } : null));
+  const [panel, setPanel] = useState<Panel | null>(() =>
+    openNewOnLoad ? { kind: "new" } : openEditOnLoad && projectId ? { kind: "edit" } : null,
+  );
   const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, markupDefault));
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
   const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
@@ -569,6 +576,14 @@ export function RomRunner({
           <button
             type="button"
             className="rb-hbtn"
+            aria-expanded={panel?.kind === "budgets"}
+            onClick={(e) => openPanel({ kind: "budgets" }, e.currentTarget)}
+          >
+            All Budgets
+          </button>
+          <button
+            type="button"
+            className="rb-hbtn"
             aria-expanded={panel?.kind === "new"}
             onClick={(e) => openPanel({ kind: "new" }, e.currentTarget)}
           >
@@ -865,6 +880,18 @@ export function RomRunner({
                   </button>
                 </p>
               ) : null}
+            </>
+          ) : null}
+
+          {panel.kind === "budgets" ? (
+            <>
+              <PanelHead
+                title="All Budgets"
+                sub="Open, edit, archive or delete any budget. Archived budgets can be restored."
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <AllBudgetsPanel currentProjectId={projectId} />
             </>
           ) : null}
 

@@ -1191,3 +1191,24 @@ button.lg-row:hover { background: color-mix(in srgb, var(--rb-blk-ink) 4%, trans
   .lg-src { grid-column: 1 / -1; margin-top: -4px; }
   .lg-cols .lg-src, .lg-sum .lg-src, .lg-head .lg-src, .lg-cap .lg-src { display: none; }
 }
+
+/* LA-1322: the All Budgets menu, in the black side panel. */
+.ab { display: grid; gap: 10px; margin-top: 8px; }
+.ab-h { margin-top: 10px; font-size: var(--chip-size); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rb-pnl-mute); }
+.ab-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ab-row { padding: 12px 14px; border: 1px solid var(--rb-pnl-line); border-radius: 12px; background: var(--rb-pnl-raise); display: grid; gap: 6px; }
+.ab-row--current { border-color: var(--primary); }
+.ab-name { font-weight: 600; color: var(--rb-ink-on-black); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ab-tag { font-size: var(--chip-size); font-weight: 600; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid var(--rb-pnl-line2); color: var(--rb-ink2-on-black); }
+.ab-facts { font-size: var(--meta-size); color: var(--rb-ink2-on-black); }
+.ab-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.ab-pill { height: 28px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--rb-pnl-line2); background: transparent; color: var(--rb-ink-on-black); font-size: var(--meta-size); font-weight: 600; cursor: pointer; transition: border-color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease); }
+.ab-pill:hover:not(:disabled) { border-color: var(--rb-pnl-mute); background: var(--rb-hover-on-black); }
+.ab-pill:disabled { opacity: 0.5; cursor: default; }
+.ab-pill--quiet-danger { color: #FF8A80; }
+.ab-pill--danger { background: #D93025; border-color: #D93025; color: #FFFFFF; }
+.ab-pill--danger:hover:not(:disabled) { background: #B3261E; border-color: #B3261E; }
+.ab-confirm { display: grid; gap: 8px; margin-top: 2px; }
+.ab-confirm p { font-size: var(--meta-size); color: var(--rb-ink-on-black); }
+.ab-note { font-size: var(--meta-size); color: var(--rb-ink2-on-black); }
+.ab-note--error { color: #FF8A80; }

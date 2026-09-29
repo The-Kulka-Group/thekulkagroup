@@ -43,14 +43,16 @@ export const dynamic = "force-dynamic";
 export default async function RomPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string | string[]; new?: string | string[] }>;
+  searchParams: Promise<{ project?: string | string[]; new?: string | string[]; edit?: string | string[] }>;
 }) {
   const auth = await authorizeRequest();
   if (!auth.ok) return <RomRunner projectId={process.env.ROM_PROJECT_ID} />;
 
   const db = getDb();
-  const { project, new: newParam } = await searchParams;
+  const { project, new: newParam, edit: editParam } = await searchParams;
   const openNewOnLoad = (Array.isArray(newParam) ? newParam[0] : newParam) === "1";
+  // LA-1322: the All Budgets menu's Edit opens the project with Edit Project showing.
+  const openEditOnLoad = (Array.isArray(editParam) ? editParam[0] : editParam) === "1";
   const { projectId, notFound, archivedAt } = await resolveRomProjectId(db, project, process.env.ROM_PROJECT_ID);
   const [projects, markupOptions, canonicalDivisions] = await Promise.all([
     listRomProjects(db),
@@ -113,6 +115,7 @@ export default async function RomPage({
       initialRun={initialRun}
       projects={projects}
       openNewOnLoad={openNewOnLoad}
+      openEditOnLoad={openEditOnLoad}
       classifications={classifications}
       canonicalDivisions={canonicalDivisions}
       derivedAssumptions={derivedAssumptions}

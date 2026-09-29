@@ -9,6 +9,7 @@ import {
 } from "@kulka/engine";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
+import { personName } from "@/lib/format/person-name";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
 import { choicesFor } from "./engineering";
@@ -33,10 +34,6 @@ const TOAST_MS = 4000;
 
 const STAMP = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
 
-/** The part of an email before the @, which is how a correction names who set it. */
-export function personName(email: string): string {
-  return email.split("@")[0] || email;
-}
 
 type Toast = { text: string; undo: () => void };
 

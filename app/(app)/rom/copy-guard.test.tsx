@@ -1,6 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { PARAMETER_NAMES, type DerivedAssumption } from "@kulka/engine";
+import {
+  computeRom,
+  PARAMETER_NAMES,
+  type Benchmark,
+  type DataSnapshot,
+  type DerivedAssumption,
+  type EngineParameters,
+  type Rom,
+} from "@kulka/engine";
 
 import { deriveBuildingForm } from "@/lib/rom/building-form-criterion";
 import { publicWording } from "@/lib/rom/derived-assumptions";
@@ -13,14 +21,16 @@ import { deriveJackType } from "@/lib/rom/jack-criterion";
 import type { JevClient } from "@/lib/rom/jev";
 import { deriveMachineRooms } from "@/lib/rom/machine-room-criterion";
 
+import { headlineOf, tradeBlocks } from "./block-layout";
 import { CriterionCard, CriterionPanel, type Criterion } from "./DerivedCriteria";
+import { BlockPanel, type Drilldown, NotesPanel, TotalPanel } from "./RomPanels";
 
 // LA-1333. A budget is a document Kulka hands a developer, so nothing on it
 // may read like the inside of the software: no repository path, no internal
 // model name, no email address and no engine parameter key. The criteria come
 // from the real criterion functions on synthetic facts, so a new criterion or
-// a new branch of an old one is checked the moment a fact set reaches it. The
-// Total, trade detail and notes panels join in LA-1336.
+// a new branch of an old one is checked the moment a fact set reaches it.
+// LA-1336 adds the Total, trade detail and notes panels, from a real run.
 
 /** What must never reach a budget screen, each with the reason it failed. */
 const LEAKS: [RegExp, string][] = [
@@ -199,4 +209,130 @@ describe("the copy guard", () => {
     expect(read[0]).toBe("NEC 220.84 optional multifamily calculation, one service per building.");
     expect(read[1]).toBe("Travel sits in the either band; picked Traction from the facts given.");
   });
+
+  it("finds nothing internal on the Total, trade detail or notes panels", () => {
+    const rom = recordedRun();
+    const blocks = tradeBlocks(rom);
+    const headline = headlineOf(rom, { grossSquareFeet: 100_000, unitCount: 110 });
+    const html = [
+      renderToStaticMarkup(<TotalPanel rom={rom} headline={headline} grossSquareFeet={100_000} />),
+      renderToStaticMarkup(<NotesPanel rom={rom} blocks={blocks} onOpenBlock={noop} />),
+      ...blocks.map((block) =>
+        renderToStaticMarkup(<BlockPanel block={block} drilldown={drilldownFor(rom)} grossSquareFeet={100_000} />),
+      ),
+    ].join("");
+
+    expect(rom.markups?.fee.source).toBe("parameter");
+    expect(html).toContain("recorded 2026-09-23");
+    expect(html).toContain("by estimator");
+    expect(leaksIn(html)).toEqual([]);
+  });
+
+  it("reads a Total panel saved before LA-1336 without the parameter key or who recorded it", () => {
+    // How a run stored a parameter-priced markup before LA-1336. The stored run is never rewritten.
+    const rom = recordedRun();
+    const old = "parameter fee.rate, estimator@kulka.invalid 2026-09-23";
+    const saved: Rom = {
+      ...rom,
+      markups: { ...rom.markups!, fee: { ...rom.markups!.fee, basis: `3.25% of subtotal, ${old}` } },
+    };
+    const html = renderToStaticMarkup(
+      <TotalPanel rom={saved} headline={headlineOf(saved, { grossSquareFeet: 100_000, unitCount: null })} grossSquareFeet={100_000} />,
+    );
+
+    expect(html).toContain("3.25% of subtotal, recorded 2026-09-23");
+    expect(leaksIn(html)).toEqual([]);
+  });
 });
+
+// A run as the engine records it, with every recorder an email address, the
+// way a signed-in account records one. Every figure is synthetic.
+const RECORDER = "estimator@kulka.invalid";
+
+function recordedParameter(value: number) {
+  return {
+    value,
+    provenance: { kind: "reviewed_judgment" as const, recordedBy: RECORDER, recordedAt: "2026-09-23", reason: "synthetic" },
+  };
+}
+
+function recordedRun(): Rom {
+  const values: Record<string, number> = {
+    "weight.actuals": 5,
+    "weight.proest_budget": 1,
+    "weight.reviewed_judgment": 0.5,
+    "weight.llm_proposal": 0.25,
+    "flag.high_min_comparables": 5,
+    "flag.medium_min_comparables": 2,
+    "spread.high": 0.1,
+    "spread.medium": 0.2,
+    "spread.low": 0.35,
+    "fee.rate": 0.0325,
+    "insurance.rate": 0.054,
+  };
+  const parameters = Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [name, recordedParameter(value)]),
+  ) as EngineParameters;
+  const benchmark = (costCode: string, label: string, value: number, kind: "actuals" | "llm_proposal"): Benchmark => ({
+    costCode,
+    label,
+    unit: "usd_per_gsf",
+    value,
+    projectType: "multifamily",
+    constructionKind: "new",
+    provenance: { kind, sourceProjectIds: [], exportLabel: "Synthetic export", recordedBy: RECORDER, recordedAt: "2026-09-01" },
+    scopeSide: "building",
+    contractSide: "kulka",
+  });
+  const snapshot: DataSnapshot = {
+    benchmarks: [
+      benchmark("09-900", "Finishes", 12, "actuals"),
+      benchmark("26-100", "Electrical", 25, "llm_proposal"),
+      benchmark("11-300", "Appliances", 3, "actuals"),
+    ],
+    parameters,
+    branchGateItems: [],
+  };
+  return computeRom(
+    {
+      projectType: "multifamily",
+      constructionKind: "new",
+      grossSquareFeet: 100_000,
+      markups: { setup: "both", method: "pct_of_subtotal", overrideRate: 0.08 },
+    },
+    snapshot,
+  );
+}
+
+function drilldownFor(rom: Rom): Drilldown {
+  return {
+    phase: "ready",
+    byCostCode: Object.fromEntries(
+      rom.lines.map((line) => [
+        line.costCode,
+        {
+          costCode: line.costCode,
+          label: line.label,
+          comparableCount: 1,
+          excluded: [],
+          framingReason: null,
+          signals: [
+            {
+              kind: "actuals",
+              rate: 12,
+              weight: 5,
+              weightShare: 1,
+              exportLabel: "Synthetic export",
+              recordedBy: RECORDER,
+              recordedAt: "2026-09-01",
+              projects: [{ id: "p1", name: "Synthetic past project A" }],
+            },
+          ],
+          judgments: [
+            { ruleId: "r1", adjustmentUsdPerGsf: 3, appliedUsdPerGsf: 1.5, weight: 0.5, recordedBy: RECORDER, recordedAt: "2026-09-05" },
+          ],
+        },
+      ]),
+    ),
+  };
+}

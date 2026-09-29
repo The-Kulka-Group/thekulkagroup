@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { WEEKS_PER_MONTH, type MarkupChoices, type MarkupMethod, type MarkupSetup } from "@kulka/engine";
 
+import { personName } from "@/lib/format/person-name";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
 import "./markups.css";
@@ -230,10 +231,10 @@ export function MarkupControls({
 
       <p className="markup-note">
         {options.feeRate
-          ? `Fee defaults to ${percentText(options.feeRate.value)}%, recorded by ${options.feeRate.provenance.recordedBy} on ${options.feeRate.provenance.recordedAt}. `
+          ? `Fee defaults to ${percentText(options.feeRate.value)}%, recorded by ${personName(options.feeRate.provenance.recordedBy)} on ${options.feeRate.provenance.recordedAt}. `
           : "No fee rate is recorded yet, so enter one. "}
         {options.insuranceRate
-          ? `Insurance defaults to ${percentText(options.insuranceRate.value)}%, recorded by ${options.insuranceRate.provenance.recordedBy} on ${options.insuranceRate.provenance.recordedAt}. `
+          ? `Insurance defaults to ${percentText(options.insuranceRate.value)}%, recorded by ${personName(options.insuranceRate.provenance.recordedBy)} on ${options.insuranceRate.provenance.recordedAt}. `
           : "No insurance rate is recorded yet, so enter one. "}
         A change here applies to this ROM only. The defaults themselves change on{" "}
         <Link href="/rom/parameters">Engine Parameters</Link>.

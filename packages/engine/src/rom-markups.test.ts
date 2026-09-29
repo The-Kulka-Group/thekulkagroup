@@ -272,11 +272,14 @@ describe("computeMarkups, fee and insurance", () => {
     expect(m.fee.basis).toContain("user override");
   });
 
-  it("names the parameter when it priced the line", () => {
+  it("names the rate and when it was recorded, never the parameter key or who recorded it", () => {
     const m = computeMarkups(inputs());
     expect(m.fee.source).toBe("parameter");
-    expect(m.fee.basis).toContain("parameter fee.rate");
-    expect(m.insurance.basis).toContain("parameter insurance.rate");
+    expect(m.fee.basis).toMatch(/^3\.25% of subtotal plus General Requirements & General Conditions, recorded \d{4}-\d{2}-\d{2}$/);
+    expect(m.insurance.basis).toMatch(/, recorded \d{4}-\d{2}-\d{2}$/);
+    for (const basis of [m.fee.basis, m.insurance.basis]) {
+      expect(basis).not.toMatch(/fee\.rate|insurance\.rate|@/);
+    }
   });
 
   it("refuses to run without a fee rate from either source", () => {

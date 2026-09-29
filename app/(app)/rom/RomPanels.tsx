@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { ConfidenceFlag, ProvenanceKind, Rom, RomLine } from "@kulka/engine";
 
+import { personName } from "@/lib/format/person-name";
 import { titleCase } from "@/lib/format/title-case";
 import type { LineProvenance, ProvenanceSignal } from "@/lib/rom/provenance";
 
@@ -126,10 +127,10 @@ export function TotalPanel({
               key={line.label}
               name={line.code ? `${line.code} ${titleCase(line.label)}` : titleCase(line.label)}
               amount={line.tbd ? "TBD" : range(line)}
-              sub={line.basis}
+              sub={markupBasisWords(line.basis)}
             />
           ))}
-          <Row name={titleCase(markups.total.label)} amount={range(markups.total)} sub={markups.total.basis} sum />
+          <Row name={titleCase(markups.total.label)} amount={range(markups.total)} sub={markupBasisWords(markups.total.basis)} sum />
           {owner ? (
             <>
               <Row
@@ -338,7 +339,7 @@ function Provenance({
               key={judgment.ruleId}
               name={`${KIND_LABEL.reviewed_judgment}, ${PER_SF.format(judgment.adjustmentUsdPerGsf)}/SF stated`}
               amount={`${PER_SF.format(judgment.appliedUsdPerGsf)}/SF`}
-              sub={`Moved the rate by this much. Weight ${judgment.weight}. Stated ${judgment.recordedAt} by ${recordedByWords(judgment.recordedBy)}.`}
+              sub={`Moved the rate by this much. Weight ${judgment.weight}. Stated ${judgment.recordedAt} by ${personName(judgment.recordedBy)}.`}
             />
           ))}
         </>
@@ -347,20 +348,20 @@ function Provenance({
   );
 }
 
-// LA-1210: while sign-in is off (KULKA_AUTH_OPEN=1) the recording account is
-// lib/auth/server.ts's OPEN_ACCESS_USER, whose email is a placeholder
-// ("open-access@kulka.invalid") rather than a real address. The panel prints
-// its short id instead, the same way lib/rom/parameters.ts's recordedByFor
-// already names it for the parameter history.
-function recordedByWords(recordedBy: string): string {
-  return recordedBy === "open-access@kulka.invalid" ? "open-access" : recordedBy;
+/**
+ * LA-1336. A run saved before LA-1336 recorded a parameter-priced markup as
+ * "parameter fee.rate, <who> <date>". The stored run stays as it was
+ * written; the panel reads it the way a new run words it: "recorded <date>".
+ */
+export function markupBasisWords(basis: string): string {
+  return basis.replace(/parameter [\w.]+, .+? (\d{4}-\d{2}-\d{2})/g, "recorded $1");
 }
 
 function signalWords(signal: ProvenanceSignal): string {
   const parts = [
     KIND_LABEL[signal.kind],
     signal.exportLabel ?? "no export named",
-    `recorded ${signal.recordedAt} by ${recordedByWords(signal.recordedBy)}`,
+    `recorded ${signal.recordedAt} by ${personName(signal.recordedBy)}`,
     `weight ${signal.weight} (${SHARE.format(signal.weightShare)})`,
   ];
   return parts.join(", ");

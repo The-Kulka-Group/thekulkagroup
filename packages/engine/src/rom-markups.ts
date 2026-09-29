@@ -286,7 +286,9 @@ function rateFor(
   }
   return {
     value: parameter.value,
-    words: `parameter ${name}, ${parameter.provenance.recordedBy} ${parameter.provenance.recordedAt}`,
+    // LA-1336: a budget names the rate and when it was recorded. The
+    // parameter key and who recorded it stay on the Engine Parameters screen.
+    words: `recorded ${parameter.provenance.recordedAt}`,
     source: "parameter",
   };
 }

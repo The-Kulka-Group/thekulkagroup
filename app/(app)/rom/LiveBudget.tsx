@@ -14,7 +14,16 @@ import { titleCase } from "@/lib/format/title-case";
 import { knownScopeRom, previewAnswers, sectionsAwaitingFollowUps } from "@/lib/rom/preview";
 import { tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
-import { headlineMoney, headlineOf, headlineRates, shortMoney, valueTier, type TradeBlock } from "./block-layout";
+import {
+  headlineMoney,
+  headlineOf,
+  headlineRates,
+  pricedTradesWords,
+  shortMoney,
+  tbdScopeWords,
+  valueTier,
+  type TradeBlock,
+} from "./block-layout";
 import { LiveElementBox } from "./ElementBox";
 import type { BarModel, Chip, FieldEntry, RomOrder } from "./field-order";
 import { useFieldFlip } from "./motion";
@@ -127,6 +136,9 @@ function readSnapshot(projectType: string, constructionKind: string): Promise<Da
   return pending;
 }
 
+/** The tray listing TBD scope, which the chip on the live total opens. */
+const TBD_TRAY_ID = "lb-tbd";
+
 /** The ROM the draft would produce right now, recomputed on every answer. */
 export function useLiveBudget(draft: BudgetDraft | null): LiveBudget {
   const projectType = draft?.responses.project_type ?? "";
@@ -204,7 +216,12 @@ export function LiveTotal({
   const headline = useMemo(
     () =>
       ready
-        ? headlineOf(ready.rom, { grossSquareFeet: ready.grossSquareFeet, unitCount: ready.unitCount, live: true })
+        ? headlineOf(ready.rom, {
+            grossSquareFeet: ready.grossSquareFeet,
+            unitCount: ready.unitCount,
+            live: true,
+            tbdScope: ready.answered.tbdGateItems,
+          })
         : null,
     [ready],
   );
@@ -266,13 +283,15 @@ export function LiveTotal({
 
   const fmt = (value: number) => headlineMoney(value, headline);
   const rates = headlineRates(headline);
+  const excludes = tbdScopeWords(headline.tbdScope);
   return (
     <div className="lb-tot">
-      {/* LA-1334: the label stays put; the line under it says what changed. */}
+      {/* LA-1334: the label stays put; the line under it says what changed.
+          LA-1337: and how many trades are in it while the questions run. */}
       <span className="rb-tlab">
         <span className="rb-tl">{titleCase(headline.label)}</span>
         <span className="rb-ti lb-lbl" key={headline.includes}>
-          {headline.includes}
+          {headline.includes}, {pricedTradesWords(headline.pricedTrades)}
         </span>
       </span>
       <SpringMoney className="rb-tv num" value={headline.midpoint} format={fmt} />
@@ -289,12 +308,30 @@ export function LiveTotal({
         </span>
       ) : null}
       <span className="lb-tag">Live, Saves at the Last Answer</span>
+      {excludes ? (
+        // LA-1337: the figure leaves this scope out, so the chip says so and
+        // takes you to the tray that lists it.
+        <button
+          type="button"
+          className="rb-td rb-td--btn lb-excl"
+          onClick={() => {
+            const tray = document.getElementById(TBD_TRAY_ID);
+            tray?.scrollIntoView({ behavior: "smooth", block: "center" });
+            tray?.focus({ preventScroll: true });
+          }}
+        >
+          <span className="rb-dot rb-dot--working" aria-hidden="true" />
+          {excludes}
+        </button>
+      ) : null}
       {unpricedBadge}
       <ShareChip chip={chip} />
       {bar ? <ShareBar bar={bar} litKey={litKey} /> : null}
       <span className="lb-sr" aria-live="polite">
-        {titleCase(headline.label)} {headlineMoney(headline.midpoint, headline)}, {headline.includes}
+        {titleCase(headline.label)} {headlineMoney(headline.midpoint, headline)}, {headline.includes},{" "}
+        {pricedTradesWords(headline.pricedTrades)}
         {rates ? `, ${rates.replace(" · ", ", ")}` : ""}
+        {excludes ? `. ${excludes}.` : ""}
       </span>
     </div>
   );
@@ -491,7 +528,7 @@ export function LiveField({
       {tbd.length > 0 || notInJob.length > 0 ? (
         <div className="lb-trays">
           {tbd.length > 0 ? (
-            <section className="lb-tray" aria-label="TBD, Outside the Total">
+            <section className="lb-tray" id={TBD_TRAY_ID} tabIndex={-1} aria-label="TBD, Outside the Total">
               <h2>TBD, Outside the Total</h2>
               <div className="lb-chips">
                 {tbd.map((item) => (

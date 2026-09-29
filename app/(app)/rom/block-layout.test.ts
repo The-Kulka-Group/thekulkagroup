@@ -11,6 +11,8 @@ import {
   headlineRates,
   midpoint,
   perSquareFoot,
+  pricedTradesWords,
+  tbdScopeWords,
   shortMoney,
   tradeBlocks,
   valueTier,
@@ -187,6 +189,57 @@ describe("the /rom block layout", () => {
       expect(headlineRates(noArea)).toBeNull();
     }
     expect(headlineOf(rom(lines), { grossSquareFeet: 10, unitCount: 0 }).perUnit).toBeNull();
+  });
+
+  // LA-1337: what the figure leaves out, named, and apart from a TBD markup.
+  const tbdItem = (costCode: string, label: string, driverCostCode?: string) => ({
+    costCode,
+    label,
+    question: "Synthetic question",
+    ...(driverCostCode ? { driverCostCode } : {}),
+  });
+
+  it("names TBD scope apart from a TBD markup, drivers first", () => {
+    const withTbd = {
+      ...rom(lines, markupsOf()),
+      tbdGateItems: [tbdItem("03 3000", "cast-in-place concrete", "31 0000"), tbdItem("31 0000", "sitework")],
+    };
+    const headline = headlineOf(withTbd, facts);
+
+    expect(headline.tbdScope).toEqual(["Sitework", "Cast-in-Place Concrete"]);
+    expect(headline.tbd).toEqual(["GRs/GCs"]);
+    expect(tbdScopeWords(headline.tbdScope)).toBe("Excludes 2 TBD: Sitework, Cast-in-Place Concrete");
+  });
+
+  it("never lets TBD scope move the figure", () => {
+    const plain = headlineOf(rom(lines, markupsOf()), facts);
+    const withTbd = headlineOf(
+      { ...rom(lines, markupsOf()), tbdGateItems: [tbdItem("31 0000", "Sitework")] },
+      facts,
+    );
+
+    expect(withTbd.midpoint).toBe(plain.midpoint);
+    expect(withTbd.low).toBe(plain.low);
+    expect(withTbd.high).toBe(plain.high);
+  });
+
+  it("reads TBD scope from the ROM it is given, when New Budget passes one", () => {
+    const headline = headlineOf(rom(lines), { ...facts, live: true, tbdScope: [tbdItem("31 0000", "Sitework")] });
+
+    expect(headline.tbdScope).toEqual(["Sitework"]);
+    expect(headlineOf(rom(lines), facts).tbdScope).toEqual([]);
+  });
+
+  it("counts the trades in the figure, not breakouts or zeroed scope", () => {
+    // Four lines add: the breakout and the not-in-job line do not.
+    expect(headlineOf(rom(lines), facts).pricedTrades).toBe(4);
+    expect(pricedTradesWords(4)).toBe("4 trades priced");
+    expect(pricedTradesWords(1)).toBe("1 trade priced");
+  });
+
+  it("names three TBD items and counts the rest", () => {
+    expect(tbdScopeWords([])).toBeNull();
+    expect(tbdScopeWords(["A", "B", "C", "D", "E"])).toBe("Excludes 5 TBD: A, B, C +2 More");
   });
 
   it("formats the figures the way Round 14 does", () => {

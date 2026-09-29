@@ -6,6 +6,7 @@ import { planFromStaffingChoices, type MarkupChoices, type MarkupMethod, type Ma
 import { personName } from "@/lib/format/person-name";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
+import { GrRateCard } from "./GrRateCard";
 import { ResourcePlanEditor } from "./ResourcePlanEditor";
 import { emptyPlanForm, planFormFrom, planFromForm, type PlanForm } from "./resource-plan-form";
 
@@ -338,13 +339,16 @@ export function MarkupControls({
       ) : null}
 
       {form.method === "allocated_resources" ? (
-        <ResourcePlanEditor
-          options={options}
-          plan={form.plan}
-          onChange={(plan) => set({ plan })}
-          disabled={disabled}
-          lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
-        />
+        <>
+          <ResourcePlanEditor
+            options={options}
+            plan={form.plan}
+            onChange={(plan) => set({ plan })}
+            disabled={disabled}
+            lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
+          />
+          <GrRateCard rates={options.grRates ?? []} />
+        </>
       ) : null}
     </section>
   );

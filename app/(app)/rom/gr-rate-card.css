@@ -1,0 +1,10 @@
+.gr-rates { margin-top: var(--s4); }
+.gr-rates summary { cursor: pointer; }
+.gr-rates__section { margin: var(--s3) 0 var(--s1); }
+.gr-rates__list { list-style: none; padding: 0; margin: 0; }
+.gr-rates__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s1) 0;
+}

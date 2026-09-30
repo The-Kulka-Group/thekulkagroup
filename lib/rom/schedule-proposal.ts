@@ -9,6 +9,11 @@ import {
   type ScheduleProposal,
 } from "@kulka/engine";
 
+import type { Db } from "@/lib/db";
+
+import { readCompletedJobs } from "./completed-jobs";
+import type { RomProjectDetail } from "./projects";
+import { readRomProjectDetail } from "./projects";
 import { RATE_MODEL, type RateClient } from "./rate-suggestion";
 
 // LA-1399. Matt, 2026-09-29: the proposed schedule comes from Kulka's
@@ -179,4 +184,73 @@ export async function proposeSchedule(
       inputKey: scheduleInputKey(facts, close),
     }),
   };
+}
+
+/** The project facts the comparison reads. */
+export function scheduleFactsOf(project: Pick<RomProjectDetail, "projectType" | "constructionKind" | "grossSquareFeet" | "storiesAboveGrade">): ScheduleFacts {
+  return {
+    projectType: project.projectType,
+    constructionKind: project.constructionKind,
+    grossSquareFeet: project.grossSquareFeet,
+    storiesAboveGrade: project.storiesAboveGrade ?? null,
+  };
+}
+
+/**
+ * Where a project's proposal stands when its page opens.
+ *
+ * - `ready`: a proposal the page can apply now. Either nothing could be
+ *   compared (empty table, no close job), or a saved proposal was made from
+ *   the project's current facts and jobs.
+ * - `pending`: close jobs exist and no current proposal is saved, so the page
+ *   asks for one (POST /api/rom/projects/[id]/schedule-proposal).
+ */
+export type ScheduleProposalState = { kind: "ready"; proposal: ScheduleProposal } | { kind: "pending" };
+
+export function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function readSaved(db: Db, projectId: string): Promise<ScheduleProposal | null> {
+  const { rows } = await db.query<{ schedule_proposal: ScheduleProposal | null }>(
+    `select schedule_proposal from projects where id = $1`,
+    [projectId],
+  );
+  return rows[0]?.schedule_proposal ?? null;
+}
+
+/** Reads what a proposal needs: the project's facts, the recorded jobs, and any saved proposal. Null when the project is missing. */
+async function readInputs(db: Db, projectId: string) {
+  const project = await readRomProjectDetail(db, projectId);
+  if (!project) return null;
+  const [jobs, saved] = await Promise.all([readCompletedJobs(db), readSaved(db, projectId)]);
+  const facts = scheduleFactsOf(project);
+  const current = saved && saved.inputKey === scheduleInputKey(facts, closeEnoughJobs(facts, jobs)) ? saved : null;
+  return { facts, jobs, current };
+}
+
+export async function readScheduleProposalState(db: Db, projectId: string): Promise<ScheduleProposalState | null> {
+  const inputs = await readInputs(db, projectId);
+  if (!inputs) return null;
+  const without = proposalWithoutModel(inputs.facts, inputs.jobs, today());
+  if (without) return { kind: "ready", proposal: without };
+  return inputs.current ? { kind: "ready", proposal: inputs.current } : { kind: "pending" };
+}
+
+/**
+ * The project's current proposal: the saved one when it was made from the
+ * project's current facts and jobs, otherwise a new one, saved on the
+ * project. A failed proposal saves nothing. Null when the project is missing.
+ */
+export async function proposeForProject(db: Db, client: RateClient | null, projectId: string): Promise<ProposeResult | null> {
+  const inputs = await readInputs(db, projectId);
+  if (!inputs) return null;
+  const without = proposalWithoutModel(inputs.facts, inputs.jobs, today());
+  if (without) return { ok: true, proposal: without };
+  if (inputs.current) return { ok: true, proposal: inputs.current };
+  const result = await proposeSchedule(client, inputs.facts, inputs.jobs, today());
+  if (result.ok) {
+    await db.query(`update projects set schedule_proposal = $2 where id = $1`, [projectId, JSON.stringify(result.proposal)]);
+  }
+  return result;
 }

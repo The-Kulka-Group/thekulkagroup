@@ -6,7 +6,18 @@ import {
   SYNTHETIC_STORAGE,
   SYNTHETIC_TOWER,
 } from "./fixtures/synthetic-completed-jobs";
-import { closeEnoughJobs, validateModelSchedule, type ScheduleFacts } from "./schedule-proposal";
+import type { PlanFigure, SchedulePhase } from "./resource-plan";
+import {
+  applyScheduleProposal,
+  closeEnoughJobs,
+  proposalFromCheckedAnswer,
+  proposalWithoutModel,
+  proposedFigure,
+  scheduleInputKey,
+  validateModelSchedule,
+  type ScheduleFacts,
+  type ScheduleProposal,
+} from "./schedule-proposal";
 
 // LA-1399. Matt, 2026-09-29 (LA-1394 question 1): the proposed schedule comes
 // from Kulka's completed jobs, with AI comparing the new project to them. The
@@ -182,5 +193,98 @@ describe("validateModelSchedule", () => {
       ],
     });
     expect(validateModelSchedule(raw, candidates)).toMatchObject({ ok: false });
+  });
+});
+
+describe("proposalWithoutModel", () => {
+  it("says the table is empty and leaves every phase blank when no job is recorded", () => {
+    const proposal = proposalWithoutModel(midrise, [], "2026-09-29");
+    expect(proposal).toMatchObject({
+      status: "no_jobs",
+      phases: {
+        precon: { weeks: null, jobNumbers: [] },
+        construction: { weeks: null, jobNumbers: [] },
+        closeout: { weeks: null, jobNumbers: [] },
+      },
+      jobs: [],
+    });
+    expect(proposal?.reasoning).toMatch(/No completed job is recorded yet/);
+  });
+
+  it("says no recorded job is close enough, and leaves every phase blank", () => {
+    const proposal = proposalWithoutModel(midrise, [SYNTHETIC_TOWER, SYNTHETIC_STORAGE], "2026-09-29");
+    expect(proposal?.status).toBe("none_close");
+    expect(proposal?.reasoning).toMatch(/close enough/);
+    expect(SCHEDULE_ALL_BLANK(proposal!)).toBe(true);
+  });
+
+  it("is null when a close job exists, since only then does the model compare", () => {
+    expect(proposalWithoutModel(midrise, SYNTHETIC_JOBS, "2026-09-29")).toBeNull();
+  });
+});
+
+function SCHEDULE_ALL_BLANK(proposal: ScheduleProposal) {
+  return Object.values(proposal.phases).every((phase) => phase.weeks === null);
+}
+
+describe("scheduleInputKey", () => {
+  it("changes when the project's facts or a compared job's weeks change, and not otherwise", () => {
+    const key = scheduleInputKey(midrise, [SYNTHETIC_MIDRISE]);
+    expect(scheduleInputKey({ ...midrise }, [{ ...SYNTHETIC_MIDRISE }])).toBe(key);
+    expect(scheduleInputKey({ ...midrise, grossSquareFeet: 81000 }, [SYNTHETIC_MIDRISE])).not.toBe(key);
+    const longer = { ...SYNTHETIC_MIDRISE, phases: { ...SYNTHETIC_MIDRISE.phases, closeout: { weeks: 9, source: "x" } } };
+    expect(scheduleInputKey(midrise, [longer])).not.toBe(key);
+    expect(scheduleInputKey(midrise, [])).not.toBe(key);
+  });
+});
+
+function checked() {
+  const result = validateModelSchedule(answer(), [SYNTHETIC_MIDRISE]);
+  if (!result.ok) throw new Error(result.error);
+  return proposalFromCheckedAnswer(result, { model: "claude-opus-5", proposedAt: "2026-09-29", inputKey: "k" });
+}
+
+describe("proposedFigure", () => {
+  it("is the phase's weeks with origin proposed, naming the jobs behind it", () => {
+    expect(proposedFigure(checked(), "construction")).toEqual({
+      value: 70,
+      origin: "proposed",
+      ref: "schedule-proposal",
+      source: "Planning assumption from completed job TEST-0001",
+    });
+  });
+
+  it("is null for a phase the proposal left blank", () => {
+    expect(proposedFigure(proposalWithoutModel(midrise, [], "2026-09-29")!, "precon")).toBeNull();
+  });
+});
+
+describe("applyScheduleProposal", () => {
+  const typed = (value: number): PlanFigure => ({ value, origin: "estimator" });
+  const proposal = checked();
+
+  it("fills every blank phase with the proposal's weeks", () => {
+    expect(applyScheduleProposal({ precon: null, construction: null, closeout: null }, proposal)).toEqual({
+      precon: proposedFigure(proposal, "precon"),
+      construction: proposedFigure(proposal, "construction"),
+      closeout: proposedFigure(proposal, "closeout"),
+    });
+  });
+
+  it("keeps a phase the estimator typed, even when a new proposal arrives", () => {
+    const applied = applyScheduleProposal({ precon: null, construction: typed(52), closeout: null }, proposal);
+    expect(applied.construction).toEqual(typed(52));
+    expect(applied.precon?.value).toBe(14);
+  });
+
+  it("replaces an older proposal's weeks, and blanks a phase the new proposal leaves blank", () => {
+    const old: Record<SchedulePhase, PlanFigure | null> = {
+      precon: { value: 10, origin: "proposed", ref: "schedule-proposal" },
+      construction: { value: 50, origin: "proposed", ref: "schedule-proposal" },
+      closeout: typed(6),
+    };
+    expect(applyScheduleProposal(old, proposal).construction?.value).toBe(70);
+    const blank = proposalWithoutModel(midrise, [], "2026-09-29")!;
+    expect(applyScheduleProposal(old, blank)).toEqual({ precon: null, construction: null, closeout: typed(6) });
   });
 });

@@ -176,3 +176,128 @@ export function validateModelSchedule(
   if (!reasoning) return fail("The answer gives no reasoning.");
   return { ok: true, phases, jobs, reasoning };
 }
+
+/**
+ * A proposal as the project saves it and the screen shows it.
+ *
+ * - `proposed`: the model compared the project with recorded jobs. A phase it
+ *   could not support is still blank.
+ * - `no_jobs`: the completed_jobs table is empty, so nothing was asked.
+ * - `none_close`: no recorded job is close enough, so nothing was asked.
+ */
+export type ScheduleProposal = CheckedSchedule & {
+  status: "proposed" | "no_jobs" | "none_close";
+  /** The model that compared, for a `proposed` status. */
+  model?: string;
+  /** The date the proposal was made, YYYY-MM-DD. */
+  proposedAt: string;
+  /** The facts and jobs it was made from (scheduleInputKey). A different key means it is out of date. */
+  inputKey: string;
+};
+
+const BLANK_PHASE = (reason: string): ProposedPhase => ({ weeks: null, jobNumbers: [], reason });
+
+/**
+ * The proposal when the model has nothing to compare with: an empty table, or
+ * no recorded job close enough. Every phase is blank for the estimator. Null
+ * when a close job exists, which is the only time the model is asked.
+ */
+export function proposalWithoutModel(
+  facts: ScheduleFacts,
+  jobs: readonly CompletedJob[],
+  proposedAt: string,
+): ScheduleProposal | null {
+  const close = closeEnoughJobs(facts, jobs);
+  if (close.length > 0) return null;
+  const status = jobs.length === 0 ? "no_jobs" : "none_close";
+  const reasoning =
+    status === "no_jobs"
+      ? "No completed job is recorded yet, so there is nothing to compare this project with. Enter the weeks."
+      : "No recorded job is close enough to compare with. A job counts when it shares this project's type and construction kind, and its area and stories are within half to twice the project's. Enter the weeks.";
+  const phase = BLANK_PHASE(reasoning);
+  return {
+    status,
+    phases: { precon: phase, construction: phase, closeout: phase },
+    jobs: [],
+    reasoning,
+    proposedAt,
+    inputKey: scheduleInputKey(facts, close),
+  };
+}
+
+/** A checked model answer as a saved proposal. */
+export function proposalFromCheckedAnswer(
+  checked: CheckedSchedule,
+  made: { model: string; proposedAt: string; inputKey: string },
+): ScheduleProposal {
+  return {
+    status: "proposed",
+    phases: checked.phases,
+    jobs: checked.jobs,
+    reasoning: checked.reasoning,
+    model: made.model,
+    proposedAt: made.proposedAt,
+    inputKey: made.inputKey,
+  };
+}
+
+/**
+ * A short fingerprint of what a proposal was made from: the project's facts
+ * and each close job's size and recorded weeks. A saved proposal whose key
+ * no longer matches is out of date and is made again.
+ */
+export function scheduleInputKey(facts: ScheduleFacts, closeJobs: readonly CompletedJob[]): string {
+  const parts = [
+    facts.projectType,
+    facts.constructionKind,
+    facts.grossSquareFeet,
+    facts.storiesAboveGrade ?? "",
+    ...closeJobs.map((job) =>
+      [
+        job.jobNumber,
+        job.grossSquareFeet,
+        job.storiesAboveGrade ?? "",
+        ...SCHEDULE_PHASES.map((phase) => job.phases[phase]?.weeks ?? ""),
+      ].join(","),
+    ),
+  ].join("|");
+  // FNV-1a, 32 bits: short enough to store, and only compared for equality.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < parts.length; i += 1) {
+    hash ^= parts.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `v1-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+/** The rule name a proposed phase's figure carries as its `ref`. */
+export const SCHEDULE_PROPOSAL_REF = "schedule-proposal";
+
+/** A phase's proposed weeks as a plan figure with origin "proposed", or null where the proposal left it blank. */
+export function proposedFigure(proposal: ScheduleProposal, phase: SchedulePhase): PlanFigure | null {
+  const found = proposal.phases[phase];
+  if (found.weeks === null) return null;
+  const jobs = found.jobNumbers;
+  let source = `Planning assumption from completed job${jobs.length === 1 ? "" : "s"} ${jobs.join(", ")}`;
+  // A plan figure's source is at most 200 characters (lib/rom/resource-plan.ts).
+  if (source.length > 200) source = `Planning assumption from ${jobs.length} completed jobs`;
+  return { value: found.weeks, origin: "proposed", ref: SCHEDULE_PROPOSAL_REF, source };
+}
+
+/**
+ * A plan's schedule with a proposal applied. A phase the estimator typed is
+ * kept whatever the proposal says. Every other phase, blank or proposed
+ * before, takes the proposal's figure, or goes blank where the proposal
+ * leaves it blank, so an out-of-date figure never stays on the plan.
+ */
+export function applyScheduleProposal(
+  current: Record<SchedulePhase, PlanFigure | null>,
+  proposal: ScheduleProposal,
+): Record<SchedulePhase, PlanFigure | null> {
+  const next = {} as Record<SchedulePhase, PlanFigure | null>;
+  for (const phase of SCHEDULE_PHASES) {
+    const figure = current[phase];
+    next[phase] = figure && figure.origin !== "proposed" ? figure : proposedFigure(proposal, phase);
+  }
+  return next;
+}

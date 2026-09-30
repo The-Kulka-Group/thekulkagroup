@@ -343,3 +343,23 @@ export {
   type DerivedValue,
   type FactBasis,
 } from "./derived-assumptions";
+
+export {
+  applyScheduleProposal,
+  CLOSE_ENOUGH,
+  closeEnoughJobs,
+  proposalFromCheckedAnswer,
+  proposalWithoutModel,
+  proposedFigure,
+  SCHEDULE_PROPOSAL_REF,
+  scheduleInputKey,
+  SUPPORTED_BAND,
+  validateModelSchedule,
+  type CheckedSchedule,
+  type ComparedJob,
+  type CompletedJob,
+  type CompletedJobPhase,
+  type ProposedPhase,
+  type ScheduleFacts,
+  type ScheduleProposal,
+} from "./schedule-proposal";

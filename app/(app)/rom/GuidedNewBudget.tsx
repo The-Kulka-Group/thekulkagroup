@@ -530,7 +530,7 @@ export function GuidedNewBudget({
       setError(`Enter the ${blanks.join(" and ")} rate.`);
       return;
     }
-    const parsed = markupChoicesFrom(markupForm, markupOptions);
+    const parsed = markupChoicesFrom(markupForm, markupOptions, planAnswersFromResponses(responses));
     if (!parsed.ok) {
       setError(parsed.error);
       return;

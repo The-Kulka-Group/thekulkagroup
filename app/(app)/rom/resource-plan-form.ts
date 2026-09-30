@@ -466,8 +466,7 @@ export function resetLineSwitch(form: PlanForm, lineId: string): PlanForm {
     ...form,
     lines: form.lines.map((line) => {
       if (line.id !== lineId) return line;
-      const { manual: _manual, ...rest } = line;
-      return rest;
+      return withoutManual(line);
     }),
   };
 }
@@ -476,11 +475,14 @@ export function resetLineSwitch(form: PlanForm, lineId: string): PlanForm {
 export function resetAllLineSwitches(form: PlanForm): PlanForm {
   return {
     ...form,
-    lines: form.lines.map((line) => {
-      const { manual: _manual, ...rest } = line;
-      return rest;
-    }),
+    lines: form.lines.map(withoutManual),
   };
+}
+
+function withoutManual(line: PlanLineForm): PlanLineForm {
+  const rest = { ...line };
+  delete rest.manual;
+  return rest;
 }
 
 /**

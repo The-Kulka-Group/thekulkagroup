@@ -141,6 +141,14 @@ recorded jobs, and a phase no close job supports is left blank for the estimator
 the estimator changes stays changed until reset to the proposal (LA-1399).
 _Avoid_: schedule (unqualified), durations
 
+**Derived quantity**:
+A resource plan line's quantity worked out by a named rule from the project's facts or the
+schedule, such as final cleaning from gross square feet. It shows the fact and rule behind
+it. Where the project lacks a fact the rule needs, the quantity stays blank and names the
+fact; it never prices as zero or one. The estimator's own quantity wins until reset, and a
+saved run keeps the quantity it recorded (LA-1401).
+_Avoid_: calculated quantity, auto quantity, default quantity
+
 **Markup basis**:
 What a 90-series item computes on: either the running total of everything above it, the
 trade cost alone, or a lump sum. Recorded per item, because Kulka's budgets do not all

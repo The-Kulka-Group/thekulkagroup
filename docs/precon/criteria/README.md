@@ -22,6 +22,8 @@ every step, as V-2 does (`lib/rom/jack-criterion.ts`).
 | LA-1265 | `../research/la-hydraulic-jack-type.md` | V-2 Hydraulic Jack Type. Built: in-ground, holeless or roped from travel, wet ground and ZIP, deciding whether item 26i (the well hole) comes in. |
 | LA-1269 | `../research/la-elevator-machine-rooms.md` | V-3 Elevator Machine Rooms. Built: one room per building for hydraulic, none for machine-room-less traction; item 26g prices per room. |
 | LA-1325 | `la-1325-building-form.md` | A-2 Building Form. Built: bar, L, U or courtyard from the floor plate's corridor length, with stepped wings and 28 ft bays. The Building View draws it; it prices nothing yet. |
+| LA-1402 | `la-1402-line-rules.md` | Line Rules: which Allocated Resources lines switch on from the answers and the schedule. |
+| LA-1401 | `la-1401-line-quantities.md` | Line Quantities: General Requirements quantities from the project's facts, following C-00379's own heat and power method. A line that lacks a fact stays blank and names it. |
 
 ## The intake gap, now mostly closed
 

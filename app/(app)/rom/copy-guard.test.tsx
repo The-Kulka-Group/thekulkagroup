@@ -27,7 +27,14 @@ import { CriterionCard, CriterionPanel, type Criterion } from "./DerivedCriteria
 import { initialMarkupForm, MarkupControls } from "./Markups";
 import { BlockPanel, type Drilldown, NotesPanel, TotalPanel } from "./RomPanels";
 import { ResourcePlanEditor, ScheduleProposalNote } from "./ResourcePlanEditor";
-import { linesFromGrRate, linesFromRateCard } from "./resource-plan-form";
+import {
+  emptyPlanForm,
+  linesFromGrRate,
+  linesFromRateCard,
+  RULE_SEED_ROWS,
+  setLineSwitch,
+  withRuleLines,
+} from "./resource-plan-form";
 
 // LA-1333. A budget is a document Kulka hands a developer, so nothing on it
 // may read like the inside of the software: no repository path, no internal
@@ -400,6 +407,53 @@ describe("the copy guard", () => {
     );
     expect(leaksIn(html)).toEqual([]);
     expect(html).not.toContain("claude-opus-5");
+  });
+
+  it("finds nothing internal on the rule lines of a General Requirements plan, and shows each rule's words (LA-1402)", () => {
+    const grRate = (id: string, section: string, item: string) => ({
+      id,
+      section,
+      item,
+      unit: "Weeks",
+      basis: "phase_weeks" as const,
+      phase: null,
+      rate: 1800,
+      jobQuantity: null,
+      note: null,
+      flaggedFor: null,
+      priceable: true,
+      notPriceableReason: null,
+      sourceEstimate: "C-00379",
+      sourceJob: "117 N. Long Beach Rd, one 120,000 SF warehouse",
+      singleJobWarehouse: true,
+    });
+    const options = {
+      staffingRates: [],
+      fieldOfficeRates: [],
+      feeRate: recordedParameter(0.0325),
+      insuranceRate: recordedParameter(0.054),
+      historyCounts: { both: 0, gc_only: 0, gr_only: 0 },
+      grRates: RULE_SEED_ROWS.map((seed, i) => grRate(`00000000-0000-4000-8000-00000000c${i}`, seed.section, seed.item)),
+    };
+    const seeded = withRuleLines({ ...emptyPlanForm(), weeks: { precon: "0", construction: "60", closeout: "0" } }, options.grRates);
+    const hand = setLineSwitch(seeded, seeded.lines[0].id, "off");
+    const html = renderToStaticMarkup(
+      <ResourcePlanEditor
+        options={options}
+        plan={hand}
+        onChange={noop}
+        disabled={false}
+        lineName="General Requirements"
+        kind="gr"
+        answers={{ storiesAboveGrade: 6, grossSquareFeet: 10_000 }}
+      />,
+    );
+    expect(html).toContain("Off: switched off by the estimator");
+    expect(html).toContain("On: 60 weeks of construction cannot avoid winter");
+    expect(html).toContain("Reset to Rule");
+    expect(html).toContain("Reset All Lines to Their Rules");
+    expect(html).toContain("Switch On");
+    expect(leaksIn(html)).toEqual([]);
   });
 });
 

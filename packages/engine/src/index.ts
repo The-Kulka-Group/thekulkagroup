@@ -411,6 +411,6 @@ export {
   winterWeeks,
   type QuantityFacts,
   type QuantityResult,
-  type QuantityRule,
+  type LineQuantityRule,
   type QuantityRuleId,
 } from "./quantity-rules";

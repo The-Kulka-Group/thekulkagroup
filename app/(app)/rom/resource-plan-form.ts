@@ -4,6 +4,8 @@ import {
   proposedFigure,
   planFromStaffingChoices,
   priceResourcePlan,
+  quantityRuleById,
+  quantityRuleForRow,
   resolveLineSwitch,
   ruleById,
   ruleForGroup,
@@ -16,6 +18,8 @@ import {
   type PlanBasis,
   type PlanFigure,
   type PlanLine,
+  type QuantityFacts,
+  type QuantityRuleId,
   type ResourcePlan,
   type ScheduleProposal,
   type SchedulePhase,
@@ -66,6 +70,13 @@ export type PlanLineForm = {
    * and a line they switched off never comes back on by itself.
    */
   manual?: "on" | "off";
+  /**
+   * The rule that fills the quantity from the project's facts (LA-1401,
+   * quantity-rules.ts). While `quantityFrom` is not the estimator's, the
+   * quantity is the rule's, worked out afresh from the facts and the
+   * schedule. Once the estimator types one, theirs wins until they reset it.
+   */
+  quantityRule?: QuantityRuleId;
 };
 
 /** The answers the rules read besides the plan's schedule. Null where the estimator has not given one. */
@@ -74,6 +85,13 @@ export type PlanAnswers = {
   grossSquareFeet: number | null;
   /** YYYY-MM-DD. No screen asks for it yet. */
   constructionStart?: string | null;
+  // LA-1401: facts the quantity rules read that no question asks for yet.
+  // Each is null on every project today, so the lines that need one stay
+  // blank and name it.
+  sitePerimeterLf?: number | null;
+  heatLoadBtuPerHour?: number | null;
+  temporaryPowerAmps?: number | null;
+  temporaryLightingAmps?: number | null;
 };
 
 export const NO_ANSWERS: PlanAnswers = { storiesAboveGrade: null, grossSquareFeet: null };
@@ -205,6 +223,7 @@ function lineForm(line: PlanLine): PlanLineForm {
     weeksFrom: from(line.basis === "time" ? line.weeks : undefined),
     ...(line.switch?.rule ? { ruleId: line.switch.rule } : {}),
     ...(line.switch?.by === "estimator" ? { manual: line.switch.on ? ("on" as const) : ("off" as const) } : {}),
+    ...(line.quantityRule ? { quantityRule: line.quantityRule } : {}),
   };
 }
 
@@ -253,6 +272,64 @@ export function switchOf(line: PlanLineForm, form: PlanForm, answers: PlanAnswer
   return resolveLineSwitch(rule?.id ?? null, result, line.manual);
 }
 
+// ---- LA-1401: quantities from the project's facts ---------------------------
+
+/** The item name of the rate card row whose quantity counts the cameras. */
+const CAMERAS_ITEM = "Webcam - Video, Cameras";
+
+/** What the quantity rules read for this plan: the answers, the schedule, and the plan's own camera count. */
+export function quantityFactsOf(form: PlanForm, answers: PlanAnswers): QuantityFacts {
+  const weeks = number(form.weeks.construction);
+  const cameras = form.lines.find((line) => line.group === "Site Controls" && line.label.trim() === CAMERAS_ITEM);
+  const cameraCount = cameras ? number(cameras.quantity) : null;
+  return {
+    grossSquareFeet: answers.grossSquareFeet,
+    constructionWeeks: weeks !== null && weeks > 0 ? weeks : null,
+    constructionStart: answers.constructionStart ?? null,
+    sitePerimeterLf: answers.sitePerimeterLf ?? null,
+    heatLoadBtuPerHour: answers.heatLoadBtuPerHour ?? null,
+    temporaryPowerAmps: answers.temporaryPowerAmps ?? null,
+    temporaryLightingAmps: answers.temporaryLightingAmps ?? null,
+    cameraCount: cameraCount !== null && cameraCount > 0 ? cameraCount : null,
+  };
+}
+
+/**
+ * A line's quantity as it stands, and where it came from (LA-1401).
+ *
+ * - A line with no quantity rule keeps what is on it.
+ * - A line the estimator typed a quantity on keeps theirs (`overridden`).
+ * - Otherwise the rule works it out from the facts and the schedule now, so
+ *   it follows them as they change. `value` is the rule's exact figure and
+ *   `text` shows it to two places. Where the rule lacks a fact, `text` is
+ *   blank and `missing` names the facts; the plan will not price the line.
+ */
+export function quantityOf(
+  line: PlanLineForm,
+  form: PlanForm,
+  answers: PlanAnswers,
+): { text: string; from: FigureFrom; overridden: boolean; value?: number; missing?: string[] } {
+  const rule = line.quantityRule ? quantityRuleById(line.quantityRule) : null;
+  if (!rule) return { text: line.quantity, from: line.quantityFrom, overridden: false };
+  if (line.quantityFrom.origin === "estimator") return { text: line.quantity, from: TYPED, overridden: true };
+  const result = rule.evaluate(quantityFactsOf(form, answers));
+  const from: FigureFrom = { origin: rule.origin, ref: rule.id, source: result.words };
+  if (!result.ok) return { text: "", from, overridden: false, missing: result.missing };
+  return { text: String(Number(result.value.toFixed(2))), from, overridden: false, value: result.value };
+}
+
+/** Puts one line's quantity back under its rule. */
+export function resetLineQuantity(form: PlanForm, lineId: string): PlanForm {
+  return {
+    ...form,
+    lines: form.lines.map((line) => {
+      const rule = line.quantityRule ? quantityRuleById(line.quantityRule) : null;
+      if (line.id !== lineId || !rule) return line;
+      return { ...line, quantity: "", quantityFrom: { origin: rule.origin, ref: rule.id } };
+    }),
+  };
+}
+
 /** The plan the form describes, or what is wrong with it in words the screen shows. */
 export function planFromForm(
   form: PlanForm,
@@ -275,7 +352,11 @@ export function planFromForm(
     const lineSwitch = switchOf(line, form, answers);
     // A line that is off prices nothing, so it keeps what was typed and needs no more.
     const off = lineSwitch !== null && !lineSwitch.on;
-    const quantity = number(line.quantity);
+    const held = quantityOf(line, form, answers);
+    if (!off && held.missing !== undefined) {
+      return { ok: false, error: `Enter a quantity for ${name}: ${held.from.source ?? "the project has no fact to work it out from"}.` };
+    }
+    const quantity = held.value ?? number(held.text);
     if (!off && (quantity === null || !(quantity > 0))) return { ok: false, error: `${name} needs a quantity above zero.` };
     const rate = number(line.rate);
     if (!off && rate === null && line.noCardRate && line.rate.trim() === "") {
@@ -286,9 +367,10 @@ export function planFromForm(
       id: line.id,
       label: line.label.trim(),
       group: line.group,
-      quantity: { value: quantity !== null && quantity > 0 ? quantity : 0, ...line.quantityFrom },
+      quantity: { value: quantity !== null && quantity > 0 ? quantity : 0, ...held.from },
       rate: { value: rate !== null && rate >= 0 ? rate : 0, ...line.rateFrom },
       ...(lineSwitch ? { switch: lineSwitch } : {}),
+      ...(line.quantityRule ? { quantityRule: line.quantityRule } : {}),
     };
     if (line.basis === "lump_sum") {
       lines.push({ ...common, basis: "lump_sum" });
@@ -405,6 +487,24 @@ export function linesFromGrRate(rateId: string, rates: GrRate[], existing: PlanL
     rateFrom: hasRate ? { origin: "rate_card" as const, ref: rate.id, source: rate.sourceEstimate } : TYPED,
     ...(hasRate ? {} : { noCardRate: true }),
   };
+  // LA-1401: a row whose quantity follows from the building takes its rule,
+  // and the quantity is the rule's from then on. A rule that prices by its own
+  // unit (heater rental by the heater-month) makes the line a unit line.
+  const quantityRule = quantityRuleForRow(rate.section, rate.item);
+  if (quantityRule) {
+    const ruled = { ...common, quantityRule: quantityRule.id, quantity: "", quantityFrom: { origin: quantityRule.origin, ref: quantityRule.id } };
+    if (quantityRule.unit) return [{ ...ruled, basis: "unit", unit: quantityRule.unit }];
+    switch (rate.basis) {
+      case "phase_weeks":
+        return [{ ...ruled, basis: "time", per: "week", phases: ["construction"] }];
+      case "phase_months":
+        return [{ ...ruled, basis: "time", per: "month", phases: ["construction"] }];
+      case "unit":
+        return [{ ...ruled, basis: "unit", unit: rate.unit ?? "" }];
+      default:
+        return [{ ...ruled, basis: "lump_sum" }];
+    }
+  }
   switch (rate.basis) {
     case "phase_weeks":
       return [{ ...common, basis: "time", per: "week", phases: ["construction"] }];
@@ -447,7 +547,9 @@ export function originWords(figure: FigureFrom): string {
     case "proposed":
       return "a proposal, a planning assumption";
     case "fact":
-      return "the project's facts";
+      return figure.source ? `the project's facts: ${figure.source}` : "the project's facts";
+    case "schedule":
+      return figure.source ? `the schedule: ${figure.source}` : "the schedule";
     case "estimator":
       return "the estimator";
   }
@@ -488,10 +590,7 @@ function withoutManual(line: PlanLineForm): PlanLineForm {
 /**
  * The lines a new General Requirements plan opens with, one rule each
  * (LA-1402). They are General Requirements rate card rows a rule governs,
- * chosen because each has a rate on the card and a natural count of one: one
- * operator, one set of ductwork, one guard, one camera. Rows that price by
- * area or need a count from the building wait for LA-1401. The quantity
- * carries that, so it never reads as a measured figure.
+ * chosen because each has a rate on the card.
  *
  * FOR MATT TO CONFIRM: which rows a plan opens with. The rate card is one
  * warehouse job (C-00379), so this is a starting set, not Kulka's standard.
@@ -508,11 +607,20 @@ export const RULE_SEED_ROWS: { section: string; item: string }[] = [
   { section: "Site Controls", item: "Webcam - Video, Cellular Service" },
 ];
 
-export const ONE_OF_EACH: FigureFrom = {
-  origin: "proposed",
-  ref: "one-of-each",
-  source: "One, until quantities come from the project's facts (LA-1401)",
-};
+/**
+ * A seed line's quantity (LA-1401). A lump sum the card carries as one lump
+ * sum keeps that one, from the card. Every other seed line opens with the
+ * quantity its rule works out, or blank: how many guards, operators or
+ * cameras a job needs is not a fact the project holds, and a blank quantity
+ * keeps the line from pricing until the estimator enters one.
+ */
+function seedQuantity(line: PlanLineForm, rate: GrRate): PlanLineForm {
+  if (line.quantityRule) return line;
+  if (line.basis === "lump_sum" && rate.jobQuantity === 1) {
+    return { ...line, quantity: "1", quantityFrom: { origin: "rate_card", ref: rate.id, source: `one lump sum, as ${rate.sourceEstimate} carries it` } };
+  }
+  return { ...line, quantity: "", quantityFrom: TYPED };
+}
 
 /**
  * A new General Requirements plan opened with the lines its rules switch. Only
@@ -529,7 +637,7 @@ export function withRuleLines(form: PlanForm, rates: GrRate[]): PlanForm {
     const rule = ruleForGroup(rate.section);
     if (!rule) continue;
     for (const line of linesFromGrRate(rate.id, rates, [...form.lines, ...lines])) {
-      lines.push({ ...line, ruleId: rule.id, quantity: "1", quantityFrom: ONE_OF_EACH });
+      lines.push(seedQuantity({ ...line, ruleId: rule.id }, rate));
     }
   }
   return lines.length === 0 ? form : { ...form, lines };

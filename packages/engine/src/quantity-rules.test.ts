@@ -74,7 +74,7 @@ describe("gross area (final cleaning, OSHA protection, exterminating, floor prot
     expect(GROSS_AREA_RULE.evaluate(facts())).toEqual({
       ok: false,
       missing: ["Gross Square Feet"],
-      words: "Enter a quantity: the project has no gross square feet",
+      words: "the project has no gross square feet",
     });
   });
 });
@@ -115,7 +115,7 @@ describe("exterior barricades (spacing for Matt to confirm)", () => {
     expect(BARRICADE_RULE.evaluate(facts({ grossSquareFeet: 120_000 }))).toEqual({
       ok: false,
       missing: ["Site Perimeter"],
-      words: "Enter a quantity: the project has no site perimeter",
+      words: "the project has no site perimeter",
     });
   });
 

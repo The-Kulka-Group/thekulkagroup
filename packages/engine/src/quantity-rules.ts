@@ -53,7 +53,7 @@ export type QuantityResult =
   | { ok: true; value: number; words: string }
   | { ok: false; missing: string[]; words: string };
 
-export type QuantityRule = {
+export type LineQuantityRule = {
   id: QuantityRuleId;
   name: string;
   /** Where the quantity came from: a project fact, or the schedule alone. */
@@ -79,18 +79,18 @@ const known = (n: number | null | undefined): n is number => typeof n === "numbe
 const count = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
 function noNumber(words: string): QuantityResult {
-  return { ok: false, missing: [], words: `Enter a quantity: ${words}` };
+  return { ok: false, missing: [], words };
 }
 
 function missing(...facts: string[]): QuantityResult {
   const list = facts.map((fact) => fact.toLowerCase());
   const words = list.length === 1 ? list[0] : `${list.slice(0, -1).join(", ")} or ${list[list.length - 1]}`;
-  return { ok: false, missing: facts, words: `Enter a quantity: the project has no ${words}` };
+  return { ok: false, missing: facts, words: `the project has no ${words}` };
 }
 
 // ---- Gross area ---------------------------------------------------------
 
-export const GROSS_AREA_RULE: QuantityRule = {
+export const GROSS_AREA_RULE: LineQuantityRule = {
   id: "gross_area",
   name: "Gross Area",
   origin: "fact",
@@ -115,7 +115,7 @@ export const GROSS_AREA_RULE: QuantityRule = {
 /** Square feet per extinguisher during construction: C-00379 W211, =GSF/3000. */
 export const EXTINGUISHER_SF_EACH = 3000;
 
-export const FIRE_EXTINGUISHER_RULE: QuantityRule = {
+export const FIRE_EXTINGUISHER_RULE: LineQuantityRule = {
   id: "fire_extinguishers",
   name: "Fire Extinguishers",
   origin: "fact",
@@ -143,7 +143,7 @@ export const FIRE_EXTINGUISHER_RULE: QuantityRule = {
  */
 export const BARRICADE_SPACING_LF = 60;
 
-export const BARRICADE_RULE: QuantityRule = {
+export const BARRICADE_RULE: LineQuantityRule = {
   id: "barricades",
   name: "Exterior Barricades",
   origin: "fact",
@@ -164,7 +164,7 @@ export const BARRICADE_RULE: QuantityRule = {
 
 // ---- Webcam service -----------------------------------------------------
 
-export const CAMERA_SERVICE_RULE: QuantityRule = {
+export const CAMERA_SERVICE_RULE: LineQuantityRule = {
   id: "camera_service",
   name: "Webcam Service",
   origin: "fact",
@@ -258,7 +258,7 @@ function heatWeeksOf(facts: QuantityFacts): number | QuantityResult {
 const HEAT_SOURCE =
   "C-00379's Cold Weather Protection section, rows 184 to 202. Its weeks of heat (W192) are typed; here they are the construction days that fall in December to March (WINTER in line-rules.ts, for Matt to confirm), which needs a start date no screen asks for yet. On C-00379's own dates that gives 21.6 weeks against the sheet's typed 11.";
 
-export const HEAT_LABOR_RULE: QuantityRule = {
+export const HEAT_LABOR_RULE: LineQuantityRule = {
   id: "heat_labor",
   name: "Temporary Heat Labor",
   origin: "schedule",
@@ -281,7 +281,7 @@ function heatersAndWeeks(facts: QuantityFacts): { heaters: number; weeks: number
   return { heaters: heatersRequired(facts.heatLoadBtuPerHour), weeks };
 }
 
-export const HEATER_RENTAL_RULE: QuantityRule = {
+export const HEATER_RENTAL_RULE: LineQuantityRule = {
   id: "heater_rental",
   name: "Heater Rental",
   origin: "fact",
@@ -302,7 +302,7 @@ export const HEATER_RENTAL_RULE: QuantityRule = {
   },
 };
 
-export const HEAT_FUEL_RULE: QuantityRule = {
+export const HEAT_FUEL_RULE: LineQuantityRule = {
   id: "heat_fuel",
   name: "Heater Fuel",
   origin: "fact",
@@ -373,7 +373,7 @@ function kwhRule(
   ampsOf: (facts: QuantityFacts) => number | null | undefined,
   hours: number,
   hoursConstant: string,
-): QuantityRule {
+): LineQuantityRule {
   return {
     id,
     name,
@@ -419,7 +419,7 @@ export const TEMP_LIGHTING_RULE = kwhRule(
 
 // ---- All rules ----------------------------------------------------------
 
-export const QUANTITY_RULES: readonly QuantityRule[] = [
+export const QUANTITY_RULES: readonly LineQuantityRule[] = [
   GROSS_AREA_RULE,
   FIRE_EXTINGUISHER_RULE,
   BARRICADE_RULE,
@@ -431,11 +431,11 @@ export const QUANTITY_RULES: readonly QuantityRule[] = [
   TEMP_LIGHTING_RULE,
 ];
 
-export function quantityRuleById(id: string): QuantityRule | null {
+export function quantityRuleById(id: string): LineQuantityRule | null {
   return QUANTITY_RULES.find((rule) => rule.id === id) ?? null;
 }
 
 /** The rule that fills a rate card row's quantity, or null where none does. */
-export function quantityRuleForRow(section: string, item: string): QuantityRule | null {
+export function quantityRuleForRow(section: string, item: string): LineQuantityRule | null {
   return QUANTITY_RULES.find((rule) => rule.rows.some((row) => row.section === section && row.item === item)) ?? null;
 }

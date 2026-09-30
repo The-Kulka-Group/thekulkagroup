@@ -72,7 +72,13 @@ const typedWeeks = (form: PlanForm, construction: string): PlanForm => ({
   weeks: { precon: "0", construction, closeout: "0" },
 });
 
-const newPlan = (construction = "0") => typedWeeks(withRuleLines(emptyPlanForm(), grRates), construction);
+// Since LA-1401 a seed line opens with a blank count, which the estimator
+// enters. These tests are about switches, so the estimator has entered one.
+const counted = (form: PlanForm): PlanForm => ({
+  ...form,
+  lines: form.lines.map((line) => (line.quantity === "" ? { ...line, quantity: "1", quantityFrom: TYPED } : line)),
+});
+const newPlan = (construction = "0") => typedWeeks(counted(withRuleLines(emptyPlanForm(), grRates)), construction);
 const pricedIds = (form: PlanForm, answers = planAnswersFromResponses({})) => {
   const priced = pricedPlanOf(form, answers);
   return priced ? priced.lines.map((line) => line.id) : null;
@@ -86,11 +92,10 @@ describe("a new General Requirements plan opens with its rule lines", () => {
     expect(new Set(form.lines.map((line) => line.ruleId))).toEqual(new Set(["hoisting", "cold_weather", "site_security"]));
   });
 
-  it("marks the quantity of one as a stated default, not a measured figure", () => {
+  it("opens no line at an invented quantity of one (LA-1401)", () => {
     const [line] = withRuleLines(emptyPlanForm(), grRates).lines;
-    expect(line.quantity).toBe("1");
-    expect(line.quantityFrom.origin).toBe("proposed");
-    expect(line.quantityFrom.source).toMatch(/LA-1401/);
+    expect(line.quantity).toBe("");
+    expect(line.quantityFrom.origin).not.toBe("proposed");
   });
 
   it("leaves a plan that already has lines exactly as it is", () => {
@@ -264,7 +269,7 @@ describe("the markup form opens a plan with the lines", () => {
   });
   it("sends the switches with the markups a run records", () => {
     const form = withRuleLinesOnForm(base({ setup: "separate", grMethod: "allocated_resources" }), options);
-    const withWeeks = { ...form, grPlan: { ...typedWeeks(form.grPlan, "60"), weeksFrom: form.grPlan.weeksFrom } };
+    const withWeeks = { ...form, grPlan: { ...typedWeeks(counted(form.grPlan), "60"), weeksFrom: form.grPlan.weeksFrom } };
     const sent = markupChoicesFrom(withWeeks, options, { storiesAboveGrade: 6, grossSquareFeet: 10_000 });
     expect(sent.ok).toBe(true);
     if (!sent.ok) return;

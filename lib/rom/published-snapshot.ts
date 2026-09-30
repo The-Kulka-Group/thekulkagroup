@@ -82,7 +82,7 @@ export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapsho
     project: { id: run.projectId, name: run.projectName },
     rom: run.rom,
     answers,
-    criteria: source.criteria.map(({ id: _id, correctionId: _correctionId, ...criterion }) => criterion),
+    criteria: source.criteria.map(frozenCriterion),
     copy: source.copy,
     engineSnapshotHash: run.snapshotHash,
   };
@@ -90,6 +90,23 @@ export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapsho
     snapshot.allocatedResources = plan as AllocatedResourcesPlan;
   }
   return snapshot;
+}
+
+/** The engine's criterion record, field by field, so no storage id rides along. */
+function frozenCriterion(criterion: DerivedAssumption): PublishedCriterion {
+  return {
+    kind: criterion.kind,
+    code: criterion.code,
+    label: criterion.label,
+    value: criterion.value,
+    method: criterion.method,
+    inputs: criterion.inputs,
+    steps: criterion.steps,
+    confidence: criterion.confidence,
+    confidenceReason: criterion.confidenceReason,
+    costCodes: criterion.costCodes,
+    correction: criterion.correction,
+  };
 }
 
 type Range = { low: number; high: number };

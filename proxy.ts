@@ -2,14 +2,39 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { authConfiguration, verifiedAllowedEmail } from "@/lib/auth/policy";
-import { AUTH_SECURITY_HEADERS, isAuthRoute, isPublicAuthRoute } from "@/lib/auth/routes";
+import {
+  AUTH_SECURITY_HEADERS,
+  PUBLISHED_BUDGET_HEADERS,
+  isAuthRoute,
+  isPublicAuthRoute,
+  isPublishedBudgetRoute,
+  publishedPdfRoute,
+} from "@/lib/auth/routes";
 
 function protectAuthResponse(response: NextResponse) {
   Object.entries(AUTH_SECURITY_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
   return response;
 }
 
+/** LA-1417: a published budget link, open to anyone who has it, before any auth handling. */
+function publishedBudgetResponse(request: NextRequest) {
+  const pdf = publishedPdfRoute(request.nextUrl.pathname);
+  let response: NextResponse;
+  if (pdf) {
+    const url = request.nextUrl.clone();
+    url.pathname = pdf;
+    response = NextResponse.rewrite(url);
+  } else {
+    response = NextResponse.next({ request });
+  }
+  Object.entries(PUBLISHED_BUDGET_HEADERS).forEach(([key, value]) => response.headers.set(key, value));
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
+  if (isPublishedBudgetRoute(request.nextUrl.pathname)) {
+    return publishedBudgetResponse(request);
+  }
   if (process.env.KULKA_AUTH_OPEN === "1") {
     if (request.nextUrl.pathname === "/login") {
       const url = request.nextUrl.clone();

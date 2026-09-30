@@ -32,8 +32,8 @@ export const PHASE_LABEL: Record<SchedulePhase, string> = {
  * - `estimator`: typed, or kept, by the estimator.
  * - `rate_card`: read from a Kulka rate table row (`ref` is the row id).
  * - `proposed`: filled in by a stated rule the estimator has not touched
- *   (`ref` names the rule). Reserved for the proposed schedule (LA-1399) and
- *   staff plan (LA-1400); nothing sets it yet.
+ *   (`ref` names the rule). The proposed schedule sets it on a phase's weeks
+ *   (LA-1399, schedule-proposal.ts); the staff plan (LA-1400) is to follow.
  * - `fact`: a quantity taken from a project fact (`ref` is the fact's key),
  *   such as gross area for final cleaning. Reserved for LA-1398.
  *

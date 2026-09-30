@@ -139,7 +139,7 @@ export function resetPhaseToProposal(form: PlanForm, phase: SchedulePhase, propo
   };
 }
 
-/** A plan with no weeks typed and no lines, the way Allocated Resources starts until LA-1399 and LA-1400 propose one. */
+/** A plan with no weeks typed and no lines. The proposed schedule (LA-1399) fills its weeks where it can. */
 export function emptyPlanForm(): PlanForm {
   return {
     weeks: { precon: "", construction: "", closeout: "" },

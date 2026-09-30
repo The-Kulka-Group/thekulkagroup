@@ -53,6 +53,7 @@ import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } 
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
+import { PublishPanel } from "./PublishPanel";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
 import { BlockPanel, type Drilldown, NOTES_TBD_ID, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, runName, savedRunsFor } from "./saved-runs";
@@ -122,7 +123,9 @@ type Panel =
   | { kind: "rate"; costCode: string; editing?: boolean }
   /** Matt, 2026-09-28: suggested rates for every item with none, in one go (BulkRatePanel.tsx). */
   | { kind: "rates" }
-  | { kind: "budgets" };
+  | { kind: "budgets" }
+  /** LA-1419: publish the run on screen as a client link, and manage its versions (PublishPanel.tsx). */
+  | { kind: "publish" };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -799,6 +802,7 @@ export function RomRunner({
       {withNew ? <MenuItem onClick={() => { close(); openPanel({ kind: "new" }); }}>New Budget</MenuItem> : null}
       <MenuItem onClick={() => { close(); openPanel({ kind: "budgets" }); }}>All Budgets</MenuItem>
       {projectId ? <MenuItem onClick={() => { close(); openPanel({ kind: "edit" }); }}>Edit Project</MenuItem> : null}
+      {withNew && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "publish" }); }}>Publish Budget</MenuItem> : null}
       {projectId && (markupOptions || scopeDefaults) ? (
         <MenuItem onClick={() => { close(); openPanel({ kind: "settings" }); }}>Run Settings</MenuItem>
       ) : null}
@@ -854,6 +858,16 @@ export function RomRunner({
           >
             New Budget
           </button>
+          {projectId && run ? (
+            <button
+              type="button"
+              className="rb-hbtn pm-wide"
+              aria-expanded={panel?.kind === "publish"}
+              onClick={(e) => openPanel({ kind: "publish" }, e.currentTarget)}
+            >
+              Publish
+            </button>
+          ) : null}
           <div className="pm-wide">
             <Menu label="Settings">{(close) => settingsItems(close, false)}</Menu>
           </div>
@@ -1157,6 +1171,19 @@ export function RomRunner({
                   router.push("/rom");
                 }}
               />
+            </>
+          ) : null}
+
+          {panel.kind === "publish" && run && projectId ? (
+            <>
+              <PanelHead
+                title="Publish Budget"
+                sub={`Publishes ${runWords(run)} as a link for the client.`}
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              {/* Keyed by run, so loading another saved run starts the form over for it. */}
+              <PublishPanel key={run.runId} projectId={projectId} runId={run.runId} />
             </>
           ) : null}
 

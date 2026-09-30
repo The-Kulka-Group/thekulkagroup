@@ -14,7 +14,7 @@ import { renderBudgetPage } from "./render";
 const page = () => renderBudgetPage(presentBudget(referencePublication()));
 
 const idsOf = (html: string) => [...html.matchAll(/data-el="([^"]*)"/g)].map((m) => m[1]);
-const moneyOf = (html: string) => [...html.matchAll(/\$[0-9][0-9,]*/g)].map((m) => m[0]);
+const moneyOf = (html: string) => [...html.matchAll(/\$[0-9][0-9,]*(?:\.[0-9]{2})?/g)].map((m) => m[0]);
 const tally = (xs: string[]) => xs.reduce((m, x) => m.set(x, (m.get(x) ?? 0) + 1), new Map<string, number>());
 
 /** What a client reads: the text of the body and the words in titles and labels, never markup or script paths. */
@@ -62,18 +62,18 @@ describe("the rendered page against the reference", () => {
     // Departure: the $/SF and $/unit figures carry their arithmetic, which
     // names the Kulka contract once more each.
     reference.set("$20,296,613", reference.get("$20,296,613")! + 2);
-    // Departure (PR 130 review): a per-unit line's comparables print their
-    // rate per unit, where the reference printed the per-GSF figure.
+    // Departure (PR 130 review): a comparable's rate prints in the unit the
+    // snapshot knows, per unit on a per-unit line, and to the cent under
+    // $100, where the reference printed every rate in whole dollars per GSF.
     const model = presentBudget(referencePublication());
     const romLine = new Map(referencePublication().snapshot.rom.lines.map((l) => [l.costCode, l]));
     const shift = (figure: string, by: number) => reference.set(figure, (reference.get(figure) ?? 0) + by);
     for (const line of [...model.money.scopes, ...model.money.ownerScopes].flatMap((s) => s.lines)) {
-      const perUnit = romLine.get(line.costCode)?.perUnit;
-      if (!perUnit) continue;
-      for (const c of romLine.get(line.costCode)!.comparables.filter((c) => c.kind !== "reviewed_judgment")) {
+      romLine.get(line.costCode)!.comparables.forEach((c, i) => {
+        if (c.kind === "reviewed_judgment") return;
         shift(usd(c.rate), -1);
-        shift(usd(c.rate * perUnit.projectGsfPerUnit), 1);
-      }
+        shift(moneyOf(line.comparables[i].rate)[0], 1);
+      });
     }
     for (const [figure, count] of reference) if (count === 0) reference.delete(figure);
 

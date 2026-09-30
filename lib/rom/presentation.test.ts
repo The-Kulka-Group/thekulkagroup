@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { sourceOf } from "@/app/(app)/rom/ledger";
 import { referencePublication } from "@/test/fixtures/published-budget";
 
-import { clientBasis, clientSource, presentBudget } from "./presentation";
+import { clientBasis, clientSource, presentBudget, rateUsd } from "./presentation";
 
 // LA-1418. The presentation model, from the reference run. Expected figures
 // are the ones the LA-1416 reference page printed from the same run.
@@ -293,7 +293,18 @@ describe("a comparable's rate, in the unit the snapshot knows", () => {
 
   it("prints a comparable the import recorded per GSF per SF", () => {
     const line = lineOf(presentBudget(referencePublication()), "13");
-    expect(line.comparables.map((c) => c.rate)).toEqual(["$4 per SF", "$6 per SF"]);
+    expect(line.comparables.map((c) => c.rate)).toEqual(["$4.42 per SF", "$5.72 per SF"]);
+  });
+
+  it("prints a per-SF or per-unit rate under $100 to the cent, and whole dollars above", () => {
+    expect(rateUsd(0.14)).toBe("$0.14");
+    expect(rateUsd(3.7077)).toBe("$3.71");
+    expect(rateUsd(99.994)).toBe("$99.99");
+    expect(rateUsd(231.4)).toBe("$231");
+    expect(rateUsd(25_000)).toBe("$25,000");
+
+    // Line 8a's figure is $0.14 per GSF, which printed "$0 per SF" before.
+    expect(lineOf(presentBudget(referencePublication()), "8a").comparables[0].rate).toBe("$0.14 per SF");
   });
 
   it("prints a figure whose unit the snapshot does not know as a rate, with no unit", () => {

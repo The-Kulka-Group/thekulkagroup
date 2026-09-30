@@ -214,6 +214,12 @@ export function usd(n: number): string {
   return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
+/** A rate per SF or per unit: to the cent under $100, where whole dollars would print $0.14 as $0, and whole dollars above. */
+export function rateUsd(n: number): string {
+  const cents = Math.round(n * 100) / 100;
+  return cents < 100 ? `$${cents.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : usd(n);
+}
+
 export function wholeNumber(n: number): string {
   return Math.round(n).toLocaleString("en-US");
 }
@@ -538,8 +544,8 @@ function recordedPerSf(c: Comparable): boolean {
 /** A comparable's rate in the unit the snapshot knows, or with no unit when it does not know one. */
 function comparableRate(c: Comparable, line: RomLine): string {
   // A per-unit line's comparables are per GSF of this project, rescaled (rom-per-unit.ts).
-  if (line.perUnit) return `${usd(c.rate * line.perUnit.projectGsfPerUnit)} per unit`;
-  if (recordedPerSf(c)) return `${usd(c.rate)} per SF`;
+  if (line.perUnit) return `${rateUsd(c.rate * line.perUnit.projectGsfPerUnit)} per unit`;
+  if (recordedPerSf(c)) return `${rateUsd(c.rate)} per SF`;
   return `${usd(c.rate)} rate`;
 }
 

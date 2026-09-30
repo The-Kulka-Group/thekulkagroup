@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { QUANTITY_RULES } from "@kulka/engine";
+
 import { seededDatabase } from "@/test/database";
 
 import { readGrRates, type GrRate } from "./gr-rates";
@@ -83,5 +85,17 @@ describe("General Requirements rate card", () => {
     const office = await db.query<{ n: string }>(`select count(*) n from gc_field_office_rates`);
     expect(Number(staffing.rows[0].n)).toBe(26);
     expect(Number(office.rows[0].n)).toBe(33);
+  });
+});
+
+describe("quantity rules name real rate card rows (LA-1401)", () => {
+  it("finds every row a quantity rule fills on the card, priceable", () => {
+    for (const rule of QUANTITY_RULES) {
+      for (const row of rule.rows) {
+        const hit = rates.find((r) => r.section === row.section && r.item === row.item);
+        expect(hit, `${rule.id}: ${row.section} / ${row.item}`).toBeDefined();
+        expect(hit?.priceable).toBe(true);
+      }
+    }
   });
 });

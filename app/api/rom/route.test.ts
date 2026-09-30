@@ -440,6 +440,40 @@ describe("POST /api/rom markups", () => {
     expect(run.answers.markups).toEqual(markups);
   });
 
+  // LA-1399: proposed weeks carry origin "proposed". A run records them as
+  // they were, and a later change to the project's plan never rewrites it.
+  it("records proposed weeks with their origin and keeps them after the project's weeks change", async () => {
+    const typed = (value: number) => ({ value, origin: "estimator" });
+    const proposed = (value: number) => ({
+      value,
+      origin: "proposed",
+      ref: "schedule-proposal",
+      source: "Planning assumption from completed job TEST-0001",
+    });
+    const plan = (construction: object) => ({
+      setup: "both",
+      method: "allocated_resources",
+      resourcePlan: {
+        schedule: { precon: proposed(12), construction, closeout: proposed(8) },
+        confidence: "high",
+        lines: [
+          { id: "pm", label: "Project Manager", group: "Staff", basis: "time", per: "week", phases: ["construction"], quantity: typed(1), rate: typed(5000) },
+        ],
+      },
+    });
+    const first = plan(proposed(62));
+    expect((await post({ projectId: TEST_PROJECT_ID, markups: first })).status).toBe(200);
+    // The estimator changes construction to 70 weeks and runs again.
+    const second = plan(typed(70));
+    const response = await post({ projectId: TEST_PROJECT_ID, markups: second });
+    expect((await response.json()).rom.markups.generalConditions.plan.total).toBe(350_000);
+
+    const runs = await markupRuns();
+    expect(runs.map((run) => run.answers.markups)).toEqual(expect.arrayContaining([first, second]));
+    const { rows } = await db.query<{ markup_choices: unknown }>(`select markup_choices from projects where id = $1`, [TEST_PROJECT_ID]);
+    expect(rows[0].markup_choices).toEqual(second);
+  });
+
   // LA-1398: under separate lines, General Requirements picks its own method.
   it("prices General Requirements by its own plan beside a percent General Conditions, and records both", async () => {
     const figure = (value: number) => ({ value, origin: "estimator" });

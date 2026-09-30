@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
+import { pdfSeams } from "@/lib/rom/pdf-seams";
+import type { PrintJob, PublishedPdfStore } from "@/lib/rom/published-pdf";
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
@@ -19,6 +21,15 @@ const BODY = {
   preparedBy: "Devin (example)",
   coverSentence: "This is the first look at the number.",
   validityDays: 60,
+};
+
+// LA-1420. Chromium and the bucket are replaced: publish prints once and stores.
+const printed: PrintJob[] = [];
+const stored = new Map<string, Uint8Array>();
+const FAKE_PDF = new TextEncoder().encode("%PDF-1.7 fake");
+const fakeStore: PublishedPdfStore = {
+  read: async (path) => stored.get(path) ?? null,
+  write: async (path, bytes) => void stored.set(path, bytes),
 };
 
 function ctx(runId: string) {
@@ -43,6 +54,13 @@ async function succeededRunId(): Promise<string> {
 
 beforeEach(async () => {
   db = await seededDatabase();
+  printed.length = 0;
+  stored.clear();
+  pdfSeams.renderer = async (job) => {
+    printed.push(job);
+    return FAKE_PDF;
+  };
+  pdfSeams.store = fakeStore;
 });
 
 afterEach(async () => {
@@ -112,5 +130,46 @@ describe("POST /api/rom/runs/[runId]/publish", () => {
     const runId = await succeededRunId();
     await db.query(`update runs set status = 'failed' where id = $1`, [runId]);
     expect((await post(runId, BODY)).status).toBe(409);
+  });
+
+  it("prints the PDF once at publish, stores it and sets pdf_path", async () => {
+    const runId = await succeededRunId();
+    const response = await post(runId, BODY);
+    const { published, pdf } = await response.json();
+
+    expect(pdf).toEqual({ ok: true });
+    expect(printed).toHaveLength(1);
+    expect(printed[0].html).toContain('data-print="1"');
+    expect(published.pdfPath).toBe(`published-budgets/${published.id}.pdf`);
+    expect(stored.get(published.pdfPath)).toEqual(FAKE_PDF);
+    const { rows } = await db.query<{ pdf_path: string }>(`select pdf_path from published_budgets where id = $1`, [published.id]);
+    expect(rows[0].pdf_path).toBe(published.pdfPath);
+  });
+
+  it("publishes anyway when the PDF cannot be made, and says so", async () => {
+    pdfSeams.renderer = async () => {
+      throw new Error("Chromium did not start.");
+    };
+    const runId = await succeededRunId();
+    const response = await post(runId, BODY);
+
+    expect(response.status).toBe(200);
+    const { published, pdf } = await response.json();
+    expect(published.version).toBe(1);
+    expect(published.pdfPath).toBeNull();
+    expect(pdf.ok).toBe(false);
+    expect(pdf.message).toContain("PDF could not be made");
+    const { rows } = await db.query<{ pdf_path: string | null }>(`select pdf_path from published_budgets where id = $1`, [published.id]);
+    expect(rows[0].pdf_path).toBeNull();
+    expect(stored.size).toBe(0);
+  });
+
+  it("prints each version once: a second publish prints only its own row", async () => {
+    const runId = await succeededRunId();
+    await post(runId, BODY);
+    await post(runId, BODY);
+    expect(printed).toHaveLength(2);
+    const { rows } = await db.query<{ pdf_path: string }>(`select pdf_path from published_budgets order by version`);
+    expect(new Set(rows.map((r) => r.pdf_path)).size).toBe(2);
   });
 });

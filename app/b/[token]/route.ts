@@ -24,7 +24,7 @@ function html(body: string, status = 200): Response {
   });
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }): Promise<Response> {
+export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }): Promise<Response> {
   const { token } = await params;
   const view = await loadPublishedBudget(getDb(), token);
   // An unknown or malformed token gets a plain 404 with no hint either way.
@@ -37,5 +37,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
     issuedAt: view.issuedAt,
     newer: view.newer,
   });
-  return html(renderBudgetPage(page));
+  // LA-1420: ?print=1 is the page as the stored PDF prints it (Detail tier, a
+  // Full appendix, no chrome, no engine). The PDF is rendered from these same
+  // bytes at publish, by lib/rom/published-pdf.ts.
+  const print = new URL(request.url).searchParams.get("print") === "1";
+  return html(renderBudgetPage(page, { print }));
 }

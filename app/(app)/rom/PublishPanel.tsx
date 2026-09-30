@@ -297,8 +297,9 @@ export function PublishPanel({ projectId, runId }: { projectId: string; runId: s
         setFormError(await errorFrom(response, "The budget could not be published."));
         return;
       }
-      const { published } = (await response.json()) as { published: PublishedBudgetRecord };
-      setNotice(`Version ${published.version} is published. Copy its link from the list below.`);
+      const { published, pdf } = (await response.json()) as { published: PublishedBudgetRecord; pdf?: { ok: boolean; message?: string } };
+      const done = `Version ${published.version} is published. Copy its link from the list below.`;
+      setNotice(pdf && !pdf.ok && pdf.message ? `${done} ${pdf.message}` : done);
       setConfirmingId(null);
       await load();
     } catch {

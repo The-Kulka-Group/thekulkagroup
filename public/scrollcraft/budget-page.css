@@ -387,9 +387,13 @@ h2 + .lede { margin-top: 12px; }
   .scope__lines { display: block !important; }
   .scope__label::before { transform: rotate(45deg) translateY(-2px); }
   .scope--rest, .tier-summary { display: none !important; }
-  .scope__row, .line, .note, .criterion, .fact, .plain li, .wf__row, .confidence div { break-inside: avoid; }
-  #where-the-money-is, #design-and-engineering, #from-trades-to-total, #what-is-in { break-before: page; }
-  h2, h3 { break-after: avoid; }
+  .scope__row, .line, .note, .criterion, .fact, .plain li, .wf__row, .confidence div,
+  .cmp, .count, .stage, .record > div, .wf__plan li, .criterion__steps li, .criterion__inputs > div, .params tr, .appx__line, .receipt__lines li { break-inside: avoid; }
+  /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
+     and What Is Not, follows From Trades to Total on the page it ends on. */
+  #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes, #appendix { break-before: page; }
+  h2, h3, h4 { break-after: avoid; }
+  .params thead { display: table-header-group; }
   .receipt { position: static; width: auto; max-height: none; transform: none !important; opacity: 1 !important; box-shadow: none; border: 0; border-top: 2px solid #1D1D1F; margin: 0 0 10mm; border-radius: 0; break-inside: avoid; }
   .receipt__toggle, .receipt__body, .receipt__foot { display: block !important; opacity: 1 !important; padding-inline: 0; }
   .receipt__toggle { border-bottom: 0; }
@@ -414,3 +418,21 @@ h2 + .lede { margin-top: 12px; }
 /* A withdrawn link is one plain sheet, with no bar above it. */
 body.withdrawn { padding-top: 0; }
 @media print { .superseded { border: 1px solid var(--border); } }
+
+/* ---------- LA-1420: the printed page (?print=1, the stored PDF) ---------- */
+/* Detail tier with a Full appendix, no chrome, no engine. The reference's
+   print rules above do the layout; these add what only the stored PDF has. */
+html[data-print] body { padding-top: 0; }
+.dests { display: none; }
+.dest { position: absolute; width: 0; height: 0; }
+.appendix { display: none; }
+.appx { margin-top: 20px; }
+.appx h3 { font-size: 13pt; margin: 0 0 8px; }
+.appx h4 { font-size: 11pt; margin: 14px 0 4px; }
+.appx__line { padding: 6px 0; border-bottom: 1px solid var(--border-light); }
+.appx__label { font-weight: 600; }
+.appx p { margin: 0; }
+@media print {
+  html[data-print] .appendix { display: block; }
+  html[data-print] .appendix .wrap { max-width: none; }
+}

@@ -579,10 +579,145 @@ function newerBand(page: BudgetPage): string {
 <p class="superseded" role="note">Version ${page.newer.version} replaces this budget. <a href="${esc(page.newer.href)}">Open Version ${page.newer.version}</a></p>`;
 }
 
+// --- Print (LA-1420) -----------------------------------------------------------------------------
+
+/**
+ * The stored PDF is the Detail tier with a Full appendix, because paper cannot
+ * switch (LA-1309 decision 4). Detail is the body. The appendix carries what
+ * only Full adds, grouped by kind, and points back at the body by label: the
+ * body already holds every element's id, so the appendix holds none.
+ */
+function appendix(page: BudgetPage): string {
+  const scopes = [...page.money.scopes, ...page.money.ownerScopes];
+  const priced = scopes.filter((sc) => sc.lines.length > 0);
+  const planned = page.waterfall.filter((w) => w.plan.length > 0);
+  const asked = [...page.gates.answeredYes, ...page.gates.notInThisJob, ...page.gates.waiting, ...page.gates.assumedPresent].filter((g) =>
+    g.decidedBy.some((d) => d.question),
+  );
+  const parts: string[] = [];
+
+  parts.push(`
+    <div class="appx">
+      <h3>Where Each Fact Came From</h3>
+      <ul class="plain">${page.project.facts.map((f) => `<li><span>${esc(f.label)}: ${esc(f.value)}</span><span class="answer">${esc(f.basisWords)}</span></li>`).join("")}</ul>
+    </div>`);
+
+  if (priced.length > 0) {
+    parts.push(`
+    <div class="appx">
+      <h3>How Each Line Was Priced</h3>${priced
+        .map(
+          (sc) => `
+      <div class="appx__group"><h4>${esc(sc.label)}</h4>${sc.lines
+        .map(
+          (line) => `
+        <div class="appx__line">
+          <p class="appx__label">${esc(line.label)}</p>
+          <p>${esc(line.basis)}</p>${
+            line.comparables.length > 0
+              ? `
+          <ul class="plain">${line.comparables.map((c) => `<li><span>${esc(c.kindWords)}: ${esc(c.jobs)}, ${esc(c.rate)}</span><span class="answer">Weight ${c.weight}, ${esc(c.recordedAt)}</span></li>`).join("")}</ul>`
+              : ""
+          }
+        </div>`,
+        )
+        .join("")}
+      </div>`,
+        )
+        .join("")}
+    </div>`);
+  }
+
+  if (page.criteria.length > 0) {
+    parts.push(`
+    <div class="appx">
+      <h3>How Each Design Criterion Was Worked</h3>${page.criteria
+        .map(
+          (k) => `
+      <div class="appx__group appx__line"><h4>${esc(k.code)} ${esc(k.label)}: ${esc(k.value)}</h4>
+        <dl class="criterion__inputs">${k.inputs.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${esc(i.value)} <span class="basis basis--${i.basis}">${i.basis}</span></dd></div>`).join("")}</dl>
+        <ol class="criterion__steps">${k.steps.map((st) => `<li><span>${esc(st.label)}</span><span>${esc(st.result)}</span></li>`).join("")}</ol>
+      </div>`,
+        )
+        .join("")}
+    </div>`);
+  }
+
+  if (planned.length > 0) {
+    parts.push(`
+    <div class="appx">
+      <h3>Allocated Resources Plan</h3>${planned
+        .map((w) => `
+      <div class="appx__group"><h4>${esc(w.label)}</h4>
+        <ul class="wf__plan">${w.plan.map((pl) => `<li><span>${esc(pl.label)}</span><span class="num">${usd(pl.amount)}</span></li>`).join("")}</ul>
+      </div>`)
+        .join("")}
+    </div>`);
+  }
+
+  if (asked.length > 0) {
+    parts.push(`
+    <div class="appx">
+      <h3>The Questions as Asked</h3>
+      <ul class="plain">${asked
+        .flatMap((g) => g.decidedBy.filter((d) => d.question).map((d) => `<li><span>${esc(g.label)}: ${esc(d.question ?? "")}</span><span class="answer">${esc(d.answer)}</span></li>`))
+        .join("")}</ul>
+    </div>`);
+  }
+
+  if (page.parameters.length > 0) {
+    parts.push(`
+    <div class="appx">
+      <h3>Pricing Parameters This Budget Ran With</h3>
+      <table class="params">
+        <thead><tr><th scope="col">Parameter</th><th scope="col" class="right">Value</th><th scope="col">Set By</th><th scope="col">Date</th></tr></thead>
+        <tbody>${page.parameters.map((p) => `
+          <tr><td>${esc(p.label)}</td><td class="right num">${esc(p.value)}</td><td>${esc(p.recordedBy)}</td><td>${esc(p.recordedAt)}</td></tr>`).join("")}
+        </tbody>
+      </table>${page.markupWords ? `\n      <p class="sub">${esc(page.markupWords)}</p>` : ""}${
+        page.record.snapshotHash ? `\n      <p class="sub">Snapshot ${esc(page.record.snapshotHash.slice(0, 12))}</p>` : ""
+      }
+    </div>`);
+  }
+
+  return `
+<section class="sheet appendix" id="appendix" data-el="section:appendix">
+  <div class="wrap">
+    <h2>Appendix: Full Depth</h2>
+    <p class="lede">What the Full depth of the page adds to the Detail pages, in the order the sections above use.</p>${parts.join("")}
+  </div>
+</section>`;
+}
+
+/**
+ * Names every `data-el` element as a PDF destination. An element with no id
+ * takes its `data-el` as its id. One that has an id already (a section, a
+ * scope) gets an empty marker inside it carrying the `data-el`. Chromium
+ * writes a named destination for each same-page link target, so a hidden
+ * list of links to every id makes them all reach the PDF (LA-1309, "The PDF
+ * carries the same ids as named destinations").
+ */
+function withDestinations(html: string): string {
+  const names: string[] = [];
+  const named = html.replace(/<([a-z][a-z0-9]*)((?:\s[^<>]*?)?)\sdata-el="([^"]*)"([^<>]*)>/g, (_all, tag: string, before: string, el: string, after: string) => {
+    names.push(el);
+    if (/\sid="/.test(`${before}${after}`)) return `<${tag}${before} data-el="${el}"${after}><span class="dest" id="${el}"></span>`;
+    return `<${tag}${before} data-el="${el}" id="${el}"${after}>`;
+  });
+  const links = names.map((el) => `<a href="#${el}">${el}</a>`).join("");
+  return named.replace("</body>", `<nav class="dests" aria-hidden="true">${links}</nav>\n</body>`);
+}
+
+export type RenderOptions = {
+  /** The printed page: Detail tier with a Full appendix, no chrome, no engine, every id a PDF destination. */
+  print?: boolean;
+};
+
 /** The whole document for one published budget. */
-export function renderBudgetPage(page: BudgetPage): string {
-  return `<!doctype html>
-<html lang="en" data-tier="summary">
+export function renderBudgetPage(page: BudgetPage, options: RenderOptions = {}): string {
+  const print = options.print === true;
+  const html = `<!doctype html>
+<html lang="en" data-tier="${print ? "detail" : "summary"}"${print ? ' data-print="1"' : ""}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -597,9 +732,7 @@ export function renderBudgetPage(page: BudgetPage): string {
 <link rel="stylesheet" href="/scrollcraft/scrollcraft.css">
 <link rel="stylesheet" href="/scrollcraft/budget-page.css">
 </head>
-<body>
-<span data-sc-progress></span>
-${chrome(page)}
+<body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : chrome(page)}
 <main id="top">${newerBand(page)}
 ${sectionNumber(page)}
 ${sectionProject(page)}
@@ -609,13 +742,13 @@ ${sectionRests(page)}
 ${sectionDesign(page)}
 ${sectionWaterfall(page)}
 ${sectionGates(page)}
-${sectionNext(page)}
-</main>
-<script src="/scrollcraft/scrollcraft.js"></script>
+${sectionNext(page)}${print ? appendix(page) : ""}
+</main>${print ? "" : '\n<script src="/scrollcraft/scrollcraft.js"></script>'}
 <script src="/scrollcraft/budget-page.js"></script>
 </body>
 </html>
 `;
+  return print ? withDestinations(html) : html;
 }
 
 /** The plain sheet a withdrawn link shows: no figures, only whom to ask. */

@@ -4,7 +4,9 @@ import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { RunNotFound, RunNotSucceeded } from "@/lib/rom/issue";
 import { parsePublishBody } from "@/lib/rom/publish-request";
+import { pdfSeams } from "@/lib/rom/pdf-seams";
 import { publishBudget } from "@/lib/rom/published-budgets";
+import { renderPublishedPdf } from "@/lib/rom/published-pdf";
 import { isUuid } from "@/lib/uuid";
 
 // LA-1419. Publish a saved run as the project's next version (LA-1309). The
@@ -13,6 +15,13 @@ import { isUuid } from "@/lib/uuid";
 // makes a new version with its own link and marks the earlier ones
 // superseded (lib/rom/published-budgets.ts). This is an action on a saved
 // budget, not a run: it never calls the engine.
+//
+// LA-1420. After the row is committed the PDF is printed once and stored
+// (lib/rom/published-pdf.ts). A failure to print never fails the publish: the
+// link works, pdf_path stays null, and the response says so under `pdf`.
+
+// Headless Chromium needs the time. Vercel's default would cut a cold start short.
+export const maxDuration = 60;
 
 type Context = { params: Promise<{ runId: string }> };
 
@@ -28,8 +37,15 @@ export async function POST(request: Request, context: Context) {
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   try {
-    const published = await publishBudget(getDb(), { runId, issuedBy: auth.user.email, copy: parsed.copy });
-    return NextResponse.json({ published });
+    const db = getDb();
+    const published = await publishBudget(db, { runId, issuedBy: auth.user.email, copy: parsed.copy });
+    const outcome = await renderPublishedPdf(db, published, pdfSeams);
+    return NextResponse.json({
+      published: outcome.ok ? { ...published, pdfPath: outcome.path } : published,
+      pdf: outcome.ok
+        ? { ok: true }
+        : { ok: false, message: "The budget is published and its link works, but its PDF could not be made. The link opens without a PDF." },
+    });
   } catch (cause) {
     if (cause instanceof RunNotFound) return NextResponse.json({ error: "Run not found." }, { status: 404 });
     if (cause instanceof RunNotSucceeded) {

@@ -5,6 +5,8 @@ import { newToken, publishBudget, revokePublishedBudget } from "@/lib/rom/publis
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
+import { renderPublishedPdf } from "@/lib/rom/published-pdf";
+
 import { servePublishedPdf, type PublishedPdfStore } from "./serve";
 
 // LA-1417. /b/<token>.pdf serves the PDF stored at publish, when there is
@@ -24,6 +26,7 @@ const PDF = new TextEncoder().encode("%PDF-1.7 example");
 
 const store: PublishedPdfStore = {
   read: async (path) => (path === "budgets/one.pdf" ? PDF : null),
+  write: async () => {},
 };
 
 async function publish() {
@@ -72,5 +75,23 @@ describe("servePublishedPdf", () => {
   it("is a 404 for an unknown or malformed token", async () => {
     expect((await servePublishedPdf(db as Db, store, newToken())).status).toBe(404);
     expect((await servePublishedPdf(db as Db, store, "nope")).status).toBe(404);
+  });
+
+  it("is a 404 until the PDF exists and the stored file afterward (LA-1420)", async () => {
+    const files = new Map<string, Uint8Array>();
+    const memory: PublishedPdfStore = {
+      read: async (path) => files.get(path) ?? null,
+      write: async (path, bytes) => void files.set(path, bytes),
+    };
+    const published = await publish();
+
+    expect((await servePublishedPdf(db as Db, memory, published.token)).status).toBe(404);
+
+    const outcome = await renderPublishedPdf(db as Db, published, { renderer: async () => PDF, store: memory });
+    expect(outcome.ok).toBe(true);
+
+    const response = await servePublishedPdf(db as Db, memory, published.token);
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(PDF);
   });
 });

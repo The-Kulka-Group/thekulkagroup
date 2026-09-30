@@ -90,6 +90,19 @@ describe("/b/<token>", () => {
     expect(after).toBe(before);
   });
 
+  it("serves the printed page at ?print=1, and the screen page without it (LA-1420)", async () => {
+    const { token } = await publish();
+
+    const print = await (await GET(new Request(`http://localhost/b/${token}?print=1`), { params: Promise.resolve({ token }) })).text();
+    const screen = await render(token);
+
+    expect(print).toContain('data-tier="detail" data-print="1"');
+    expect(print).toContain('id="appendix"');
+    expect(print).not.toContain('class="bar"');
+    expect(screen).not.toContain("data-print");
+    expect(screen).not.toContain('id="appendix"');
+  });
+
   it("prints the reference page with the snapshot's own figures", async () => {
     const { token } = await publish();
 

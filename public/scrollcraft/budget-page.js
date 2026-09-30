@@ -11,7 +11,10 @@
   // Under reduced motion a count does not bloom: the markup already carries
   // the final figure, so the device is simply not mounted.
   if (reduce) Array.prototype.forEach.call(doc.querySelectorAll('[data-sc-count]'), function (c) { c.removeAttribute('data-sc-count'); });
-  var sc = ScrollCraft.mount(doc.body);
+  // LA-1420: under print the scroll engine is off. The page is the Detail tier at
+  // rest (rest() below), so nothing is mounted and nothing is driven by scroll.
+  var printing = root.hasAttribute('data-print');
+  var sc = printing ? { layout: function () {}, read: function () {} } : ScrollCraft.mount(doc.body);
 
   /* ---- tiers: three depths of one DOM ---- */
   var TIERS = ['summary', 'detail', 'full'];
@@ -178,14 +181,17 @@
       var spec = (c.getAttribute('data-sc-count') || '').trim().split(/\s+/);
       c.textContent = spec[1] || c.textContent;
     });
+    // Every act is at its end: --sc-p is 1 and pinned content sits in flow.
+    Array.prototype.forEach.call(doc.querySelectorAll('[data-sc-act]'), function (a) { a.style.setProperty('--sc-p', '1'); });
     receipt.all();
   }
   addEventListener('beforeprint', rest);
   window.KulkaBudget = { setTier: setTier, rest: rest, receipt: receipt, engine: sc };
 
   /* ---- start ---- */
-  var start = tierFromHash();
+  var start = printing ? 'detail' : tierFromHash();
   if (!start) { try { start = localStorage.getItem('kulka-budget-tier'); } catch (e) {} }
   setTier(TIERS.indexOf(start) >= 0 ? start : 'summary', false);
   spy();
+  if (printing) rest();
 })();

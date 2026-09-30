@@ -103,7 +103,7 @@ describe("C-00379 General Requirements, rebuilt by Allocated Resources", () => {
     for (const [id, { area }] of Object.entries(C00379_GENERAL_REQUIREMENTS_AREAS)) {
       const line = C00379_GENERAL_REQUIREMENTS.lines.find((one) => one.id === id)!;
       expect(line.basis).toBe("unit");
-      const perArea = id === "row-211" ? line.quantity.value * 3000 : line.quantity.value;
+      const perArea = id === "row-211" ? line.quantity!.value * 3000 : line.quantity!.value;
       expect(perArea).toBeCloseTo(area, 6);
     }
   });

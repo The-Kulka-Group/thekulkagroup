@@ -555,6 +555,9 @@ function priceAllocated(
 ): MarkupLine {
   if (plan.lines.length === 0) return tbd("No line was added to the Allocated Resources plan");
   const priced = priceResourcePlan(plan);
+  // A plan whose lines are all switched off prices nothing. That is a "don't
+  // know", not a zero, so the line stays out of the total.
+  if (priced.lines.length === 0) return tbd("Every line of the Allocated Resources plan is switched off");
   const spread = spreads?.[plan.confidence];
   if (!spread || !Number.isFinite(spread.value)) {
     throw new Error(

@@ -26,7 +26,7 @@ import {
   type LineStatus,
   type StagedLine,
 } from "./ingest";
-import { parseResourcePlan } from "./resource-plan";
+import { parseResourcePlan, unpriceableRateError } from "./resource-plan";
 
 // GRs/GCs, fee, and insurance below the ROM subtotal (LA-1016). This file owns
 // the database side: routing an imported line to markup_history, reading the
@@ -491,9 +491,10 @@ const isNumber = (value: unknown): value is number =>
  * Checks the markup choices a ROM request carries. Absent means the default:
  * setup 'both', method 'pct_of_subtotal', no overrides. Only the fields the
  * chosen method reads are kept, so the choices recorded with a run say
- * exactly what priced it.
+ * exactly what priced it. `grRates` is the General Requirements rate card
+ * (readGrRates), so a plan cannot price a row the card marks not priceable.
  */
-export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
+export function parseMarkupChoices(value: unknown, grRates: readonly GrRate[]): ParsedMarkupChoices {
   if (value === undefined || value === null) return { ok: true, choices: { ...DEFAULT_MARKUP_CHOICES } };
   if (!isObject(value)) return { ok: false, error: "Send markups as an object." };
 
@@ -519,12 +520,14 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
     choices[name] = rate;
   }
 
-  const gr = readGrMethod(value, choices);
+  const gr = readGrMethod(value, choices, grRates);
   if (!gr.ok) return gr;
 
   if (choices.method === "allocated_resources") {
     const plan = parseResourcePlan(value.resourcePlan);
     if (!plan.ok) return plan;
+    const unpriceable = unpriceableRateError(plan.plan, grRates);
+    if (unpriceable) return { ok: false, error: unpriceable };
     choices.resourcePlan = plan.plan;
     const grOverride = readGrOverride(value, choices);
     if (!grOverride.ok) return grOverride;
@@ -552,7 +555,11 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
  * that setup. A request that names no method keeps the rule runs before
  * LA-1398 priced by (grMethodOf), and nothing is added to what it recorded.
  */
-function readGrMethod(value: Record<string, unknown>, choices: MarkupChoices): { ok: true } | { ok: false; error: string } {
+function readGrMethod(
+  value: Record<string, unknown>,
+  choices: MarkupChoices,
+  grRates: readonly GrRate[],
+): { ok: true } | { ok: false; error: string } {
   const method = value.grMethod;
   if (method === undefined || method === null || choices.setup !== "separate") return { ok: true };
   if (!GR_METHODS.includes(method as GrMethod)) {
@@ -568,6 +575,8 @@ function readGrMethod(value: Record<string, unknown>, choices: MarkupChoices): {
     }
     const plan = parseResourcePlan(value.grResourcePlan);
     if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error}` };
+    const unpriceable = unpriceableRateError(plan.plan, grRates);
+    if (unpriceable) return { ok: false, error: `General Requirements: ${unpriceable}` };
     choices.grResourcePlan = plan.plan;
   }
   return { ok: true };

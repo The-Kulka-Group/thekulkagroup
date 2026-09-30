@@ -89,7 +89,7 @@ export function ResourcePlanEditor({
 }) {
   const proposal = schedule?.kind === "ready" ? schedule.proposal : null;
   const grSections = new Map(grRateOptions(options.grRates ?? []).map(({ section, rates }) => [section, rates]));
-  const priced = pricedPlanOf(plan, answers);
+  const priced = pricedPlanOf(plan, answers, options.grRates);
   const amounts = new Map(priced?.lines.map((line) => [line.id, line.amount]) ?? []);
   const setLine = (index: number, patch: Partial<PlanLineForm>) =>
     onChange({ ...plan, lines: plan.lines.map((line, i) => (i === index ? { ...line, ...patch } : line)) });
@@ -185,7 +185,7 @@ export function ResourcePlanEditor({
                   amount={amounts.get(line.id)}
                   disabled={disabled}
                   lineSwitch={switchOf(line, plan, answers)}
-                  quantity={quantityOf(line, plan, answers)}
+                  quantity={quantityOf(line, plan, answers, options.grRates)}
                   runsWords={runsWords(line, plan)}
                   onResetQuantity={() => onChange(resetLineQuantity(plan, line.id))}
                   onSwitch={(to) => onChange(setLineSwitch(plan, line.id, to))}

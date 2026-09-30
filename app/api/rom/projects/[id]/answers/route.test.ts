@@ -69,6 +69,25 @@ describe("PUT /api/rom/projects/[id]/answers", () => {
     expect(saved.markup_choices).toMatchObject({ setup: "gc_only", method: "usd_per_gsf" });
   });
 
+  it("refuses to save a General Requirements plan that prices an Insurances & Bonds row", async () => {
+    const { rows } = await db.query<{ id: string }>(`select id from gr_rates where not priceable limit 1`);
+    const figure = (value: number) => ({ value, origin: "estimator" });
+    const response = await put(TEST_PROJECT_ID, {
+      markups: {
+        setup: "separate",
+        method: "pct_of_subtotal",
+        grMethod: "allocated_resources",
+        grResourcePlan: {
+          schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) },
+          confidence: "high",
+          lines: [{ id: "x", label: "Builders Risk", group: "Security", basis: "lump_sum", quantity: figure(1), rate: { value: 1, origin: "rate_card", ref: rows[0].id } }],
+        },
+      },
+    });
+    expect(response.status).toBe(400);
+    expect((await row()).markup_choices).toBeNull();
+  });
+
   it("refuses a bad gate answer", async () => {
     const response = await put(TEST_PROJECT_ID, { gates: { demolition: "maybe" } });
     expect(response.status).toBe(400);

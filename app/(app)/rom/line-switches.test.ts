@@ -5,7 +5,7 @@ import { parseResourcePlan } from "@/lib/rom/resource-plan";
 import type { MarkupOptions } from "@/lib/rom/markup";
 import { HOISTING_MIN_STORIES } from "@kulka/engine";
 
-import { initialMarkupForm, markupChoicesFrom, withRuleLinesOnForm, type MarkupForm } from "./Markups";
+import { changeMarkupForm, initialMarkupForm, markupChoicesFrom, withRuleLinesOnForm, type MarkupForm } from "./Markups";
 import {
   emptyPlanForm,
   planAnswersFromProject,
@@ -146,6 +146,28 @@ describe("lines follow their rules", () => {
     expect(hoist.some((id) => ids.includes(id))).toBe(false);
   });
 
+  it("saves an off line as the estimator left it, without filling in what it lacks", () => {
+    const form = newPlan("60");
+    const hoist = form.lines.find((line) => line.ruleId === "hoisting")!;
+    const bare = {
+      ...form,
+      lines: form.lines.map((line) =>
+        line.id === hoist.id ? { ...line, basis: "time" as const, per: "day" as const, phases: [], daysPerWeek: "", quantity: "", quantityFrom: TYPED, rate: "" } : line,
+      ),
+    };
+    const saved = planFromForm(bare, { storiesAboveGrade: 1, grossSquareFeet: 10_000 });
+    if (!saved.ok) throw new Error(saved.error);
+    const line = saved.plan.lines.find((one) => one.id === hoist.id)!;
+    expect(line).toMatchObject({ basis: "time", per: "day", phases: [], switch: { on: false } });
+    expect(line).not.toHaveProperty("quantity");
+    expect(line).not.toHaveProperty("rate");
+    expect(line).not.toHaveProperty("daysPerWeek");
+    // It goes over the wire and reopens as it was.
+    const parsed = parseResourcePlan(JSON.parse(JSON.stringify(saved.plan)));
+    if (!parsed.ok) throw new Error(parsed.error);
+    expect(planFormFrom(parsed.plan).lines.find((one) => one.id === hoist.id)).toMatchObject({ per: "day", phases: [], quantity: "", rate: "" });
+  });
+
   it("still prices a plan whose off lines have no quantity or rate", () => {
     const form = newPlan("60");
     const blanked = { ...form, lines: form.lines.map((line) => (line.ruleId === "hoisting" ? { ...line, quantity: "", rate: "" } : line)) };
@@ -276,6 +298,25 @@ describe("the markup form opens a plan with the lines", () => {
     const lines = sent.markups.grResourcePlan!.lines;
     expect(lines.filter((line) => line.switch?.on)).not.toHaveLength(0);
     expect(lines.every((line) => line.switch !== undefined)).toBe(true);
+  });
+  it("seeds a plan when the method or setup first puts it to use", () => {
+    const percent = base({ setup: "separate", method: "pct_of_subtotal" });
+    expect(changeMarkupForm(percent, { grMethod: "allocated_resources" }, options).grPlan.lines).toHaveLength(RULE_SEED_ROWS.length);
+    const gcOnly = base({ setup: "gc_only", method: "allocated_resources" });
+    expect(changeMarkupForm(gcOnly, { setup: "both" }, options).plan.lines).toHaveLength(RULE_SEED_ROWS.length);
+    expect(changeMarkupForm(base({ setup: "both" }), { method: "allocated_resources" }, options).plan.lines).toHaveLength(RULE_SEED_ROWS.length);
+  });
+  it("lets the estimator empty a plan: removing the last line brings no seed line back", () => {
+    const seeded = changeMarkupForm(base({ setup: "separate" }), { grMethod: "allocated_resources" }, options);
+    const emptied = changeMarkupForm(seeded, { grPlan: { ...seeded.grPlan, lines: [] } }, options);
+    expect(emptied.grPlan.lines).toHaveLength(0);
+    // Any other change leaves the empty plan empty too.
+    expect(changeMarkupForm(emptied, { feePercent: "4" }, options).grPlan.lines).toHaveLength(0);
+  });
+  it("does not seed again when the setup changes but the same plan stays in use", () => {
+    const seeded = changeMarkupForm(base({ setup: "both" }), { method: "allocated_resources" }, options);
+    const emptied = changeMarkupForm(seeded, { plan: { ...seeded.plan, lines: [] } }, options);
+    expect(changeMarkupForm(emptied, { setup: "gr_only" }, options).plan.lines).toHaveLength(0);
   });
   it("keeps TYPED for a phase the estimator types", () => {
     expect(TYPED.origin).toBe("estimator");

@@ -17,7 +17,7 @@
 // (app/(app)/rom/resource-plan-form.ts). A saved run keeps the quantities it
 // recorded: the engine prices a plan's figures as given and derives nothing.
 
-import { WINTER } from "./line-rules";
+import { winterDays } from "./line-rules";
 import { monthsIn } from "./resource-plan";
 
 /** What the rules read. Null where the project has no such fact. */
@@ -225,23 +225,15 @@ export function heatFuelGallons(heaters: number, heatWeeks: number): number {
   return HEATER_FUEL_GPH * HEAT_HOURS_PER_DAY * heatWeeks * HEAT_DAYS_PER_WEEK * heaters;
 }
 
-const DAY_MS = 86_400_000;
-
 /**
  * Weeks of construction that fall in winter, December to March (line-rules.ts
- * WINTER, for Matt to confirm), counted day by day from the start date.
- * Null without a readable start date or construction weeks.
+ * WINTER, for Matt to confirm): line-rules.ts winterDays over seven. Null
+ * without a readable start date or construction weeks.
  */
 export function winterWeeks(start: string | null | undefined, constructionWeeks: number | null): number | null {
-  if (typeof start !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !known(constructionWeeks)) return null;
-  const from = Date.parse(`${start}T00:00:00Z`);
-  if (!Number.isFinite(from)) return null;
-  let days = 0;
-  for (let day = 0; day < constructionWeeks * 7; day += 1) {
-    const month = new Date(from + day * DAY_MS).getUTCMonth() + 1;
-    if (month >= WINTER.startMonth || month <= WINTER.endMonth) days += 1;
-  }
-  return days / 7;
+  if (!known(constructionWeeks)) return null;
+  const days = winterDays(start, constructionWeeks);
+  return days === null ? null : days / 7;
 }
 
 const weeksText = (n: number) => `${count(n)} winter ${n === 1 ? "week" : "weeks"}`;

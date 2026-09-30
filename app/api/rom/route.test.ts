@@ -510,6 +510,29 @@ describe("POST /api/rom markups", () => {
     expect(run.answers.markups).toEqual(markups);
   });
 
+  it("refuses a plan line that prices an Insurances & Bonds row, which the rate card marks not priceable", async () => {
+    const { rows } = await db.query<{ id: string }>(`select id from gr_rates where section = 'Insurances & Bonds' limit 1`);
+    const figure = (value: number) => ({ value, origin: "estimator" });
+    const insurance = {
+      id: "gr-insurance",
+      label: "Liability Insurance (GC)",
+      group: "Construction Labor & Clean-up",
+      basis: "lump_sum",
+      quantity: figure(1),
+      rate: { value: 25_000, origin: "rate_card", ref: rows[0].id, source: "C-00379" },
+    };
+    const plan = { schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) }, confidence: "high", lines: [insurance] };
+    for (const markups of [
+      { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources", grResourcePlan: plan },
+      { setup: "both", method: "allocated_resources", resourcePlan: plan },
+    ]) {
+      const response = await post({ projectId: TEST_PROJECT_ID, markups });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/Liability Insurance \(GC\).*not priceable/);
+    }
+    expect(await runs()).toEqual([]);
+  });
+
   it("drops a General Requirements method a combined setup cannot use", async () => {
     const response = await post({
       projectId: TEST_PROJECT_ID,

@@ -580,6 +580,15 @@ describe("computeMarkups, allocated resources", () => {
     expect(m.generalConditions.basis).toBe("No line was added to the Allocated Resources plan");
   });
 
+  it("is TBD, outside the total, when every line of the plan is switched off", () => {
+    const off = { on: false as const, by: "estimator" as const, words: "Switched off by the estimator." };
+    const allOff: ResourcePlan = { ...plan(), lines: plan().lines.map((one) => ({ ...one, switch: off })) };
+    const m = computeMarkups(inputs({ history: [], spreadParameters, choices: allocated({ resourcePlan: allOff }) }));
+    expect(m.generalConditions).toMatchObject({ tbd: true, low: 0, high: 0 });
+    expect(m.generalConditions.basis).toBe("Every line of the Allocated Resources plan is switched off");
+    expect(m.total.low).toBe(waterfall(1_000_000, 0).total);
+  });
+
   it("refuses to run without a plan or without the confidence's spread", () => {
     expect(() => computeMarkups(inputs({ spreadParameters, choices: allocated({ resourcePlan: undefined }) }))).toThrow(
       /needs a resource plan/,
@@ -710,6 +719,16 @@ describe("computeMarkups, a method per line under separate lines", () => {
       inputs({ ...flat, choices: { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources", grResourcePlan: { ...grPlan, lines: [] } } }),
     );
     expect(m.generalRequirements?.tbd).toBe(true);
+    expect(m.generalConditions.low).toBe(100_000);
+  });
+
+  it("is TBD when every General Requirements plan line is switched off, never $0 inside the total", () => {
+    const off = { on: false as const, by: "rule" as const, words: "Off by rule." };
+    const allOff: ResourcePlan = { ...grPlan, lines: grPlan.lines.map((one) => ({ ...one, switch: off })) };
+    const m = computeMarkups(
+      inputs({ ...flat, choices: { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources", grResourcePlan: allOff } }),
+    );
+    expect(m.generalRequirements).toMatchObject({ tbd: true, basis: "Every line of the Allocated Resources plan is switched off" });
     expect(m.generalConditions.low).toBe(100_000);
   });
 

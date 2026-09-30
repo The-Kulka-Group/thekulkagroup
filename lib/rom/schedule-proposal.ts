@@ -197,22 +197,36 @@ export function scheduleFactsOf(project: Pick<RomProjectDetail, "projectType" | 
 }
 
 /**
+ * A proposal that failed, recorded on the project in place of a proposal so
+ * the page does not ask the model again for the same facts and jobs. `error`
+ * is the words the screen shows, and it tells the estimator to enter the
+ * weeks. A change to the facts or the close jobs changes the input key, and
+ * the next page open asks again.
+ */
+export type FailedScheduleProposal = { status: "failed"; error: string; inputKey: string; failedAt: string };
+
+/**
  * Where a project's proposal stands when its page opens.
  *
  * - `ready`: a proposal the page can apply now. Either nothing could be
  *   compared (empty table, no close job), or a saved proposal was made from
  *   the project's current facts and jobs.
- * - `pending`: close jobs exist and no current proposal is saved, so the page
+ * - `failed`: the last proposal for the current facts and jobs failed. The
+ *   page shows why and does not ask again.
+ * - `pending`: close jobs exist and nothing current is saved, so the page
  *   asks for one (POST /api/rom/projects/[id]/schedule-proposal).
  */
-export type ScheduleProposalState = { kind: "ready"; proposal: ScheduleProposal } | { kind: "pending" };
+export type ScheduleProposalState =
+  | { kind: "ready"; proposal: ScheduleProposal }
+  | { kind: "failed"; error: string }
+  | { kind: "pending" };
 
 export function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function readSaved(db: Db, projectId: string): Promise<ScheduleProposal | null> {
-  const { rows } = await db.query<{ schedule_proposal: ScheduleProposal | null }>(
+async function readSaved(db: Db, projectId: string): Promise<ScheduleProposal | FailedScheduleProposal | null> {
+  const { rows } = await db.query<{ schedule_proposal: ScheduleProposal | FailedScheduleProposal | null }>(
     `select schedule_proposal from projects where id = $1`,
     [projectId],
   );
@@ -225,8 +239,9 @@ async function readInputs(db: Db, projectId: string) {
   if (!project) return null;
   const [jobs, saved] = await Promise.all([readCompletedJobs(db), readSaved(db, projectId)]);
   const facts = scheduleFactsOf(project);
-  const current = saved && saved.inputKey === scheduleInputKey(facts, closeEnoughJobs(facts, jobs)) ? saved : null;
-  return { facts, jobs, current };
+  const inputKey = scheduleInputKey(facts, closeEnoughJobs(facts, jobs));
+  const current = saved && saved.inputKey === inputKey ? saved : null;
+  return { facts, jobs, current, inputKey };
 }
 
 export async function readScheduleProposalState(db: Db, projectId: string): Promise<ScheduleProposalState | null> {
@@ -234,23 +249,33 @@ export async function readScheduleProposalState(db: Db, projectId: string): Prom
   if (!inputs) return null;
   const without = proposalWithoutModel(inputs.facts, inputs.jobs, today());
   if (without) return { kind: "ready", proposal: without };
-  return inputs.current ? { kind: "ready", proposal: inputs.current } : { kind: "pending" };
+  if (!inputs.current) return { kind: "pending" };
+  if (inputs.current.status === "failed") return { kind: "failed", error: inputs.current.error };
+  return { kind: "ready", proposal: inputs.current };
 }
 
 /**
  * The project's current proposal: the saved one when it was made from the
  * project's current facts and jobs, otherwise a new one, saved on the
- * project. A failed proposal saves nothing. Null when the project is missing.
+ * project. A failed proposal is recorded the same way, so the same facts are
+ * not sent to the model again; nothing retries it by itself. A site with no
+ * model key records nothing, since that is not this project's answer. Null
+ * when the project is missing.
  */
 export async function proposeForProject(db: Db, client: RateClient | null, projectId: string): Promise<ProposeResult | null> {
   const inputs = await readInputs(db, projectId);
   if (!inputs) return null;
   const without = proposalWithoutModel(inputs.facts, inputs.jobs, today());
   if (without) return { ok: true, proposal: without };
+  if (inputs.current?.status === "failed") return { ok: false, error: inputs.current.error };
   if (inputs.current) return { ok: true, proposal: inputs.current };
-  const result = await proposeSchedule(client, inputs.facts, inputs.jobs, today());
-  if (result.ok) {
-    await db.query(`update projects set schedule_proposal = $2 where id = $1`, [projectId, JSON.stringify(result.proposal)]);
+  const date = today();
+  const result = await proposeSchedule(client, inputs.facts, inputs.jobs, date);
+  if (result.ok || !result.notSetUp) {
+    const record: ScheduleProposal | FailedScheduleProposal = result.ok
+      ? result.proposal
+      : { status: "failed", error: result.error, inputKey: inputs.inputKey, failedAt: date };
+    await db.query(`update projects set schedule_proposal = $2 where id = $1`, [projectId, JSON.stringify(record)]);
   }
   return result;
 }

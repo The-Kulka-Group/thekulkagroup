@@ -54,6 +54,12 @@ export type PlanFigure = {
   ref?: string;
   /** Where it came from in words a budget can show, such as an estimate number. */
   source?: string;
+  /**
+   * The rate card row behind the figure has no rate for it, so the value is a
+   * placeholder zero the estimator must replace. A line whose rate needs entry
+   * refuses to price while it is on; it never prices silently at zero.
+   */
+  needsEntry?: true;
 };
 
 /** The weeks of each phase. */
@@ -102,9 +108,34 @@ export type UnitPlanLine = PlanLineCommon & {
 
 export type LumpSumPlanLine = PlanLineCommon & { basis: "lump_sum" };
 
-export type PlanLine = TimePlanLine | UnitPlanLine | LumpSumPlanLine;
+/** A line that prices: every figure its basis needs is on it. */
+export type PricingPlanLine = TimePlanLine | UnitPlanLine | LumpSumPlanLine;
 
-export type PlanBasis = PlanLine["basis"];
+export type PlanBasis = PricingPlanLine["basis"];
+
+/**
+ * A line switched off (LA-1402), kept as the estimator left it. It prices
+ * nothing, so only its id, label, group, basis and switch are sure to be
+ * there; any other figure is kept where it was given, and nothing checks it.
+ */
+export type OffPlanLine = Pick<PlanLineCommon, "id" | "label" | "group" | "quantityRule"> & {
+  basis: PlanBasis;
+  switch: LineSwitch & { on: false };
+  quantity?: PlanFigure;
+  rate?: PlanFigure;
+  unit?: string;
+  per?: TimePlanLine["per"];
+  phases?: SchedulePhase[];
+  daysPerWeek?: PlanFigure;
+  weeks?: PlanFigure;
+};
+
+export type PlanLine = PricingPlanLine | OffPlanLine;
+
+/** Whether a line prices: every line does unless it is switched off. */
+export function isLineOn(line: PlanLine): line is PricingPlanLine {
+  return line.switch?.on !== false;
+}
 
 export type ResourcePlan = {
   schedule: PlanSchedule;
@@ -159,13 +190,14 @@ export function priceResourcePlan(plan: ResourcePlan): PricedPlan {
   }
 
   const seen = new Set<string>();
-  const lines = plan.lines.filter((line) => line.switch?.on !== false).map((line): PricedPlanLine => {
+  const lines = plan.lines.filter(isLineOn).map((line): PricedPlanLine => {
     if (seen.has(line.id)) throw new Error(`Plan line ${line.id} appears twice.`);
     seen.add(line.id);
     const quantity = line.quantity.value;
     const rate = line.rate.value;
     if (!Number.isFinite(quantity) || !(quantity > 0)) throw new Error(`The quantity of ${line.label} must be above zero.`);
     if (!Number.isFinite(rate) || rate < 0) throw new Error(`The rate of ${line.label} must be zero or more.`);
+    if (line.rate.needsEntry) throw new Error(`Enter a rate for ${line.label}. The rate card has none for it.`);
     const common = {
       id: line.id,
       label: line.label,
@@ -256,6 +288,12 @@ export function priceResourcePlan(plan: ResourcePlan): PricedPlan {
  * Two figures can differ from the old method's: a role's rate is the low end
  * of its rate-card row, and monthly items price at 30.42 days a month rather
  * than 4.33 weeks a month.
+ *
+ * A field-office row priced at $0, or a connect-then-monthly row with no
+ * monthly rate, keeps its line with the rate marked `needsEntry`, so the plan
+ * will not price until the estimator enters one (the same rule as a General
+ * Requirements row with no rate). The old method priced such a row at zero,
+ * and a run it recorded still does.
  */
 export function planFromStaffingChoices(
   choices: {
@@ -299,8 +337,11 @@ export function planFromStaffingChoices(
     const rate = officeById.get(pick.rateId);
     if (!rate) continue;
     const quantity = typed(pick.quantity ?? 1);
-    const figure = (value: number): PlanFigure => ({ value, origin: "rate_card", ref: rate.id, source: rate.sourceEstimate });
-    const monthly = (id: string, label: string, value: number): PlanLine => ({
+    const figure = (value: number | null): PlanFigure =>
+      value !== null && value > 0
+        ? { value, origin: "rate_card", ref: rate.id, source: rate.sourceEstimate }
+        : { value: 0, origin: "rate_card", ref: rate.id, source: rate.sourceEstimate, needsEntry: true };
+    const monthly = (id: string, label: string, value: number | null): PlanLine => ({
       id,
       label,
       group: "Field Office",
@@ -322,7 +363,7 @@ export function planFromStaffingChoices(
         break;
       case "lump_sum_then_monthly":
         lines.push({ id: idFor(rate.id), label: rate.item, group: "Field Office", basis: "lump_sum", quantity, rate: figure(rate.rate) });
-        lines.push(monthly(idFor(rate.id, "-monthly"), `${rate.item}, Monthly Service`, rate.recurringRate ?? 0));
+        lines.push(monthly(idFor(rate.id, "-monthly"), `${rate.item}, Monthly Service`, rate.recurringRate));
         break;
     }
   }

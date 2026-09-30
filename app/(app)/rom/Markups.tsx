@@ -160,21 +160,37 @@ export function initialMarkupForm(
 }
 
 /**
+ * The plan that prices General Requirements: the separate one under Separate
+ * Lines, the one plan under any other setup that includes General
+ * Requirements, or none.
+ */
+function grPlanInUse(form: MarkupForm): "plan" | "grPlan" | null {
+  if (form.setup === "separate") return formGrMethod(form) === "allocated_resources" ? "grPlan" : null;
+  return form.setup !== "gc_only" && form.method === "allocated_resources" ? "plan" : null;
+}
+
+/**
  * LA-1402: a General Requirements plan with no lines opens with the lines its
- * rules switch. The plan that prices General Requirements is the separate
- * one under Separate Lines, and the one plan under any setup that includes
- * General Requirements. A plan that already has lines is left as it is.
+ * rules switch. A plan that already has lines is left as it is. Only the
+ * moments a plan is opened call this: the form's first values, and a change
+ * of setup or method that puts a plan to use (changeMarkupForm).
  */
 export function withRuleLinesOnForm(form: MarkupForm, options: MarkupOptions | undefined): MarkupForm {
   const rates = options?.grRates ?? [];
-  if (rates.length === 0) return form;
-  if (form.setup === "separate") {
-    return formGrMethod(form) === "allocated_resources" ? { ...form, grPlan: withRuleLines(form.grPlan, rates) } : form;
-  }
-  if (form.setup !== "gc_only" && form.method === "allocated_resources") {
-    return { ...form, plan: withRuleLines(form.plan, rates) };
-  }
-  return form;
+  const used = grPlanInUse(form);
+  if (rates.length === 0 || used === null) return form;
+  return { ...form, [used]: withRuleLines(form[used], rates) };
+}
+
+/**
+ * One change to the form. The seed lines come in only when the change puts a
+ * General Requirements plan to use that was not in use before, so an
+ * estimator who removes every line keeps an empty plan.
+ */
+export function changeMarkupForm(form: MarkupForm, patch: Partial<MarkupForm>, options: MarkupOptions | undefined): MarkupForm {
+  const next = { ...form, ...patch };
+  const used = grPlanInUse(next);
+  return used !== null && used !== grPlanInUse(form) ? withRuleLinesOnForm(next, options) : next;
 }
 
 /**
@@ -253,7 +269,7 @@ export function markupChoicesFrom(
     const grMethod = formGrMethod(form);
     if (grMethod !== grMethodOf({ setup: "separate", method: form.method })) markups.grMethod = grMethod;
     if (grMethod === "allocated_resources") {
-      const plan = planFromForm(form.grPlan, answers);
+      const plan = planFromForm(form.grPlan, answers, options?.grRates);
       if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error.charAt(0).toLowerCase()}${plan.error.slice(1)}` };
       markups.grResourcePlan = plan.plan;
     }
@@ -272,7 +288,7 @@ export function markupChoicesFrom(
   }
 
   if (form.method === "allocated_resources") {
-    const plan = planFromForm(form.plan, answers);
+    const plan = planFromForm(form.plan, answers, options?.grRates);
     if (!plan.ok) return plan;
     markups.resourcePlan = plan.plan;
   }
@@ -300,7 +316,7 @@ export function MarkupControls({
   /** LA-1402: the answers the line rules read, with the schedule's construction weeks. */
   answers?: PlanAnswers;
 }) {
-  const set = (patch: Partial<MarkupForm>) => onChange(withRuleLinesOnForm({ ...form, ...patch }, options));
+  const set = (patch: Partial<MarkupForm>) => onChange(changeMarkupForm(form, patch, options));
   const schedule = useProposedSchedule(projectId, initialSchedule, form, onChange);
   const history = setupHistory(options.historyCounts, form.setup);
   const separate = form.setup === "separate";

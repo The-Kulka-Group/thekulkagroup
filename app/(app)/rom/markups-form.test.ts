@@ -143,6 +143,38 @@ describe("the GRs/GCs form, Allocated Resources", () => {
     expect(new Set([...lines, ...again].map((line) => line.id)).size).toBe(4);
   });
 
+  it("adds a $0 rate card row, and a connect with no monthly rate, with the rate blank for the estimator", () => {
+    const zero: MarkupOptions = {
+      ...rates,
+      fieldOfficeRates: [
+        { id: "f-electric", category: "office_setup", item: "Electric Connect", rateBasis: "lump_sum", rate: 0, recurringRate: null, sourceEstimate: "C-00379" },
+        { id: "f-water", category: "office_setup", item: "Water", rateBasis: "lump_sum_then_monthly", rate: 300, recurringRate: null, sourceEstimate: "C-00379" },
+      ],
+    };
+    const electric = linesFromRateCard("office", "f-electric", zero, []);
+    expect(electric).toHaveLength(1);
+    expect(electric[0]).toMatchObject({ rate: "", rateFrom: TYPED, noCardRate: true });
+    const water = linesFromRateCard("office", "f-water", zero, []);
+    expect(water.map((line) => [line.rate, line.noCardRate ?? false])).toEqual([
+      ["300", false],
+      ["", true],
+    ]);
+    const form = { ...withPlan(), plan: { ...withPlan().plan, lines: electric } };
+    expect(markupChoicesFrom(form, zero)).toEqual({ ok: false, error: "Enter a rate for Electric Connect. The rate card has none for it." });
+  });
+
+  it("opens a saved Staffing and Duration choice with a $0 row as a line whose rate needs entering", () => {
+    const zero: MarkupOptions = {
+      ...rates,
+      fieldOfficeRates: [
+        { id: "f-electric", category: "office_setup", item: "Electric Connect", rateBasis: "lump_sum", rate: 0, recurringRate: null, sourceEstimate: "C-00379" },
+      ],
+    };
+    const form = initialMarkupForm(zero, { setup: "both", method: "staffing_duration", durationWeeks: 20, fieldOffice: [{ rateId: "f-electric" }] });
+    expect(form.plan.lines).toHaveLength(1);
+    expect(form.plan.lines[0]).toMatchObject({ label: "Electric Connect", rate: "", noCardRate: true });
+  });
+
   it("refuses a plan with a phase left blank or no lines, in words the screen shows", () => {
     const form = withPlan();
     expect(markupChoicesFrom({ ...form, plan: { ...form.plan, weeks: { ...form.plan.weeks, precon: "" } } }, rates)).toEqual({

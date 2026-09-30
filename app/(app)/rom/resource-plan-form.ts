@@ -15,6 +15,7 @@ import {
   type LineRuleFacts,
   type LineRuleId,
   type LineSwitch,
+  type OffPlanLine,
   type PlanBasis,
   type PlanFigure,
   type PlanLine,
@@ -23,6 +24,7 @@ import {
   type ResourcePlan,
   type ScheduleProposal,
   type SchedulePhase,
+  type TimePlanLine,
 } from "@kulka/engine";
 
 import type { GrRate } from "@/lib/rom/gr-rates";
@@ -205,22 +207,30 @@ function from(figure: PlanFigure | undefined): FigureFrom {
 }
 
 function lineForm(line: PlanLine): PlanLineForm {
+  // A rate the card has none for opens blank, for the estimator to enter.
+  const needsRate = line.rate?.needsEntry === true;
+  // A line switched off may have been saved without some figures (OffPlanLine).
+  // A missing quantity under a rule goes back to following the rule.
+  const rule = line.quantityRule ? quantityRuleById(line.quantityRule) : null;
+  const quantityFrom = line.quantity ? from(line.quantity) : rule ? { origin: rule.origin, ref: rule.id } : TYPED;
+  const time = line.basis === "time" ? line : null;
   return {
     id: line.id,
     label: line.label,
     group: line.group,
     basis: line.basis,
-    per: line.basis === "time" ? line.per : "week",
-    phases: line.basis === "time" ? line.phases : ["construction"],
-    unit: line.basis === "unit" ? line.unit : "",
-    quantity: text(line.quantity.value),
-    rate: text(line.rate.value),
-    daysPerWeek: line.basis === "time" ? text(line.daysPerWeek?.value) : "",
-    weeks: line.basis === "time" ? text(line.weeks?.value) : "",
-    quantityFrom: from(line.quantity),
-    rateFrom: from(line.rate),
-    daysFrom: from(line.basis === "time" ? line.daysPerWeek : undefined),
-    weeksFrom: from(line.basis === "time" ? line.weeks : undefined),
+    per: time?.per ?? "week",
+    phases: time?.phases ?? ["construction"],
+    unit: (line.basis === "unit" ? line.unit : undefined) ?? "",
+    quantity: text(line.quantity?.value),
+    rate: needsRate ? "" : text(line.rate?.value),
+    daysPerWeek: text(time?.daysPerWeek?.value),
+    weeks: text(time?.weeks?.value),
+    quantityFrom,
+    rateFrom: needsRate ? TYPED : from(line.rate),
+    ...(needsRate ? { noCardRate: true } : {}),
+    daysFrom: from(time?.daysPerWeek),
+    weeksFrom: from(time?.weeks),
     ...(line.switch?.rule ? { ruleId: line.switch.rule } : {}),
     ...(line.switch?.by === "estimator" ? { manual: line.switch.on ? ("on" as const) : ("off" as const) } : {}),
     ...(line.quantityRule ? { quantityRule: line.quantityRule } : {}),
@@ -274,13 +284,26 @@ export function switchOf(line: PlanLineForm, form: PlanForm, answers: PlanAnswer
 
 // ---- LA-1401: quantities from the project's facts ---------------------------
 
-/** The item name of the rate card row whose quantity counts the cameras. */
-const CAMERAS_ITEM = "Webcam - Video, Cameras";
+/** The rate card row whose quantity counts the cameras. */
+const CAMERAS_ROW = { section: "Site Controls", item: "Webcam - Video, Cameras" };
+
+/**
+ * The plan's camera line: the one added from the cameras' rate card row. It is
+ * found by that row, never by its name, so the estimator can rename it. Its
+ * rate names the row until the estimator types a rate; its id, minted from
+ * the row (linesFromGrRate), names it after that.
+ */
+function cameraLine(form: PlanForm, rates: readonly GrRate[]): PlanLineForm | undefined {
+  const row = rates.find((one) => one.section === CAMERAS_ROW.section && one.item === CAMERAS_ROW.item);
+  if (!row) return undefined;
+  const minted = `gr-${row.id}`;
+  return form.lines.find((line) => line.rateFrom.ref === row.id || line.id === minted || line.id.startsWith(`${minted}-`));
+}
 
 /** What the quantity rules read for this plan: the answers, the schedule, and the plan's own camera count. */
-export function quantityFactsOf(form: PlanForm, answers: PlanAnswers): QuantityFacts {
+export function quantityFactsOf(form: PlanForm, answers: PlanAnswers, rates: readonly GrRate[] = []): QuantityFacts {
   const weeks = number(form.weeks.construction);
-  const cameras = form.lines.find((line) => line.group === "Site Controls" && line.label.trim() === CAMERAS_ITEM);
+  const cameras = cameraLine(form, rates);
   const cameraCount = cameras ? number(cameras.quantity) : null;
   return {
     grossSquareFeet: answers.grossSquareFeet,
@@ -308,11 +331,12 @@ export function quantityOf(
   line: PlanLineForm,
   form: PlanForm,
   answers: PlanAnswers,
+  rates: readonly GrRate[] = [],
 ): { text: string; from: FigureFrom; overridden: boolean; value?: number; missing?: string[] } {
   const rule = line.quantityRule ? quantityRuleById(line.quantityRule) : null;
   if (!rule) return { text: line.quantity, from: line.quantityFrom, overridden: false };
   if (line.quantityFrom.origin === "estimator") return { text: line.quantity, from: TYPED, overridden: true };
-  const result = rule.evaluate(quantityFactsOf(form, answers));
+  const result = rule.evaluate(quantityFactsOf(form, answers, rates));
   const from: FigureFrom = { origin: rule.origin, ref: rule.id, source: result.words };
   if (!result.ok) return { text: "", from, overridden: false, missing: result.missing };
   return { text: String(Number(result.value.toFixed(2))), from, overridden: false, value: result.value };
@@ -334,6 +358,7 @@ export function resetLineQuantity(form: PlanForm, lineId: string): PlanForm {
 export function planFromForm(
   form: PlanForm,
   answers: PlanAnswers = NO_ANSWERS,
+  rates: readonly GrRate[] = [],
 ): { ok: true; plan: ResourcePlan } | { ok: false; error: string } {
   const schedule = {} as ResourcePlan["schedule"];
   for (const phase of SCHEDULE_PHASES) {
@@ -350,25 +375,28 @@ export function planFromForm(
     const name = line.label.trim() || "A line";
     if (line.label.trim() === "") return { ok: false, error: "Give every line a name." };
     const lineSwitch = switchOf(line, form, answers);
-    // A line that is off prices nothing, so it keeps what was typed and needs no more.
-    const off = lineSwitch !== null && !lineSwitch.on;
-    const held = quantityOf(line, form, answers);
-    if (!off && held.missing !== undefined) {
+    const held = quantityOf(line, form, answers, rates);
+    // A line that is off prices nothing, so it is sent as the estimator left it.
+    if (lineSwitch !== null && !lineSwitch.on) {
+      lines.push(offLineOf(line, { ...lineSwitch, on: false }, held));
+      continue;
+    }
+    if (held.missing !== undefined) {
       return { ok: false, error: `Enter a quantity for ${name}: ${held.from.source ?? "the project has no fact to work it out from"}.` };
     }
     const quantity = held.value ?? number(held.text);
-    if (!off && (quantity === null || !(quantity > 0))) return { ok: false, error: `${name} needs a quantity above zero.` };
+    if (quantity === null || !(quantity > 0)) return { ok: false, error: `${name} needs a quantity above zero.` };
     const rate = number(line.rate);
-    if (!off && rate === null && line.noCardRate && line.rate.trim() === "") {
+    if (rate === null && line.noCardRate && line.rate.trim() === "") {
       return { ok: false, error: `Enter a rate for ${name}. The rate card has none for it.` };
     }
-    if (!off && (rate === null || rate < 0)) return { ok: false, error: `${name} needs a rate of 0 or more.` };
+    if (rate === null || rate < 0) return { ok: false, error: `${name} needs a rate of 0 or more.` };
     const common = {
       id: line.id,
       label: line.label.trim(),
       group: line.group,
-      quantity: { value: quantity !== null && quantity > 0 ? quantity : 0, ...held.from },
-      rate: { value: rate !== null && rate >= 0 ? rate : 0, ...line.rateFrom },
+      quantity: { value: quantity, ...held.from },
+      rate: { value: rate, ...line.rateFrom },
       ...(lineSwitch ? { switch: lineSwitch } : {}),
       ...(line.quantityRule ? { quantityRule: line.quantityRule } : {}),
     };
@@ -377,36 +405,61 @@ export function planFromForm(
       continue;
     }
     if (line.basis === "unit") {
-      if (!off && line.unit.trim() === "") return { ok: false, error: `${name} needs a unit, such as SF or Each.` };
-      lines.push({ ...common, basis: "unit", unit: line.unit.trim() || "Each" });
+      if (line.unit.trim() === "") return { ok: false, error: `${name} needs a unit, such as SF or Each.` };
+      lines.push({ ...common, basis: "unit", unit: line.unit.trim() });
       continue;
     }
     const weeks = number(line.weeks);
-    if (!off && line.weeks.trim() !== "" && (weeks === null || weeks < 0)) {
+    if (line.weeks.trim() !== "" && (weeks === null || weeks < 0)) {
       return { ok: false, error: `${name} needs its own weeks as 0 or more, or blank to use its phases.` };
     }
-    const ownWeeks = weeks !== null && weeks >= 0;
     const phases = SCHEDULE_PHASES.filter((phase) => line.phases.includes(phase));
-    if (!off && phases.length === 0 && !ownWeeks) {
+    if (phases.length === 0 && weeks === null) {
       return { ok: false, error: `${name} needs at least one phase.` };
     }
-    const days = number(line.daysPerWeek);
-    const daysOk = days !== null && days > 0 && days <= 7;
-    if (!off && line.per === "day" && !daysOk) {
-      return { ok: false, error: `${name} is priced per day, so it needs days per week from 1 to 7.` };
-    }
-    const timed: PlanLine = {
+    const timed: TimePlanLine = {
       ...common,
       basis: "time",
-      // A line that is off and lacks what its basis needs is kept as a weekly line, unpriced.
-      per: off && line.per === "day" && !daysOk ? "week" : line.per,
-      phases: phases.length === 0 && !ownWeeks ? ["construction"] : phases,
-      ...(ownWeeks ? { weeks: { value: weeks as number, ...line.weeksFrom } } : {}),
+      per: line.per,
+      phases,
+      ...(weeks !== null ? { weeks: { value: weeks, ...line.weeksFrom } } : {}),
     };
-    if (timed.per === "day") timed.daysPerWeek = { value: days as number, ...line.daysFrom };
+    if (line.per === "day") {
+      const days = number(line.daysPerWeek);
+      if (days === null || !(days > 0 && days <= 7)) {
+        return { ok: false, error: `${name} is priced per day, so it needs days per week from 1 to 7.` };
+      }
+      timed.daysPerWeek = { value: days, ...line.daysFrom };
+    }
     lines.push(timed);
   }
   return { ok: true, plan: { schedule, lines, confidence: form.confidence } };
+}
+
+/** A line switched off, with whatever figures the estimator left on it. Nothing on it is checked. */
+function offLineOf(line: PlanLineForm, lineSwitch: OffPlanLine["switch"], held: ReturnType<typeof quantityOf>): OffPlanLine {
+  const quantity = held.value ?? number(held.text);
+  const rate = number(line.rate);
+  const out: OffPlanLine = {
+    id: line.id,
+    label: line.label.trim(),
+    group: line.group,
+    basis: line.basis,
+    switch: lineSwitch,
+    ...(line.quantityRule ? { quantityRule: line.quantityRule } : {}),
+    ...(quantity !== null ? { quantity: { value: quantity, ...held.from } } : {}),
+    ...(rate !== null ? { rate: { value: rate, ...line.rateFrom } } : {}),
+  };
+  if (line.basis === "unit" && line.unit.trim() !== "") out.unit = line.unit.trim();
+  if (line.basis === "time") {
+    out.per = line.per;
+    out.phases = SCHEDULE_PHASES.filter((phase) => line.phases.includes(phase));
+    const weeks = number(line.weeks);
+    if (weeks !== null) out.weeks = { value: weeks, ...line.weeksFrom };
+    const days = number(line.daysPerWeek);
+    if (line.per === "day" && days !== null) out.daysPerWeek = { value: days, ...line.daysFrom };
+  }
+  return out;
 }
 
 /**
@@ -414,8 +467,8 @@ export function planFromForm(
  * showing each line's amount as the estimator types; the run prices the plan
  * itself.
  */
-export function pricedPlanOf(form: PlanForm, answers: PlanAnswers = NO_ANSWERS) {
-  const parsed = planFromForm(form, answers);
+export function pricedPlanOf(form: PlanForm, answers: PlanAnswers = NO_ANSWERS, rates: readonly GrRate[] = []) {
+  const parsed = planFromForm(form, answers, rates);
   if (!parsed.ok) return null;
   try {
     return priceResourcePlan(parsed.plan);

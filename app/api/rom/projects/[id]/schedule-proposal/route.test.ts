@@ -115,13 +115,35 @@ describe("POST /api/rom/projects/[id]/schedule-proposal", () => {
     expect(calls).toBe(2);
   });
 
-  it("saves nothing when the answer cites a job that is not recorded", async () => {
+  it("proposes no weeks when the answer cites a job that is not recorded, and records the failure", async () => {
     await recordSyntheticJob();
     useModel({ ...goodAnswer, jobs: [{ jobNumber: "C-00456", why: "Invented." }] });
     const response = await post(TEST_PROJECT_ID);
     expect(response.status).toBe(502);
-    expect((await response.json()).error).toMatch(/Enter the weeks/);
-    expect(await saved()).toBeNull();
+    const { error } = await response.json();
+    expect(error).toMatch(/Enter the weeks/);
+    expect(await saved()).toMatchObject({ status: "failed", error, failedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
+    expect(((await saved()) as { inputKey?: unknown }).inputKey).toEqual(expect.any(String));
+  });
+
+  it("opens a failed proposal as failed, with its words, and does not ask again until the facts change", async () => {
+    await recordSyntheticJob();
+    useModel({ ...goodAnswer, jobs: [{ jobNumber: "C-00456", why: "Invented." }] });
+    const { error } = await (await post(TEST_PROJECT_ID)).json();
+    expect(await readScheduleProposalState(db, TEST_PROJECT_ID)).toEqual({ kind: "failed", error });
+
+    // Asking again for the same facts gives back the recorded failure, not a new model call.
+    const again = await post(TEST_PROJECT_ID);
+    expect(again.status).toBe(502);
+    expect((await again.json()).error).toBe(error);
+    expect(calls).toBe(1);
+
+    await db.query(`update projects set gross_square_feet = 1100 where id = $1`, [TEST_PROJECT_ID]);
+    expect(await readScheduleProposalState(db, TEST_PROJECT_ID)).toEqual({ kind: "pending" });
+    useModel(goodAnswer);
+    const fresh = await (await post(TEST_PROJECT_ID)).json();
+    expect(fresh.proposal).toMatchObject({ status: "proposed" });
+    expect(calls).toBe(2);
   });
 
   it("says proposals are not set up when a close job exists and there is no model key", async () => {
@@ -130,6 +152,8 @@ describe("POST /api/rom/projects/[id]/schedule-proposal", () => {
     delete process.env.ANTHROPIC_API_KEY;
     try {
       expect((await post(TEST_PROJECT_ID)).status).toBe(503);
+      // A missing key is the site's setup, not this project's answer, so nothing is recorded.
+      expect(await saved()).toBeNull();
     } finally {
       if (key !== undefined) process.env.ANTHROPIC_API_KEY = key;
     }

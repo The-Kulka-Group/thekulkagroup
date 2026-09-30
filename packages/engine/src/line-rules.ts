@@ -103,6 +103,22 @@ function inWinter(time: number): boolean {
   return month >= WINTER.startMonth || month <= WINTER.endMonth;
 }
 
+/**
+ * The days of `weeks` weeks of construction from `start` (YYYY-MM-DD) that
+ * fall in winter, counted day by day. Null without a readable start date. The
+ * cold-weather switch reads it here, and the heat quantities read it through
+ * quantity-rules.ts winterWeeks.
+ */
+export function winterDays(start: string | null | undefined, weeks: number): number | null {
+  const from = parseDay(start);
+  if (from === null) return null;
+  let days = 0;
+  for (let day = 0; day < weeks * 7; day += 1) {
+    if (inWinter(from + day * DAY_MS)) days += 1;
+  }
+  return days;
+}
+
 export const COLD_WEATHER_RULE: LineRule = {
   id: "cold_weather",
   name: "Cold-Weather Protection",
@@ -117,8 +133,8 @@ export const COLD_WEATHER_RULE: LineRule = {
     if (!known(weeks)) {
       return { state: "unknown", words: "Unknown: the schedule has no construction weeks. Left for the estimator" };
     }
-    const start = parseDay(facts.constructionStart);
-    if (start === null) {
+    const days = winterDays(facts.constructionStart, weeks);
+    if (days === null) {
       if (weeks * 7 > WINTER.longestClearDays) {
         return { state: "on", words: `On: ${weeksWords(weeks)} of construction cannot avoid winter` };
       }
@@ -127,15 +143,8 @@ export const COLD_WEATHER_RULE: LineRule = {
         words: `Unknown: no start date, so ${weeksWords(weeks)} of construction may or may not meet winter. Left for the estimator`,
       };
     }
-    let crosses = false;
-    for (let day = 0; day < weeks * 7; day += 1) {
-      if (inWinter(start + day * DAY_MS)) {
-        crosses = true;
-        break;
-      }
-    }
     const from = facts.constructionStart as string;
-    return crosses
+    return days > 0
       ? { state: "on", words: `On: ${weeksWords(weeks)} of construction from ${from} meet winter` }
       : { state: "off", words: `Off: ${weeksWords(weeks)} of construction from ${from} stay clear of winter` };
   },

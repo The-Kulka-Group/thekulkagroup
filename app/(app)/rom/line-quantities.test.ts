@@ -133,9 +133,29 @@ describe("a line whose quantity follows from the building fills it in", () => {
   it("gives the webcam service one per camera on the plan", () => {
     let form = planOf("cams", "cell");
     const cell = () => form.lines.find((one) => one.quantityRule === "camera_service")!;
-    expect(quantityOf(cell(), form, big)).toMatchObject({ text: "", missing: ["Camera Count"] });
+    expect(quantityOf(cell(), form, big, grRates)).toMatchObject({ text: "", missing: ["Camera Count"] });
     form = { ...form, lines: form.lines.map((one) => (one.label === "Webcam - Video, Cameras" ? { ...one, quantity: "3" } : one)) };
-    expect(quantityOf(cell(), form, big)).toMatchObject({ text: "3", from: { origin: "fact", ref: "camera_service" } });
+    expect(quantityOf(cell(), form, big, grRates)).toMatchObject({ text: "3", from: { origin: "fact", ref: "camera_service" } });
+  });
+
+  it("finds the cameras by their rate card row, so renaming the line or retyping its rate keeps the count", () => {
+    const base = planOf("cams", "cell");
+    const counted = {
+      ...base,
+      lines: base.lines.map((one) =>
+        one.quantityRule === undefined ? { ...one, label: "Site Cameras", quantity: "4" } : one,
+      ),
+    };
+    const cell = counted.lines.find((one) => one.quantityRule === "camera_service")!;
+    expect(quantityOf(cell, counted, big, grRates)).toMatchObject({ text: "4" });
+    const retyped = {
+      ...counted,
+      lines: counted.lines.map((one) => (one.label === "Site Cameras" ? { ...one, rate: "4500", rateFrom: { origin: "estimator" as const } } : one)),
+    };
+    expect(quantityOf(cell, retyped, big, grRates)).toMatchObject({ text: "4" });
+    // A line of the estimator's own named like the cameras is not the cameras.
+    const own = { ...base, lines: [cell, { ...base.lines[0], id: "own-line", label: "Webcam - Video, Cameras", quantity: "9", rateFrom: { origin: "estimator" as const } }] };
+    expect(quantityOf(cell, own, big, grRates)).toMatchObject({ text: "", missing: ["Camera Count"] });
   });
 });
 
@@ -209,7 +229,7 @@ describe("the estimator's quantity wins until reset, and a saved run keeps what 
     const reopened = initialMarkupForm(options, sent.markups);
     expect(quantityOf(reopened.grPlan.lines[0], reopened.grPlan, later).text).toBe("80000");
     // The recorded plan is unchanged and prices as it did.
-    expect(recorded.lines[0].quantity.value).toBe(120_000);
+    expect(recorded.lines[0].quantity?.value).toBe(120_000);
     expect(priceResourcePlan(recorded).total).toBe(66_000);
   });
 });

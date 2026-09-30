@@ -191,6 +191,24 @@ describe("planFromStaffingChoices", () => {
     expect(pm.rate).toEqual({ value: 1040, origin: "rate_card", ref: "s-pm", source: "C-00379" });
   });
 
+  it("keeps a $0 row and a connect with no monthly rate, each marked as needing a rate, and refuses to price them", () => {
+    const zero: FieldOfficeRate[] = [
+      { id: "f-electric", category: "office_setup", item: "Electric Connect", rateBasis: "lump_sum", rate: 0, recurringRate: null, sourceEstimate: "C-00379" },
+      { id: "f-water", category: "office_setup", item: "Water", rateBasis: "lump_sum_then_monthly", rate: 300, recurringRate: null, sourceEstimate: "C-00379" },
+    ];
+    const plan = planFromStaffingChoices({ durationWeeks: 10, fieldOffice: [{ rateId: "f-electric" }, { rateId: "f-water" }] }, staff, zero);
+    expect(plan.lines.map((line) => [line.label, line.rate])).toEqual([
+      ["Electric Connect", { value: 0, origin: "rate_card", ref: "f-electric", source: "C-00379", needsEntry: true }],
+      ["Water", { value: 300, origin: "rate_card", ref: "f-water", source: "C-00379" }],
+      ["Water, Monthly Service", { value: 0, origin: "rate_card", ref: "f-water", source: "C-00379", needsEntry: true }],
+    ]);
+    expect(() => priceResourcePlan(plan)).toThrow("Enter a rate for Electric Connect. The rate card has none for it.");
+    // Switched off, a line that needs a rate prices nothing and asks for nothing.
+    const off = { on: false as const, by: "estimator" as const, words: "Off" };
+    const quiet = { ...plan, lines: plan.lines.map((line) => (line.rate?.needsEntry ? { ...line, switch: off } : line)) };
+    expect(priceResourcePlan(quiet).total).toBe(300);
+  });
+
   it("gives an empty plan when nothing was picked, and skips a rate that no longer exists", () => {
     const plan = planFromStaffingChoices({ durationWeeks: 10, staff: [{ rateId: "gone" }] }, staff, office);
     expect(plan.lines).toEqual([]);
@@ -216,6 +234,10 @@ describe("lines switched off (LA-1402)", () => {
     const priced = priceResourcePlan(plan([line("a", true), line("b", false), line("c")]));
     expect(priced.lines.map((one) => one.id)).toEqual(["a", "c"]);
     expect(priced.total).toBe(2000);
+  });
+  it("prices past a line switched off that carries no figures at all", () => {
+    const bare: PlanLine = { id: "bare", label: "bare", group: "Security", basis: "time", switch: { on: false, by: "estimator", words: "Off" } };
+    expect(priceResourcePlan(plan([line("a", true), bare])).total).toBe(1000);
   });
   it("prices a plan with every line off at zero", () => {
     expect(priceResourcePlan(plan([line("a", false)])).total).toBe(0);

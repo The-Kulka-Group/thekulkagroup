@@ -11,6 +11,7 @@ import {
   SITE_SECURITY_RULE,
   WINTER,
   resolveLineSwitch,
+  winterDays,
   type LineRuleFacts,
 } from "./line-rules";
 
@@ -175,5 +176,26 @@ describe("resolving a line's switch", () => {
   it("switches a line no rule governs only by hand", () => {
     expect(resolveLineSwitch(null, null, undefined)).toBeNull();
     expect(sw(null, null, "off")).toMatchObject({ on: false, by: "estimator" });
+  });
+});
+
+// LA-1394 review: one day-by-day winter walk serves the cold-weather switch
+// and the heat quantities (quantity-rules.ts winterWeeks).
+describe("winterDays", () => {
+  it("counts the construction days that fall December to March", () => {
+    // 2024-11-25 for two weeks: six November days, then eight December days.
+    expect(winterDays("2024-11-25", 2)).toBe(8);
+    expect(winterDays("2025-04-01", 20)).toBe(0);
+    expect(winterDays("2024-10-01", 456 / 7)).toBe(151);
+  });
+  it("is null without a readable start date", () => {
+    expect(winterDays(null, 10)).toBeNull();
+    expect(winterDays("next spring", 10)).toBeNull();
+  });
+  it("is what the cold-weather switch reads: on exactly when a winter day falls in construction", () => {
+    for (const [start, weeks] of [["2024-11-25", 1], ["2024-11-24", 1], ["2025-04-01", 20]] as const) {
+      const on = COLD_WEATHER_RULE.evaluate({ storiesAboveGrade: null, grossSquareFeet: null, constructionWeeks: weeks, constructionStart: start }).state === "on";
+      expect(on).toBe((winterDays(start, weeks) ?? 0) > 0);
+    }
   });
 });

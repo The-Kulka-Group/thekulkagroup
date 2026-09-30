@@ -20,6 +20,7 @@ import { answerMoment, CARD_ORDER, cardMoment, setupMoment, type StageMoment } f
 import { factsFor, valueText } from "./engineering";
 import type { BudgetDraft } from "./LiveBudget";
 import {
+  changeMarkupForm,
   formGrMethod,
   initialMarkupForm,
   markupChoicesFrom,
@@ -28,7 +29,6 @@ import {
   missingRates,
   SETUPS,
   setupHistory,
-  withRuleLinesOnForm,
   type MarkupForm,
 } from "./Markups";
 import { planAnswersFromResponses, type ScheduleView } from "./resource-plan-form";
@@ -55,7 +55,14 @@ import "./scope.css";
 // lib/rom/question-flow.ts (LA-1141). Parking is the first question rather
 // than a setup field, because it is a scope answer that moves the budget.
 
-/** LA-1399: New Budget asks for the proposed schedule once the plan shows. */
+/**
+ * LA-1399: New Budget asks for the proposed schedule once the plan shows. The
+ * first answer creates the project (advance), so the project exists before
+ * any markup question and MarkupControls gets its id. The facts change as the
+ * estimator answers, so New Budget starts pending rather than from a state
+ * read when the page opened; the server returns a proposal or a recorded
+ * failure already made from the current facts without asking again.
+ */
 const PENDING_SCHEDULE: ScheduleView = { kind: "pending" };
 
 const FRAMING_CHOICES: { value: "wood" | "metal" | ""; label: string }[] = [
@@ -515,7 +522,7 @@ export function GuidedNewBudget({
 
   function pickMarkup(change: Partial<MarkupForm>) {
     if (busy) return;
-    const form = withRuleLinesOnForm({ ...markupForm, ...change }, markupOptions);
+    const form = changeMarkupForm(markupForm, change, markupOptions);
     setMarkupForm(form);
     setError(null);
     void advance(responses, form);

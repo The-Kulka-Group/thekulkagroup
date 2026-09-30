@@ -197,3 +197,27 @@ describe("planFromStaffingChoices", () => {
     expect(plan.schedule.construction.value).toBe(10);
   });
 });
+
+// LA-1402: a line switched off stays in the plan and prices nothing. A plan
+// with no switches, as saved before LA-1402, prices every line.
+describe("lines switched off (LA-1402)", () => {
+  const line = (id: string, on?: boolean): PlanLine => ({
+    id,
+    label: id,
+    group: "Hoists, Cranes & Scaffolding",
+    basis: "lump_sum",
+    quantity: typed(1),
+    rate: typed(1000),
+    ...(on === undefined ? {} : { switch: { on, by: "rule" as const, words: on ? "On: 5 stories" : "Off: 1 story" } }),
+  });
+  const plan = (lines: PlanLine[]): ResourcePlan => ({ schedule: schedule(0, 10, 0), lines, confidence: "high" });
+
+  it("prices only the lines that are on", () => {
+    const priced = priceResourcePlan(plan([line("a", true), line("b", false), line("c")]));
+    expect(priced.lines.map((one) => one.id)).toEqual(["a", "c"]);
+    expect(priced.total).toBe(2000);
+  });
+  it("prices a plan with every line off at zero", () => {
+    expect(priceResourcePlan(plan([line("a", false)])).total).toBe(0);
+  });
+});

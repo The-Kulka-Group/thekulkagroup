@@ -1,6 +1,8 @@
 import {
   SCHEDULE_PHASES,
+  ruleById,
   type FigureOrigin,
+  type LineSwitch,
   type PlanFigure,
   type PlanLine,
   type ResourcePlan,
@@ -48,6 +50,22 @@ function figure(value: unknown, what: string, rule: (n: number) => boolean, word
 const atLeastZero = (n: number) => n >= 0;
 const aboveZero = (n: number) => n > 0;
 
+/** A line's switch (LA-1402), or an error in words the screen can show. A line with none prices. */
+function parseSwitch(value: unknown, label: string): LineSwitch | undefined | string {
+  if (value === undefined || value === null) return undefined;
+  if (!isObject(value) || typeof value.on !== "boolean") return `Send the switch of ${label} with on as true or false.`;
+  if (value.by !== "rule" && value.by !== "estimator") return `Send who switched ${label} as "rule" or "estimator".`;
+  if (typeof value.words !== "string" || value.words.length > MAX_TEXT) return `Send the switch words of ${label} as text.`;
+  const out: LineSwitch = { on: value.on, by: value.by, words: value.words };
+  if (value.rule !== undefined && value.rule !== null) {
+    const rule = typeof value.rule === "string" ? ruleById(value.rule) : null;
+    if (!rule) return `Send the rule of ${label} as a rule the app knows.`;
+    out.rule = rule.id;
+  }
+  if (value.unknown === true) out.unknown = true;
+  return out;
+}
+
 export function parseResourcePlan(value: unknown): ParsedResourcePlan {
   if (!isObject(value)) return { ok: false, error: "Send markups.resourcePlan as an object." };
   if (!isObject(value.schedule)) return { ok: false, error: "Send the plan's schedule." };
@@ -75,11 +93,22 @@ export function parseResourcePlan(value: unknown): ParsedResourcePlan {
     ids.add(raw.id);
     if (!isText(raw.label)) return { ok: false, error: "Each plan line needs a name." };
     if (!isText(raw.group)) return { ok: false, error: `${raw.label} needs a group.` };
-    const quantity = figure(raw.quantity, `The quantity of ${raw.label}`, aboveZero, "must be above zero");
+    const lineSwitch = parseSwitch(raw.switch, raw.label);
+    if (typeof lineSwitch === "string") return { ok: false, error: lineSwitch };
+    // A line switched off prices nothing, so it may still lack a quantity.
+    const off = lineSwitch?.on === false;
+    const quantity = figure(raw.quantity, `The quantity of ${raw.label}`, off ? atLeastZero : aboveZero, off ? "must be zero or more" : "must be above zero");
     if (typeof quantity === "string") return { ok: false, error: quantity };
     const rate = figure(raw.rate, `The rate of ${raw.label}`, atLeastZero, "must be zero or more");
     if (typeof rate === "string") return { ok: false, error: rate };
-    const common = { id: raw.id, label: raw.label.trim(), group: raw.group.trim(), quantity, rate };
+    const common = {
+      id: raw.id,
+      label: raw.label.trim(),
+      group: raw.group.trim(),
+      quantity,
+      rate,
+      ...(lineSwitch ? { switch: lineSwitch } : {}),
+    };
 
     if (raw.basis === "lump_sum") {
       lines.push({ ...common, basis: "lump_sum" });

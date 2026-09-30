@@ -13,6 +13,7 @@
 // estimator, read from a rate card, or (later, LA-1399 and LA-1400) proposed
 // by a stated rule, and each says which.
 
+import type { LineSwitch } from "./line-rules";
 import type { ConfidenceFlag } from "./rom";
 import type { FieldOfficeRate, StaffingRate } from "./rom-markups";
 
@@ -64,6 +65,12 @@ type PlanLineCommon = {
   quantity: PlanFigure;
   /** Dollars per day, week or month for a time line; per unit; or the lump sum itself. */
   rate: PlanFigure;
+  /**
+   * Whether the line prices, and who decided (LA-1402, line-rules.ts). A line
+   * with no switch prices, as every plan saved before LA-1402 does. A line
+   * switched off stays in the plan, unpriced, so a saved run shows it.
+   */
+  switch?: LineSwitch;
 };
 
 /** A line that runs for the length of its phases, or for its own weeks. */
@@ -142,7 +149,7 @@ export function priceResourcePlan(plan: ResourcePlan): PricedPlan {
   }
 
   const seen = new Set<string>();
-  const lines = plan.lines.map((line): PricedPlanLine => {
+  const lines = plan.lines.filter((line) => line.switch?.on !== false).map((line): PricedPlanLine => {
     if (seen.has(line.id)) throw new Error(`Plan line ${line.id} appears twice.`);
     seen.add(line.id);
     const quantity = line.quantity.value;

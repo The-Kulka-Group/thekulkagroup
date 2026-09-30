@@ -58,3 +58,32 @@ describe("parseResourcePlan", () => {
     for (const value of bad) expect(parseResourcePlan(value).ok).toBe(false);
   });
 });
+
+// LA-1402: a line's switch is kept, and a line switched off may lack a quantity.
+describe("parseResourcePlan, line switches", () => {
+  const hoist = {
+    id: "gr-hoist",
+    label: "Materials Hoist",
+    group: "Hoists, Cranes & Scaffolding",
+    basis: "lump_sum",
+    quantity: figure(1),
+    rate: figure(25000),
+  };
+  it("keeps a switch and its rule", () => {
+    const sw = { on: true, by: "rule", rule: "hoisting", words: "On: 5 stories" };
+    const parsed = parseResourcePlan(plan([{ ...hoist, switch: sw }]));
+    expect(parsed.ok && parsed.plan.lines[0].switch).toEqual(sw);
+  });
+  it("lets a line switched off carry a quantity of zero, and a line switched on not", () => {
+    const off = { on: false, by: "rule", rule: "hoisting", words: "Off: 1 story" };
+    expect(parseResourcePlan(plan([{ ...hoist, quantity: figure(0), switch: off }])).ok).toBe(true);
+    expect(parseResourcePlan(plan([{ ...hoist, quantity: figure(0), switch: { ...off, on: true } }])).ok).toBe(false);
+    expect(parseResourcePlan(plan([{ ...hoist, quantity: figure(0) }])).ok).toBe(false);
+  });
+  it("refuses a switch it cannot read", () => {
+    for (const sw of [{ on: "yes", by: "rule", words: "" }, { on: true, by: "robot", words: "" }, { on: true, by: "rule", rule: "made_up", words: "" }]) {
+      expect(parseResourcePlan(plan([{ ...hoist, switch: sw }])).ok).toBe(false);
+    }
+  });
+});
+

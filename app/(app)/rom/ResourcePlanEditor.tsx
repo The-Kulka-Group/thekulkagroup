@@ -27,7 +27,9 @@ import {
   PER_LABEL,
   PLAN_GROUPS,
   pricedPlanOf,
+  quantityOf,
   resetAllLineSwitches,
+  resetLineQuantity,
   resetLineSwitch,
   resetPhaseToProposal,
   setLineSwitch,
@@ -183,6 +185,9 @@ export function ResourcePlanEditor({
                   amount={amounts.get(line.id)}
                   disabled={disabled}
                   lineSwitch={switchOf(line, plan, answers)}
+                  quantity={quantityOf(line, plan, answers)}
+                  runsWords={runsWords(line, plan)}
+                  onResetQuantity={() => onChange(resetLineQuantity(plan, line.id))}
                   onSwitch={(to) => onChange(setLineSwitch(plan, line.id, to))}
                   onResetSwitch={() => onChange(resetLineSwitch(plan, line.id))}
                   onChange={(patch) => setLine(index, patch)}
@@ -270,13 +275,37 @@ export function ResourcePlanEditor({
   );
 }
 
+/**
+ * LA-1401: how long a time line runs, and from where, in words. Null for a
+ * line that is not priced by time, or whose phases have no weeks yet.
+ */
+function runsWords(line: PlanLineForm, plan: PlanForm): string | null {
+  if (line.basis !== "time") return null;
+  const count = (weeks: number) => weeks.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  const own = line.weeks.trim() === "" ? null : Number(line.weeks);
+  if (own !== null && Number.isFinite(own)) return `Runs ${count(own)} weeks of its own.`;
+  const phases = SCHEDULE_PHASES.filter((phase) => line.phases.includes(phase));
+  if (phases.length === 0) return null;
+  let total = 0;
+  for (const phase of phases) {
+    const text = plan.weeks[phase].trim();
+    const weeks = Number(text);
+    if (text === "" || !Number.isFinite(weeks)) return null;
+    total += weeks;
+  }
+  return `Runs ${count(total)} weeks, the schedule's ${phases.map((phase) => PHASE_LABEL[phase]).join(" and ")} weeks.`;
+}
+
 function PlanLineRow({
   line,
   amount,
   disabled,
   lineSwitch,
+  quantity,
+  runsWords: runs,
   onSwitch,
   onResetSwitch,
+  onResetQuantity,
   onChange,
   onRemove,
 }: {
@@ -285,8 +314,12 @@ function PlanLineRow({
   disabled: boolean;
   /** LA-1402: whether the line prices and why. Null for a line no rule governs and nobody switched. */
   lineSwitch: LineSwitch | null;
+  /** LA-1401: the line's quantity as it stands, from its rule, the estimator or the card. */
+  quantity: ReturnType<typeof quantityOf>;
+  runsWords: string | null;
   onSwitch: (to: "on" | "off") => void;
   onResetSwitch: () => void;
+  onResetQuantity: () => void;
   onChange: (patch: Partial<PlanLineForm>) => void;
   onRemove: () => void;
 }) {
@@ -352,11 +385,12 @@ function PlanLineRow({
           </select>
         </label>
         <label>
-          <span className="field-label t-label">Quantity</span>
+          <span className="field-label t-label">{line.basis === "time" ? "Count" : "Quantity"}</span>
           <input
             className="input num"
             inputMode="decimal"
-            value={line.quantity}
+            placeholder={quantity.text.trim() === "" ? "Enter" : undefined}
+            value={quantity.text}
             disabled={disabled}
             onChange={(e) => onChange({ quantity: e.target.value, quantityFrom: TYPED })}
           />
@@ -444,7 +478,21 @@ function PlanLineRow({
         {line.noCardRate && line.rate.trim() === ""
           ? "The rate card has no rate for this line, so enter one. "
           : `Rate from ${originWords(line.rateFrom)}. `}
-        Quantity from {originWords(line.quantityFrom)}.
+        {quantity.missing !== undefined ? (
+          `Enter a quantity: ${quantity.from.source ?? "the project has no fact to work it out from"}.`
+        ) : quantity.overridden ? (
+          <>
+            Quantity from the estimator, in place of the rule.{" "}
+            <button className="btn btn--quiet" type="button" disabled={disabled} onClick={onResetQuantity}>
+              Reset Quantity
+            </button>
+          </>
+        ) : quantity.text.trim() === "" ? (
+          line.basis === "time" ? "Enter a count." : "Enter a quantity."
+        ) : (
+          `Quantity from ${originWords(quantity.from)}.`
+        )}
+        {runs ? ` ${runs}` : null}
       </p>
     </li>
   );

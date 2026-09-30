@@ -457,6 +457,65 @@ describe("the copy guard", () => {
   });
 });
 
+describe("plan quantities from the project's facts (LA-1401)", () => {
+  it("shows where each quantity came from, names a missing fact, and finds nothing internal", () => {
+    const grRate = (id: string, section: string, item: string, unit: string, basis: "unit" | "phase_weeks", rate: number) => ({
+      id,
+      section,
+      item,
+      unit,
+      basis,
+      phase: null,
+      rate,
+      jobQuantity: null,
+      note: null,
+      flaggedFor: null,
+      priceable: true,
+      notPriceableReason: null,
+      sourceEstimate: "C-00379",
+      sourceJob: "117 N. Long Beach Rd, one 120,000 SF warehouse",
+      singleJobWarehouse: true,
+    });
+    const grRates = [
+      grRate("00000000-0000-4000-8000-0000000000d1", "Construction Labor & Clean-up", "Final Cleaning", "SF", "unit", 0.55),
+      grRate("00000000-0000-4000-8000-0000000000d2", "Temporary & OSHA Protection", "Barricades [Exterior]", "Each", "unit", 500),
+      grRate("00000000-0000-4000-8000-0000000000d3", "Security", "Security Guards", "Weeks", "phase_weeks", 2600),
+      grRate("00000000-0000-4000-8000-0000000000d4", "Temporary & OSHA Protection", "OSHA Protection", "GSF", "unit", 0.45),
+    ];
+    const options = {
+      staffingRates: [],
+      fieldOfficeRates: [],
+      feeRate: recordedParameter(0.0325),
+      insuranceRate: recordedParameter(0.054),
+      historyCounts: { both: 0, gc_only: 0, gr_only: 0 },
+      grRates,
+    };
+    let plan = { ...emptyPlanForm(), weeks: { precon: "0", construction: "60", closeout: "0" } };
+    for (const rate of grRates) plan = { ...plan, lines: [...plan.lines, ...linesFromGrRate(rate.id, grRates, plan.lines)] };
+    // The estimator typed their own OSHA Protection area.
+    plan = { ...plan, lines: plan.lines.map((line) => (line.label === "OSHA Protection" ? { ...line, quantity: "90000", quantityFrom: { origin: "estimator" as const } } : line)) };
+    const html = renderToStaticMarkup(
+      <ResourcePlanEditor
+        options={options}
+        plan={plan}
+        onChange={noop}
+        disabled={false}
+        lineName="General Requirements"
+        kind="gr"
+        answers={{ storiesAboveGrade: 6, grossSquareFeet: 120_000 }}
+      />,
+    );
+    expect(html).toContain("Quantity from the project&#x27;s facts: 120,000 SF, the project&#x27;s gross square feet.");
+    expect(html).toContain("Enter a quantity: the project has no site perimeter.");
+    expect(html).toContain("Enter a count.");
+    expect(html).toContain("Runs 60 weeks, the schedule&#x27;s Construction weeks.");
+    expect(html).toContain("Quantity from the estimator, in place of the rule.");
+    expect(html).toContain("Reset Quantity");
+    expect(html).not.toMatch(/gross_area|site_perimeter|quantityRule/);
+    expect(leaksIn(html)).toEqual([]);
+  });
+});
+
 // A run as the engine records it, with every recorder an email address, the
 // way a signed-in account records one. Every figure is synthetic.
 const RECORDER = "estimator@kulka.invalid";

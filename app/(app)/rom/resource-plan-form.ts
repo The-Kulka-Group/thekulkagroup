@@ -467,8 +467,13 @@ export function grRateOptions(rates: GrRate[]): { section: string; rates: GrRate
 /**
  * The line one General Requirements rate card row adds (LA-1398), under its
  * own section. A weekly or monthly row runs through construction at its rate;
- * a unit row keeps its unit, with the quantity left for this job, since the
- * card's quantity is the warehouse's; any other row is a lump sum.
+ * a unit row keeps its unit; any other row is a lump sum.
+ *
+ * LA-1401: the quantity is the rule's where a rule fills it. Otherwise a
+ * weekly, monthly or unit row starts blank, since how many guards, laborers
+ * or square feet this job needs is not on the card (its quantities are the
+ * warehouse's). A lump sum starts at one lump sum, which is what the card's
+ * rate is. A blank quantity keeps the line from pricing until it is entered.
  *
  * A row marked not priceable adds nothing. A row with no rate, or a rate of
  * zero, adds the line with the rate blank, so the plan cannot be priced until
@@ -507,13 +512,20 @@ export function linesFromGrRate(rateId: string, rates: GrRate[], existing: PlanL
   }
   switch (rate.basis) {
     case "phase_weeks":
-      return [{ ...common, basis: "time", per: "week", phases: ["construction"] }];
+      return [{ ...common, basis: "time", per: "week", phases: ["construction"], quantity: "" }];
     case "phase_months":
-      return [{ ...common, basis: "time", per: "month", phases: ["construction"] }];
+      return [{ ...common, basis: "time", per: "month", phases: ["construction"], quantity: "" }];
     case "unit":
       return [{ ...common, basis: "unit", unit: rate.unit ?? "", quantity: "" }];
     default:
-      return [{ ...common, basis: "lump_sum" }];
+      return [
+        {
+          ...common,
+          basis: "lump_sum",
+          quantity: "1",
+          quantityFrom: { origin: "rate_card", ref: rate.id, source: "one lump sum" },
+        },
+      ];
   }
 }
 
@@ -608,21 +620,6 @@ export const RULE_SEED_ROWS: { section: string; item: string }[] = [
 ];
 
 /**
- * A seed line's quantity (LA-1401). A lump sum the card carries as one lump
- * sum keeps that one, from the card. Every other seed line opens with the
- * quantity its rule works out, or blank: how many guards, operators or
- * cameras a job needs is not a fact the project holds, and a blank quantity
- * keeps the line from pricing until the estimator enters one.
- */
-function seedQuantity(line: PlanLineForm, rate: GrRate): PlanLineForm {
-  if (line.quantityRule) return line;
-  if (line.basis === "lump_sum" && rate.jobQuantity === 1) {
-    return { ...line, quantity: "1", quantityFrom: { origin: "rate_card", ref: rate.id, source: `one lump sum, as ${rate.sourceEstimate} carries it` } };
-  }
-  return { ...line, quantity: "", quantityFrom: TYPED };
-}
-
-/**
  * A new General Requirements plan opened with the lines its rules switch. Only
  * a plan with no lines is opened this way, so a plan the estimator built, or
  * one saved before LA-1402, keeps exactly the lines it has. Each line follows
@@ -637,7 +634,10 @@ export function withRuleLines(form: PlanForm, rates: GrRate[]): PlanForm {
     const rule = ruleForGroup(rate.section);
     if (!rule) continue;
     for (const line of linesFromGrRate(rate.id, rates, [...form.lines, ...lines])) {
-      lines.push(seedQuantity({ ...line, ruleId: rule.id }, rate));
+      // LA-1401: each seed line takes its quantity as linesFromGrRate gives it:
+      // the rule's, one lump sum, or blank for the estimator. None opens at
+      // an invented one.
+      lines.push({ ...line, ruleId: rule.id });
     }
   }
   return lines.length === 0 ? form : { ...form, lines };

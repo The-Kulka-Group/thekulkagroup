@@ -217,12 +217,17 @@ describe("the GRs/GCs form, General Requirements by Allocated Resources", () => 
     weeks: { precon: "0", construction: "40", closeout: "0" },
     weeksFrom: { precon: TYPED, construction: TYPED, closeout: TYPED },
     confidence: "high" as const,
-    lines: [...linesFromGrRate("g-lab", grRates, []), ...linesFromGrRate("g-john", grRates, [])],
+    // Since LA-1401 a time line from the card opens with a blank count; the estimator enters one.
+    lines: [...linesFromGrRate("g-lab", grRates, []), ...linesFromGrRate("g-john", grRates, [])].map((line) => ({
+      ...line,
+      quantity: "1",
+      quantityFrom: TYPED,
+    })),
   });
 
   it("adds a rate card line under its own section, at the card's rate and basis", () => {
     expect(linesFromGrRate("g-lab", grRates, [])).toMatchObject([
-      { label: "Laborers", group: "Construction Labor & Clean-up", basis: "time", per: "week", phases: ["construction"], quantity: "1", rate: "1400", rateFrom: { origin: "rate_card", ref: "g-lab", source: "C-00379" } },
+      { label: "Laborers", group: "Construction Labor & Clean-up", basis: "time", per: "week", phases: ["construction"], quantity: "", rate: "1400", rateFrom: { origin: "rate_card", ref: "g-lab", source: "C-00379" } },
     ]);
     expect(linesFromGrRate("g-john", grRates, [])).toMatchObject([{ basis: "time", per: "month", rate: "90" }]);
     // A unit line's quantity belongs to this job, so it starts blank rather than at the warehouse's 120,000.

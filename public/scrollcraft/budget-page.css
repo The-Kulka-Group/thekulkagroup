@@ -400,3 +400,17 @@ h2 + .lede { margin-top: 12px; }
   .scope__row:hover { background: none; }
   .strip { display: none; }
 }
+
+/* ---------- LA-1418: what the app adds to the reference page ---------- */
+/* A superseded version keeps its figures under a band naming the newer one. */
+.superseded { max-width: var(--sc-maxw); margin: 16px auto 0; padding: 12px 16px; border-radius: var(--r-md); background: var(--working-tint); color: var(--sc-ink); font-size: 14px; line-height: 20px; }
+.superseded a { color: var(--sc-accent); font-weight: 600; text-decoration: underline; }
+/* The estimator's cover sentence, under the project name. */
+.hero .cover { margin-top: 12px; }
+/* Each group's share of trade cost, beside its count. */
+.count__share { color: var(--sc-ink-soft); }
+/* By Division sits below By Scope at Detail. */
+.ledger--division { margin-top: 12px; }
+/* A withdrawn link is one plain sheet, with no bar above it. */
+body.withdrawn { padding-top: 0; }
+@media print { .superseded { border: 1px solid var(--border); } }

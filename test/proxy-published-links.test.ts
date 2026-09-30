@@ -53,4 +53,13 @@ describe("proxy and /b/ links", () => {
     expect(new URL(response.headers.get("x-middleware-rewrite") ?? "").pathname).toBe(`/b/${TOKEN}/pdf`);
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
   });
+
+  it("serves the page's engine, script and styles without sign-in (LA-1418)", async () => {
+    vi.stubEnv("KULKA_AUTH_OPEN", "");
+
+    for (const path of ["/scrollcraft/scrollcraft.js", "/scrollcraft/scrollcraft.css", "/scrollcraft/budget-page.js", "/scrollcraft/budget-page.css"]) {
+      const response = await proxy(request(path));
+      expect(response.headers.get("location")).toBeNull();
+    }
+  });
 });

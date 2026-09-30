@@ -58,7 +58,8 @@
   function spy() {
     var line = innerHeight * 0.35, current = sections[0];
     for (var i = 0; i < sections.length; i++) {
-      if (sections[i] && sections[i].getBoundingClientRect().top <= line) current = sections[i];
+      // A section the tier hides has no box; it is never the current one (LA-1418).
+      if (sections[i] && sections[i].offsetParent !== null && sections[i].getBoundingClientRect().top <= line) current = sections[i];
     }
     Array.prototype.forEach.call(links, function (a) {
       var on = a.getAttribute('data-index') === current.id;

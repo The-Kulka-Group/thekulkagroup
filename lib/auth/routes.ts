@@ -36,6 +36,15 @@ export function isPublishedBudgetRoute(pathname: string) {
   return pathname.startsWith("/b/");
 }
 
+/**
+ * LA-1418. The published page loads the vendored scrollcraft engine and its
+ * own script and styles from /scrollcraft/. A client holding a link has no
+ * sign-in, so those files open for anyone too; they hold no budget data.
+ */
+export function isPublishedBudgetAsset(pathname: string) {
+  return pathname.startsWith("/scrollcraft/");
+}
+
 const PUBLISHED_PDF = /^\/b\/([A-Za-z0-9_-]{22})\.pdf$/;
 
 /** `/b/<token>.pdf` is served by the route at `/b/<token>/pdf`; anything else is null. */

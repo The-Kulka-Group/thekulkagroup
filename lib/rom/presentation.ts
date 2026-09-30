@@ -342,7 +342,11 @@ export function clientNote(text: string): string {
 
 /** DOE's apartment "prototype" is what M-1's text calls a model; the page says prototype. */
 function criterionWords(text: string): string {
-  return publicWording(text).replace(/\bmodels\b/g, "prototypes").replace(/\bmodel\b/g, "prototype");
+  return publicWording(text)
+    .replace(/\bmodels\b/g, "prototypes")
+    .replace(/\bmodel\b/g, "prototype")
+    .replace(/\bModels\b/g, "Prototypes")
+    .replace(/\bModel\b/g, "Prototype");
 }
 
 // --- Facts ----------------------------------------------------------------------
@@ -897,8 +901,8 @@ export function presentBudget(publication: Publication): BudgetPage {
         .map(titleCase),
       confidenceReason: criterionWords(a.confidenceReason),
       settled: a.confidence === "high",
-      inputs: a.inputs.map((input) => ({ name: input.name, value: String(input.value), basis: input.basis === "stated" ? "stated" : "assumed" })),
-      steps: a.steps.map((step) => ({ label: step.label, result: criterionWords(step.result) })),
+      inputs: a.inputs.map((input) => ({ name: criterionWords(input.name), value: String(input.value), basis: input.basis === "stated" ? "stated" : "assumed" })),
+      steps: a.steps.map((step) => ({ label: criterionWords(step.label), result: criterionWords(step.result) })),
       corrected: a.correction ? { on: a.correction.correctedAt.slice(0, 10), reason: criterionWords(a.correction.reason) } : null,
     };
   });

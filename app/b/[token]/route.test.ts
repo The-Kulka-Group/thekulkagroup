@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
@@ -6,11 +5,11 @@ import { newToken, publishBudget, revokePublishedBudget } from "@/lib/rom/publis
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
-import PublishedBudgetPage, { metadata } from "./page";
+import { GET } from "./route";
 
-// LA-1417. /b/<token> renders a published budget from its snapshot alone.
-// The engine is switched off and the runs table renamed away mid-test; the
-// page must come out the same, which is the proof it reads neither.
+// LA-1417, LA-1418. /b/<token> renders a published budget from its snapshot
+// alone. The engine is switched off and the runs table renamed away mid-test;
+// the page must come out the same, which is the proof it reads neither.
 
 const engine = vi.hoisted(() => ({ off: false }));
 
@@ -67,21 +66,14 @@ async function publish() {
   return publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
 }
 
-async function render(token: string): Promise<string> {
-  const element = await PublishedBudgetPage({ params: Promise.resolve({ token }) });
-  return renderToStaticMarkup(element);
+function get(token: string): Promise<Response> {
+  return GET(new Request(`http://localhost/b/${token}`), { params: Promise.resolve({ token }) });
 }
 
-/** next/navigation's notFound() throws an error whose digest names the 404. */
-async function statusOf(token: string): Promise<number | "rendered"> {
-  try {
-    await render(token);
-    return "rendered";
-  } catch (error) {
-    const digest = String((error as { digest?: unknown }).digest ?? "");
-    if (digest.startsWith("NEXT_HTTP_ERROR_FALLBACK;")) return Number(digest.split(";")[1]);
-    throw error;
-  }
+async function render(token: string): Promise<string> {
+  const response = await get(token);
+  expect(response.status).toBe(200);
+  return response.text();
 }
 
 describe("/b/<token>", () => {
@@ -98,22 +90,22 @@ describe("/b/<token>", () => {
     expect(after).toBe(before);
   });
 
-  it("prints the snapshot's headline figures", async () => {
+  it("prints the reference page with the snapshot's own figures", async () => {
     const { token } = await publish();
 
     const html = await render(token);
 
     // The seeded test benchmark is $1/GSF on 1,000 GSF, with no markups.
+    expect(html).toMatch(/^<!doctype html>\n<html lang="en" data-tier="summary">/);
     expect(html).toContain("Synthetic test project");
-    expect(html).toContain("Conceptual Budget");
-    expect(html).toContain("Version 1");
+    expect(html).toContain("Conceptual Budget · Version 1");
     expect(html).toContain("Harbor Point Partners (example)");
     expect(html).toContain("Devin (example)");
-    expect(html).toContain("Figures valid 90 days from issue.");
-    expect(html).toContain("Kulka Contract");
-    expect(html).toContain("Total Project Cost");
-    expect(html).toMatch(/\$1,000/);
-    expect(html).toContain("per gross square foot");
+    expect(html).toContain("90 days from issue");
+    expect(html).toMatch(/data-el="total:kulka-contract">\$1,000</);
+    expect(html).toMatch(/data-el="record:per-sf" title="[^"]*">\$1</);
+    expect(html).toContain('<script src="/scrollcraft/scrollcraft.js"></script>');
+    expect(html).toContain('<script src="/scrollcraft/budget-page.js"></script>');
   });
 
   it("prints no figures and names whom to ask when the link is withdrawn", async () => {
@@ -141,12 +133,23 @@ describe("/b/<token>", () => {
   });
 
   it("answers an unknown or malformed token with a plain 404", async () => {
-    expect(await statusOf(newToken())).toBe(404);
-    expect(await statusOf("nope")).toBe(404);
+    for (const token of [newToken(), "nope"]) {
+      const response = await get(token);
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe("Not Found");
+    }
   });
 
-  it("asks search engines not to index it and sends no referrer", async () => {
-    expect(metadata.robots).toEqual({ index: false, follow: false });
-    expect(metadata.referrer).toBe("no-referrer");
+  it("asks search engines not to index it, sends no referrer and is never cached", async () => {
+    const { token } = await publish();
+
+    const response = await get(token);
+    const html = await response.text();
+
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+    expect(response.headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
   });
 });

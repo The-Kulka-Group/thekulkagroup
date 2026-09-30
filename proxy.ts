@@ -7,6 +7,7 @@ import {
   PUBLISHED_BUDGET_HEADERS,
   isAuthRoute,
   isPublicAuthRoute,
+  isPublishedBudgetAsset,
   isPublishedBudgetRoute,
   publishedPdfRoute,
 } from "@/lib/auth/routes";
@@ -34,6 +35,9 @@ function publishedBudgetResponse(request: NextRequest) {
 export async function proxy(request: NextRequest) {
   if (isPublishedBudgetRoute(request.nextUrl.pathname)) {
     return publishedBudgetResponse(request);
+  }
+  if (isPublishedBudgetAsset(request.nextUrl.pathname)) {
+    return NextResponse.next({ request });
   }
   if (process.env.KULKA_AUTH_OPEN === "1") {
     if (request.nextUrl.pathname === "/login") {

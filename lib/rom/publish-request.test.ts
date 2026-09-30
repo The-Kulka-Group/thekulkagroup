@@ -43,19 +43,19 @@ describe("parsePublishBody", () => {
 
   it("needs prepared for and prepared by, since the client page names both", () => {
     const missing = parsePublishBody({ preparedBy: "B" });
-    expect(missing).toEqual({ ok: false, error: "Prepared For is required." });
+    expect(missing).toEqual({ ok: false, error: "Add who this budget is prepared for." });
     const noBy = parsePublishBody({ preparedFor: "A", preparedBy: " " });
-    expect(noBy).toEqual({ ok: false, error: "Prepared By is required." });
+    expect(noBy).toEqual({ ok: false, error: "Add who prepared this budget." });
   });
 
   it.each([0, -5, 1.5, "abc", 731, true])("refuses validity days of %s", (validityDays) => {
     const parsed = parsePublishBody({ preparedFor: "A", preparedBy: "B", validityDays });
-    expect(parsed).toEqual({ ok: false, error: "Valid For must be a whole number of days from 1 to 730." });
+    expect(parsed).toEqual({ ok: false, error: "Days valid must be a whole number from 1 to 730." });
   });
 
   it("refuses a cover sentence over 400 characters, since it is one sentence", () => {
     const parsed = parsePublishBody({ preparedFor: "A", preparedBy: "B", coverSentence: "x".repeat(401) });
-    expect(parsed).toEqual({ ok: false, error: "The Cover Sentence must be 400 characters or fewer." });
+    expect(parsed).toEqual({ ok: false, error: "The cover sentence must be 400 characters or fewer." });
   });
 
   it("refuses a body that is not an object, and text fields that are not text", () => {

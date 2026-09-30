@@ -27,26 +27,26 @@ function days(value: unknown): number | null {
 /** Reads a publish request body. The estimator writes every word of it; nothing here is generated. */
 export function parsePublishBody(body: unknown): PublishParse {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    return { ok: false, error: "Send Prepared For, Prepared By, the Cover Sentence and Valid For." };
+    return { ok: false, error: "Send who it is prepared for, who prepared it, the cover sentence and the days valid." };
   }
   const input = body as Record<string, unknown>;
   const preparedFor = text(input.preparedFor);
   const preparedBy = text(input.preparedBy);
   const coverSentence = text(input.coverSentence);
   if (!preparedFor.ok || !preparedBy.ok || !coverSentence.ok) {
-    return { ok: false, error: "Prepared For, Prepared By and the Cover Sentence must be text." };
+    return { ok: false, error: "Prepared for, prepared by and the cover sentence must be text." };
   }
-  if (!preparedFor.value) return { ok: false, error: "Prepared For is required." };
-  if (!preparedBy.value) return { ok: false, error: "Prepared By is required." };
+  if (!preparedFor.value) return { ok: false, error: "Add who this budget is prepared for." };
+  if (!preparedBy.value) return { ok: false, error: "Add who prepared this budget." };
   if (preparedFor.value.length > MAX_NAME || preparedBy.value.length > MAX_NAME) {
-    return { ok: false, error: `Prepared For and Prepared By must be ${MAX_NAME} characters or fewer.` };
+    return { ok: false, error: `Names must be ${MAX_NAME} characters or fewer.` };
   }
   if (coverSentence.value.length > MAX_COVER_SENTENCE) {
-    return { ok: false, error: `The Cover Sentence must be ${MAX_COVER_SENTENCE} characters or fewer.` };
+    return { ok: false, error: `The cover sentence must be ${MAX_COVER_SENTENCE} characters or fewer.` };
   }
   const validityDays = days(input.validityDays);
   if (validityDays === null) {
-    return { ok: false, error: `Valid For must be a whole number of days from 1 to ${MAX_VALIDITY_DAYS}.` };
+    return { ok: false, error: `Days valid must be a whole number from 1 to ${MAX_VALIDITY_DAYS}.` };
   }
   return {
     ok: true,

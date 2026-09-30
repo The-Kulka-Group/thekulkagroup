@@ -100,7 +100,7 @@ describe("POST /api/rom/runs/[runId]/publish", () => {
     expect((await post(runId, "{nope")).status).toBe(400);
     const missing = await post(runId, { preparedBy: "Devin" });
     expect(missing.status).toBe(400);
-    expect((await missing.json()).error).toBe("Prepared For is required.");
+    expect((await missing.json()).error).toBe("Add who this budget is prepared for.");
     const { rows } = await db.query<{ n: number }>(`select count(*)::int as n from published_budgets`);
     expect(rows[0].n).toBe(0);
   });

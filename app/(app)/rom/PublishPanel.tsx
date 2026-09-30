@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { PublishedBudgetRecord } from "@/lib/rom/published-budgets";
 import { DEFAULT_VALIDITY_DAYS, MAX_COVER_SENTENCE } from "@/lib/rom/publish-request";
@@ -30,7 +30,7 @@ export const EMPTY_FIELDS: PublishFields = {
   validityDays: String(DEFAULT_VALIDITY_DAYS),
 };
 
-/** Prepared For and Prepared By are what the client page names, so Publish waits for both. */
+/** Prepared for and prepared by are what the client page names, so Publish waits for both. */
 export function canPublish(fields: PublishFields): boolean {
   return fields.preparedFor.trim() !== "" && fields.preparedBy.trim() !== "";
 }
@@ -227,15 +227,31 @@ export function VersionList({
   );
 }
 
+type Read = { records: PublishedBudgetRecord[] } | { error: string };
+
 async function errorFrom(response: Response, fallback: string): Promise<string> {
   const body = await response.json().catch(() => ({}));
   return typeof body.error === "string" ? body.error : fallback;
 }
 
+async function readVersions(projectId: string): Promise<Read> {
+  try {
+    const response = await fetch(`/api/rom/projects/${encodeURIComponent(projectId)}/published`);
+    if (!response.ok) return { error: await errorFrom(response, "The published versions could not be read.") };
+    const body = await response.json();
+    return { records: body.published as PublishedBudgetRecord[] };
+  } catch {
+    return { error: "The published versions could not be read. Check the connection and try again." };
+  }
+}
+
+const noSubscription = () => () => {};
+
 export function PublishPanel({ projectId, runId }: { projectId: string; runId: string }) {
   const [fields, setFields] = useState<PublishFields>(EMPTY_FIELDS);
   const [records, setRecords] = useState<PublishedBudgetRecord[] | null>(null);
-  const [origin, setOrigin] = useState("");
+  // The site's own address, empty on the server so it and the browser agree until hydration.
+  const origin = useSyncExternalStore(noSubscription, () => window.location.origin, () => "");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
@@ -244,26 +260,25 @@ export function PublishPanel({ projectId, runId }: { projectId: string; runId: s
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => setOrigin(window.location.origin), []);
-
-  const load = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/rom/projects/${encodeURIComponent(projectId)}/published`);
-      if (!response.ok) {
-        setListError(await errorFrom(response, "The published versions could not be read."));
-        return;
-      }
-      const body = await response.json();
-      setRecords(body.published as PublishedBudgetRecord[]);
-      setListError(null);
-    } catch {
-      setListError("The published versions could not be read. Check the connection and try again.");
+  const apply = (read: Read) => {
+    if ("error" in read) {
+      setListError(read.error);
+      return;
     }
-  }, [projectId]);
+    setRecords(read.records);
+    setListError(null);
+  };
+  const load = async () => apply(await readVersions(projectId));
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let current = true;
+    void readVersions(projectId).then((read) => {
+      if (current) apply(read);
+    });
+    return () => {
+      current = false;
+    };
+  }, [projectId]);
 
   const rows = versionList(records ?? []);
   const nextVersion = (rows[0]?.version ?? 0) + 1;

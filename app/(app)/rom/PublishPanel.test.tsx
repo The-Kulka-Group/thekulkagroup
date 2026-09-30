@@ -93,7 +93,7 @@ describe("PublishForm", () => {
   it("shows a refusal from the route", () => {
     const html = form({}, { error: "Add who prepared this budget." });
     expect(html).toContain('role="alert"');
-    expect(html).toContain("Prepared By is required.");
+    expect(html).toContain("Add who prepared this budget.");
   });
 });
 

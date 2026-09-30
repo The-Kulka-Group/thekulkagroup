@@ -4,7 +4,14 @@ import type { Db } from "@/lib/db";
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
-import { publishBudget } from "./published-budgets";
+import { RunNotSucceeded } from "./issue";
+import {
+  isToken,
+  loadPublishedBudget,
+  newToken,
+  publishBudget,
+  revokePublishedBudget,
+} from "./published-budgets";
 
 // LA-1417. A run becomes a published budget: a frozen snapshot under an
 // unguessable link, one version per issue. Tested against a real Postgres
@@ -72,5 +79,163 @@ describe("publishBudget", () => {
     // is not passing because nothing moved.
     expect(await storedSnapshot(third.id)).not.toBe(before);
     expect(third.version).toBe(3);
+  });
+});
+
+describe("the snapshot", () => {
+  it("holds the run's ROM, answers, criteria, copy and engine hash", async () => {
+    const runId = await succeededRunId();
+
+    const published = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const view = await loadPublishedBudget(db as Db, published.token);
+
+    if (view?.state !== "current") throw new Error("expected a current budget");
+    const { snapshot } = view;
+    expect(snapshot.run.id).toBe(runId);
+    expect(snapshot.project).toEqual({ id: TEST_PROJECT_ID, name: "Synthetic test project" });
+    expect(snapshot.rom.lines.length).toBeGreaterThan(0);
+    expect(snapshot.answers.grossSquareFeet).toBe(1000);
+    // The run derives the project's criteria; the snapshot holds the ones
+    // on the project when it was published.
+    const { rows: onProject } = await db.query<{ code: string }>(
+      `select code from derived_assumptions where project_id = $1 order by code`,
+      [TEST_PROJECT_ID],
+    );
+    expect(onProject.length).toBeGreaterThan(0);
+    expect(snapshot.criteria.map((one) => one.code)).toEqual(onProject.map((row) => row.code));
+    expect(snapshot.criteria[0]).not.toHaveProperty("id");
+    expect(snapshot.copy).toEqual(COPY);
+    expect(snapshot.engineSnapshotHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(snapshot).not.toHaveProperty("allocatedResources");
+  });
+
+  it("refuses a run that did not succeed, and publishes nothing", async () => {
+    const { rows } = await db.query<{ id: string }>(
+      `insert into runs (project_id, skill, status) values ($1, 'rom_tier1', 'failed') returning id`,
+      [TEST_PROJECT_ID],
+    );
+
+    await expect(
+      publishBudget(db as Db, { runId: rows[0].id, issuedBy: "devin@example.com", copy: COPY }),
+    ).rejects.toThrow(RunNotSucceeded);
+    const { rows: count } = await db.query<{ n: number }>(`select count(*)::int as n from published_budgets`);
+    expect(count[0].n).toBe(0);
+  });
+
+  it("issues the run it publishes", async () => {
+    const runId = await succeededRunId();
+
+    await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    const { rows } = await db.query<{ issued_at: Date | null }>(`select issued_at from runs where id = $1`, [runId]);
+    expect(rows[0].issued_at).not.toBeNull();
+  });
+});
+
+describe("tokens", () => {
+  it("carries 16 random bytes in 22 URL-safe characters", () => {
+    const tokens = Array.from({ length: 2000 }, () => newToken());
+
+    for (const token of tokens) {
+      expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+      expect(Buffer.from(token, "base64url")).toHaveLength(16);
+      expect(isToken(token)).toBe(true);
+    }
+    expect(new Set(tokens).size).toBe(tokens.length);
+    // Every one of the 64 characters turns up across 2,000 tokens, so the
+    // alphabet is not quietly narrowed (44,000 draws; a missing character
+    // would be a one in 10^300 event if the draw were uniform).
+    expect(new Set(tokens.join("")).size).toBe(64);
+  });
+
+  it("rejects anything without a token's shape", () => {
+    expect(isToken("short")).toBe(false);
+    expect(isToken("A".repeat(23))).toBe(false);
+    expect(isToken("AAAAAAAAAAAAAAAAAAAA+/")).toBe(false);
+    expect(isToken("AAAAAAAAAAAAAAAAAAAA.p")).toBe(false);
+  });
+});
+
+describe("a published row is frozen", () => {
+  it("refuses a change to its snapshot, version or token, and refuses a delete", async () => {
+    const runId = await succeededRunId();
+    const { id } = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    await expect(db.query(`update published_budgets set snapshot = '{}' where id = $1`, [id])).rejects.toThrow(/frozen/);
+    await expect(db.query(`update published_budgets set version = 9 where id = $1`, [id])).rejects.toThrow(/frozen/);
+    await expect(db.query(`update published_budgets set token = $2 where id = $1`, [id, newToken()])).rejects.toThrow(/frozen/);
+    await expect(db.query(`delete from published_budgets where id = $1`, [id])).rejects.toThrow(/never deleted/);
+  });
+
+  it("sets the stored PDF's path once", async () => {
+    const runId = await succeededRunId();
+    const { id } = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    await db.query(`update published_budgets set pdf_path = 'budgets/one.pdf' where id = $1`, [id]);
+    await expect(
+      db.query(`update published_budgets set pdf_path = 'budgets/two.pdf' where id = $1`, [id]),
+    ).rejects.toThrow(/frozen/);
+  });
+
+  it("keeps the project and run it was published from", async () => {
+    const runId = await succeededRunId();
+    await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    await expect(db.query(`delete from projects where id = $1`, [TEST_PROJECT_ID])).rejects.toThrow();
+  });
+});
+
+describe("loadPublishedBudget", () => {
+  it("reads a single published version as current", async () => {
+    const runId = await succeededRunId();
+    const published = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    const view = await loadPublishedBudget(db as Db, published.token);
+
+    expect(view).toMatchObject({ state: "current", version: 1, stage: "conceptual", newer: null });
+  });
+
+  it("reads an older version as superseded and names the newer one", async () => {
+    const runId = await succeededRunId();
+    const first = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const second = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    const view = await loadPublishedBudget(db as Db, first.token);
+
+    expect(view).toMatchObject({ state: "superseded", version: 1, newer: { version: 2, token: second.token } });
+    const { rows } = await db.query<{ superseded_by: string }>(
+      `select superseded_by from published_budgets where id = $1`,
+      [first.id],
+    );
+    expect(rows[0].superseded_by).toBe(second.id);
+  });
+
+  it("sends a superseded reader past a withdrawn version to the newest open one", async () => {
+    const runId = await succeededRunId();
+    const first = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const second = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const third = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    await revokePublishedBudget(db as Db, third.id);
+
+    const view = await loadPublishedBudget(db as Db, first.token);
+
+    expect(view).toMatchObject({ state: "superseded", newer: { version: 2, token: second.token } });
+  });
+
+  it("reads a revoked version as withdrawn, with no figures, and keeps the first withdrawal time", async () => {
+    const runId = await succeededRunId();
+    const published = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+    const once = await revokePublishedBudget(db as Db, published.id);
+    const twice = await revokePublishedBudget(db as Db, published.id);
+    const view = await loadPublishedBudget(db as Db, published.token);
+
+    expect(twice.revokedAt).toBe(once.revokedAt);
+    expect(view).toEqual({ state: "withdrawn", version: 1, preparedBy: "Devin (example)" });
+  });
+
+  it("reads an unknown or malformed token as nothing", async () => {
+    expect(await loadPublishedBudget(db as Db, newToken())).toBeNull();
+    expect(await loadPublishedBudget(db as Db, "not-a-token")).toBeNull();
   });
 });

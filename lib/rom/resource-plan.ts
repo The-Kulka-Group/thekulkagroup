@@ -1,5 +1,6 @@
 import {
   SCHEDULE_PHASES,
+  quantityRuleById,
   ruleById,
   type FigureOrigin,
   type LineSwitch,
@@ -16,7 +17,7 @@ import {
 
 export type ParsedResourcePlan = { ok: true; plan: ResourcePlan } | { ok: false; error: string };
 
-const ORIGINS: readonly FigureOrigin[] = ["estimator", "rate_card", "proposed", "fact"];
+const ORIGINS: readonly FigureOrigin[] = ["estimator", "rate_card", "proposed", "fact", "schedule"];
 const CONFIDENCES = ["high", "medium", "low"] as const;
 const PERS = ["day", "week", "month"] as const;
 const MAX_LINES = 300;
@@ -101,6 +102,12 @@ export function parseResourcePlan(value: unknown): ParsedResourcePlan {
     if (typeof quantity === "string") return { ok: false, error: quantity };
     const rate = figure(raw.rate, `The rate of ${raw.label}`, atLeastZero, "must be zero or more");
     if (typeof rate === "string") return { ok: false, error: rate };
+    let quantityRule: PlanLine["quantityRule"];
+    if (raw.quantityRule !== undefined && raw.quantityRule !== null) {
+      const rule = typeof raw.quantityRule === "string" ? quantityRuleById(raw.quantityRule) : null;
+      if (!rule) return { ok: false, error: `Send the quantity rule of ${raw.label} as a rule the app knows.` };
+      quantityRule = rule.id;
+    }
     const common = {
       id: raw.id,
       label: raw.label.trim(),
@@ -108,6 +115,7 @@ export function parseResourcePlan(value: unknown): ParsedResourcePlan {
       quantity,
       rate,
       ...(lineSwitch ? { switch: lineSwitch } : {}),
+      ...(quantityRule ? { quantityRule } : {}),
     };
 
     if (raw.basis === "lump_sum") {

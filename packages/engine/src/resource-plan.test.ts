@@ -221,3 +221,29 @@ describe("lines switched off (LA-1402)", () => {
     expect(priceResourcePlan(plan([line("a", false)])).total).toBe(0);
   });
 });
+
+// LA-1401: a saved run keeps the quantities it recorded. The engine prices a
+// derived quantity as the figure it was recorded at and works nothing out.
+describe("a plan with derived quantities", () => {
+  it("prices the recorded quantity, whatever the rule would give today", () => {
+    const plan: ResourcePlan = {
+      schedule: schedule(0, 40, 0),
+      confidence: "high",
+      lines: [
+        {
+          id: "gr-clean",
+          label: "Final Cleaning",
+          group: "Construction Labor & Clean-up",
+          basis: "unit",
+          unit: "SF",
+          quantityRule: "gross_area",
+          quantity: { value: 120_000, origin: "fact", ref: "gross_area", source: "120,000 SF, the project's gross square feet" },
+          rate: { value: 0.55, origin: "rate_card", source: "C-00379" },
+        },
+      ],
+    };
+    const priced = priceResourcePlan(plan);
+    expect(priced.total).toBe(66_000);
+    expect(priced.lines[0].quantity.origin).toBe("fact");
+  });
+});

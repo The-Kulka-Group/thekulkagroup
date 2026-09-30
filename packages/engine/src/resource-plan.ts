@@ -14,6 +14,7 @@
 // by a stated rule, and each says which.
 
 import type { LineSwitch } from "./line-rules";
+import type { QuantityRuleId } from "./quantity-rules";
 import type { ConfidenceFlag } from "./rom";
 import type { FieldOfficeRate, StaffingRate } from "./rom-markups";
 
@@ -35,13 +36,16 @@ export const PHASE_LABEL: Record<SchedulePhase, string> = {
  * - `proposed`: filled in by a stated rule the estimator has not touched
  *   (`ref` names the rule). The proposed schedule sets it on a phase's weeks
  *   (LA-1399, schedule-proposal.ts); the staff plan (LA-1400) is to follow.
- * - `fact`: a quantity taken from a project fact (`ref` is the fact's key),
- *   such as gross area for final cleaning. Reserved for LA-1398.
+ * - `fact`: a quantity worked out from project facts by a named rule (LA-1401,
+ *   quantity-rules.ts; `ref` is the rule id), such as gross area for final
+ *   cleaning.
+ * - `schedule`: a quantity worked out from the schedule alone by a named rule,
+ *   such as heat labor from the winter weeks construction crosses.
  *
  * An estimator's edit replaces the whole figure with origin `estimator`, so a
  * proposal never overwrites a value somebody typed.
  */
-export type FigureOrigin = "estimator" | "rate_card" | "proposed" | "fact";
+export type FigureOrigin = "estimator" | "rate_card" | "proposed" | "fact" | "schedule";
 
 export type PlanFigure = {
   value: number;
@@ -71,6 +75,12 @@ type PlanLineCommon = {
    * switched off stays in the plan, unpriced, so a saved run shows it.
    */
   switch?: LineSwitch;
+  /**
+   * The rule that fills the quantity from the project's facts (LA-1401). Kept
+   * when the estimator overrides the quantity, so a reset can go back to it.
+   * The engine prices the quantity as given and never derives it.
+   */
+  quantityRule?: QuantityRuleId;
 };
 
 /** A line that runs for the length of its phases, or for its own weeks. */

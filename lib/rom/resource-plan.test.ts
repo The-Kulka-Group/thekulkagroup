@@ -87,3 +87,31 @@ describe("parseResourcePlan, line switches", () => {
   });
 });
 
+
+// LA-1401: a line's quantity rule is kept, so a project reopens with the line
+// still following its rule, and a quantity can say it came from the schedule.
+describe("parseResourcePlan, quantity rules", () => {
+  const cleaning = {
+    id: "gr-clean",
+    label: "Final Cleaning",
+    group: "Construction Labor & Clean-up",
+    basis: "unit",
+    unit: "SF",
+    quantity: { value: 120_000, origin: "fact", ref: "gross_area", source: "120,000 SF, the project's gross square feet" },
+    rate: figure(0.55),
+  };
+
+  it("keeps the rule and the quantity's origin", () => {
+    const parsed = parseResourcePlan(plan([{ ...cleaning, quantityRule: "gross_area" }]));
+    expect(parsed.ok && parsed.plan.lines[0]).toMatchObject({ quantityRule: "gross_area", quantity: cleaning.quantity });
+  });
+
+  it("keeps a quantity from the schedule", () => {
+    const parsed = parseResourcePlan(plan([{ ...cleaning, quantity: { value: 40, origin: "schedule", ref: "heat_labor" } }]));
+    expect(parsed.ok && parsed.plan.lines[0].quantity.origin).toBe("schedule");
+  });
+
+  it("refuses a rule it does not know", () => {
+    expect(parseResourcePlan(plan([{ ...cleaning, quantityRule: "guesswork" }])).ok).toBe(false);
+  });
+});

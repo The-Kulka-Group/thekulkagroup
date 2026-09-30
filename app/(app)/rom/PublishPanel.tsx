@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
-import type { PublishedBudgetRecord } from "@/lib/rom/published-budgets";
 import { DEFAULT_VALIDITY_DAYS, MAX_COVER_SENTENCE } from "@/lib/rom/publish-request";
 
-import { linkFor, versionList, type VersionRow, type VersionState } from "./publish-model";
+import { versionList, type ListedVersion, type VersionRow, type VersionState } from "./publish-model";
 import "./publish.css";
 
 // LA-1419. Publish on a saved budget (spec LA-1309). The estimator writes
@@ -135,7 +134,6 @@ const STATE_DOT: Record<VersionState, string> = {
 
 export function VersionList({
   rows,
-  origin,
   copiedId,
   confirmingId,
   busyId,
@@ -146,7 +144,6 @@ export function VersionList({
   onRevoke,
 }: {
   rows: VersionRow[];
-  origin: string;
   copiedId: string | null;
   confirmingId: string | null;
   busyId: string | null;
@@ -169,7 +166,7 @@ export function VersionList({
       ) : (
         <ol className="pb-list">
           {rows.map((row) => {
-            const link = linkFor(origin, row.token);
+            const link = row.link;
             const confirming = confirmingId === row.id;
             const busy = busyId === row.id;
             return (
@@ -227,7 +224,7 @@ export function VersionList({
   );
 }
 
-type Read = { records: PublishedBudgetRecord[] } | { error: string };
+type Read = { records: ListedVersion[] } | { error: string };
 
 async function errorFrom(response: Response, fallback: string): Promise<string> {
   const body = await response.json().catch(() => ({}));
@@ -239,19 +236,15 @@ async function readVersions(projectId: string): Promise<Read> {
     const response = await fetch(`/api/rom/projects/${encodeURIComponent(projectId)}/published`);
     if (!response.ok) return { error: await errorFrom(response, "The published versions could not be read.") };
     const body = await response.json();
-    return { records: body.published as PublishedBudgetRecord[] };
+    return { records: body.published as ListedVersion[] };
   } catch {
     return { error: "The published versions could not be read. Check the connection and try again." };
   }
 }
 
-const noSubscription = () => () => {};
-
 export function PublishPanel({ projectId, runId }: { projectId: string; runId: string }) {
   const [fields, setFields] = useState<PublishFields>(EMPTY_FIELDS);
-  const [records, setRecords] = useState<PublishedBudgetRecord[] | null>(null);
-  // The site's own address, empty on the server so it and the browser agree until hydration.
-  const origin = useSyncExternalStore(noSubscription, () => window.location.origin, () => "");
+  const [records, setRecords] = useState<ListedVersion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
@@ -297,7 +290,7 @@ export function PublishPanel({ projectId, runId }: { projectId: string; runId: s
         setFormError(await errorFrom(response, "The budget could not be published."));
         return;
       }
-      const { published, pdf } = (await response.json()) as { published: PublishedBudgetRecord; pdf?: { ok: boolean; message?: string } };
+      const { published, pdf } = (await response.json()) as { published: Pick<ListedVersion, "version" | "link">; pdf?: { ok: boolean; message?: string } };
       const done = `Version ${published.version} is published. Copy its link from the list below.`;
       setNotice(pdf && !pdf.ok && pdf.message ? `${done} ${pdf.message}` : done);
       setConfirmingId(null);
@@ -311,7 +304,7 @@ export function PublishPanel({ projectId, runId }: { projectId: string; runId: s
 
   async function copy(row: VersionRow) {
     try {
-      await navigator.clipboard.writeText(linkFor(origin, row.token));
+      await navigator.clipboard.writeText(row.link);
       setCopiedId(row.id);
       window.setTimeout(() => setCopiedId((now) => (now === row.id ? null : now)), 2000);
     } catch {
@@ -353,7 +346,6 @@ export function PublishPanel({ projectId, runId }: { projectId: string; runId: s
       </p>
       <VersionList
         rows={rows}
-        origin={origin}
         copiedId={copiedId}
         confirmingId={confirmingId}
         busyId={busyId}

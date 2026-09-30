@@ -1,5 +1,8 @@
 import { randomBytes } from "node:crypto";
 
+import type { Rom } from "@kulka/engine";
+
+import { siteUrlFrom } from "@/lib/auth/policy";
 import type { Db } from "@/lib/db";
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
 import { issueRom } from "@/lib/rom/issue";
@@ -88,6 +91,31 @@ function fromRow(row: Row): PublishedBudgetRecord {
   };
 }
 
+/**
+ * What a version's link shows, the one rule the version list and the page
+ * itself follow: withdrawn once revoked, superseded while a later version is
+ * still open, current otherwise. A reader of Version 1 is never sent to a
+ * withdrawn Version 2, so when every later version is withdrawn the older
+ * one reads as current again.
+ */
+export type VersionState = "current" | "superseded" | "withdrawn";
+
+export function versionState(version: { revoked: boolean; newerOpen: boolean }): VersionState {
+  if (version.revoked) return "withdrawn";
+  return version.newerOpen ? "superseded" : "current";
+}
+
+/** A version as the saved budget's list shows it, with the state its link shows. */
+export type ListedPublishedBudget = PublishedBudgetRecord & { state: VersionState };
+
+/**
+ * The address a client's link starts with: KULKA_SITE_URL when it is set to
+ * a safe https origin, else the address the request came in on.
+ */
+export function linkOrigin(requestUrl: string, siteUrl: string | undefined = process.env.KULKA_SITE_URL): string {
+  return siteUrlFrom(siteUrl) ?? new URL(requestUrl).origin;
+}
+
 export type PublishRequest = {
   runId: string;
   /** Who published it: the signed-in user's email. */
@@ -96,6 +124,9 @@ export type PublishRequest = {
   stage?: PublishedStage;
 };
 
+/** A new version and the snapshot it froze, so the caller can print it without reading the row back. */
+export type PublishedBudget = PublishedBudgetRecord & { snapshot: PublishedBudgetSnapshot };
+
 /**
  * Publishes a succeeded run as the project's next version. Each call makes a
  * new row and token, even for the same run, and marks every earlier version
@@ -103,7 +134,7 @@ export type PublishRequest = {
  * Throws issue.ts's RunNotFound or RunNotSucceeded for a run that cannot be
  * issued.
  */
-export async function publishBudget(db: Db, request: PublishRequest): Promise<PublishedBudgetRecord> {
+export async function publishBudget(db: Db, request: PublishRequest): Promise<PublishedBudget> {
   const issuedBy = request.issuedBy.trim();
   if (!issuedBy) throw new Error("A published budget needs the name of whoever published it.");
   const copy = cleanCopy(request.copy);
@@ -114,7 +145,8 @@ export async function publishBudget(db: Db, request: PublishRequest): Promise<Pu
     // issueRom only passes a succeeded run, and a succeeded run has a ROM.
     if (!run.rom) throw new Error(`Run ${run.id} has no ROM to publish.`);
     const criteria = await listDerivedAssumptions(tx, run.projectId);
-    const snapshot = assembleSnapshot({ run: { ...run, rom: run.rom }, issuedAt, criteria, copy });
+    const sourceJobNames = await jobNamesFor(tx, run.rom);
+    const snapshot = assembleSnapshot({ run: { ...run, rom: run.rom }, issuedAt, criteria, copy, sourceJobNames });
 
     // One publish per project at a time, so two cannot claim one version.
     await tx.query(`select id from projects where id = $1 for update`, [run.projectId]);
@@ -136,8 +168,19 @@ export async function publishBudget(db: Db, request: PublishRequest): Promise<Pu
         where project_id = $2 and id <> $1 and superseded_by is null`,
       [published.id, run.projectId],
     );
-    return fromRow(published);
+    return { ...fromRow(published), snapshot };
   });
+}
+
+/** The name of every job the run's comparables cite, as the projects table holds it now. */
+async function jobNamesFor(tx: Db, rom: Rom): Promise<Record<string, string>> {
+  const ids = [...new Set(rom.lines.flatMap((line) => line.comparables.flatMap((c) => c.sourceProjectIds)))];
+  if (ids.length === 0) return {};
+  const { rows } = await tx.query<{ id: string; name: string }>(
+    `select id::text as id, name from projects where id::text = any($1::text[])`,
+    [ids],
+  );
+  return Object.fromEntries(rows.map((row) => [row.id, row.name]));
 }
 
 /** Withdraws a link. A second call keeps the first withdrawal time. */
@@ -151,13 +194,20 @@ export async function revokePublishedBudget(db: Db, id: string): Promise<Publish
   return fromRow(rows[0]);
 }
 
-/** Every version published for a project, newest first. */
-export async function listPublishedBudgets(db: Db, projectId: string): Promise<PublishedBudgetRecord[]> {
+/** Every version published for a project, newest first, each with the state its link shows. */
+export async function listPublishedBudgets(db: Db, projectId: string): Promise<ListedPublishedBudget[]> {
   const { rows } = await db.query<Row>(
     `select ${COLUMNS} from published_budgets where project_id = $1 order by version desc`,
     [projectId],
   );
-  return rows.map(fromRow);
+  const records = rows.map(fromRow);
+  return records.map((record) => ({
+    ...record,
+    state: versionState({
+      revoked: record.revokedAt !== null,
+      newerOpen: records.some((other) => other.version > record.version && other.revokedAt === null),
+    }),
+  }));
 }
 
 /** A newer version a superseded page names and links to. */
@@ -215,15 +265,16 @@ export async function loadPublishedBudget(db: Db, token: string): Promise<Publis
   );
   const row = rows[0];
   if (!row) return null;
-  if (row.revoked_at !== null) {
-    return { state: "withdrawn", version: Number(row.version), preparedBy: row.snapshot.copy?.preparedBy ?? null };
-  }
   const newer: NewerVersion | null =
     row.newer_token && row.newer_version !== null && row.newer_issued_at !== null
       ? { version: Number(row.newer_version), token: row.newer_token, issuedAt: toIso(row.newer_issued_at) }
       : null;
+  const state = versionState({ revoked: row.revoked_at !== null, newerOpen: newer !== null });
+  if (state === "withdrawn") {
+    return { state, version: Number(row.version), preparedBy: row.snapshot.copy?.preparedBy ?? null };
+  }
   return {
-    state: newer ? "superseded" : "current",
+    state,
     token: row.token,
     version: Number(row.version),
     stage: row.stage,

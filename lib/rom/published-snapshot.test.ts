@@ -1,10 +1,9 @@
 import type { DerivedAssumption, Rom } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
-import { assembleSnapshot, headlineFigures, type SnapshotSource } from "./published-snapshot";
+import { assembleSnapshot, type SnapshotSource } from "./published-snapshot";
 
-// LA-1417. The snapshot is assembled by a pure function, and the placeholder
-// page's figures are read off it by another.
+// LA-1417. The snapshot is assembled by a pure function.
 
 const ROM = {
   lines: [],
@@ -65,32 +64,11 @@ describe("assembleSnapshot", () => {
     expect(assembleSnapshot(source({ allocatedResources: plan })).allocatedResources).toEqual(plan);
     expect(assembleSnapshot(source({}))).not.toHaveProperty("allocatedResources");
   });
-});
 
-describe("headlineFigures", () => {
-  it("reads Kulka's contract and total project cost off the markups when the run priced them", () => {
-    const snapshot = assembleSnapshot(source({}));
-    snapshot.rom = {
-      ...ROM,
-      markups: {
-        total: { low: 1_000_000, high: 1_200_000 },
-        totalProjectCost: { low: 1_050_000, high: 1_250_000 },
-      },
-    } as unknown as Rom;
+  it("freezes the names of the jobs its comparables cite, when publishing looked them up", () => {
+    const names = { "job-1": "Fieldstone North Broadway" };
 
-    expect(headlineFigures(snapshot)).toEqual({
-      kulkaContract: { low: 1_000_000, high: 1_200_000, likely: 1_100_000 },
-      totalProjectCost: { low: 1_050_000, high: 1_250_000, likely: 1_150_000 },
-      perGrossSquareFoot: 110,
-      grossSquareFeet: 10_000,
-    });
-  });
-
-  it("falls back to trade cost totals on a run with no markups", () => {
-    const figures = headlineFigures(assembleSnapshot(source({})));
-
-    expect(figures.kulkaContract).toEqual({ low: 800_000, high: 1_000_000, likely: 900_000 });
-    expect(figures.totalProjectCost).toEqual({ low: 900_000, high: 1_100_000, likely: 1_000_000 });
-    expect(figures.perGrossSquareFoot).toBe(90);
+    expect(assembleSnapshot({ ...source({}), sourceJobNames: names }).sourceJobNames).toEqual(names);
+    expect(assembleSnapshot(source({}))).not.toHaveProperty("sourceJobNames");
   });
 });

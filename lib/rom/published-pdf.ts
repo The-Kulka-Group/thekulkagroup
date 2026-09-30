@@ -1,6 +1,6 @@
 import type { Db } from "@/lib/db";
 import { renderBudgetPage } from "@/app/b/[token]/render";
-import { longDate, presentBudget, type BudgetPage } from "@/lib/rom/presentation";
+import { longDate, presentBudget, type BudgetPage, type Publication } from "@/lib/rom/presentation";
 import { loadPublishedBudget, type PublishedBudgetRecord } from "@/lib/rom/published-budgets";
 
 // LA-1420. The stored PDF of a published budget (LA-1309, "PDF"). At publish
@@ -73,20 +73,34 @@ export type PdfOutcome =
  * `pdf_path` is left alone and nothing renders. Never throws: a failure to
  * render or store leaves `pdf_path` null and comes back as `{ ok: false }`, so
  * a publish that cannot print still publishes.
+ *
+ * The publish route passes the snapshot, version, stage and issue time it
+ * already holds as `frozen`, so the row is not read back; without them the
+ * row is loaded by its token.
  */
 export async function renderPublishedPdf(
   db: Db,
   published: Pick<PublishedBudgetRecord, "id" | "token" | "pdfPath">,
   seams: { renderer: PdfRenderer; store: PublishedPdfStore },
+  frozen?: Omit<Publication, "newer">,
 ): Promise<PdfOutcome> {
   if (published.pdfPath) return { ok: true, path: published.pdfPath, rendered: false };
+  const withdrawn: PdfOutcome = { ok: false, reason: "The budget was withdrawn before its PDF was made." };
   try {
-    const { rows: held } = await db.query<{ pdf_path: string | null }>(`select pdf_path from published_budgets where id = $1`, [published.id]);
+    const { rows: held } = await db.query<{ pdf_path: string | null; revoked_at: Date | string | null }>(
+      `select pdf_path, revoked_at from published_budgets where id = $1`,
+      [published.id],
+    );
     if (held[0]?.pdf_path) return { ok: true, path: held[0].pdf_path, rendered: false };
+    if (held[0]?.revoked_at) return withdrawn;
 
-    const view = await loadPublishedBudget(db, published.token);
-    if (!view || view.state === "withdrawn") return { ok: false, reason: "The budget was withdrawn before its PDF was made." };
-    const page = presentBudget({ snapshot: view.snapshot, version: view.version, stage: view.stage, issuedAt: view.issuedAt, newer: null });
+    let publication: Omit<Publication, "newer"> | undefined = frozen;
+    if (!publication) {
+      const view = await loadPublishedBudget(db, published.token);
+      if (!view || view.state === "withdrawn") return withdrawn;
+      publication = { snapshot: view.snapshot, version: view.version, stage: view.stage, issuedAt: view.issuedAt };
+    }
+    const page = presentBudget({ ...publication, newer: null });
 
     const bytes = await seams.renderer(buildPrintJob(page));
     const path = pdfPathFor(published);

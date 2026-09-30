@@ -1,7 +1,7 @@
 import { PARAMETER_NAMES } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
-import { presentBudget } from "@/lib/rom/presentation";
+import { presentBudget, usd } from "@/lib/rom/presentation";
 import { referencePage, referencePublication } from "@/test/fixtures/published-budget";
 
 import { renderBudgetPage } from "./render";
@@ -62,6 +62,20 @@ describe("the rendered page against the reference", () => {
     // Departure: the $/SF and $/unit figures carry their arithmetic, which
     // names the Kulka contract once more each.
     reference.set("$20,296,613", reference.get("$20,296,613")! + 2);
+    // Departure (PR 130 review): a per-unit line's comparables print their
+    // rate per unit, where the reference printed the per-GSF figure.
+    const model = presentBudget(referencePublication());
+    const romLine = new Map(referencePublication().snapshot.rom.lines.map((l) => [l.costCode, l]));
+    const shift = (figure: string, by: number) => reference.set(figure, (reference.get(figure) ?? 0) + by);
+    for (const line of [...model.money.scopes, ...model.money.ownerScopes].flatMap((s) => s.lines)) {
+      const perUnit = romLine.get(line.costCode)?.perUnit;
+      if (!perUnit) continue;
+      for (const c of romLine.get(line.costCode)!.comparables.filter((c) => c.kind !== "reviewed_judgment")) {
+        shift(usd(c.rate), -1);
+        shift(usd(c.rate * perUnit.projectGsfPerUnit), 1);
+      }
+    }
+    for (const [figure, count] of reference) if (count === 0) reference.delete(figure);
 
     expect(app).toEqual(reference);
   });

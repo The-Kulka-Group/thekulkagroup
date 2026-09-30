@@ -1,4 +1,4 @@
-import type { BlockClassification, ConfidenceFlag, MarkupLine, Rom, RomLine } from "@kulka/engine";
+import type { BlockClassification, Comparable, ConfidenceFlag, MarkupLine, Rom, RomLine } from "@kulka/engine";
 
 import { buildLedger, divisionTitle, sourceOf, type LedgerItem, type LedgerRow } from "@/app/(app)/rom/ledger";
 import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
@@ -202,12 +202,11 @@ export type Publication = {
 };
 
 /**
- * A published snapshot, plus the names of the jobs its comparables cite when
- * the snapshot froze them. LA-1417's snapshot carries only project ids on
- * each comparable; until publishing also freezes the names, the page counts
+ * A published snapshot. Its `sourceJobNames`, when publishing froze them,
+ * name the jobs the comparables cite; an older snapshot without them counts
  * the jobs and does not name them.
  */
-export type PresentableSnapshot = PublishedBudgetSnapshot & { sourceJobNames?: Readonly<Record<string, string>> };
+export type PresentableSnapshot = PublishedBudgetSnapshot;
 
 // --- Formatting shared with the renderer -------------------------------------
 
@@ -278,6 +277,9 @@ function stagesFor(current: PublishedStage): StageStep[] {
  * ledger.ts's source labels are written for the estimator. The client reads
  * Kulka Jobs with the count, Kulka Rate, or Placeholder Rate for a figure the
  * model proposed (LA-1309 decision 2). "No Rate Yet" reads the same to both.
+ * A label with no mapping reads "Kulka Figure" rather than failing, because a
+ * frozen page must keep opening; presentation.test.ts checks every label
+ * ledger.ts gives today is mapped.
  */
 export function clientSource(internal: string): string {
   if (internal === "AI Figure" || internal.startsWith("AI,")) return "Placeholder Rate";
@@ -285,7 +287,7 @@ export function clientSource(internal: string): string {
   const jobs = /^(\d+ Kulka Jobs?)(, Judgment)?$/.exec(internal);
   if (jobs) return jobs[1];
   if (internal === "No Rate Yet") return internal;
-  throw new Error(`No client wording for the source "${internal}".`);
+  return "Kulka Figure";
 }
 
 const COMPARABLE_WORDS: Record<string, string> = {
@@ -523,15 +525,41 @@ function confidenceOf(lines: readonly RomLine[]): ConfidenceFlag {
   return "medium";
 }
 
-function comparableRate(rate: number): string {
-  // A stated lump sum rides in the rate field; a per-square-foot rate is small.
-  return rate < 1000 ? `${usd(rate)} per SF` : usd(rate);
+/**
+ * True when the figure's own record says it is per gross square foot, as the
+ * budget import writes it ("Forecast Final Cost per GSF"). A comparable does
+ * not carry its benchmark's unit, and a lump sum or a per-stop rate rides in
+ * the same field, so nothing else is read as per SF.
+ */
+function recordedPerSf(c: Comparable): boolean {
+  return /\bper GSF\b/i.test(c.exportLabel ?? "");
 }
 
-function lineBasis(line: RomLine, grossSquareFeet: number): string {
+/** A comparable's rate in the unit the snapshot knows, or with no unit when it does not know one. */
+function comparableRate(c: Comparable, line: RomLine): string {
+  // A per-unit line's comparables are per GSF of this project, rescaled (rom-per-unit.ts).
+  if (line.perUnit) return `${usd(c.rate * line.perUnit.projectGsfPerUnit)} per unit`;
+  if (recordedPerSf(c)) return `${usd(c.rate)} per SF`;
+  return `${usd(c.rate)} rate`;
+}
+
+const SPREAD_WORDS: Record<ConfidenceFlag, string> = { high: "High", medium: "Medium", low: "Low" };
+
+function percent(v: number): string {
+  return `${(v * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+}
+
+/** The range width the run froze for this confidence, or "as shown" when the snapshot has none. */
+function spreadWords(line: RomLine, rom: Rom): string {
+  const spread = rom.parameters?.[`spread.${line.confidence}`]?.value;
+  const words = SPREAD_WORDS[line.confidence];
+  return typeof spread === "number" ? `${words} confidence: the range is ${percent(spread)} each side of the blend.` : `${words} confidence: the range is as shown.`;
+}
+
+function lineBasis(line: RomLine, rom: Rom, grossSquareFeet: number): string {
   const n = line.comparableCount;
   const jobs = `${n} Kulka ${n === 1 ? "job stands" : "jobs stand"} behind this line`;
-  const perSf = line.comparables.every((c) => c.rate < 1000);
+  const perSf = line.comparables.every(recordedPerSf);
   const how =
     n > 0
       ? perSf
@@ -543,16 +571,10 @@ function lineBasis(line: RomLine, grossSquareFeet: number): string {
   const perUnit = line.perUnit ? ` Priced per unit: ${usd(line.perUnit.usdPerUnit)} across ${wholeNumber(line.perUnit.unitCount)} units.` : "";
   const rules = line.judgmentAdjustments.length;
   const adjusted = rules ? ` ${rules} stated ${rules === 1 ? "rule" : "rules"} moved it.` : "";
-  const spread =
-    line.confidence === "low"
-      ? "Low confidence: the range is 35% each side of the blend."
-      : line.confidence === "medium"
-        ? "Medium confidence: the range is 20% each side of the blend."
-        : "High confidence: the range is 10% each side of the blend.";
-  return `${how}${perUnit}${adjusted} ${spread}`;
+  return `${how}${perUnit}${adjusted} ${spreadWords(line, rom)}`;
 }
 
-function pricedLine(line: RomLine, jobNames: Readonly<Record<string, string>>, grossSquareFeet: number): PricedLine {
+function pricedLine(line: RomLine, rom: Rom, jobNames: Readonly<Record<string, string>>, grossSquareFeet: number): PricedLine {
   return {
     ...figure(line),
     el: `line:${line.costCode}`,
@@ -565,11 +587,11 @@ function pricedLine(line: RomLine, jobNames: Readonly<Record<string, string>>, g
       el: `line:${line.costCode}:comparable:${i + 1}`,
       kindWords: COMPARABLE_WORDS[c.kind] ?? "Kulka Figure",
       jobs: c.sourceProjectIds.map((id) => jobNames[id]).filter(Boolean).join(", ") || "Kulka",
-      rate: c.kind === "reviewed_judgment" ? "Rate on File" : comparableRate(c.rate),
+      rate: c.kind === "reviewed_judgment" ? "Rate on File" : comparableRate(c, line),
       weight: c.weight,
       recordedAt: c.recordedAt,
     })),
-    basis: lineBasis(line, grossSquareFeet),
+    basis: lineBasis(line, rom, grossSquareFeet),
   };
 }
 
@@ -588,7 +610,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
     const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: `unpriced:${item.costCode}`, costCode: item.costCode, label: titleCase(item.label) }));
     const low = romLines.reduce((sum, line) => sum + line.low, 0);
     const high = romLines.reduce((sum, line) => sum + line.high, 0);
-    const lines = romLines.map((line) => pricedLine(line, jobNames, gsf));
+    const lines = romLines.map((line) => pricedLine(line, rom, jobNames, gsf));
     const label = titleCase(row.label);
     const kind = row.kind === "group" ? "element" : romLines.length > 0 ? "line" : "unpriced";
     const confidence: Tone = romLines.length > 0 ? confidenceOf(romLines) : "none";
@@ -777,24 +799,34 @@ const PARAMETER_LABELS: Record<string, string> = {
 };
 
 function parametersOf(rom: Rom): Parameter[] {
-  const pct = (v: number) => `${(v * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
   return Object.entries(rom.parameters ?? {})
     .filter(([key]) => PARAMETER_LABELS[key])
     .map(([key, p]) => ({
       // The id is a slug, so no engine parameter key reaches the page (LA-1333).
       el: `parameter:${slug(key)}`,
       label: PARAMETER_LABELS[key],
-      value: key.startsWith("spread") || key.endsWith(".rate") ? pct(p.value) : String(p.value),
+      value: key.startsWith("spread") || key.endsWith(".rate") ? percent(p.value) : String(p.value),
       recordedBy: /@/.test(p.provenance.recordedBy) ? "Kulka" : p.provenance.recordedBy,
       recordedAt: p.provenance.recordedAt,
     }));
 }
 
+/**
+ * Each markup method in client words. Keyed by string, not the engine's union,
+ * because `allocated_resources` (LA-1397) reaches this branch after the
+ * snapshot type does, and a frozen run keeps whatever method it recorded.
+ */
+const METHOD_WORDS: Record<string, string> = {
+  pct_of_subtotal: "as a percent of the subtotal",
+  usd_per_gsf: "in dollars per gross square foot",
+  allocated_resources: "line by line, from an allocated resources plan",
+  staffing_duration: "from staffing and job duration",
+};
+
 function markupWordsOf(rom: Rom): string | null {
   const choices = rom.markups?.choices;
   if (!choices) return null;
-  const method =
-    choices.method === "pct_of_subtotal" ? "as a percent of the subtotal" : choices.method === "usd_per_gsf" ? "in dollars per gross square foot" : "from staffing and job duration";
+  const method = METHOD_WORDS[choices.method as string];
   const setup =
     choices.setup === "separate"
       ? "General Requirements and General Conditions as separate lines"
@@ -803,7 +835,7 @@ function markupWordsOf(rom: Rom): string | null {
         : choices.setup === "gc_only"
           ? "General Conditions on its own"
           : "General Requirements on its own";
-  return `Markups priced ${method}, ${setup}.`;
+  return method ? `Markups priced ${method}, ${setup}.` : `Markups priced with ${setup}.`;
 }
 
 // --- The page ---------------------------------------------------------------------------------

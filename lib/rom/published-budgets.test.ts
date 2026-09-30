@@ -7,10 +7,12 @@ import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 import { RunNotSucceeded } from "./issue";
 import {
   isToken,
+  listPublishedBudgets,
   loadPublishedBudget,
   newToken,
   publishBudget,
   revokePublishedBudget,
+  versionState,
 } from "./published-budgets";
 
 // LA-1417. A run becomes a published budget: a frozen snapshot under an
@@ -107,6 +109,23 @@ describe("the snapshot", () => {
     expect(snapshot.copy).toEqual(COPY);
     expect(snapshot.engineSnapshotHash).toMatch(/^[0-9a-f]{64}$/);
     expect(snapshot).not.toHaveProperty("allocatedResources");
+  });
+
+  it("freezes the name of every job its comparables cite", async () => {
+    // The synthetic TEST benchmark cites the test project as its source job.
+    const runId = await succeededRunId();
+
+    const published = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const view = await loadPublishedBudget(db as Db, published.token);
+
+    if (view?.state !== "current") throw new Error("expected a current budget");
+    expect(view.snapshot.sourceJobNames).toEqual({ [TEST_PROJECT_ID]: "Synthetic test project" });
+
+    // A later rename does not reach the frozen name.
+    await db.query(`update projects set name = 'Renamed' where id = $1`, [TEST_PROJECT_ID]);
+    const again = await loadPublishedBudget(db as Db, published.token);
+    if (again?.state !== "current") throw new Error("expected a current budget");
+    expect(again.snapshot.sourceJobNames).toEqual({ [TEST_PROJECT_ID]: "Synthetic test project" });
   });
 
   it("refuses a run that did not succeed, and publishes nothing", async () => {
@@ -237,5 +256,36 @@ describe("loadPublishedBudget", () => {
   it("reads an unknown or malformed token as nothing", async () => {
     expect(await loadPublishedBudget(db as Db, newToken())).toBeNull();
     expect(await loadPublishedBudget(db as Db, "not-a-token")).toBeNull();
+  });
+});
+
+describe("versionState", () => {
+  it("is the one rule for a version's state: withdrawn once revoked, superseded while a later one is open, current otherwise", () => {
+    expect(versionState({ revoked: true, newerOpen: true })).toBe("withdrawn");
+    expect(versionState({ revoked: true, newerOpen: false })).toBe("withdrawn");
+    expect(versionState({ revoked: false, newerOpen: true })).toBe("superseded");
+    expect(versionState({ revoked: false, newerOpen: false })).toBe("current");
+  });
+});
+
+describe("listPublishedBudgets", () => {
+  it("gives each version the state its own link shows", async () => {
+    const runId = await succeededRunId();
+    const first = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const second = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const third = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    await revokePublishedBudget(db as Db, third.id);
+
+    const listed = await listPublishedBudgets(db as Db, TEST_PROJECT_ID);
+
+    expect(listed.map((v) => [v.version, v.state])).toEqual([
+      [3, "withdrawn"],
+      [2, "current"],
+      [1, "superseded"],
+    ]);
+    for (const version of [first, second]) {
+      const view = await loadPublishedBudget(db as Db, version.token);
+      expect(listed.find((v) => v.id === version.id)!.state).toBe(view!.state);
+    }
   });
 });

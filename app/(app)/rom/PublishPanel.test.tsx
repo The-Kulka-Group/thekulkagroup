@@ -4,10 +4,9 @@ import { describe, expect, it } from "vitest";
 import { PARAMETER_NAMES } from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
-import type { PublishedBudgetRecord } from "@/lib/rom/published-budgets";
 
 import { canPublish, EMPTY_FIELDS, PublishForm, VersionList } from "./PublishPanel";
-import { versionList } from "./publish-model";
+import { versionList, type ListedVersion } from "./publish-model";
 
 // LA-1419. Render tests for the publish controls: the four fields, Copy Link,
 // the version list with its dates and links, and Revoke behind a confirm
@@ -15,10 +14,11 @@ import { versionList } from "./publish-model";
 
 const noop = () => {};
 
-function record(version: number, patch: Partial<PublishedBudgetRecord> = {}): PublishedBudgetRecord {
+function record(version: number, patch: Partial<ListedVersion> = {}): ListedVersion {
+  const token = `tok${version}`.padEnd(22, "A");
   return {
     id: `id-${version}`,
-    token: `tok${version}`.padEnd(22, "A"),
+    token,
     runId: "run",
     projectId: "project",
     version,
@@ -28,12 +28,13 @@ function record(version: number, patch: Partial<PublishedBudgetRecord> = {}): Pu
     issuedBy: "devin@example.com",
     revokedAt: null,
     supersededBy: null,
+    state: patch.revokedAt ? "withdrawn" : "current",
+    link: `https://kulka.example/b/${token}`,
     ...patch,
   };
 }
 
 const LIST_PROPS = {
-  origin: "https://kulka.example",
   copiedId: null,
   confirmingId: null,
   busyId: null,
@@ -58,7 +59,7 @@ function form(patch = {}, props = {}) {
   );
 }
 
-function list(records: PublishedBudgetRecord[], props = {}) {
+function list(records: ListedVersion[], props = {}) {
   return renderToStaticMarkup(<VersionList rows={versionList(records)} {...LIST_PROPS} {...props} />);
 }
 
@@ -103,7 +104,7 @@ describe("VersionList", () => {
   });
 
   it("lists every version with its date and link, newest first", () => {
-    const html = list([record(1, { supersededBy: "id-2" }), record(2)]);
+    const html = list([record(1, { supersededBy: "id-2", state: "superseded" }), record(2)]);
     expect(html.indexOf("Version 2")).toBeLessThan(html.indexOf("Version 1"));
     expect(html).toContain("Sep 21, 2026");
     expect(html).toContain("Sep 22, 2026");
@@ -161,7 +162,7 @@ function visibleText(html: string): string[] {
 describe("copy guard and case", () => {
   const html = [
     form(),
-    list([record(2), record(1, { supersededBy: "id-2" }), record(3, { revokedAt: "2026-09-25T15:00:00.000Z" })]),
+    list([record(2), record(1, { supersededBy: "id-2", state: "superseded" }), record(3, { revokedAt: "2026-09-25T15:00:00.000Z" })]),
     list([record(1)], { confirmingId: "id-1" }),
   ].join("");
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { Db } from "@/lib/db";
 import { presentBudget } from "@/lib/rom/presentation";
-import { publishBudget, listPublishedBudgets, revokePublishedBudget } from "@/lib/rom/published-budgets";
+import { publishBudget, listPublishedBudgets, loadPublishedBudget, revokePublishedBudget } from "@/lib/rom/published-budgets";
 import { runRom } from "@/lib/rom/run";
 import { referencePublication } from "@/test/fixtures/published-budget";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
@@ -110,6 +110,44 @@ describe("renderPublishedPdf", () => {
 
     expect(outcome.ok).toBe(false);
     expect((await listPublishedBudgets(db as Db, published.projectId))[0].pdfPath).toBeNull();
+  });
+
+  it("prints from the snapshot the publish already holds, without reading the row back", async () => {
+    const published = await publish();
+    const { jobs, seams: s } = seams();
+    const view = await loadPublishedBudget(db as Db, published.token);
+    if (view?.state !== "current") throw new Error("expected a current budget");
+    // A copy that differs from the stored one shows which snapshot was printed.
+    const inHand = { ...view.snapshot, copy: { ...view.snapshot.copy, preparedFor: "Held In Hand (example)" } };
+
+    const outcome = await renderPublishedPdf(db as Db, published, s, {
+      snapshot: inHand,
+      version: published.version,
+      stage: published.stage,
+      issuedAt: published.issuedAt,
+    });
+
+    expect(outcome.ok).toBe(true);
+    expect(jobs[0].html).toContain("Held In Hand (example)");
+    expect(jobs[0].html).not.toContain("Harbor Point Partners (example)");
+  });
+
+  it("does not print a withdrawn budget even when the snapshot is in hand", async () => {
+    const published = await publish();
+    const view = await loadPublishedBudget(db as Db, published.token);
+    if (view?.state !== "current") throw new Error("expected a current budget");
+    await revokePublishedBudget(db as Db, published.id);
+    const { jobs, seams: s } = seams();
+
+    const outcome = await renderPublishedPdf(db as Db, published, s, {
+      snapshot: view.snapshot,
+      version: published.version,
+      stage: published.stage,
+      issuedAt: published.issuedAt,
+    });
+
+    expect(outcome.ok).toBe(false);
+    expect(jobs).toHaveLength(0);
   });
 
   it("does not print a budget withdrawn before its PDF was made", async () => {

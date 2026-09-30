@@ -55,6 +55,47 @@ describe("GET /api/rom/projects/[id]/published", () => {
     expect(published[1].supersededBy).toBe(second.id);
   });
 
+  it("gives each version its state, by the rule its own link follows", async () => {
+    const { runId } = await runRom(db as Db, TEST_PROJECT_ID);
+    await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    const third = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+    await revokePublishedBudget(db as Db, third.id);
+
+    const { published } = await (await get(TEST_PROJECT_ID)).json();
+    expect(published.map((one: { version: number; state: string }) => [one.version, one.state])).toEqual([
+      [3, "withdrawn"],
+      [2, "current"],
+      [1, "superseded"],
+    ]);
+  });
+
+  it("builds each version's full link from the site's address", async () => {
+    vi.stubEnv("KULKA_SITE_URL", "https://kulka.example");
+    try {
+      const { runId } = await runRom(db as Db, TEST_PROJECT_ID);
+      const one = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+      const { published } = await (await get(TEST_PROJECT_ID)).json();
+      expect(published[0].link).toBe(`https://kulka.example/b/${one.token}`);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("falls back to the request's own address when the site address is unset", async () => {
+    vi.stubEnv("KULKA_SITE_URL", "");
+    try {
+      const { runId } = await runRom(db as Db, TEST_PROJECT_ID);
+      const one = await publishBudget(db as Db, { runId, issuedBy: "devin@example.com", copy: COPY });
+
+      const { published } = await (await get(TEST_PROJECT_ID)).json();
+      expect(published[0].link).toBe(`http://localhost/b/${one.token}`);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("answers 404 for an id that is not a project", async () => {
     expect((await get("not-a-uuid")).status).toBe(404);
   });

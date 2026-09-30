@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { linkFor } from "@/app/(app)/rom/publish-model";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { RunNotFound, RunNotSucceeded } from "@/lib/rom/issue";
 import { parsePublishBody } from "@/lib/rom/publish-request";
 import { pdfSeams } from "@/lib/rom/pdf-seams";
-import { publishBudget } from "@/lib/rom/published-budgets";
+import { linkOrigin, publishBudget } from "@/lib/rom/published-budgets";
 import { renderPublishedPdf } from "@/lib/rom/published-pdf";
 import { isUuid } from "@/lib/uuid";
 
@@ -38,10 +39,17 @@ export async function POST(request: Request, context: Context) {
 
   try {
     const db = getDb();
-    const published = await publishBudget(db, { runId, issuedBy: auth.user.email, copy: parsed.copy });
-    const outcome = await renderPublishedPdf(db, published, pdfSeams);
+    const { snapshot, ...published } = await publishBudget(db, { runId, issuedBy: auth.user.email, copy: parsed.copy });
+    // The snapshot is in hand, so the PDF prints from it rather than reading the row back.
+    const outcome = await renderPublishedPdf(db, published, pdfSeams, {
+      snapshot,
+      version: published.version,
+      stage: published.stage,
+      issuedAt: published.issuedAt,
+    });
+    const link = linkFor(linkOrigin(request.url), published.token);
     return NextResponse.json({
-      published: outcome.ok ? { ...published, pdfPath: outcome.path } : published,
+      published: { ...published, pdfPath: outcome.ok ? outcome.path : published.pdfPath, link },
       pdf: outcome.ok
         ? { ok: true }
         : { ok: false, message: "The budget is published and its link works, but its PDF could not be made. The link opens without a PDF." },

@@ -2,8 +2,7 @@ import type { DerivedAssumption, Rom } from "@kulka/engine";
 
 import type { RecordedAnswers, RunRecord } from "@/lib/rom/run-records";
 
-// LA-1417. What a published budget freezes, and the few figures the
-// placeholder page reads off it. Pure: no clock, no network, no database. The
+// LA-1417. What a published budget freezes. Pure: no clock, no network, no database. The
 // published page renders from this shape alone, so nothing in it may point
 // back at a live table.
 
@@ -54,6 +53,12 @@ export type PublishedBudgetSnapshot = {
   copy: PresentationCopy;
   /** The engine data snapshot hash the run was computed against, or null for a run recorded before runs kept one. */
   engineSnapshotHash: string | null;
+  /**
+   * The name of each job the comparables cite, by project id, as it read when
+   * the budget was published. Absent on a snapshot published before
+   * publishing froze the names; that page counts the jobs and does not name them.
+   */
+  sourceJobNames?: Readonly<Record<string, string>>;
 };
 
 export type SnapshotSource = {
@@ -63,6 +68,8 @@ export type SnapshotSource = {
   issuedAt: string;
   criteria: readonly (DerivedAssumption & { id?: string; correctionId?: string | null })[];
   copy: PresentationCopy;
+  /** The names publishing looked up for the jobs the comparables cite. */
+  sourceJobNames?: Readonly<Record<string, string>>;
 };
 
 /** Everything a published page needs, copied out of the run so the page never reads the run again. */
@@ -89,6 +96,7 @@ export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapsho
   if (plan && typeof plan === "object" && !Array.isArray(plan)) {
     snapshot.allocatedResources = plan as AllocatedResourcesPlan;
   }
+  if (source.sourceJobNames) snapshot.sourceJobNames = source.sourceJobNames;
   return snapshot;
 }
 
@@ -107,35 +115,4 @@ function frozenCriterion(criterion: DerivedAssumption): PublishedCriterion {
     costCodes: criterion.costCodes,
     correction: criterion.correction,
   };
-}
-
-type Range = { low: number; high: number };
-
-export type HeadlineFigures = {
-  /** Kulka's contract: with markups when the run priced them, trade cost otherwise. */
-  kulkaContract: Range & { likely: number };
-  /** Kulka's contract plus owner-direct scope. Equal to the contract when there is none. */
-  totalProjectCost: Range & { likely: number };
-  /** Likely Kulka contract per gross square foot, or null when the run has no area. */
-  perGrossSquareFoot: number | null;
-  grossSquareFeet: number | null;
-};
-
-/** The figures the placeholder page prints. The likely figure is the middle of the range. */
-export function headlineFigures(snapshot: PublishedBudgetSnapshot): HeadlineFigures {
-  const { rom, answers } = snapshot;
-  const contract = rom.markups ? rom.markups.total : rom.kulkaContractTotal;
-  const project = rom.markups ? rom.markups.totalProjectCost : rom.total;
-  const likelyContract = likely(contract);
-  const area = answers.grossSquareFeet > 0 ? answers.grossSquareFeet : null;
-  return {
-    kulkaContract: { low: contract.low, high: contract.high, likely: likelyContract },
-    totalProjectCost: { low: project.low, high: project.high, likely: likely(project) },
-    perGrossSquareFoot: area ? likelyContract / area : null,
-    grossSquareFeet: area,
-  };
-}
-
-function likely(range: Range): number {
-  return (range.low + range.high) / 2;
 }

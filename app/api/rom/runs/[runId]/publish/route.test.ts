@@ -97,6 +97,18 @@ describe("POST /api/rom/runs/[runId]/publish", () => {
     });
   });
 
+  it("returns the new version's full link, built from the site's address", async () => {
+    vi.stubEnv("KULKA_SITE_URL", "https://kulka.example");
+    try {
+      const runId = await succeededRunId();
+      const { published } = await (await post(runId, BODY)).json();
+      expect(published.link).toBe(`https://kulka.example/b/${published.token}`);
+      expect(published).not.toHaveProperty("snapshot");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("makes Version 2 on a second publish and marks Version 1 superseded", async () => {
     const runId = await succeededRunId();
     const first = (await (await post(runId, BODY)).json()).published;

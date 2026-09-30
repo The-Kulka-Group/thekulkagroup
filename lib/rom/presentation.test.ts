@@ -1,5 +1,7 @@
+import type { RomLine } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
+import { sourceOf } from "@/app/(app)/rom/ledger";
 import { referencePublication } from "@/test/fixtures/published-budget";
 
 import { clientBasis, clientSource, presentBudget } from "./presentation";
@@ -82,7 +84,6 @@ describe("client wording", () => {
     expect(clientSource("1 Kulka Job")).toBe("1 Kulka Job");
     expect(clientSource("4 Kulka Jobs, Judgment")).toBe("4 Kulka Jobs");
     expect(clientSource("No Rate Yet")).toBe("No Rate Yet");
-    expect(() => clientSource("Something New")).toThrow(/No client wording/);
   });
 
   it("calls a line the model proposed a Placeholder Rate, never an AI figure", () => {
@@ -219,5 +220,110 @@ describe("element ids", () => {
     expect(ids.filter((id) => id.startsWith("criterion:"))).toHaveLength(9);
     expect(ids).toContain("gate:elevator");
     expect(ids).toContain("gate:34a");
+  });
+});
+
+// Review fixes on PR 130.
+
+function lineOf(page: ReturnType<typeof presentBudget>, costCode: string) {
+  const scopes = [...page.money.scopes, ...page.money.ownerScopes];
+  for (const scope of scopes) {
+    const line = scope.lines.find((l) => l.costCode === costCode);
+    if (line) return line;
+  }
+  throw new Error(`No line ${costCode} on the page.`);
+}
+
+describe("a line's range, from the frozen parameters", () => {
+  it("prints the spread the snapshot froze, not a fixed figure", () => {
+    const publication = referencePublication();
+    const parameters = publication.snapshot.rom.parameters!;
+    parameters["spread.low"] = { ...parameters["spread.low"]!, value: 0.3 };
+    parameters["spread.medium"] = { ...parameters["spread.medium"]!, value: 0.15 };
+
+    const page = presentBudget(publication);
+
+    // Line 10 is low confidence and line 13 medium in the reference run.
+    expect(lineOf(page, "10").basis).toContain("Low confidence: the range is 30% each side of the blend.");
+    expect(lineOf(page, "13").basis).toContain("Medium confidence: the range is 15% each side of the blend.");
+  });
+
+  it("says the range is as shown, with no percentage, when the parameter is absent", () => {
+    const publication = referencePublication();
+    delete publication.snapshot.rom.parameters!["spread.low"];
+
+    const basis = lineOf(presentBudget(publication), "10").basis;
+
+    expect(basis).toContain("Low confidence: the range is as shown.");
+    expect(basis).not.toMatch(/\d+% each side/);
+  });
+});
+
+describe("a source label with no client word", () => {
+  it("reads Kulka Figure rather than failing the page", () => {
+    expect(clientSource("Something New")).toBe("Kulka Figure");
+  });
+
+  it("maps every label ledger.ts gives a line today, so a new one is caught here", () => {
+    const base = referencePublication().snapshot.rom.lines.find((l) => l.costCode === "13")!;
+    const comparable = base.comparables[0];
+    const variants: RomLine[] = [
+      { ...base, comparables: [] },
+      { ...base, comparables: [{ ...comparable, kind: "llm_proposal" }] },
+      { ...base, comparables: [{ ...comparable, exportLabel: "This project only. Stated for this budget." }] },
+      { ...base, comparables: [{ ...comparable, exportLabel: "This project only. A suggestion, accepted." }] },
+      { ...base, comparableCount: 0, comparables: [{ ...comparable, kind: "reviewed_judgment" }] },
+      { ...base, comparableCount: 1 },
+      { ...base, comparableCount: 3 },
+      { ...base, comparableCount: 2, comparables: [{ ...comparable, kind: "reviewed_judgment" }] },
+    ];
+    const labels = new Set([...variants.map((line) => sourceOf(line).text), "No Rate Yet"]);
+    // One line down each branch of sourceOf. A branch added there needs a line here.
+    expect([...labels].sort()).toEqual(["1 Kulka Job", "2 Kulka Jobs, Judgment", "3 Kulka Jobs", "AI Figure", "AI, This Budget Only", "No Rate Yet", "Stated Rate", "This Budget Only"]);
+    for (const label of labels) expect(clientSource(label), label).not.toBe("Kulka Figure");
+  });
+});
+
+describe("a comparable's rate, in the unit the snapshot knows", () => {
+  it("prints a per-unit line's comparables per unit", () => {
+    // Line 10 priced per unit: its rate is per GSF of this project, times 914.29 SF per unit.
+    const line = lineOf(presentBudget(referencePublication()), "10");
+    expect(line.comparables[0].rate).toBe("$231 per unit");
+  });
+
+  it("prints a comparable the import recorded per GSF per SF", () => {
+    const line = lineOf(presentBudget(referencePublication()), "13");
+    expect(line.comparables.map((c) => c.rate)).toEqual(["$4 per SF", "$6 per SF"]);
+  });
+
+  it("prints a figure whose unit the snapshot does not know as a rate, with no unit", () => {
+    const page = presentBudget(referencePublication());
+    // Line 1's first figure is one job's $25,000 demolition line, a lump sum, not a rate per SF.
+    expect(lineOf(page, "1").comparables[0].rate).toBe("$25,000 rate");
+
+    const publication = referencePublication();
+    const line = publication.snapshot.rom.lines.find((l) => l.costCode === "13")!;
+    line.comparables = line.comparables.map((c) => ({ ...c, kind: "llm_proposal" as const, exportLabel: null, rate: 50 }));
+    expect(lineOf(presentBudget(publication), "13").comparables[0].rate).toBe("$50 rate");
+  });
+});
+
+describe("the markup method, in words", () => {
+  function wordsFor(method: string) {
+    const publication = referencePublication();
+    const markups = publication.snapshot.rom.markups!;
+    markups.choices = { ...markups.choices, method } as typeof markups.choices;
+    return presentBudget(publication).markupWords;
+  }
+
+  it("says line by line for an Allocated Resources plan", () => {
+    const words = wordsFor("allocated_resources");
+    expect(words).toContain("line by line, from an allocated resources plan");
+    expect(words).not.toContain("staffing");
+  });
+
+  it("keeps the staffing words for staffing and duration only", () => {
+    expect(wordsFor("staffing_duration")).toContain("from staffing and job duration");
+    expect(wordsFor("pct_of_subtotal")).not.toContain("staffing");
   });
 });

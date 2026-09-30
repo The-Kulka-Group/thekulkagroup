@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { PublishedBudgetRecord } from "@/lib/rom/published-budgets";
+import { issuedLabel, linkFor, versionList, type ListedVersion } from "./publish-model";
 
-import { issuedLabel, linkFor, versionList } from "./publish-model";
+// LA-1419. What the version list shows for each published version. The state
+// and the link come from the server (GET /api/rom/projects/[id]/published),
+// which computes the state by the rule loadPublishedBudget follows.
 
-// LA-1419. What the version list shows for each published version.
-
-function record(version: number, patch: Partial<PublishedBudgetRecord> = {}): PublishedBudgetRecord {
+function listed(version: number, patch: Partial<ListedVersion> = {}): ListedVersion {
+  const token = `token-${version}`.padEnd(22, "x");
   return {
     id: `id-${version}`,
-    token: `token-${version}`.padEnd(22, "x"),
+    token,
     runId: "run",
     projectId: "project",
     version,
@@ -19,39 +20,35 @@ function record(version: number, patch: Partial<PublishedBudgetRecord> = {}): Pu
     issuedBy: "devin@example.com",
     revokedAt: null,
     supersededBy: null,
+    state: "current",
+    link: `https://kulka.example/b/${token}`,
     ...patch,
   };
 }
 
 describe("versionList", () => {
-  it("marks a lone version Current", () => {
-    expect(versionList([record(1)]).map((v) => v.state)).toEqual(["current"]);
-  });
-
-  it("marks Version 1 Superseded once Version 2 is out, newest first", () => {
-    const list = versionList([record(2), record(1, { supersededBy: "id-2" })]);
+  it("shows the state the server gave, without working it out again", () => {
+    // The server's rule is tested in lib/rom/published-budgets.test.ts; here a
+    // state no local rule would give shows as sent.
+    const list = versionList([listed(2, { state: "superseded" }), listed(1, { state: "current" })]);
     expect(list.map((v) => [v.version, v.state])).toEqual([
-      [2, "current"],
-      [1, "superseded"],
+      [2, "superseded"],
+      [1, "current"],
     ]);
   });
 
-  it("marks a revoked version Withdrawn, and says when", () => {
-    const list = versionList([record(1, { revokedAt: "2026-09-25T15:00:00.000Z" })]);
+  it("carries the server's full link for each version", () => {
+    expect(versionList([listed(1)])[0].link).toBe(`https://kulka.example/b/${"token-1".padEnd(22, "x")}`);
+  });
+
+  it("says when a withdrawn version was withdrawn", () => {
+    const list = versionList([listed(1, { state: "withdrawn", revokedAt: "2026-09-25T15:00:00.000Z" })]);
     expect(list[0].state).toBe("withdrawn");
     expect(list[0].withdrawnOn).toBe("Sep 25, 2026");
   });
 
-  it("reads an older version as Current when every later version is withdrawn, as its page does", () => {
-    const list = versionList([
-      record(2, { revokedAt: "2026-09-25T15:00:00.000Z" }),
-      record(1, { supersededBy: "id-2" }),
-    ]);
-    expect(list.map((v) => v.state)).toEqual(["withdrawn", "current"]);
-  });
-
   it("sorts newest first whatever order it is given", () => {
-    expect(versionList([record(1), record(3), record(2)]).map((v) => v.version)).toEqual([3, 2, 1]);
+    expect(versionList([listed(1), listed(3), listed(2)]).map((v) => v.version)).toEqual([3, 2, 1]);
   });
 });
 
@@ -62,6 +59,5 @@ describe("issuedLabel and linkFor", () => {
 
   it("builds the link from the site's own address", () => {
     expect(linkFor("https://kulka.example", "abc")).toBe("https://kulka.example/b/abc");
-    expect(linkFor("", "abc")).toBe("/b/abc");
   });
 });

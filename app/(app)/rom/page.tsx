@@ -7,6 +7,7 @@ import { readMarkupOptions, readProjectMarkupChoices } from "@/lib/rom/markup";
 import { listRomProjects, resolveRomProjectId } from "@/lib/rom/projects";
 import { getRun, listRuns } from "@/lib/rom/run-records";
 import { readCanonicalDivisions, readClassifications } from "@/lib/rom/run";
+import { readScheduleProposalState } from "@/lib/rom/schedule-proposal";
 import { readStageFacts } from "@/lib/rom/stage-facts";
 
 import { RomRunner } from "./RomRunner";
@@ -90,7 +91,7 @@ export default async function RomPage({
     );
   }
 
-  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications, derivedAssumptions, stageFacts] =
+  const [markupDefault, scopeDefaults, framingDefault, allRuns, classifications, derivedAssumptions, stageFacts, scheduleProposal] =
     await Promise.all([
       readProjectMarkupChoices(db, projectId),
       readProjectGateAnswers(db, projectId),
@@ -101,6 +102,8 @@ export default async function RomPage({
       listDerivedAssumptions(db, projectId),
       // LA-1317: the facts the Design and Engineering stage draws the building from.
       readStageFacts(db, projectId),
+      // LA-1399: the proposed schedule, ready to apply or pending a model's comparison.
+      readScheduleProposalState(db, projectId),
     ]);
   const runs = savedRunsFor(allRuns, projectId);
   const initialRun = runs[0] ? loadedRunFrom(await getRun(db, runs[0].id)) : null;
@@ -122,6 +125,7 @@ export default async function RomPage({
       canonicalDivisions={canonicalDivisions}
       derivedAssumptions={derivedAssumptions}
       stageFacts={stageFacts}
+      scheduleProposal={scheduleProposal ?? undefined}
     />
   );
 }

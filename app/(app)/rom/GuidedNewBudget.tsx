@@ -30,6 +30,7 @@ import {
   setupHistory,
   type MarkupForm,
 } from "./Markups";
+import type { ScheduleView } from "./resource-plan-form";
 import "./scope.css";
 
 // LA-1225. New Budget is a setup card, then one question at a time. Matt
@@ -52,6 +53,9 @@ import "./scope.css";
 // config/rom/tier1-flow.json, read through lib/rom/new-budget-flow.ts and
 // lib/rom/question-flow.ts (LA-1141). Parking is the first question rather
 // than a setup field, because it is a scope answer that moves the budget.
+
+/** LA-1399: New Budget asks for the proposed schedule once the plan shows. */
+const PENDING_SCHEDULE: ScheduleView = { kind: "pending" };
 
 const FRAMING_CHOICES: { value: "wood" | "metal" | ""; label: string }[] = [
   { value: "wood", label: "Wood" },
@@ -885,7 +889,14 @@ export function GuidedNewBudget({
         ) : markupOptions ? (
           <>
             <h3 className="nb-prompt">What resources does this job carry, phase by phase?</h3>
-            <MarkupControls options={markupOptions} form={markupForm} onChange={setMarkupForm} disabled={busy} />
+            <MarkupControls
+              options={markupOptions}
+              form={markupForm}
+              onChange={setMarkupForm}
+              disabled={busy}
+              projectId={projectId ?? undefined}
+              schedule={PENDING_SCHEDULE}
+            />
             <div className="rb-acts">
               <button className="btn btn--primary" type="button" onClick={submitMarkupDetail} disabled={busy}>
                 Next

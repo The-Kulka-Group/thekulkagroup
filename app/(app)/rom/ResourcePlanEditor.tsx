@@ -1,6 +1,13 @@
 "use client";
 
-import { PHASE_LABEL, SCHEDULE_PHASES, type ConfidenceFlag, type PlanBasis, type SchedulePhase } from "@kulka/engine";
+import {
+  PHASE_LABEL,
+  proposedFigure,
+  SCHEDULE_PHASES,
+  type ConfidenceFlag,
+  type PlanBasis,
+  type SchedulePhase,
+} from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -18,9 +25,11 @@ import {
   PER_LABEL,
   PLAN_GROUPS,
   pricedPlanOf,
+  resetPhaseToProposal,
   TYPED,
   type PlanForm,
   type PlanLineForm,
+  type ScheduleView,
 } from "./resource-plan-form";
 
 // LA-1397: the Allocated Resources plan in Run Settings and New Budget. The
@@ -54,6 +63,7 @@ export function ResourcePlanEditor({
   disabled,
   lineName,
   kind = "gc",
+  schedule,
 }: {
   options: MarkupOptions;
   plan: PlanForm;
@@ -62,7 +72,10 @@ export function ResourcePlanEditor({
   /** The markup line the plan prices, such as General Conditions. */
   lineName: string;
   kind?: PlanKind;
+  /** The proposed schedule (LA-1399). Absent where no project is chosen yet. */
+  schedule?: ScheduleView;
 }) {
+  const proposal = schedule?.kind === "ready" ? schedule.proposal : null;
   const grSections = new Map(grRateOptions(options.grRates ?? []).map(({ section, rates }) => [section, rates]));
   const priced = pricedPlanOf(plan);
   const amounts = new Map(priced?.lines.map((line) => [line.id, line.amount]) ?? []);
@@ -75,18 +88,37 @@ export function ResourcePlanEditor({
     <div className="plan" aria-label={`${lineName}, Allocated Resources`}>
       <h3 className="t-label markup-sub">Schedule, Weeks</h3>
       <div className="markup-grid">
-        {SCHEDULE_PHASES.map((phase) => (
-          <label key={phase}>
-            <span className="field-label t-label">{PHASE_LABEL[phase]}</span>
-            <input
-              className="input num"
-              inputMode="decimal"
-              value={plan.weeks[phase]}
-              disabled={disabled}
-              onChange={(e) => setWeeks(phase, e.target.value)}
-            />
-          </label>
-        ))}
+        {SCHEDULE_PHASES.map((phase) => {
+          const proposed = proposal ? proposedFigure(proposal, phase) : null;
+          const isProposed = plan.weeksFrom[phase].origin === "proposed";
+          const changed = proposed !== null && !isProposed;
+          return (
+            <div key={phase} className="plan-week">
+              <label>
+                <span className="field-label t-label">{PHASE_LABEL[phase]}</span>
+                <input
+                  className="input num"
+                  inputMode="decimal"
+                  placeholder={proposal && !proposed ? "Enter Weeks" : undefined}
+                  value={plan.weeks[phase]}
+                  disabled={disabled}
+                  onChange={(e) => setWeeks(phase, e.target.value)}
+                />
+              </label>
+              {isProposed ? <span className="plan-week-tag">Proposed</span> : null}
+              {changed && proposal ? (
+                <button
+                  className="btn btn--quiet plan-week-reset"
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange(resetPhaseToProposal(plan, phase, proposal))}
+                >
+                  Reset to {proposed.value} Weeks
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
         <label>
           <span className="field-label t-label">Range</span>
           <select
@@ -103,6 +135,7 @@ export function ResourcePlanEditor({
           </select>
         </label>
       </div>
+      {schedule ? <ScheduleProposalNote schedule={schedule} /> : null}
       <p className="markup-note">
         Lines priced by time run over the weeks of the phases they cover. Monthly lines count 30.42 days a month. The
         total carries the engine&rsquo;s range at the confidence picked here.
@@ -354,5 +387,65 @@ function PlanLineRow({
         Quantity from {originWords(line.quantityFrom)}.
       </p>
     </li>
+  );
+}
+
+const PROPOSAL_DATE = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/**
+ * LA-1399: the proposed schedule, labeled a planning assumption the way the
+ * Design and Engineering facts are, with the completed jobs it compared and
+ * why. It names no model and claims nothing about drawings: the comparison
+ * reads only the project's stated facts and Kulka's recorded jobs.
+ */
+export function ScheduleProposalNote({ schedule }: { schedule: ScheduleView }) {
+  if (schedule.kind === "pending") {
+    return (
+      <p className="markup-note plan-proposal" role="status">
+        Comparing this project with Kulka&rsquo;s completed jobs to propose the weeks&hellip;
+      </p>
+    );
+  }
+  if (schedule.kind === "failed") {
+    return (
+      <p className="markup-note plan-proposal" role="status">
+        {schedule.error}
+      </p>
+    );
+  }
+  const { proposal } = schedule;
+  if (proposal.status !== "proposed") {
+    return (
+      <p className="markup-note plan-proposal" role="status">
+        {proposal.reasoning}
+      </p>
+    );
+  }
+  return (
+    <section className="plan-proposal" aria-label="Proposed Schedule">
+      <h4 className="t-label">Proposed Schedule, a Planning Assumption</h4>
+      <p className="markup-note markup-note--inline">
+        Proposed on {PROPOSAL_DATE.format(new Date(`${proposal.proposedAt}T00:00:00Z`))} by comparing this
+        project&rsquo;s stated facts with Kulka&rsquo;s completed jobs. It is not a schedule. Change any phase and every
+        line priced on it follows. {proposal.reasoning}
+      </p>
+      <ul className="plan-proposal-list">
+        {SCHEDULE_PHASES.map((phase) => (
+          <li key={phase}>
+            <span className="t-label">{PHASE_LABEL[phase]}</span>{" "}
+            {proposal.phases[phase].weeks === null ? "Left for you." : `${proposal.phases[phase].weeks} weeks.`}{" "}
+            {proposal.phases[phase].reason}
+          </li>
+        ))}
+      </ul>
+      <h4 className="t-label">Jobs Compared</h4>
+      <ul className="plan-proposal-list">
+        {proposal.jobs.map((job) => (
+          <li key={job.jobNumber}>
+            <span className="num">{job.jobNumber}</span>, {job.name}. {job.why}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -86,3 +86,21 @@
   .plan-line-head .btn { grid-column: 1 / -1; justify-self: start; }
   .plan-adds .input { max-width: none; }
 }
+
+/* LA-1399: the proposed schedule. Each phase's weeks can carry a Proposed tag
+   or a reset back to the proposal; the note under them names the completed
+   jobs compared. */
+.plan-week { display: flex; flex-direction: column; gap: var(--s1); }
+.plan-week-tag { font-size: var(--meta-size); color: var(--ink-2); }
+.plan-week-reset { align-self: flex-start; }
+.plan-proposal { margin-bottom: var(--s3); }
+.plan-proposal h4 { margin: var(--s2) 0 var(--s1); }
+.plan-proposal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s2);
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+  color: var(--ink-2);
+}
+.plan-proposal-list li { padding: 2px 0; }

@@ -26,7 +26,7 @@ import { headlineOf, tradeBlocks } from "./block-layout";
 import { CriterionCard, CriterionPanel, type Criterion } from "./DerivedCriteria";
 import { initialMarkupForm, MarkupControls } from "./Markups";
 import { BlockPanel, type Drilldown, NotesPanel, TotalPanel } from "./RomPanels";
-import { ResourcePlanEditor } from "./ResourcePlanEditor";
+import { ResourcePlanEditor, ScheduleProposalNote } from "./ResourcePlanEditor";
 import { linesFromGrRate, linesFromRateCard } from "./resource-plan-form";
 
 // LA-1333. A budget is a document Kulka hands a developer, so nothing on it
@@ -378,6 +378,28 @@ describe("the copy guard", () => {
 
     expect(html).toContain("3.25% of subtotal, recorded 2026-09-23");
     expect(leaksIn(html)).toEqual([]);
+  });
+
+  it("finds nothing internal in the proposed schedule (LA-1399)", () => {
+    const phase = (weeks: number | null) => ({ weeks, jobNumbers: weeks === null ? [] : ["TEST-0001"], reason: "Scaled." });
+    const html = renderToStaticMarkup(
+      <ScheduleProposalNote
+        schedule={{
+          kind: "ready",
+          proposal: {
+            status: "proposed",
+            phases: { precon: phase(12), construction: phase(62), closeout: phase(null) },
+            jobs: [{ jobNumber: "TEST-0001", name: "Synthetic Test Job", why: "Same type." }],
+            reasoning: "One close job.",
+            model: "claude-opus-5",
+            proposedAt: "2026-09-29",
+            inputKey: "v1-test",
+          },
+        }}
+      />,
+    );
+    expect(leaksIn(html)).toEqual([]);
+    expect(html).not.toContain("claude-opus-5");
   });
 });
 

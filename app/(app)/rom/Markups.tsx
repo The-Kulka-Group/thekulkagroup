@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import {
   grMethodOf,
   planFromStaffingChoices,
@@ -16,7 +17,14 @@ import type { MarkupOptions } from "@/lib/rom/markup";
 
 import { GrRateCard } from "./GrRateCard";
 import { ResourcePlanEditor } from "./ResourcePlanEditor";
-import { applyProposalToPlanForm, emptyPlanForm, planFormFrom, planFromForm, type PlanForm } from "./resource-plan-form";
+import {
+  applyProposalToPlanForm,
+  emptyPlanForm,
+  planFormFrom,
+  planFromForm,
+  type PlanForm,
+  type ScheduleView,
+} from "./resource-plan-form";
 
 import "./markups.css";
 
@@ -255,13 +263,20 @@ export function MarkupControls({
   form,
   onChange,
   disabled,
+  projectId,
+  schedule: initialSchedule,
 }: {
   options: MarkupOptions;
   form: MarkupForm;
   onChange: (form: MarkupForm) => void;
   disabled: boolean;
+  /** The project the proposed schedule is for (LA-1399). Without one, no weeks are proposed. */
+  projectId?: string;
+  /** The proposed schedule as the page opened it. `pending` asks for one once a plan shows. */
+  schedule?: ScheduleView;
 }) {
   const set = (patch: Partial<MarkupForm>) => onChange({ ...form, ...patch });
+  const schedule = useProposedSchedule(projectId, initialSchedule, form, onChange);
   const history = setupHistory(options.historyCounts, form.setup);
   const separate = form.setup === "separate";
   const perSf = form.method === "usd_per_gsf";
@@ -421,6 +436,7 @@ export function MarkupControls({
           disabled={disabled}
           lineName="General Requirements"
           kind="gr"
+          schedule={schedule}
         />
       ) : null}
 
@@ -432,6 +448,7 @@ export function MarkupControls({
           disabled={disabled}
           lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
           kind={separate || form.setup === "gc_only" ? "gc" : form.setup === "gr_only" ? "gr" : "both"}
+          schedule={schedule}
         />
       ) : null}
 
@@ -440,4 +457,59 @@ export function MarkupControls({
       ) : null}
     </section>
   );
+}
+
+/**
+ * LA-1399: the proposed schedule while a plan shows. A `pending` proposal is
+ * asked for once a plan is on screen; when it lands it fills the phases the
+ * estimator has not typed, on both plans, and the change runs like any other.
+ * A failure leaves the weeks blank and says why.
+ */
+function useProposedSchedule(
+  projectId: string | undefined,
+  initial: ScheduleView | undefined,
+  form: MarkupForm,
+  onChange: (form: MarkupForm) => void,
+): ScheduleView | undefined {
+  const [schedule, setSchedule] = useState<ScheduleView | undefined>(projectId ? initial : undefined);
+  const latest = useRef({ form, onChange });
+  useEffect(() => {
+    latest.current = { form, onChange };
+  });
+  const planShowing =
+    form.method === "allocated_resources" || (form.setup === "separate" && formGrMethod(form) === "allocated_resources");
+  const asking = projectId !== undefined && planShowing && schedule?.kind === "pending";
+
+  useEffect(() => {
+    if (!asking) return;
+    let cancelled = false;
+    (async () => {
+      let next: ScheduleView;
+      try {
+        const response = await fetch(`/api/rom/projects/${projectId}/schedule-proposal`, { method: "POST" });
+        const body = (await response.json().catch(() => ({}))) as { proposal?: ScheduleProposal; error?: string };
+        next =
+          response.ok && body.proposal
+            ? { kind: "ready", proposal: body.proposal }
+            : { kind: "failed", error: body.error ?? "The weeks could not be proposed. Enter them." };
+      } catch {
+        next = { kind: "failed", error: "The weeks could not be proposed. Enter them." };
+      }
+      if (cancelled) return;
+      setSchedule(next);
+      if (next.kind === "ready") {
+        // Only a change to the weeks is sent on, so asking again for a proposal
+        // already applied (the panel reopened) does not run the budget again.
+        const current = latest.current.form;
+        const applied = applyProposalToMarkupForm(current, next.proposal);
+        const weeksOf = (f: MarkupForm) => JSON.stringify([f.plan.weeks, f.plan.weeksFrom, f.grPlan.weeks, f.grPlan.weeksFrom]);
+        if (weeksOf(applied) !== weeksOf(current)) latest.current.onChange(applied);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [asking, projectId]);
+
+  return schedule;
 }

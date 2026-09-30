@@ -50,6 +50,8 @@ import {
 } from "./field-order";
 import { GuidedNewBudget } from "./GuidedNewBudget";
 import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } from "./LiveBudget";
+import type { ScheduleProposalState } from "@/lib/rom/schedule-proposal";
+
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
@@ -147,8 +149,14 @@ export function RomRunner({
   canonicalDivisions = [],
   derivedAssumptions = NO_DERIVED_ASSUMPTIONS,
   stageFacts = null,
+  scheduleProposal,
 }: {
   projectId?: string;
+  /**
+   * LA-1399: the proposed schedule as the page read it. `ready` opens the
+   * plan with it; `pending` asks for one once a plan shows.
+   */
+  scheduleProposal?: ScheduleProposalState;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
   markupOptions?: MarkupOptions;
   /** LA-1317: the project facts the Design and Engineering stage draws from. Null with no project. */
@@ -200,7 +208,9 @@ export function RomRunner({
   const [panel, setPanel] = useState<Panel | null>(() =>
     openNewOnLoad ? { kind: "new" } : openEditOnLoad && projectId ? { kind: "edit" } : null,
   );
-  const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, markupDefault));
+  const [form, setForm] = useState<MarkupForm>(() =>
+    initialMarkupForm(markupOptions, markupDefault, scheduleProposal?.kind === "ready" ? scheduleProposal.proposal : null),
+  );
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
   const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
   const [draft, setDraft] = useState<BudgetDraft | null>(null);
@@ -1069,6 +1079,8 @@ export function RomRunner({
                   form={form}
                   onChange={(value) => changeSettings({ form: value })}
                   disabled={state.phase === "loading"}
+                  projectId={projectId}
+                  schedule={scheduleProposal}
                 />
               ) : null}
               {settingsNote ? <p className="rb-pp">{settingsNote} Nothing saves until it does.</p> : null}

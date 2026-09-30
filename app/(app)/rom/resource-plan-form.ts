@@ -98,6 +98,15 @@ export const CONFIDENCE_LABEL: Record<ConfidenceFlag, string> = {
 };
 
 /**
+ * Where the proposed schedule stands on the screen (LA-1399): applied and
+ * shown, being asked for, or failed with words the screen shows.
+ */
+export type ScheduleView =
+  | { kind: "ready"; proposal: ScheduleProposal }
+  | { kind: "pending" }
+  | { kind: "failed"; error: string };
+
+/**
  * The plan with a schedule proposal applied (LA-1399). A phase the estimator
  * typed keeps its text; a blank or proposed phase takes the proposal's weeks,
  * or goes blank where the proposal leaves it blank.

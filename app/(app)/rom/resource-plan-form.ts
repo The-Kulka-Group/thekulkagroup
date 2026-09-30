@@ -4,9 +4,15 @@ import {
   proposedFigure,
   planFromStaffingChoices,
   priceResourcePlan,
+  resolveLineSwitch,
+  ruleById,
+  ruleForGroup,
   SCHEDULE_PHASES,
   type ConfidenceFlag,
   type FigureOrigin,
+  type LineRuleFacts,
+  type LineRuleId,
+  type LineSwitch,
   type PlanBasis,
   type PlanFigure,
   type PlanLine,
@@ -50,7 +56,27 @@ export type PlanLineForm = {
    * estimator has to enter one. A blank rate never prices as zero.
    */
   noCardRate?: boolean;
+  /**
+   * The rule that switches the line on and off (LA-1402, line-rules.ts). Only
+   * a line a rule governs has one; a line the estimator added has none.
+   */
+  ruleId?: LineRuleId;
+  /**
+   * The estimator's own switch. It wins over the rule until they reset it,
+   * and a line they switched off never comes back on by itself.
+   */
+  manual?: "on" | "off";
 };
+
+/** The answers the rules read besides the plan's schedule. Null where the estimator has not given one. */
+export type PlanAnswers = {
+  storiesAboveGrade: number | null;
+  grossSquareFeet: number | null;
+  /** YYYY-MM-DD. No screen asks for it yet. */
+  constructionStart?: string | null;
+};
+
+export const NO_ANSWERS: PlanAnswers = { storiesAboveGrade: null, grossSquareFeet: null };
 
 export type PlanForm = {
   weeks: Record<SchedulePhase, string>;
@@ -177,6 +203,8 @@ function lineForm(line: PlanLine): PlanLineForm {
     rateFrom: from(line.rate),
     daysFrom: from(line.basis === "time" ? line.daysPerWeek : undefined),
     weeksFrom: from(line.basis === "time" ? line.weeks : undefined),
+    ...(line.switch?.rule ? { ruleId: line.switch.rule } : {}),
+    ...(line.switch?.by === "estimator" ? { manual: line.switch.on ? ("on" as const) : ("off" as const) } : {}),
   };
 }
 
@@ -203,8 +231,33 @@ function number(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** What the rules read for this plan: the answers, and the construction weeks the plan carries. */
+export function ruleFactsOf(form: PlanForm, answers: PlanAnswers): LineRuleFacts {
+  const weeks = number(form.weeks.construction);
+  return {
+    storiesAboveGrade: answers.storiesAboveGrade,
+    grossSquareFeet: answers.grossSquareFeet,
+    constructionWeeks: weeks !== null && weeks > 0 ? weeks : null,
+    constructionStart: answers.constructionStart ?? null,
+  };
+}
+
+/**
+ * A line's switch as it stands (LA-1402): the estimator's own where they set
+ * one, otherwise its rule read against the answers and the schedule. Null for
+ * a line no rule governs and nobody switched, which always prices.
+ */
+export function switchOf(line: PlanLineForm, form: PlanForm, answers: PlanAnswers): LineSwitch | null {
+  const rule = line.ruleId ? ruleById(line.ruleId) : null;
+  const result = rule ? rule.evaluate(ruleFactsOf(form, answers)) : null;
+  return resolveLineSwitch(rule?.id ?? null, result, line.manual);
+}
+
 /** The plan the form describes, or what is wrong with it in words the screen shows. */
-export function planFromForm(form: PlanForm): { ok: true; plan: ResourcePlan } | { ok: false; error: string } {
+export function planFromForm(
+  form: PlanForm,
+  answers: PlanAnswers = NO_ANSWERS,
+): { ok: true; plan: ResourcePlan } | { ok: false; error: string } {
   const schedule = {} as ResourcePlan["schedule"];
   for (const phase of SCHEDULE_PHASES) {
     const weeks = number(form.weeks[phase]);
@@ -219,50 +272,56 @@ export function planFromForm(form: PlanForm): { ok: true; plan: ResourcePlan } |
   for (const line of form.lines) {
     const name = line.label.trim() || "A line";
     if (line.label.trim() === "") return { ok: false, error: "Give every line a name." };
+    const lineSwitch = switchOf(line, form, answers);
+    // A line that is off prices nothing, so it keeps what was typed and needs no more.
+    const off = lineSwitch !== null && !lineSwitch.on;
     const quantity = number(line.quantity);
-    if (quantity === null || !(quantity > 0)) return { ok: false, error: `${name} needs a quantity above zero.` };
+    if (!off && (quantity === null || !(quantity > 0))) return { ok: false, error: `${name} needs a quantity above zero.` };
     const rate = number(line.rate);
-    if (rate === null && line.noCardRate && line.rate.trim() === "") {
+    if (!off && rate === null && line.noCardRate && line.rate.trim() === "") {
       return { ok: false, error: `Enter a rate for ${name}. The rate card has none for it.` };
     }
-    if (rate === null || rate < 0) return { ok: false, error: `${name} needs a rate of 0 or more.` };
+    if (!off && (rate === null || rate < 0)) return { ok: false, error: `${name} needs a rate of 0 or more.` };
     const common = {
       id: line.id,
       label: line.label.trim(),
       group: line.group,
-      quantity: { value: quantity, ...line.quantityFrom },
-      rate: { value: rate, ...line.rateFrom },
+      quantity: { value: quantity !== null && quantity > 0 ? quantity : 0, ...line.quantityFrom },
+      rate: { value: rate !== null && rate >= 0 ? rate : 0, ...line.rateFrom },
+      ...(lineSwitch ? { switch: lineSwitch } : {}),
     };
     if (line.basis === "lump_sum") {
       lines.push({ ...common, basis: "lump_sum" });
       continue;
     }
     if (line.basis === "unit") {
-      if (line.unit.trim() === "") return { ok: false, error: `${name} needs a unit, such as SF or Each.` };
-      lines.push({ ...common, basis: "unit", unit: line.unit.trim() });
+      if (!off && line.unit.trim() === "") return { ok: false, error: `${name} needs a unit, such as SF or Each.` };
+      lines.push({ ...common, basis: "unit", unit: line.unit.trim() || "Each" });
       continue;
     }
     const weeks = number(line.weeks);
-    if (line.weeks.trim() !== "" && (weeks === null || weeks < 0)) {
+    if (!off && line.weeks.trim() !== "" && (weeks === null || weeks < 0)) {
       return { ok: false, error: `${name} needs its own weeks as 0 or more, or blank to use its phases.` };
     }
-    if (line.phases.length === 0 && weeks === null) {
+    const ownWeeks = weeks !== null && weeks >= 0;
+    const phases = SCHEDULE_PHASES.filter((phase) => line.phases.includes(phase));
+    if (!off && phases.length === 0 && !ownWeeks) {
       return { ok: false, error: `${name} needs at least one phase.` };
+    }
+    const days = number(line.daysPerWeek);
+    const daysOk = days !== null && days > 0 && days <= 7;
+    if (!off && line.per === "day" && !daysOk) {
+      return { ok: false, error: `${name} is priced per day, so it needs days per week from 1 to 7.` };
     }
     const timed: PlanLine = {
       ...common,
       basis: "time",
-      per: line.per,
-      phases: SCHEDULE_PHASES.filter((phase) => line.phases.includes(phase)),
-      ...(weeks !== null ? { weeks: { value: weeks, ...line.weeksFrom } } : {}),
+      // A line that is off and lacks what its basis needs is kept as a weekly line, unpriced.
+      per: off && line.per === "day" && !daysOk ? "week" : line.per,
+      phases: phases.length === 0 && !ownWeeks ? ["construction"] : phases,
+      ...(ownWeeks ? { weeks: { value: weeks as number, ...line.weeksFrom } } : {}),
     };
-    if (line.per === "day") {
-      const days = number(line.daysPerWeek);
-      if (days === null || !(days > 0 && days <= 7)) {
-        return { ok: false, error: `${name} is priced per day, so it needs days per week from 1 to 7.` };
-      }
-      timed.daysPerWeek = { value: days, ...line.daysFrom };
-    }
+    if (timed.per === "day") timed.daysPerWeek = { value: days as number, ...line.daysFrom };
     lines.push(timed);
   }
   return { ok: true, plan: { schedule, lines, confidence: form.confidence } };
@@ -273,8 +332,8 @@ export function planFromForm(form: PlanForm): { ok: true; plan: ResourcePlan } |
  * showing each line's amount as the estimator types; the run prices the plan
  * itself.
  */
-export function pricedPlanOf(form: PlanForm) {
-  const parsed = planFromForm(form);
+export function pricedPlanOf(form: PlanForm, answers: PlanAnswers = NO_ANSWERS) {
+  const parsed = planFromForm(form, answers);
   if (!parsed.ok) return null;
   try {
     return priceResourcePlan(parsed.plan);
@@ -392,4 +451,103 @@ export function originWords(figure: FigureFrom): string {
     case "estimator":
       return "the estimator";
   }
+}
+
+// ---- LA-1402: lines switched on and off by rule, or by hand -----------------
+
+/** The estimator's switch on one line. It wins over the line's rule until reset. */
+export function setLineSwitch(form: PlanForm, lineId: string, to: "on" | "off"): PlanForm {
+  return { ...form, lines: form.lines.map((line) => (line.id === lineId ? { ...line, manual: to } : line)) };
+}
+
+/** Puts one line back under its rule. A line with no rule goes back on. */
+export function resetLineSwitch(form: PlanForm, lineId: string): PlanForm {
+  return {
+    ...form,
+    lines: form.lines.map((line) => {
+      if (line.id !== lineId) return line;
+      const { manual: _manual, ...rest } = line;
+      return rest;
+    }),
+  };
+}
+
+/** Puts every line back under its rule. */
+export function resetAllLineSwitches(form: PlanForm): PlanForm {
+  return {
+    ...form,
+    lines: form.lines.map((line) => {
+      const { manual: _manual, ...rest } = line;
+      return rest;
+    }),
+  };
+}
+
+/**
+ * The lines a new General Requirements plan opens with, one rule each
+ * (LA-1402). They are General Requirements rate card rows a rule governs,
+ * chosen because each has a rate on the card and a natural count of one: one
+ * operator, one set of ductwork, one guard, one camera. Rows that price by
+ * area or need a count from the building wait for LA-1401. The quantity
+ * carries that, so it never reads as a measured figure.
+ *
+ * FOR MATT TO CONFIRM: which rows a plan opens with. The rate card is one
+ * warehouse job (C-00379), so this is a starting set, not Kulka's standard.
+ */
+export const RULE_SEED_ROWS: { section: string; item: string }[] = [
+  { section: "Hoists, Cranes & Scaffolding", item: "Materials Hoist - Equipment, Hoist Operator (O.E.) - Labor" },
+  { section: "Cold Weather Protection", item: "Heater Type: Indirect Heaters (Ducted), Heaters Required, Transportation (to & Fro)" },
+  {
+    section: "Cold Weather Protection",
+    item: "Temporary Heat & Prot. - Materials, Heater Type: Indirect Heaters (Ducted), Ductwork (Install & Remove)",
+  },
+  { section: "Security", item: "Security Guards" },
+  { section: "Site Controls", item: "Webcam - Video, Cameras" },
+  { section: "Site Controls", item: "Webcam - Video, Cellular Service" },
+];
+
+export const ONE_OF_EACH: FigureFrom = {
+  origin: "proposed",
+  ref: "one-of-each",
+  source: "One, until quantities come from the project's facts (LA-1401)",
+};
+
+/**
+ * A new General Requirements plan opened with the lines its rules switch. Only
+ * a plan with no lines is opened this way, so a plan the estimator built, or
+ * one saved before LA-1402, keeps exactly the lines it has. Each line follows
+ * its rule, and shows it, from the moment it opens.
+ */
+export function withRuleLines(form: PlanForm, rates: GrRate[]): PlanForm {
+  if (form.lines.length > 0) return form;
+  const lines: PlanLineForm[] = [];
+  for (const seed of RULE_SEED_ROWS) {
+    const rate = rates.find((one) => one.section === seed.section && one.item === seed.item);
+    if (!rate) continue;
+    const rule = ruleForGroup(rate.section);
+    if (!rule) continue;
+    for (const line of linesFromGrRate(rate.id, rates, [...form.lines, ...lines])) {
+      lines.push({ ...line, ruleId: rule.id, quantity: "1", quantityFrom: ONE_OF_EACH });
+    }
+  }
+  return lines.length === 0 ? form : { ...form, lines };
+}
+
+/** The answers the rules read, from New Budget's answers as they stand. A blank or non-numeric answer is null. */
+export function planAnswersFromResponses(responses: Readonly<Record<string, string | undefined>>): PlanAnswers {
+  const read = (key: string): number | null => {
+    const text = (responses[key] ?? "").trim();
+    if (text === "") return null;
+    const n = Number(text);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  return { storiesAboveGrade: read("stories_above_grade"), grossSquareFeet: read("gross_square_feet") };
+}
+
+/** The answers the rules read, from a saved project's facts. */
+export function planAnswersFromProject(facts: { stories: number | null; grossSquareFeet: number | null } | null | undefined): PlanAnswers {
+  return {
+    storiesAboveGrade: facts?.stories && facts.stories > 0 ? facts.stories : null,
+    grossSquareFeet: facts?.grossSquareFeet && facts.grossSquareFeet > 0 ? facts.grossSquareFeet : null,
+  };
 }

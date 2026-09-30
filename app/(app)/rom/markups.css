@@ -104,3 +104,12 @@
   color: var(--ink-2);
 }
 .plan-proposal-list li { padding: 2px 0; }
+
+/* LA-1402: a line switched off stays visible and does not price. */
+.plan-line--off .plan-line-fields,
+.plan-line--off .plan-phases {
+  opacity: 0.55;
+}
+.plan-line--off .plan-amount {
+  text-decoration: line-through;
+}

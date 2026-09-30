@@ -21,7 +21,10 @@ import {
   applyProposalToPlanForm,
   emptyPlanForm,
   planFormFrom,
+  NO_ANSWERS,
   planFromForm,
+  withRuleLines,
+  type PlanAnswers,
   type PlanForm,
   type ScheduleView,
 } from "./resource-plan-form";
@@ -153,7 +156,25 @@ export function initialMarkupForm(
     feePercent: percentText(saved?.feeRate ?? options?.feeRate?.value),
     insurancePercent: percentText(saved?.insuranceRate ?? options?.insuranceRate?.value),
   };
-  return proposal ? applyProposalToMarkupForm(form, proposal) : form;
+  return withRuleLinesOnForm(proposal ? applyProposalToMarkupForm(form, proposal) : form, options);
+}
+
+/**
+ * LA-1402: a General Requirements plan with no lines opens with the lines its
+ * rules switch. The plan that prices General Requirements is the separate
+ * one under Separate Lines, and the one plan under any setup that includes
+ * General Requirements. A plan that already has lines is left as it is.
+ */
+export function withRuleLinesOnForm(form: MarkupForm, options: MarkupOptions | undefined): MarkupForm {
+  const rates = options?.grRates ?? [];
+  if (rates.length === 0) return form;
+  if (form.setup === "separate") {
+    return formGrMethod(form) === "allocated_resources" ? { ...form, grPlan: withRuleLines(form.grPlan, rates) } : form;
+  }
+  if (form.setup !== "gc_only" && form.method === "allocated_resources") {
+    return { ...form, plan: withRuleLines(form.plan, rates) };
+  }
+  return form;
 }
 
 /**
@@ -190,6 +211,7 @@ function savedPlan(options: MarkupOptions | undefined, saved: MarkupChoices | nu
 export function markupChoicesFrom(
   form: MarkupForm,
   options: MarkupOptions | undefined,
+  answers: PlanAnswers = NO_ANSWERS,
 ): { ok: true; markups: MarkupChoices } | { ok: false; error: string } {
   const markups: MarkupChoices = { setup: form.setup, method: form.method };
 
@@ -231,7 +253,7 @@ export function markupChoicesFrom(
     const grMethod = formGrMethod(form);
     if (grMethod !== grMethodOf({ setup: "separate", method: form.method })) markups.grMethod = grMethod;
     if (grMethod === "allocated_resources") {
-      const plan = planFromForm(form.grPlan);
+      const plan = planFromForm(form.grPlan, answers);
       if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error.charAt(0).toLowerCase()}${plan.error.slice(1)}` };
       markups.grResourcePlan = plan.plan;
     }
@@ -250,7 +272,7 @@ export function markupChoicesFrom(
   }
 
   if (form.method === "allocated_resources") {
-    const plan = planFromForm(form.plan);
+    const plan = planFromForm(form.plan, answers);
     if (!plan.ok) return plan;
     markups.resourcePlan = plan.plan;
   }
@@ -265,6 +287,7 @@ export function MarkupControls({
   disabled,
   projectId,
   schedule: initialSchedule,
+  answers = NO_ANSWERS,
 }: {
   options: MarkupOptions;
   form: MarkupForm;
@@ -274,8 +297,10 @@ export function MarkupControls({
   projectId?: string;
   /** The proposed schedule as the page opened it. `pending` asks for one once a plan shows. */
   schedule?: ScheduleView;
+  /** LA-1402: the answers the line rules read, with the schedule's construction weeks. */
+  answers?: PlanAnswers;
 }) {
-  const set = (patch: Partial<MarkupForm>) => onChange({ ...form, ...patch });
+  const set = (patch: Partial<MarkupForm>) => onChange(withRuleLinesOnForm({ ...form, ...patch }, options));
   const schedule = useProposedSchedule(projectId, initialSchedule, form, onChange);
   const history = setupHistory(options.historyCounts, form.setup);
   const separate = form.setup === "separate";
@@ -437,6 +462,7 @@ export function MarkupControls({
           lineName="General Requirements"
           kind="gr"
           schedule={schedule}
+          answers={answers}
         />
       ) : null}
 
@@ -449,6 +475,7 @@ export function MarkupControls({
           lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
           kind={separate || form.setup === "gc_only" ? "gc" : form.setup === "gr_only" ? "gr" : "both"}
           schedule={schedule}
+          answers={answers}
         />
       ) : null}
 

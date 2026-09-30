@@ -28,9 +28,10 @@ import {
   missingRates,
   SETUPS,
   setupHistory,
+  withRuleLinesOnForm,
   type MarkupForm,
 } from "./Markups";
-import type { ScheduleView } from "./resource-plan-form";
+import { planAnswersFromResponses, type ScheduleView } from "./resource-plan-form";
 import "./scope.css";
 
 // LA-1225. New Budget is a setup card, then one question at a time. Matt
@@ -321,7 +322,7 @@ export function GuidedNewBudget({
   const named = name.trim() !== "";
   useEffect(() => {
     if (reachedMarkups && markupOptions) {
-      const parsed = markupChoicesFrom(markupForm, markupOptions);
+      const parsed = markupChoicesFrom(markupForm, markupOptions, planAnswersFromResponses(responses));
       if (parsed.ok) lastMarkups.current = parsed.markups;
     }
     const markups = reachedMarkups && markupOptions ? lastMarkups.current : null;
@@ -361,9 +362,9 @@ export function GuidedNewBudget({
   }
 
   /** The GRs/GCs choices to save or run with, once the estimator has reached them. */
-  function markupsFor(form: MarkupForm, reached: boolean): MarkupChoices | undefined {
+  function markupsFor(form: MarkupForm, reached: boolean, current: Responses): MarkupChoices | undefined {
     if (!reached || !markupOptions) return undefined;
-    const parsed = markupChoicesFrom(form, markupOptions);
+    const parsed = markupChoicesFrom(form, markupOptions, planAnswersFromResponses(current));
     return parsed.ok ? parsed.markups : undefined;
   }
 
@@ -373,7 +374,7 @@ export function GuidedNewBudget({
    */
   function persist(id: string, current: Responses, form: MarkupForm, reached: boolean) {
     setSaveState("saving");
-    const markups = markupsFor(form, reached);
+    const markups = markupsFor(form, reached, current);
     saveChain.current = saveChain.current
       .then(async () => {
         const [facts, answers] = await Promise.all([
@@ -425,7 +426,7 @@ export function GuidedNewBudget({
     setFinishFailed(false);
     try {
       await saveChain.current;
-      const markups = markupsFor(form, true);
+      const markups = markupsFor(form, true, current);
       const response = await fetch("/api/rom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -514,7 +515,7 @@ export function GuidedNewBudget({
 
   function pickMarkup(change: Partial<MarkupForm>) {
     if (busy) return;
-    const form = { ...markupForm, ...change };
+    const form = withRuleLinesOnForm({ ...markupForm, ...change }, markupOptions);
     setMarkupForm(form);
     setError(null);
     void advance(responses, form);
@@ -561,7 +562,7 @@ export function GuidedNewBudget({
       );
       return;
     }
-    const parsed = markupChoicesFrom(form, markupOptions);
+    const parsed = markupChoicesFrom(form, markupOptions, planAnswersFromResponses(responses));
     if (!parsed.ok) {
       setError(parsed.error);
       return;
@@ -896,6 +897,7 @@ export function GuidedNewBudget({
               disabled={busy}
               projectId={projectId ?? undefined}
               schedule={PENDING_SCHEDULE}
+              answers={planAnswersFromResponses(responses)}
             />
             <div className="rb-acts">
               <button className="btn btn--primary" type="button" onClick={submitMarkupDetail} disabled={busy}>

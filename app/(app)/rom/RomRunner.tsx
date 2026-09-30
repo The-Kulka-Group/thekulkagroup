@@ -53,6 +53,7 @@ import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } 
 import type { ScheduleProposalState } from "@/lib/rom/schedule-proposal";
 
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
+import { planAnswersFromProject } from "./resource-plan-form";
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
@@ -440,7 +441,7 @@ export function RomRunner({
     if (!projectId) return;
     // Without the options the page could not read the rate tables, so the
     // request names no markups and the run uses the recorded defaults.
-    const choices = markupOptions ? markupChoicesFrom(settings.form, markupOptions) : null;
+    const choices = markupOptions ? markupChoicesFrom(settings.form, markupOptions, planAnswersFromProject(stageFacts)) : null;
     if (choices && !choices.ok) {
       // A half-typed value saves nothing and records no run until it parses.
       if (auto) setSettingsNote(choices.error);
@@ -1081,6 +1082,7 @@ export function RomRunner({
                   disabled={state.phase === "loading"}
                   projectId={projectId}
                   schedule={scheduleProposal}
+                  answers={planAnswersFromProject(stageFacts)}
                 />
               ) : null}
               {settingsNote ? <p className="rb-pp">{settingsNote} Nothing saves until it does.</p> : null}

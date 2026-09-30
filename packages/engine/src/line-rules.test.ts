@@ -148,31 +148,32 @@ describe("which rule governs a group", () => {
 });
 
 describe("resolving a line's switch", () => {
+  const sw = (...args: Parameters<typeof resolveLineSwitch>) => resolveLineSwitch(...args)!;
   const on = { state: "on" as const, words: "On: 5 stories" };
   const off = { state: "off" as const, words: "Off: 1 story" };
   const unknown = { state: "unknown" as const, words: "Unknown: no stories" };
 
   it("follows the rule when the estimator has not touched the line", () => {
-    expect(resolveLineSwitch("hoisting", on, undefined)).toEqual({ on: true, by: "rule", rule: "hoisting", words: "On: 5 stories" });
-    expect(resolveLineSwitch("hoisting", off, undefined).on).toBe(false);
+    expect(sw("hoisting", on, undefined)).toEqual({ on: true, by: "rule", rule: "hoisting", words: "On: 5 stories" });
+    expect(sw("hoisting", off, undefined).on).toBe(false);
   });
   it("leaves an unknown line off and says it is the estimator's call", () => {
-    const one = resolveLineSwitch("hoisting", unknown, undefined);
+    const one = sw("hoisting", unknown, undefined);
     expect(one.on).toBe(false);
     expect(one.unknown).toBe(true);
   });
   it("lets a hand switch win over every rule result, and says so", () => {
     for (const result of [on, off, unknown]) {
-      expect(resolveLineSwitch("hoisting", result, "off").on).toBe(false);
-      expect(resolveLineSwitch("hoisting", result, "on").on).toBe(true);
+      expect(sw("hoisting", result, "off").on).toBe(false);
+      expect(sw("hoisting", result, "on").on).toBe(true);
     }
-    const one = resolveLineSwitch("hoisting", off, "on");
+    const one = sw("hoisting", off, "on");
     expect(one.by).toBe("estimator");
     expect(one.rule).toBe("hoisting");
     expect(one.words).toMatch(/switched on by the estimator/i);
   });
   it("switches a line no rule governs only by hand", () => {
     expect(resolveLineSwitch(null, null, undefined)).toBeNull();
-    expect(resolveLineSwitch(null, null, "off")).toMatchObject({ on: false, by: "estimator" });
+    expect(sw(null, null, "off")).toMatchObject({ on: false, by: "estimator" });
   });
 });

@@ -5,6 +5,7 @@ import {
   proposedFigure,
   SCHEDULE_PHASES,
   type ConfidenceFlag,
+  type LineSwitch,
   type PlanBasis,
   type SchedulePhase,
 } from "@kulka/engine";
@@ -21,12 +22,18 @@ import {
   grRateOptions,
   linesFromGrRate,
   linesFromRateCard,
+  NO_ANSWERS,
   originWords,
   PER_LABEL,
   PLAN_GROUPS,
   pricedPlanOf,
+  resetAllLineSwitches,
+  resetLineSwitch,
   resetPhaseToProposal,
+  setLineSwitch,
+  switchOf,
   TYPED,
+  type PlanAnswers,
   type PlanForm,
   type PlanLineForm,
   type ScheduleView,
@@ -64,6 +71,7 @@ export function ResourcePlanEditor({
   lineName,
   kind = "gc",
   schedule,
+  answers = NO_ANSWERS,
 }: {
   options: MarkupOptions;
   plan: PlanForm;
@@ -74,13 +82,16 @@ export function ResourcePlanEditor({
   kind?: PlanKind;
   /** The proposed schedule (LA-1399). Absent where no project is chosen yet. */
   schedule?: ScheduleView;
+  /** LA-1402: the answers the line rules read. The schedule's construction weeks come from the plan. */
+  answers?: PlanAnswers;
 }) {
   const proposal = schedule?.kind === "ready" ? schedule.proposal : null;
   const grSections = new Map(grRateOptions(options.grRates ?? []).map(({ section, rates }) => [section, rates]));
-  const priced = pricedPlanOf(plan);
+  const priced = pricedPlanOf(plan, answers);
   const amounts = new Map(priced?.lines.map((line) => [line.id, line.amount]) ?? []);
   const setLine = (index: number, patch: Partial<PlanLineForm>) =>
     onChange({ ...plan, lines: plan.lines.map((line, i) => (i === index ? { ...line, ...patch } : line)) });
+  const anyHandSwitch = plan.lines.some((line) => line.manual !== undefined);
   const setWeeks = (phase: SchedulePhase, value: string) =>
     onChange({ ...plan, weeks: { ...plan.weeks, [phase]: value }, weeksFrom: { ...plan.weeksFrom, [phase]: TYPED } });
 
@@ -141,6 +152,23 @@ export function ResourcePlanEditor({
         total carries the engine&rsquo;s range at the confidence picked here.
       </p>
 
+      {plan.lines.some((line) => line.ruleId) ? (
+        <p className="markup-note">
+          Some lines switch on or off from your answers and the schedule, and each says why. Switch any line by hand and
+          your choice stays until you reset it.{" "}
+          {anyHandSwitch ? (
+            <button
+              className="btn btn--quiet"
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(resetAllLineSwitches(plan))}
+            >
+              Reset All Lines to Their Rules
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+
       {groupsFor(kind, plan).map((group) => {
         const rows = plan.lines.map((line, index) => ({ line, index })).filter(({ line }) => line.group === group);
         return (
@@ -154,6 +182,9 @@ export function ResourcePlanEditor({
                   line={line}
                   amount={amounts.get(line.id)}
                   disabled={disabled}
+                  lineSwitch={switchOf(line, plan, answers)}
+                  onSwitch={(to) => onChange(setLineSwitch(plan, line.id, to))}
+                  onResetSwitch={() => onChange(resetLineSwitch(plan, line.id))}
                   onChange={(patch) => setLine(index, patch)}
                   onRemove={() => onChange({ ...plan, lines: plan.lines.filter((_, i) => i !== index) })}
                 />
@@ -243,12 +274,19 @@ function PlanLineRow({
   line,
   amount,
   disabled,
+  lineSwitch,
+  onSwitch,
+  onResetSwitch,
   onChange,
   onRemove,
 }: {
   line: PlanLineForm;
   amount: number | undefined;
   disabled: boolean;
+  /** LA-1402: whether the line prices and why. Null for a line no rule governs and nobody switched. */
+  lineSwitch: LineSwitch | null;
+  onSwitch: (to: "on" | "off") => void;
+  onResetSwitch: () => void;
   onChange: (patch: Partial<PlanLineForm>) => void;
   onRemove: () => void;
 }) {
@@ -260,7 +298,7 @@ function PlanLineRow({
     line.basis === "time" ? PER_LABEL[line.per] : line.basis === "unit" ? `Per ${line.unit.trim() || "Unit"}` : "Lump Sum";
 
   return (
-    <li className="plan-line">
+    <li className={`plan-line${lineSwitch && !lineSwitch.on ? " plan-line--off" : ""}`}>
       <div className="plan-line-head">
         <input
           className="input"
@@ -271,10 +309,32 @@ function PlanLineRow({
           onChange={(e) => onChange({ label: e.target.value })}
         />
         <span className="num plan-amount">{amount === undefined ? "" : DOLLARS.format(amount)}</span>
-        <button className="btn btn--redline" type="button" disabled={disabled} onClick={onRemove}>
-          Remove
-        </button>
+        {line.ruleId ? (
+          // A line a rule governs is switched, not removed, so its rule stays visible.
+          <button
+            className="btn"
+            type="button"
+            disabled={disabled}
+            onClick={() => onSwitch(lineSwitch?.on ? "off" : "on")}
+          >
+            {lineSwitch?.on ? "Switch Off" : "Switch On"}
+          </button>
+        ) : (
+          <button className="btn btn--redline" type="button" disabled={disabled} onClick={onRemove}>
+            Remove
+          </button>
+        )}
       </div>
+      {lineSwitch && (line.ruleId || line.manual) ? (
+        <p className="markup-note markup-note--inline plan-line-rule" data-state={lineSwitch.on ? "on" : "off"}>
+          {lineSwitch.words}.{" "}
+          {line.manual ? (
+            <button className="btn btn--quiet" type="button" disabled={disabled} onClick={onResetSwitch}>
+              {line.ruleId ? "Reset to Rule" : "Reset"}
+            </button>
+          ) : null}
+        </p>
+      ) : null}
       <div className="plan-line-fields">
         <label>
           <span className="field-label t-label">Basis</span>

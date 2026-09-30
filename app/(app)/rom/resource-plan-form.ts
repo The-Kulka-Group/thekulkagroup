@@ -1,5 +1,7 @@
 import {
+  applyScheduleProposal,
   PHASE_LABEL,
+  proposedFigure,
   planFromStaffingChoices,
   priceResourcePlan,
   SCHEDULE_PHASES,
@@ -9,6 +11,7 @@ import {
   type PlanFigure,
   type PlanLine,
   type ResourcePlan,
+  type ScheduleProposal,
   type SchedulePhase,
 } from "@kulka/engine";
 
@@ -93,6 +96,39 @@ export const CONFIDENCE_LABEL: Record<ConfidenceFlag, string> = {
   medium: "Medium Confidence",
   low: "Low Confidence",
 };
+
+/**
+ * The plan with a schedule proposal applied (LA-1399). A phase the estimator
+ * typed keeps its text; a blank or proposed phase takes the proposal's weeks,
+ * or goes blank where the proposal leaves it blank.
+ */
+export function applyProposalToPlanForm(form: PlanForm, proposal: ScheduleProposal): PlanForm {
+  const current = {} as Record<SchedulePhase, PlanFigure | null>;
+  for (const phase of SCHEDULE_PHASES) {
+    const typed = form.weeks[phase].trim();
+    current[phase] = typed === "" ? null : { value: Number(typed), ...form.weeksFrom[phase] };
+  }
+  const applied = applyScheduleProposal(current, proposal);
+  const weeks = { ...form.weeks };
+  const weeksFrom = { ...form.weeksFrom };
+  for (const phase of SCHEDULE_PHASES) {
+    if (applied[phase] === current[phase] && current[phase] !== null) continue;
+    const figure = applied[phase];
+    weeks[phase] = figure ? String(figure.value) : "";
+    weeksFrom[phase] = figure ? from(figure) : TYPED;
+  }
+  return { ...form, weeks, weeksFrom };
+}
+
+/** One phase put back to the proposal's weeks, or blank where the proposal has none. */
+export function resetPhaseToProposal(form: PlanForm, phase: SchedulePhase, proposal: ScheduleProposal): PlanForm {
+  const figure = proposedFigure(proposal, phase);
+  return {
+    ...form,
+    weeks: { ...form.weeks, [phase]: figure ? String(figure.value) : "" },
+    weeksFrom: { ...form.weeksFrom, [phase]: figure ? from(figure) : TYPED },
+  };
+}
 
 /** A plan with no weeks typed and no lines, the way Allocated Resources starts until LA-1399 and LA-1400 propose one. */
 export function emptyPlanForm(): PlanForm {

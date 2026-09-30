@@ -8,6 +8,7 @@ import {
   type MarkupChoices,
   type MarkupMethod,
   type MarkupSetup,
+  type ScheduleProposal,
 } from "@kulka/engine";
 
 import { personName } from "@/lib/format/person-name";
@@ -15,7 +16,7 @@ import type { MarkupOptions } from "@/lib/rom/markup";
 
 import { GrRateCard } from "./GrRateCard";
 import { ResourcePlanEditor } from "./ResourcePlanEditor";
-import { emptyPlanForm, planFormFrom, planFromForm, type PlanForm } from "./resource-plan-form";
+import { applyProposalToPlanForm, emptyPlanForm, planFormFrom, planFromForm, type PlanForm } from "./resource-plan-form";
 
 import "./markups.css";
 
@@ -123,9 +124,13 @@ function percentText(fraction: number | undefined | null): string {
  * project nobody has run with a saved choice yet (`saved` null) opens exactly
  * as it always has.
  */
-export function initialMarkupForm(options: MarkupOptions | undefined, saved?: MarkupChoices | null): MarkupForm {
+export function initialMarkupForm(
+  options: MarkupOptions | undefined,
+  saved?: MarkupChoices | null,
+  proposal?: ScheduleProposal | null,
+): MarkupForm {
   const savedGrMethod = saved ? grMethodOf(saved) : "pct_of_subtotal";
-  return {
+  const form: MarkupForm = {
     setup: saved?.setup ?? "both",
     // LA-1397: a choice saved under the retired Staffing and Duration method
     // opens as the equivalent Allocated Resources plan.
@@ -139,6 +144,20 @@ export function initialMarkupForm(options: MarkupOptions | undefined, saved?: Ma
     grPlan: saved?.grResourcePlan ? planFormFrom(saved.grResourcePlan) : emptyPlanForm(),
     feePercent: percentText(saved?.feeRate ?? options?.feeRate?.value),
     insurancePercent: percentText(saved?.insuranceRate ?? options?.insuranceRate?.value),
+  };
+  return proposal ? applyProposalToMarkupForm(form, proposal) : form;
+}
+
+/**
+ * LA-1399: the proposed schedule on both plans the form holds, General
+ * Conditions' (or the combined line's) and General Requirements' own. Phases
+ * the estimator typed are kept.
+ */
+export function applyProposalToMarkupForm(form: MarkupForm, proposal: ScheduleProposal): MarkupForm {
+  return {
+    ...form,
+    plan: applyProposalToPlanForm(form.plan, proposal),
+    grPlan: applyProposalToPlanForm(form.grPlan, proposal),
   };
 }
 

@@ -3,8 +3,18 @@ import { describe, expect, it } from "vitest";
 import type { GrRate } from "@/lib/rom/gr-rates";
 import type { MarkupOptions } from "@/lib/rom/markup";
 
-import { initialMarkupForm, markupChoicesFrom, METHODS, missingRates, setupHistory, type MarkupForm } from "./Markups";
-import { grRateOptions, linesFromGrRate, linesFromRateCard, TYPED } from "./resource-plan-form";
+import type { ScheduleProposal } from "@kulka/engine";
+
+import {
+  applyProposalToMarkupForm,
+  initialMarkupForm,
+  markupChoicesFrom,
+  METHODS,
+  missingRates,
+  setupHistory,
+  type MarkupForm,
+} from "./Markups";
+import { grRateOptions, linesFromGrRate, linesFromRateCard, resetPhaseToProposal, TYPED } from "./resource-plan-form";
 
 // LA-1383: the Run Settings form with General Requirements and General
 // Conditions carried as two lines. Counts and rates are synthetic.
@@ -294,5 +304,86 @@ describe("the GRs/GCs form, General Requirements by Allocated Resources", () => 
   it("names the General Requirements plan in its errors", () => {
     const form = { ...initialMarkupForm(rates), setup: "separate" as const, overridePercent: "8", grMethod: "allocated_resources" as const, grPlan: { ...grPlan(), lines: [] } };
     expect(markupChoicesFrom(form, rates)).toEqual({ ok: false, error: "General Requirements: add at least one line to the plan." });
+  });
+});
+
+// LA-1399: the proposed schedule opens on the plan as a planning assumption.
+// The proposal is shaped like one the engine saves; its job is synthetic.
+describe("the GRs/GCs form, the proposed schedule", () => {
+  const rates: MarkupOptions = {
+    ...options,
+    staffingRates: [
+      { id: "s-spm", role: "Sr. Project Manager", daysPerWeek: 2, weeklyRateLow: 2600, weeklyRateHigh: 2615.2, sourceEstimate: "C-00379" },
+    ],
+  };
+  const proposed = (weeks: number | null) => ({ weeks, jobNumbers: weeks === null ? [] : ["TEST-0001"], reason: "Scaled." });
+  const proposal: ScheduleProposal = {
+    status: "proposed",
+    phases: { precon: proposed(12), construction: proposed(62), closeout: proposed(8) },
+    jobs: [{ jobNumber: "TEST-0001", name: "Synthetic Test Job", why: "Same type." }],
+    reasoning: "One close job.",
+    model: "claude-opus-5",
+    proposedAt: "2026-09-29",
+    inputKey: "v1-test",
+  };
+  const blank: ScheduleProposal = {
+    ...proposal,
+    status: "no_jobs",
+    phases: { precon: proposed(null), construction: proposed(null), closeout: proposed(null) },
+    jobs: [],
+  };
+  const withLine = (form: MarkupForm): MarkupForm => ({
+    ...form,
+    method: "allocated_resources",
+    plan: { ...form.plan, lines: linesFromRateCard("staff", "s-spm", rates, []) },
+  });
+
+  it("opens a new plan with the proposed weeks and sends them as proposed, naming the jobs", () => {
+    const form = withLine(initialMarkupForm(rates, null, proposal));
+    expect(form.plan.weeks).toEqual({ precon: "12", construction: "62", closeout: "8" });
+    const sent = markupChoicesFrom(form, rates);
+    expect(sent.ok && sent.markups.resourcePlan?.schedule.construction).toEqual({
+      value: 62,
+      origin: "proposed",
+      ref: "schedule-proposal",
+      source: "Planning assumption from completed job TEST-0001",
+    });
+  });
+
+  it("fills General Requirements' own plan too", () => {
+    const form = initialMarkupForm(rates, null, proposal);
+    expect(form.grPlan.weeks).toEqual({ precon: "12", construction: "62", closeout: "8" });
+  });
+
+  it("leaves the weeks blank when nothing could be compared, so the plan waits for the estimator", () => {
+    const form = withLine(initialMarkupForm(rates, null, blank));
+    expect(form.plan.weeks).toEqual({ precon: "", construction: "", closeout: "" });
+    expect(markupChoicesFrom(form, rates)).toMatchObject({ ok: false, error: expect.stringMatching(/Enter Precon weeks/) });
+  });
+
+  it("keeps a phase the estimator changed through a save and a new proposal, and resets it on request", () => {
+    const form = withLine(initialMarkupForm(rates, null, proposal));
+    const edited: MarkupForm = {
+      ...form,
+      plan: { ...form.plan, weeks: { ...form.plan.weeks, construction: "70" }, weeksFrom: { ...form.plan.weeksFrom, construction: TYPED } },
+    };
+    const sent = markupChoicesFrom(edited, rates);
+    if (!sent.ok) throw new Error(sent.error);
+    // Reopened from the project's saved choice, with a newer proposal.
+    const newer: ScheduleProposal = { ...proposal, phases: { ...proposal.phases, precon: proposed(14), construction: proposed(64) } };
+    const reopened = initialMarkupForm(rates, sent.markups, newer);
+    expect(reopened.plan.weeks).toEqual({ precon: "14", construction: "70", closeout: "8" });
+    expect(reopened.plan.weeksFrom.construction).toEqual(TYPED);
+
+    const reset = resetPhaseToProposal(reopened.plan, "construction", newer);
+    expect(reset.weeks.construction).toBe("64");
+    expect(reset.weeksFrom.construction).toMatchObject({ origin: "proposed" });
+  });
+
+  it("applies a proposal that arrives after the form opened, without touching typed phases", () => {
+    const form = withLine(initialMarkupForm(rates, null));
+    const typed: MarkupForm = { ...form, plan: { ...form.plan, weeks: { ...form.plan.weeks, precon: "0" } } };
+    const applied = applyProposalToMarkupForm(typed, proposal);
+    expect(applied.plan.weeks).toEqual({ precon: "0", construction: "62", closeout: "8" });
   });
 });

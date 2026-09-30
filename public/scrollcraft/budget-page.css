@@ -403,6 +403,8 @@ h2 + .lede { margin-top: 12px; }
   .receipt__lines li.is-new a { animation: none; }
   .scope__row:hover { background: none; }
   .strip { display: none; }
+  /* A transition still running when print media switches on would print half-faded. */
+  *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
 /* ---------- LA-1418: what the app adds to the reference page ---------- */

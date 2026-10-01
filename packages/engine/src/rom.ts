@@ -704,6 +704,11 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       fieldOfficeRates: snapshot.fieldOfficeRates ?? [],
       feeParameter: snapshot.parameters["fee.rate"],
       insuranceParameter: snapshot.parameters["insurance.rate"],
+      spreadParameters: {
+        high: snapshot.parameters["spread.high"],
+        medium: snapshot.parameters["spread.medium"],
+        low: snapshot.parameters["spread.low"],
+      },
     });
     assumptions.push(...rom.markups.assumptions);
   }

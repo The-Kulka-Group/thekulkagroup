@@ -10,7 +10,8 @@
 // provenance, or a figure the user typed. Where none of those exists, the
 // GRs/GCs line is TBD and sits outside the total rather than being guessed.
 
-import type { EngineParameter } from "./rom";
+import { priceResourcePlan, type PricedPlan, type ResourcePlan } from "./resource-plan";
+import type { ConfidenceFlag, EngineParameter } from "./rom";
 
 /**
  * How a budget files General Requirements and General Conditions. "both" is
@@ -29,11 +30,23 @@ export type MarkupHistorySetup = Exclude<MarkupSetup, "separate">;
 
 /**
  * How the GRs/GCs line is priced. `pct_of_subtotal` and `usd_per_gsf` read a
- * rate learned from imported budgets; `staffing_duration` prices a staffing
- * plan and field-office items the user picks over a job duration, because
- * general conditions are the costs that keep running when a job runs long.
+ * rate learned from imported budgets. `allocated_resources` (LA-1397) prices a
+ * line-by-line plan over a phased schedule (resource-plan.ts).
+ *
+ * `staffing_duration` (LA-1016) is retired: nothing offers it, and a project
+ * that saved it opens as the equivalent plan. The engine still prices it so a
+ * run recorded under it prices exactly as it was recorded.
  */
-export type MarkupMethod = "pct_of_subtotal" | "usd_per_gsf" | "staffing_duration";
+export type MarkupMethod = "pct_of_subtotal" | "usd_per_gsf" | "allocated_resources" | "staffing_duration";
+
+/**
+ * How General Requirements prices on its own line under the "separate" setup
+ * (LA-1398): from history or the user's rate, as a percent of the subtotal or
+ * dollars per GSF, or by its own Allocated Resources plan.
+ */
+export type GrMethod = "pct_of_subtotal" | "usd_per_gsf" | "allocated_resources";
+
+export const GR_METHODS: readonly GrMethod[] = ["pct_of_subtotal", "usd_per_gsf", "allocated_resources"];
 
 export type StaffPick = {
   /** A gc_staffing_rates row id. */
@@ -67,7 +80,21 @@ export type MarkupChoices = {
    * Requirements prices as a percent of subtotal beside them.
    */
   grOverrideRate?: number;
-  /** Job duration in weeks. Required by `staffing_duration`. */
+  /**
+   * General Requirements' own method when the setup is "separate" (LA-1398).
+   * Absent, it follows the rule every run before LA-1398 priced by: dollars
+   * per GSF when `method` is `usd_per_gsf`, a percent of subtotal otherwise.
+   * See `grMethodOf`.
+   */
+  grMethod?: GrMethod;
+  /** The plan General Requirements prices by when `grMethod` is `allocated_resources`. */
+  grResourcePlan?: ResourcePlan;
+  /**
+   * The plan `allocated_resources` prices: the GRs/GCs line, or General
+   * Conditions alone when the setup is "separate".
+   */
+  resourcePlan?: ResourcePlan;
+  /** Job duration in weeks. Required by `staffing_duration`, which only stored runs carry. */
   durationWeeks?: number;
   staff?: StaffPick[];
   fieldOffice?: FieldOfficePick[];
@@ -138,7 +165,9 @@ export type MarkupLine = {
   /** True when nothing stands behind the line, so it sits outside the total. */
   tbd: boolean;
   /** Which kind of figure priced the line. */
-  source: "trade" | "history" | "override" | "staffing" | "parameter" | "none" | "total";
+  source: "trade" | "history" | "override" | "staffing" | "allocated" | "parameter" | "none" | "total";
+  /** The priced plan behind the line, when Allocated Resources priced it. */
+  plan?: PricedPlan;
 };
 
 export type Markups = {
@@ -174,6 +203,11 @@ export type MarkupInputs = {
   fieldOfficeRates: FieldOfficeRate[];
   feeParameter: EngineParameter | undefined;
   insuranceParameter: EngineParameter | undefined;
+  /**
+   * The engine's range at each confidence, for a plan priced by Allocated
+   * Resources: its total ± the spread at the plan's confidence.
+   */
+  spreadParameters?: Partial<Record<ConfidenceFlag, EngineParameter>>;
 };
 
 export const SETUP_LABEL: Record<MarkupSetup, string> = {
@@ -186,7 +220,16 @@ export const SETUP_LABEL: Record<MarkupSetup, string> = {
 /** ADR 0004: General Requirements is MasterFormat Division 01. */
 export const GENERAL_REQUIREMENTS_CODE = "01 00 00";
 
-const METHODS: readonly MarkupMethod[] = ["pct_of_subtotal", "usd_per_gsf", "staffing_duration"];
+/**
+ * How General Requirements prices under the "separate" setup: its own method
+ * when the choices name one, otherwise the rule runs before LA-1398 priced by,
+ * so a stored run prices exactly as it was recorded.
+ */
+export function grMethodOf(choices: MarkupChoices): GrMethod {
+  return choices.grMethod ?? (choices.method === "usd_per_gsf" ? "usd_per_gsf" : "pct_of_subtotal");
+}
+
+const METHODS: readonly MarkupMethod[] = ["pct_of_subtotal", "usd_per_gsf", "allocated_resources", "staffing_duration"];
 const SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_only", "separate"];
 
 /**
@@ -220,7 +263,7 @@ export function computeMarkups(inputs: MarkupInputs): Markups {
   };
 
   const separate = choices.setup === "separate";
-  const generalRequirements = separate ? priceGeneralRequirements(inputs) : undefined;
+  const generalRequirements = separate ? priceGeneralRequirements(inputs, assumptions) : undefined;
   const gr = generalRequirements && !generalRequirements.tbd ? generalRequirements : { low: 0, high: 0 };
   // ADR 0004: trade cost includes General Requirements, and every 90-series
   // item computes on top of it, so a split budget's General Conditions rates
@@ -308,12 +351,30 @@ function validateChoices(choices: MarkupChoices): void {
   if (choices.method === "pct_of_subtotal" && choices.overrideRate !== undefined && !(choices.overrideRate < 1)) {
     throw new Error("A GRs/GCs percent override must be a fraction below one.");
   }
+  if (choices.method === "allocated_resources" && !choices.resourcePlan) {
+    throw new Error("The Allocated Resources method needs a resource plan.");
+  }
+  if (choices.grMethod !== undefined || choices.grResourcePlan !== undefined) {
+    if (choices.setup !== "separate") {
+      throw new Error("A General Requirements method applies only when the two lines are carried separately.");
+    }
+    if (choices.grMethod !== undefined && !GR_METHODS.includes(choices.grMethod)) {
+      throw new Error(`Unknown General Requirements method "${choices.grMethod}".`);
+    }
+  }
+  const grMethod = grMethodOf(choices);
+  if (choices.setup === "separate" && grMethod === "allocated_resources" && !choices.grResourcePlan) {
+    throw new Error("General Requirements priced by Allocated Resources needs a General Requirements plan.");
+  }
   if (choices.grOverrideRate !== undefined) {
     if (choices.setup !== "separate") {
       throw new Error("A General Requirements rate applies only when the two lines are carried separately.");
     }
+    if (grMethod === "allocated_resources") {
+      throw new Error("A General Requirements rate does not apply when its plan prices it.");
+    }
     if (!(choices.grOverrideRate > 0)) throw new Error("A General Requirements override rate must be above zero.");
-    if (choices.method !== "usd_per_gsf" && !(choices.grOverrideRate < 1)) {
+    if (grMethod !== "usd_per_gsf" && !(choices.grOverrideRate < 1)) {
       throw new Error("A General Requirements percent override must be a fraction below one.");
     }
   }
@@ -376,6 +437,9 @@ function priceGeneralConditions(inputs: MarkupInputs, base: Range, assumptions: 
   const tbd = (basis: string): MarkupLine => line({ low: 0, high: 0, basis, tbd: true, source: "none" });
 
   if (choices.method === "staffing_duration") return priceStaffing(inputs, line, tbd, assumptions);
+  if (choices.method === "allocated_resources") {
+    return priceAllocated(choices.resourcePlan!, inputs.spreadParameters, line, tbd, assumptions);
+  }
 
   // A split budget's General Conditions reads the budgets that record General
   // Conditions on its own line; it never divides a combined figure (ADR 0004).
@@ -385,19 +449,22 @@ function priceGeneralConditions(inputs: MarkupInputs, base: Range, assumptions: 
 
 /**
  * General Requirements on its own line, for the "separate" setup. It prices
- * from the budgets that record General Requirements alone, or the user's own
- * rate, as a percent of the subtotal or dollars per GSF. Staffing and field
- * office price General Conditions, so under that method General Requirements
- * prices as a percent of subtotal.
+ * by its own method (LA-1398): its own Allocated Resources plan, or from the
+ * budgets that record General Requirements alone, or the user's own rate, as
+ * a percent of the subtotal or dollars per GSF. `grMethodOf` keeps runs
+ * recorded before LA-1398 pricing as they were.
  */
-function priceGeneralRequirements(inputs: MarkupInputs): MarkupLine {
+function priceGeneralRequirements(inputs: MarkupInputs, assumptions: string[]): MarkupLine {
   const line = (over: Omit<MarkupLine, "code" | "label">): MarkupLine => ({
     code: GENERAL_REQUIREMENTS_CODE,
     label: SETUP_LABEL.gr_only,
     ...over,
   });
   const tbd = (basis: string): MarkupLine => line({ low: 0, high: 0, basis, tbd: true, source: "none" });
-  const method = inputs.choices.method === "usd_per_gsf" ? "usd_per_gsf" : "pct_of_subtotal";
+  const method = grMethodOf(inputs.choices);
+  if (method === "allocated_resources") {
+    return priceAllocated(inputs.choices.grResourcePlan!, inputs.spreadParameters, line, tbd, assumptions);
+  }
   return priceFromHistory(
     { ...inputs, choices: { ...inputs.choices, method } },
     "gr_only",
@@ -471,6 +538,54 @@ function priceFromHistory(
     basis: `${perSf(rate)}/GSF × ${area(inputs.grossSquareFeet)} GSF, ${from}`,
     tbd: false,
     source: "history",
+  });
+}
+
+/**
+ * A line priced by Allocated Resources (LA-1397): the plan's total, with a
+ * range at the plan's confidence, the same spread the engine puts on a trade
+ * line at that confidence. The total does not move with the subtotal.
+ */
+function priceAllocated(
+  plan: ResourcePlan,
+  spreads: MarkupInputs["spreadParameters"],
+  line: (over: Omit<MarkupLine, "code" | "label">) => MarkupLine,
+  tbd: (basis: string) => MarkupLine,
+  assumptions: string[],
+): MarkupLine {
+  if (plan.lines.length === 0) return tbd("No line was added to the Allocated Resources plan");
+  const priced = priceResourcePlan(plan);
+  // A plan whose lines are all switched off prices nothing. That is a "don't
+  // know", not a zero, so the line stays out of the total.
+  if (priced.lines.length === 0) return tbd("Every line of the Allocated Resources plan is switched off");
+  const spread = spreads?.[plan.confidence];
+  if (!spread || !Number.isFinite(spread.value)) {
+    throw new Error(
+      `No engine parameter "spread.${plan.confidence}" is recorded, so the engine cannot run. Record one with its provenance.`,
+    );
+  }
+  if (!(spread.value >= 0 && spread.value < 1)) {
+    throw new Error(`Engine parameter "spread.${plan.confidence}" must be a fraction from zero up to one.`);
+  }
+
+  const phases = (["precon", "construction", "closeout"] as const).filter((phase) => priced.weeks[phase] > 0);
+  const totalWeeks = phases.reduce((sum, phase) => sum + priced.weeks[phase], 0);
+  const sources = [...new Set(priced.lines.flatMap((one) => (one.rate.source ? [one.rate.source] : [])))].sort();
+  const months = priced.lines.some((one) => one.basisWords.includes("/month"));
+  const monthWords =
+    "Allocated Resources prices monthly lines at 30.42 days a month, the conversion Kulka's own General Conditions sheet uses.";
+  if (months && !assumptions.includes(monthWords)) assumptions.push(monthWords);
+
+  return line({
+    low: Math.round(priced.exactTotal * (1 - spread.value)),
+    high: Math.round(priced.exactTotal * (1 + spread.value)),
+    basis:
+      `Allocated Resources, ${countWords(priced.lines.length, "line")} over ${round2Words(totalWeeks)} weeks, ` +
+      `${formatDollars(priced.total)} at ${plan.confidence} confidence (± ${percentWhole(spread.value)})` +
+      (sources.length > 0 ? `, rates from ${sources.join(", ")} and the estimator` : ", rates from the estimator"),
+    tbd: false,
+    source: "allocated",
+    plan: priced,
   });
 }
 
@@ -577,6 +692,18 @@ function perSf(value: number): string {
 
 function area(value: number): string {
   return value.toLocaleString("en-US");
+}
+
+function round2Words(value: number): string {
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+function formatDollars(value: number): string {
+  return value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
+
+function percentWhole(fraction: number): string {
+  return `${Number((fraction * 100).toFixed(2))}%`;
 }
 
 function round2(value: number): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import type { Rom } from "@kulka/engine";
 
@@ -189,6 +189,19 @@ export function LedgerView({
     </div>
   );
 
+  // LA-1398: an Allocated Resources plan's lines, under the markup row they price.
+  const planRow = (key: string, label: string, amount: number) => (
+    <div key={key} className="lg-row lg-sum lg-child lg-plan">
+      <span className="lg-div" />
+      <span className="lg-name">{titleCase(label)}</span>
+      <span className="lg-amt num">{money(amount)}</span>
+      <span className="lg-psf num">{perSf(amount)}</span>
+      <span className="lg-pct num">{pct(amount, total)}</span>
+      <span className="lg-bar" />
+      <span className="lg-src" />
+    </div>
+  );
+
   return (
     <div className={`lg${anyLit ? " lg--hl" : ""}`} role="table" aria-label="Schedule of Values">
       <div className="lg-row lg-cols" role="row">
@@ -202,7 +215,12 @@ export function LedgerView({
       </div>
       {ordered(ledger.trade).map(row)}
       {sumRow("trade", "Trade Cost", trade, false)}
-      {markupRows(rom).map((markup) => sumRow(markup.key, markup.label, markup.amount))}
+      {markupRows(rom).map((markup) => (
+        <Fragment key={markup.key}>
+          {sumRow(markup.key, markup.label, markup.amount)}
+          {markup.lines?.map((line) => planRow(line.key, line.label, line.amount))}
+        </Fragment>
+      ))}
       {ledger.ownerDirect.length > 0 ? (
         <>
           <div className="lg-row lg-cap">

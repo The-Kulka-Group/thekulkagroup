@@ -1,7 +1,11 @@
 import {
   DEFAULT_MARKUP_CHOICES,
+  GR_METHODS,
+  grMethodOf,
+  planFromStaffingChoices,
   type EngineParameter,
   type FieldOfficeRate,
+  type GrMethod,
   type MarkupChoices,
   type MarkupHistoryRow,
   type MarkupHistorySetup,
@@ -11,9 +15,9 @@ import {
 } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
-import { isUuid } from "@/lib/uuid";
 
 import { toDateOnly, toIso } from "./date";
+import { readGrRates, type GrRate } from "./gr-rates";
 import {
   CostImportAlreadyApproved,
   CostImportLineNotFound,
@@ -22,6 +26,7 @@ import {
   type LineStatus,
   type StagedLine,
 } from "./ingest";
+import { parseResourcePlan, unpriceableRateError } from "./resource-plan";
 
 // GRs/GCs, fee, and insurance below the ROM subtotal (LA-1016). This file owns
 // the database side: routing an imported line to markup_history, reading the
@@ -35,11 +40,24 @@ export const MARKUP_SETUPS: readonly MarkupSetup[] = ["both", "gc_only", "gr_onl
  * two lines records one of each, so "separate" is not among them (LA-1383).
  */
 export const MARKUP_HISTORY_SETUPS: readonly MarkupHistorySetup[] = ["both", "gc_only", "gr_only"];
+/**
+ * The methods a new ROM request or a project save may name. Staffing and
+ * Duration is retired (LA-1397): a run recorded under it still prices as
+ * recorded, and a project that saved it opens as the equivalent plan, but
+ * nothing new is priced by it.
+ */
 export const MARKUP_METHODS: readonly MarkupMethod[] = [
   "pct_of_subtotal",
   "usd_per_gsf",
-  "staffing_duration",
+  "allocated_resources",
 ];
+
+/** The other half of a split budget, for the two setups that can be one (LA-1389). */
+const SPLIT_PARTNER: Record<MarkupHistorySetup, MarkupHistorySetup | null> = {
+  both: null,
+  gc_only: "gr_only",
+  gr_only: "gc_only",
+};
 
 /** The line is already approved, excluded, or routed, or has no value, so it cannot become a GRs/GCs figure. */
 export class LineNotRoutable extends Error {
@@ -70,6 +88,24 @@ export class MarkupHistoryExists extends Error {
   ) {
     super(`Project ${projectId} already has a GRs/GCs figure recorded for setup "${setup}".`);
     this.name = "MarkupHistoryExists";
+  }
+}
+
+/**
+ * The project's other General Requirements or General Conditions line was
+ * routed from a different import. A split budget's General Conditions is
+ * measured over that import's trade cost plus its own General Requirements
+ * (LA-1389), so the two lines have to come from the same file.
+ */
+export class MarkupSplitAcrossImports extends Error {
+  constructor(
+    readonly projectId: string,
+    readonly setup: MarkupHistorySetup,
+  ) {
+    super(
+      `Project ${projectId} already has ${setup === "gc_only" ? "General Requirements" : "General Conditions"} recorded from a different import. Route both lines of a split budget from the same import.`,
+    );
+    this.name = "MarkupSplitAcrossImports";
   }
 }
 
@@ -124,6 +160,16 @@ function toRecord(row: HistoryRow): MarkupHistoryRecord {
  * trade lines: 'approved' lines once the import is approved, 'staged' lines
  * before. Owner-direct lines stay out of that sum, because CONTEXT.md keeps
  * owner-direct scope out of Kulka's General Conditions benchmarks.
+ *
+ * A split budget records one gr_only and one gc_only line for the same
+ * project (LA-1389). ADR 0004 charges General Conditions on trade cost
+ * including General Requirements, so General Conditions is measured on that
+ * same base: its value over the trade subtotal plus the General Requirements
+ * line. General Requirements stays its value over the trade subtotal. Both
+ * leave the other line out of the trade subtotal. Whichever line is routed
+ * second completes the pair, and the first line's rate is measured again at
+ * that point, so the order the lines are routed in does not change either
+ * rate. `partner` is that re-measured first line, or null.
  */
 export async function routeLineToMarkup(
   db: Db,
@@ -131,7 +177,7 @@ export async function routeLineToMarkup(
   lineId: string,
   setup: MarkupHistorySetup,
   recordedBy: string,
-): Promise<{ line: StagedLine; history: MarkupHistoryRecord }> {
+): Promise<{ line: StagedLine; history: MarkupHistoryRecord; partner: MarkupHistoryRecord | null }> {
   return db.withTransaction(async (tx) => {
     const { rows: importRows } = await tx.query<{
       id: string;
@@ -159,14 +205,40 @@ export async function routeLineToMarkup(
       throw new LineNotRoutable(lineId, `is ${line.status}`);
     }
 
+    const { rows: existing } = await tx.query<{ id: string }>(
+      `select id from markup_history where project_id = $1 and setup = $2`,
+      [costImport.source_project_id, setup],
+    );
+    if (existing[0]) throw new MarkupHistoryExists(costImport.source_project_id, setup);
+
+    // The other half of a split budget, when this line is one half of one.
+    const partnerSetup = SPLIT_PARTNER[setup];
+    const partner = partnerSetup
+      ? (
+          await tx.query<{ id: string; cost_import_line_id: string; usd_per_gsf: string; cost_import_id: string }>(
+            `select h.id, h.cost_import_line_id, h.usd_per_gsf, l.cost_import_id
+               from markup_history h
+               join cost_import_lines l on l.id = h.cost_import_line_id
+              where h.project_id = $1 and h.setup = $2`,
+            [costImport.source_project_id, partnerSetup],
+          )
+        ).rows[0]
+      : undefined;
+    if (partner && partner.cost_import_id !== costImportId) {
+      throw new MarkupSplitAcrossImports(costImport.source_project_id, setup);
+    }
+
+    // Trade cost without this line or its partner. The partner is normally
+    // routed already, but it is left out by id as well, so neither line
+    // counts in the other's base whatever state it was in when it was routed.
     const subtotalStatus = costImport.status === "approved" ? "approved" : "staged";
     const { rows: sumRows } = await tx.query<{ subtotal: string | null }>(
       `select sum(l.value_usd_per_gsf)::text as subtotal
          from cost_import_lines l
          join canonical_work_items c on c.id = l.candidate_canonical_item_id
-        where l.cost_import_id = $1 and l.status = $2 and l.id <> $3
+        where l.cost_import_id = $1 and l.status = $2 and l.id <> $3 and l.id <> $4
           and c.contract_side = 'kulka'`,
-      [costImportId, subtotalStatus, lineId],
+      [costImportId, subtotalStatus, lineId, partner?.cost_import_line_id ?? lineId],
     );
     const subtotal = Number(sumRows[0]?.subtotal ?? 0);
     if (!(subtotal > 0)) throw new MarkupSubtotalMissing(costImportId);
@@ -174,11 +246,15 @@ export async function routeLineToMarkup(
     const value = Number(line.value_usd_per_gsf);
     if (!(value > 0)) throw new LineNotRoutable(lineId, "is $0");
 
-    const { rows: existing } = await tx.query<{ id: string }>(
-      `select id from markup_history where project_id = $1 and setup = $2`,
-      [costImport.source_project_id, setup],
-    );
-    if (existing[0]) throw new MarkupHistoryExists(costImport.source_project_id, setup);
+    // ADR 0004: General Conditions is charged on trade cost including General
+    // Requirements, so a split budget's General Conditions is measured there.
+    const partnerValue = partner ? Number(partner.usd_per_gsf) : 0;
+    const pctOfSubtotal = setup === "gc_only" ? value / (subtotal + partnerValue) : value / subtotal;
+    const partnerPct = partner
+      ? partnerSetup === "gc_only"
+        ? partnerValue / (subtotal + value)
+        : partnerValue / subtotal
+      : null;
 
     // Guarded on the status read above, so a remap or approval that lands in
     // between cannot be overwritten.
@@ -202,14 +278,25 @@ export async function routeLineToMarkup(
         costImport.source_project_id,
         setup,
         value,
-        value / subtotal,
+        pctOfSubtotal,
         lineId,
         recordedBy,
         costImport.export_label,
       ],
     );
 
-    return { line: await readStagedLine(tx, lineId), history: toRecord(inserted[0]) };
+    let partnerRecord: MarkupHistoryRecord | null = null;
+    if (partner && partnerPct !== null) {
+      const { rows: remeasured } = await tx.query<HistoryRow>(
+        `update markup_history set pct_of_subtotal = $2 where id = $1
+         returning id, project_id, setup, usd_per_gsf, pct_of_subtotal, cost_import_line_id,
+                   recorded_by, recorded_at, export_label`,
+        [partner.id, partnerPct],
+      );
+      partnerRecord = toRecord(remeasured[0]);
+    }
+
+    return { line: await readStagedLine(tx, lineId), history: toRecord(inserted[0]), partner: partnerRecord };
   });
 }
 
@@ -286,6 +373,8 @@ export async function readFieldOfficeRates(db: Db): Promise<FieldOfficeRate[]> {
 export type MarkupOptions = {
   staffingRates: StaffingRate[];
   fieldOfficeRates: FieldOfficeRate[];
+  /** The General Requirements rate card from one warehouse job (LA-1396). Display only. */
+  grRates?: GrRate[];
   feeRate: EngineParameter | null;
   insuranceRate: EngineParameter | null;
   /**
@@ -298,9 +387,10 @@ export type MarkupOptions = {
 
 /** What the /rom page needs to offer the GRs/GCs choices. */
 export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
-  const [staffingRates, fieldOfficeRates, history, parameterRows] = await Promise.all([
+  const [staffingRates, fieldOfficeRates, grRates, history, parameterRows] = await Promise.all([
     readStaffingRates(db),
     readFieldOfficeRates(db),
+    readGrRates(db),
     readMarkupHistory(db),
     db
       .query<{
@@ -337,6 +427,7 @@ export async function readMarkupOptions(db: Db): Promise<MarkupOptions> {
   return {
     staffingRates,
     fieldOfficeRates,
+    grRates,
     feeRate: parameter("fee.rate"),
     insuranceRate: parameter("insurance.rate"),
     historyCounts,
@@ -354,7 +445,33 @@ export async function readProjectMarkupChoices(db: Db, projectId: string): Promi
     `select markup_choices from projects where id = $1`,
     [projectId],
   );
-  return rows[0]?.markup_choices ?? null;
+  const saved = rows[0]?.markup_choices ?? null;
+  if (saved?.method !== "staffing_duration") return saved;
+  const [staffingRates, fieldOfficeRates] = await Promise.all([readStaffingRates(db), readFieldOfficeRates(db)]);
+  return openSavedChoices(saved, staffingRates, fieldOfficeRates);
+}
+
+/**
+ * A project's saved markup choice as Run Settings opens it (LA-1397). A choice
+ * saved under the retired Staffing and Duration method opens as the
+ * equivalent Allocated Resources plan: its weeks become the construction
+ * phase and its roles construction-phase lines. The stored row is left as it
+ * is until the estimator saves again; every other choice opens unchanged.
+ */
+export function openSavedChoices(
+  saved: MarkupChoices,
+  staffingRates: StaffingRate[],
+  fieldOfficeRates: FieldOfficeRate[],
+): MarkupChoices {
+  if (saved.method !== "staffing_duration") return saved;
+  const { durationWeeks, staff, fieldOffice, ...rest } = saved;
+  // The staffing method never read an override rate.
+  delete rest.overrideRate;
+  return {
+    ...rest,
+    method: "allocated_resources",
+    resourcePlan: planFromStaffingChoices({ durationWeeks, staff, fieldOffice }, staffingRates, fieldOfficeRates),
+  };
 }
 
 /** Writes the Run settings markup choice back onto the project (LA-1109). */
@@ -374,9 +491,10 @@ const isNumber = (value: unknown): value is number =>
  * Checks the markup choices a ROM request carries. Absent means the default:
  * setup 'both', method 'pct_of_subtotal', no overrides. Only the fields the
  * chosen method reads are kept, so the choices recorded with a run say
- * exactly what priced it.
+ * exactly what priced it. `grRates` is the General Requirements rate card
+ * (readGrRates), so a plan cannot price a row the card marks not priceable.
  */
-export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
+export function parseMarkupChoices(value: unknown, grRates: readonly GrRate[]): ParsedMarkupChoices {
   if (value === undefined || value === null) return { ok: true, choices: { ...DEFAULT_MARKUP_CHOICES } };
   if (!isObject(value)) return { ok: false, error: "Send markups as an object." };
 
@@ -388,7 +506,7 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
   if (!MARKUP_METHODS.includes(method as MarkupMethod)) {
     return {
       ok: false,
-      error: 'Send markups.method as "pct_of_subtotal", "usd_per_gsf", or "staffing_duration".',
+      error: 'Send markups.method as "pct_of_subtotal", "usd_per_gsf", or "allocated_resources".',
     };
   }
   const choices: MarkupChoices = { setup: setup as MarkupSetup, method: method as MarkupMethod };
@@ -402,77 +520,85 @@ export function parseMarkupChoices(value: unknown): ParsedMarkupChoices {
     choices[name] = rate;
   }
 
-  if (choices.method !== "staffing_duration") {
-    const override = value.overrideRate;
-    if (override !== undefined && override !== null) {
-      if (!isNumber(override) || override <= 0) {
-        return { ok: false, error: "Send markups.overrideRate as a number above zero." };
-      }
-      if (choices.method === "pct_of_subtotal" && override >= 1) {
-        return { ok: false, error: "Send a percent override as a fraction below one." };
-      }
-      choices.overrideRate = override;
-    }
+  const gr = readGrMethod(value, choices, grRates);
+  if (!gr.ok) return gr;
+
+  if (choices.method === "allocated_resources") {
+    const plan = parseResourcePlan(value.resourcePlan);
+    if (!plan.ok) return plan;
+    const unpriceable = unpriceableRateError(plan.plan, grRates);
+    if (unpriceable) return { ok: false, error: unpriceable };
+    choices.resourcePlan = plan.plan;
     const grOverride = readGrOverride(value, choices);
     if (!grOverride.ok) return grOverride;
     return { ok: true, choices };
   }
 
-  const weeks = value.durationWeeks;
-  if (!isNumber(weeks) || weeks <= 0) {
-    return { ok: false, error: "Send markups.durationWeeks as a number of weeks above zero." };
+  const override = value.overrideRate;
+  if (override !== undefined && override !== null) {
+    if (!isNumber(override) || override <= 0) {
+      return { ok: false, error: "Send markups.overrideRate as a number above zero." };
+    }
+    if (choices.method === "pct_of_subtotal" && override >= 1) {
+      return { ok: false, error: "Send a percent override as a fraction below one." };
+    }
+    choices.overrideRate = override;
   }
-  choices.durationWeeks = weeks;
   const grOverride = readGrOverride(value, choices);
   if (!grOverride.ok) return grOverride;
-
-  const staff = value.staff ?? [];
-  if (!Array.isArray(staff)) return { ok: false, error: "Send markups.staff as a list." };
-  choices.staff = [];
-  for (const pick of staff) {
-    if (!isObject(pick) || typeof pick.rateId !== "string" || !isUuid(pick.rateId)) {
-      return { ok: false, error: "Each staff pick needs a rateId." };
-    }
-    if (pick.weeks !== undefined && pick.weeks !== null && (!isNumber(pick.weeks) || pick.weeks <= 0)) {
-      return { ok: false, error: "Each staff pick's weeks must be above zero." };
-    }
-    choices.staff.push(isNumber(pick.weeks) ? { rateId: pick.rateId, weeks: pick.weeks } : { rateId: pick.rateId });
-  }
-
-  const office = value.fieldOffice ?? [];
-  if (!Array.isArray(office)) return { ok: false, error: "Send markups.fieldOffice as a list." };
-  choices.fieldOffice = [];
-  for (const pick of office) {
-    if (!isObject(pick) || typeof pick.rateId !== "string" || !isUuid(pick.rateId)) {
-      return { ok: false, error: "Each field-office pick needs a rateId." };
-    }
-    if (
-      pick.quantity !== undefined &&
-      pick.quantity !== null &&
-      (!isNumber(pick.quantity) || pick.quantity <= 0)
-    ) {
-      return { ok: false, error: "Each field-office pick's quantity must be above zero." };
-    }
-    choices.fieldOffice.push(
-      isNumber(pick.quantity) ? { rateId: pick.rateId, quantity: pick.quantity } : { rateId: pick.rateId },
-    );
-  }
-
   return { ok: true, choices };
 }
 
 /**
+ * General Requirements' own method under a "separate" setup (LA-1398), and
+ * its plan when it is priced by Allocated Resources. Both are kept only for
+ * that setup. A request that names no method keeps the rule runs before
+ * LA-1398 priced by (grMethodOf), and nothing is added to what it recorded.
+ */
+function readGrMethod(
+  value: Record<string, unknown>,
+  choices: MarkupChoices,
+  grRates: readonly GrRate[],
+): { ok: true } | { ok: false; error: string } {
+  const method = value.grMethod;
+  if (method === undefined || method === null || choices.setup !== "separate") return { ok: true };
+  if (!GR_METHODS.includes(method as GrMethod)) {
+    return {
+      ok: false,
+      error: 'Send markups.grMethod as "pct_of_subtotal", "usd_per_gsf", or "allocated_resources".',
+    };
+  }
+  choices.grMethod = method as GrMethod;
+  if (method === "allocated_resources") {
+    if (value.grResourcePlan === undefined || value.grResourcePlan === null) {
+      return { ok: false, error: "Send markups.grResourcePlan for General Requirements priced by Allocated Resources." };
+    }
+    const plan = parseResourcePlan(value.grResourcePlan);
+    if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error}` };
+    const unpriceable = unpriceableRateError(plan.plan, grRates);
+    if (unpriceable) return { ok: false, error: `General Requirements: ${unpriceable}` };
+    choices.grResourcePlan = plan.plan;
+  }
+  return { ok: true };
+}
+
+/**
  * The General Requirements rate a "separate" setup can carry (LA-1383). It is
- * kept only for that setup, in dollars per GSF under usd_per_gsf and as a
- * fraction of the subtotal otherwise.
+ * kept only for that setup, in dollars per GSF when General Requirements is
+ * priced per GSF and as a fraction of the subtotal otherwise, and never beside
+ * a General Requirements plan.
  */
 function readGrOverride(value: Record<string, unknown>, choices: MarkupChoices): { ok: true } | { ok: false; error: string } {
   const rate = value.grOverrideRate;
   if (rate === undefined || rate === null || choices.setup !== "separate") return { ok: true };
+  const grMethod = grMethodOf(choices);
+  if (grMethod === "allocated_resources") {
+    return { ok: false, error: "Send no markups.grOverrideRate when General Requirements is priced by its plan." };
+  }
   if (!isNumber(rate) || rate <= 0) {
     return { ok: false, error: "Send markups.grOverrideRate as a number above zero." };
   }
-  if (choices.method !== "usd_per_gsf" && rate >= 1) {
+  if (grMethod !== "usd_per_gsf" && rate >= 1) {
     return { ok: false, error: "Send a General Requirements percent as a fraction below one." };
   }
   choices.grOverrideRate = rate;

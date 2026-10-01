@@ -50,7 +50,10 @@ import {
 } from "./field-order";
 import { GuidedNewBudget } from "./GuidedNewBudget";
 import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } from "./LiveBudget";
+import type { ScheduleProposalState } from "@/lib/rom/schedule-proposal";
+
 import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm } from "./Markups";
+import { planAnswersFromProject } from "./resource-plan-form";
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
@@ -147,8 +150,14 @@ export function RomRunner({
   canonicalDivisions = [],
   derivedAssumptions = NO_DERIVED_ASSUMPTIONS,
   stageFacts = null,
+  scheduleProposal,
 }: {
   projectId?: string;
+  /**
+   * LA-1399: the proposed schedule as the page read it. `ready` opens the
+   * plan with it; `pending` asks for one once a plan shows.
+   */
+  scheduleProposal?: ScheduleProposalState;
   /** Rate tables, fee and insurance parameters, and history counts (LA-1016). */
   markupOptions?: MarkupOptions;
   /** LA-1317: the project facts the Design and Engineering stage draws from. Null with no project. */
@@ -200,7 +209,9 @@ export function RomRunner({
   const [panel, setPanel] = useState<Panel | null>(() =>
     openNewOnLoad ? { kind: "new" } : openEditOnLoad && projectId ? { kind: "edit" } : null,
   );
-  const [form, setForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, markupDefault));
+  const [form, setForm] = useState<MarkupForm>(() =>
+    initialMarkupForm(markupOptions, markupDefault, scheduleProposal?.kind === "ready" ? scheduleProposal.proposal : null),
+  );
   const [scopeForm, setScopeForm] = useState<ScopeForm>(() => initialScopeForm(scopeDefaults));
   const [framing, setFraming] = useState<FramingSystem | "">(framingDefault ?? "");
   const [draft, setDraft] = useState<BudgetDraft | null>(null);
@@ -430,7 +441,7 @@ export function RomRunner({
     if (!projectId) return;
     // Without the options the page could not read the rate tables, so the
     // request names no markups and the run uses the recorded defaults.
-    const choices = markupOptions ? markupChoicesFrom(settings.form, markupOptions) : null;
+    const choices = markupOptions ? markupChoicesFrom(settings.form, markupOptions, planAnswersFromProject(stageFacts)) : null;
     if (choices && !choices.ok) {
       // A half-typed value saves nothing and records no run until it parses.
       if (auto) setSettingsNote(choices.error);
@@ -1069,6 +1080,9 @@ export function RomRunner({
                   form={form}
                   onChange={(value) => changeSettings({ form: value })}
                   disabled={state.phase === "loading"}
+                  projectId={projectId}
+                  schedule={scheduleProposal}
+                  answers={planAnswersFromProject(stageFacts)}
                 />
               ) : null}
               {settingsNote ? <p className="rb-pp">{settingsNote} Nothing saves until it does.</p> : null}

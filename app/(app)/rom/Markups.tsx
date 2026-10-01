@@ -1,10 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { WEEKS_PER_MONTH, type MarkupChoices, type MarkupMethod, type MarkupSetup } from "@kulka/engine";
+import { useEffect, useRef, useState } from "react";
+import {
+  grMethodOf,
+  planFromStaffingChoices,
+  type GrMethod,
+  type MarkupChoices,
+  type MarkupMethod,
+  type MarkupSetup,
+  type ScheduleProposal,
+} from "@kulka/engine";
 
 import { personName } from "@/lib/format/person-name";
 import type { MarkupOptions } from "@/lib/rom/markup";
+
+import { GrRateCard } from "./GrRateCard";
+import { ResourcePlanEditor } from "./ResourcePlanEditor";
+import {
+  applyProposalToPlanForm,
+  emptyPlanForm,
+  planFormFrom,
+  NO_ANSWERS,
+  planFromForm,
+  withRuleLines,
+  type PlanAnswers,
+  type PlanForm,
+  type ScheduleView,
+} from "./resource-plan-form";
 
 import "./markups.css";
 
@@ -12,13 +35,9 @@ import "./markups.css";
 // comes from the server (rate tables, parameters, history counts) or from what
 // the user types. Nothing here supplies a default staffing mix. The waterfall
 // it produces (subtotal, GRs/GCs, fee, insurance, total) shows in the total
-// panel on /rom since LA-1101.
-
-const WEEKLY = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
+// panel on /rom since LA-1101. LA-1397 replaced Staffing and Duration with
+// Allocated Resources (ResourcePlanEditor.tsx). LA-1398 lets General
+// Requirements take its own method under separate lines, a plan included.
 
 export const SETUPS: { value: MarkupSetup; label: string }[] = [
   { value: "both", label: "Both, One Combined Line" },
@@ -46,34 +65,43 @@ export function setupHistory(
  * that line has history of its own.
  */
 export function missingRates(form: MarkupForm, counts: MarkupOptions["historyCounts"], useHistory: boolean): string[] {
-  const perSf = form.method === "usd_per_gsf";
-  const blank = (percent: string, dollars: string) => (perSf ? dollars : percent).trim() === "";
+  const blank = (method: MarkupMethod | GrMethod, percent: string, dollars: string) =>
+    (method === "usd_per_gsf" ? dollars : percent).trim() === "";
   if (form.setup !== "separate") {
-    return !useHistory && blank(form.overridePercent, form.overridePerSf) ? ["GRs/GCs"] : [];
+    // A plan prices the one line.
+    if (form.method === "allocated_resources") return [];
+    return !useHistory && blank(form.method, form.overridePercent, form.overridePerSf) ? ["GRs/GCs"] : [];
   }
+  // LA-1398: each line by its own method. A line its plan prices needs no rate.
   const history = setupHistory(counts, form.setup);
+  const grMethod = formGrMethod(form);
   const missing: string[] = [];
-  if (blank(form.grOverridePercent, form.grOverridePerSf) && !history.gr) missing.push("General Requirements");
-  if (blank(form.overridePercent, form.overridePerSf) && history.gc === 0) missing.push("General Conditions");
+  if (grMethod !== "allocated_resources" && blank(grMethod, form.grOverridePercent, form.grOverridePerSf) && !history.gr) {
+    missing.push("General Requirements");
+  }
+  if (form.method !== "allocated_resources" && blank(form.method, form.overridePercent, form.overridePerSf) && history.gc === 0) {
+    missing.push("General Conditions");
+  }
   return missing;
+}
+
+/**
+ * The method General Requirements prices by under separate lines: the one
+ * the estimator picked, or the rule runs before LA-1398 priced by.
+ */
+export function formGrMethod(form: Pick<MarkupForm, "method" | "grMethod">): GrMethod {
+  return grMethodOf({ setup: "separate", method: form.method, ...(form.grMethod ? { grMethod: form.grMethod } : {}) });
 }
 
 function jobsWords(count: number): string {
   return count === 1 ? "1 job" : `${count} jobs`;
 }
 
-export const METHODS: { value: MarkupMethod; label: string }[] = [
+export const METHODS: { value: MarkupMethod & GrMethod; label: string }[] = [
   { value: "pct_of_subtotal", label: "Percent of Subtotal" },
   { value: "usd_per_gsf", label: "Dollars per GSF" },
-  { value: "staffing_duration", label: "Staffing and Duration" },
+  { value: "allocated_resources", label: "Allocated Resources" },
 ];
-
-const BASIS_WORDS: Record<string, string> = {
-  monthly: "per month",
-  lump_sum: "lump sum",
-  each: "each",
-  lump_sum_then_monthly: "connect, then per month",
-};
 
 export type MarkupForm = {
   setup: MarkupSetup;
@@ -83,9 +111,16 @@ export type MarkupForm = {
   /** General Requirements' own rate, read only when the setup is "separate" (LA-1383). */
   grOverridePercent: string;
   grOverridePerSf: string;
-  durationWeeks: string;
-  staff: { rateId: string; weeks: string }[];
-  fieldOffice: { rateId: string; quantity: string }[];
+  /** The Allocated Resources plan (LA-1397), read only under that method. */
+  plan: PlanForm;
+  /**
+   * General Requirements' own method under separate lines (LA-1398). Null
+   * until the estimator picks one, and then it follows the rule runs before
+   * LA-1398 priced by (formGrMethod).
+   */
+  grMethod: GrMethod | null;
+  /** General Requirements' own plan, read only when it is priced by Allocated Resources. */
+  grPlan: PlanForm;
   feePercent: string;
   insurancePercent: string;
 };
@@ -100,23 +135,88 @@ function percentText(fraction: number | undefined | null): string {
  * project nobody has run with a saved choice yet (`saved` null) opens exactly
  * as it always has.
  */
-export function initialMarkupForm(options: MarkupOptions | undefined, saved?: MarkupChoices | null): MarkupForm {
-  return {
+export function initialMarkupForm(
+  options: MarkupOptions | undefined,
+  saved?: MarkupChoices | null,
+  proposal?: ScheduleProposal | null,
+): MarkupForm {
+  const savedGrMethod = saved ? grMethodOf(saved) : "pct_of_subtotal";
+  const form: MarkupForm = {
     setup: saved?.setup ?? "both",
-    method: saved?.method ?? "pct_of_subtotal",
+    // LA-1397: a choice saved under the retired Staffing and Duration method
+    // opens as the equivalent Allocated Resources plan.
+    method: saved?.method === "staffing_duration" ? "allocated_resources" : (saved?.method ?? "pct_of_subtotal"),
     overridePercent: saved?.method === "pct_of_subtotal" ? percentText(saved.overrideRate) : "",
     overridePerSf: saved?.method === "usd_per_gsf" && saved.overrideRate !== undefined ? String(saved.overrideRate) : "",
-    grOverridePercent: saved?.method !== "usd_per_gsf" ? percentText(saved?.grOverrideRate) : "",
-    grOverridePerSf: saved?.method === "usd_per_gsf" && saved.grOverrideRate !== undefined ? String(saved.grOverrideRate) : "",
-    durationWeeks: saved?.durationWeeks !== undefined ? String(saved.durationWeeks) : "",
-    staff: (saved?.staff ?? []).map((pick) => ({ rateId: pick.rateId, weeks: pick.weeks !== undefined ? String(pick.weeks) : "" })),
-    fieldOffice: (saved?.fieldOffice ?? []).map((pick) => ({
-      rateId: pick.rateId,
-      quantity: pick.quantity !== undefined ? String(pick.quantity) : "",
-    })),
+    grOverridePercent: savedGrMethod !== "usd_per_gsf" ? percentText(saved?.grOverrideRate) : "",
+    grOverridePerSf: savedGrMethod === "usd_per_gsf" && saved?.grOverrideRate !== undefined ? String(saved.grOverrideRate) : "",
+    plan: savedPlan(options, saved),
+    grMethod: saved?.grMethod ?? null,
+    grPlan: saved?.grResourcePlan ? planFormFrom(saved.grResourcePlan) : emptyPlanForm(),
     feePercent: percentText(saved?.feeRate ?? options?.feeRate?.value),
     insurancePercent: percentText(saved?.insuranceRate ?? options?.insuranceRate?.value),
   };
+  return withRuleLinesOnForm(proposal ? applyProposalToMarkupForm(form, proposal) : form, options);
+}
+
+/**
+ * The plan that prices General Requirements: the separate one under Separate
+ * Lines, the one plan under any other setup that includes General
+ * Requirements, or none.
+ */
+function grPlanInUse(form: MarkupForm): "plan" | "grPlan" | null {
+  if (form.setup === "separate") return formGrMethod(form) === "allocated_resources" ? "grPlan" : null;
+  return form.setup !== "gc_only" && form.method === "allocated_resources" ? "plan" : null;
+}
+
+/**
+ * LA-1402: a General Requirements plan with no lines opens with the lines its
+ * rules switch. A plan that already has lines is left as it is. Only the
+ * moments a plan is opened call this: the form's first values, and a change
+ * of setup or method that puts a plan to use (changeMarkupForm).
+ */
+export function withRuleLinesOnForm(form: MarkupForm, options: MarkupOptions | undefined): MarkupForm {
+  const rates = options?.grRates ?? [];
+  const used = grPlanInUse(form);
+  if (rates.length === 0 || used === null) return form;
+  return { ...form, [used]: withRuleLines(form[used], rates) };
+}
+
+/**
+ * One change to the form. The seed lines come in only when the change puts a
+ * General Requirements plan to use that was not in use before, so an
+ * estimator who removes every line keeps an empty plan.
+ */
+export function changeMarkupForm(form: MarkupForm, patch: Partial<MarkupForm>, options: MarkupOptions | undefined): MarkupForm {
+  const next = { ...form, ...patch };
+  const used = grPlanInUse(next);
+  return used !== null && used !== grPlanInUse(form) ? withRuleLinesOnForm(next, options) : next;
+}
+
+/**
+ * LA-1399: the proposed schedule on both plans the form holds, General
+ * Conditions' (or the combined line's) and General Requirements' own. Phases
+ * the estimator typed are kept.
+ */
+export function applyProposalToMarkupForm(form: MarkupForm, proposal: ScheduleProposal): MarkupForm {
+  return {
+    ...form,
+    plan: applyProposalToPlanForm(form.plan, proposal),
+    grPlan: applyProposalToPlanForm(form.grPlan, proposal),
+  };
+}
+
+/**
+ * The plan a saved choice opens with. The server already opens a Staffing and
+ * Duration choice as a plan (lib/rom/markup.ts, openSavedChoices); this
+ * covers one that reaches the form unconverted.
+ */
+function savedPlan(options: MarkupOptions | undefined, saved: MarkupChoices | null | undefined): PlanForm {
+  if (saved?.method === "allocated_resources" && saved.resourcePlan) return planFormFrom(saved.resourcePlan);
+  if (saved?.method === "staffing_duration") {
+    return planFormFrom(planFromStaffingChoices(saved, options?.staffingRates ?? [], options?.fieldOfficeRates ?? []));
+  }
+  return emptyPlanForm();
 }
 
 /**
@@ -127,6 +227,7 @@ export function initialMarkupForm(options: MarkupOptions | undefined, saved?: Ma
 export function markupChoicesFrom(
   form: MarkupForm,
   options: MarkupOptions | undefined,
+  answers: PlanAnswers = NO_ANSWERS,
 ): { ok: true; markups: MarkupChoices } | { ok: false; error: string } {
   const markups: MarkupChoices = { setup: form.setup, method: form.method };
 
@@ -163,12 +264,21 @@ export function markupChoicesFrom(
   }
 
   if (form.setup === "separate") {
-    if (form.method === "usd_per_gsf" && form.grOverridePerSf.trim() !== "") {
+    // LA-1398: General Requirements' own method, recorded only where it
+    // differs from the rule runs before LA-1398 priced by.
+    const grMethod = formGrMethod(form);
+    if (grMethod !== grMethodOf({ setup: "separate", method: form.method })) markups.grMethod = grMethod;
+    if (grMethod === "allocated_resources") {
+      const plan = planFromForm(form.grPlan, answers, options?.grRates);
+      if (!plan.ok) return { ok: false, error: `General Requirements: ${plan.error.charAt(0).toLowerCase()}${plan.error.slice(1)}` };
+      markups.grResourcePlan = plan.plan;
+    }
+    if (grMethod === "usd_per_gsf" && form.grOverridePerSf.trim() !== "") {
       const value = Number(form.grOverridePerSf);
       if (!(value > 0)) return { ok: false, error: "The General Requirements rate per GSF must be above zero." };
       markups.grOverrideRate = value;
     }
-    if (form.method !== "usd_per_gsf" && form.grOverridePercent.trim() !== "") {
+    if (grMethod === "pct_of_subtotal" && form.grOverridePercent.trim() !== "") {
       const value = Number(form.grOverridePercent) / 100;
       if (!(value > 0 && value < 1)) {
         return { ok: false, error: "The General Requirements percent must be above 0 and below 100." };
@@ -177,32 +287,10 @@ export function markupChoicesFrom(
     }
   }
 
-  if (form.method === "staffing_duration") {
-    const weeks = Number(form.durationWeeks);
-    if (form.durationWeeks.trim() === "" || !(weeks > 0)) {
-      return { ok: false, error: "Enter the job duration in weeks." };
-    }
-    markups.durationWeeks = weeks;
-    markups.staff = [];
-    for (const pick of form.staff) {
-      if (pick.weeks.trim() === "") {
-        markups.staff.push({ rateId: pick.rateId });
-        continue;
-      }
-      const roleWeeks = Number(pick.weeks);
-      if (!(roleWeeks > 0)) return { ok: false, error: "Each role's weeks must be above zero." };
-      markups.staff.push({ rateId: pick.rateId, weeks: roleWeeks });
-    }
-    markups.fieldOffice = [];
-    for (const pick of form.fieldOffice) {
-      if (pick.quantity.trim() === "") {
-        markups.fieldOffice.push({ rateId: pick.rateId });
-        continue;
-      }
-      const quantity = Number(pick.quantity);
-      if (!(quantity > 0)) return { ok: false, error: "Each item's quantity must be above zero." };
-      markups.fieldOffice.push({ rateId: pick.rateId, quantity });
-    }
+  if (form.method === "allocated_resources") {
+    const plan = planFromForm(form.plan, answers, options?.grRates);
+    if (!plan.ok) return plan;
+    markups.resourcePlan = plan.plan;
   }
 
   return { ok: true, markups };
@@ -213,19 +301,28 @@ export function MarkupControls({
   form,
   onChange,
   disabled,
+  projectId,
+  schedule: initialSchedule,
+  answers = NO_ANSWERS,
 }: {
   options: MarkupOptions;
   form: MarkupForm;
   onChange: (form: MarkupForm) => void;
   disabled: boolean;
+  /** The project the proposed schedule is for (LA-1399). Without one, no weeks are proposed. */
+  projectId?: string;
+  /** The proposed schedule as the page opened it. `pending` asks for one once a plan shows. */
+  schedule?: ScheduleView;
+  /** LA-1402: the answers the line rules read, with the schedule's construction weeks. */
+  answers?: PlanAnswers;
 }) {
-  const set = (patch: Partial<MarkupForm>) => onChange({ ...form, ...patch });
-  const staffById = new Map(options.staffingRates.map((r) => [r.id, r]));
-  const officeById = new Map(options.fieldOfficeRates.map((r) => [r.id, r]));
+  const set = (patch: Partial<MarkupForm>) => onChange(changeMarkupForm(form, patch, options));
+  const schedule = useProposedSchedule(projectId, initialSchedule, form, onChange);
   const history = setupHistory(options.historyCounts, form.setup);
   const separate = form.setup === "separate";
   const perSf = form.method === "usd_per_gsf";
-  const weeks = Number(form.durationWeeks);
+  const grMethod = formGrMethod(form);
+  const grPerSf = grMethod === "usd_per_gsf";
   const note = (jobs: number, what: string) =>
     jobs === 0
       ? `No imported budget has a figure for ${what} yet. Leave the rate blank and the line shows as TBD, outside the total.`
@@ -252,8 +349,27 @@ export function MarkupControls({
           </select>
         </label>
 
+        {separate ? (
+          // LA-1398: under separate lines each line picks its own method.
+          <label>
+            <span className="field-label t-label">General Requirements Method</span>
+            <select
+              className="input"
+              value={grMethod}
+              disabled={disabled}
+              onChange={(e) => set({ grMethod: e.target.value as GrMethod })}
+            >
+              {METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <label>
-          <span className="field-label t-label">Method</span>
+          <span className="field-label t-label">{separate ? "General Conditions Method" : "Method"}</span>
           <select
             className="input"
             value={form.method}
@@ -302,22 +418,21 @@ export function MarkupControls({
         <Link href="/rom/parameters">Engine Parameters</Link>.
       </p>
 
-      {separate ? (
-        // LA-1383: General Requirements on its own line. Staffing and field
-        // office price General Conditions, so beside them it is a percent.
+      {separate && grMethod !== "allocated_resources" ? (
+        // LA-1383: General Requirements on its own line, at its own rate.
         <div className="markup-grid">
           <label>
             <span className="field-label t-label">
-              {perSf ? "General Requirements, $ per GSF" : "General Requirements, % of Subtotal"}
+              {grPerSf ? "General Requirements, $ per GSF" : "General Requirements, % of Subtotal"}
             </span>
             <input
               className="input num"
               inputMode="decimal"
               placeholder="Use History"
-              value={perSf ? form.grOverridePerSf : form.grOverridePercent}
+              value={grPerSf ? form.grOverridePerSf : form.grOverridePercent}
               disabled={disabled}
               onChange={(e) =>
-                set(perSf ? { grOverridePerSf: e.target.value } : { grOverridePercent: e.target.value })
+                set(grPerSf ? { grOverridePerSf: e.target.value } : { grOverridePercent: e.target.value })
               }
             />
           </label>
@@ -354,142 +469,90 @@ export function MarkupControls({
         </div>
       ) : null}
 
-      {form.method === "staffing_duration" ? (
-        <>
-          <div className="markup-grid">
-            <label>
-              <span className="field-label t-label">Job Duration, Weeks</span>
-              <input
-                className="input num"
-                inputMode="decimal"
-                value={form.durationWeeks}
-                disabled={disabled}
-                onChange={(e) => set({ durationWeeks: e.target.value })}
-              />
-            </label>
-            <p className="markup-note markup-note--inline">
-              Monthly items price at weeks divided by {WEEKS_PER_MONTH}
-              {weeks > 0 ? `, so ${(weeks / WEEKS_PER_MONTH).toFixed(2)} months` : ""}.
-            </p>
-          </div>
+      {separate && grMethod === "allocated_resources" ? (
+        <ResourcePlanEditor
+          options={options}
+          plan={form.grPlan}
+          onChange={(grPlan) => set({ grPlan })}
+          disabled={disabled}
+          lineName="General Requirements"
+          kind="gr"
+          schedule={schedule}
+          answers={answers}
+        />
+      ) : null}
 
-          <h3 className="t-label markup-sub">Staff</h3>
-          {form.staff.length === 0 ? <p className="markup-note">No role picked yet.</p> : null}
-          <ul className="markup-picks">
-            {form.staff.map((pick, index) => {
-              const rate = staffById.get(pick.rateId);
-              return (
-                <li key={`${pick.rateId}-${index}`}>
-                  <span>
-                    {rate?.role}, {rate?.daysPerWeek} days/week,{" "}
-                    <span className="num">
-                      {rate && rate.weeklyRateLow === rate.weeklyRateHigh
-                        ? `${WEEKLY.format(rate.weeklyRateLow)}/week`
-                        : `${WEEKLY.format(rate?.weeklyRateLow ?? 0)} to ${WEEKLY.format(rate?.weeklyRateHigh ?? 0)}/week`}
-                    </span>
-                  </span>
-                  <input
-                    className="input num"
-                    inputMode="decimal"
-                    aria-label="Weeks"
-                    placeholder={form.durationWeeks ? `${form.durationWeeks} weeks` : "Weeks"}
-                    value={pick.weeks}
-                    disabled={disabled}
-                    onChange={(e) =>
-                      set({
-                        staff: form.staff.map((p, i) => (i === index ? { ...p, weeks: e.target.value } : p)),
-                      })
-                    }
-                  />
-                  <button
-                    className="btn btn--redline"
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => set({ staff: form.staff.filter((_, i) => i !== index) })}
-                  >
-                    Remove
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <select
-            className="input"
-            value=""
-            disabled={disabled}
-            onChange={(e) => {
-              if (e.target.value) set({ staff: [...form.staff, { rateId: e.target.value, weeks: "" }] });
-            }}
-          >
-            <option value="">Add a Role&hellip;</option>
-            {options.staffingRates.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.role}, {r.daysPerWeek} days/week
-              </option>
-            ))}
-          </select>
+      {form.method === "allocated_resources" ? (
+        <ResourcePlanEditor
+          options={options}
+          plan={form.plan}
+          onChange={(plan) => set({ plan })}
+          disabled={disabled}
+          lineName={separate || form.setup === "gc_only" ? "General Conditions" : form.setup === "gr_only" ? "General Requirements" : "GRs/GCs"}
+          kind={separate || form.setup === "gc_only" ? "gc" : form.setup === "gr_only" ? "gr" : "both"}
+          schedule={schedule}
+          answers={answers}
+        />
+      ) : null}
 
-          <h3 className="t-label markup-sub">Field Office</h3>
-          {form.fieldOffice.length === 0 ? <p className="markup-note">No item picked yet.</p> : null}
-          <ul className="markup-picks">
-            {form.fieldOffice.map((pick, index) => {
-              const rate = officeById.get(pick.rateId);
-              return (
-                <li key={`${pick.rateId}-${index}`}>
-                  <span>
-                    {rate?.item},{" "}
-                    <span className="num">
-                      {rate?.rateBasis === "lump_sum_then_monthly"
-                        ? `${WEEKLY.format(rate.rate)} then ${WEEKLY.format(rate.recurringRate ?? 0)} per month`
-                        : `${WEEKLY.format(rate?.rate ?? 0)} ${BASIS_WORDS[rate?.rateBasis ?? ""] ?? ""}`}
-                    </span>
-                  </span>
-                  <input
-                    className="input num"
-                    inputMode="decimal"
-                    aria-label="Quantity"
-                    placeholder="Qty 1"
-                    value={pick.quantity}
-                    disabled={disabled}
-                    onChange={(e) =>
-                      set({
-                        fieldOffice: form.fieldOffice.map((p, i) =>
-                          i === index ? { ...p, quantity: e.target.value } : p,
-                        ),
-                      })
-                    }
-                  />
-                  <button
-                    className="btn btn--redline"
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => set({ fieldOffice: form.fieldOffice.filter((_, i) => i !== index) })}
-                  >
-                    Remove
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <select
-            className="input"
-            value=""
-            disabled={disabled}
-            onChange={(e) => {
-              if (e.target.value) {
-                set({ fieldOffice: [...form.fieldOffice, { rateId: e.target.value, quantity: "" }] });
-              }
-            }}
-          >
-            <option value="">Add a Field-Office Item&hellip;</option>
-            {options.fieldOfficeRates.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.item}
-              </option>
-            ))}
-          </select>
-        </>
+      {form.method === "allocated_resources" || (separate && grMethod === "allocated_resources") ? (
+        <GrRateCard rates={options.grRates ?? []} />
       ) : null}
     </section>
   );
+}
+
+/**
+ * LA-1399: the proposed schedule while a plan shows. A `pending` proposal is
+ * asked for once a plan is on screen; when it lands it fills the phases the
+ * estimator has not typed, on both plans, and the change runs like any other.
+ * A failure leaves the weeks blank and says why.
+ */
+function useProposedSchedule(
+  projectId: string | undefined,
+  initial: ScheduleView | undefined,
+  form: MarkupForm,
+  onChange: (form: MarkupForm) => void,
+): ScheduleView | undefined {
+  const [schedule, setSchedule] = useState<ScheduleView | undefined>(projectId ? initial : undefined);
+  const latest = useRef({ form, onChange });
+  useEffect(() => {
+    latest.current = { form, onChange };
+  });
+  const planShowing =
+    form.method === "allocated_resources" || (form.setup === "separate" && formGrMethod(form) === "allocated_resources");
+  const asking = projectId !== undefined && planShowing && schedule?.kind === "pending";
+
+  useEffect(() => {
+    if (!asking) return;
+    let cancelled = false;
+    (async () => {
+      let next: ScheduleView;
+      try {
+        const response = await fetch(`/api/rom/projects/${projectId}/schedule-proposal`, { method: "POST" });
+        const body = (await response.json().catch(() => ({}))) as { proposal?: ScheduleProposal; error?: string };
+        next =
+          response.ok && body.proposal
+            ? { kind: "ready", proposal: body.proposal }
+            : { kind: "failed", error: body.error ?? "The weeks could not be proposed. Enter them." };
+      } catch {
+        next = { kind: "failed", error: "The weeks could not be proposed. Enter them." };
+      }
+      if (cancelled) return;
+      setSchedule(next);
+      if (next.kind === "ready") {
+        // Only a change to the weeks is sent on, so asking again for a proposal
+        // already applied (the panel reopened) does not run the budget again.
+        const current = latest.current.form;
+        const applied = applyProposalToMarkupForm(current, next.proposal);
+        const weeksOf = (f: MarkupForm) => JSON.stringify([f.plan.weeks, f.plan.weeksFrom, f.grPlan.weeks, f.grPlan.weeksFrom]);
+        if (weeksOf(applied) !== weeksOf(current)) latest.current.onChange(applied);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [asking, projectId]);
+
+  return schedule;
 }

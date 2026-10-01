@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { parseGateAnswers, saveProjectGateAnswers } from "@/lib/rom/gates";
+import { readGrRates } from "@/lib/rom/gr-rates";
 import { parseMarkupChoices, saveProjectMarkupChoices } from "@/lib/rom/markup";
 import { readRomProjectDetail } from "@/lib/rom/projects";
 import { isUuid } from "@/lib/uuid";
@@ -33,10 +34,9 @@ export async function PUT(request: Request, context: Context) {
 
   const parsedGates = parseGateAnswers(gates);
   if (!parsedGates.ok) return NextResponse.json({ error: parsedGates.error }, { status: 400 });
-  const parsedMarkups = parseMarkupChoices(markups);
-  if (!parsedMarkups.ok) return NextResponse.json({ error: parsedMarkups.error }, { status: 400 });
-
   const db = getDb();
+  const parsedMarkups = parseMarkupChoices(markups, markups === undefined ? [] : await readGrRates(db));
+  if (!parsedMarkups.ok) return NextResponse.json({ error: parsedMarkups.error }, { status: 400 });
   if (!(await readRomProjectDetail(db, id))) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }

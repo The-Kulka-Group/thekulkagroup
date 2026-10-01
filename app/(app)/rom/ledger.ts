@@ -212,8 +212,20 @@ export function buildLedger(
   return { trade: groups, ownerDirect };
 }
 
-/** The markup rows under the trade subtotal, each with its figure, skipping any that is TBD. */
-export function markupRows(rom: Rom): { key: string; label: string; amount: number }[] {
+export type MarkupRow = {
+  key: string;
+  label: string;
+  amount: number;
+  /** An Allocated Resources plan's lines, when a plan priced the row (LA-1398). */
+  lines?: { key: string; label: string; amount: number }[];
+};
+
+/**
+ * The markup rows under the trade subtotal, each with its figure, skipping any
+ * that is TBD. A row an Allocated Resources plan priced carries the plan's
+ * lines, so the Ledger lists them the way the Total panel does.
+ */
+export function markupRows(rom: Rom): MarkupRow[] {
   const m = rom.markups;
   if (!m) return [];
   return [
@@ -223,5 +235,18 @@ export function markupRows(rom: Rom): { key: string; label: string; amount: numb
     { key: "ins", label: "Insurance", range: m.insurance },
   ]
     .filter((row) => !row.range.tbd)
-    .map((row) => ({ key: row.key, label: row.label, amount: midpoint(row.range) }));
+    .map((row) => ({
+      key: row.key,
+      label: row.label,
+      amount: midpoint(row.range),
+      ...(row.range.plan
+        ? {
+            lines: row.range.plan.lines.map((line) => ({
+              key: `${row.key}:${line.id}`,
+              label: line.label,
+              amount: Math.round(line.amount),
+            })),
+          }
+        : {}),
+    }));
 }

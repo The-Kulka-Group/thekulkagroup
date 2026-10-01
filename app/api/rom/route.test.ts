@@ -403,25 +403,144 @@ describe("POST /api/rom markups", () => {
     expect((await response.json()).rom.markups.generalRequirements).toBeUndefined();
   });
 
-  it("prices the staffing method off the rate tables and records the plan", async () => {
-    const { rows } = await db.query<{ id: string }>(
-      `select id from gc_staffing_rates where role = 'Project Manager' and days_per_week = 5`,
-    );
+  it("prices an Allocated Resources plan and records the plan with the run", async () => {
+    const figure = (value: number) => ({ value, origin: "estimator" });
     const markups = {
       setup: "both",
-      method: "staffing_duration",
-      durationWeeks: 10,
-      staff: [{ rateId: rows[0].id }],
-      fieldOffice: [],
+      method: "allocated_resources",
+      resourcePlan: {
+        schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) },
+        confidence: "high",
+        lines: [
+          {
+            id: "pm",
+            label: "Project Manager",
+            group: "Staff",
+            basis: "time",
+            per: "day",
+            daysPerWeek: figure(5),
+            phases: ["construction"],
+            quantity: figure(1),
+            rate: figure(1040),
+          },
+        ],
+      },
     };
     const response = await post({ projectId: TEST_PROJECT_ID, markups });
     expect(response.status).toBe(200);
     const { rom } = await response.json();
 
-    // Project Manager, 5 days a week, $5,200 a week, for 10 weeks.
-    expect(rom.markups.generalConditions.low).toBe(52_000);
+    // Project Manager, 5 days a week at $1,040 a day, for 10 weeks: $52,000,
+    // at the recorded high-confidence spread either side.
+    expect(rom.markups.generalConditions.plan.total).toBe(52_000);
+    expect(rom.markups.generalConditions.source).toBe("allocated");
+    expect(rom.markups.generalConditions.low).toBeLessThan(52_000);
+    expect(rom.markups.generalConditions.high).toBeGreaterThan(52_000);
     const [run] = await markupRuns();
     expect(run.answers.markups).toEqual(markups);
+  });
+
+  // LA-1399: proposed weeks carry origin "proposed". A run records them as
+  // they were, and a later change to the project's plan never rewrites it.
+  it("records proposed weeks with their origin and keeps them after the project's weeks change", async () => {
+    const typed = (value: number) => ({ value, origin: "estimator" });
+    const proposed = (value: number) => ({
+      value,
+      origin: "proposed",
+      ref: "schedule-proposal",
+      source: "Planning assumption from completed job TEST-0001",
+    });
+    const plan = (construction: object) => ({
+      setup: "both",
+      method: "allocated_resources",
+      resourcePlan: {
+        schedule: { precon: proposed(12), construction, closeout: proposed(8) },
+        confidence: "high",
+        lines: [
+          { id: "pm", label: "Project Manager", group: "Staff", basis: "time", per: "week", phases: ["construction"], quantity: typed(1), rate: typed(5000) },
+        ],
+      },
+    });
+    const first = plan(proposed(62));
+    expect((await post({ projectId: TEST_PROJECT_ID, markups: first })).status).toBe(200);
+    // The estimator changes construction to 70 weeks and runs again.
+    const second = plan(typed(70));
+    const response = await post({ projectId: TEST_PROJECT_ID, markups: second });
+    expect((await response.json()).rom.markups.generalConditions.plan.total).toBe(350_000);
+
+    const runs = await markupRuns();
+    expect(runs.map((run) => run.answers.markups)).toEqual(expect.arrayContaining([first, second]));
+    const { rows } = await db.query<{ markup_choices: unknown }>(`select markup_choices from projects where id = $1`, [TEST_PROJECT_ID]);
+    expect(rows[0].markup_choices).toEqual(second);
+  });
+
+  // LA-1398: under separate lines, General Requirements picks its own method.
+  it("prices General Requirements by its own plan beside a percent General Conditions, and records both", async () => {
+    const figure = (value: number) => ({ value, origin: "estimator" });
+    const markups = {
+      setup: "separate",
+      method: "pct_of_subtotal",
+      overrideRate: 0.05,
+      grMethod: "allocated_resources",
+      grResourcePlan: {
+        schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) },
+        confidence: "high",
+        lines: [
+          {
+            id: "row-44",
+            label: "Final Cleaning",
+            group: "Construction Labor & Clean-up",
+            basis: "unit",
+            unit: "SF",
+            quantity: figure(20_000),
+            rate: { value: 0.55, origin: "rate_card", ref: "00000000-0000-4000-8000-0000000000a1", source: "C-00379" },
+          },
+        ],
+      },
+    };
+    const response = await post({ projectId: TEST_PROJECT_ID, markups });
+    expect(response.status).toBe(200);
+    const { rom } = await response.json();
+
+    const gr = rom.markups.generalRequirements;
+    // 20,000 SF at $0.55: $11,000.
+    expect([gr.code, gr.source, gr.plan.total]).toEqual(["01 00 00", "allocated", 11_000]);
+    expect(rom.markups.generalConditions.low).toBe(Math.round((rom.markups.subtotal.low + gr.low) * 0.05));
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual(markups);
+  });
+
+  it("refuses a plan line that prices an Insurances & Bonds row, which the rate card marks not priceable", async () => {
+    const { rows } = await db.query<{ id: string }>(`select id from gr_rates where section = 'Insurances & Bonds' limit 1`);
+    const figure = (value: number) => ({ value, origin: "estimator" });
+    const insurance = {
+      id: "gr-insurance",
+      label: "Liability Insurance (GC)",
+      group: "Construction Labor & Clean-up",
+      basis: "lump_sum",
+      quantity: figure(1),
+      rate: { value: 25_000, origin: "rate_card", ref: rows[0].id, source: "C-00379" },
+    };
+    const plan = { schedule: { precon: figure(0), construction: figure(10), closeout: figure(0) }, confidence: "high", lines: [insurance] };
+    for (const markups of [
+      { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources", grResourcePlan: plan },
+      { setup: "both", method: "allocated_resources", resourcePlan: plan },
+    ]) {
+      const response = await post({ projectId: TEST_PROJECT_ID, markups });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/Liability Insurance \(GC\).*not priceable/);
+    }
+    expect(await runs()).toEqual([]);
+  });
+
+  it("drops a General Requirements method a combined setup cannot use", async () => {
+    const response = await post({
+      projectId: TEST_PROJECT_ID,
+      markups: { setup: "both", method: "pct_of_subtotal", overrideRate: 0.1, grMethod: "usd_per_gsf" },
+    });
+    expect(response.status).toBe(200);
+    const [run] = await markupRuns();
+    expect(run.answers.markups).toEqual({ setup: "both", method: "pct_of_subtotal", overrideRate: 0.1 });
   });
 
   it("uses recorded GRs/GCs history for the chosen setup", async () => {
@@ -462,8 +581,13 @@ describe("POST /api/rom markups", () => {
       { method: "guess" },
       { feeRate: 3.25 },
       { method: "staffing_duration" },
+      { method: "allocated_resources" },
+      { method: "allocated_resources", resourcePlan: { schedule: {}, lines: [] } },
       { method: "pct_of_subtotal", overrideRate: 15 },
       { setup: "separate", method: "pct_of_subtotal", grOverrideRate: 3 },
+      { setup: "separate", method: "pct_of_subtotal", grMethod: "guess" },
+      { setup: "separate", method: "pct_of_subtotal", grMethod: "allocated_resources" },
+      { setup: "separate", method: "usd_per_gsf", grMethod: "pct_of_subtotal", grOverrideRate: 4 },
     ]) {
       const response = await post({ projectId: TEST_PROJECT_ID, markups });
       expect(response.status).toBe(400);

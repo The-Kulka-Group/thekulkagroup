@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { parseFramingSystem, saveProjectFramingSystem } from "@/lib/rom/framing";
 import { parseGateAnswers, saveProjectGateAnswers } from "@/lib/rom/gates";
+import { readGrRates } from "@/lib/rom/gr-rates";
 import { parseMarkupChoices, saveProjectMarkupChoices } from "@/lib/rom/markup";
 import { ProjectNotFound, RunFailed, runRom } from "@/lib/rom/run";
 import type { Responses } from "@/lib/rom/question-flow";
@@ -53,10 +54,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const db = getDb();
+
   // GRs/GCs, fee and insurance (LA-1016). Without them the run uses setup
   // "both", method "pct_of_subtotal", and the recorded fee and insurance
-  // rates. A bad choice is refused here, before a run opens.
-  const parsed = parseMarkupChoices(markups);
+  // rates. A bad choice is refused here, before a run opens. The General
+  // Requirements rate card is read so a plan cannot price a row it marks not
+  // priceable.
+  const parsed = parseMarkupChoices(markups, markups === undefined ? [] : await readGrRates(db));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   // The Scope module's answers (LA-1028). Without them the run reads the
@@ -68,8 +73,6 @@ export async function POST(request: Request) {
   // The framing system (LA-1103). Absent reads the project's own column.
   const parsedFraming = parseFramingSystem(framingSystem);
   if (!parsedFraming.ok) return NextResponse.json({ error: parsedFraming.error }, { status: 400 });
-
-  const db = getDb();
 
   // LA-1109: Run settings save to the project before the run opens, so a
   // failed run still leaves the settings in place and the project's next

@@ -126,6 +126,29 @@ vehicles. It is a 90-series markup on trade cost rather than part of it. It is n
 Requirements.
 _Avoid_: GC, general conditions and requirements, overhead
 
+**Completed job**:
+A job Kulka has finished, recorded with its size, stories, building type and the actual
+weeks of its precon, construction and close-out phases, each with where the figure came
+from. The proposed schedule compares a new project only with completed jobs of the same
+type and construction kind, within half to twice its area and stories. The table ships
+empty; until Matt records jobs, every schedule is typed by the estimator (LA-1399).
+_Avoid_: historical job, past project, comparable (that word belongs to benchmarks)
+
+**Proposed schedule**:
+Precon, construction and close-out weeks that AI proposes by comparing a project's stated
+facts with completed jobs. It is a planning assumption, never a schedule. It cites only
+recorded jobs, and a phase no close job supports is left blank for the estimator. A phase
+the estimator changes stays changed until reset to the proposal (LA-1399).
+_Avoid_: schedule (unqualified), durations
+
+**Derived quantity**:
+A resource plan line's quantity worked out by a named rule from the project's facts or the
+schedule, such as final cleaning from gross square feet. It shows the fact and rule behind
+it. Where the project lacks a fact the rule needs, the quantity stays blank and names the
+fact; it never prices as zero or one. The estimator's own quantity wins until reset, and a
+saved run keeps the quantity it recorded (LA-1401).
+_Avoid_: calculated quantity, auto quantity, default quantity
+
 **Markup basis**:
 What a 90-series item computes on: either the running total of everything above it, the
 trade cost alone, or a lump sum. Recorded per item, because Kulka's budgets do not all

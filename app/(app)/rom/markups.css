@@ -39,3 +39,77 @@
 @media (max-width: 700px) {
   .markup-picks li { grid-template-columns: 1fr; }
 }
+
+/* LA-1397: the Allocated Resources plan. Each line is a card-less block: a
+   name row with its amount, then its basis, quantity and rate fields. */
+.plan-lines { list-style: none; padding: 0; margin: 0 0 var(--s2); }
+.plan-line {
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--border-light);
+}
+.plan-line-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--s2);
+  align-items: center;
+  margin-bottom: var(--s2);
+}
+.plan-amount { min-width: 96px; text-align: right; }
+.plan-line-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--s2) var(--s3);
+  align-items: end;
+  margin-bottom: var(--s2);
+}
+.plan-phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  align-items: end;
+  margin-bottom: var(--s2);
+}
+.plan-phase { display: inline-flex; gap: 6px; align-items: center; font-size: var(--meta-size); }
+.plan-own-weeks { width: 120px; }
+.plan-adds { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s3); }
+.plan-adds .input { max-width: 320px; }
+.plan-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: var(--s2);
+  border-top: 1px solid var(--border-light);
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .plan-line-head { grid-template-columns: minmax(0, 1fr) auto; }
+  .plan-line-head .btn { grid-column: 1 / -1; justify-self: start; }
+  .plan-adds .input { max-width: none; }
+}
+
+/* LA-1399: the proposed schedule. Each phase's weeks can carry a Proposed tag
+   or a reset back to the proposal; the note under them names the completed
+   jobs compared. */
+.plan-week { display: flex; flex-direction: column; gap: var(--s1); }
+.plan-week-tag { font-size: var(--meta-size); color: var(--ink-2); }
+.plan-week-reset { align-self: flex-start; }
+.plan-proposal { margin-bottom: var(--s3); }
+.plan-proposal h4 { margin: var(--s2) 0 var(--s1); }
+.plan-proposal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--s2);
+  font-size: var(--meta-size);
+  line-height: var(--ui-line);
+  color: var(--ink-2);
+}
+.plan-proposal-list li { padding: 2px 0; }
+
+/* LA-1402: a line switched off stays visible and does not price. */
+.plan-line--off .plan-line-fields,
+.plan-line--off .plan-phases {
+  opacity: 0.55;
+}
+.plan-line--off .plan-amount {
+  text-decoration: line-through;
+}

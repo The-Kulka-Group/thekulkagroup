@@ -17,12 +17,9 @@ rolled up to, $727,230, 5.96% of a $12.2M hardcost, is not a multifamily benchma
 should not be read as one. It answers "what does a role or a trailer cost," not "what
 percent should a multifamily GC run."
 
-This file does not answer LA-688's other two questions: whether rates vary by job size
-(n=1 here, no comparison point), and General Requirements coverage. The same estimate
-carries a separate `General Requirements (GC- CM)` tab, temp heat, temp utilities,
-hoisting, and similar Division 01 scope, not pulled here since this pass was scoped to
-staffing and field offices only. That tab is real and available whenever GR is worth the
-same treatment.
+This file does not answer LA-688's question about whether rates vary by job size (n=1 here,
+no comparison point). General Requirements coverage, LA-688's other open question, is
+answered in the last section, from the same estimate's `General Requirements (GC- CM)` tab.
 
 ## Staffing, weekly all-in rate
 
@@ -83,15 +80,28 @@ than one row per role, since the rate doesn't vary by who sits in the office.
 
 **Per-office setup and utility connection:**
 
-| Item | Rate |
-| --- | --- |
-| Office fit-out/furniture allowance | $2,750 ls (per office) |
-| Field equipment (desks, file cabinets) | $2,000 ls (per office) |
-| Computers | $2,500 ls (per office) |
-| Electric connect | $500 ls, then $175/mo service |
-| Phone/data connect | $2,000 ls, then $150/mo service |
-| Plumbing connect | $500 ls, then $100/mo service |
-| Trailer alarm, central station monitoring | $100/mo |
+Corrected by LA-1403. Every row was checked against the sheet rows it cites. The
+first load carried mislabeled figures, and the table below matches the sheet.
+
+| Item | Rate | Sheet rows |
+| --- | --- | --- |
+| Electric Connect | $0 ls | 94 to 100 |
+| Plumbing Connect | $0 ls | 102 to 107 |
+| Office Supplies | $500 ls (per office) | 109 to 114 |
+| Field equipment (desks, file cabinets) | $2,000 ls (per office) | 116 to 121 |
+| Computers | $2,750 ls (per person) | 123 to 143 |
+| Field Office Fit-Out (Kitchens, Plan Tables, Racks, Conference Table) | $2,500 ls (per office) | 145 to 150 |
+| Tel/Data Service | $500 ls (per office) | 152 to 157 |
+| Networking/Printer Setup | $3,200 ls (per office) | 159 to 164 |
+| ISP Service | $175/mo | 166 to 171 |
+| Tel/Data Bill | $100/mo | 173 to 178 |
+| Trailer alarm, central station monitoring | $150/mo | 183 to 188 |
+
+What LA-1403 changed: the $500 first filed as Electric Connect is Office Supplies, and
+Electric Connect and Plumbing Connect are $0 on the sheet. The $2,000 Phone/data connect is
+Tel/Data Service at $500. The $2,750 and $2,500 figures were swapped between the office
+fit-out and the computers. Trailer alarm is $150, not $100. The card gained Office
+Supplies, Networking/Printer Setup, ISP Service and Tel/Data Bill.
 
 **General field costs, monthly unless noted:**
 
@@ -122,3 +132,56 @@ against a $12,195,050 hardcost subtotal, 5.96%. `rom-system-design.md` already c
 job's 5.96% GC-only figure sits inside that range but isn't additive to it and shouldn't
 be blended with it, different denominator, different building type, different scope
 (GC only here, GC-plus-GR there).
+
+## General Requirements rate card
+
+Added by LA-1396, under the LA-1394 spec. Source: the `General Requirements (GC- CM)` tab
+of the same workbook, `117 N Long Beach Rd GC's REV1.xlsx`, estimate `C-00379` revision 1.
+The rows live in the `gr_rates` table (migration `20260929010000_gr_rate_card.sql`) beside
+the staffing and field-office tables, and the rates show in Run Settings under General
+Requirements Rates.
+
+**The same caveat applies, and more so: every row comes from one job, the 120,000 SF
+warehouse.** Temporary heat, hoisting, security and site controls depend on the building
+and the site. A warehouse rate is not a multifamily benchmark. Each row carries
+`single_job_warehouse` and `source_job`, and the page states the caveat above the rates.
+
+The card holds 168 rows in ten sections: Construction Labor & Clean-up, Site Controls,
+Temporary & OSHA Protection, Security, Hoists, Cranes & Scaffolding, Surveying, Site Safety
+& Consultants, Permits, Fees & Expediting, Cold Weather Protection, Temporary Utilities,
+and Insurances & Bonds. Each row has its section, item, unit, rate, basis and source
+estimate. The basis is a week or month of a schedule phase, a unit (SF, GSF, days, each and
+so on), or a lump sum. A line the source leaves without a unit has the basis "not stated".
+
+Known rates from the tab: final cleaning $0.55 per SF, OSHA protection $0.45 per GSF,
+exterminating $0.25 per SF, survey crew $2,500 per day, laborers $1,400 per week, site safety
+manager $3,800 per week, port-a-johns $90 per month, walk-off mats $1,500 lump sum.
+
+**Lines with no rate load anyway.** Ninety-one of the 168 rows have no rate (eight are Insurances & Bonds), because the
+source marks them "Included", "w/ Carpentry" or "w/ Trades", or leaves the rate blank
+(permits, consultants, crane labor, and similar). Their notes carry the source wording. The
+`job_quantity` column keeps the quantity the source used on this one job, for context only.
+
+**Insurances & Bonds is not priceable.** Its eight rows (liability, builders risk, OCIP,
+railroad, P&P bonds, subcontractor bonds, SubGuard, wrap-up) load with no rate and are marked
+not priceable. Fee and insurance are already markups, so pricing them here would count them
+twice. That holds until Matt answers LA-1394 question 3, and a database check refuses a
+priceable Insurances & Bonds row.
+
+**Where the tab and the ticket differ.**
+
+- The source carries vendor quote columns (for example three dumpster haulers) and a
+  per-town permit fee grid. The card keeps the single rate the estimate used and leaves
+  the quotes out.
+- The source's own total, $359,430 for General Requirements, is not loaded. It answers what
+  this job's lines summed to, and the same warning as the General Conditions roll-up applies.
+- LA-1394 quotes General Requirements at $389,416. That figure is the Summary tab's cell
+  AF36, which reads BZ36, a typed number in the column headed "Rev.3 Orig. Budget Numbers".
+  No formula links it to the General Requirements tab, and no line or section there makes up
+  the $29,986 gap. The LA-1398 golden test rebuilds the tab's lines and gets $359,430
+  (packages/engine/src/fixtures/c-00379-general-requirements.ts).
+- Two per-area lines on the tab (Final Cleaning, OSHA Protection) use a typed 120,000 SF.
+  The fire extinguisher line divides Project Data's 68,016 GSF by 3,000. LA-1394 question 4
+  asks which area is right.
+- Some source labels have typos that the card corrects: "Subcontractor Binds" reads
+  "Subcontractor Bonds". "Main.. Eng. (NYC Only)" reads "Main. Eng. (NYC Only)".

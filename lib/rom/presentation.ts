@@ -129,7 +129,6 @@ export type BudgetPage = {
     preparedBy: string;
     validityDays: number | null;
     coverSentence: string | null;
-    snapshotHash: string | null;
   };
   /** The newer version that replaces this one, for a superseded page. */
   newer: { version: number; href: string } | null;
@@ -396,6 +395,20 @@ const FACT_LABELS: Record<string, string> = {
   radio_amplifier: "Emergency Radio Amplifier",
 };
 
+/**
+ * The question as a client reads it, where the intake flow's prompt is only a
+ * field label ("Unit Count"). The flow keeps its labels for the estimator's
+ * screen; the page asks the question in words.
+ */
+const QUESTION_WORDS: Record<string, string> = {
+  stories_above_grade: "How many stories does the building have above grade?",
+  unit_count: "How many units does the building have?",
+  building_count: "How many buildings are there?",
+  zip: "What is the project's ZIP code?",
+  labor_type: "Is the job open shop or union?",
+  elevator_count: "How many elevators does the building have?",
+};
+
 /** The facts that price the most, which Summary shows (LA-1309: units, gross area, stories, parking, type, framing, labor). */
 const SUMMARY_FACTS = new Set(["projectType", "constructionKind", "grossSquareFeet", "framingSystem", "storiesAboveGrade", "unitCount", "laborType", "parkingType"]);
 
@@ -456,7 +469,7 @@ function factsOf(snapshot: PublishedBudgetSnapshot): Fact[] {
       label: FACT_LABELS[id],
       value: answerWords(q, raw),
       basis: "stated",
-      basisWords: q.prompt,
+      basisWords: QUESTION_WORDS[id] ?? q.prompt,
       assumedBy: null,
       tier: SUMMARY_FACTS.has(key) ? "summary" : "detail",
     });
@@ -957,7 +970,6 @@ export function presentBudget(publication: Publication): BudgetPage {
       preparedBy: copy.preparedBy ?? "The Kulka Group",
       validityDays: copy.validityDays,
       coverSentence: copy.coverSentence,
-      snapshotHash: snapshot.engineSnapshotHash,
     },
     newer: publication.newer ? { version: publication.newer.version, href: `/b/${publication.newer.token}` } : null,
     sections: [...SECTIONS],

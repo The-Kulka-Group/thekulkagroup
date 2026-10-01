@@ -179,6 +179,23 @@ describe("tiers", () => {
     ]);
     expect(page.project.facts.filter((f) => f.basis === "assumed").every((f) => f.tier === "detail")).toBe(true);
   });
+
+  it("asks every stated fact's question in words, never as the field's label", () => {
+    const page = presentBudget(referencePublication());
+    const stated = page.project.facts.filter((f) => f.basis === "stated" && f.key !== "framingSystem");
+
+    expect(stated.length).toBeGreaterThan(0);
+    for (const fact of stated) {
+      expect(fact.basisWords, fact.key).toMatch(/\?$/);
+      expect(fact.basisWords, fact.key).not.toBe(fact.label);
+    }
+  });
+
+  it("keeps the engine snapshot hash off the record", () => {
+    const page = presentBudget(referencePublication());
+
+    expect("snapshotHash" in page.record).toBe(false);
+  });
 });
 
 describe("the stage bar", () => {

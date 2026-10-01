@@ -75,9 +75,7 @@ function record(page: BudgetPage): string {
   }${h.unitCount !== null ? `\n  <div><dt>Units</dt><dd data-el="record:units">${wholeNumber(h.unitCount)}</dd></div>` : ""}${
     h.perSquareFoot ? `\n  <div><dt>Per SF</dt><dd data-el="record:per-sf" title="${esc(h.perSquareFoot.arithmetic)}">${usd(h.perSquareFoot.value)}</dd></div>` : ""
   }${h.perUnit ? `\n  <div><dt>Per Unit</dt><dd data-el="record:per-unit" title="${esc(h.perUnit.arithmetic)}">${usd(h.perUnit.value)}</dd></div>` : ""}
-  <div><dt>Figures Valid</dt><dd data-el="record:validity">${r.validityDays ? `${r.validityDays} days from issue` : '<span class="missing">Not Set</span>'}</dd></div>${
-    r.snapshotHash ? `\n  <div class="tier-full"><dt>Snapshot</dt><dd data-el="record:snapshot"><code>${esc(r.snapshotHash.slice(0, 12))}</code></dd></div>` : ""
-  }
+  <div><dt>Figures Valid</dt><dd data-el="record:validity">${r.validityDays ? `${r.validityDays} days from issue` : '<span class="missing">Not Set</span>'}</dd></div>
 </dl>`;
 }
 
@@ -674,9 +672,7 @@ function appendix(page: BudgetPage): string {
         <tbody>${page.parameters.map((p) => `
           <tr><td>${esc(p.label)}</td><td class="right num">${esc(p.value)}</td><td>${esc(p.recordedBy)}</td><td>${esc(p.recordedAt)}</td></tr>`).join("")}
         </tbody>
-      </table>${page.markupWords ? `\n      <p class="sub">${esc(page.markupWords)}</p>` : ""}${
-        page.record.snapshotHash ? `\n      <p class="sub">Snapshot ${esc(page.record.snapshotHash.slice(0, 12))}</p>` : ""
-      }
+      </table>${page.markupWords ? `\n      <p class="sub">${esc(page.markupWords)}</p>` : ""}
     </div>`);
   }
 

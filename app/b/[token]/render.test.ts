@@ -46,9 +46,12 @@ describe("the rendered page against the reference", () => {
     // the run's recorded date is the issue date on a published page; the
     // record's Gross Area and Units no longer reuse the fact rows' ids; a
     // parameter's id is a slug, so no engine parameter key reaches the page.
+    // The reference printed the engine snapshot hash in the record; a client
+    // has no use for it, so the page leaves it out.
     const renamed = (id: string) =>
       id === "record:recorded" ? "record:issued" : id.startsWith("parameter:") ? `parameter:${id.slice(10).replace(/[._]/g, "-")}` : id;
-    const expected = new Set([...referencePage.dataEl.filter(notComparable).map(renamed), "record:gross-area", "record:units"]);
+    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot";
+    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units"]);
 
     expect(new Set(ids.filter(notComparable))).toEqual(expected);
     expect(ids.filter((id) => id.includes(":comparable:"))).toHaveLength(referencePage.dataEl.filter((id) => id.includes(":comparable:")).length);

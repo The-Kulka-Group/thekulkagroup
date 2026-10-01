@@ -1,0 +1,26 @@
+/* LA-1419. The Publish panel on a saved budget: four fields, then the
+   version list. Reuses .input, .field-label, .btn and .rb-acts. Every row
+   wraps, and nothing has a fixed width, so the panel fits a phone (390px)
+   with no sideways scroll. */
+
+.pb-form { display: grid; gap: 14px; margin: 4px 0 0; min-width: 0; }
+.pb-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 12px 16px; min-width: 0; }
+.pb-fields label { display: block; min-width: 0; }
+.pb-fields .pb-wide { grid-column: 1 / -1; }
+.pb-fields textarea.input { min-height: 64px; resize: vertical; font: inherit; }
+.pb-hint { display: block; margin-top: 4px; color: var(--rb-pnl-mute); font-size: var(--chip-size); line-height: 1.4; }
+.pb-form .rb-acts { flex-wrap: wrap; margin: 0; }
+
+.pb-list-head { margin: 26px 0 6px; font-size: var(--t3-size); }
+.pb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; min-width: 0; }
+.pb-row { padding: 12px 0; border-top: 1px solid var(--rb-pnl-line); min-width: 0; }
+.pb-row:last-child { border-bottom: 1px solid var(--rb-pnl-line); }
+.pb-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.pb-ver { font-weight: 600; }
+.pb-when { color: var(--rb-pnl-mute); font-size: var(--meta-size); }
+.pb-state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--meta-size); color: var(--rb-sel-ink2); }
+.pb-link { margin: 6px 0 0; font-size: var(--meta-size); overflow-wrap: anywhere; word-break: break-all; min-width: 0; }
+.pb-link a { color: var(--rb-ink-on-black); border-bottom: 1px solid var(--rb-pnl-mute); text-decoration: none; }
+.pb-row .rb-acts { flex-wrap: wrap; margin: 8px 0 0; align-items: center; }
+.pb-row .rb-pp { margin: 0; flex: 1 1 100%; }
+.pb-none { margin: 6px 0; color: var(--rb-sel-ink2); font-size: var(--meta-size); }

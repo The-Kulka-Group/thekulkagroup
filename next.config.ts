@@ -6,11 +6,25 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@kulka/engine"],
   // The browser-test database loads local WASM assets through Node's URL API.
   // Bundling it replaces those URLs and prevents the test database from opening.
-  serverExternalPackages: ["@electric-sql/pglite", "pdfjs-dist"],
+  serverExternalPackages: ["@electric-sql/pglite", "pdfjs-dist", "@sparticuz/chromium", "playwright-core"],
 
   // pdfjs-dist loads its worker at runtime. Include it in both server routes
   // that can collect Suffolk Planning Board PDFs.
   outputFileTracingIncludes: {
+    // LA-1420. Publish prints the budget with headless Chromium. It needs the
+    // three files the print page loads, and the compressed Chromium build that
+    // @sparticuz/chromium unpacks at run time (found by relative path, so
+    // tracing does not see it on its own). The key uses * for [runId]: the
+    // key is a glob, and [runId] would read as a character class.
+    "/api/rom/runs/*/publish": [
+      "./public/scrollcraft/scrollcraft.css",
+      "./public/scrollcraft/budget-page.css",
+      "./public/scrollcraft/budget-page.js",
+      "./node_modules/@sparticuz/chromium/bin/chromium.br",
+      "./node_modules/@sparticuz/chromium/bin/fonts.tar.br",
+      "./node_modules/@sparticuz/chromium/bin/al2023.tar.br",
+      "./node_modules/@sparticuz/chromium/bin/swiftshader.tar.br",
+    ],
     "/api/vision/discovery/cron": [
       "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
     ],

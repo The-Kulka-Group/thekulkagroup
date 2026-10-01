@@ -231,6 +231,21 @@ The HTML-style client-facing document planned to follow the branded PDF. A later
 deliverable, not part of v1.
 _Avoid_: web proposal, interactive PDF
 
+**Published budget**:
+A saved run frozen at the moment an estimator publishes it, with its own version number and an unguessable link a client opens with no account (LA-1309). The snapshot holds the run's ROM, the recorded answers, the criteria and four things the estimator writes: who it is prepared for, who prepared it, one cover sentence and how many days the figures stay valid (90 unless changed). The client page reads the snapshot alone, so a later run, fact change or benchmark change never moves a published figure. Publishing again makes the next version and marks the earlier ones superseded; an old link still shows its own figures under a note naming the newer version. Revoking a version withdraws its link: the link shows a withdrawn notice and no figures, and the row stays. Publishing is an action on a saved budget, not a run, so nothing calls the engine. It is not the Living proposal, which is a later proposal document.
+_Avoid_: shared budget, client copy, export, report
+
+**Presentation model**:
+What the client page shows, built from a published budget's snapshot by one pure
+function (`lib/rom/presentation.ts`, LA-1418): the sections, what each of Summary, Detail
+and Full shows, the ledger by scope, the stage bar, the numbered notes, the two derived
+figures with their arithmetic, and a stable `data-el` id on every line, total, criterion,
+gate and note. It puts everything in client words: sources read Kulka Jobs, Kulka Rate or
+Placeholder Rate, and the run's basis sentences and notes lose their internal wording. It
+reads no clock, network or database, so a snapshot always yields the same page. The page
+at `/b/<token>` only formats and escapes what it returns.
+_Avoid_: view model, page data, render model
+
 **Confidence flag**:
 The high, medium, or low mark on a ROM line, driven by the count, spread, and kind of
 comparables behind it. Low flags hold the line for human review.

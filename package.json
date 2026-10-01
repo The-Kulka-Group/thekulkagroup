@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.128.0",
     "@kulka/engine": "*",
     "@phosphor-icons/react": "^2.1.7",
+    "@sparticuz/chromium": "^153.0.0",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.114.0",
     "@tanstack/react-table": "^8.21.3",
@@ -28,6 +29,7 @@
     "next": "^16.3.3",
     "pdfjs-dist": "6.3.289",
     "pg": "^8.23.0",
+    "playwright-core": "1.62.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.170.0"

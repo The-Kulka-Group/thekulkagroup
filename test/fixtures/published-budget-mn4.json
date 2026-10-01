@@ -1,0 +1,2674 @@
+{
+ "snapshot": {
+  "format": 1,
+  "run": {
+   "id": "9b995af5-388e-42a6-a99e-1963791543e1",
+   "skill": "rom_tier1",
+   "startedAt": "2026-09-29T03:42:27.267Z",
+   "finishedAt": "2026-09-29T03:42:27.427Z",
+   "issuedAt": "2026-09-29T03:42:27.267Z"
+  },
+  "project": {
+   "id": "f15326b2-aa18-4720-8593-ae7ecd398004",
+   "name": "MN Test #4"
+  },
+  "rom": {
+   "lines": [
+    {
+     "low": 11608,
+     "high": 24109,
+     "label": "Site Demolition",
+     "element": "Demolition",
+     "costCode": "1",
+     "scopeSide": "site",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "priced",
+     "comparables": [
+      {
+       "kind": "actuals",
+       "rate": 25000,
+       "weight": 5,
+       "recordedAt": "2026-09-26",
+       "recordedBy": "Matt Nicosia",
+       "exportLabel": "Jefferson's Ferry (C00456) \"Site Demolition\" line, $25,000. Thin data: one job. Matt chose this line alone, 2026-09-26.",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 3.7077,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 3.8923,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": 1,
+     "contractSide": "kulka",
+     "buyoutPackage": "Demolition",
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 10499,
+     "high": 21807,
+     "label": "Millwork",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 231,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "10",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.25239175811298076,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 156433,
+     "high": 324899,
+     "label": "Screened Balconies",
+     "element": null,
+     "costCode": "11",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "priced",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 3.7604,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 176097,
+     "high": 365740,
+     "label": "Damproofing & Waterproofing + Insulation",
+     "element": null,
+     "costCode": "12",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 5.6074,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 2.8588,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 259615,
+     "high": 389422,
+     "label": "Roofing + Rooftop Pavers",
+     "element": null,
+     "costCode": "13",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 4.4236,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 5.7176,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 524137,
+     "high": 1088592,
+     "label": "Siding Exterior Trim Decks Rails + Stucco",
+     "element": null,
+     "costCode": "14",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 5.5129,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 19.686,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 279758,
+     "high": 419637,
+     "label": "Doors Frames Hardware",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 4996,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "15",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 5.958467797776442,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 4.969582386363636,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 0,
+     "high": 0,
+     "label": "Overhead Doors",
+     "element": null,
+     "costCode": "15a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "not_in_job",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.0998,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 0,
+     "high": 0,
+     "label": "Storefronts",
+     "element": null,
+     "costCode": "16",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "not_in_job",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 1.8393,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 98080,
+     "high": 203705,
+     "label": "Windows - Furnish Only",
+     "element": null,
+     "costCode": "16a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.8011,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 3.9143,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 2108710,
+     "high": 4379629,
+     "label": "Drywall & ACT + Metal Framing",
+     "element": null,
+     "framing": {
+      "reason": null,
+      "status": "matched",
+      "excluded": []
+     },
+     "costCode": "17",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 8.3704,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 93.0099,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 90941,
+     "high": 188877,
+     "label": "Ceramic Tile",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 1999,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "18",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 2.1860734681490386,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 412858,
+     "high": 857474,
+     "label": "Flooring",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 9074,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "19",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 4.573981036658654,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 15.274944602272726,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 128700,
+     "high": 267300,
+     "label": "Structure Demolition",
+     "element": "Demolition",
+     "costCode": "1a",
+     "scopeSide": "site",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "reviewed_judgment",
+       "rate": 13.2,
+       "weight": 2,
+       "recordedAt": "2026-09-26",
+       "recordedBy": "Matt Nicosia",
+       "exportLabel": "Began as Claude's proposal. Matt reviewed it and stated the low end plus ten percent, 2026-09-26.",
+       "sourceProjectIds": []
+      }
+     ],
+     "detailLevel": 1,
+     "contractSide": "kulka",
+     "buyoutPackage": "Demolition",
+     "heldForReview": true,
+     "comparableCount": 0,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 735800,
+     "high": 1528200,
+     "label": "Concrete & Site Concrete",
+     "element": null,
+     "costCode": "2",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 17.6875,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 164621,
+     "high": 246931,
+     "label": "Painting",
+     "element": null,
+     "costCode": "20",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 2.7068,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 3.7237,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 195371,
+     "high": 405771,
+     "label": "Specialties & F.E. + Signage",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 4294,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "21",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 2.623050243389423,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 6.769805397727273,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 153029,
+     "high": 317830,
+     "label": "Appliances",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 3363,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "22",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 2.701563311899039,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 4.655606534090909,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "owner",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 328301,
+     "high": 681855,
+     "label": "Cabinets",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 7215,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "24",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 1.8940286451322117,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 13.889650568181818,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 166161,
+     "high": 345103,
+     "label": "Countertops",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 3652,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "24a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 3.994253227764424,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 35425,
+     "high": 53138,
+     "label": "Window Treatments",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 633,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "24b",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.5769520943509616,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 0.8068494318181818,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 11532,
+     "high": 23950,
+     "label": "Furnishings & Fireplace",
+     "element": null,
+     "costCode": "25",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "priced",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.2772,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 227500,
+     "high": 472500,
+     "label": "Elevators",
+     "element": "Elevator",
+     "costCode": "26",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "priced",
+     "comparables": [
+      {
+       "kind": "reviewed_judgment",
+       "rate": 35000,
+       "weight": 2,
+       "recordedAt": "2026-09-27",
+       "recordedBy": "Matt Nicosia",
+       "exportLabel": "Matt's statement, 2026-09-27, after LA-784's hydraulic-versus-traction cost research (docs/precon/research/la-784-elevator-followups.md, Section 2). Replaces the single $41,000-per-stop blended rate.",
+       "sourceProjectIds": []
+      }
+     ],
+     "detailLevel": 2,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 0,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 28700,
+     "high": 28700,
+     "label": "Elevator Bulkhead",
+     "element": "Elevator",
+     "costCode": "26a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "high",
+     "gateStatus": "priced",
+     "comparables": [
+      {
+       "kind": "reviewed_judgment",
+       "rate": 16600,
+       "weight": 2,
+       "recordedAt": "2026-09-27",
+       "recordedBy": "Matt Nicosia",
+       "exportLabel": "Matt's statement, 2026-09-27, accepting the per-trade build-up in docs/precon/research/la-784-elevator-followups.md, Section 6, at the 4 ft base case: masonry (04), 2-hour 8\" CMU, $4,108; structural steel (05), hoist beam furnished and set, $3,750; roofing (07), bulkhead roof, base flashing and metal coping (sheet metal folded into roofing), $3,981; trade subtotal $11,839, times 1.4 for small-job mobilization and GC overhead and profit; $16,600 per single-car bulkhead.",
+       "sourceProjectIds": []
+      },
+      {
+       "kind": "reviewed_judgment",
+       "rate": 2200,
+       "weight": 2,
+       "recordedAt": "2026-09-27",
+       "recordedBy": "Matt Nicosia",
+       "exportLabel": "Matt's statement, 2026-09-27: the door package, added only when the bulkhead also holds the roof stair or a traction machine room, since mechanics reach the overrun from the car top otherwise (docs/precon/research/la-784-elevator-followups.md, Sections 5 and 6). Prices the frame, hardware, installation and paint, range $1,500 to $3,000; $2,200 planning figure.",
+       "sourceProjectIds": []
+      },
+      {
+       "kind": "reviewed_judgment",
+       "rate": 28700,
+       "weight": 2,
+       "recordedAt": "2026-09-27",
+       "recordedBy": "Matt Nicosia",
+       "exportLabel": "Matt's statement, 2026-09-27: two cars sharing one bulkhead, about 1.7 times the single-car trade subtotal rather than double, because the walls, roof and coping scale with shared perimeter and area rather than doubling with car count (docs/precon/research/la-784-elevator-followups.md, Section 6); $28,700 for two cars sharing one bulkhead.",
+       "sourceProjectIds": []
+      }
+     ],
+     "detailLevel": 2,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 0,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 228413,
+     "high": 342620,
+     "label": "Fire Protection",
+     "element": null,
+     "costCode": "27",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 4.8322,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 4.0902,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 1449617,
+     "high": 2174426,
+     "label": "Plumbing",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 25886,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "28",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 28.29067742097356,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 28.334995738636366,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 0,
+     "high": 0,
+     "label": "Building Concrete",
+     "element": null,
+     "costCode": "3",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "not_in_job",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 14.9445,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 622631,
+     "high": 1293157,
+     "label": "Mechanical",
+     "element": null,
+     "costCode": "30",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 10.7775,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 19.1567,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 804546,
+     "high": 1670980,
+     "label": "Electrical",
+     "element": null,
+     "costCode": "31",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 13.0043,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 25.6758,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 256339,
+     "high": 532397,
+     "label": "Low Voltage",
+     "element": null,
+     "costCode": "31a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 6.162,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 99628,
+     "high": 206919,
+     "label": "Fire Alarm",
+     "element": null,
+     "costCode": "32",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 1.6232,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 3.1666,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 0,
+     "high": 0,
+     "label": "BDA System",
+     "element": null,
+     "costCode": "32a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "not_in_job",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.7666,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 656269,
+     "high": 1363020,
+     "label": "Site Work",
+     "element": null,
+     "costCode": "34",
+     "scopeSide": "site",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 5.8088,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 25.7426,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 0,
+     "high": 0,
+     "label": "Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design",
+     "element": null,
+     "costCode": "34a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": "tbd",
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 4.3284,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 176754,
+     "high": 367105,
+     "label": "Landscaping Irrigation Pavers",
+     "element": null,
+     "costCode": "37",
+     "scopeSide": "site",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.4963,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 8.0015,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 178443,
+     "high": 370613,
+     "label": "Asphalt Traffic Signage Striping",
+     "element": null,
+     "costCode": "38",
+     "scopeSide": "site",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.7348,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 7.8442,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 71148,
+     "high": 147770,
+     "label": "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates",
+     "element": null,
+     "costCode": "39",
+     "scopeSide": "site",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 1.7103,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 63569,
+     "high": 132028,
+     "label": "Gypcrete",
+     "element": null,
+     "costCode": "3a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 1.5281,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 108378,
+     "high": 162566,
+     "label": "Masonry",
+     "element": null,
+     "costCode": "6",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 2.3863,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 1.8472,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 185953,
+     "high": 278930,
+     "label": "Misc Steel Stairs Mesh Screens + Canopy",
+     "element": null,
+     "costCode": "7",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 3.777,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 3.4868,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 617802,
+     "high": 1283126,
+     "label": "Wood Framing - Install + Wood Framing - Supply",
+     "element": null,
+     "framing": {
+      "reason": null,
+      "status": "matched",
+      "excluded": []
+     },
+     "costCode": "8",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 14.850999999999999,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 5878,
+     "high": 12208,
+     "label": "Wood Stairs",
+     "element": null,
+     "costCode": "8a",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "low",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 0.1413,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": true,
+     "comparableCount": 1,
+     "judgmentAdjustments": []
+    },
+    {
+     "low": 211809,
+     "high": 317713,
+     "label": "Finish Carpentry",
+     "element": null,
+     "perUnit": {
+      "unitCount": 70,
+      "usdPerUnit": 3782,
+      "projectGsfPerUnit": 914.2857142857143
+     },
+     "costCode": "9",
+     "scopeSide": "building",
+     "breakoutOf": null,
+     "confidence": "medium",
+     "gateStatus": null,
+     "comparables": [
+      {
+       "kind": "proest_budget",
+       "rate": 3.8570536231971158,
+       "weight": 1,
+       "recordedAt": "2026-09-24",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (188,522 SF incl. garage), extracted 2026-09-22; job 42% complete; fee, contingency and buyout savings excluded",
+       "sourceProjectIds": [
+        "2fbf2c0d-3837-4d96-8593-8e40257548c0"
+       ]
+      },
+      {
+       "kind": "proest_budget",
+       "rate": 4.416731534090909,
+       "weight": 1,
+       "recordedAt": "2026-09-23",
+       "recordedBy": "open-access@kulka.invalid",
+       "exportLabel": "ACC Budget, Forecast Final Cost per GSF (22,737 SF), extracted 2026-09-22; job 31% complete; insurance and fee excluded",
+       "sourceProjectIds": [
+        "f619d711-8257-4fd8-9344-aba3b97dc998"
+       ]
+      }
+     ],
+     "detailLevel": null,
+     "contractSide": "kulka",
+     "buyoutPackage": null,
+     "heldForReview": false,
+     "comparableCount": 2,
+     "judgmentAdjustments": []
+    }
+   ],
+   "total": {
+    "low": 12041053,
+    "high": 23290747
+   },
+   "markups": {
+    "fee": {
+     "low": 413406,
+     "tbd": false,
+     "code": "90 30 00",
+     "high": 798883,
+     "basis": "3.25% of subtotal plus General Requirements & General Conditions, parameter fee.rate, mnicosia@thekulkagroup.com 2026-09-23",
+     "label": "Fee",
+     "source": "parameter"
+    },
+    "total": {
+     "low": 13842806,
+     "tbd": false,
+     "code": null,
+     "high": 26750419,
+     "basis": "Kulka's contract with every markup above",
+     "label": "Total",
+     "source": "total"
+    },
+    "choices": {
+     "setup": "both",
+     "method": "pct_of_subtotal",
+     "overrideRate": 0.07
+    },
+    "subtotal": {
+     "low": 11888024,
+     "tbd": false,
+     "code": null,
+     "high": 22972917,
+     "basis": "Kulka's contract trade cost, owner-direct lines excluded",
+     "label": "Subtotal",
+     "source": "trade"
+    },
+    "insurance": {
+     "low": 709214,
+     "tbd": false,
+     "code": "90 40 00",
+     "high": 1370515,
+     "basis": "5.40% of subtotal plus General Requirements & General Conditions and fee, parameter insurance.rate, mnicosia@thekulkagroup.com 2026-09-23",
+     "label": "Insurance",
+     "source": "parameter"
+    },
+    "assumptions": [
+     "Fee computes on the subtotal plus the GRs/GCs line, and insurance on the subtotal, GRs/GCs, and fee, in the ADR 0004 waterfall order. Markups apply to Kulka's contract only; owner-direct scope carries none."
+    ],
+    "ownerDirect": {
+     "low": 153029,
+     "high": 317830
+    },
+    "totalProjectCost": {
+     "low": 13995835,
+     "high": 27068249
+    },
+    "generalConditions": {
+     "low": 832162,
+     "tbd": false,
+     "code": "90 20 00",
+     "high": 1608104,
+     "basis": "7.00% of subtotal, user override (history: 11.49% from 2 jobs: Fieldstone North Broadway (C00449), Jefferson's Ferry NW ILU Building 1 (C00456))",
+     "label": "General Requirements & General Conditions",
+     "source": "override"
+    }
+   },
+   "carvedOut": {
+    "low": 0,
+    "high": 0
+   },
+   "parameters": {
+    "fee.rate": {
+     "value": 0.0325,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Matt, 2026-09-23: Jefferson's Ferry's actual fee was $274,263.95 on $8,437,400.67 of cost, which is 3.25 percent. Fee computes on the subtotal plus GRs/GCs, per ADR 0004.",
+      "recordedAt": "2026-09-23",
+      "recordedBy": "mnicosia@thekulkagroup.com"
+     }
+    },
+    "spread.low": {
+     "value": 0.35,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Carried over unchanged from the walking skeleton's provisional table in rom.ts (LA-12), pending LA-23's backtest. Also the hard cap: no line is ever wider than this.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "spread.high": {
+     "value": 0.1,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Carried over unchanged from the walking skeleton's provisional table in rom.ts (LA-12), pending LA-23's backtest. Half-width of a high-confidence range as a fraction of the midpoint, and how far apart its comparables may sit.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "spread.medium": {
+     "value": 0.2,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Carried over unchanged from the walking skeleton's provisional table in rom.ts (LA-12), pending LA-23's backtest.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "insurance.rate": {
+     "value": 0.054,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Matt, 2026-09-23: Jefferson's Ferry carried $470,404.12 of insurance. On the ADR 0004 running-total basis that is 470,404.12 / (8,437,400.67 + 274,263.95) = 5.40 percent, rated on cost plus fee.",
+      "recordedAt": "2026-09-23",
+      "recordedBy": "mnicosia@thekulkagroup.com"
+     }
+    },
+    "weight.actuals": {
+     "value": 5,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Devin's anchor from the 2026-08-26 call: Autodesk Cost actuals outweigh ProEst budgets about five to one (docs/precon/direction.md; LA-9 \"the blend must reflect that order, with exact weights calibrated during backtest\"). Measured against a ProEst budget at weight one.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "weight.llm_proposal": {
+     "value": 0.5,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Same worked case: the model's figure counts half, the lightest signal in the blend (LA-9: \"never solely determines a line\"). Pending LA-23's backtest.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "weight.proest_budget": {
+     "value": 1,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "The unit the actuals weight is stated against. Same source as weight.actuals.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "weight.reviewed_judgment": {
+     "value": 2,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Matt, 2026-09-21, answering a worked case (a real job at $22/SF counting 5, a ProEst budget at $26/SF counting 1, an estimator's rule of thumb at $24/SF, a model's figure at $30/SF): the estimator's rule counts 2. Pending LA-23's backtest.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "flag.high_min_comparables": {
+     "value": 5,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Carried over unchanged from the walking skeleton's provisional table in rom.ts (LA-12), pending LA-23's backtest. A high flag needs at least this many distinct Kulka projects behind the line.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    },
+    "flag.medium_min_comparables": {
+     "value": 2,
+     "provenance": {
+      "kind": "reviewed_judgment",
+      "reason": "Carried over unchanged from the walking skeleton's provisional table in rom.ts (LA-12), pending LA-23's backtest.",
+      "recordedAt": "2026-09-21",
+      "recordedBy": "Matt Nicosia"
+     }
+    }
+   },
+   "assumptions": [
+    "The project is multifamily new construction.",
+    "Gross floor area is 64,000 square feet.",
+    "Every line is a range rather than a point, and no line here is a bid.",
+    "Blend weights, flag thresholds, and range widths are recorded engine parameters, each with its own provenance, listed with this ROM.",
+    "11 items are in scope with no rate yet: Cab Interior Finish Package, Elevator Pit Ladder, Pit Light and GFCI Receptacle, Emergency Two-Way Communication Line, Machine Room HVAC, Hoistway Door Frame Grouting, Hydraulic Well Hole and Casing, Plumbing Disconnect and Cap, Gas Meter and Service Disconnect, Electrical Service Disconnect, Site Utility Cut and Cap at the Main.",
+    "33 of 43 lines are low confidence and are held for review before this ROM goes anywhere.",
+    "3 of 43 lines rest on estimator judgment with no measured Kulka figure behind them yet.",
+    "Answered no, so this budget carries nothing for: existing building tie in.",
+    "Not in this job, so removed from the total: Overhead Doors (parkingType), Storefronts (retail storefronts), Building Concrete (parkingType), BDA System (radio amplifier).",
+    "1 item sits outside this total as TBD, because nobody knows the answer yet: Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design (levels below grade and site conditions).",
+    "39 of 43 lines have no stated level of detail yet, so the board shows them as unclassified rather than placing them at a guessed level.",
+    "1 of 43 lines are owner-direct scope, included in total project cost and excluded from Kulka's contract total.",
+    "Structure Demolition brings in Plumbing Disconnect and Cap, Gas Meter and Service Disconnect, Electrical Service Disconnect, Site Utility Cut and Cap at the Main. Each adds to the total on its own once it has a rate.",
+    "Elevators brings in Cab Interior Finish Package, Elevator Pit Ladder, Pit Light and GFCI Receptacle, Emergency Two-Way Communication Line, Machine Room HVAC, Hoistway Door Frame Grouting, Hydraulic Well Hole and Casing. Each adds to the total on its own once it has a rate.",
+    "Fee computes on the subtotal plus the GRs/GCs line, and insurance on the subtotal, GRs/GCs, and fee, in the ADR 0004 waterfall order. Markups apply to Kulka's contract only; owner-direct scope carries none."
+   ],
+   "notInThisJob": [
+    {
+     "label": "Overhead Doors",
+     "costCode": "15a",
+     "question": "parkingType"
+    },
+    {
+     "label": "Storefronts",
+     "costCode": "16",
+     "question": "retail storefronts"
+    },
+    {
+     "label": "Building Concrete",
+     "costCode": "3",
+     "question": "parkingType"
+    },
+    {
+     "label": "BDA System",
+     "costCode": "32a",
+     "question": "radio amplifier"
+    }
+   ],
+   "tbdGateItems": [
+    {
+     "label": "Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design",
+     "costCode": "34a",
+     "question": "levels below grade and site conditions"
+    }
+   ],
+   "unpricedItems": [
+    {
+     "label": "Cab Interior Finish Package",
+     "costCode": "26b",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Elevator Pit Ladder",
+     "costCode": "26c",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Pit Light and GFCI Receptacle",
+     "costCode": "26e",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Emergency Two-Way Communication Line",
+     "costCode": "26f",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Machine Room HVAC",
+     "costCode": "26g",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Hoistway Door Frame Grouting",
+     "costCode": "26h",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Hydraulic Well Hole and Casing",
+     "costCode": "26i",
+     "driverCostCode": "26"
+    },
+    {
+     "label": "Plumbing Disconnect and Cap",
+     "costCode": "28a",
+     "driverCostCode": "1a"
+    },
+    {
+     "label": "Gas Meter and Service Disconnect",
+     "costCode": "28b",
+     "driverCostCode": "1a"
+    },
+    {
+     "label": "Electrical Service Disconnect",
+     "costCode": "31f",
+     "driverCostCode": "1a"
+    },
+    {
+     "label": "Site Utility Cut and Cap at the Main",
+     "costCode": "36a",
+     "driverCostCode": "1a"
+    }
+   ],
+   "kulkaContractTotal": {
+    "low": 11888024,
+    "high": 22972917
+   },
+   "assumedPresentItems": []
+  },
+  "answers": {
+   "flow": {
+    "skill": "rom_tier1",
+    "version": 1,
+    "tbdCount": 1,
+    "responses": {
+     "zip": "10965",
+     "elevator": "yes",
+     "balconies": "yes",
+     "demolition": "yes",
+     "labor_type": "open_shop",
+     "unit_count": "70",
+     "parking_type": "surface",
+     "project_type": "multifamily",
+     "amenity_scope": "yes",
+     "building_count": "1",
+     "elevator_count": "2",
+     "radio_amplifier": "no",
+     "site_conditions": "dont_know",
+     "construction_kind": "new",
+     "gross_square_feet": "64000",
+     "levels_below_grade": "no",
+     "retail_storefronts": "no",
+     "stories_above_grade": "5",
+     "existing_building_tie_in": "no",
+     "demolition_structure_type": "steel_frame_concrete_metal_deck_type_ii",
+     "demolition_structure_count": "1",
+     "demolition_structure_square_feet": "15000"
+    },
+    "branchGates": {
+     "elevator": "yes",
+     "balconies": "yes",
+     "demolition": "yes",
+     "amenity_scope": "yes",
+     "radio_amplifier": "no",
+     "site_conditions": "dont_know",
+     "levels_below_grade": "no",
+     "retail_storefronts": "no",
+     "existing_building_tie_in": "no"
+    },
+    "tbdSections": [
+     "site_conditions"
+    ],
+    "intakeFields": {
+     "zip": "10965",
+     "laborType": "open_shop",
+     "unitCount": 70,
+     "parkingType": "surface",
+     "buildingCount": 1,
+     "elevatorCount": 2,
+     "storiesAboveGrade": 5,
+     "demolitionStructureType": "steel_frame_concrete_metal_deck_type_ii",
+     "demolitionStructureCount": 1,
+     "demolitionStructureSquareFeet": 15000
+    }
+   },
+   "facts": {
+    "zip": "10965",
+    "elevator": "yes",
+    "balconies": "yes",
+    "laborType": "open_shop",
+    "unitCount": 70,
+    "demolition": "yes",
+    "parkingType": "surface",
+    "elevatorType": "hydraulic",
+    "amenity_scope": "yes",
+    "buildingCount": 1,
+    "elevatorCount": 2,
+    "radio_amplifier": "no",
+    "site_conditions": "dont_know",
+    "hydraulicJackType": "in_ground",
+    "storiesAboveGrade": 5,
+    "levels_below_grade": "no",
+    "retail_storefronts": "no",
+    "elevatorMachineRooms": 1,
+    "demolitionStructureType": "steel_frame_concrete_metal_deck_type_ii",
+    "elevatorMachineRoomHvac": "yes",
+    "demolitionStructureCount": 1,
+    "existing_building_tie_in": "no",
+    "demolitionStructureSquareFeet": 15000
+   },
+   "markups": {
+    "setup": "both",
+    "method": "pct_of_subtotal",
+    "overrideRate": 0.07
+   },
+   "branchGates": {
+    "elevator": "yes",
+    "balconies": "yes",
+    "demolition": "yes",
+    "amenity_scope": "yes",
+    "radio_amplifier": "no",
+    "site_conditions": "dont_know",
+    "levels_below_grade": "no",
+    "retail_storefronts": "no",
+    "existing_building_tie_in": "no"
+   },
+   "projectType": "multifamily",
+   "framingSystem": "wood",
+   "grossSquareFeet": 64000,
+   "constructionKind": "new"
+  },
+  "criteria": [
+   {
+    "kind": "derived_assumption",
+    "code": "A-1",
+    "label": "Construction Type",
+    "value": {
+     "kind": "spec",
+     "text": "Type IIIA"
+    },
+    "method": "IBC 2021 and 2025 BCNYS R-2 limits by stories, framing and podium.",
+    "inputs": [
+     {
+      "name": "Stories Above Grade",
+      "basis": "stated",
+      "value": "5"
+     },
+     {
+      "name": "Framing System",
+      "basis": "stated",
+      "value": "Wood"
+     },
+     {
+      "name": "Parking",
+      "basis": "stated",
+      "value": "Surface"
+     },
+     {
+      "name": "Retail Storefronts",
+      "basis": "stated",
+      "value": "No"
+     },
+     {
+      "name": "Gross Square Feet",
+      "basis": "stated",
+      "value": "64,000"
+     },
+     {
+      "name": "Building Count",
+      "basis": "stated",
+      "value": "1"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Stories",
+      "result": "5"
+     },
+     {
+      "label": "Podium Stories",
+      "result": "0"
+     },
+     {
+      "label": "Framed Stories",
+      "result": "5, wood"
+     },
+     {
+      "label": "Height",
+      "result": "50 ft against 85 ft"
+     },
+     {
+      "label": "Area per Story",
+      "result": "12,800 SF against 72,000 SF"
+     },
+     {
+      "label": "Sprinkler",
+      "result": "NFPA 13"
+     },
+     {
+      "label": "Also Allowed",
+      "result": "Type IIIB"
+     },
+     {
+      "label": "Construction Type",
+      "result": "Type IIIA"
+     }
+    ],
+    "confidence": "high",
+    "confidenceReason": "Wood framing with no podium, clear of the type's height and area limits.",
+    "costCodes": [
+     "3",
+     "8",
+     "17",
+     "27"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "A-2",
+    "label": "Building Form",
+    "value": {
+     "kind": "spec",
+     "text": "Bar"
+    },
+    "method": "Double-loaded corridor wings 64 ft deep; past 300 ft of corridor the plate folds into an L, past 480 ft a U, past 720 ft a courtyard.",
+    "inputs": [
+     {
+      "name": "Gross Square Feet",
+      "basis": "stated",
+      "value": "64,000"
+     },
+     {
+      "name": "Stories Above Grade",
+      "basis": "stated",
+      "value": "5"
+     },
+     {
+      "name": "Building Count",
+      "basis": "stated",
+      "value": "1"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Floor Plate",
+      "result": "12,800 SF per building"
+     },
+     {
+      "label": "Corridor Length",
+      "result": "200 ft at 64 ft deep"
+     },
+     {
+      "label": "Shape",
+      "result": "Bar, 300 ft or less"
+     },
+     {
+      "label": "Wings",
+      "result": "1, 200 ft"
+     },
+     {
+      "label": "Stepped Floors",
+      "result": "None"
+     },
+     {
+      "label": "Facade Bays",
+      "result": "19 at 28 ft"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "There is no site plan yet, so the shape follows from the floor plate's length alone.",
+    "costCodes": [
+     "8"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "E-1",
+    "label": "Electrical Service Size",
+    "value": {
+     "kind": "quantity",
+     "unit": "A Service",
+     "amount": 1600
+    },
+    "method": "NEC 220.84 optional multifamily calculation, one service per building.",
+    "inputs": [
+     {
+      "name": "Unit Count",
+      "basis": "stated",
+      "value": "70"
+     },
+     {
+      "name": "Building Count",
+      "basis": "stated",
+      "value": "1"
+     },
+     {
+      "name": "Gross Square Feet",
+      "basis": "stated",
+      "value": "64,000"
+     },
+     {
+      "name": "Amenity Scope",
+      "basis": "stated",
+      "value": "Yes"
+     },
+     {
+      "name": "Elevators",
+      "basis": "stated",
+      "value": "2"
+     },
+     {
+      "name": "Dwelling Share of Gross Area",
+      "basis": "assumed",
+      "value": "87% (DOE mid-rise apartment)"
+     },
+     {
+      "name": "Appliances per Unit",
+      "basis": "assumed",
+      "value": "Range, dryer, water heater, 6 kW heat (NEC Annex D4(b))"
+     },
+     {
+      "name": "Parking",
+      "basis": "stated",
+      "value": "Surface"
+     },
+     {
+      "name": "Elevator Motor",
+      "basis": "assumed",
+      "value": "40 HP per car, a placeholder"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Units",
+      "result": "70"
+     },
+     {
+      "label": "Average Unit",
+      "result": "795 SF"
+     },
+     {
+      "label": "Connected Load per Unit",
+      "result": "28,386 VA"
+     },
+     {
+      "label": "Demand Factor",
+      "result": "23% (Table 220.84)"
+     },
+     {
+      "label": "Dwelling Demand",
+      "result": "457,019 VA"
+     },
+     {
+      "label": "House Load",
+      "result": "109,048 VA"
+     },
+     {
+      "label": "Service Load",
+      "result": "1,571 A at 208Y/120 V"
+     },
+     {
+      "label": "Service Size",
+      "result": "1,600 A"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "Amenity space and equipment are not measured, so the common area is priced at the clubs rate and pool or sauna equipment is left out. Elevator motors carry a 40 HP placeholder until the elevator vendor's data replaces it.",
+    "costCodes": [
+     "31"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "M-0",
+    "label": "Window Area and Orientation",
+    "value": {
+     "kind": "spec",
+     "text": "Standard Glazing Band"
+    },
+    "method": "Glazing band from balconies and storefronts, mapped to DOE's apartment prototypes.",
+    "inputs": [
+     {
+      "name": "Balconies",
+      "basis": "stated",
+      "value": "Yes"
+     },
+     {
+      "name": "Retail Storefronts",
+      "basis": "stated",
+      "value": "No"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Balconies",
+      "result": "Yes"
+     },
+     {
+      "label": "Storefronts",
+      "result": "No"
+     },
+     {
+      "label": "Window to Wall",
+      "result": "19.9% (DOE mid-rise apartment)"
+     },
+     {
+      "label": "Glazing Band",
+      "result": "Standard"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "No code or intake fact measures window area directly; balconies and storefronts point different ways, so the standard band is used.",
+    "costCodes": [
+     "30"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "M-1",
+    "label": "HVAC Tonnage",
+    "value": {
+     "kind": "quantity",
+     "unit": "Tons",
+     "amount": 91
+    },
+    "method": "Gross square feet over DOE's IECC 2021 apartment prototype GSF per ton, by climate zone and glazing band.",
+    "inputs": [
+     {
+      "name": "Gross Square Feet",
+      "basis": "stated",
+      "value": "64,000"
+     },
+     {
+      "name": "Climate Zone",
+      "basis": "stated",
+      "value": "Zone 5, Rockland or Orange County"
+     },
+     {
+      "name": "Glazing Band",
+      "basis": "assumed",
+      "value": "Standard Glazing Band (M-0)"
+     },
+     {
+      "name": "Unit Count",
+      "basis": "stated",
+      "value": "70"
+     },
+     {
+      "name": "Unit Mix",
+      "basis": "assumed",
+      "value": "1.40 bedrooms per unit (Census 2025, Northeast)"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Climate Zone",
+      "result": "Zone 5, Rockland or Orange County"
+     },
+     {
+      "label": "DOE Model",
+      "result": "Mid-Rise Apartment, 19.9% glazing"
+     },
+     {
+      "label": "GSF per Ton",
+      "result": "701"
+     },
+     {
+      "label": "Ventilation Check",
+      "result": "53 cfm per 1,000 SF, within the model's 58"
+     },
+     {
+      "label": "HVAC Tonnage",
+      "result": "91 tons"
+     }
+    ],
+    "confidence": "high",
+    "confidenceReason": "New construction in a stated climate zone, with no garage in the area and ventilation within the model; the ratio is DOE's code-minimum model, not a load calculation for this building.",
+    "costCodes": [
+     "30"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "S-1",
+    "label": "Foundation System",
+    "value": {
+     "kind": "spec",
+     "text": "Spread Footings"
+    },
+    "method": "Bearing pressure over IBC Class 4's presumptive value, then ground and basement.",
+    "inputs": [
+     {
+      "name": "Stories Above Grade",
+      "basis": "stated",
+      "value": "5"
+     },
+     {
+      "name": "Framing System",
+      "basis": "stated",
+      "value": "Wood"
+     },
+     {
+      "name": "Parking",
+      "basis": "stated",
+      "value": "Surface"
+     },
+     {
+      "name": "Levels Below Grade",
+      "basis": "stated",
+      "value": "No"
+     },
+     {
+      "name": "Groundwater or Poor Soil",
+      "basis": "assumed",
+      "value": "Don't Know"
+     },
+     {
+      "name": "Existing Building Tie-In",
+      "basis": "stated",
+      "value": "No"
+     },
+     {
+      "name": "Allowable Bearing",
+      "basis": "assumed",
+      "value": "2,000 psf, IBC Class 4 (no geotechnical report)"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Floors Carried",
+      "result": "4 and the roof"
+     },
+     {
+      "label": "Concrete Decks",
+      "result": "None"
+     },
+     {
+      "label": "Bearing Pressure",
+      "result": "385 psf"
+     },
+     {
+      "label": "Coverage",
+      "result": "19% of the footprint at 2,000 psf"
+     },
+     {
+      "label": "Ground",
+      "result": "Not known, priced as good ground"
+     },
+     {
+      "label": "Lowest Floor Slab",
+      "result": "Slab on Grade"
+     },
+     {
+      "label": "Foundation System",
+      "result": "Spread Footings"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "There is no geotechnical report yet. Ground conditions are not known, so ground improvement or deep foundations may still be needed. Rock is possible in this area, so footings and trenches may need rock excavation.",
+    "costCodes": [
+     "2",
+     "34",
+     "34a"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "V-1",
+    "label": "Elevator Type",
+    "value": {
+     "kind": "spec",
+     "text": "Hydraulic"
+    },
+    "method": "Travel from Stories Above Grade against the hydraulic-to-traction band.",
+    "inputs": [
+     {
+      "name": "Stories Above Grade",
+      "basis": "stated",
+      "value": "5"
+     },
+     {
+      "name": "Framing System",
+      "basis": "stated",
+      "value": "wood, 10'-0\" floor-to-floor"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Stories Above Grade",
+      "result": "5"
+     },
+     {
+      "label": "Floor-to-floor",
+      "result": "10'-0\""
+     },
+     {
+      "label": "Travel",
+      "result": "40'-0\" (40.0 ft)"
+     },
+     {
+      "label": "Band",
+      "result": "Either; nothing set up to choose, so Hydraulic"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "Travel of 40.0 ft sits inside the either band (over 35 ft, up to 55 ft), where hydraulic and traction are both common. Nothing is set up to choose between the two, so V-1 proposes Hydraulic, the cheaper type.",
+    "costCodes": [
+     "26"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "V-2",
+    "label": "Hydraulic Jack Type",
+    "value": {
+     "kind": "spec",
+     "text": "In-Ground"
+    },
+    "method": "Travel against each jack's reach in the manufacturers' planning guides.",
+    "inputs": [
+     {
+      "name": "Elevator Type",
+      "basis": "stated",
+      "value": "Hydraulic (V-1)"
+     },
+     {
+      "name": "Stories Above Grade",
+      "basis": "stated",
+      "value": "5"
+     },
+     {
+      "name": "Levels Below Grade",
+      "basis": "stated",
+      "value": "No"
+     },
+     {
+      "name": "Floor-to-Floor",
+      "basis": "stated",
+      "value": "10'-0\""
+     },
+     {
+      "name": "Groundwater or Poor Soil",
+      "basis": "assumed",
+      "value": "Don't Know"
+     },
+     {
+      "name": "ZIP",
+      "basis": "stated",
+      "value": "10965"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Stops",
+      "result": "5"
+     },
+     {
+      "label": "Floor-to-floor",
+      "result": "10'-0\""
+     },
+     {
+      "label": "Travel",
+      "result": "40'-0\" (40.0 ft)"
+     },
+     {
+      "label": "Band",
+      "result": "Over 34 ft, up to 48 ft -> In-Ground"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "Travel of 40.0 ft works either way, and nobody has said whether the ground is wet, so V-2 prices the well hole to be safe. This ZIP can hit shallow rock, and the intake does not ask about rock, so confidence is low.",
+    "costCodes": [
+     "26",
+     "26i"
+    ],
+    "correction": null
+   },
+   {
+    "kind": "derived_assumption",
+    "code": "V-3",
+    "label": "Elevator Machine Rooms",
+    "value": {
+     "kind": "spec",
+     "text": "1 Machine Room"
+    },
+    "method": "Machine rooms by elevator type, count and building.",
+    "inputs": [
+     {
+      "name": "Elevator Type",
+      "basis": "assumed",
+      "value": "Hydraulic (V-1)"
+     },
+     {
+      "name": "Elevator Count",
+      "basis": "stated",
+      "value": "2"
+     },
+     {
+      "name": "Building Count",
+      "basis": "stated",
+      "value": "1"
+     },
+     {
+      "name": "Jack Type",
+      "basis": "stated",
+      "value": "In-Ground (V-2)"
+     },
+     {
+      "name": "ZIP",
+      "basis": "stated",
+      "value": "10965"
+     }
+    ],
+    "steps": [
+     {
+      "label": "Elevator Type",
+      "result": "Hydraulic"
+     },
+     {
+      "label": "Elevators",
+      "result": "2"
+     },
+     {
+      "label": "Buildings",
+      "result": "1"
+     },
+     {
+      "label": "Machine Rooms",
+      "result": "1 (one per building, cars in one bank)"
+     },
+     {
+      "label": "HVAC",
+      "result": "Cooling and Ventilation"
+     }
+    ],
+    "confidence": "low",
+    "confidenceReason": "Hydraulic cars share one machine room per bank at the lowest landing (Otis, Schindler), conditioned to the maker's range (IBC 3005.2). With 2 cars in a building, separate cores would double the rooms. V-1 could still flip to traction, which has no machine room.",
+    "costCodes": [
+     "26g"
+    ],
+    "correction": null
+   }
+  ],
+  "copy": {
+   "preparedFor": null,
+   "preparedBy": "The Kulka Group",
+   "validityDays": null,
+   "coverSentence": null
+  },
+  "engineSnapshotHash": "2f630432633e968145c6c7bd50baff693c3d029c3951fc0047b21e1c86adad4e"
+ },
+ "sourceJobNames": {
+  "f619d711-8257-4fd8-9344-aba3b97dc998": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+  "2fbf2c0d-3837-4d96-8593-8e40257548c0": "Fieldstone North Broadway (C00449)"
+ }
+}

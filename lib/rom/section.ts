@@ -238,7 +238,8 @@ export function drawSection(opts: SectionOptions): string {
     return `<text x="${n2(x)}" y="${n2(y)}" class="${cls}" font-size="${size}" fill="${color}"${ex}>${esc(s)}</text>`;
   };
   const dash = (a: number, b: number) => ` stroke-dasharray="${a} ${b}"`;
-  const group = (key: string, inner: string[], label: string) => (inner.length ? `<g data-layer="${esc(key)}" aria-label="${esc(label)}">\n${inner.join("\n")}\n</g>` : "");
+  const group = (key: string, inner: string[], label: string) =>
+    inner.length ? `<g data-layer="${esc(key)}" data-ink="${ink.get(key) === "light" ? "light" : "full"}" aria-label="${esc(label)}">\n${inner.join("\n")}\n</g>` : "";
   const part = (name: string, inner: string[]) => (inner.length ? `<g data-part="${name}">\n${inner.join("\n")}\n</g>` : "");
   const url = (name: string) => `url(#${pid}-${name})`;
 
@@ -653,12 +654,15 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
   if (has("line:31")) {
     const g: string[] = [];
     const c = col("line:31");
+    // The service comes in under grade, through the foundation wall, and
+    // rises through the slab into the gear: its own line, clear of the wall
+    // face the dampproofing and the sills sit on.
     const y = G.grade + 34;
-    g.push(line(G.border + 8, y, G.x0 - 2, y, "w2", c));
-    g.push(line(G.x0 - 2, y, G.x0 - 2, groundTop - 20, "w2", c));
-    g.push(line(G.x0 - 2, groundTop - 20, G.elecRoom[0] + 4, groundTop - 20, "w2", c));
+    const riserX = G.elecRoom[0] + 9;
+    g.push(line(G.border + 8, y, riserX, y, "w2", c));
+    g.push(line(riserX, y, riserX, gearTop + 24, "w2", c));
     g.push(rect(G.elecRoom[0] + 4, gearTop, 10, 24, "w2", c, C.sheet));
-    g.push(line(G.elecRoom[0] + 9, gearTop, G.elecRoom[0] + 9, riserTop, "w1", c));
+    g.push(line(riserX, gearTop, riserX, riserTop, "w1", c));
     L(group("line:31", g, "26 Electrical"));
   }
   const closetRiser = (key: string, dx: number, label: string, dashes: [number, number]) => {

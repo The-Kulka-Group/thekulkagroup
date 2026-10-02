@@ -15,7 +15,7 @@ import {
   type UnpricedLine,
   type WaterfallRow,
 } from "@/lib/rom/presentation";
-import { DIAGRAM_LINE, drawSection, sectionStyle } from "@/lib/rom/section";
+import { drawSection, sectionStyle } from "@/lib/rom/section";
 
 // LA-1459. The client budget page, "The Ledger, Opened with the Section",
 // rendered from the presentation model on the approved frames
@@ -237,11 +237,13 @@ function ledgerRow(row: LedgerRow): string {
           <span class="lg-psf num">${esc(row.perSquareFoot ?? "")}</span>
           <span class="lg-pct num">${esc(row.shareOfContract ?? "")}</span>
           <span class="lg-rate num">${esc(rate)}</span>
-          <span class="lg-more">${src(row.sourceTone, row.sourceText)}<span class="pill">Open</span></span>
+          <span class="lg-more">${src(row.sourceTone, row.sourceText)}<span class="pill"><span class="pill-open">Open</span><span class="pill-close">Close</span></span></span>
         </button>
         <div class="lg-lines" id="${esc(sc.domId)}-lines">${
           sc.kind === "element" ? `\n          <p class="ln-sum tier-detail">Together, between ${usd(sc.low)} and ${usd(sc.high)}, likely ${usd(sc.likely)}.</p>` : ""
-        }${sc.lines.map(lineDetail).join("")}${sc.unpriced.map(unpricedRow).join("")}
+        }${sc.lines.map(lineDetail).join("")}${
+          sc.unpriced.length > 0 ? `\n          <p class="ln-sub">Unpriced</p>${sc.unpriced.map(unpricedRow).join("")}` : ""
+        }
         </div>
       </div>`;
 }
@@ -354,8 +356,12 @@ function sectionDesign(page: BudgetPage): string {
     <h1 class="sheet-h">Design and Engineering</h1>
     <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building, called out on the section. ${settled} ${settled === 1 ? "is" : "are"} settled by code; the rest are planning assumptions until your design team decides them.</p>
   </div>
-  <ol class="crit only-phone" aria-label="Design and Engineering criteria">${page.criteria
-    .map((k) => `\n    <li><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span></li>`)
+  <ol class="crit crit--keyed" aria-label="Design and Engineering criteria">${page.criteria
+    .map(
+      (k) => `\n    <li data-crit="${esc(k.code)}"><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span>${
+        k.settled ? src("high", "Settled") : src("working", "Planning Assumption")
+      }</li>`,
+    )
     .join("")}
   </ol>
   <div class="crits lg tier-detail">${page.criteria.map(criterionRow).join("")}
@@ -371,7 +377,7 @@ function sectionDesign(page: BudgetPage): string {
  */
 function trio(page: BudgetPage, svg: string): string {
   const facts = page.drawing.facts;
-  const program = [`${facts.stories} Stories Above Grade`, facts.units !== null ? `${wholeNumber(facts.units)} Units` : null, facts.grossArea].filter(Boolean).join(" · ");
+  const caption = [`${facts.stories} Stories`, facts.units !== null ? `${wholeNumber(facts.units)} Units` : null, facts.grossArea].filter(Boolean).join(" · ");
   return `
 <div class="trio" data-trio data-state="ledger">
   <div class="trio-main">${sectionLedger(page)}
@@ -380,7 +386,7 @@ ${sectionDesign(page)}
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
     <div class="dwg dwg--crop" data-dwg="section">${svg}</div>
-    <p class="dwg-cap only-phone"><b>Building Section</b><span data-cap-story></span> · ${esc(program)}<br>${DIAGRAM_LINE}</p>
+    <p class="dwg-cap only-phone"><b>Building Section</b> · ${esc(caption)}</p>
   </aside>
 </div>`;
 }

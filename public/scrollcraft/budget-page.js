@@ -3,9 +3,9 @@
    publishes each act's progress as --sc-p, and drives the waterfall's cues.
    Everything here is page-local: the tier switch, the drill-downs, the
    section index, the header's two states and the figure's flight into its
-   slot, the ledger's lens and the layer it draws on the one section, that
-   section's three states, the waterfall's figure advancing line by line and
-   landing in light, and the print rest. */
+   slot, the ledger's lens band and the layer it draws on the one section,
+   that section's three states and its hit areas, the waterfall's figure
+   advancing line by line and landing in light, and the print rest. */
 (function () {
   'use strict';
   var doc = document, root = doc.documentElement;
@@ -95,13 +95,7 @@
     });
   }
 
-  /* ---- the header's two states, and the figure's flight into its slot ----
-     The first screen is the band grown to the viewport. As it scrolls up
-     under the header the label, range, rates and stages leave (CSS, off
-     --travel) and the figure, one object, moves and shrinks along a straight
-     path from where it stood to the exact box of the header's slot, painted
-     above the header the whole way. When it arrives the header's own copy
-     shows in the same box and the band's figure is hidden. */
+  /* ---- the header's two states, and the figure's flight into its slot ---- */
   var hd = doc.getElementById('bar');
   var band = doc.getElementById('your-number');
   var wrap = band && band.querySelector('.fig-wrap');
@@ -148,7 +142,6 @@
     band.setAttribute('data-parked', String(parked));
     band.setAttribute('data-sc-verify-state', 'travel:' + q.toFixed(2));
     if (parked) band.setAttribute('data-sc-verify-hold', 'true'); else band.removeAttribute('data-sc-verify-hold');
-    // The header's small figure yields to a band figure on screen.
     var peakFig = peakAct && peakAct.querySelector('.wf-fig');
     var near = false;
     if (peakFig) {
@@ -165,18 +158,22 @@
     });
   }
 
-  /* ---- the ledger: a lens the rows pass through, and the one section ----
-     The rows keep their reading size and the list never changes length. A
-     slot of display-scale height, the lens, holds still below the header
-     (on a phone, below the pinned section) while the rows pass beneath it;
-     whichever row has entered the lens's reading band is current, shown in
-     the lens at display scale, and its layer is drawn and lit on the
-     section. The framing row raises the frame story by story across its own
-     passage. Opening a row opens its lines inside the lens.
+  /* ---- the ledger: a reserved band for the lens, and the one section ----
+     The rows keep their reading size and the list never changes length. The
+     lens is a band of display-scale height at the top of the list: it holds
+     under the header (on a phone, under the pinned section) once the list
+     reaches it, and the rows begin below it. The row directly under the
+     band's bottom edge is current: marked in the list with the accent at
+     reading size, shown in the lens at display scale. Opening a row opens
+     its lines in the list, under the band. The framing row raises the frame
+     story by story across its own passage.
 
      The section is one drawing for three sheets. Through The Ledger its
-     layers draw in; at Proven every layer is drawn in its own ink and the
-     ink note shows; at Design and Engineering the callouts show. */
+     layers draw in; at Proven every layer settles to its own ink and the ink
+     note shows; at Design and Engineering the callouts show, and each lights
+     as its criterion passes in the list. Every layer and callout is a hit
+     area: a layer click brings its row into the band and opens it, a callout
+     click brings its criterion to the reading line. */
   var ledger = (function () {
     var trio = doc.querySelector('[data-trio]');
     var section = doc.getElementById('where-the-money-is');
@@ -189,46 +186,104 @@
     var framingAt = keys.indexOf('line:8');
     var proven = doc.getElementById('what-this-rests-on');
     var design = doc.getElementById('design-and-engineering');
+    var crits = design ? Array.prototype.slice.call(design.querySelectorAll('.crit--keyed [data-crit]')) : [];
     var dwg = trio.querySelector('[data-dwg="section"] svg');
-    var cap = doc.querySelector('[data-cap-story]');
     var stories = dwg ? parseInt(dwg.getAttribute('data-stories'), 10) || 1 : 1;
     var floorTops = dwg ? (dwg.getAttribute('data-floor-tops') || '').split(' ').map(parseFloat) : [];
     var floorT = dwg ? parseFloat(dwg.getAttribute('data-floor-t')) || 10 : 10;
     var grade = dwg ? parseFloat(dwg.getAttribute('data-grade')) || 430 : 430;
     var layers = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-layer]')) : [];
+    var callouts = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-callout]')) : [];
     var notes = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-note]')) : [];
     var storyEls = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-story]')) : [];
     var roofEls = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-roof]')) : [];
     var bracket = dwg && dwg.querySelector('[data-bracket]');
     var bracketLine = dwg && dwg.querySelector('[data-bracket-line]');
     var bracketCap = dwg && dwg.querySelector('[data-bracket-cap]');
-    var ROW = 40;
-    var current = -2, drawnStories = -1, state = '';
-    // A row's tenure in the lens is its own height of scroll.
-    function rowHeight() { return (items[0] && items[0].offsetHeight) || ROW; }
+    var current = -2, drawnStories = -1, state = '', crit = '';
     if (dwg) dwg.parentNode.classList.add('dwg--live');
 
-    // On a phone the drawing card is pinned under the header; the rows read below it.
+    // Hit areas: an invisible wide stroke beside every stroke in a layer, and
+    // a box behind every callout, so the pointer finds them.
+    function hitAreas() {
+      if (!dwg || printing) return;
+      var ns = 'http://www.w3.org/2000/svg';
+      layers.forEach(function (g) {
+        Array.prototype.forEach.call(g.querySelectorAll('.s'), function (el) {
+          var h = el.cloneNode(false);
+          h.setAttribute('class', 'hit');
+          h.removeAttribute('stroke'); h.removeAttribute('fill'); h.removeAttribute('stroke-dasharray');
+          g.appendChild(h);
+        });
+      });
+      callouts.forEach(function (g) {
+        var b = g.getBBox();
+        var r = doc.createElementNS(ns, 'rect');
+        r.setAttribute('class', 'hit hit--box');
+        r.setAttribute('x', b.x - 4); r.setAttribute('y', b.y - 4); r.setAttribute('width', b.width + 8); r.setAttribute('height', b.height + 8);
+        g.appendChild(r);
+      });
+    }
+
+    // The pointer picks the stroke nearest to it among the hit areas under
+    // it, whatever the paint order, so a layer under another's strokes
+    // (masonry under the steel, plumbing under the risers) is still reached.
+    function segDist(px, py, x1, y1, x2, y2) {
+      var dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+      var t = l2 ? clamp(((px - x1) * dx + (py - y1) * dy) / l2) : 0;
+      return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+    function hitDist(el, cx, cy) {
+      var m = el.getScreenCTM();
+      if (!m) return Infinity;
+      var pt = dwg.createSVGPoint(); pt.x = cx; pt.y = cy;
+      var p = pt.matrixTransform(m.inverse());
+      var k = Math.hypot(m.a, m.b) || 1;
+      var tag = el.tagName.toLowerCase(), a = function (n) { return parseFloat(el.getAttribute(n)) || 0; };
+      var d = Infinity;
+      if (tag === 'line') d = segDist(p.x, p.y, a('x1'), a('y1'), a('x2'), a('y2'));
+      else if (tag === 'rect') {
+        var x = a('x'), y = a('y'), w = a('width'), h = a('height');
+        if (el.classList.contains('hit--box')) d = p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h ? 0 : Infinity;
+        else d = Math.min(segDist(p.x, p.y, x, y, x + w, y), segDist(p.x, p.y, x + w, y, x + w, y + h), segDist(p.x, p.y, x, y + h, x + w, y + h), segDist(p.x, p.y, x, y, x, y + h));
+      } else if (tag === 'circle') d = Math.abs(Math.hypot(p.x - a('cx'), p.y - a('cy')) - a('r'));
+      else if (el.getTotalLength) {
+        var L = el.getTotalLength(), n = Math.max(8, Math.min(64, Math.round(L / 6)));
+        for (var i = 0; i <= n; i++) { var q = el.getPointAtLength((L * i) / n); d = Math.min(d, Math.hypot(p.x - q.x, p.y - q.y)); }
+      }
+      return d * k;
+    }
+    function pick(cx, cy) {
+      if (!dwg || !doc.elementsFromPoint) return null;
+      var under = doc.elementsFromPoint(cx, cy), best = null, bestD = Infinity;
+      for (var i = 0; i < under.length; i++) {
+        var el = under[i];
+        if (!el.classList || !el.classList.contains('hit') || !dwg.contains(el)) continue;
+        // A layer not yet drawn is invisible, and an invisible stroke takes
+        // no click; the callouts show only at Design and Engineering.
+        var owner = el.closest('[data-layer]');
+        if (owner && !owner.classList.contains('is-drawn')) continue;
+        if (!owner && el.closest('[data-callout]') && state !== 'design') continue;
+        var d = hitDist(el, cx, cy);
+        if (d < bestD - 0.5) { bestD = d; best = el; }
+      }
+      return best;
+    }
+    function rowHeight() { return (items[0] && items[0].offsetHeight) || 40; }
     function topOfRows() {
       var top = hdH();
       if (phone() && aside) top += aside.offsetHeight + 12;
       return top;
     }
-    // The reading line: 0.3 of what is left under the header on a desktop;
-    // right under the pinned section on a phone.
-    function readingLine() {
-      var top = topOfRows();
-      return phone() ? top : Math.round(top + (innerHeight - top) * 0.3);
-    }
-    function place() {
-      section.style.setProperty('--lens-top', readingLine() + 'px');
-    }
-    function lensBand() {
-      if (!lens) return null;
+    // Where the lens band holds: under the header beside the pinned section (under it on a phone).
+    function lensTop() { return topOfRows() + (phone() ? 0 : 24); }
+    function place() { section.style.setProperty('--lens-top', lensTop() + 'px'); }
+    // The reading line for the sheets' states and the criteria: a third of the way down what is left.
+    function readingLine() { var top = topOfRows(); return top + (innerHeight - top) * 0.3; }
+    function lensBottom() {
+      if (!lens) return topOfRows();
       var r = lens.getBoundingClientRect();
-      // The reading band is the lens's top row-height: a row is current while
-      // its own band passes there, hidden under the lens that shows it large.
-      return { top: r.top, bottom: r.top + rowHeight() };
+      return r.bottom;
     }
     function bracketTo(n) {
       if (!bracket || !floorTops.length) return;
@@ -240,9 +295,8 @@
       bracket.setAttribute('transform', 'rotate(-90 ' + tx + ' ' + ty.toFixed(2) + ')');
       if (bracketLine) bracketLine.setAttribute('y2', top.toFixed(2));
       if (bracketCap) { bracketCap.setAttribute('y1', top.toFixed(2)); bracketCap.setAttribute('y2', top.toFixed(2)); }
-      if (cap) cap.textContent = n > 0 && n < stories ? ' · Story ' + n + ' of ' + stories : '';
     }
-    // The lens shows the current row: its own markup, copied, with the ids left behind.
+    // The lens shows the current row: its own markup, copied, with the ids left behind. 160ms cross-fade.
     function fill(idx) {
       if (!lens) return;
       var item = items[idx];
@@ -252,14 +306,21 @@
       });
       copy.removeAttribute('id'); copy.removeAttribute('data-el'); copy.removeAttribute('data-layer'); copy.removeAttribute('role');
       copy.className = 'lens-in';
+      var lines = copy.querySelector('.lg-lines');
+      if (lines) lines.parentNode.removeChild(lines);
       copy.setAttribute('data-open', item.getAttribute('data-open') || 'false');
-      lens.innerHTML = '';
+      var old = lens.querySelector('.lens-in');
       lens.appendChild(copy);
-      lens.setAttribute('data-open', item.getAttribute('data-open') || 'false');
       lens.setAttribute('data-row', keys[idx]);
-      if (!reduce) {
-        copy.classList.add('is-arriving');
-        requestAnimationFrame(function () { requestAnimationFrame(function () { copy.classList.remove('is-arriving'); }); });
+      lens.setAttribute('data-open', item.getAttribute('data-open') || 'false');
+      if (old) {
+        if (reduce) old.parentNode.removeChild(old);
+        else {
+          old.classList.add('is-leaving');
+          copy.classList.add('is-arriving');
+          requestAnimationFrame(function () { requestAnimationFrame(function () { copy.classList.remove('is-arriving'); }); });
+          setTimeout(function () { if (old.parentNode) old.parentNode.removeChild(old); }, 180);
+        }
       }
     }
     function apply(idx, nStories) {
@@ -283,54 +344,78 @@
         bracketTo(nStories);
       }
       current = idx; drawnStories = nStories;
-      section.setAttribute('data-sc-verify-state', 'ledger:' + idx + ':' + nStories + ':' + state);
+      section.setAttribute('data-sc-verify-state', 'ledger:' + idx + ':' + nStories + ':' + state + (crit ? ':' + crit : ''));
     }
     function setState(s) {
       if (s === state) return;
       state = s;
       trio.setAttribute('data-state', s);
       if (s !== 'ledger') layers.forEach(function (g) { g.classList.remove('is-now'); });
+      if (s !== 'design') lightCrit('');
+    }
+    // The criteria sit two to a row, so each lights in turn by the reading
+    // line's progress through the list, not by its own top: the list's
+    // height is split evenly among them.
+    function critAt(line) {
+      var list = crits[0].parentNode.getBoundingClientRect();
+      var p = clamp((line - list.top) / Math.max(1, list.height));
+      return Math.min(crits.length - 1, Math.floor(p * crits.length));
+    }
+    function lightCrit(code) {
+      if (code === crit) return;
+      crit = code;
+      crits.forEach(function (li) { li.classList.toggle('is-now', li.getAttribute('data-crit') === code); });
+      callouts.forEach(function (g) { g.classList.toggle('is-now', g.getAttribute('data-callout') === code); });
     }
     function read() {
       if (!items.length) return;
       var line = readingLine();
-      // Which sheet is at the reading line sets the section's state.
       var s = 'ledger';
       if (design && design.getBoundingClientRect().top <= line) s = 'design';
       else if (proven && proven.getBoundingClientRect().top <= line) s = 'proven';
       setState(s);
-      if (s !== 'ledger') { apply(items.length - 1, stories); return; }
-      var band = lensBand();
-      var idx = 0, rowP = 0;
-      if (band) {
-        for (var i = 0; i < items.length; i++) {
-          var r = items[i].getBoundingClientRect();
-          if (r.top < band.bottom) { idx = i; rowP = clamp((band.bottom - r.top) / rowHeight()); } else break;
-        }
+      if (s !== 'ledger') {
+        apply(items.length - 1, stories);
+        if (s === 'design' && crits.length) lightCrit(crits[critAt(line)].getAttribute('data-crit'));
+        return;
+      }
+      // The current row is the first one at or below the band's bottom edge:
+      // a row goes under the band only after its turn. Its progress runs from
+      // the moment the row before it goes under to the moment it does.
+      var bottom = lensBottom(), idx = items.length - 1, rowP = 1, rh = rowHeight();
+      for (var i = 0; i < items.length; i++) {
+        var r = items[i].getBoundingClientRect();
+        if (r.top >= bottom - 2) { idx = i; rowP = clamp((bottom + rh - r.top) / rh); break; }
       }
       var nStories = framingAt < 0 || idx > framingAt ? stories : idx < framingAt ? 0 : Math.max(1, Math.ceil(rowP * stories));
       if (reduce) nStories = stories;
       apply(idx, nStories);
     }
     function all() { setState('design'); apply(items.length - 1, stories); }
-    // Scrolls so a row has just entered the lens, keeping the pinned section where it is.
+    // Scrolls so a row sits under the band's bottom edge, keeping the pinned section where it is.
     function scrollToRow(item, rowP) {
-      var band = lensBand();
-      if (!band) return;
       var r = item.getBoundingClientRect();
-      var target = scrollY + r.top - band.bottom + rowHeight() * (rowP || 0.1) + 1;
+      var bottom = lensTop() + (lens ? lens.offsetHeight : 0);
+      var target = scrollY + r.top - bottom + rowHeight() * (rowP || 0.5) - rowHeight();
       var t = trio.getBoundingClientRect();
       var lo = scrollY + t.top - hdH() - 24, hi = scrollY + t.bottom - innerHeight;
       target = Math.max(lo, Math.min(hi, target));
       scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
     }
-    // Open or close a row: in the list and in the lens, which shows the lines.
+    function scrollToCrit(code) {
+      var idx = crits.map(function (c) { return c.getAttribute('data-crit'); }).indexOf(code);
+      if (idx < 0) return;
+      // The same split as critAt: the reading line lands mid-way through this criterion's share.
+      var list = crits[0].parentNode.getBoundingClientRect();
+      var target = scrollY + list.top + ((idx + 0.5) / crits.length) * list.height - readingLine();
+      scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
+    }
+    // Open or close a row, in the list and in the lens.
     function toggle(item, open) {
       setOpen(item, open);
       if (lens && lens.getAttribute('data-row') === item.getAttribute('data-layer')) {
         lens.setAttribute('data-open', String(open));
-        var inner = lens.querySelector('.lens-in');
-        if (inner) { inner.setAttribute('data-open', String(open)); var b = inner.querySelector('.lg-btn'); if (b) b.setAttribute('aria-expanded', String(open)); }
+        each('.lens-in', function (inner) { inner.setAttribute('data-open', String(open)); var b = inner.querySelector('.lg-btn'); if (b) b.setAttribute('aria-expanded', String(open)); }, lens);
       }
       sc.layout();
     }
@@ -345,26 +430,43 @@
       var item = items[keys.indexOf(lens.getAttribute('data-row'))];
       if (item) toggle(item, item.getAttribute('data-open') !== 'true');
     });
-    // A layer click opens its row and brings it into the lens.
+    var hovered = null;
+    if (dwg && !printing) {
+      dwg.addEventListener('mousemove', function (e) {
+        var hit = pick(e.clientX, e.clientY);
+        var g = hit ? (hit.closest('[data-callout]') || hit.closest('[data-layer]')) : null;
+        if (g === hovered) return;
+        if (hovered) hovered.classList.remove('is-hover');
+        hovered = g;
+        if (g) g.classList.add('is-hover');
+      });
+      dwg.addEventListener('mouseleave', function () { if (hovered) hovered.classList.remove('is-hover'); hovered = null; });
+    }
     if (dwg) dwg.addEventListener('click', function (e) {
-      var g = e.target.closest('[data-layer]');
+      var hit = pick(e.clientX, e.clientY) || e.target;
+      var c = hit.closest('[data-callout]');
+      if (c) { scrollToCrit(c.getAttribute('data-callout')); lightCrit(c.getAttribute('data-callout')); return; }
+      var g = hit.closest('[data-layer]');
       if (!g) return;
       var item = items[keys.indexOf(g.getAttribute('data-layer'))];
       if (!item) return;
-      if (state !== 'ledger') setState('ledger');
       setOpen(item, true);
-      scrollToRow(item, 0.1);
+      scrollToRow(item, 0.5);
       setTimeout(function () { read(); toggle(item, true); }, reduce ? 50 : 450);
     });
-    return { read: read, all: all, items: items, scrollToRow: scrollToRow, place: place };
+    hitAreas();
+    return { read: read, all: all, items: items, scrollToRow: scrollToRow, scrollToCrit: scrollToCrit, place: place };
   })();
 
   /* ---- the waterfall: the figure advances as each line joins, and lands in light ----
-     The landing is choreographed, not cross-faded: the lines leave, the
-     ground lifts from Kulka black to a grey that still carries white ink at
-     4.5:1, the ink flips to Kulka black in one step on a ground that carries
-     it at 4.5:1, the ground lifts the rest of the way to Daylight, and the
-     lines return in ink. The figure grows by transform, with an ease. */
+     The landing is a sequence of keyframe animations keyed off data-landed,
+     so it keeps time even in a throttled tab: the lines leave; the section
+     recedes to its landed place; the figure rises by transform to the
+     opening's size, never smaller than it was; the ground lifts to the last
+     grey that carries white ink, the ink flips to Kulka black in one step
+     on a grey that carries it, and the ground lifts to Daylight; the lines
+     return in ink. Each mover's path is measured (FLIP) and handed to the
+     keyframes as custom properties. */
   var wf = (function () {
     var section = doc.getElementById('from-trades-to-total');
     if (!section) return { read: function () {}, all: function () {} };
@@ -373,53 +475,27 @@
     var at = rows.map(function (r) { return parseFloat(r.getAttribute('data-cue-at')) || 0; });
     var figure = section.querySelector('[data-fig-running]');
     var label = section.querySelector('[data-fig-label]');
-    var inner = section.querySelector('.wf-in');
-    var movers = ['.wf-fig', '.wf', '.dwg-swap', '.wf-h'].map(function (s) { return section.querySelector(s); }).filter(Boolean);
-    var shown = -1, landed = false, timers = [];
-    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-    function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
-    // FLIP: the figure, the lines and the section move to their landed places by transform.
-    function flip(change) {
+    var movers = ['[data-fig-running]', '.dwg-swap'].map(function (s) { return section.querySelector(s); }).filter(Boolean);
+    var shown = -1, landed = false;
+    function flipVars(change) {
       var before = movers.map(function (m) { return m.getBoundingClientRect(); });
       change();
-      if (reduce) return;
       movers.forEach(function (m, i) {
         var a = before[i], b = m.getBoundingClientRect();
-        var sx = a.width / Math.max(b.width, 1), sy = a.height / Math.max(b.height, 1);
-        m.style.transition = 'none';
-        m.style.transformOrigin = 'left top';
-        m.style.transform = 'translate(' + (a.left - b.left).toFixed(1) + 'px, ' + (a.top - b.top).toFixed(1) + 'px) scale(' + sx.toFixed(4) + ', ' + sy.toFixed(4) + ')';
+        m.style.setProperty('--fx', (a.left - b.left).toFixed(1) + 'px');
+        m.style.setProperty('--fy', (a.top - b.top).toFixed(1) + 'px');
+        m.style.setProperty('--fsx', (a.width / Math.max(b.width, 1)).toFixed(4));
+        m.style.setProperty('--fsy', (a.height / Math.max(b.height, 1)).toFixed(4));
       });
-      void inner.offsetWidth;
-      movers.forEach(function (m) {
-        m.style.transition = 'transform 600ms cubic-bezier(0.2, 0, 0.2, 1)';
-        m.style.transform = 'none';
-      });
-      later(function () { movers.forEach(function (m) { m.style.transition = ''; m.style.transform = ''; m.style.transformOrigin = ''; }); }, 650);
     }
     function land(on) {
       if (on === landed) return;
       landed = on;
-      clearTimers();
-      if (reduce || printing) {
-        section.setAttribute('data-landing', on ? 'lit' : 'none');
-        section.setAttribute('data-landed', String(on));
-        return;
-      }
-      if (on) {
-        // 1. The lines leave and the ground lifts to the last grey that carries white ink.
-        section.setAttribute('data-landing', 'lift');
-        flip(function () { section.setAttribute('data-landed', 'true'); });
-        // 2. The ink flips in one step on a ground that carries it, and the ground lifts to Daylight.
-        later(function () { section.setAttribute('data-landing', 'ink'); }, 330);
-        // 3. The lines return in ink, on the finished ground.
-        later(function () { section.setAttribute('data-landing', 'lit'); }, 720);
-      } else {
-        section.setAttribute('data-landing', 'ink');
-        flip(function () { section.setAttribute('data-landed', 'false'); });
-        later(function () { section.setAttribute('data-landing', 'lift'); }, 330);
-        later(function () { section.setAttribute('data-landing', 'none'); }, 620);
-      }
+      if (reduce || printing) { section.setAttribute('data-landed', on ? 'still' : 'none'); return; }
+      // Lay out the destination without animating, measure each mover's path, then play.
+      flipVars(function () { section.setAttribute('data-landed', on ? 'measure' : 'measure-dark'); });
+      void section.offsetWidth;
+      section.setAttribute('data-landed', on ? 'true' : 'false');
     }
     function apply(n) {
       if (n === shown) return;
@@ -438,7 +514,6 @@
     function read() {
       if (reduce || printing) { apply(rows.length); return; }
       var q = p(section), n = 0;
-      // A line has arrived once the engine's cue has carried it in (0.18 of p from its cue).
       for (var i = 0; i < at.length; i++) if (q >= at[i] + 0.14) n = i + 1;
       apply(n);
     }

@@ -63,7 +63,7 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         (s) => s.getAttribute("data-open") !== "true" || getComputedStyle(s.querySelector(".lg-lines")!).display === "none",
       );
       // LA-1459: every layer of the section is drawn, and the drawing at rest is the one sheet.
-      const undrawn = [...document.querySelectorAll('[data-dwg="proven"] [data-layer], [data-dwg="proven"] [data-story]')].filter(
+      const undrawn = [...document.querySelectorAll('[data-dwg="section"] [data-layer], [data-dwg="section"] [data-story]')].filter(
         (g) => getComputedStyle(g).opacity !== "1",
       ).length;
       const drawings = [...document.querySelectorAll("[data-dwg]")].filter(shown).map((d) => d.getAttribute("data-dwg"));
@@ -91,7 +91,7 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
     expect(state.pinnedStage).toBe("static");
     expect(state.chrome).toBe(0);
     expect(state.undrawn).toBe(0);
-    expect(state.drawings).toEqual(["proven"]);
+    expect(state.drawings).toEqual(["section"]);
     expect(state.engineMounted).toBe(false);
     expect(state.tier).toBe("detail");
   } finally {

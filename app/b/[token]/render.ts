@@ -74,15 +74,15 @@ function drawings(page: BudgetPage) {
   const d = page.drawing;
   const ink = new Map(Object.entries(d.ink));
   // The drawings' style rules live in the head, so no <style> sits in the body.
-  // The Design and Engineering drawing owns the criteria's ids on its callouts.
+  // The one section beside the ledger, Proven and Design and Engineering owns
+  // the criteria's ids on its callouts; the peak keeps its reversed copy and
+  // the ink twin it lands on.
   const base = { facts: d.facts, ink, styleInSvg: false as const };
   return {
-    ledger: drawSection({ ...base, criteria: [], notes: { noLayer: d.noLayer }, idPrefix: "dl" }),
-    proven: drawSection({ ...base, criteria: d.criteria, notes: { ink: d.inkNote, noLayer: d.noLayer }, idPrefix: "dp" }),
-    design: drawSection({ ...base, criteria: d.criteria, variant: "plain", idPrefix: "dd", calloutEl: "criterion:" }),
+    section: drawSection({ ...base, criteria: d.criteria, notes: { ink: d.inkNote, noLayer: d.noLayer }, idPrefix: "ds", calloutEl: "criterion:" }),
     peak: drawSection({ ...base, criteria: d.criteria, theme: "band", variant: "plain", idPrefix: "dk" }),
     peakLight: drawSection({ ...base, criteria: d.criteria, variant: "plain", idPrefix: "dq" }),
-    style: `<style>${sectionStyle("dl")}${sectionStyle("dp")}${sectionStyle("dd")}${sectionStyle("dk", "band")}${sectionStyle("dq")}</style>`,
+    style: `<style>${sectionStyle("ds")}${sectionStyle("dk", "band")}${sectionStyle("dq")}</style>`,
   };
 }
 
@@ -246,53 +246,46 @@ function ledgerRow(row: LedgerRow): string {
       </div>`;
 }
 
-function sectionLedger(page: BudgetPage, svg: string): string {
+function sectionLedger(page: BudgetPage): string {
   const { money, headline } = page;
-  const facts = page.drawing.facts;
-  const program = [`${facts.stories} Stories Above Grade`, facts.units !== null ? `${wholeNumber(facts.units)} Units` : null, facts.grossArea].filter(Boolean).join(" · ");
   return `
-<section class="split" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow" data-sc-verify-state="ledger:-1:0">
-  <div class="sheet sheet--ledger">
-    <div class="sheet-hd">
-      <h1 class="sheet-h">The Ledger</h1>
-      <p class="sheet-sub">In the order the trades build it. Each row draws its layer on the section. Open any row to see its lines and where each figure came from.</p>
-    </div>
-    <div class="lg" role="table" aria-label="The Ledger">
-      <div class="lg-row lg-cols" role="row">
-        <span class="lg-div">Div</span>
-        <span class="lg-name">Item</span>
-        <span class="lg-amt">Amount</span>
-        <span class="lg-psf">$/SF</span>
-        <span class="lg-pct">%</span>
-      </div>${page.ledger.map(ledgerRow).join("")}
-      <div class="lg-foot" data-el="total:trades">
-        <span>Trade Cost, Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.trades.low)} to ${usd(money.trades.high)}</span></span>
-        <span class="num">${usd(money.trades.likely)}</span>
-      </div>${
-        money.ownerScopes.length > 0
-          ? `
-      <div class="lg-foot lg-foot--quiet" data-el="total:owner-direct">
-        <span>Bought by the Owner, Outside Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.ownerDirect.low)} to ${usd(money.ownerDirect.high)}</span></span>
-        <span class="num">${usd(money.ownerDirect.likely)}</span>
-      </div>
-      <div class="lg-foot lg-foot--quiet tier-detail" data-el="total:trade-cost">
-        <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">${usd(headline.tradeCost.low)} to ${usd(headline.tradeCost.high)}</span></span>
-        <span class="num">${usd(headline.tradeCost.likely)}</span>
-      </div>`
-          : ""
-      }
-    </div>
+<section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow" data-sc-verify-state="ledger:-1:0">
+  <div class="sheet-hd">
+    <h1 class="sheet-h">The Ledger</h1>
+    <p class="sheet-sub">In the order the trades build it. Each row draws its layer on the section. Open any row to see its lines and where each figure came from.</p>
   </div>
-  <aside class="sheet sheet--dwg" aria-label="The Section">
-    <div class="dwg dwg--crop" data-dwg="ledger">${svg}</div>
-    <p class="dwg-cap only-phone"><b>Building Section</b><span data-cap-story></span> · ${esc(program)}<br>${DIAGRAM_LINE}</p>
-  </aside>
+  <div class="lg" role="table" aria-label="The Ledger">
+    <div class="lg-row lg-cols" role="row">
+      <span class="lg-div">Div</span>
+      <span class="lg-name">Item</span>
+      <span class="lg-amt">Amount</span>
+      <span class="lg-psf">$/SF</span>
+      <span class="lg-pct">%</span>
+    </div>
+    <div class="lens" data-lens data-open="false" aria-live="polite" aria-label="The current row"></div>${page.ledger.map(ledgerRow).join("")}
+    <div class="lg-foot" data-el="total:trades">
+      <span>Trade Cost, Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.trades.low)} to ${usd(money.trades.high)}</span></span>
+      <span class="num">${usd(money.trades.likely)}</span>
+    </div>${
+      money.ownerScopes.length > 0
+        ? `
+    <div class="lg-foot lg-foot--quiet" data-el="total:owner-direct">
+      <span>Bought by the Owner, Outside Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.ownerDirect.low)} to ${usd(money.ownerDirect.high)}</span></span>
+      <span class="num">${usd(money.ownerDirect.likely)}</span>
+    </div>
+    <div class="lg-foot lg-foot--quiet tier-detail" data-el="total:trade-cost">
+      <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">${usd(headline.tradeCost.low)} to ${usd(headline.tradeCost.high)}</span></span>
+      <span class="num">${usd(headline.tradeCost.likely)}</span>
+    </div>`
+        : ""
+    }
+  </div>
 </section>`;
 }
 
-// --- 4. Proven: the section complete ---------------------------------------------------------------
+// --- 4. Proven: the section complete, the count beside it -------------------------------------------
 
-function sectionProven(page: BudgetPage, svg: string): string {
+function sectionProven(page: BudgetPage): string {
   const c = page.restsOn;
   const d = page.drawing;
   const named = c.jobs.filter((j) => j.name !== null);
@@ -303,34 +296,30 @@ function sectionProven(page: BudgetPage, svg: string): string {
     <h1 class="sheet-h">Proven</h1>
     <p class="sheet-sub">The section complete. Full ink is priced from Kulka's completed jobs. The lighter ink is priced from Kulka's stated rates.</p>
   </div>
-  <div class="proven">
-    <div class="dwg dwg--crop" data-dwg="proven">${svg}</div>
-    <div class="proven-rail">
-      <p class="count" data-el="count:from-kulka-jobs"><b class="num">${c.fromKulkaJobs} of ${c.priced}</b> priced lines stand on Kulka's completed jobs${share(c.shares.fromKulkaJobs)}</p>
-      <ul class="jobs" data-el="count:source-jobs" aria-label="The jobs behind the figures">${
-        named.length > 0
-          ? named.map((j) => `\n        <li><i class="dot dot--high" aria-hidden="true"></i><span>${esc(j.name!.replace(/ \(C\d+\)$/, ""))}</span><span class="jobs-n tier-detail">Behind ${j.lines} priced ${j.lines === 1 ? "line" : "lines"}</span></li>`).join("")
-          : `\n        <li><i class="dot dot--high" aria-hidden="true"></i><span>${c.jobs.length} Kulka ${c.jobs.length === 1 ? "job stands" : "jobs stand"} behind the figures</span></li>`
-      }
-      </ul>
-      <ul class="key" aria-label="Ink">
-        <li><span class="key-ink" aria-hidden="true"></span>Priced from Kulka's completed jobs</li>
-        <li><span class="key-ink key-ink--light" aria-hidden="true"></span>Priced from Kulka's stated rates${d.lightRows.length ? `: ${esc(d.lightRows.join(", "))}` : ""}</li>
-      </ul>
-      <p class="count count--sm tier-detail" data-el="count:from-kulka-rates"><b class="num">${c.fromKulkaRates}</b> rest on rates Kulka has stated${share(c.shares.fromKulkaRates)}</p>${
-        c.placeholder > 0
-          ? `
-      <p class="count count--sm tier-detail" data-el="count:placeholder-rates"><b class="num">${c.placeholder}</b> carry a Placeholder Rate until Kulka states one${share(c.shares.placeholder)}</p>`
-          : ""
-      }
-      <p class="rail-p tier-detail">${c.placeholder === 0 ? "No line on this page is a placeholder. " : ""}Every priced line blends Kulka's own cost records, weighted actuals over budgets, with Kulka's stated rates where no record exists yet.</p>
-      <dl class="confidence tier-detail">
-        <div data-el="count:confidence:high"><dt>${src("high", "High Confidence")}</dt><dd><span class="num">${c.confidence.high}</span> ${c.confidence.high === 1 ? "line" : "lines"}, range 10% each side</dd></div>
-        <div data-el="count:confidence:medium"><dt>${src("medium", "Medium Confidence")}</dt><dd><span class="num">${c.confidence.medium}</span> ${c.confidence.medium === 1 ? "line" : "lines"}, range 20% each side</dd></div>
-        <div data-el="count:confidence:low"><dt>${src("low", "Low Confidence")}</dt><dd><span class="num">${c.confidence.low}</span> ${c.confidence.low === 1 ? "line" : "lines"}, range 35% each side, held for Kulka's review</dd></div>
-      </dl>
-      <p class="dwg-cap only-phone">${DIAGRAM_LINE}</p>
-    </div>
+  <div class="proven-rail">
+    <p class="count" data-el="count:from-kulka-jobs"><b class="num">${c.fromKulkaJobs} of ${c.priced}</b> priced lines stand on Kulka's completed jobs${share(c.shares.fromKulkaJobs)}</p>
+    <ul class="jobs" data-el="count:source-jobs" aria-label="The jobs behind the figures">${
+      named.length > 0
+        ? named.map((j) => `\n      <li><i class="dot dot--high" aria-hidden="true"></i><span>${esc(j.name!.replace(/ \(C\d+\)$/, ""))}</span><span class="jobs-n tier-detail">Behind ${j.lines} priced ${j.lines === 1 ? "line" : "lines"}</span></li>`).join("")
+        : `\n      <li><i class="dot dot--high" aria-hidden="true"></i><span>${c.jobs.length} Kulka ${c.jobs.length === 1 ? "job stands" : "jobs stand"} behind the figures</span></li>`
+    }
+    </ul>
+    <ul class="key" aria-label="Ink">
+      <li><span class="key-ink" aria-hidden="true"></span>Priced from Kulka's completed jobs</li>
+      <li><span class="key-ink key-ink--light" aria-hidden="true"></span>Priced from Kulka's stated rates${d.lightRows.length ? `: ${esc(d.lightRows.join(", "))}` : ""}</li>
+    </ul>
+    <p class="count count--sm tier-detail" data-el="count:from-kulka-rates"><b class="num">${c.fromKulkaRates}</b> rest on rates Kulka has stated${share(c.shares.fromKulkaRates)}</p>${
+      c.placeholder > 0
+        ? `
+    <p class="count count--sm tier-detail" data-el="count:placeholder-rates"><b class="num">${c.placeholder}</b> carry a Placeholder Rate until Kulka states one${share(c.shares.placeholder)}</p>`
+        : ""
+    }
+    <p class="rail-p tier-detail">${c.placeholder === 0 ? "No line on this page is a placeholder. " : ""}Every priced line blends Kulka's own cost records, weighted actuals over budgets, with Kulka's stated rates where no record exists yet.</p>
+    <dl class="confidence tier-detail">
+      <div data-el="count:confidence:high"><dt>${src("high", "High Confidence")}</dt><dd><span class="num">${c.confidence.high}</span> ${c.confidence.high === 1 ? "line" : "lines"}, range 10% each side</dd></div>
+      <div data-el="count:confidence:medium"><dt>${src("medium", "Medium Confidence")}</dt><dd><span class="num">${c.confidence.medium}</span> ${c.confidence.medium === 1 ? "line" : "lines"}, range 20% each side</dd></div>
+      <div data-el="count:confidence:low"><dt>${src("low", "Low Confidence")}</dt><dd><span class="num">${c.confidence.low}</span> ${c.confidence.low === 1 ? "line" : "lines"}, range 35% each side, held for Kulka's review</dd></div>
+    </dl>
   </div>
 </section>`;
 }
@@ -356,7 +345,7 @@ function criterionRow(k: Criterion): string {
       </article>`;
 }
 
-function sectionDesign(page: BudgetPage, svg: string): string {
+function sectionDesign(page: BudgetPage): string {
   if (page.criteria.length === 0) return "";
   const settled = page.criteria.filter((x) => x.settled).length;
   return `
@@ -365,15 +354,35 @@ function sectionDesign(page: BudgetPage, svg: string): string {
     <h1 class="sheet-h">Design and Engineering</h1>
     <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building, called out on the section. ${settled} ${settled === 1 ? "is" : "are"} settled by code; the rest are planning assumptions until your design team decides them.</p>
   </div>
-  <div class="dwg dwg--crop dwg--design" data-dwg="design">${svg}</div>
   <ol class="crit only-phone" aria-label="Design and Engineering criteria">${page.criteria
     .map((k) => `\n    <li><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span></li>`)
     .join("")}
   </ol>
-  <p class="dwg-cap only-phone">${DIAGRAM_LINE}</p>
   <div class="crits lg tier-detail">${page.criteria.map(criterionRow).join("")}
   </div>
 </section>`;
+}
+
+/**
+ * The Ledger, Proven and Design and Engineering share one drawing, pinned
+ * beside them (above them on a phone), which changes state in place: layers
+ * drawing in row by row, then the inks settled with the count beside it,
+ * then the criteria called out on it.
+ */
+function trio(page: BudgetPage, svg: string): string {
+  const facts = page.drawing.facts;
+  const program = [`${facts.stories} Stories Above Grade`, facts.units !== null ? `${wholeNumber(facts.units)} Units` : null, facts.grossArea].filter(Boolean).join(" · ");
+  return `
+<div class="trio" data-trio data-state="ledger">
+  <div class="trio-main">${sectionLedger(page)}
+${sectionProven(page)}
+${sectionDesign(page)}
+  </div>
+  <aside class="sheet sheet--dwg" aria-label="The Section">
+    <div class="dwg dwg--crop" data-dwg="section">${svg}</div>
+    <p class="dwg-cap only-phone"><b>Building Section</b><span data-cap-story></span> · ${esc(program)}<br>${DIAGRAM_LINE}</p>
+  </aside>
+</div>`;
 }
 
 // --- 6. From Trades to Total: the peak ------------------------------------------------------------------
@@ -716,9 +725,7 @@ ${svg.style}
 <main id="top">${newerBand(page)}
 ${sectionNumber(page)}
 ${sectionProject(page)}
-${sectionLedger(page, svg.ledger)}
-${sectionProven(page, svg.proven)}
-${sectionDesign(page, svg.design)}
+${trio(page, svg.section)}
 ${sectionWaterfall(page, svg)}
 ${sectionGates(page)}
 ${sectionNext(page)}${print ? appendix(page) : ""}

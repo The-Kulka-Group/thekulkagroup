@@ -850,7 +850,7 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
     const items: { text: string; key: string | null }[][] = [];
     items.push(...wrapWords(`1. ${program}.`, 66).map((t) => [{ text: t, key: null }]));
     let n = 2;
-    if (notes.ink) items.push(...wrapWords(`${n++}. ${notes.ink}`, 66).map((t) => [{ text: t, key: null }]));
+    if (notes.ink) items.push(...wrapWords(`${n++}. ${notes.ink}`, 66).map((t) => [{ text: t, key: "ink" }]));
     const noLayer = notes.noLayer ?? [];
     if (noLayer.length) {
       // Each name is its own span, so the row that prices it can reveal it.
@@ -877,7 +877,8 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
     gn.push(text(nx, ny - 8, "Notes", 11, C.ink, ` class="t tb"`));
     let ly = ny + 6;
     for (const ln of items) {
-      const spans = ln.map((seg) => (seg.key ? `<tspan data-note="${esc(seg.key)}">${esc(seg.text)}</tspan>` : esc(seg.text))).join("");
+      // The ink note is the drawing's own, shown once the section is complete; a row's name shows with its row.
+      const spans = ln.map((seg) => (seg.key === "ink" ? `<tspan data-ink-note="">${esc(seg.text)}</tspan>` : seg.key ? `<tspan data-note="${esc(seg.key)}">${esc(seg.text)}</tspan>` : esc(seg.text))).join("");
       gn.push(`<text x="${n2(nx)}" y="${n2(ly)}" class="t" font-size="10.5" fill="${C.ink2}">${spans}</text>`);
       ly += 12.5;
     }

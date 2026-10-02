@@ -316,8 +316,10 @@ body { overflow-anchor: none; }
 .lg-foot { display: flex; justify-content: space-between; gap: 16px; padding: 11px 16px; font-weight: 600; border-top: 2px solid var(--rb-blk-ink) !important; }
 .lg-foot--quiet { border-top-width: 1px !important; border-top-color: var(--rb-blk-line) !important; color: var(--rb-blk-ink2); font-weight: 600; }
 
-/* The current row in the list is lit the way a priced row lights; its display scale is the lens. */
+/* The current row in the list carries only the accent bar, its text dimmed: the lens shows it, so the figure reads once. */
 .lg-item.is-cur > .lg-btn { box-shadow: inset 3px 0 0 var(--primary); }
+.lg-btn > * { transition: opacity 160ms var(--ease); }
+.lg-item.is-cur > .lg-btn > * { opacity: 0.35; transition: none; }
 
 /* The lens: a reserved band of display-scale height at the top of the list.
    It holds under the header once the list reaches it, the rows begin below
@@ -325,21 +327,22 @@ body { overflow-anchor: none; }
    display scale. The list never changes length; a row opens in the list. */
 .lens {
   position: sticky;
-  top: var(--lens-top, 120px);
+  top: var(--lens-top, 96px);
   z-index: 4;
-  height: var(--lens-h, 152px);
+  box-sizing: border-box;
+  padding-top: var(--lens-pad, 24px);
+  height: calc(var(--lens-h, 152px) + var(--lens-pad, 24px));
   background: var(--surface);
   box-shadow: 0 1px 0 var(--rb-blk-line), 0 8px 16px rgba(29, 29, 31, 0.06);
   overflow: hidden;
 }
 .lens-in {
   position: absolute;
-  inset: 0;
+  inset: var(--lens-pad, 24px) 0 0 0;
   background: var(--surface);
   transition: opacity 160ms var(--ease);
 }
 .lens-in.is-arriving { opacity: 0; }
-.lens-in.is-leaving { opacity: 0; }
 .lens-in > .lg-btn {
   grid-template-rows: auto auto auto;
   align-items: baseline;
@@ -354,7 +357,10 @@ body { overflow-anchor: none; }
 .lens-in .lg-amt { grid-column: 2; grid-row: 2; font-size: 32px; line-height: 1; font-weight: 600; letter-spacing: -0.035em; text-align: left; color: var(--rb-blk-ink); }
 .lens-in .lg-psf, .lens-in .lg-pct { display: none; }
 .lens-in .lg-rate { display: block; grid-column: 3 / -1; grid-row: 2; align-self: baseline; text-align: right; font-size: var(--body-size); font-weight: 600; color: var(--rb-blk-ink2); }
-.lens-in .lg-more { grid-column: 2 / -1; grid-row: 3; display: flex; align-items: center; gap: 16px; }
+.lens-in .lg-more { grid-column: 2 / -1; grid-row: 3; display: flex; align-items: center; gap: 16px; min-width: 0; }
+.lens-in .lg-more .src { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lens-in .lg-more .src > .dot { margin-right: 7px; vertical-align: 1px; }
+.lens-in .lg-more .pill { flex: none; }
 .lens-in .lg-tag { vertical-align: middle; }
 .pill-close { display: none; }
 .lg-item[data-open="true"] .pill-open, .lens-in[data-open="true"] .pill-open { display: none; }
@@ -468,11 +474,12 @@ body { overflow-anchor: none; }
 .crit li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
 /* Two columns of keyed criteria; each lights in turn as the reader passes through the list. */
 .crit--keyed { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
-.crit--keyed li { grid-template-columns: 34px minmax(0, 1fr) auto; grid-template-rows: auto auto; padding: 10px 0; border-top: 1px solid var(--rb-blk-line); box-shadow: inset 3px 0 0 transparent; transition: box-shadow 160ms var(--ease), padding-left 160ms var(--ease); }
+.crit--keyed li { grid-template-columns: 34px minmax(0, 1fr) auto; grid-template-rows: auto auto; padding: 10px 0; border-top: 1px solid var(--rb-blk-line); cursor: default; }
 .crit--keyed li:nth-child(-n + 2) { border-top: 0; }
 .crit--keyed li .src { grid-column: 2 / -1; font-size: var(--chip-size); }
-.crit--keyed li.is-now { box-shadow: inset 3px 0 0 var(--primary); padding-left: 10px; }
+.crit--keyed li .crit-tag, .crit--keyed li .crit-l { transition: color 160ms var(--ease), border-color 160ms var(--ease); }
 .crit--keyed li.is-now .crit-tag { border-color: var(--primary); color: var(--primary); }
+.crit--keyed li.is-now .crit-l { color: var(--primary); }
 .crit-tag { display: inline-flex; justify-content: center; align-items: center; height: 16px; min-width: 34px; border: 1px solid var(--rb-blk-ink); border-radius: 2px; font-size: 10px; font-weight: 600; color: var(--rb-blk-ink); }
 .crit-v { color: var(--rb-blk-ink); font-weight: 600; text-align: right; white-space: nowrap; }
 
@@ -541,13 +548,21 @@ body { overflow-anchor: none; }
 .wf-plan li { display: flex; justify-content: space-between; gap: 12px; }
 .wf .dot--in { background: var(--rb-ink-on-black); box-shadow: none; }
 .wf .dot--next { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-ink2-on-black); }
-.wf-after { font-size: var(--meta-size); color: var(--rb-ink2-on-black); display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.wf-after { font-size: var(--meta-size); color: var(--rb-ink2-on-black); display: flex; flex-wrap: wrap; gap: 6px 10px; padding-bottom: 10px; opacity: 0; }
 .wf-after b { color: var(--rb-ink-on-black); }
 .wf-after i { font-style: normal; color: var(--rb-pnl-line2); }
 .dwg--band svg { width: 100%; }
 .dwg-swap { grid-area: dwg; position: relative; }
 .dwg-swap .dwg--light { position: absolute; inset: 0; opacity: 0; transition: opacity 700ms var(--ease); }
 .dwg-swap .dwg--dark { opacity: 1; transition: opacity 700ms var(--ease); }
+.band--peak[data-landed="true"] .dwg-swap .dwg--light, .band--peak[data-landed="still"] .dwg-swap .dwg--light, .band--peak[data-landed="measure"] .dwg-swap .dwg--light { position: relative; }
+.band--peak[data-landed="true"] .dwg-swap .dwg--dark, .band--peak[data-landed="still"] .dwg-swap .dwg--dark, .band--peak[data-landed="measure"] .dwg-swap .dwg--dark { position: absolute; inset: 0; }
+.band--peak.is-sized .dwg-swap .dwg--light svg { height: var(--dwg-h); width: auto; max-width: 100%; margin: 0 auto; }
+.band--peak.band--flow.is-sized .dwg-swap { position: sticky; top: var(--dwg-top); align-self: start; }
+/* In the flowing band the held figure block takes the ground's colour, so the lines pass beneath it rather than through it. */
+.band--peak.band--flow[data-landed="true"] .wf-fig { animation: ground-up 700ms 1020ms linear both; }
+.band--peak.band--flow[data-landed="still"] .wf-fig, .band--peak.band--flow[data-landed="measure"] .wf-fig { background: var(--canvas); }
+.band--peak.band--flow[data-landed="false"] .wf-fig { animation: ground-down 700ms 120ms linear both; }
 .wf-after { font-size: var(--body-size); }
 
 /* The landing: once Insurance has joined, the figure grows to the first
@@ -572,7 +587,11 @@ body { overflow-anchor: none; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .band--peak .fig, .band--peak .dwg-swap { transform-origin: left top; }
 /* Landing. */
-.band--peak[data-landed="true"] .wf-h, .band--peak[data-landed="true"] .wf, .band--peak[data-landed="true"] .wf-after, .band--peak[data-landed="true"] .wf-landed { animation: lines-out-in 1900ms linear both; }
+.band--peak[data-landed="true"] .wf-h, .band--peak[data-landed="true"] .wf, .band--peak[data-landed="true"] .wf-landed { animation: lines-out-in 1900ms linear both; }
+/* The owner's line and the total appear once the figure has landed in light. */
+.band--peak[data-landed="true"] .wf-after { animation: fade-in 500ms 1720ms both; }
+.band--peak[data-landed="still"] .wf-after, .band--peak[data-landed="measure"] .wf-after { opacity: 1; }
+.band--peak[data-landed="false"] .wf-after { animation: fade-out 200ms both; }
 .band--peak[data-landed="true"] .dwg-swap { animation: mover 300ms 120ms cubic-bezier(0.2, 0, 0.2, 1) both; }
 .band--peak[data-landed="true"] .fig { animation: mover 600ms 420ms cubic-bezier(0.2, 0, 0.2, 1) both; }
 .band--peak[data-landed="true"] .fig-l { animation: lines-out-in 1900ms linear both; }
@@ -583,7 +602,7 @@ body { overflow-anchor: none; }
 .band--peak[data-landed="true"] .dwg--dark { animation: fade-out 500ms 1120ms both; }
 .band--peak[data-landed="true"] .dwg--light { animation: fade-in 500ms 1120ms both; }
 /* Taking off again. */
-.band--peak[data-landed="false"] .wf-h, .band--peak[data-landed="false"] .wf, .band--peak[data-landed="false"] .wf-after, .band--peak[data-landed="false"] .wf-landed { animation: lines-out-in 1900ms linear both; }
+.band--peak[data-landed="false"] .wf-h, .band--peak[data-landed="false"] .wf, .band--peak[data-landed="false"] .wf-landed { animation: lines-out-in 1900ms linear both; }
 .band--peak[data-landed="false"] .band-stage { animation: ground-down 700ms 120ms linear both; }
 .band--peak[data-landed="false"] .wf-lab, .band--peak[data-landed="false"] .wf-amt { animation: ink-down 700ms 120ms linear both; }
 .band--peak[data-landed="false"] .fig { animation: mover 600ms 820ms cubic-bezier(0.2, 0, 0.2, 1) both, ink-down 700ms 120ms linear both; }
@@ -768,6 +787,9 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .steps { gap: 8px; }
   .foot { margin-top: 28px; display: grid; gap: 6px; }
 }
+
+/* A nav jump renders its destination at once: the drawing's layers and the lens take no transition for that frame. */
+html.is-jump .dwg--live *, html.is-jump .lens-in, html.is-jump .lg-btn > * { transition: none !important; }
 
 /* --- Reduced motion: every layer drawn, both bands resolved ---------------- */
 

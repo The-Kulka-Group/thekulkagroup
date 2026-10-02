@@ -146,7 +146,10 @@
     var near = false;
     if (peakFig) {
       var r = peakFig.getBoundingClientRect();
-      near = r.bottom > hdH() && r.top < innerHeight;
+      // Well on screen: its top inside the upper three fifths, so a short
+      // in-page scroll that brings the band's edge into view leaves the
+      // header figure where it is.
+      near = r.bottom > hdH() && r.top < innerHeight * 0.6;
     }
     if (near) hd.setAttribute('data-fig-hidden', ''); else hd.removeAttribute('data-fig-hidden');
   }
@@ -200,7 +203,7 @@
     var bracket = dwg && dwg.querySelector('[data-bracket]');
     var bracketLine = dwg && dwg.querySelector('[data-bracket-line]');
     var bracketCap = dwg && dwg.querySelector('[data-bracket-cap]');
-    var current = -2, drawnStories = -1, state = '', crit = '';
+    var current = -2, drawnStories = -1, state = '', crit = '', lensIdx = -1;
     if (dwg) dwg.parentNode.classList.add('dwg--live');
 
     // Hit areas: an invisible wide stroke beside every stroke in a layer, and
@@ -275,9 +278,14 @@
       if (phone() && aside) top += aside.offsetHeight + 12;
       return top;
     }
-    // Where the lens band holds: under the header beside the pinned section (under it on a phone).
-    function lensTop() { return topOfRows() + (phone() ? 0 : 24); }
-    function place() { section.style.setProperty('--lens-top', lensTop() + 'px'); }
+    // Where the lens band holds: against the header's bottom (on a phone,
+    // against the pinned section's bottom), with the gap to the rows as its
+    // own opaque ground, so nothing shows above it.
+    function lensTop() { return hdH() + (phone() && aside ? aside.offsetHeight : 0); }
+    function place() {
+      section.style.setProperty('--lens-top', lensTop() + 'px');
+      section.style.setProperty('--lens-pad', (phone() ? 12 : 24) + 'px');
+    }
     // The reading line for the sheets' states and the criteria: a third of the way down what is left.
     function readingLine() { var top = topOfRows(); return top + (innerHeight - top) * 0.3; }
     function lensBottom() {
@@ -309,25 +317,25 @@
       var lines = copy.querySelector('.lg-lines');
       if (lines) lines.parentNode.removeChild(lines);
       copy.setAttribute('data-open', item.getAttribute('data-open') || 'false');
-      var old = lens.querySelector('.lens-in');
+      var olds = Array.prototype.slice.call(lens.querySelectorAll('.lens-in'));
       lens.appendChild(copy);
       lens.setAttribute('data-row', keys[idx]);
       lens.setAttribute('data-open', item.getAttribute('data-open') || 'false');
-      if (old) {
-        if (reduce) old.parentNode.removeChild(old);
-        else {
-          old.classList.add('is-leaving');
-          copy.classList.add('is-arriving');
-          requestAnimationFrame(function () { requestAnimationFrame(function () { copy.classList.remove('is-arriving'); }); });
-          setTimeout(function () { if (old.parentNode) old.parentNode.removeChild(old); }, 180);
-        }
-      }
+      if (!olds.length) return;
+      if (reduce) { olds.forEach(function (o) { o.parentNode.removeChild(o); }); return; }
+      // The old content stays painted beneath until the new has faded in
+      // over it (160ms); no frame callback is waited on, so a throttled tab
+      // never shows the band empty.
+      copy.classList.add('is-arriving');
+      void copy.offsetWidth;
+      copy.classList.remove('is-arriving');
+      setTimeout(function () { olds.forEach(function (o) { if (o.parentNode) o.parentNode.removeChild(o); }); }, 200);
     }
     function apply(idx, nStories) {
       if (idx === current && nStories === drawnStories) return;
       if (idx !== current) {
         items.forEach(function (it, i) { it.classList.toggle('is-cur', i === idx); });
-        if (idx >= 0) fill(idx);
+        if (idx >= 0 && (idx !== lensIdx || !lens || !lens.querySelector('.lens-in'))) { fill(idx); lensIdx = idx; }
         layers.forEach(function (g) {
           var i = keys.indexOf(g.getAttribute('data-layer'));
           g.classList.toggle('is-drawn', i > -1 && i <= idx);
@@ -351,16 +359,10 @@
       state = s;
       trio.setAttribute('data-state', s);
       if (s !== 'ledger') layers.forEach(function (g) { g.classList.remove('is-now'); });
-      if (s !== 'design') lightCrit('');
+      if (s !== 'design') { pinnedCrit = ''; lightCrit(''); }
     }
-    // The criteria sit two to a row, so each lights in turn by the reading
-    // line's progress through the list, not by its own top: the list's
-    // height is split evenly among them.
-    function critAt(line) {
-      var list = crits[0].parentNode.getBoundingClientRect();
-      var p = clamp((line - list.top) / Math.max(1, list.height));
-      return Math.min(crits.length - 1, Math.floor(p * crits.length));
-    }
+    // A criterion and its callout light together, on hover or on a click;
+    // nothing lights by scroll.
     function lightCrit(code) {
       if (code === crit) return;
       crit = code;
@@ -376,7 +378,6 @@
       setState(s);
       if (s !== 'ledger') {
         apply(items.length - 1, stories);
-        if (s === 'design' && crits.length) lightCrit(crits[critAt(line)].getAttribute('data-crit'));
         return;
       }
       // The current row is the first one at or below the band's bottom edge:
@@ -403,11 +404,9 @@
       scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
     }
     function scrollToCrit(code) {
-      var idx = crits.map(function (c) { return c.getAttribute('data-crit'); }).indexOf(code);
-      if (idx < 0) return;
-      // The same split as critAt: the reading line lands mid-way through this criterion's share.
-      var list = crits[0].parentNode.getBoundingClientRect();
-      var target = scrollY + list.top + ((idx + 0.5) / crits.length) * list.height - readingLine();
+      var li = crits.filter(function (c) { return c.getAttribute('data-crit') === code; })[0];
+      if (!li) return;
+      var target = scrollY + li.getBoundingClientRect().top - readingLine();
       scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
     }
     // Open or close a row, in the list and in the lens.
@@ -431,21 +430,34 @@
       if (item) toggle(item, item.getAttribute('data-open') !== 'true');
     });
     var hovered = null;
+    function hover(g) {
+      if (g === hovered) return;
+      if (hovered) hovered.classList.remove('is-hover');
+      hovered = g;
+      if (g) g.classList.add('is-hover');
+      var code = g && g.hasAttribute('data-callout') ? g.getAttribute('data-callout') : '';
+      if (code || !critHover) lightCrit(code || pinnedCrit);
+    }
+    // A clicked criterion stays lit after the pointer leaves it (the scroll
+    // it starts moves the drawing under a still pointer) until another is
+    // hovered or clicked, or the sheet is left.
+    var critHover = false, pinnedCrit = '';
     if (dwg && !printing) {
       dwg.addEventListener('mousemove', function (e) {
         var hit = pick(e.clientX, e.clientY);
-        var g = hit ? (hit.closest('[data-callout]') || hit.closest('[data-layer]')) : null;
-        if (g === hovered) return;
-        if (hovered) hovered.classList.remove('is-hover');
-        hovered = g;
-        if (g) g.classList.add('is-hover');
+        hover(hit ? (hit.closest('[data-callout]') || hit.closest('[data-layer]')) : null);
       });
-      dwg.addEventListener('mouseleave', function () { if (hovered) hovered.classList.remove('is-hover'); hovered = null; });
+      dwg.addEventListener('mouseleave', function () { hover(null); });
     }
+    crits.forEach(function (li) {
+      li.addEventListener('mouseenter', function () { critHover = true; lightCrit(li.getAttribute('data-crit')); });
+      li.addEventListener('mouseleave', function () { critHover = false; lightCrit(pinnedCrit); });
+      li.addEventListener('click', function () { pinnedCrit = li.getAttribute('data-crit'); lightCrit(pinnedCrit); });
+    });
     if (dwg) dwg.addEventListener('click', function (e) {
       var hit = pick(e.clientX, e.clientY) || e.target;
       var c = hit.closest('[data-callout]');
-      if (c) { scrollToCrit(c.getAttribute('data-callout')); lightCrit(c.getAttribute('data-callout')); return; }
+      if (c) { pinnedCrit = c.getAttribute('data-callout'); scrollToCrit(pinnedCrit); lightCrit(pinnedCrit); return; }
       var g = hit.closest('[data-layer]');
       if (!g) return;
       var item = items[keys.indexOf(g.getAttribute('data-layer'))];
@@ -488,12 +500,29 @@
         m.style.setProperty('--fsy', (a.height / Math.max(b.height, 1)).toFixed(4));
       });
     }
+    // The landed sheet is sized to what is left of the viewport under the
+    // figure block, so its title block and key plan sit above the fold.
+    function sizeSheet(on) {
+      var figBlock = section.querySelector('.wf-fig');
+      if (!on || phone() || !figBlock) { section.classList.remove('is-sized'); section.style.removeProperty('--dwg-h'); return; }
+      // In the flowing band the figure block holds under the header, so its
+      // stuck position is what the sheet sits beneath, wherever the band is
+      // when the landing fires.
+      var flow = section.classList.contains('band--flow');
+      var bottom = flow ? hdH() + figBlock.offsetHeight + 16 : figBlock.getBoundingClientRect().bottom;
+      var h = innerHeight - bottom - 40;
+      section.style.setProperty('--dwg-h', Math.max(140, Math.round(h)) + 'px');
+      // In the flowing band the sheet holds under the figure block as the
+      // lines pass beneath, so it is never covered by it.
+      section.style.setProperty('--dwg-top', Math.round(bottom) + 'px');
+      section.classList.add('is-sized');
+    }
     function land(on) {
       if (on === landed) return;
       landed = on;
-      if (reduce || printing) { section.setAttribute('data-landed', on ? 'still' : 'none'); return; }
+      if (reduce || printing) { section.setAttribute('data-landed', on ? 'still' : 'none'); sizeSheet(on); return; }
       // Lay out the destination without animating, measure each mover's path, then play.
-      flipVars(function () { section.setAttribute('data-landed', on ? 'measure' : 'measure-dark'); });
+      flipVars(function () { section.setAttribute('data-landed', on ? 'measure' : 'measure-dark'); sizeSheet(on); });
       void section.offsetWidth;
       section.setAttribute('data-landed', on ? 'true' : 'false');
     }
@@ -519,6 +548,28 @@
     }
     return { read: read, all: function () { apply(rows.length); } };
   })();
+
+  /* ---- nav jumps: the destination rendered at once, no replay ---- */
+  function jumpTo(id) {
+    var el = doc.getElementById(id);
+    if (!el) return false;
+    root.classList.add('is-jump');
+    var top = el.getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(el).scrollMarginTop) || 0);
+    // 'instant', not 'auto': the stylesheet's smooth scroll-behavior would
+    // otherwise glide the jump and replay every state on the way.
+    scrollTo({ top: top, behavior: 'instant' });
+    driveHeader(); ledger.read(); wf.read(); spy();
+    if (sc.read) sc.read();
+    try { history.pushState(null, '', '#' + id); } catch (e) {}
+    setTimeout(function () { root.classList.remove('is-jump'); }, 80);
+    return true;
+  }
+  each('#bar a[data-index]', function (a) {
+    a.addEventListener('click', function (e) {
+      if (printing || reduce) return;
+      if (jumpTo(a.getAttribute('data-index'))) e.preventDefault();
+    });
+  });
 
   /* ---- the loop ---- */
   var ticking = false;

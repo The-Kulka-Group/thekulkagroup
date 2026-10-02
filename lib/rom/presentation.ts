@@ -749,7 +749,7 @@ function planLines(snapshot: PublishedBudgetSnapshot): PlanLine[] {
   );
 }
 
-function waterfallOf(snapshot: PublishedBudgetSnapshot, ownerOnLedger: boolean): WaterfallRow[] {
+function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
   const { rom } = snapshot;
   const m = rom.markups;
   const ownerDirect = m ? m.ownerDirect : { low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high };
@@ -763,7 +763,7 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot, ownerOnLedger: boolean):
   });
   const rows: WaterfallRow[] = [];
   const subtotal = m ? m.subtotal : { ...rom.kulkaContractTotal, basis: "Kulka's contract trade cost, owner-direct lines excluded" };
-  rows.push(row({ key: "subtotal", el: null, elRef: "total:trades", label: "Trade Cost", low: subtotal.low, high: subtotal.high, basis: clientBasis(subtotal.basis) }));
+  rows.push(row({ key: "subtotal", el: "total:trades", elRef: null, label: "Trade Cost", low: subtotal.low, high: subtotal.high, basis: clientBasis(subtotal.basis) }));
   if (m) {
     if (m.generalRequirements) {
       const gr = m.generalRequirements;
@@ -801,8 +801,8 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot, ownerOnLedger: boolean):
   rows.push(
     row({
       key: "owner-direct",
-      el: ownerOnLedger ? null : "total:owner-direct",
-      elRef: ownerOnLedger ? "total:owner-direct" : null,
+      el: "total:owner-direct",
+      elRef: null,
       label: "Bought by the Owner",
       low: ownerDirect.low,
       high: ownerDirect.high,
@@ -1178,7 +1178,7 @@ export function presentBudget(publication: Publication): BudgetPage {
       },
     },
     criteria,
-    waterfall: waterfallOf(snapshot, owner.length > 0),
+    waterfall: waterfallOf(snapshot),
     gates,
     notes,
     parameters: parametersOf(rom),

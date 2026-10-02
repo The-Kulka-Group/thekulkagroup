@@ -265,16 +265,9 @@ function sectionLedger(page: BudgetPage): string {
       <span class="lg-pct">%</span>
     </div>
     <div class="lens" data-lens data-open="false" aria-live="polite" aria-label="The current row"></div>${page.ledger.map(ledgerRow).join("")}
-    <div class="lg-foot" data-el="total:trades">
-      <span>Trade Cost, Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.trades.low)} to ${usd(money.trades.high)}</span></span>
-      <span class="num">${usd(money.trades.likely)}</span>
-    </div>${
+    ${
       money.ownerScopes.length > 0
         ? `
-    <div class="lg-foot lg-foot--quiet" data-el="total:owner-direct">
-      <span>Bought by the Owner, Outside Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.ownerDirect.low)} to ${usd(money.ownerDirect.high)}</span></span>
-      <span class="num">${usd(money.ownerDirect.likely)}</span>
-    </div>
     <div class="lg-foot lg-foot--quiet tier-detail" data-el="total:trade-cost">
       <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">${usd(headline.tradeCost.low)} to ${usd(headline.tradeCost.high)}</span></span>
       <span class="num">${usd(headline.tradeCost.likely)}</span>
@@ -420,8 +413,6 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
   const after = page.waterfall.filter((w) => w.key === "owner-direct" || w.key === "total-project-cost");
   const trades = page.waterfall[0];
   const land = page.waterfall.find((w) => w.key === "kulka-contract")!;
-  // The owner's line and the total arrive once the figure has landed.
-  const afterCue = (0.06 + 0.42 + 0.22).toFixed(2);
   return `
 <section class="band band--peak" id="from-trades-to-total" data-el="section:from-trades-to-total" data-sc-act="pin" data-sc-span="3.6" data-landed="false">
   <div class="band-stage sc-stage" data-sc-stage data-sc-verify-state="wf:0">
@@ -432,7 +423,7 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
           <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
           <p class="fig fig--beside num" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
           <p class="wf-landed tier-detail">Likely, between <span class="num">${usd(land.low)}</span> and <span class="num">${usd(land.high)}</span>. ${esc(land.basis)} Total Project Cost, with what the owner buys direct, between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
-          <p class="wf-after" data-sc-cue="${afterCue}" data-cue-at="${afterCue}">${after
+          <p class="wf-after" data-after>${after
             .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
             .join('<i aria-hidden="true">·</i>')}</p>
         </div>

@@ -27,7 +27,6 @@ import { LAYERS, type SectionFacts, type SectionInk } from "@/lib/rom/section";
 // Your Number and again in the waterfall), the first appearance holds the id
 // and the later one points at it with `elRef`.
 
-export type Tier = "summary" | "detail" | "full";
 export type Tone = ConfidenceFlag | "none";
 
 export type Figure = { low: number; high: number; likely: number };
@@ -39,7 +38,7 @@ export type Chip = { tone: Tone; text: string };
 
 export type StageStep = { key: string; label: string; words: string; current: boolean };
 
-export type SectionHead = { id: string; el: string; title: string; indexLabel: string; tier: Tier };
+export type SectionHead = { id: string; el: string; title: string; indexLabel: string };
 
 export type Fact = {
   el: string;
@@ -47,11 +46,10 @@ export type Fact = {
   label: string;
   value: string;
   basis: "stated" | "assumed";
-  /** The question as asked, or the criterion that set an assumed fact. Full tier. */
+  /** The question as asked, or the criterion that set an assumed fact. */
   basisWords: string;
   /** For an assumed fact, the criterion code that set it. */
   assumedBy: string | null;
-  tier: Tier;
 };
 
 export type ComparableRow = { el: string; kindWords: string; jobs: string; rate: string; weight: number; recordedAt: string };
@@ -64,7 +62,7 @@ export type PricedLine = Figure & {
   confidence: ConfidenceFlag;
   source: Chip;
   comparables: ComparableRow[];
-  /** Full tier: how the figure was built, in one or two sentences. */
+  /** How the figure was built, in one or two sentences. */
   basis: string;
 };
 
@@ -81,7 +79,6 @@ export type Scope = Figure & {
   /** This scope's share of Kulka's trades, 0 to 1. Null for owner-direct scope. */
   share: number | null;
   ownerDirect: boolean;
-  tier: Tier;
   lines: PricedLine[];
   unpriced: UnpricedLine[];
 };
@@ -161,7 +158,7 @@ export type Criterion = {
 
 export type GateRow = { el: string | null; label: string; decidedBy: { question: string | null; gate: string; answer: string }[] };
 
-export type Note = { el: string; number: number; text: string; tier: Tier };
+export type Note = { el: string; number: number; text: string };
 
 export type Parameter = { el: string; label: string; value: string; recordedBy: string; recordedAt: string };
 
@@ -195,8 +192,6 @@ export type BudgetPage = {
   money: {
     scopes: Scope[];
     ownerScopes: Scope[];
-    /** The scopes Summary folds into one row, or null when every scope shows at Summary. */
-    rest: (Figure & { count: number }) | null;
     trades: Figure;
     ownerDirect: Figure;
     /** The largest high figure on the ledger, which every range bar is drawn against. */
@@ -211,7 +206,6 @@ export type BudgetPage = {
      * than printed with a guessed division.
      */
     divisions: DivisionGroup[] | null;
-    summaryScopeCount: number;
   };
   /** The client ledger in MasterFormat order, Kulka's trades and the owner's rows together (LA-1459). */
   ledger: LedgerRow[];
@@ -295,20 +289,20 @@ function figure(range: { low: number; high: number }): Figure {
 
 // --- Sections and stages -------------------------------------------------------
 
-/** The page's sections in reading order, with the tier each first shows at (LA-1309 table). */
+/** The page's sections in reading order (LA-1309 table). */
 export const SECTIONS: readonly SectionHead[] = (
   // The ids are Version 1's, so every section keeps its element id; the titles
   // are the approved frames' (LA-1456, brief-v3).
   [
-  { id: "your-number", title: "Your Number", indexLabel: "Your Number", tier: "summary" },
-  { id: "the-project", title: "What You Told Us", indexLabel: "What You Told Us", tier: "summary" },
-  { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger", tier: "summary" },
-  { id: "what-this-rests-on", title: "Proven", indexLabel: "Proven", tier: "summary" },
-  // LA-1459: the criteria are called out on the drawing at every depth, with no money.
-  { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering", tier: "summary" },
-  { id: "from-trades-to-total", title: "From Trades to Total", indexLabel: "From Trades to Total", tier: "summary" },
-  { id: "what-is-in", title: "What Is In, and What Is Not", indexLabel: "What Is In", tier: "summary" },
-  { id: "what-happens-next", title: "What Happens Next", indexLabel: "What Happens Next", tier: "summary" },
+  { id: "your-number", title: "Your Number", indexLabel: "Your Number" },
+  { id: "the-project", title: "What You Told Us", indexLabel: "What You Told Us" },
+  { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger" },
+  { id: "what-this-rests-on", title: "Proven", indexLabel: "Proven" },
+  // LA-1459: the criteria are called out on the drawing, with no money.
+  { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering" },
+  { id: "from-trades-to-total", title: "From Trades to Total", indexLabel: "From Trades to Total" },
+  { id: "what-is-in", title: "What Is In, and What Is Not", indexLabel: "What Is In" },
+  { id: "what-happens-next", title: "What Happens Next", indexLabel: "What Happens Next" },
   ] satisfies Omit<SectionHead, "el">[]
 ).map((section) => ({ ...section, el: `section:${section.id}` }));
 
@@ -463,9 +457,6 @@ const QUESTION_WORDS: Record<string, string> = {
   elevator_count: "How many elevators does the building have?",
 };
 
-/** The facts that price the most, which Summary shows (LA-1309: units, gross area, stories, parking, type, framing, labor). */
-const SUMMARY_FACTS = new Set(["projectType", "constructionKind", "grossSquareFeet", "framingSystem", "storiesAboveGrade", "unitCount", "laborType", "parkingType"]);
-
 /** Facts no question asks, set by a Design and Engineering criterion. */
 const ASSUMED_FACTS: Record<string, { label: string; criterion: string }> = {
   elevatorType: { label: "Elevator Type", criterion: "V-1" },
@@ -525,7 +516,6 @@ function factsOf(snapshot: PublishedBudgetSnapshot): Fact[] {
       basis: "stated",
       basisWords: QUESTION_WORDS[id] ?? q.prompt,
       assumedBy: null,
-      tier: SUMMARY_FACTS.has(key) ? "summary" : "detail",
     });
   }
   // Framing is on the project record, stated at creation (LA-1103).
@@ -540,7 +530,6 @@ function factsOf(snapshot: PublishedBudgetSnapshot): Fact[] {
       basis: "stated",
       basisWords: "Framing system, set on the project",
       assumedBy: null,
-      tier: "summary",
     });
   }
   for (const [key, value] of Object.entries(snapshot.answers.facts ?? {})) {
@@ -554,7 +543,6 @@ function factsOf(snapshot: PublishedBudgetSnapshot): Fact[] {
       basis: "assumed",
       basisWords: `Set by criterion ${assumed.criterion}`,
       assumedBy: assumed.criterion,
-      tier: "detail",
     });
   }
   return facts;
@@ -699,7 +687,6 @@ function scopesOf(snapshot: PresentableSnapshot) {
       chip: kind === "element" ? { tone: confidence, text: `${lines.length} Priced` } : kind === "line" ? lines[0].source : { tone: "none", text: "No Rate Yet" },
       share: null,
       ownerDirect,
-      tier: "detail",
       // A single-line scope is the line: its id sits on the scope row, not again inside it.
       lines: kind === "line" ? [{ ...lines[0], el: null }] : lines,
       unpriced: kind === "unpriced" ? [] : unpriced,
@@ -1009,12 +996,6 @@ function markupWordsOf(rom: Rom): string | null {
 
 // --- The page ---------------------------------------------------------------------------------
 
-/** How many scopes Summary shows before folding the rest into one row. */
-export const SUMMARY_SCOPES = 8;
-
-/** How many notes Summary shows. */
-export const SUMMARY_NOTES = 5;
-
 export function presentBudget(publication: Publication): BudgetPage {
   const { snapshot } = publication;
   const { rom, answers, copy } = snapshot;
@@ -1031,23 +1012,9 @@ export function presentBudget(publication: Publication): BudgetPage {
   // Scopes, largest first, from the saved budget's own ledger.
   const { trade, owner, classifications } = scopesOf(snapshot);
   const trades = figure(rom.kulkaContractTotal);
-  trade.forEach((scope, i) => {
+  trade.forEach((scope) => {
     scope.share = trades.likely > 0 ? scope.likely / trades.likely : 0;
-    scope.tier = i < SUMMARY_SCOPES ? "summary" : "detail";
   });
-  owner.forEach((scope) => {
-    scope.tier = "summary";
-  });
-  const folded = trade.filter((scope) => scope.tier !== "summary");
-  const rest =
-    folded.length > 0
-      ? {
-          count: folded.length,
-          low: folded.reduce((sum, s) => sum + s.low, 0),
-          high: folded.reduce((sum, s) => sum + s.high, 0),
-          likely: midpoint({ low: folded.reduce((sum, s) => sum + s.low, 0), high: folded.reduce((sum, s) => sum + s.high, 0) }),
-        }
-      : null;
 
   // What This Rests On: over the lines that add to the total.
   const isPlaceholder = (line: RomLine) => line.comparables.length === 0 || line.comparables.every((c) => c.kind === "llm_proposal");
@@ -1065,7 +1032,7 @@ export function presentBudget(publication: Publication): BudgetPage {
   const names = snapshot.sourceJobNames ?? {};
 
   // Notes: the run's own assumptions, numbered in the order the run wrote them.
-  const notes = rom.assumptions.map((text, i) => ({ el: `note:${i + 1}`, number: i + 1, text: clientNote(text), tier: (i < SUMMARY_NOTES ? "summary" : "detail") as Tier }));
+  const notes = rom.assumptions.map((text, i) => ({ el: `note:${i + 1}`, number: i + 1, text: clientNote(text) }));
 
   const facts = factsOf(snapshot);
   const factValue = (key: string) => facts.find((f) => f.key === key)?.value ?? null;
@@ -1155,12 +1122,10 @@ export function presentBudget(publication: Publication): BudgetPage {
     money: {
       scopes: trade,
       ownerScopes: owner,
-      rest,
       trades,
       ownerDirect: figure({ low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high }),
       scaleHigh: Math.max(1, ...trade.map((s) => s.high), ...owner.map((s) => s.high)),
       divisions: divisionsOf(rom, classifications),
-      summaryScopeCount: SUMMARY_SCOPES,
     },
     ledger: built.ledger,
     drawing,

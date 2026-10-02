@@ -48,9 +48,8 @@ describe("the ledger", () => {
     expect(elevator.likely).toBe(378_700);
     expect(elevator.lines.map((l) => l.costCode).sort()).toEqual(["26", "26a"]);
     expect(elevator.unpriced.map((u) => u.el)).toEqual(["unpriced:26b", "unpriced:26c", "unpriced:26e", "unpriced:26f", "unpriced:26g", "unpriced:26h", "unpriced:26i"]);
-    expect(page.money.scopes.filter((s) => s.tier === "summary")).toHaveLength(8);
-    expect(page.money.rest).toEqual({ count: 27, low: 4_368_512, high: 8_191_787, likely: 6_280_149.5 });
-    expect(page.money.ownerScopes.map((s) => [s.el, s.tier])).toEqual([["line:22", "summary"]]);
+    expect(page.money.scopes).toHaveLength(35);
+    expect(page.money.ownerScopes.map((s) => s.el)).toEqual(["line:22"]);
   });
 
   it("leaves By Division off when the snapshot carries no division, and adds up when it does", () => {
@@ -234,47 +233,34 @@ describe("client wording", () => {
 });
 
 describe("notes", () => {
-  it("numbers the run's notes in its own order, the same on every render, five at Summary", () => {
+  it("numbers the run's notes in its own order, the same on every render", () => {
     const first = presentBudget(referencePublication()).notes;
     const again = presentBudget(referencePublication()).notes;
 
     expect(again).toEqual(first);
     expect(first.map((n) => n.el)).toEqual(Array.from({ length: 15 }, (_, i) => `note:${i + 1}`));
-    expect(first.filter((n) => n.tier === "summary").map((n) => n.number)).toEqual([1, 2, 3, 4, 5]);
     expect(first[8].text).toMatch(/^Not in this job, so removed from the total: Overhead Doors \(parking type\)/);
   });
 });
 
-describe("tiers", () => {
-  it("shows each section at the tiers the spec's table gives it", () => {
+describe("sections", () => {
+  it("shows every section, in the spec's reading order, at the page's one depth", () => {
     const page = presentBudget(referencePublication());
-    const tierOf = Object.fromEntries(page.sections.map((s) => [s.id, s.tier]));
 
-    // LA-1309, "Sections, and what each tier shows". LA-1459 moves Design and
-    // Engineering to Summary: the criteria are called out on the drawing at
-    // every depth, with no money, and the depth below them is tiered.
-    expect(tierOf).toEqual({
-      "your-number": "summary",
-      "the-project": "summary",
-      "where-the-money-is": "summary",
-      "what-this-rests-on": "summary",
-      "design-and-engineering": "summary",
-      "from-trades-to-total": "summary",
-      "what-is-in": "summary",
-      "what-happens-next": "summary",
-    });
-    // The Project: the facts that price the most at Summary, every fact at Detail.
-    expect(page.project.facts.filter((f) => f.tier === "summary").map((f) => f.label)).toEqual([
-      "Project Type",
-      "Construction",
-      "Gross Area",
-      "Framing",
-      "Stories Above Grade",
-      "Units",
-      "Labor",
-      "Parking",
+    // LA-1309, "Sections". LA-1462 drops the Summary, Detail and Full depths:
+    // the client page shows everything, so no section or fact carries a tier.
+    expect(page.sections.map((s) => s.id)).toEqual([
+      "your-number",
+      "the-project",
+      "where-the-money-is",
+      "what-this-rests-on",
+      "design-and-engineering",
+      "from-trades-to-total",
+      "what-is-in",
+      "what-happens-next",
     ]);
-    expect(page.project.facts.filter((f) => f.basis === "assumed").every((f) => f.tier === "detail")).toBe(true);
+    expect(page.sections.every((s) => !("tier" in s))).toBe(true);
+    expect(page.project.facts.every((f) => !("tier" in f))).toBe(true);
   });
 
   it("asks every stated fact's question in words, never as the field's label", () => {

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // (Matt, 2026-09-29), and proxy.ts lets /b/ through before any auth handling.
 //
 // The page is the LA-1416 reference markup, a whole document with its own
-// <html data-tier>, so it is served by a route handler rather than a page
+// <html>, so it is served by a route handler rather than a page
 // under the root layout. Loading, the model and the markup stay apart: this
 // file reads the published row, lib/rom/presentation.ts turns its snapshot
 // into the page model, and render.ts prints the reference markup from it.

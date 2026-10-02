@@ -1,7 +1,7 @@
 /* The page's own code (LA-1459, "The Ledger, Opened with the Section"). The
    engine (scrollcraft.js) is untouched: it pins the second black band,
    publishes each act's progress as --sc-p, and drives the waterfall's cues.
-   Everything here is page-local: the tier switch, the drill-downs, the
+   Everything here is page-local: the drill-downs, the
    section index, the header's two states and the figure's flight into its
    slot, the ledger's lens band and the layer it draws on the one section,
    that section's three states and its hit areas, the waterfall's figure
@@ -52,26 +52,7 @@
   var sc = printing ? { layout: function () {}, read: function () {} } : ScrollCraft.mount(doc.body);
   var p = function (act) { return parseFloat(act.style.getPropertyValue('--sc-p')) || 0; };
 
-  /* ---- tiers: three depths of one DOM ---- */
-  var TIERS = ['summary', 'detail', 'full'];
-  var tierButtons = doc.querySelectorAll('.sw-t[data-tier]');
-  function setTier(t, remember) {
-    if (TIERS.indexOf(t) < 0) return;
-    root.setAttribute('data-tier', t);
-    Array.prototype.forEach.call(tierButtons, function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tier') === t)); });
-    if (remember) { try { localStorage.setItem('kulka-budget-tier', t); } catch (e) {} }
-    relayout();
-  }
-  Array.prototype.forEach.call(tierButtons, function (b) {
-    b.addEventListener('click', function () { setTier(b.getAttribute('data-tier'), true); });
-  });
-  function tierFromHash() {
-    var h = location.hash.replace('#', '');
-    return TIERS.indexOf(h) >= 0 ? h : null;
-  }
-  addEventListener('hashchange', function () { var t = tierFromHash(); if (t) setTier(t, true); });
-
-  /* ---- drill-down at every tier ---- */
+  /* ---- drill-down ---- */
   function setOpen(item, open) {
     item.setAttribute('data-open', String(open));
     var btn = item.querySelector('.lg-btn[aria-expanded]');
@@ -591,12 +572,9 @@
     if (band) { band.setAttribute('data-parked', 'false'); band.removeAttribute('data-fly'); if (fig) fig.style.transform = 'none'; if (wrap) wrap.style.transform = 'none'; }
   }
   addEventListener('beforeprint', rest);
-  window.KulkaBudget = { setTier: setTier, rest: rest, engine: sc, ledger: ledger, waterfall: wf };
+  window.KulkaBudget = { rest: rest, engine: sc, ledger: ledger, waterfall: wf };
 
   /* ---- start ---- */
-  var start = printing ? 'detail' : tierFromHash();
-  if (!start) { try { start = localStorage.getItem('kulka-budget-tier'); } catch (e) {} }
-  setTier(TIERS.indexOf(start) >= 0 ? start : 'summary', false);
   relayout();
   if (printing) rest();
 })();

@@ -75,11 +75,10 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         actsNotAtEnd: acts.filter((a) => (a as HTMLElement).style.getPropertyValue("--sc-p") !== "1").length,
         acts: acts.length,
         pinnedStage: getComputedStyle(document.querySelector("#from-trades-to-total [data-sc-stage]")!).position,
-        chrome: document.querySelectorAll(".hd, .sw, .hd-ix, [data-sc-progress]").length,
+        chrome: document.querySelectorAll(".hd, .hd-ix, [data-sc-progress]").length,
         undrawn,
         drawings,
         engineMounted: document.documentElement.classList.contains("sc-ready"),
-        tier: document.documentElement.getAttribute("data-tier"),
       };
     });
 
@@ -93,7 +92,6 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
     expect(state.undrawn).toBe(0);
     expect(state.drawings).toEqual(["section"]);
     expect(state.engineMounted).toBe(false);
-    expect(state.tier).toBe("detail");
   } finally {
     await browser.close();
   }
@@ -126,7 +124,7 @@ test("the PDF has a stable page count, clean page breaks and named destinations"
   expect(stranded).toEqual([]);
 
   // Named destinations: every section, and the ids a question would cite.
-  for (const id of ["section:where-the-money-is", "section:from-trades-to-total", "section:appendix", "total:kulka-contract", "note:1"]) {
+  for (const id of ["section:where-the-money-is", "section:from-trades-to-total", "total:kulka-contract", "note:1"]) {
     expect(a.destinations, id).toContain(id);
   }
   expect(a.destinations.length).toBeGreaterThan(100);

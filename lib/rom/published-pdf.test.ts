@@ -187,13 +187,13 @@ describe("buildPrintJob", () => {
     expect(footer).not.toContain("Figures valid");
   });
 
-  it("prints the Detail tier with no chrome, no engine and a Full appendix", () => {
+  it("prints the one depth with no chrome, no engine and no appendix", () => {
     const { html } = job();
-    expect(html).toContain('<html lang="en" data-tier="detail" data-print="1">');
+    expect(html).toContain('<html lang="en" data-print="1">');
     expect(html).not.toContain('class="hd"');
     expect(html).not.toContain("data-sc-progress");
     expect(html).not.toContain("scrollcraft.js");
-    expect(html).toContain('id="appendix"');
+    expect(html).not.toContain('id="appendix"');
   });
 
   it("names every element id as a destination and keeps each once", () => {

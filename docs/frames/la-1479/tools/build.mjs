@@ -1,4 +1,4 @@
-// LA-1479, round two. Builds the budget drill-down still frames from MN Test
+// LA-1479, round three. Builds the budget drill-down still frames from MN Test
 // #4's real model: data/model.json is presentBudget() run on test/fixtures/
 // published-budget-mn4.json (production run 9b995af5, frozen 2026-09-29) at
 // commit 38a8e4a, and the section drawings in data/ are the shipped page's own
@@ -6,9 +6,10 @@
 // those files or the fixture. Where the model has no data, a frame shows one
 // quiet line naming the field the build needs, and nothing fills the gap.
 //
-// Round two (after an 88 second opinion): one level open at a time, each
-// opened state readable in its first screen, the section answering the open
-// division and item, and the gap boxes cut to one line each.
+// Round three applies Matt's answers of 2026-10-02 (NOTES.md): a By Division
+// and By Element switch, no past-job counts or sources anywhere a client
+// reads, the disconnects under 33 Utilities, standard estimate terms, cut
+// clarifications, and LA-1480's real Comment control in place of a slot.
 //
 // Run: node tools/build.mjs   then   node tools/shoot.mjs
 import fs from "node:fs";
@@ -19,8 +20,18 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repo = path.resolve(root, "../../..");
 const M = JSON.parse(fs.readFileSync(`${root}/data/model.json`, "utf8"));
 const RAW = JSON.parse(fs.readFileSync(`${repo}/test/fixtures/published-budget-mn4.json`, "utf8")).snapshot;
-const svgOf = (key) => fs.readFileSync(`${root}/data/section-${key.replace(":", "-")}.svg`, "utf8");
 const sectionStyle = fs.readFileSync(`${root}/data/section-style.css`, "utf8");
+
+/**
+ * The shipped section, with the drawing's ink note taken out: it says which
+ * layers are priced from Kulka's completed jobs, and clients do not see
+ * anything about supporting projects (Matt, 2026-10-02; LA-1483).
+ */
+const svgOf = (key) =>
+  fs
+    .readFileSync(`${root}/data/section-${key.replace(":", "-")}.svg`, "utf8")
+    .replace(/<text[^>]*><tspan data-ink-note="">[^<]*<\/tspan><\/text>\n?/g, "")
+    .replace(">3. Priced, with no layer to draw:", ">2. Priced, with no layer to draw:");
 
 // --- Formatting, the model's own rules (lib/rom/presentation.ts) ---------------------
 
@@ -42,29 +53,49 @@ const TITLES = {
   "32": "Exterior Improvements", "33": "Utilities",
 };
 
-// --- The divisions: the ledger's rows grouped by their own division ------------------
+// --- The groups: by division (the default) and by element ----------------------------
 
 const broughtInBy = new Map(M.gates.unpriced.map((u) => [u.label, u.broughtInBy]));
-/** A division takes its lines' mark the way an element does: high only if all are high, low if any is low. */
-const markOf = (lines) => (lines.every((l) => l.confidence === "high") ? "high" : lines.some((l) => l.confidence === "low") ? "low" : "medium");
+/** A group takes its lines' mark the way an element does: high only if all are high, low if any is low. */
+const markOf = (lines) => (lines.length === 0 ? "none" : lines.every((l) => l.confidence === "high") ? "high" : lines.some((l) => l.confidence === "low") ? "low" : "medium");
+/** Matt, 2026-10-02: the four utility disconnects live in Site Work, so the division view files them under 33 Utilities. */
+const DISCONNECT_DRIVER = "Structure Demolition";
+
+function finish(g) {
+  g.likely = g.lines.reduce((s, l) => s + l.likely, 0);
+  g.low = g.lines.reduce((s, l) => s + l.low, 0);
+  g.high = g.lines.reduce((s, l) => s + l.high, 0);
+  g.mark = markOf(g.lines);
+  g.items = g.lines.length + g.unpriced.length;
+  g.kulka = g.likely;
+  return g;
+}
+const unpricedOf = (row) => row.scope.unpriced.map((u) => ({ ...u, by: broughtInBy.get(u.label) ?? null }));
 
 const divisions = [];
 for (const row of M.ledger) {
   let d = divisions.find((x) => x.code === row.division);
-  if (!d) divisions.push((d = { code: row.division, title: TITLES[row.division], rows: [] }));
-  d.rows.push(row);
+  if (!d) divisions.push((d = { code: row.division, title: TITLES[row.division], lines: [], unpriced: [], keys: [], owner: true }));
+  d.lines.push(...row.scope.lines);
+  d.unpriced.push(...unpricedOf(row).filter((u) => u.by !== DISCONNECT_DRIVER));
+  d.keys.push(row.key);
+  d.owner = d.owner && row.scope.ownerDirect;
 }
-for (const d of divisions) {
-  d.lines = d.rows.flatMap((r) => r.scope.lines.map((l) => ({ ...l, rowKey: r.key })));
-  d.unpriced = d.rows.flatMap((r) => r.scope.unpriced.map((u) => ({ ...u, by: broughtInBy.get(u.label) ?? null })));
-  d.likely = d.rows.reduce((s, r) => s + r.scope.likely, 0);
-  d.low = d.rows.reduce((s, r) => s + r.scope.low, 0);
-  d.high = d.rows.reduce((s, r) => s + r.scope.high, 0);
-  d.owner = d.rows.every((r) => r.scope.ownerDirect);
-  d.mark = markOf(d.lines);
-  d.items = d.lines.length + d.unpriced.length;
-  d.keys = d.rows.map((r) => r.key);
-}
+const disconnects = M.ledger.flatMap(unpricedOf).filter((u) => u.by === DISCONNECT_DRIVER);
+divisions.push({ code: "33", title: TITLES["33"], lines: [], unpriced: disconnects, keys: [], owner: false });
+divisions.forEach(finish);
+
+const elementRows = M.ledger.filter((r) => r.scope.kind === "element");
+const looseRows = M.ledger.filter((r) => r.scope.kind !== "element");
+const elements = [
+  ...elementRows.map((r) => finish({ code: "", title: r.label, lines: [...r.scope.lines], unpriced: unpricedOf(r), keys: [r.key], owner: false, element: true })),
+  {
+    ...finish({ code: "", title: "Not in an Element", lines: looseRows.flatMap((r) => r.scope.lines), unpriced: [], keys: looseRows.map((r) => r.key), owner: false, loose: true }),
+    // The share of Kulka's contract leaves out what the owner buys direct (Appliances).
+    kulka: looseRows.filter((r) => !r.scope.ownerDirect).reduce((s, r) => s + r.scope.likely, 0),
+  },
+];
+
 const div = (code) => divisions.find((d) => d.code === code);
 const crit = (code) => M.criteria.find((c) => c.code === code);
 const fact = (key) => M.project.facts.find((f) => f.key === key);
@@ -89,13 +120,13 @@ const gatesOf = (code) => Object.entries(GATE_HOME).filter(([, c]) => c === code
 
 const src = (tone, text) => `<span class="src"><i class="dot dot--${tone}" aria-hidden="true"></i>${esc(text)}</span>`;
 const mark = (tone, text = WORD[tone]) => `<span class="dv-cf"><i class="dot dot--${tone}" aria-hidden="true"></i>${esc(text)}</span>`;
-const pill = (open) => `<span class="pill">${open ? "Close" : "Open"}</span>`;
-/** Room for the LA-1480 flag or comment control; that issue designs it. */
-const slot = () => `<span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span>`;
+const pill = (open, words = ["Open", "Close"]) => `<span class="pill">${open ? words[1] : words[0]}</span>`;
 /** The LA-1481 control in its empty state. */
-const ve = () => `<span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span>`;
+const ve = () => `<span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span>`;
 /** One quiet line per gap: what the model lacks, and the field the build needs. */
 const gm = (words, ...fields) => `<p class="gm"><i aria-hidden="true"></i>Not in the model: ${esc(words)} ${fields.map((f) => `<code>${esc(f)}</code>`).join(" ")}</p>`;
+/** A line's source may say Kulka Rate; nothing about past jobs reaches a client (Matt, 2026-10-02). */
+const sourceWords = (line) => (line.source.text === "Kulka Rate" ? "Kulka Rate" : null);
 
 function tabs(list, active, end = "") {
   return `
@@ -106,18 +137,21 @@ function tabs(list, active, end = "") {
 
 const SECTIONS = [
   ["letter", "Letter"],
-  ["the-project", "What You Told Us"],
+  ["project-basis", "Project Basis"],
   ["where-the-money-is", "The Ledger"],
   ["design-and-engineering", "Design and Engineering"],
   ["from-trades-to-total", "From Trades to Total"],
-  ["notes", "Notes"],
+  ["clarifications", "Clarifications"],
   ["what-happens-next", "What Happens Next"],
 ];
+// LA-1480 Decision 4: the header gains one control, Comment. Outside comment
+// mode an element shows nothing until it has threads; MN Test #4 has none.
 const header = (current) => `
 <header class="hd" id="bar" data-state="bar">
   <div class="hd-t1">
     <a class="hd-mark" href="#top">Kulka</a>
     <span class="hd-proj">${esc(M.projectName)}</span>
+    <button class="hd-cmt" type="button" aria-pressed="false"><i aria-hidden="true"></i>Comment</button>
   </div>
   <nav class="hd-t2" aria-label="Sections">
     <ul class="hd-ix">${SECTIONS.map(([id, t]) => `<li><a href="#${id}"${id === current ? ' aria-current="true"' : ""}>${t}</a></li>`).join("")}</ul>
@@ -126,14 +160,14 @@ const header = (current) => `
 </header>`;
 
 // The frame's only script: the phone crop and lens place the shipped page's
-// JS would set, and, when a division is open, the section lit to answer it.
+// JS would set, and, when a group is open, the section lit to answer it.
 const SCRIPT = `
 <script>
   const phone = innerWidth <= 860;
   if (phone) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
   const aside = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
   if (phone && aside && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + aside.offsetHeight + "px");
-  // The open division's layers light in place; every other layer stays drawn, in light ink.
+  // The open group's layers light in place; every other layer stays drawn, in light ink.
   const box = document.querySelector("[data-dwg][data-now]");
   if (box) {
     const now = box.dataset.now.split(" ");
@@ -196,146 +230,172 @@ ${header(current)}
 
 // --- The ledger ---------------------------------------------------------------------------
 
-function divisionRow(d, { current = false, open = false, inner = "" } = {}) {
+const elId = (g) => (g.element ? g.keys[0] : g.loose ? "element:none" : `division:${g.code}`);
+
+function groupRow(g, { current = false, open = false, inner = "" } = {}) {
+  const amount = g.lines.length ? usd(g.likely) : `<span class="missing">No Rate Yet</span>`;
   return `
-      <div class="lg-item${current ? " is-cur" : ""}${d.owner ? " lg-item--owner" : ""}" data-el="division:${d.code}" data-open="${open}" role="row">
+      <div class="lg-item${current ? " is-cur" : ""}${g.owner ? " lg-item--owner" : ""}" data-el="${esc(elId(g))}" data-open="${open}" role="row">
         <button class="lg-row lg-btn dv-row" type="button" aria-expanded="${open}">
-          <span class="lg-div num">${d.code}</span>
-          <span class="lg-name">${esc(d.title)}${d.owner ? ' <span class="lg-tag">Bought by the Owner</span>' : ""}</span>
-          ${mark(d.mark)}
-          <span class="lg-amt num">${usd(d.likely)}</span>
-          <span class="lg-psf num">${psf(d.likely)}</span>
-          <span class="lg-pct num">${d.owner ? "" : pct(d.likely)}</span>
-          <span class="dv-meta">${mark(d.mark, `${WORD[d.mark]} Confidence`)}<span>${plural(d.items, "Item")}</span></span>
+          <span class="lg-div num">${g.code}</span>
+          <span class="lg-name">${esc(g.title)}${g.owner ? ' <span class="lg-tag">Bought by the Owner</span>' : ""}</span>
+          ${g.lines.length ? mark(g.mark) : '<span class="dv-cf"></span>'}
+          <span class="lg-amt num">${amount}</span>
+          <span class="lg-psf num">${g.lines.length ? psf(g.likely) : ""}</span>
+          <span class="lg-pct num">${g.owner || !g.lines.length ? "" : pct(g.kulka)}</span>
+          <span class="dv-meta">${g.lines.length ? mark(g.mark, `${WORD[g.mark]} Confidence`) : mark("none", "Outside the Total")}<span>${plural(g.items, "Item")}</span></span>
         </button>${inner}
       </div>`;
 }
 
-function lens(d, open) {
+function lens(g, open) {
   return `
     <div class="lens" data-lens data-open="${open}" aria-label="The current row"><div class="lens-in" data-open="${open}">
       <div class="lg-row lg-btn">
-        <span class="lg-div num">${d.code}</span>
-        <span class="lg-name">${esc(d.title)}</span>
-        <span class="lg-amt num">${usd(d.likely)}</span>
+        <span class="lg-div num">${g.code}</span>
+        <span class="lg-name">${esc(g.title)}</span>
+        <span class="lg-amt num">${usd(g.likely)}</span>
         <span class="lg-psf num"></span><span class="lg-pct num"></span>
-        <span class="lg-rate num">${psf(d.likely)} per SF${d.owner ? "" : ` · ${pct(d.likely)}`}</span>
-        <span class="lg-more dv-more">${mark(d.mark, `${WORD[d.mark]} Confidence`)}<span class="lg-count">${plural(d.items, "Item")}</span>${pill(open)}</span>
+        <span class="lg-rate num">${psf(g.likely)} per SF${g.owner ? "" : ` · ${pct(g.kulka)}`}</span>
+        <span class="lg-more dv-more">${mark(g.mark, `${WORD[g.mark]} Confidence`)}<span class="lg-count">${plural(g.items, "Item")}</span>${pill(open)}</span>
       </div>
     </div></div>`;
 }
 
-function ledger(currentCode, openInner = null, { from = null } = {}) {
-  const cur = div(currentCode);
-  const start = from ? divisions.indexOf(div(from)) : 0;
-  // With a division open, two closed rows follow it and the rest are elided; frame 01 shows them all.
-  const end = openInner !== null ? Math.min(divisions.indexOf(cur) + 3, divisions.length) : divisions.length;
-  const list = divisions.slice(start, end);
-  const rest = divisions.length - end;
+const viewSwitch = (view) => `
+    <div class="views" role="tablist" aria-label="View">${["By Division", "By Element"]
+      .map((v) => `<span class="view${v === view ? " is-on" : ""}" role="tab" aria-selected="${v === view}">${v}</span>`)
+      .join("")}</div>`;
+
+/**
+ * The ledger sheet. `groups` is the view's own list; `current` is the group in
+ * the lens; `openInner` is the open group's panel; `from` starts the list there.
+ */
+function ledger({ groups = divisions, view = "By Division", current, openInner = null, from = null, after = 2 }) {
+  const cur = groups.find((g) => g.title === current || g.code === current);
+  const start = from ? groups.indexOf(cur) : 0;
+  const end = openInner !== null ? Math.min(groups.indexOf(cur) + 1 + after, groups.length) : groups.length;
+  const list = groups.slice(start, end);
+  const rest = groups.length - end;
   const t = M.headline.tradeCost;
   return `
 <section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is">
   <div class="sheet-hd">
-    <h1 class="sheet-h">The Ledger</h1>
-    <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
+    <h1 class="sheet-h">The Ledger</h1>${viewSwitch(view)}
+    <p class="sheet-sub">${view === "By Division" ? "By division, in the order the trades build it." : "By element: each physical thing with the work it brings in."} Open one to see what is in it.</p>
   </div>
   <div class="lg" role="table" aria-label="The Ledger">${from ? "" : `
     <div class="lg-row lg-cols dv-row" role="row">
-      <span class="lg-div">Div</span>
-      <span class="lg-name">Division</span>
+      <span class="lg-div">${view === "By Division" ? "Div" : ""}</span>
+      <span class="lg-name">${view === "By Division" ? "Division" : "Element"}</span>
       <span class="dv-cf">Confidence</span>
       <span class="lg-amt">Amount</span>
       <span class="lg-psf">$/SF</span>
       <span class="lg-pct">%</span>
     </div>`}${lens(cur, openInner !== null)}${list
-      .map((d) => divisionRow(d, { current: d.code === currentCode, open: d.code === currentCode && openInner !== null, inner: d.code === currentCode && openInner !== null ? openInner : "" }))
+      .map((g) => groupRow(g, { current: g === cur, open: g === cur && openInner !== null, inner: g === cur && openInner !== null ? openInner : "" }))
       .join("")}${rest > 0 ? `
-    <p class="lg-elide">${rest} more ${rest === 1 ? "division" : "divisions"}, closed</p>` : ""}${from || rest > 0 ? "" : `
+    <p class="lg-elide">${rest} more ${view === "By Division" ? (rest === 1 ? "division" : "divisions") : rest === 1 ? "row" : "rows"}, closed</p>` : ""}${from || rest > 0 ? "" : `
     <div class="lg-foot lg-foot--quiet" data-el="total:trade-cost">
       <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">${usd(t.low)} to ${usd(t.high)}</span></span>
       <span class="num">${usd(t.likely)}</span>
     </div>`}
   </div>${from || rest > 0 ? "" : `
-  <p class="lg-source" data-el="note:sourcing">96.7% of the trade cost is priced from Kulka's completed jobs, and 3.3% from rates Kulka has stated.</p>`}
+  <p class="lg-source" data-el="note:sourcing">${(M.restsOn.shares.fromKulkaRates * 100).toFixed(1)}% of the trade cost is priced from rates Kulka has stated.</p>`}
 </section>`;
 }
 
 /**
- * The trio as shipped. With a division open (`focus`), the section shows every
- * layer, the open division's lit in place and a tag beside it naming what is open.
+ * The trio as shipped. With a group open (`focus`), the section shows every
+ * layer, the open group's lit in place and a tag beside it naming what is open.
+ * On a phone the pinned section folds to one bar while a group is open; one tap shows it again.
  */
 function trio(ledgerHtml, { svgKey = "line:39", focus = null, beside = "" } = {}) {
   const f = M.drawing.facts;
-  const tag = focus
-    ? `<p class="dwg-tag" hidden><b>${esc(focus.name)}</b><span class="num">${esc(focus.figure)}</span>${mark(focus.mark)}</p><i class="dwg-lead" hidden></i>`
-    : "";
+  const tag = focus ? `<p class="dwg-tag" hidden><b>${esc(focus.name)}</b><span class="num">${esc(focus.figure)}</span>${mark(focus.mark)}</p><i class="dwg-lead" hidden></i>` : "";
   return `
-<div class="trio" data-trio data-state="ledger">
+<div class="trio${focus ? " trio--open" : ""}" data-trio data-state="ledger">
   <div class="trio-main">${ledgerHtml}${beside ? `<div class="only-phone">${beside}</div>` : ""}
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
     <div class="dwg dwg--crop dwg--live" data-dwg="section"${focus ? ` data-now="${esc(focus.keys.join(" "))}"` : ""}>${svgOf(svgKey)}${tag}</div>
-    <p class="dwg-cap only-phone"><b>Building Section</b> · ${f.stories} Stories · ${f.units} Units · ${esc(f.grossArea)}</p>${beside ? `<div class="only-desk">${beside}</div>` : ""}
+    <p class="dwg-cap only-phone"><b>Building Section</b> · ${f.stories} Stories · ${f.units} Units · ${esc(f.grossArea)}</p>${
+      focus ? `\n    <p class="dwg-fold"><b>Building Section</b><span><i class="dot" aria-hidden="true"></i>${esc(focus.name)}</span><span class="pill">Show</span></p>` : ""
+    }${beside ? `<div class="only-desk">${beside}</div>` : ""}
   </aside>
 </div>`;
 }
 
-// --- Inside an open division: one level open at a time --------------------------------------
+// --- Inside an open group: one level open at a time --------------------------------------------
 
-const divisionTabs = (d, active) =>
-  tabs(
-    [["Items", d.items], ["Confidence", null], ...(gatesOf(d.code).length ? [["What Decided It", null]] : [])],
-    active,
-    `<span class="only-desk ctl">${ve()}${slot()}</span>`,
-  );
-/** On a phone the two controls close the open division rather than crowd its tabs. */
+const groupTabs = (g, active) =>
+  tabs([["Items", g.items], ["Confidence", null], ...(g.code && gatesOf(g.code).length ? [["Scope Decisions", null]] : [])], active, `<span class="only-desk ctl">${ve()}</span>`);
+/** On a phone the VE control closes the open group rather than crowd its tabs. */
 const phoneControls = `
-          <p class="only-phone ctl ctl--foot">${ve()}${slot()}</p>`;
+          <p class="only-phone ctl ctl--foot">${ve()}</p>`;
 
 /** An item, closed: its name, figure and one meta line. Open, it adds its range and its own tabs. */
 function item(line, inner = "") {
   const open = inner !== "";
+  const words = sourceWords(line);
   return `
           <div class="si" data-el="line:${esc(line.costCode)}" data-open="${open}">
             <div class="si-head"><span class="ln-l">${esc(line.label)}</span><span class="ln-v num">${usd(line.likely)}</span>${pill(open)}</div>
-            <p class="si-meta">${open ? `<span class="num">${usd(line.low)} to ${usd(line.high)}</span><i>·</i>` : ""}${mark(line.confidence)}<i>·</i><span>${esc(line.source.text)}</span></p>${inner}
+            <p class="si-meta">${open ? `<span class="num">${usd(line.low)} to ${usd(line.high)}</span><i>·</i>` : ""}${mark(line.confidence)}${words ? `<i>·</i><span>${esc(words)}</span>` : ""}</p>${inner}
           </div>`;
 }
 
-/** The supporting items a driver brings in, as one closed row: they share a driver and have no rate. */
-function broughtIn(d) {
-  const by = [...new Set(d.unpriced.map((u) => u.by))];
-  return by
-    .map(
-      (driver) => `
-          <div class="si si--group">
-            <div class="si-head"><span class="ln-l">Brought In by ${esc(driver)}</span><span class="ln-v">${plural(d.unpriced.filter((u) => u.by === driver).length, "Item")}</span>${pill(false)}</div>
-            <p class="si-meta">${mark("none", "No Rate Yet")}<i>·</i><span>Outside the Total</span></p>
-          </div>`,
-    )
-    .join("");
+/** Supporting items with no rate, as one row. `open` lists them, one line each. */
+function supporting(g, { label, open = false } = {}) {
+  if (!g.unpriced.length) return "";
+  return `
+          <div class="si si--group" data-open="${open}">
+            <div class="si-head"><span class="ln-l">${esc(label)}</span><span class="ln-v">${plural(g.unpriced.length, "Item")}</span>${pill(open)}</div>
+            <p class="si-meta">${mark("none", "No Rate Yet")}<i>·</i><span>Outside the Total</span></p>${
+              open ? `\n            <ul class="sup">${g.unpriced.map((u) => `<li data-el="unpriced:${esc(u.costCode)}">${esc(u.label)}</li>`).join("")}</ul>` : ""
+            }
+          </div>`;
 }
 
-const openDivision = (d, body) => `
-      <div class="dv-open" id="division-${d.code}-lines">${body}${phoneControls}
+const openGroup = (g, body) => `
+      <div class="dv-open" id="${esc(elId(g).replace(":", "-"))}-lines">${body}${phoneControls}
       </div>`;
 
-const itemsPanel = (d, openCode = null, itemInner = "") => `${d.lines.map((l) => item(l, l.costCode === openCode ? itemInner : "")).join("")}${broughtIn(d)}`;
+const itemsPanel = (g, { openCode = null, itemInner = "", supportLabel = null, supportOpen = false } = {}) =>
+  `${g.lines.map((l) => item(l, l.costCode === openCode ? itemInner : "")).join("")}${supportLabel ? supporting(g, { label: supportLabel, open: supportOpen }) : ""}`;
 
-const tagFor = (d, line = null) => ({
-  keys: d.keys,
-  name: line ? line.label : `${d.code} ${d.title}`,
-  figure: usd(line ? line.likely : d.likely),
-  mark: line ? line.confidence : d.mark,
+const tagFor = (g, line = null) => ({
+  keys: g.keys,
+  name: line ? line.label : g.code ? `${g.code} ${g.title}` : g.title,
+  figure: usd(line ? line.likely : g.likely),
+  mark: line ? line.confidence : g.mark,
 });
 
 // --- Frame 01: the ledger by division, closed ---------------------------------------------------------
 
 const f01 = page(
   "01 The Ledger by Division",
-  "Frame 01. The drill-down closed: the ledger's 36 rows grouped into the 21 divisions they already carry, each with its figure, $/SF, share and a confidence mark. Mid-scroll, as shipped: the lens holds 22 Plumbing, and the section has drawn every layer down to it, Plumbing's in the accent.",
+  "Frame 01. The drill-down closed, By Division (the default). The ledger's rows grouped into their MasterFormat divisions, with 33 Utilities holding the four disconnects, no rate yet. Mid-scroll, as shipped: the lens holds 22 Plumbing, and the section has drawn every layer down to it.",
   "where-the-money-is",
-  trio(ledger("22"), { svgKey: "line:28" }),
+  trio(ledger({ current: "22" }), { svgKey: "line:28" }),
+);
+
+// --- Frame 01b: the ledger by element --------------------------------------------------------------------
+
+const demo = elements.find((e) => e.title === "Demolition");
+const loose = elements.find((e) => e.loose);
+const elementOpen = openGroup(demo, `${groupTabs(demo, "Items")}${itemsPanel(demo, { supportLabel: "Supporting Items", supportOpen: true })}`);
+const f01b = page(
+  "01b The Ledger by Element",
+  "Frame 01b. The same ledger By Element (Matt's Module view). The model has two elements, Demolition and Elevator. Demolition is open: its two priced items and the four disconnects it brings in, as supporting items with no rate. Every line with no element sits in one row, Not in an Element, so each line still shows once and the total is the same.",
+  "where-the-money-is",
+  trio(
+    ledger({ groups: elements, view: "By Element", current: "Demolition", openInner: `${elementOpen}`, after: 2 }).replace(
+      '<div class="lg-item" data-el="element:none"',
+      `${gm(`an element for ${loose.lines.length} of ${loose.lines.length + demo.lines.length + elements[1].lines.length} lines`, "line.element")}<div class="lg-item" data-el="element:none"`,
+    ),
+    { focus: tagFor(demo) },
+  ),
 );
 
 // --- Frame 02: a division opened to its items ---------------------------------------------------------------
@@ -343,76 +403,74 @@ const f01 = page(
 const d02 = div("02");
 const f02 = page(
   "02 A Division, Opened",
-  "Frame 02. 02 Existing Conditions open on its Items tab: Structure Demolition, Site Demolition, and the four disconnects Structure Demolition brings in, as one closed row. The tab row carries the empty VE control (LA-1481) and the LA-1480 slot. The section lights the division's layer.",
+  "Frame 02. 02 Existing Conditions open on its Items tab: Structure Demolition and Site Demolition. The disconnects now sit under 33 Utilities. The tab row ends in the empty VE control. The section lights the division's layer.",
   "where-the-money-is",
-  trio(ledger("02", openDivision(d02, `${divisionTabs(d02, "Items")}${itemsPanel(d02)}`)), { focus: tagFor(d02) }),
+  trio(ledger({ current: "02", openInner: openGroup(d02, `${groupTabs(d02, "Items")}${itemsPanel(d02)}`) }), { focus: tagFor(d02) }),
 );
 
 // --- Frames 03 and 03b: an item opened, one tab at a time ----------------------------------------------------------
 
 const sd = d02.lines.find((l) => l.costCode === "1a");
-const itemTabs = (active, assumptions) => tabs([["Assumptions", assumptions], ["Included and Excluded", null], ["Source", null]], active);
-const asRow = (label, value, basis) => `
-              <li><span class="as-l">${esc(label)}</span><span class="as-v">${value}</span>${basis}${slot()}</li>`;
+const itemTabs = (active, basis) => tabs([["Basis", basis], ["Inclusions and Exclusions", null]], active);
+const basisRow = (label, value, chip) => `
+              <li><span class="as-l">${esc(label)}</span><span class="as-v">${value}</span>${chip}</li>`;
 const statedRow = (key) => {
   const f = fact(key);
-  return asRow(f.label, esc(f.value), src("quiet", "Stated"));
+  return basisRow(f.label, esc(f.value), src("quiet", "Stated"));
 };
-const sdAssumptions = `
-            <div class="si-body">${itemTabs("Assumptions", 4)}
-              <ul class="as">${statedRow("demolitionStructureCount")}${statedRow("demolitionStructureSquareFeet")}${statedRow("demolitionStructureType")}${asRow("Rate", "Rate on File", src("low", "Kulka Rate"))}
+const sdBasis = `
+            <div class="si-body">${itemTabs("Basis", 4)}
+              <ul class="as">${statedRow("demolitionStructureCount")}${statedRow("demolitionStructureSquareFeet")}${statedRow("demolitionStructureType")}${basisRow("Rate", "Rate on File", src("low", "Kulka Rate"))}
               </ul>
               ${gm("which answers this line prices on", "line.inputs[]")}
               ${gm("the rate's unit and quantity", "line.quantity", "comparable.unit")}
             </div>`;
 const sdScope = `
-            <div class="si-body">${itemTabs("Included and Excluded", 4)}
-              ${gm("the item's scope; this is Kulka's definition of item 1a", "line.includes[]", "line.excludes[]")}
+            <div class="si-body">${itemTabs("Inclusions and Exclusions", 4)}
               <div class="io">
-                <div><p class="io-h io-h--in"><i></i>Included</p><ul><li>Mechanical Demolition of the Structure</li><li>Slab-on-Grade and Footings</li><li>Loading, Trucking and C&amp;D Disposal</li></ul></div>
-                <div><p class="io-h io-h--out"><i></i>Excluded</p><ul><li>Hazardous Material Survey and Abatement</li><li>Disconnects and Site Demolition, Their Own Items</li><li>Backfill, Permits and the Demolition Bond</li></ul></div>
+                <div><p class="io-h io-h--in"><i></i>Inclusions</p><ul><li>Mechanical Demolition of the Structure</li><li>Slab-on-Grade and Footings</li><li>Loading, Trucking and C&amp;D Disposal</li></ul></div>
+                <div><p class="io-h io-h--out"><i></i>Exclusions</p><ul><li>Hazardous Material Survey and Abatement</li><li>Disconnects and Site Demolition, Their Own Items</li><li>Backfill, Permits and the Demolition Bond</li></ul></div>
               </div>
+              ${gm("approved lists; these follow Kulka's definition of item 1a", "line.includes[]", "line.excludes[]")}
             </div>`;
 const f03 = page(
   "03 An Item, Opened",
-  "Frame 03. Structure Demolition open on its Assumptions tab: the three answers it prices on, each Stated, and Kulka's rate, each with the LA-1480 slot. Two quiet lines name what the model lacks. The section tag names the open item.",
+  "Frame 03. Structure Demolition open on its Basis tab: the three answers it prices on, each Stated, and Kulka's rate. Two quiet lines name what the model lacks. The section tag names the open item.",
   "where-the-money-is",
-  trio(ledger("02", openDivision(d02, `${divisionTabs(d02, "Items")}${itemsPanel(d02, "1a", sdAssumptions)}`)), { focus: tagFor(d02, sd) }),
+  trio(ledger({ current: "02", openInner: openGroup(d02, `${groupTabs(d02, "Items")}${itemsPanel(d02, { openCode: "1a", itemInner: sdBasis })}`) }), { focus: tagFor(d02, sd) }),
 );
 const f03b = page(
-  "03b An Item, Included and Excluded",
-  "Frame 03b. The same item on its Included and Excluded tab. No line carries its scope, so the lists are Kulka's own definition of item 1a (docs/precon/canonical-work-items.md), marked as such on one line.",
+  "03b An Item, Inclusions and Exclusions",
+  "Frame 03b. The same item on its Inclusions and Exclusions tab, drawn as an approved list: AI drafts each item's lists and the estimator approves them, and nothing reaches the client unapproved. The model holds no lists yet, so these follow Kulka's own definition of item 1a, marked on one line.",
   "where-the-money-is",
-  trio(ledger("02", openDivision(d02, `${divisionTabs(d02, "Items")}${itemsPanel(d02, "1a", sdScope)}`)), { focus: tagFor(d02, sd) }),
+  trio(ledger({ current: "02", openInner: openGroup(d02, `${groupTabs(d02, "Items")}${itemsPanel(d02, { openCode: "1a", itemInner: sdScope })}`) }), { focus: tagFor(d02, sd) }),
 );
 
-// --- Frame 04: confidence, and what would raise it -----------------------------------------------------------------
+// --- Frame 04: confidence, and the owner items that would raise it -------------------------------------------------
 
 const d14 = div("14");
 const soil = fact("site_conditions");
-const raiseRow = (tagHtml, label, value, basis) => `
-            <li>${tagHtml}<span class="raise-t">${esc(label)}</span><span class="raise-v">${esc(value)}</span>${basis}${slot()}</li>`;
-const lineMarks = d14.lines.map((l) => `${esc(l.label)} ${mark(l.confidence)}`).join("<i>·</i>");
-const f04body = `${divisionTabs(d14, "Confidence")}
+const raiseRow = (tagHtml, label, value, chip) => `
+            <li>${tagHtml}<span class="raise-t">${esc(label)}</span><span class="raise-v">${esc(value)}</span>${chip}</li>`;
+const f04body = `${groupTabs(d14, "Confidence")}
           <div class="cf-panel">
             <div class="cf-big">${mark(d14.mark, `${WORD[d14.mark]} Confidence`)}</div>
-            <p class="cf-lines">${lineMarks}</p>
             <p class="dv-h">What Would Raise It</p>
             <ul class="raise">${["V-1", "V-2", "V-3"]
               .map((c) => crit(c))
               .map((k) => raiseRow(`<span class="crit-tag num">${esc(k.code)}</span>`, k.label, k.value, src("working", "Planning Assumption")))
               .join("")}${raiseRow('<span class="q-tag">Open</span>', soil.label, soil.value, src("working", "Waiting on You"))}
             </ul>
-            ${gm("whether settling these raises the mark", "confidence.raisedBy[]")}
+            ${gm("the owner items for each line", "confidence.raisedBy[]")}
           </div>`;
 const f04 = page(
   "04 Confidence, and What Would Raise It",
-  "Frame 04. 14 Conveying Equipment open on its Confidence tab: the division's mark, each line's mark, and What Would Raise It (the three elevator criteria still planning assumptions and the open groundwater question), each with the LA-1480 slot. One quiet line says the model cannot yet promise they raise it.",
+  "Frame 04. 14 Conveying Equipment open on its Confidence tab: the mark, and What Would Raise It as owner items only (the three elevator criteria still planning assumptions, and the open groundwater question). No counts, and no promise of which mark an item moves to.",
   "where-the-money-is",
-  trio(ledger("14", openDivision(d14, f04body), { from: "14" }), { focus: tagFor(d14) }),
+  trio(ledger({ current: "14", openInner: openGroup(d14, f04body), from: "14" }), { focus: tagFor(d14) }),
 );
 
-// --- Frame 04b: what decided a division, moved here from What Is In ------------------------------------------------
+// --- Frame 04b: scope decisions, moved here from What Is In ---------------------------------------------------------
 
 const d08 = div("08");
 const decidedRow = (g) => {
@@ -420,19 +478,18 @@ const decidedRow = (g) => {
     const f = factFor(x.question);
     return `${esc(f ? f.label : x.question)}: <strong>${esc(x.answer)}</strong>`;
   });
-  const group = M.gates.notInThisJob.includes(g) ? "Not in This Job" : M.gates.waiting.includes(g) ? "Waiting on an Answer" : "In the Number";
   return `
-            <li><span class="dec-l">${esc(g.label)}</span><span class="dec-g">${group}</span><span class="dec-a">${why.join(" · ")}</span>${slot()}</li>`;
+            <li><span class="dec-l">${esc(g.label)}</span><span class="dec-a">${why.join(" · ")}</span></li>`;
 };
 const f04b = page(
-  "04b What Decided It",
-  "Frame 04b. 08 Openings open on its What Decided It tab: the two What Is In rows that belong to this division, each with the answer that removed it and the LA-1480 slot. This is where What Is In, and What Is Not goes.",
+  "04b Scope Decisions",
+  "Frame 04b. 08 Openings open on its Scope Decisions tab: the two What Is In rows that belong to this division, each with the answer that removed it.",
   "where-the-money-is",
   trio(
-    ledger("08", openDivision(d08, `${divisionTabs(d08, "What Decided It")}
+    ledger({ current: "08", openInner: openGroup(d08, `${groupTabs(d08, "Scope Decisions")}
           <p class="dv-h">Not in This Job</p>
           <ul class="dec">${gatesOf("08").map(decidedRow).join("")}
-          </ul>`), { from: "08" }),
+          </ul>`), from: "08" }),
     { focus: tagFor(d08) },
   ),
 );
@@ -443,25 +500,26 @@ const d22 = div("22");
 const needs = `
     <div class="needs" aria-label="What the Model Needs">
       <p class="needs-h">What the Model Needs</p>
-      <p class="needs-sub">Frame note, not page content. Every gap on frames 02 to 05, in one place.</p>
+      <p class="needs-sub">Frame note, not page content. Every gap on these frames, in one place.</p>
       <ul>
         <li><span class="needs-f"><code>line.inputs[]</code></span><span>The answers each line prices on</span></li>
         <li><span class="needs-f"><code>line.quantity</code> <code>comparable.unit</code></span><span>A stated rate's quantity and unit</span></li>
-        <li><span class="needs-f"><code>line.includes[]</code> <code>line.excludes[]</code></span><span>Each item's written scope, from Kulka</span></li>
+        <li><span class="needs-f"><code>line.includes[]</code> <code>line.excludes[]</code></span><span>Approved scope, with drafter and approver</span></li>
         <li><span class="needs-f"><code>breakout_of_cost_code</code></span><span>Sub-items inside a one-line division</span></li>
-        <li><span class="needs-f"><code>confidence.raisedBy[]</code></span><span>What would move each mark, and to what</span></li>
-        <li><span class="needs-f"><code>line.division</code></span><span>The division, carried in the snapshot</span></li>
+        <li><span class="needs-f"><code>confidence.raisedBy[]</code></span><span>The owner items that would firm a line up</span></li>
+        <li><span class="needs-f"><code>line.element</code></span><span>An element for the lines that have none</span></li>
+        <li><span class="needs-f"><code>line.division</code></span><span>The division in the snapshot, disconnects in 33</span></li>
       </ul>
     </div>`;
 const f05 = page(
   "05 A Division With Gaps",
-  "Frame 05. 22 Plumbing open on its Items tab: one line priced from 2 Kulka jobs, and one quiet line saying there are no sub-items. The What the Model Needs panel, a frame note, gathers every gap from frames 02 to 05.",
+  "Frame 05. 22 Plumbing open on its Items tab: one line, and one quiet line saying there are no sub-items. The What the Model Needs panel, a frame note, gathers every gap on these frames.",
   "where-the-money-is",
-  trio(ledger("22", openDivision(d22, `${divisionTabs(d22, "Items")}${itemsPanel(d22)}
-          ${gm("sub-items; Plumbing is one line", "block_classification.breakout_of_cost_code")}`), { from: "22" }), { focus: tagFor(d22), beside: needs }),
+  trio(ledger({ current: "22", openInner: openGroup(d22, `${groupTabs(d22, "Items")}${itemsPanel(d22)}
+          ${gm("sub-items; Plumbing is one line", "block_classification.breakout_of_cost_code")}`), from: "22" }), { focus: tagFor(d22), beside: needs }),
 );
 
-// --- Frame 06: where What You Told Us and What Is In go -----------------------------------------------------------------
+// --- Frame 06: Project Basis, Clarifications, What Happens Next -----------------------------------------------------------
 
 const projectFacts = M.project.facts.filter((f) => !FACT_HOME[f.key]);
 const movedFacts = M.project.facts.filter((f) => FACT_HOME[f.key]);
@@ -481,18 +539,33 @@ const homeRow = (code) => {
   return `<li><a href="#division-${code}">${code} ${esc(d.title)}</a><span class="answer">${[...n.map((f) => esc(f.label)), ...out.map((o) => `<strong>${esc(o)}</strong>`)].join(" · ")}</span></li>`;
 };
 
+// Matt, 2026-10-02: cut notes 9, 13 and 14 (each division now shows them) and
+// shorten 5 and 10 to one line with no item names. Note 7 is cut under the
+// rule that clients see nothing about supporting figures (see NOTES.md).
+const SHORT = {
+  // Blend weights and flag thresholds are about supporting jobs, so they leave the parameters table and this note.
+  4: "Range widths are recorded pricing parameters, each with its own provenance, listed with this budget.",
+  5: `${M.gates.unpriced.length} items are in scope with no rate yet. Each sits under its division.`,
+  10: `${M.gates.waiting.length} item sits outside the total until an open question is answered. It sits under its division.`,
+};
+const CUT = new Set([7, 9, 13, 14]);
+const clarifications = M.notes.filter((n) => !CUT.has(n.number)).map((n) => ({ ...n, text: SHORT[n.number] ?? n.text }));
+// The pricing parameters a client keeps: none about job weights or job counts (LA-1483).
+const JOB_PARAMETERS = new Set(["parameter:weight-actuals", "parameter:weight-proest-budget", "parameter:weight-reviewed-judgment", "parameter:flag-high-min-comparables", "parameter:flag-medium-min-comparables"]);
+const parameters = M.parameters.filter((p) => !JOB_PARAMETERS.has(p.el));
+
 const f06 = page(
-  "06 Where the Sections Go",
-  "Frame 06. What You Told Us keeps the 11 answers about the whole project and lists where the other 16 went. What Is In, and What Is Not becomes Notes and Clarifications: its rows now sit under each division's What Decided It tab, and the notes and parameters stay as shipped.",
-  "the-project",
+  "06 Project Basis, Clarifications, What Happens Next",
+  "Frame 06. Project Basis (was What You Told Us) keeps the 11 answers about the whole project and lists where the other 16 went. Clarifications (was Notes and Clarifications) holds the cut list: notes 7, 9, 13 and 14 gone, 5 and 10 one line each. What Happens Next asks the reader to check the Basis under each division.",
+  "project-basis",
   `
-<section class="sheet" id="the-project" data-el="section:the-project">
+<section class="sheet" id="project-basis" data-el="section:the-project">
   <div class="sheet-hd">
-    <h1 class="sheet-h">What You Told Us</h1>
+    <h1 class="sheet-h">Project Basis</h1>
     <p class="sheet-sub">${esc(M.project.line)}</p>
   </div>
   <p class="fig-md num" data-el="fact:grossSquareFeet:figure">${GSF.toLocaleString("en-US")} SF</p>
-  <p class="lede">Your answers about the whole project. Answers about one trade sit with that trade in The Ledger.</p>
+  <p class="lede">Your answers about the whole project. Answers about one trade sit in that division's Basis in The Ledger.</p>
   <dl class="facts lg">${projectFacts.map(factRow).join("")}
   </dl>
   <div class="moved">
@@ -501,15 +574,34 @@ const f06 = page(
   </div>
 </section>
 <p class="elide">The Ledger, Design and Engineering and From Trades to Total follow here, as frames 01 to 05 and PR 134 show them.</p>
-<section class="sheet gates" id="notes" data-el="section:what-is-in">
+<section class="sheet gates" id="clarifications" data-el="section:what-is-in">
   <div class="sheet-hd">
-    <h1 class="sheet-h">Notes and Clarifications</h1>
+    <h1 class="sheet-h">Clarifications</h1>
   </div>
-  <p class="lede">What is in the number and what is not now sits with each division in The Ledger.</p>
-  <ol class="notes">${M.notes.slice(0, 3).map((n) => `
-    <li class="note" data-el="${esc(n.el)}" value="${n.number}"><span class="note-n num">${n.number}</span><span class="note-text">${esc(n.text)}</span></li>`).join("")}
+  <p class="lede">Scope decisions now sit with each division in The Ledger.</p>
+  <ol class="notes">${clarifications.map((n, i) => `
+    <li class="note" data-el="${esc(n.el)}" value="${i + 1}"><span class="note-n num">${i + 1}</span><span class="note-text">${esc(n.text)}</span></li>`).join("")}
   </ol>
-  <p class="elide elide--in">Notes 4 to ${M.notes.length} and the ${M.parameters.length} pricing parameters follow, as shipped.</p>
+  <div class="parameters">
+    <h2 class="gates-h">Pricing Parameters This Budget Ran With</h2>
+    <table class="params">
+      <thead><tr><th scope="col">Parameter</th><th scope="col" class="right">Value</th><th scope="col">Set By</th><th scope="col">Date</th></tr></thead>
+      <tbody>${parameters.map((p) => `
+        <tr data-el="${esc(p.el)}"><td>${esc(p.label)}</td><td class="right num">${esc(p.value)}</td><td>${esc(p.recordedBy)}</td><td>${esc(p.recordedAt)}</td></tr>`).join("")}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="sheet next" id="what-happens-next" data-el="section:what-happens-next">
+  <div class="sheet-hd">
+    <h1 class="sheet-h">What Happens Next</h1>
+  </div>
+  <ol class="steps">
+    <li><b>Check the Basis.</b> Open each division in The Ledger and read the Basis under its items. If anything is wrong, flag it there and Kulka reprices from the corrected fact.</li>
+    <li><b>Answer the open item.</b> ${esc(M.next.openQuestions.join(" "))} An answer moves what waits on it into, or out of, the number.</li>
+    <li><b>Reprice at ${esc(M.next.nextStage.label)}.</b> ${esc(M.next.nextStage.words)}</li>
+  </ol>
+  <p class="reach">To reach Kulka, reply to the estimator who sent you this link.</p>
 </section>`,
 );
 
@@ -517,27 +609,30 @@ const f06 = page(
 
 const FRAMES = {
   "01-ledger-closed": f01,
+  "01b-ledger-by-element": f01b,
   "02-division-open": f02,
   "03-item-open": f03,
   "03b-item-scope": f03b,
   "04-confidence": f04,
-  "04b-what-decided-it": f04b,
+  "04b-scope-decisions": f04b,
   "05-division-gaps": f05,
   "06-where-sections-go": f06,
 };
-// Where tools/shoot.mjs scrolls for each frame's one-screen view: the open division, just under the lens.
+// Where tools/shoot.mjs scrolls for each frame's first screen: the open group, just under the lens.
 const FOCUS = {
   "01-ledger-closed": '<div class="lg-item is-cur" data-el="division:22"',
+  "01b-ledger-by-element": '<div class="dv-open"',
   "02-division-open": '<div class="dv-open"',
   "03-item-open": '<div class="dv-open"',
   "03b-item-scope": '<div class="dv-open"',
   "04-confidence": '<div class="dv-open"',
-  "04b-what-decided-it": '<div class="dv-open"',
+  "04b-scope-decisions": '<div class="dv-open"',
   "05-division-gaps": '<div class="dv-open"',
   "06-where-sections-go": '<div class="moved"',
 };
 for (const f of fs.readdirSync(root).filter((f) => /^\d\d[a-z]?-.*\.html$/.test(f))) fs.unlinkSync(`${root}/${f}`);
 for (const [name, built] of Object.entries(FRAMES)) {
+  if (/Kulka Jobs?|completed jobs/.test(built.replace(/<!--[\s\S]*?-->/g, ""))) throw new Error(`${name} still carries past-job wording`);
   const html = FOCUS[name] ? built.replace(FOCUS[name], `${FOCUS[name]} data-focus`) : built;
   fs.writeFileSync(`${root}/${name}.html`, html);
   console.log("wrote", `${name}.html`);
@@ -546,7 +641,7 @@ for (const [name, built] of Object.entries(FRAMES)) {
 // The audit table NOTES.md quotes: per division, what the model holds.
 const audit = divisions.map((d) => ({
   division: `${d.code} ${d.title}`,
-  likely: usd(d.likely),
+  likely: d.lines.length ? usd(d.likely) : "No Rate Yet",
   mark: WORD[d.mark],
   priced: d.lines.map((l) => `${l.label} (${WORD[l.confidence]})`),
   unpriced: d.unpriced.map((u) => u.label),

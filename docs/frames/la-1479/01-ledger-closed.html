@@ -27,15 +27,16 @@
 </style>
 </head>
 <body class="frame">
-<!-- Frame 01. The drill-down closed: the ledger's 36 rows grouped into the 21 divisions they already carry, each with its figure, $/SF, share and a confidence mark. Mid-scroll, as shipped: the lens holds 22 Plumbing, and the section has drawn every layer down to it, Plumbing's in the accent. -->
+<!-- Frame 01. The drill-down closed, By Division (the default). The ledger's rows grouped into their MasterFormat divisions, with 33 Utilities holding the four disconnects, no rate yet. Mid-scroll, as shipped: the lens holds 22 Plumbing, and the section has drawn every layer down to it. -->
 
 <header class="hd" id="bar" data-state="bar">
   <div class="hd-t1">
     <a class="hd-mark" href="#top">Kulka</a>
     <span class="hd-proj">MN Test #4</span>
+    <button class="hd-cmt" type="button" aria-pressed="false"><i aria-hidden="true"></i>Comment</button>
   </div>
   <nav class="hd-t2" aria-label="Sections">
-    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#the-project">What You Told Us</a></li><li><a href="#where-the-money-is" aria-current="true">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#notes">Notes</a></li><li><a href="#what-happens-next">What Happens Next</a></li></ul>
+    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#project-basis">Project Basis</a></li><li><a href="#where-the-money-is" aria-current="true">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#clarifications">Clarifications</a></li><li><a href="#what-happens-next">What Happens Next</a></li></ul>
     <span class="hd-here">The Ledger</span>
   </nav>
 </header>
@@ -45,6 +46,7 @@
 <section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is">
   <div class="sheet-hd">
     <h1 class="sheet-h">The Ledger</h1>
+    <div class="views" role="tablist" aria-label="View"><span class="view is-on" role="tab" aria-selected="true">By Division</span><span class="view" role="tab" aria-selected="false">By Element</span></div>
     <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
   </div>
   <div class="lg" role="table" aria-label="The Ledger">
@@ -74,7 +76,7 @@
           <span class="lg-amt num">$215,859</span>
           <span class="lg-psf num">$3.37</span>
           <span class="lg-pct num">1%</span>
-          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>6 Items</span></span>
+          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>2 Items</span></span>
         </button>
       </div>
       <div class="lg-item" data-el="division:03" data-open="false" role="row">
@@ -297,12 +299,23 @@
           <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>3 Items</span></span>
         </button>
       </div>
+      <div class="lg-item" data-el="division:33" data-open="false" role="row">
+        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false">
+          <span class="lg-div num">33</span>
+          <span class="lg-name">Utilities</span>
+          <span class="dv-cf"></span>
+          <span class="lg-amt num"><span class="missing">No Rate Yet</span></span>
+          <span class="lg-psf num"></span>
+          <span class="lg-pct num"></span>
+          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--none" aria-hidden="true"></i>Outside the Total</span><span>4 Items</span></span>
+        </button>
+      </div>
     <div class="lg-foot lg-foot--quiet" data-el="total:trade-cost">
       <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">$12,041,053 to $23,290,747</span></span>
       <span class="num">$17,665,900</span>
     </div>
   </div>
-  <p class="lg-source" data-el="note:sourcing">96.7% of the trade cost is priced from Kulka's completed jobs, and 3.3% from rates Kulka has stated.</p>
+  <p class="lg-source" data-el="note:sourcing">3.3% of the trade cost is priced from rates Kulka has stated.</p>
 </section>
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
@@ -872,9 +885,7 @@
 <rect x="20" y="500.5" width="420" height="123.5" class="s w1" stroke="#FFFFFF" fill="#FFFFFF"></rect>
 <text x="26" y="518.5" class="t tb" font-size="11" fill="#121211">Notes</text>
 <text x="26" y="532.5" class="t" font-size="10.5" fill="#55544E">1. 5 Stories Above Grade, 70 Units, 64,000 SF.</text>
-<text x="26" y="545" class="t" font-size="10.5" fill="#55544E"><tspan data-ink-note="">2. Full ink is priced from Kulka's completed jobs. Light ink is</tspan></text>
-<text x="26" y="557.5" class="t" font-size="10.5" fill="#55544E"><tspan data-ink-note="">priced from Kulka's stated rates.</tspan></text>
-<text x="26" y="570" class="t" font-size="10.5" fill="#55544E">3. Priced, with no layer to draw:  <tspan data-note="line:8a" class="is-drawn">Wood Stairs,</tspan> <tspan data-note="line:9" class="is-drawn">Finish Carpentry,</tspan></text>
+<text x="26" y="570" class="t" font-size="10.5" fill="#55544E">2. Priced, with no layer to draw:  <tspan data-note="line:8a" class="is-drawn">Wood Stairs,</tspan> <tspan data-note="line:9" class="is-drawn">Finish Carpentry,</tspan></text>
 <text x="26" y="582.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:10" class="is-drawn">Millwork,</tspan> <tspan data-note="line:18" class="is-drawn">Ceramic Tile,</tspan> <tspan data-note="line:20" class="is-drawn">Painting,</tspan> <tspan data-note="line:21" class="is-drawn">Specialties &amp; F.E. + Signage,</tspan></text>
 <text x="26" y="595" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:22" class="is-drawn">Appliances (Bought by the Owner),</tspan> <tspan data-note="line:24a" class="is-drawn">Countertops,</tspan> <tspan data-note="line:24b" class="is-drawn">Window Treatments,</tspan></text>
 <text x="26" y="607.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:25" class="is-drawn">Furnishings &amp; Fireplace.</tspan></text>
@@ -889,7 +900,7 @@
   if (phone) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
   const aside = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
   if (phone && aside && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + aside.offsetHeight + "px");
-  // The open division's layers light in place; every other layer stays drawn, in light ink.
+  // The open group's layers light in place; every other layer stays drawn, in light ink.
   const box = document.querySelector("[data-dwg][data-now]");
   if (box) {
     const now = box.dataset.now.split(" ");

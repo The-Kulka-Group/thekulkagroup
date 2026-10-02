@@ -7,12 +7,7 @@
    "Structure Demolition (Low)",
    "Site Demolition (Low)"
   ],
-  "unpriced": [
-   "Plumbing Disconnect and Cap",
-   "Gas Meter and Service Disconnect",
-   "Electrical Service Disconnect",
-   "Site Utility Cut and Cap at the Main"
-  ],
+  "unpriced": [],
   "criteria": [],
   "answers": [
    "Demolition",
@@ -338,6 +333,21 @@
    "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates (Low)"
   ],
   "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "33 Utilities",
+  "likely": "No Rate Yet",
+  "mark": "None",
+  "priced": [],
+  "unpriced": [
+   "Plumbing Disconnect and Cap",
+   "Gas Meter and Service Disconnect",
+   "Electrical Service Disconnect",
+   "Site Utility Cut and Cap at the Main"
+  ],
   "criteria": [],
   "answers": [],
   "gates": []

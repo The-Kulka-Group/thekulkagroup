@@ -198,3 +198,39 @@ body.frame .hd { background: var(--rb-black); }
 .gm i { display: inline-block; vertical-align: -1px; margin-right: 6px; }
 .gm code { margin-left: 4px; }
 .elide--in { margin: 16px 0 0; max-width: none; }
+
+/* --- Round three --------------------------------------------------------------- */
+
+/* LA-1480 Decision 4: one Comment control in the header. Outside comment mode an
+   element shows nothing until it has threads, then a small dot with a count. */
+.hd-cmt { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 13px; border: 1px solid #45443F; border-radius: var(--r-pill); color: var(--rb-ink-on-black); font-size: var(--meta-size); font-weight: 600; }
+.hd-cmt i { width: 13px; height: 11px; border: 1.5px solid currentColor; border-radius: 3px; position: relative; }
+.hd-cmt i::after { content: ""; position: absolute; left: 2px; bottom: -4px; width: 4px; height: 4px; border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; background: var(--rb-black); transform: skewY(-35deg); }
+
+/* The view switch: By Division (the default) or By Element. */
+.sheet--ledger .sheet-hd { align-items: center; }
+.views { margin-left: auto; display: inline-flex; padding: 2px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-pill); background: var(--canvas); }
+.view { height: 26px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: var(--r-pill); font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-mute); white-space: nowrap; }
+.view.is-on { background: var(--surface); color: var(--rb-blk-ink); box-shadow: 0 1px 2px rgba(29, 29, 31, 0.08); }
+.sheet--ledger .sheet-sub { flex-basis: 100%; }
+.lg > .gm { padding: 8px 14px; }
+
+/* An open supporting-items row lists them, one line each. */
+.sup { margin-top: 6px; display: grid; }
+.sup li { padding: 4px 0 4px 13px; font-size: var(--meta-size); color: var(--rb-blk-ink2); border-top: 1px solid var(--rb-blk-line); }
+.sup li:first-child { border-top: 0; }
+
+/* The section's fold bar exists only on a phone, while a group is open. */
+.dwg-fold { display: none; }
+
+@media (max-width: 860px) {
+  .hd-cmt { height: 28px; padding: 0 11px; font-size: var(--chip-size); }
+  .views { margin-left: 0; }
+  .trio--open .sheet--dwg { padding: 8px 12px; }
+  .trio--open .sheet--dwg .dwg, .trio--open .sheet--dwg .dwg-cap { display: none !important; }
+  .trio--open .dwg-fold { display: flex; align-items: center; gap: 10px; font-size: var(--chip-size); color: var(--rb-blk-ink2); }
+  .trio--open .dwg-fold b { color: var(--rb-blk-ink); font-weight: 600; flex: none; }
+  .trio--open .dwg-fold span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trio--open .dwg-fold .dot { background: var(--primary); }
+  .trio--open .dwg-fold .pill { margin-left: auto; height: 24px; padding: 0 10px; font-size: var(--chip-size); flex: none; }
+}

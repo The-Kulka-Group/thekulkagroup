@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>04b What Decided It · MN Test #4 · Kulka</title>
+<title>01b The Ledger by Element · MN Test #4 · Kulka</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -27,85 +27,107 @@
 </style>
 </head>
 <body class="frame">
-<!-- Frame 04b. 08 Openings open on its What Decided It tab: the two What Is In rows that belong to this division, each with the answer that removed it and the LA-1480 slot. This is where What Is In, and What Is Not goes. -->
+<!-- Frame 01b. The same ledger By Element (Matt's Module view). The model has two elements, Demolition and Elevator. Demolition is open: its two priced items and the four disconnects it brings in, as supporting items with no rate. Every line with no element sits in one row, Not in an Element, so each line still shows once and the total is the same. -->
 
 <header class="hd" id="bar" data-state="bar">
   <div class="hd-t1">
     <a class="hd-mark" href="#top">Kulka</a>
     <span class="hd-proj">MN Test #4</span>
+    <button class="hd-cmt" type="button" aria-pressed="false"><i aria-hidden="true"></i>Comment</button>
   </div>
   <nav class="hd-t2" aria-label="Sections">
-    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#the-project">What You Told Us</a></li><li><a href="#where-the-money-is" aria-current="true">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#notes">Notes</a></li><li><a href="#what-happens-next">What Happens Next</a></li></ul>
+    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#project-basis">Project Basis</a></li><li><a href="#where-the-money-is" aria-current="true">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#clarifications">Clarifications</a></li><li><a href="#what-happens-next">What Happens Next</a></li></ul>
     <span class="hd-here">The Ledger</span>
   </nav>
 </header>
 <main id="top">
-<div class="trio" data-trio data-state="ledger">
+<div class="trio trio--open" data-trio data-state="ledger">
   <div class="trio-main">
 <section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is">
   <div class="sheet-hd">
     <h1 class="sheet-h">The Ledger</h1>
-    <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
+    <div class="views" role="tablist" aria-label="View"><span class="view" role="tab" aria-selected="false">By Division</span><span class="view is-on" role="tab" aria-selected="true">By Element</span></div>
+    <p class="sheet-sub">By element: each physical thing with the work it brings in. Open one to see what is in it.</p>
   </div>
   <div class="lg" role="table" aria-label="The Ledger">
+    <div class="lg-row lg-cols dv-row" role="row">
+      <span class="lg-div"></span>
+      <span class="lg-name">Element</span>
+      <span class="dv-cf">Confidence</span>
+      <span class="lg-amt">Amount</span>
+      <span class="lg-psf">$/SF</span>
+      <span class="lg-pct">%</span>
+    </div>
     <div class="lens" data-lens data-open="true" aria-label="The current row"><div class="lens-in" data-open="true">
       <div class="lg-row lg-btn">
-        <span class="lg-div num">08</span>
-        <span class="lg-name">Openings</span>
-        <span class="lg-amt num">$500,590</span>
+        <span class="lg-div num"></span>
+        <span class="lg-name">Demolition</span>
+        <span class="lg-amt num">$215,859</span>
         <span class="lg-psf num"></span><span class="lg-pct num"></span>
-        <span class="lg-rate num">$7.82 per SF · 2%</span>
-        <span class="lg-more dv-more"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span class="lg-count">2 Items</span><span class="pill">Close</span></span>
+        <span class="lg-rate num">$3.37 per SF · 1%</span>
+        <span class="lg-more dv-more"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span class="lg-count">6 Items</span><span class="pill">Close</span></span>
       </div>
     </div></div>
-      <div class="lg-item is-cur" data-el="division:08" data-open="true" role="row">
+      <div class="lg-item is-cur" data-el="element:demolition" data-open="true" role="row">
         <button class="lg-row lg-btn dv-row" type="button" aria-expanded="true">
-          <span class="lg-div num">08</span>
-          <span class="lg-name">Openings</span>
+          <span class="lg-div num"></span>
+          <span class="lg-name">Demolition</span>
           <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span>
-          <span class="lg-amt num">$500,590</span>
-          <span class="lg-psf num">$7.82</span>
-          <span class="lg-pct num">2%</span>
-          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>2 Items</span></span>
-        </button>
-      <div class="dv-open" data-focus id="division-08-lines">
-          <div class="tabs" role="tablist"><span class="tab" role="tab" aria-selected="false">Items <span class="tab-n">2</span></span><span class="tab" role="tab" aria-selected="false">Confidence</span><span class="tab is-on" role="tab" aria-selected="true">What Decided It</span><span class="tabs-end"><span class="only-desk ctl"><span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></span></span></div>
-          <p class="dv-h">Not in This Job</p>
-          <ul class="dec">
-            <li><span class="dec-l">Overhead Doors</span><span class="dec-g">Not in This Job</span><span class="dec-a">Parking: <strong>Surface</strong></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></li>
-            <li><span class="dec-l">Storefronts</span><span class="dec-g">Not in This Job</span><span class="dec-a">Retail Storefronts: <strong>No</strong></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></li>
-          </ul>
-          <p class="only-phone ctl ctl--foot"><span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></p>
-      </div>
-      </div>
-      <div class="lg-item" data-el="division:09" data-open="false" role="row">
-        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false">
-          <span class="lg-div num">09</span>
-          <span class="lg-name">Finishes</span>
-          <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span>
-          <span class="lg-amt num">$4,225,021</span>
-          <span class="lg-psf num">$66.02</span>
-          <span class="lg-pct num">21%</span>
-          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>4 Items</span></span>
-        </button>
-      </div>
-      <div class="lg-item" data-el="division:10" data-open="false" role="row">
-        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false">
-          <span class="lg-div num">10</span>
-          <span class="lg-name">Specialties</span>
-          <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span>
-          <span class="lg-amt num">$300,571</span>
-          <span class="lg-psf num">$4.70</span>
+          <span class="lg-amt num">$215,859</span>
+          <span class="lg-psf num">$3.37</span>
           <span class="lg-pct num">1%</span>
-          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>1 Item</span></span>
+          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>6 Items</span></span>
+        </button>
+      <div class="dv-open" data-focus id="element-demolition-lines">
+          <div class="tabs" role="tablist"><span class="tab is-on" role="tab" aria-selected="true">Items <span class="tab-n">6</span></span><span class="tab" role="tab" aria-selected="false">Confidence</span><span class="tabs-end"><span class="only-desk ctl"><span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span></span></span></div>
+          <div class="si" data-el="line:1a" data-open="false">
+            <div class="si-head"><span class="ln-l">Structure Demolition</span><span class="ln-v num">$198,000</span><span class="pill">Open</span></div>
+            <p class="si-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span><i>·</i><span>Kulka Rate</span></p>
+          </div>
+          <div class="si" data-el="line:1" data-open="false">
+            <div class="si-head"><span class="ln-l">Site Demolition</span><span class="ln-v num">$17,859</span><span class="pill">Open</span></div>
+            <p class="si-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span></p>
+          </div>
+          <div class="si si--group" data-open="true">
+            <div class="si-head"><span class="ln-l">Supporting Items</span><span class="ln-v">4 Items</span><span class="pill">Close</span></div>
+            <p class="si-meta"><span class="dv-cf"><i class="dot dot--none" aria-hidden="true"></i>No Rate Yet</span><i>·</i><span>Outside the Total</span></p>
+            <ul class="sup"><li data-el="unpriced:28a">Plumbing Disconnect and Cap</li><li data-el="unpriced:28b">Gas Meter and Service Disconnect</li><li data-el="unpriced:31f">Electrical Service Disconnect</li><li data-el="unpriced:36a">Site Utility Cut and Cap at the Main</li></ul>
+          </div>
+          <p class="only-phone ctl ctl--foot"><span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span></p>
+      </div>
+      </div>
+      <div class="lg-item" data-el="element:elevator" data-open="false" role="row">
+        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false">
+          <span class="lg-div num"></span>
+          <span class="lg-name">Elevator</span>
+          <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span>
+          <span class="lg-amt num">$378,700</span>
+          <span class="lg-psf num">$5.92</span>
+          <span class="lg-pct num">2%</span>
+          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>9 Items</span></span>
         </button>
       </div>
-    <p class="lg-elide">12 more divisions, closed</p>
+      <p class="gm"><i aria-hidden="true"></i>Not in the model: an element for 34 of 38 lines <code>line.element</code></p><div class="lg-item" data-el="element:none" data-open="false" role="row">
+        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false">
+          <span class="lg-div num"></span>
+          <span class="lg-name">Not in an Element</span>
+          <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span>
+          <span class="lg-amt num">$17,071,342</span>
+          <span class="lg-psf num">$266.74</span>
+          <span class="lg-pct num">83%</span>
+          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>34 Items</span></span>
+        </button>
+      </div>
+    <div class="lg-foot lg-foot--quiet" data-el="total:trade-cost">
+      <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">$12,041,053 to $23,290,747</span></span>
+      <span class="num">$17,665,900</span>
+    </div>
   </div>
+  <p class="lg-source" data-el="note:sourcing">3.3% of the trade cost is priced from rates Kulka has stated.</p>
 </section>
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
-    <div class="dwg dwg--crop dwg--live" data-dwg="section" data-now="line:15 line:16a"><svg xmlns="http://www.w3.org/2000/svg" id="ds" viewBox="0 0 1000 640" data-vb-desk="0 0 1000 640" data-vb-phone="40 94 920 490" data-stories="5" data-floor-tops="426 372 318 264 210 156" data-floor-t="10" data-grade="430" role="img" aria-label="Scope diagram, building section, drawn from the budget's own lines. Not a design." shape-rendering="geometricPrecision">
+    <div class="dwg dwg--crop dwg--live" data-dwg="section" data-now="element:demolition"><svg xmlns="http://www.w3.org/2000/svg" id="ds" viewBox="0 0 1000 640" data-vb-desk="0 0 1000 640" data-vb-phone="40 94 920 490" data-stories="5" data-floor-tops="426 372 318 264 210 156" data-floor-t="10" data-grade="430" role="img" aria-label="Scope diagram, building section, drawn from the budget's own lines. Not a design." shape-rendering="geometricPrecision">
 <defs>
   <pattern id="ds-earth" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#CBCAC2" stroke-width="0.9"></line></pattern>
   <pattern id="ds-conc" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.5" r="0.6" fill="#55544E"></circle><circle cx="4.4" cy="4.6" r="0.6" fill="#55544E"></circle><path d="M2.2 4.4 l1.2 -1.6 l0.9 1.6 z" fill="#55544E"></path></pattern>
@@ -671,15 +693,14 @@
 <rect x="20" y="500.5" width="420" height="123.5" class="s w1" stroke="#FFFFFF" fill="#FFFFFF"></rect>
 <text x="26" y="518.5" class="t tb" font-size="11" fill="#121211">Notes</text>
 <text x="26" y="532.5" class="t" font-size="10.5" fill="#55544E">1. 5 Stories Above Grade, 70 Units, 64,000 SF.</text>
-<text x="26" y="545" class="t" font-size="10.5" fill="#55544E"><tspan data-ink-note="">2. Full ink is priced from Kulka's completed jobs. Light ink is</tspan></text>
-<text x="26" y="557.5" class="t" font-size="10.5" fill="#55544E"><tspan data-ink-note="">priced from Kulka's stated rates.</tspan></text>
-<text x="26" y="570" class="t" font-size="10.5" fill="#55544E">3. Priced, with no layer to draw:  <tspan data-note="line:8a" class="is-drawn">Wood Stairs,</tspan> <tspan data-note="line:9" class="is-drawn">Finish Carpentry,</tspan></text>
+<text x="26" y="570" class="t" font-size="10.5" fill="#55544E">2. Priced, with no layer to draw:  <tspan data-note="line:8a" class="is-drawn">Wood Stairs,</tspan> <tspan data-note="line:9" class="is-drawn">Finish Carpentry,</tspan></text>
 <text x="26" y="582.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:10" class="is-drawn">Millwork,</tspan> <tspan data-note="line:18" class="is-drawn">Ceramic Tile,</tspan> <tspan data-note="line:20" class="is-drawn">Painting,</tspan> <tspan data-note="line:21" class="is-drawn">Specialties &amp; F.E. + Signage,</tspan></text>
 <text x="26" y="595" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:22" class="is-drawn">Appliances (Bought by the Owner),</tspan> <tspan data-note="line:24a" class="is-drawn">Countertops,</tspan> <tspan data-note="line:24b" class="is-drawn">Window Treatments,</tspan></text>
 <text x="26" y="607.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:25" class="is-drawn">Furnishings &amp; Fireplace.</tspan></text>
 </g>
-</svg><p class="dwg-tag" hidden><b>08 Openings</b><span class="num">$500,590</span><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span></p><i class="dwg-lead" hidden></i></div>
+</svg><p class="dwg-tag" hidden><b>Demolition</b><span class="num">$215,859</span><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span></p><i class="dwg-lead" hidden></i></div>
     <p class="dwg-cap only-phone"><b>Building Section</b> · 5 Stories · 70 Units · 64,000 SF</p>
+    <p class="dwg-fold"><b>Building Section</b><span><i class="dot" aria-hidden="true"></i>Demolition</span><span class="pill">Show</span></p>
   </aside>
 </div>
 </main>
@@ -688,7 +709,7 @@
   if (phone) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
   const aside = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
   if (phone && aside && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + aside.offsetHeight + "px");
-  // The open division's layers light in place; every other layer stays drawn, in light ink.
+  // The open group's layers light in place; every other layer stays drawn, in light ink.
   const box = document.querySelector("[data-dwg][data-now]");
   if (box) {
     const now = box.dataset.now.split(" ");

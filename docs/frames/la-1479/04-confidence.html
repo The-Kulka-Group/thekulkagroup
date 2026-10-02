@@ -27,24 +27,26 @@
 </style>
 </head>
 <body class="frame">
-<!-- Frame 04. 14 Conveying Equipment open on its Confidence tab: the division's mark, each line's mark, and What Would Raise It (the three elevator criteria still planning assumptions and the open groundwater question), each with the LA-1480 slot. One quiet line says the model cannot yet promise they raise it. -->
+<!-- Frame 04. 14 Conveying Equipment open on its Confidence tab: the mark, and What Would Raise It as owner items only (the three elevator criteria still planning assumptions, and the open groundwater question). No counts, and no promise of which mark an item moves to. -->
 
 <header class="hd" id="bar" data-state="bar">
   <div class="hd-t1">
     <a class="hd-mark" href="#top">Kulka</a>
     <span class="hd-proj">MN Test #4</span>
+    <button class="hd-cmt" type="button" aria-pressed="false"><i aria-hidden="true"></i>Comment</button>
   </div>
   <nav class="hd-t2" aria-label="Sections">
-    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#the-project">What You Told Us</a></li><li><a href="#where-the-money-is" aria-current="true">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#notes">Notes</a></li><li><a href="#what-happens-next">What Happens Next</a></li></ul>
+    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#project-basis">Project Basis</a></li><li><a href="#where-the-money-is" aria-current="true">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#clarifications">Clarifications</a></li><li><a href="#what-happens-next">What Happens Next</a></li></ul>
     <span class="hd-here">The Ledger</span>
   </nav>
 </header>
 <main id="top">
-<div class="trio" data-trio data-state="ledger">
+<div class="trio trio--open" data-trio data-state="ledger">
   <div class="trio-main">
 <section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is">
   <div class="sheet-hd">
     <h1 class="sheet-h">The Ledger</h1>
+    <div class="views" role="tablist" aria-label="View"><span class="view is-on" role="tab" aria-selected="true">By Division</span><span class="view" role="tab" aria-selected="false">By Element</span></div>
     <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
   </div>
   <div class="lg" role="table" aria-label="The Ledger">
@@ -69,20 +71,19 @@
           <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>9 Items</span></span>
         </button>
       <div class="dv-open" data-focus id="division-14-lines">
-          <div class="tabs" role="tablist"><span class="tab" role="tab" aria-selected="false">Items <span class="tab-n">9</span></span><span class="tab is-on" role="tab" aria-selected="true">Confidence</span><span class="tab" role="tab" aria-selected="false">What Decided It</span><span class="tabs-end"><span class="only-desk ctl"><span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></span></span></div>
+          <div class="tabs" role="tablist"><span class="tab" role="tab" aria-selected="false">Items <span class="tab-n">9</span></span><span class="tab is-on" role="tab" aria-selected="true">Confidence</span><span class="tab" role="tab" aria-selected="false">Scope Decisions</span><span class="tabs-end"><span class="only-desk ctl"><span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span></span></span></div>
           <div class="cf-panel">
             <div class="cf-big"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span></div>
-            <p class="cf-lines">Elevators <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span><i>·</i>Elevator Bulkhead <span class="dv-cf"><i class="dot dot--high" aria-hidden="true"></i>High</span></p>
             <p class="dv-h">What Would Raise It</p>
             <ul class="raise">
-            <li><span class="crit-tag num">V-1</span><span class="raise-t">Elevator Type</span><span class="raise-v">Hydraulic</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Planning Assumption</span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></li>
-            <li><span class="crit-tag num">V-2</span><span class="raise-t">Hydraulic Jack Type</span><span class="raise-v">In-Ground</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Planning Assumption</span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></li>
-            <li><span class="crit-tag num">V-3</span><span class="raise-t">Elevator Machine Rooms</span><span class="raise-v">1 Machine Room</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Planning Assumption</span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></li>
-            <li><span class="q-tag">Open</span><span class="raise-t">Groundwater or Poor Soil</span><span class="raise-v">Don't Know</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Waiting on You</span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></li>
+            <li><span class="crit-tag num">V-1</span><span class="raise-t">Elevator Type</span><span class="raise-v">Hydraulic</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Planning Assumption</span></li>
+            <li><span class="crit-tag num">V-2</span><span class="raise-t">Hydraulic Jack Type</span><span class="raise-v">In-Ground</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Planning Assumption</span></li>
+            <li><span class="crit-tag num">V-3</span><span class="raise-t">Elevator Machine Rooms</span><span class="raise-v">1 Machine Room</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Planning Assumption</span></li>
+            <li><span class="q-tag">Open</span><span class="raise-t">Groundwater or Poor Soil</span><span class="raise-v">Don't Know</span><span class="src"><i class="dot dot--working" aria-hidden="true"></i>Waiting on You</span></li>
             </ul>
-            <p class="gm"><i aria-hidden="true"></i>Not in the model: whether settling these raises the mark <code>confidence.raisedBy[]</code></p>
+            <p class="gm"><i aria-hidden="true"></i>Not in the model: the owner items for each line <code>confidence.raisedBy[]</code></p>
           </div>
-          <p class="only-phone ctl ctl--foot"><span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></p>
+          <p class="only-phone ctl ctl--foot"><span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span></p>
       </div>
       </div>
       <div class="lg-item" data-el="division:21" data-open="false" role="row">
@@ -107,7 +108,7 @@
           <span class="dv-meta"><span class="dv-cf"><i class="dot dot--medium" aria-hidden="true"></i>Medium Confidence</span><span>1 Item</span></span>
         </button>
       </div>
-    <p class="lg-elide">6 more divisions, closed</p>
+    <p class="lg-elide">7 more divisions, closed</p>
   </div>
 </section>
   </div>
@@ -678,15 +679,14 @@
 <rect x="20" y="500.5" width="420" height="123.5" class="s w1" stroke="#FFFFFF" fill="#FFFFFF"></rect>
 <text x="26" y="518.5" class="t tb" font-size="11" fill="#121211">Notes</text>
 <text x="26" y="532.5" class="t" font-size="10.5" fill="#55544E">1. 5 Stories Above Grade, 70 Units, 64,000 SF.</text>
-<text x="26" y="545" class="t" font-size="10.5" fill="#55544E"><tspan data-ink-note="">2. Full ink is priced from Kulka's completed jobs. Light ink is</tspan></text>
-<text x="26" y="557.5" class="t" font-size="10.5" fill="#55544E"><tspan data-ink-note="">priced from Kulka's stated rates.</tspan></text>
-<text x="26" y="570" class="t" font-size="10.5" fill="#55544E">3. Priced, with no layer to draw:  <tspan data-note="line:8a" class="is-drawn">Wood Stairs,</tspan> <tspan data-note="line:9" class="is-drawn">Finish Carpentry,</tspan></text>
+<text x="26" y="570" class="t" font-size="10.5" fill="#55544E">2. Priced, with no layer to draw:  <tspan data-note="line:8a" class="is-drawn">Wood Stairs,</tspan> <tspan data-note="line:9" class="is-drawn">Finish Carpentry,</tspan></text>
 <text x="26" y="582.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:10" class="is-drawn">Millwork,</tspan> <tspan data-note="line:18" class="is-drawn">Ceramic Tile,</tspan> <tspan data-note="line:20" class="is-drawn">Painting,</tspan> <tspan data-note="line:21" class="is-drawn">Specialties &amp; F.E. + Signage,</tspan></text>
 <text x="26" y="595" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:22" class="is-drawn">Appliances (Bought by the Owner),</tspan> <tspan data-note="line:24a" class="is-drawn">Countertops,</tspan> <tspan data-note="line:24b" class="is-drawn">Window Treatments,</tspan></text>
 <text x="26" y="607.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:25" class="is-drawn">Furnishings &amp; Fireplace.</tspan></text>
 </g>
 </svg><p class="dwg-tag" hidden><b>14 Conveying Equipment</b><span class="num">$378,700</span><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span></p><i class="dwg-lead" hidden></i></div>
     <p class="dwg-cap only-phone"><b>Building Section</b> · 5 Stories · 70 Units · 64,000 SF</p>
+    <p class="dwg-fold"><b>Building Section</b><span><i class="dot" aria-hidden="true"></i>14 Conveying Equipment</span><span class="pill">Show</span></p>
   </aside>
 </div>
 </main>
@@ -695,7 +695,7 @@
   if (phone) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
   const aside = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
   if (phone && aside && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + aside.offsetHeight + "px");
-  // The open division's layers light in place; every other layer stays drawn, in light ink.
+  // The open group's layers light in place; every other layer stays drawn, in light ink.
   const box = document.querySelector("[data-dwg][data-now]");
   if (box) {
     const now = box.dataset.now.split(" ");

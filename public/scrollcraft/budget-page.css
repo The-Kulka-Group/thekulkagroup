@@ -76,10 +76,11 @@ b, strong { font-weight: 600; }
 [data-sc-progress] { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--primary); z-index: 61; pointer-events: none; }
 
 /* --- The two-tier header: the band compressed ------------------------------
-   Tier one is the band's first row (wordmark, project, the figure's
-   slot). Tier two is the hairline meta row with the section links. In
-   the band state (the first screen) tier two is folded and the slot is empty;
-   as the band compresses, tier two unfolds and the figure arrives in its slot. */
+   Tier one is the band's first row (wordmark, project, the figure's slot).
+   Tier two is the hairline meta row with the section links. In the band state
+   (the first screen) tier two is folded and the mark's place is empty; as the
+   band compresses, tier two unfolds and the big wordmark arrives as the mark
+   (LA-1467). The figure's slot stays empty until the waterfall has landed. */
 
 .hd {
   position: fixed;
@@ -106,7 +107,9 @@ b, strong { font-weight: 600; }
 }
 .hd-fig-l { font-size: var(--meta-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
 .hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
-.hd[data-state="band"] .hd-fig, .hd[data-fig-hidden] .hd-fig { opacity: 0; }
+.hd[data-state="band"] .hd-fig, .hd[data-fig-hidden] .hd-fig, .hd[data-fig-wait] .hd-fig { opacity: 0; }
+/* On the band the mark's place is empty: the big wordmark is on its way there. */
+.hd[data-state="band"] .hd-mark, .hd[data-state="band"] .hd-proj { opacity: 0; }
 /* While the band is still behind it the header is clear, so the travelling figure never passes under it. */
 .hd[data-state="band"] { background: transparent; }
 
@@ -170,29 +173,21 @@ b, strong { font-weight: 600; }
 .band--first .fig { will-change: transform; }
 .band-meta { font-size: var(--meta-size); color: var(--rb-ink2-on-black); margin-top: 8px; text-align: center; }
 
-/* The range drawn on a scale from $0 (ledger-rail.tsx RangeBand). */
-.prb { display: grid; gap: 6px; width: 100%; }
-.prb-track { position: relative; display: block; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--rb-ink-on-black) 10%, transparent); }
-.prb-band { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--rb-ink-on-black) 34%, transparent); }
-.prb-mid { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--rb-ink-on-black); }
-.prb-lbls { position: relative; display: block; height: 18px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-ink2-on-black); }
-.prb-lbl { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
-.prb-lbl--end { transform: translateX(-100%); }
-
-/* The second total and the rates, split by hairlines (rom-blocks.css .rb-tb, .rb-rate). */
-.rates {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 0;
-  margin-top: 28px;
-  font-size: var(--t3-size);
-  font-weight: 500;
-  color: var(--rb-ink2-on-black);
+/* The first screen (LA-1467): the wordmark big and bold where the figure was, the project and the record under it. */
+.big { gap: 22px; justify-items: start; }
+.big-mark {
+  font-size: 23vw;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  margin-left: -0.04em;
   white-space: nowrap;
+  will-change: transform;
+  transform-origin: left top;
 }
-.rates b { color: var(--rb-ink-on-black); font-weight: 600; }
-.rates > span + span { margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--rb-pnl-line2); }
+.big-proj { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
+.big-meta { margin-top: 0; text-align: left; font-size: var(--body-size); }
+.big-meta i { font-style: normal; color: var(--rb-pnl-line2); margin: 0 10px; }
 
 /* The four stages in words, along the foot. */
 .stg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -201,6 +196,31 @@ b, strong { font-weight: 600; }
 .stg li[aria-current="step"] { color: var(--rb-ink-on-black); }
 .stg li[aria-current="step"]::before { background: var(--primary); }
 .stg-words { font-size: var(--chip-size); font-weight: 400; line-height: 16px; color: var(--rb-pnl-mute); }
+
+/* --- The letter on a sheet (LA-1467) --------------------------------------- */
+
+.sheet--letter { padding: 32px 40px 36px; }
+.letter { display: grid; grid-template-columns: 264px minmax(0, 640px); column-gap: 64px; justify-content: start; }
+.letter-side { padding-top: 6px; }
+.ref { display: grid; font-size: var(--chip-size); line-height: 16px; }
+.ref > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-top: 1px solid var(--border-light); }
+.ref > div:first-child { border-top: 0; padding-top: 0; }
+.ref dt { color: var(--rb-blk-mute); font-weight: 600; }
+.ref dd { color: var(--rb-blk-ink); font-weight: 600; white-space: nowrap; }
+.inside { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--rb-blk-line); }
+.inside-h { font-size: var(--label-size); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rb-blk-mute); margin-bottom: 6px; }
+.inside li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 4px 0; font-size: var(--meta-size); line-height: 18px; font-weight: 600; color: var(--rb-blk-ink2); }
+.inside li span:first-child { color: var(--rb-blk-mute); }
+.letter-main { font-size: var(--t3-size); line-height: 26px; color: var(--rb-blk-ink); }
+.letter-date { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink2); margin-bottom: 14px; }
+.letter-to { margin-bottom: 10px; }
+.letter-h { font-size: 30px; line-height: 38px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 16px; }
+.letter-main p + p { margin-top: 13px; }
+/* A figure inside a sentence stays at the sentence's size, one weight up, never a headline. */
+.letter-main .num { font-weight: 600; }
+.sign { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--rb-blk-line); }
+.sign-name { font-size: var(--ui-size); font-weight: 600; color: var(--rb-blk-ink); }
+.sign-role { font-size: var(--meta-size); color: var(--rb-blk-mute); }
 
 /* --- The white sheet on the canvas ----------------------------------------- */
 
@@ -687,10 +707,20 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
 
   .band-main { padding: 16px; justify-items: stretch; }
   .fig-wrap { display: grid; }
-  .prb-lbls { font-size: var(--chip-size); }
-  .rates { display: grid; gap: 4px; justify-content: start; font-size: var(--body-size); }
-  .rates > span + span { margin-left: 0; padding-left: 0; border-left: 0; }
   .band-meta { text-align: left; }
+  .big { gap: 14px; }
+  .big-mark { font-size: 30vw; }
+  .big-proj { font-size: 20px; line-height: 26px; }
+  .big-meta { display: grid; gap: 2px; font-size: var(--meta-size); }
+  .big-meta i { display: none; }
+  .big-meta span { display: block; }
+
+  .sheet--letter { padding: 20px 16px 24px; }
+  .letter { grid-template-columns: minmax(0, 1fr); row-gap: 24px; }
+  .letter-side { order: 2; padding-top: 0; }
+  .letter-h { font-size: 24px; line-height: 31px; margin-bottom: 14px; }
+  .letter-main { font-size: var(--body-size); line-height: 24px; }
+  .inside { margin-top: 22px; }
   .band-foot { padding: 0 16px 20px; }
   .stg { gap: 8px; }
   .stg li { font-size: var(--chip-size); line-height: 16px; gap: 8px; }
@@ -767,7 +797,7 @@ html.is-jump .dwg--live *, html.is-jump .lens-in, html.is-jump .lg-btn > * { tra
 /* --- Reduced motion: every layer drawn, both bands resolved ---------------- */
 
 html.is-reduce .band--first [data-fade] { opacity: 1; }
-html.is-reduce .band--first .fig { transform: none !important; }
+html.is-reduce .band--first .fig, html.is-reduce .band--first .big-mark { transform: none !important; }
 html.is-reduce .dwg--live [data-layer], html.is-reduce .dwg--live [data-note], html.is-reduce .dwg--live [data-story], html.is-reduce .dwg--live [data-roof] { transition: none; }
 html.is-reduce .lg-name, html.is-reduce .lg-amt, html.is-reduce .lg-btn, html.is-reduce .hd-fig, html.is-reduce .lens-in { transition: none; }
 html.is-reduce .band--peak *, html.is-reduce .band--peak { animation: none !important; }
@@ -803,14 +833,16 @@ html[data-print] body { padding-top: 0; }
   .band--first .band-stage, .band--peak .band-stage { padding: 0; }
   .band-main { padding: 0; justify-items: start; }
   .band-foot { padding: 12mm 0 0; }
-  .fig { font-size: 56pt; transform: none !important; visibility: visible !important; }
+  .fig, .big-mark { transform: none !important; visibility: visible !important; }
+  .fig { font-size: 56pt; }
+  .big-mark { font-size: 72pt; }
+  .big-proj { font-size: 16pt; }
+  .big-meta i { color: var(--rb-blk-line); }
   .band--first [data-fade] { opacity: 1 !important; }
-  .fig-l, .rates, .prb-lbls, .band-meta, .stg li, .wf-why, .wf-landed, .wf-after { color: var(--rb-blk-ink2); }
-  .rates b, .stg li[aria-current="step"], .wf-after b { color: var(--rb-blk-ink); }
-  .rates > span + span { border-left-color: var(--rb-blk-line); }
-  .prb-track { background: #EDECE7; }
-  .prb-band { background: #9A9992; }
-  .prb-mid { background: var(--rb-blk-ink); }
+  .fig-l, .band-meta, .stg li, .wf-why, .wf-landed, .wf-after { color: var(--rb-blk-ink2); }
+  .stg li[aria-current="step"], .wf-after b { color: var(--rb-blk-ink); }
+  .sheet--letter { padding: 0; }
+  .letter { grid-template-columns: 180px minmax(0, 1fr); column-gap: 32px; }
   .stg li::before { background: var(--rb-blk-line); }
   .stg li[aria-current="step"]::before { background: var(--primary); }
   .wf-main { padding: 0; }

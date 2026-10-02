@@ -162,6 +162,19 @@ export type Note = { el: string; number: number; text: string };
 
 export type Parameter = { el: string; label: string; value: string; recordedBy: string; recordedAt: string };
 
+/** A run of the letter: words, or a figure the page names once (LA-1467). */
+export type LetterRun = { text: string; figure?: boolean; el?: string | null; elRef?: string | null; /** The arithmetic behind a derived figure, shown on hover. */ title?: string | null };
+
+/** The letter the page opens on (LA-1467). */
+export type Letter = {
+  date: string;
+  /** "To <Prepared For>," when the publication names a reader; null otherwise. */
+  greeting: string | null;
+  title: string;
+  paragraphs: LetterRun[][];
+  signature: { name: string; role: string };
+};
+
 export type BudgetPage = {
   documentTitle: string;
   description: string;
@@ -234,6 +247,8 @@ export type BudgetPage = {
   markupWords: string | null;
   next: { openQuestions: string[]; nextStage: StageStep | null };
   pricedLineCount: number;
+  /** The letter the page opens on, after the wordmark (LA-1467). */
+  letter: Letter;
 };
 
 /** What `/b/<token>` hands the model: the frozen snapshot and the row it was published under. */
@@ -294,7 +309,8 @@ export const SECTIONS: readonly SectionHead[] = (
   // The ids are Version 1's, so every section keeps its element id; the titles
   // are the approved frames' (LA-1456, brief-v3).
   [
-  { id: "your-number", title: "Your Number", indexLabel: "Your Number" },
+  // LA-1467: the page opens on the wordmark, then a letter; the index starts at the letter.
+  { id: "letter", title: "Letter", indexLabel: "Letter" },
   { id: "the-project", title: "What You Told Us", indexLabel: "What You Told Us" },
   { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger" },
   { id: "what-this-rests-on", title: "Proven", indexLabel: "Proven" },
@@ -797,7 +813,7 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
     }),
   );
   const tpc = m ? m.totalProjectCost : rom.total;
-  rows.push(row({ key: "total-project-cost", el: null, elRef: "total:total-project-cost", label: "Total Project Cost", low: tpc.low, high: tpc.high, basis: "Kulka's contract plus what the owner buys direct." }));
+  rows.push(row({ key: "total-project-cost", el: "total:total-project-cost", elRef: null, label: "Total Project Cost", low: tpc.low, high: tpc.high, basis: "Kulka's contract plus what the owner buys direct." }));
 
   // The figure as it is built: trade cost, then each markup's rounded figure
   // added on, and the contract figure itself when the last one has joined.
@@ -994,6 +1010,168 @@ function markupWordsOf(rom: Rom): string | null {
   return method ? `Markups priced ${method}, ${setup}.` : `Markups priced with ${setup}.`;
 }
 
+
+// --- The letter ---------------------------------------------------------------------------
+
+const SMALL_NUMBERS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+const few = (n: number) => SMALL_NUMBERS[n] ?? String(n);
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const joinAnd = (parts: string[]) => (parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`);
+
+/**
+ * The letter the page opens on (LA-1467): what was asked for, the number in a
+ * sentence, what it stands on, what it assumes, what is still open, and what
+ * happens next. Every sentence is built from facts the model already holds,
+ * and a sentence whose facts are missing is left out rather than guessed.
+ * A figure inside a sentence points at the element that owns its id, except
+ * the two rates, which the letter owns.
+ */
+function letterOf(input: {
+  facts: Fact[];
+  headline: BudgetPage["headline"];
+  ownerDirect: number;
+  record: BudgetPage["record"];
+  restsOn: BudgetPage["restsOn"];
+  jobNames: string[];
+  criteria: Criterion[];
+  openQuestions: string[];
+  nextStage: StageStep | null;
+  conceptual: boolean;
+}): Letter {
+  const { facts, headline, record, restsOn, jobNames, criteria, openQuestions, nextStage, conceptual } = input;
+  const fact = (key: string) => facts.find((f) => f.key === key)?.value ?? null;
+  const crit = (code: string) => criteria.find((c) => c.code === code)?.value ?? null;
+  const t = (text: string): LetterRun => ({ text });
+  const fig = (text: string, ref: { el?: string; elRef?: string; title?: string } = {}): LetterRun => ({ text, figure: true, el: ref.el ?? null, elRef: ref.elRef ?? null, title: ref.title ?? null });
+  const lower = (v: string) => v.toLowerCase();
+  const paragraphs: LetterRun[][] = [];
+
+  // What was asked for.
+  {
+    const type = fact("projectType");
+    const units = fact("unitCount");
+    const stories = fact("storiesAboveGrade");
+    const framing = fact("framingSystem");
+    const gsf = fact("grossSquareFeet");
+    const parking = fact("parkingType");
+    const runs: LetterRun[] = [t("You asked Kulka to price a ")];
+    if (units) runs.push(fig(units), t("-unit "));
+    runs.push(t(`${type ? `${lower(type)} ` : ""}building`));
+    const parts: LetterRun[][] = [];
+    if (stories) parts.push([t(`${stories} ${stories === "1" ? "story" : "stories"}${framing ? ` of ${lower(framing)} framing` : " above grade"}`)]);
+    else if (framing) parts.push([t(`${lower(framing)} framing`)]);
+    if (gsf) parts.push([fig(gsf.replace(/ SF$/, "")), t(" gross square feet")]);
+    if (parts.length > 0) runs.push(t(": "), ...parts.flatMap((part, i) => (i === 0 ? part : [t(", "), ...part])));
+    if (parking && parking !== "None") runs.push(t(`${parts.length > 0 ? "," : ""} with ${lower(parking)} parking`));
+    runs.push(t("."));
+    if (fact("demolition") === "Yes") {
+      const count = fact("demolitionStructureCount");
+      const area = fact("demolitionStructureSquareFeet");
+      const many = Boolean(count) && count !== "1";
+      const structures = many ? `${count} structures` : "one structure";
+      if (area) runs.push(t(` First, ${structures} of `), fig(area.replace(/ SF$/, "")), t(` square feet ${many ? "come" : "comes"} down.`));
+      else runs.push(t(` First, ${structures} on the site ${many ? "come" : "comes"} down.`));
+    }
+    runs.push(
+      t(
+        ` This budget prices that program as you described it, ${conceptual ? "before any drawings exist, " : ""}${restsOn.fromKulkaJobs > 0 ? "from the jobs Kulka has already built." : "from the rates Kulka has stated."}`,
+      ),
+    );
+    paragraphs.push(runs);
+  }
+
+  // The number, in a sentence.
+  {
+    const c = headline.kulkaContract;
+    const runs: LetterRun[] = [
+      t("We expect Kulka's contract to come to "),
+      fig(usd(c.likely), { elRef: "total:kulka-contract" }),
+      t(`. ${conceptual ? "Nothing is drawn yet, so every" : "Every"} line is a range rather than a point, and the contract could land anywhere between `),
+      fig(usd(c.low), { elRef: "total:kulka-contract:low" }),
+      t(" and "),
+      fig(usd(c.high), { elRef: "total:kulka-contract:high" }),
+      t(" as the design settles."),
+    ];
+    const rates: LetterRun[][] = [];
+    if (headline.perSquareFoot) rates.push([fig(usd(headline.perSquareFoot.value), { el: "record:per-sf", title: headline.perSquareFoot.arithmetic }), t(" per square foot")]);
+    if (headline.perUnit) rates.push([fig(usd(headline.perUnit.value), { el: "record:per-unit", title: headline.perUnit.arithmetic }), t(" per unit")]);
+    const rateRuns = rates.flatMap((rate, i) => (i === 0 ? rate : [t(" and "), ...rate]));
+    if (input.ownerDirect > 0) {
+      runs.push(t(" With what you buy direct, the total project cost is "), fig(usd(headline.totalProjectCost.likely), { elRef: "total:total-project-cost" }));
+      if (rateRuns.length > 0) runs.push(t(", or "), ...rateRuns);
+      runs.push(t("."));
+    } else if (rateRuns.length > 0) {
+      runs.push(t(" That is "), ...rateRuns, t("."));
+    }
+    paragraphs.push(runs);
+  }
+
+  // What it stands on.
+  if (restsOn.priced > 0) {
+    const runs: LetterRun[] = [];
+    if (restsOn.fromKulkaJobs > 0) {
+      const where =
+        jobNames.length === 0 ? "jobs Kulka has completed" : `${jobNames.length === 1 ? "a building" : `${few(jobNames.length)} buildings`} Kulka has completed, ${joinAnd(jobNames)}`;
+      runs.push(t(`${restsOn.fromKulkaJobs} of the ${restsOn.priced} priced lines stand on ${where}.`));
+      if (restsOn.fromKulkaRates > 0) runs.push(t(` ${restsOn.placeholder > 0 ? "Another" : "The other"} ${restsOn.fromKulkaRates} rest on rates Kulka has stated.`));
+    } else if (restsOn.fromKulkaRates > 0) {
+      runs.push(t(`${restsOn.fromKulkaRates} of the ${restsOn.priced} priced lines rest on rates Kulka has stated.`));
+    }
+    if (restsOn.placeholder > 0) runs.push(t(` ${restsOn.placeholder} ${restsOn.placeholder === 1 ? "carries" : "carry"} a placeholder rate until Kulka states one.`));
+    runs.push(t(`${runs.length > 0 ? " " : ""}No line here is a bid.`));
+    paragraphs.push(runs);
+  }
+
+  // What it assumes.
+  if (criteria.length > 0) {
+    const set: string[] = [];
+    const a1 = crit("A-1");
+    if (a1) set.push(`the construction type (${a1})`);
+    const s1 = crit("S-1");
+    if (s1) set.push(`the foundation (${lower(s1)})`);
+    const e1 = crit("E-1");
+    if (e1) set.push(`the electrical service (${e1.replace(/ Service$/, "")})`);
+    const v1 = crit("V-1");
+    if (v1) {
+      const count = fact("elevatorCount");
+      const rooms = fact("elevatorMachineRooms");
+      set.push(
+        `the elevators (${count ? `${count} ${lower(v1)} ${count === "1" ? "car" : "cars"}` : lower(v1)}${rooms ? `, ${rooms} machine ${rooms === "1" ? "room" : "rooms"}` : ""})`,
+      );
+    }
+    const m1 = crit("M-1");
+    if (m1) set.push(`the cooling load (${lower(m1)})`);
+    paragraphs.push([
+      t(
+        `Where a decision has not been made, we have assumed one and marked it. ${criteria.length} design ${criteria.length === 1 ? "criterion sets" : "criteria set"} ${set.length > 0 ? joinAnd(set) : "what the drawings will decide later"}. Each is called out on the section drawing inside, and each is yours to change.`,
+      ),
+    ]);
+  }
+
+  // What is still open.
+  if (openQuestions.length > 0) {
+    const quoted = openQuestions.map((q) => `“${q}”`).join(" ");
+    paragraphs.push([
+      t(
+        openQuestions.length === 1
+          ? `One question is still open: ${quoted} Until it is answered, what waits on it sits outside the total rather than inside it as a guess.`
+          : `${capital(few(openQuestions.length))} questions are still open: ${quoted} Until they are answered, what waits on them sits outside the total rather than inside it as a guess.`,
+      ),
+    ]);
+  }
+
+  // What happens next.
+  paragraphs.push([t(`Read the facts on the next page. If one is wrong, tell us and we reprice from the corrected fact.${nextStage ? ` Then comes ${nextStage.label}. ${nextStage.words}` : ""}`)]);
+
+  return {
+    date: longDate(record.issuedAt),
+    greeting: record.preparedFor ? `To ${record.preparedFor},` : null,
+    title: "Your budget, and what it rests on.",
+    paragraphs,
+    signature: { name: record.preparedBy, role: "Estimating" },
+  };
+}
+
 // --- The page ---------------------------------------------------------------------------------
 
 export function presentBudget(publication: Publication): BudgetPage {
@@ -1091,57 +1269,62 @@ export function presentBudget(publication: Publication): BudgetPage {
     criteria: criteria.map((c) => ({ code: c.code, value: c.value })),
   };
 
+  const ownerDirect = figure({ low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high });
+  const restsOn: BudgetPage["restsOn"] = {
+    priced: priced.length,
+    fromKulkaJobs: fromJobs.length,
+    fromKulkaRates: fromRates.length,
+    placeholder: placeholder.length,
+    shares: { fromKulkaJobs: shareOf(fromJobs), fromKulkaRates: shareOf(fromRates), placeholder: shareOf(placeholder) },
+    jobs: [...jobLines.entries()].map(([id, lines]) => ({ name: names[id] ?? null, lines })).sort((a, b) => b.lines - a.lines),
+    confidence: {
+      high: priced.filter((l) => l.confidence === "high").length,
+      medium: priced.filter((l) => l.confidence === "medium").length,
+      low: priced.filter((l) => l.confidence === "low").length,
+    },
+  };
+  const record: BudgetPage["record"] = {
+    version: publication.version,
+    stageLabel: stages[currentIndex].label,
+    issuedAt: publication.issuedAt,
+    preparedFor: copy.preparedFor,
+    preparedBy: copy.preparedBy ?? "The Kulka Group",
+    validityDays: copy.validityDays,
+    coverSentence: copy.coverSentence,
+  };
+  const headline: BudgetPage["headline"] = {
+    kulkaContract: contract,
+    totalProjectCost: tpc,
+    tradeCost,
+    grossSquareFeet: gsf,
+    unitCount: units,
+    perSquareFoot: gsf
+      ? { value: Math.round(contract.likely / gsf), arithmetic: `Kulka contract over gross area, garage included: ${usd(contract.likely)} over ${wholeNumber(gsf)} SF` }
+      : null,
+    perUnit: units ? { value: Math.round(contract.likely / units), arithmetic: `Kulka contract over the unit count: ${usd(contract.likely)} over ${wholeNumber(units)} units` } : null,
+  };
+
   return {
     documentTitle: `${projectName} · ${stages[currentIndex].label} · Kulka`,
     description: `Kulka's ${stages[currentIndex].label.toLowerCase()} for ${projectName}: the number, its range, where the money is, and what it rests on.`,
     projectName,
-    record: {
-      version: publication.version,
-      stageLabel: stages[currentIndex].label,
-      issuedAt: publication.issuedAt,
-      preparedFor: copy.preparedFor,
-      preparedBy: copy.preparedBy ?? "The Kulka Group",
-      validityDays: copy.validityDays,
-      coverSentence: copy.coverSentence,
-    },
+    record,
     newer: publication.newer ? { version: publication.newer.version, href: `/b/${publication.newer.token}` } : null,
     sections: [...SECTIONS],
     stages,
-    headline: {
-      kulkaContract: contract,
-      totalProjectCost: tpc,
-      tradeCost,
-      grossSquareFeet: gsf,
-      unitCount: units,
-      perSquareFoot: gsf
-        ? { value: Math.round(contract.likely / gsf), arithmetic: `Kulka contract over gross area, garage included: ${usd(contract.likely)} over ${wholeNumber(gsf)} SF` }
-        : null,
-      perUnit: units ? { value: Math.round(contract.likely / units), arithmetic: `Kulka contract over the unit count: ${usd(contract.likely)} over ${wholeNumber(units)} units` } : null,
-    },
+    headline,
     project: { facts, assumedCount: facts.filter((f) => f.basis === "assumed").length, line: projectLine },
     money: {
       scopes: trade,
       ownerScopes: owner,
       trades,
-      ownerDirect: figure({ low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high }),
+      ownerDirect,
       scaleHigh: Math.max(1, ...trade.map((s) => s.high), ...owner.map((s) => s.high)),
       divisions: divisionsOf(rom, classifications),
     },
     ledger: built.ledger,
     drawing,
-    restsOn: {
-      priced: priced.length,
-      fromKulkaJobs: fromJobs.length,
-      fromKulkaRates: fromRates.length,
-      placeholder: placeholder.length,
-      shares: { fromKulkaJobs: shareOf(fromJobs), fromKulkaRates: shareOf(fromRates), placeholder: shareOf(placeholder) },
-      jobs: [...jobLines.entries()].map(([id, lines]) => ({ name: names[id] ?? null, lines })).sort((a, b) => b.lines - a.lines),
-      confidence: {
-        high: priced.filter((l) => l.confidence === "high").length,
-        medium: priced.filter((l) => l.confidence === "medium").length,
-        low: priced.filter((l) => l.confidence === "low").length,
-      },
-    },
+    restsOn,
     criteria,
     waterfall: waterfallOf(snapshot),
     gates,
@@ -1150,5 +1333,17 @@ export function presentBudget(publication: Publication): BudgetPage {
     markupWords: markupWordsOf(rom),
     next: { openQuestions, nextStage: stages[currentIndex + 1] ?? null },
     pricedLineCount: priced.length,
+    letter: letterOf({
+      facts,
+      headline,
+      ownerDirect: ownerDirect.likely,
+      record,
+      restsOn,
+      jobNames: drawing.jobs,
+      criteria,
+      openQuestions,
+      nextStage: stages[currentIndex + 1] ?? null,
+      conceptual: publication.stage === "conceptual",
+    }),
   };
 }

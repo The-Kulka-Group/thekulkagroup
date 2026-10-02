@@ -250,7 +250,7 @@ describe("sections", () => {
     // LA-1309, "Sections". LA-1462 drops the Summary, Detail and Full depths:
     // the client page shows everything, so no section or fact carries a tier.
     expect(page.sections.map((s) => s.id)).toEqual([
-      "your-number",
+      "letter",
       "the-project",
       "where-the-money-is",
       "what-this-rests-on",
@@ -436,5 +436,60 @@ describe("the markup method, in words", () => {
   it("keeps the staffing words for staffing and duration only", () => {
     expect(wordsFor("staffing_duration")).toContain("from staffing and job duration");
     expect(wordsFor("pct_of_subtotal")).not.toContain("staffing");
+  });
+});
+
+describe("the letter", () => {
+  const text = (runs: { text: string }[]) => runs.map((r) => r.text).join("");
+
+  it("writes six paragraphs from the reference run's own facts (LA-1467)", () => {
+    const { letter } = presentBudget(referencePublication());
+
+    expect(letter.date).toBe("September 28, 2026");
+    expect(letter.greeting).toBeNull();
+    expect(letter.title).toBe("Your budget, and what it rests on.");
+    expect(letter.signature).toEqual({ name: "The Kulka Group", role: "Estimating" });
+    const paragraphs = letter.paragraphs.map(text);
+    expect(paragraphs).toHaveLength(6);
+    expect(paragraphs[0]).toBe(
+      "You asked Kulka to price a 70-unit multifamily building: 5 stories of wood framing, 64,000 gross square feet, with surface parking. First, one structure of 15,000 square feet comes down. This budget prices that program as you described it, before any drawings exist, from the jobs Kulka has already built.",
+    );
+    expect(paragraphs[1]).toBe(
+      "We expect Kulka's contract to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between $13,842,806 and $26,750,419 as the design settles. With what you buy direct, the total project cost is $20,532,042, or $317 per square foot and $289,952 per unit.",
+    );
+    expect(paragraphs[2]).toBe(
+      "35 of the 38 priced lines stand on two buildings Kulka has completed, Fieldstone North Broadway and Jefferson's Ferry NW ILU Building 1. The other 3 rest on rates Kulka has stated. No line here is a bid.",
+    );
+    expect(paragraphs[3]).toBe(
+      "Where a decision has not been made, we have assumed one and marked it. 9 design criteria set the construction type (Type IIIA), the foundation (spread footings), the electrical service (1,600 A), the elevators (2 hydraulic cars, 1 machine room) and the cooling load (91 tons). Each is called out on the section drawing inside, and each is yours to change.",
+    );
+    expect(paragraphs[4]).toBe(
+      "One question is still open: \u201CAre there known groundwater or poor soil conditions?\u201D Until it is answered, what waits on it sits outside the total rather than inside it as a guess.",
+    );
+    expect(paragraphs[5]).toBe(
+      "Read the facts on the next page. If one is wrong, tell us and we reprice from the corrected fact. Then comes Design Development. Kulka's estimators price the design development drawings, and the range narrows.",
+    );
+  });
+
+  it("names each figure once, pointing at the element that owns its id", () => {
+    const { letter } = presentBudget(referencePublication());
+    const figures = letter.paragraphs.flat().filter((r) => r.figure);
+    expect(figures.map((r) => [r.text, r.el ?? null, r.elRef ?? null])).toEqual([
+      ["70", null, null],
+      ["64,000", null, null],
+      ["15,000", null, null],
+      ["$20,296,613", null, "total:kulka-contract"],
+      ["$13,842,806", null, "total:kulka-contract:low"],
+      ["$26,750,419", null, "total:kulka-contract:high"],
+      ["$20,532,042", null, "total:total-project-cost"],
+      ["$317", "record:per-sf", null],
+      ["$289,952", "record:per-unit", null],
+    ]);
+  });
+
+  it("greets the reader the publication names", () => {
+    const publication = referencePublication();
+    publication.snapshot.copy.preparedFor = "Harbor Point Partners";
+    expect(presentBudget(publication).letter.greeting).toBe("To Harbor Point Partners,");
   });
 });

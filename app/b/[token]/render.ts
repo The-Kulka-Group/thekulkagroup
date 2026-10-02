@@ -9,6 +9,7 @@ import {
   type Fact,
   type GateRow,
   type LedgerRow,
+  type LetterRun,
   type PricedLine,
   type Tone,
   type UnpricedLine,
@@ -20,8 +21,9 @@ import { drawSection, sectionStyle } from "@/lib/rom/section";
 // rendered from the presentation model on the approved frames
 // (~/scrollcraft/frames/kulka-ledger-opened, tag approved-2026-10-02;
 // brief-v3.md and brief-v3-section.md on LA-1309). The internal saved-budget
-// screen grown into a presentation: the black band at full viewport, the
-// figure rising into the two-tier header, the ledger in MasterFormat order
+// screen grown into a presentation: the black band at full viewport with the
+// wordmark alone on it (LA-1467), the wordmark rising into the two-tier
+// header, a letter from the estimator, the ledger in MasterFormat order
 // with the section drawn beside it row by row, Proven, the criteria called
 // out, the second black band as the waterfall, What Is In, the ask.
 //
@@ -49,22 +51,6 @@ const src = (tone: Tone | "working" | "quiet", text: string, cls = "") =>
   `<span class="src${cls}"><i class="dot dot--${tone}" aria-hidden="true"></i>${esc(text)}</span>`;
 const srcOf = (c: Chip) => src(c.tone, c.text);
 const time = (iso: string) => `<time datetime="${esc(iso)}">${longDate(iso)}</time>`;
-
-/** The range on a scale from $0, as the internal screen's RangeBand draws it: max = high × 1.04. */
-function rangeBand(low: number, mid: number, high: number, lowEl: string, highEl: string): string {
-  const max = high * 1.04;
-  const pct = (v: number) => ((v / max) * 100).toFixed(2);
-  return `<span class="prb" aria-label="Range ${usd(low)} to ${usd(high)}">
-        <span class="prb-track" aria-hidden="true">
-          <span class="prb-band" style="left:${pct(low)}%;width:${pct(high - low)}%"></span>
-          <span class="prb-mid" style="left:${pct(mid)}%"></span>
-        </span>
-        <span class="prb-lbls">
-          <span class="prb-lbl num" style="left:${pct(low)}%" data-el="${esc(lowEl)}">${usd(low)}</span>
-          <span class="prb-lbl prb-lbl--end num" style="left:${pct(high)}%" data-el="${esc(highEl)}">${usd(high)}</span>
-        </span>
-      </span>`;
-}
 
 // --- The drawings ---------------------------------------------------------------------
 
@@ -106,24 +92,18 @@ function header(page: BudgetPage): string {
 </header>`;
 }
 
-// --- 1. Your Number: the band grown to the viewport -----------------------------------------
+// --- 1. The band grown to the viewport: the wordmark, the project, the record ---------------
 
 function sectionNumber(page: BudgetPage): string {
-  const h = page.headline;
+  const r = page.record;
   return `
 <section class="band band--first" id="your-number" data-el="section:your-number" data-sc-act="flow" data-sc-verify-state="travel:0">
   <div class="band-stage">
     <div class="band-main">
-      <div class="fig-wrap">
-        <p class="fig-l" data-fade>Kulka Contract</p>
-        <p class="fig num" data-el="total:kulka-contract" data-travel>${usd(h.kulkaContract.likely)}</p>
-        <span data-fade>${rangeBand(h.kulkaContract.low, h.kulkaContract.likely, h.kulkaContract.high, "total:kulka-contract:low", "total:kulka-contract:high")}</span>
-        <p class="rates" data-fade>
-          <span>Total Project Cost <b class="num" data-el="total:total-project-cost">${usd(h.totalProjectCost.likely)}</b></span>${
-            h.perSquareFoot ? `\n          <span><b class="num" data-el="record:per-sf" title="${esc(h.perSquareFoot.arithmetic)}">${usd(h.perSquareFoot.value)}</b> per SF</span>` : ""
-          }${h.perUnit ? `\n          <span><b class="num" data-el="record:per-unit" title="${esc(h.perUnit.arithmetic)}">${usd(h.perUnit.value)}</b> per unit</span>` : ""}
-        </p>
-        <p class="band-meta" data-fade>${esc(page.record.stageLabel)} · Version ${page.record.version} · Issued ${time(page.record.issuedAt)}</p>
+      <div class="fig-wrap big">
+        <p class="big-mark" data-travel>Kulka</p>
+        <p class="big-proj" data-fade>${esc(page.projectName)}</p>
+        <p class="band-meta big-meta" data-fade><span>${esc(r.stageLabel)}</span><i aria-hidden="true">·</i><span>Version ${r.version}</span><i aria-hidden="true">·</i><span>Issued ${time(r.issuedAt)}</span></p>
       </div>
     </div>
     <footer class="band-foot" data-fade>
@@ -135,6 +115,50 @@ function sectionNumber(page: BudgetPage): string {
         .join("")}
       </ol>
     </footer>
+  </div>
+</section>`;
+}
+
+// --- 2. The Letter (LA-1467) --------------------------------------------------------------------
+
+function letterRun(run: LetterRun): string {
+  return run.figure ? `<span class="num"${elAttr(run.el ?? null, run.elRef ?? null)}${run.title ? ` title="${esc(run.title)}"` : ""}>${esc(run.text)}</span>` : esc(run.text);
+}
+
+function sectionLetter(page: BudgetPage): string {
+  const { letter, record: r, headline: h } = page;
+  const inside = page.sections.filter((s) => s.id !== "letter" && (s.id !== "design-and-engineering" || page.criteria.length > 0));
+  // The margin's record points at the elements that own each id, at the close.
+  return `
+<section class="sheet sheet--letter" id="letter" data-el="section:letter" data-sc-act="flow">
+  <div class="letter">
+    <aside class="letter-side">
+      <dl class="ref" aria-label="The record">
+        <div><dt>Project</dt><dd data-el-ref="record:project">${esc(page.projectName)}</dd></div>
+        <div><dt>Prepared For</dt><dd data-el-ref="record:prepared-for">${r.preparedFor ? esc(r.preparedFor) : '<span class="missing">Not Named</span>'}</dd></div>
+        <div><dt>Stage</dt><dd>${esc(r.stageLabel)}</dd></div>
+        <div><dt>Version</dt><dd data-el-ref="record:version">${r.version}</dd></div>
+        <div><dt>Issued</dt><dd data-el-ref="record:issued">${time(r.issuedAt)}</dd></div>${
+          h.grossSquareFeet !== null ? `\n        <div><dt>Gross Area</dt><dd data-el-ref="record:gross-area">${wholeNumber(h.grossSquareFeet)} SF</dd></div>` : ""
+        }
+        <div><dt>Prepared By</dt><dd data-el-ref="record:prepared-by">${esc(r.preparedBy)}</dd></div>
+      </dl>
+      <nav class="inside" aria-label="Inside">
+        <p class="inside-h">Inside</p>
+        <ol>${inside.map((s, i) => `\n          <li><span class="num">${i + 1}</span><a href="#${s.id}">${esc(s.title)}</a></li>`).join("")}
+        </ol>
+      </nav>
+    </aside>
+    <div class="letter-main">
+      <p class="letter-date">${esc(letter.date)}</p>${letter.greeting ? `\n      <p class="letter-to">${esc(letter.greeting)}</p>` : ""}
+      <h1 class="letter-h">${esc(letter.title).replace(", ", ',<br class="only-phone"> ')}</h1>${letter.paragraphs
+        .map((runs) => `\n      <p>${runs.map(letterRun).join("")}</p>`)
+        .join("")}
+      <div class="sign">
+        <p class="sign-name">${esc(letter.signature.name)}</p>
+        <p class="sign-role">${esc(letter.signature.role)}</p>
+      </div>
+    </div>
   </div>
 </section>`;
 }
@@ -410,10 +434,10 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
     <div class="wf-main">
       <div class="wf-in">
         <h1 class="wf-h">From Trades to Total</h1>
-        <div class="wf-fig" data-el-ref="total:kulka-contract">
+        <div class="wf-fig">
           <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
-          <p class="fig fig--beside num" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
-          <p class="wf-landed">Likely, between <span class="num">${usd(land.low)}</span> and <span class="num">${usd(land.high)}</span>. ${esc(land.basis)} Total Project Cost, with what the owner buys direct, between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
+          <p class="fig fig--beside num" data-el="total:kulka-contract" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
+          <p class="wf-landed">Likely, between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. ${esc(land.basis)} Total Project Cost, with what the owner buys direct, between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
           <p class="wf-after" data-after>${after
             .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
             .join('<i aria-hidden="true">·</i>')}</p>
@@ -606,6 +630,7 @@ ${svg.style}
 <body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : header(page)}
 <main id="top">${newerBand(page)}
 ${sectionNumber(page)}
+${sectionLetter(page)}
 ${sectionProject(page)}
 ${trio(page, svg.section)}
 ${sectionWaterfall(page, svg)}

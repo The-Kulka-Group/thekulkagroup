@@ -2,8 +2,8 @@
    engine (scrollcraft.js) is untouched: it pins the second black band,
    publishes each act's progress as --sc-p, and drives the waterfall's cues.
    Everything here is page-local: the drill-downs, the
-   section index, the header's two states and the figure's flight into its
-   slot, the ledger's lens band and the layer it draws on the one section,
+   section index, the header's two states and the wordmark's flight into the
+   header's mark (LA-1467), the ledger's lens band and the layer it draws on the one section,
    that section's three states and its hit areas, the waterfall's figure
    advancing line by line and landing in light, and the print rest. */
 (function () {
@@ -78,11 +78,14 @@
 
   /* ---- the header's two states, and the figure's flight into its slot ---- */
   var hd = doc.getElementById('bar');
+  // The header's figure slot stays empty until the waterfall has landed once (LA-1467).
+  if (hd) hd.setAttribute('data-fig-wait', '');
   var band = doc.getElementById('your-number');
   var wrap = band && band.querySelector('.fig-wrap');
   var fig = band && band.querySelector('[data-travel]');
   var flight = { top: 0, left: 0, right: 0, font: 1, slotTop: 0, slotLeft: 0, slotRight: 0, slotFont: 22 };
-  function slot() { return hd.querySelector(phone() ? '.hd-t2 .hd-fig-v' : '.hd-t1 .hd-fig-v'); }
+  // The travelling object is the big wordmark; it lands on the header's own mark at both widths.
+  function slot() { return hd.querySelector('.hd-mark'); }
   function measureFlight() {
     if (!hd || !fig || !wrap) return;
     var was = hd.style.getPropertyValue('--hd-t2');
@@ -98,7 +101,7 @@
     flight.slotTop = b.top;
     flight.slotLeft = b.left;
     flight.slotRight = b.right;
-    flight.slotFont = parseFloat(getComputedStyle(slot()).fontSize) || 22;
+    flight.slotFont = parseFloat(getComputedStyle(slot()).fontSize) || 17;
     band.setAttribute('data-fly', 'true');
   }
   function driveHeader() {
@@ -112,8 +115,8 @@
       var natural = flight.top - scrollY;
       wrap.style.transform = 'translate3d(0, ' + (top - natural).toFixed(1) + 'px, 0)';
       var s = lerp(flight.font, flight.slotFont, e) / flight.font;
-      var dx = phone() ? (flight.slotLeft - flight.left) * e : (flight.slotRight - flight.right) * e;
-      fig.style.transformOrigin = phone() ? 'left top' : 'right top';
+      var dx = (flight.slotLeft - flight.left) * e;
+      fig.style.transformOrigin = 'left top';
       fig.style.transform = 'translate3d(' + dx.toFixed(1) + 'px, 0, 0) scale(' + s.toFixed(4) + ')';
     }
     band.style.setProperty('--travel', q.toFixed(3));
@@ -501,6 +504,7 @@
     function land(on) {
       if (on === landed) return;
       landed = on;
+      if (on && hd) hd.removeAttribute('data-fig-wait');
       if (reduce || printing) { section.setAttribute('data-landed', on ? 'still' : 'none'); sizeSheet(on); return; }
       // Lay out the destination without animating, measure each mover's path, then play.
       flipVars(function () { section.setAttribute('data-landed', on ? 'measure' : 'measure-dark'); sizeSheet(on); });

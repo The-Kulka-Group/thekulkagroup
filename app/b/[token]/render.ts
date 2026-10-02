@@ -24,7 +24,7 @@ import { drawSection, sectionStyle } from "@/lib/rom/section";
 // screen grown into a presentation: the black band at full viewport with the
 // wordmark alone on it (LA-1467), the wordmark rising into the two-tier
 // header, a letter from the estimator, the ledger in MasterFormat order
-// with the section drawn beside it row by row, Proven, the criteria called
+// with the section drawn beside it row by row, the criteria called
 // out, the second black band as the waterfall, What Is In, the ask.
 //
 // Every figure, label and id comes from the model; nothing here prices,
@@ -58,7 +58,7 @@ function drawings(page: BudgetPage) {
   const d = page.drawing;
   const ink = new Map(Object.entries(d.ink));
   // The drawings' style rules live in the head, so no <style> sits in the body.
-  // The one section beside the ledger, Proven and Design and Engineering owns
+  // The one section beside the ledger and Design and Engineering owns
   // the criteria's ids on its callouts; the peak keeps its reversed copy and
   // the ink twin it lands on.
   const base = { facts: d.facts, ink, styleInSvg: false as const };
@@ -289,49 +289,30 @@ function sectionLedger(page: BudgetPage): string {
     </div>`
         : ""
     }
-  </div>
+  </div>${sourcingLine(page) ? `
+  <p class="lg-source" data-el="note:sourcing">${esc(sourcingLine(page))}</p>` : ""}
 </section>`;
 }
 
-// --- 4. Proven: the section complete, the count beside it -------------------------------------------
+// --- 4. Where the figures come from: one line under the ledger (LA-1478) ----------------------------
 
-function sectionProven(page: BudgetPage): string {
-  const c = page.restsOn;
-  const d = page.drawing;
-  const named = c.jobs.filter((j) => j.name !== null);
-  const share = (s: number) => `<span class="count-share">, ${percentOf(s)} of trade cost</span>`;
-  return `
-<section class="sheet sheet--proven" id="what-this-rests-on" data-el="section:what-this-rests-on" data-sc-act="flow">
-  <div class="sheet-hd">
-    <h1 class="sheet-h">Proven</h1>
-    <p class="sheet-sub">The section complete. Full ink is priced from Kulka's completed jobs. The lighter ink is priced from Kulka's stated rates.</p>
-  </div>
-  <div class="proven-rail">
-    <p class="count" data-el="count:from-kulka-jobs"><b class="num">${c.fromKulkaJobs} of ${c.priced}</b> priced lines stand on Kulka's completed jobs${share(c.shares.fromKulkaJobs)}</p>
-    <ul class="jobs" data-el="count:source-jobs" aria-label="The jobs behind the figures">${
-      named.length > 0
-        ? named.map((j) => `\n      <li><i class="dot dot--high" aria-hidden="true"></i><span>${esc(j.name!.replace(/ \(C\d+\)$/, ""))}</span><span class="jobs-n">Behind ${j.lines} priced ${j.lines === 1 ? "line" : "lines"}</span></li>`).join("")
-        : `\n      <li><i class="dot dot--high" aria-hidden="true"></i><span>${c.jobs.length} Kulka ${c.jobs.length === 1 ? "job stands" : "jobs stand"} behind the figures</span></li>`
-    }
-    </ul>
-    <ul class="key" aria-label="Ink">
-      <li><span class="key-ink" aria-hidden="true"></span>Priced from Kulka's completed jobs</li>
-      <li><span class="key-ink key-ink--light" aria-hidden="true"></span>Priced from Kulka's stated rates${d.lightRows.length ? `: ${esc(d.lightRows.join(", "))}` : ""}</li>
-    </ul>
-    <p class="count count--sm" data-el="count:from-kulka-rates"><b class="num">${c.fromKulkaRates}</b> rest on rates Kulka has stated${share(c.shares.fromKulkaRates)}</p>${
-      c.placeholder > 0
-        ? `
-    <p class="count count--sm" data-el="count:placeholder-rates"><b class="num">${c.placeholder}</b> carry a Placeholder Rate until Kulka states one${share(c.shares.placeholder)}</p>`
-        : ""
-    }
-    <p class="rail-p">${c.placeholder === 0 ? "No line on this page is a placeholder. " : ""}Every priced line blends Kulka's own cost records, weighted actuals over budgets, with Kulka's stated rates where no record exists yet.</p>
-    <dl class="confidence">
-      <div data-el="count:confidence:high"><dt>${src("high", "High Confidence")}</dt><dd><span class="num">${c.confidence.high}</span> ${c.confidence.high === 1 ? "line" : "lines"}, range 10% each side</dd></div>
-      <div data-el="count:confidence:medium"><dt>${src("medium", "Medium Confidence")}</dt><dd><span class="num">${c.confidence.medium}</span> ${c.confidence.medium === 1 ? "line" : "lines"}, range 20% each side</dd></div>
-      <div data-el="count:confidence:low"><dt>${src("low", "Low Confidence")}</dt><dd><span class="num">${c.confidence.low}</span> ${c.confidence.low === 1 ? "line" : "lines"}, range 35% each side, held for Kulka's review</dd></div>
-    </dl>
-  </div>
-</section>`;
+/**
+ * The share of trade cost behind each source, in one sentence. Rob cut Proven
+ * as too thin to stand as a section (sync, 2026-10-02); this keeps its one
+ * fact. Every share is the model's own, and a source with no lines is left out.
+ */
+export function sourcingLine(page: BudgetPage): string {
+  const { shares } = page.restsOn;
+  const parts = [
+    { share: shares.fromKulkaJobs, words: "Kulka's completed jobs" },
+    { share: shares.fromKulkaRates, words: "rates Kulka has stated" },
+    { share: shares.placeholder, words: "placeholder rates until Kulka states them" },
+  ].filter((part) => part.share > 0);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return `All of the trade cost is priced from ${parts[0].words}.`;
+  const [first, ...rest] = parts;
+  const tail = rest.map((part, i) => `${i === rest.length - 1 ? "and " : ""}${percentOf(part.share)} from ${part.words}`);
+  return `${percentOf(first.share)} of the trade cost is priced from ${first.words}, ${tail.join(", ")}.`;
 }
 
 // --- 5. Design and Engineering: the criteria called out on the drawing, no money ----------------------
@@ -378,10 +359,10 @@ function sectionDesign(page: BudgetPage): string {
 }
 
 /**
- * The Ledger, Proven and Design and Engineering share one drawing, pinned
+ * The Ledger and Design and Engineering share one drawing, pinned
  * beside them (above them on a phone), which changes state in place: layers
- * drawing in row by row, then the inks settled with the count beside it,
- * then the criteria called out on it.
+ * drawing in row by row, then the criteria called out on it with the inks
+ * settled.
  */
 function trio(page: BudgetPage, svg: string): string {
   const facts = page.drawing.facts;
@@ -389,7 +370,6 @@ function trio(page: BudgetPage, svg: string): string {
   return `
 <div class="trio" data-trio data-state="ledger">
   <div class="trio-main">${sectionLedger(page)}
-${sectionProven(page)}
 ${sectionDesign(page)}
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">

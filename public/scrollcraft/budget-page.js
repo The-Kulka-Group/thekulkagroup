@@ -155,9 +155,9 @@
      its lines in the list, under the band. The framing row raises the frame
      story by story across its own passage.
 
-     The section is one drawing for three sheets. Through The Ledger its
-     layers draw in; at Proven every layer settles to its own ink and the ink
-     note shows; at Design and Engineering the callouts show, and each lights
+     The section is one drawing for two sheets. Through The Ledger its
+     layers draw in; at Design and Engineering every layer settles to its own
+     ink, the ink note and the callouts show, and each callout lights
      as its criterion passes in the list. Every layer and callout is a hit
      area: a layer click brings its row into the band and opens it, a callout
      click brings its criterion to the reading line. */
@@ -171,7 +171,6 @@
     var items = Array.prototype.slice.call(section.querySelectorAll('.lg-item'));
     var keys = items.map(function (i) { return i.getAttribute('data-layer'); });
     var framingAt = keys.indexOf('line:8');
-    var proven = doc.getElementById('what-this-rests-on');
     var design = doc.getElementById('design-and-engineering');
     var crits = design ? Array.prototype.slice.call(design.querySelectorAll('.crit--keyed [data-crit]')) : [];
     var dwg = trio.querySelector('[data-dwg="section"] svg');
@@ -358,7 +357,6 @@
       var line = readingLine();
       var s = 'ledger';
       if (design && design.getBoundingClientRect().top <= line) s = 'design';
-      else if (proven && proven.getBoundingClientRect().top <= line) s = 'proven';
       setState(s);
       if (s !== 'ledger') {
         apply(items.length - 1, stories);

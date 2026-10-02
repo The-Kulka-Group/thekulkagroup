@@ -253,7 +253,6 @@ describe("sections", () => {
       "letter",
       "the-project",
       "where-the-money-is",
-      "what-this-rests-on",
       "design-and-engineering",
       "from-trades-to-total",
       "what-is-in",

@@ -313,7 +313,6 @@ export const SECTIONS: readonly SectionHead[] = (
   { id: "letter", title: "Letter", indexLabel: "Letter" },
   { id: "the-project", title: "What You Told Us", indexLabel: "What You Told Us" },
   { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger" },
-  { id: "what-this-rests-on", title: "Proven", indexLabel: "Proven" },
   // LA-1459: the criteria are called out on the drawing, with no money.
   { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering" },
   { id: "from-trades-to-total", title: "From Trades to Total", indexLabel: "From Trades to Total" },

@@ -5,7 +5,7 @@ import { presentBudget, rateUsd, usd } from "@/lib/rom/presentation";
 import { DIAGRAM_LINE, LAYERS } from "@/lib/rom/section";
 import { referencePage, referencePublication } from "@/test/fixtures/published-budget";
 
-import { renderBudgetPage } from "./render";
+import { renderBudgetPage, sourcingLine } from "./render";
 
 // LA-1418, LA-1459. The app's page against the LA-1416 reference page, from
 // the same run: the same sections in the same order, Version 1's data-el ids
@@ -37,7 +37,8 @@ describe("the rendered page against the reference", () => {
     const sections = [...page().matchAll(/<section[^>]*id="([^"]*)"/g)].map((m) => m[1]);
 
     // LA-1467: the letter follows the band, before everything the reference ordered.
-    expect(sections).toEqual([referencePage.sections[0], "letter", ...referencePage.sections.slice(1)]);
+    // LA-1478: Proven is cut, and its one fact moves to a line under the ledger.
+    expect(sections).toEqual([referencePage.sections[0], "letter", ...referencePage.sections.slice(1).filter((id) => id !== "what-this-rests-on")]);
   });
 
   it("carries Version 1's element ids, each once", () => {
@@ -53,12 +54,15 @@ describe("the rendered page against the reference", () => {
     // has no use for it, so the page leaves it out. LA-1459: the Summary
     // fold (scopes:rest) is gone, because the ledger shows every row so the
     // section can be drawn row by row; the foot names the
-    // project (record:project), as the approved close does.
+    // project (record:project), as the approved close does. LA-1478: Proven
+    // and its counts are cut, and one sourcing line (note:sourcing) under the
+    // ledger keeps its share of trade cost.
     const renamed = (id: string) =>
       id === "record:recorded" ? "record:issued" : id.startsWith("parameter:") ? `parameter:${id.slice(10).replace(/[._]/g, "-")}` : id;
-    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest";
+    const proven = (id: string) => id === "section:what-this-rests-on" || id.startsWith("count:");
+    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest" && !proven(id);
     // LA-1467: the page opens on a letter, which has its own section id.
-    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter"]);
+    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter", "note:sourcing"]);
 
     expect(new Set(ids.filter(notComparable))).toEqual(expected);
     expect(ids.filter((id) => id.includes(":comparable:"))).toHaveLength(referencePage.dataEl.filter((id) => id.includes(":comparable:")).length);
@@ -244,5 +248,41 @@ describe("client-facing text", () => {
     expect(html).toContain('<li><span class="num">1</span><a href="#the-project">What You Told Us</a></li>');
     expect(html).toContain('<a href="#letter" data-index="letter">Letter</a>');
     expect(html).not.toContain("Your Number");
+  });
+});
+
+// LA-1478. Proven is cut; the share of trade cost behind each source is one
+// sentence under the ledger, every figure the model's own.
+describe("the sourcing line", () => {
+  const withShares = (shares: { fromKulkaJobs: number; fromKulkaRates: number; placeholder: number }) => {
+    const model = presentBudget(referencePublication());
+    return { ...model, restsOn: { ...model.restsOn, shares } };
+  };
+
+  it("prints the reference's own split under the ledger, and no Proven section", () => {
+    const model = presentBudget(referencePublication());
+    const html = renderBudgetPage(model);
+    const line = sourcingLine(model);
+
+    expect(line).toMatch(/^\d+(\.\d)?% of the trade cost is priced from Kulka's completed jobs/);
+    expect(html).toContain(`data-el="note:sourcing">${line}</p>`);
+    expect(html.indexOf('data-el="note:sourcing"')).toBeLessThan(html.indexOf('id="design-and-engineering"'));
+    expect(html).not.toMatch(/Proven|what-this-rests-on/);
+  });
+
+  it("names every source with lines behind it, and leaves out one with none", () => {
+    expect(sourcingLine(withShares({ fromKulkaJobs: 0.8, fromKulkaRates: 0.2, placeholder: 0 }))).toBe(
+      "80% of the trade cost is priced from Kulka's completed jobs, and 20% from rates Kulka has stated.",
+    );
+    expect(sourcingLine(withShares({ fromKulkaJobs: 0.7, fromKulkaRates: 0.2, placeholder: 0.1 }))).toBe(
+      "70% of the trade cost is priced from Kulka's completed jobs, 20% from rates Kulka has stated, and 10% from placeholder rates until Kulka states them.",
+    );
+    expect(sourcingLine(withShares({ fromKulkaJobs: 0, fromKulkaRates: 1, placeholder: 0 }))).toBe(
+      "All of the trade cost is priced from rates Kulka has stated.",
+    );
+  });
+
+  it("never claims a public source, because no line uses one", () => {
+    expect(clientText(page())).not.toMatch(/public source/i);
   });
 });

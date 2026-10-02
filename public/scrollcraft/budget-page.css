@@ -376,9 +376,9 @@ body { overflow-anchor: none; }
 .ln-basis { margin-top: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
 
 /* --- One Section beside three sheets --------------------------------------
-   A drawing sheet beside The Ledger, Proven and Design and Engineering:
+   A drawing sheet beside The Ledger and Design and Engineering:
    inline SVG, ink on white, reversed on the band. It is one instance,
-   pinned through all three, changing state in place. */
+   pinned through both, changing state in place. */
 
 .trio {
   display: grid;
@@ -391,7 +391,6 @@ body { overflow-anchor: none; }
 }
 .trio-main { display: grid; gap: 24px; min-width: 0; }
 .trio .sheet { margin: 0; max-width: none; min-width: 0; }
-.sheet--proven { min-height: 360px; }
 .sheet--dwg { padding: 16px; display: grid; align-content: start; position: sticky; top: calc(var(--hd-h) + 24px); }
 .dwg { display: block; }
 .dwg svg { display: block; width: 100%; height: auto; }
@@ -418,15 +417,15 @@ body { overflow-anchor: none; }
 .dwg--live [data-part="criteria"], .dwg--live [data-part="criteria"] .hit--box { pointer-events: none; }
 [data-trio][data-state="design"] .dwg--live [data-part="criteria"] { pointer-events: auto; }
 [data-trio][data-state="design"] .dwg--live [data-part="criteria"] .hit--box { pointer-events: fill; }
-/* The inks settle at Proven: through the ledger every layer draws in full ink; a stated-rate layer dims to its light ink over 400ms. */
+/* The inks settle at Design and Engineering: through the ledger every layer draws in full ink; a stated-rate layer dims to its light ink over 400ms. */
 .dwg--live [data-layer][data-ink="light"] .s { stroke: #121211; transition: stroke 400ms var(--ease); }
 .dwg--live [data-layer][data-ink="light"] text { fill: #121211; transition: fill 400ms var(--ease); }
-[data-trio][data-state="proven"] .dwg--live [data-layer][data-ink="light"] .s, [data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
-[data-trio][data-state="proven"] .dwg--live [data-layer][data-ink="light"] text, [data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] text { fill: #6B6A64; }
+[data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
+[data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] text { fill: #6B6A64; }
 .dwg--live [data-layer].is-now[data-ink="light"] .s { stroke: var(--primary); }
 /* The ink note shows once the section is complete; the callouts at Design and Engineering. */
 .dwg--live [data-ink-note], .dwg--live [data-part="criteria"] { opacity: 0; transition: opacity 420ms var(--ease); }
-[data-trio][data-state="proven"] .dwg--live [data-ink-note], [data-trio][data-state="design"] .dwg--live [data-ink-note], [data-trio][data-state="design"] .dwg--live [data-part="criteria"] { opacity: 1; }
+[data-trio][data-state="design"] .dwg--live [data-ink-note], [data-trio][data-state="design"] .dwg--live [data-part="criteria"] { opacity: 1; }
 
 /* The ledger narrowed beside the drawing. */
 .sheet--ledger .lg-row { grid-template-columns: 32px minmax(0, 1fr) 92px 58px 40px; gap: 10px; padding: 7px 14px; }
@@ -443,26 +442,10 @@ body { overflow-anchor: none; }
 .sheet--ledger .cmp-r { text-align: left; }
 .sheet--ledger .cmp-w, .sheet--ledger .cmp-d { color: var(--rb-blk-mute); }
 
-/* --- Proven: the drawing with the count and the key beside it ------------- */
+/* --- Where the figures come from: one line under the ledger (LA-1478) ---- */
 
-.proven-rail { display: grid; gap: 14px; padding-top: 4px; }
-.count { font-size: var(--t3-size); line-height: 24px; color: var(--rb-blk-ink2); }
-.count b { display: block; font-size: 44px; line-height: 1; font-weight: 600; letter-spacing: -0.035em; color: var(--rb-blk-ink); margin-bottom: 6px; }
-.count--sm { font-size: var(--meta-size); line-height: 18px; }
-.count--sm b { display: inline; font-size: var(--t2-size); margin: 0 4px 0 0; }
-.count-share { color: var(--rb-blk-mute); }
-.jobs, .key, .crit { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
-.jobs li, .key li { display: flex; align-items: flex-start; gap: 8px; }
-.jobs .dot { margin-top: 6px; }
-.jobs { color: var(--rb-blk-ink); font-weight: 600; }
-.jobs-n { margin-left: auto; font-weight: 400; color: var(--rb-blk-mute); white-space: nowrap; }
-.key { padding-top: 10px; border-top: 1px solid var(--rb-blk-line); }
-.key-ink { flex: none; width: 22px; height: 0; margin-top: 9px; border-top: 1.5px solid var(--rb-blk-ink); }
-.key-ink--light { border-top-color: #A6A59D; }
-.rail-p { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
-.confidence { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
-.confidence div { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.confidence dt .src { color: var(--rb-blk-ink); font-weight: 600; }
+.lg-source { margin-top: 12px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
+.crit { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
 .rail-h { padding-top: 12px; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
 .crit li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
 /* Two columns of keyed criteria; each lights in turn as the reader passes through the list. */
@@ -676,7 +659,6 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
 
 @media (max-width: 1180px) {
   .split { grid-template-columns: minmax(380px, 1fr) minmax(0, 1fr); }
-  .proven { grid-template-columns: minmax(0, 1fr) 260px; }
 }
 @media (max-height: 640px) {
   .wf-in { gap: 12px 32px; }
@@ -751,7 +733,7 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .trio .sheet { margin: 0; }
   .trio .sheet--dwg { order: -1; padding: 10px 10px 8px; top: var(--hd-h); z-index: 5; }
   .trio .dwg-cap { margin-top: 4px; }
-  .sheet--proven, .sheet--design { min-height: 0; }
+  .sheet--design { min-height: 0; }
   .lens { --lens-h: 168px; }
   .trio .dwg-cap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lens-in > .lg-btn { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; padding: 14px 12px 12px; row-gap: 8px; }
@@ -820,7 +802,7 @@ html[data-print] body { padding-top: 0; }
   .trio { display: block; margin: 0; padding: 0; max-width: none; }
   .trio-main { display: block; }
   .trio .sheet { margin: 0 0 10mm; }
-  .sheet--proven, .sheet--design { min-height: 0; }
+  .sheet--design { min-height: 0; }
   /* The one section at rest, as a sheet, complete with its title block and callouts. */
   .band--peak .dwg-swap, .lens { display: none !important; }
   .band--peak[data-landed="still"] .wf-in { display: block; }
@@ -859,7 +841,7 @@ html[data-print] body { padding-top: 0; }
   .lg-lines { display: block !important; background: none; }
   .lg-item.is-cur > .lg-btn { box-shadow: none; }
   .lg-btn:hover { background: none; }
-  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .confidence div, .cmp, .count, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .jobs li, .key li, .crit li { break-inside: avoid; }
+  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .cmp, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .crit li { break-inside: avoid; }
   /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
      and What Is Not, follows From Trades to Total on the page it ends on. */
   #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes { break-before: page; }

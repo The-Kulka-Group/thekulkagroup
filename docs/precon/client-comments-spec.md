@@ -2,8 +2,8 @@
 
 Spec for LA-1480. It settles how an owner holding a published budget link attaches a
 comment, a question or an assumption flag to anything on the page, how Kulka hears
-about it, and how the thread reads afterward. Building it is out of scope; each build
-ticket at the end waits for Matt to approve this spec. ADR 0007 records the two
+about it, and how the thread reads afterward. Building it is out of scope. Matt approved
+this spec on 2026-10-02, with the answers recorded under Decisions Matt Made. ADR 0007 records the two
 decisions a later session would otherwise reopen.
 
 Sources: the LA-1480 issue; LA-1309 "Stable element ids for Version 2"; LA-1479
@@ -197,6 +197,8 @@ create table budget_threads (
   kind text not null check (kind in ('comment', 'question', 'flag')),
   -- A flag's correction, in the owner's words: "What It Should Be".
   proposed text check (proposed is null or btrim(proposed) <> ''),
+  -- Set when the reader asked Kulka to remove a flag's correction. proposed is cleared.
+  proposed_removed_at timestamptz,
   opened_by uuid not null,
   opened_at timestamptz not null default now(),
   status text not null default 'open' check (status in ('open', 'answered', 'closed')),
@@ -209,7 +211,8 @@ create table budget_threads (
 
   foreign key (published_budget_id, project_id) references published_budgets (id, project_id) on delete restrict,
   foreign key (opened_by, project_id) references budget_readers (id, project_id) on delete restrict,
-  check ((kind = 'flag') = (proposed is not null)),
+  check ((kind = 'flag') = (proposed is not null or proposed_removed_at is not null)),
+  check (proposed is null or proposed_removed_at is null),
   check (outcome is null or kind = 'flag'),
   check ((status = 'closed') = (closed_at is not null)),
   check (status <> 'closed' or (closed_by_reader is null) <> (closed_by_staff is null)),
@@ -230,7 +233,8 @@ create table budget_messages (
   -- (open-access@kulka.invalid while sign-in is off).
   staff_name text check (staff_name is null or btrim(staff_name) <> ''),
   staff_account text check (staff_account is null or btrim(staff_account) <> ''),
-  body text not null check (char_length(btrim(body)) between 1 and 4000),
+  -- Null only after the writer asked for removal (removed_at set).
+  body text check (body is null or char_length(btrim(body)) between 1 and 4000),
   -- client: shown on the page. internal: Kulka only. draft: an AI reply no one has released.
   visibility text not null check (visibility in ('client', 'internal', 'draft')),
   -- AI replies only: model, prompt version, the element ids and snapshot paths it cites.
@@ -239,6 +243,9 @@ create table budget_messages (
   released_by text check (released_by is null or btrim(released_by) <> ''),
   hidden_at timestamptz,
   hidden_by text check (hidden_by is null or btrim(hidden_by) <> ''),
+  -- Set when the writer asked Kulka to remove their words. The body is cleared.
+  removed_at timestamptz,
+  removed_by text check (removed_by is null or btrim(removed_by) <> ''),
   -- Reader posts only: the random device cookie.
   device_id text check (device_id is null or device_id ~ '^[A-Za-z0-9_-]{22}$'),
   created_at timestamptz not null default now(),
@@ -251,7 +258,9 @@ create table budget_messages (
   check (visibility <> 'draft' or author_kind = 'ai'),
   check ((released_at is null) = (released_by is null)),
   check (released_at is null or author_kind = 'ai'),
-  check ((hidden_at is null) = (hidden_by is null))
+  check ((hidden_at is null) = (hidden_by is null)),
+  check ((removed_at is null) = (removed_by is null)),
+  check ((body is null) = (removed_at is not null))
 );
 create index budget_messages_thread_idx on budget_messages (thread_id, created_at);
 
@@ -261,11 +270,13 @@ alter table budget_messages enable row level security;
 ```
 
 A trigger on `budget_messages`, in the style of `reject_published_budget_change`,
-rejects every delete and every update except two, each allowed once: an AI draft moving
-from `draft` to `client` with `released_at` and `released_by` set, and `hidden_at` with
-`hidden_by` set. A body is never edited. A trigger on `budget_threads` rejects deletes
+rejects every delete and every update except three, each allowed once: an AI draft moving
+from `draft` to `client` with `released_at` and `released_by` set, `hidden_at` with
+`hidden_by` set, and a removal that sets `removed_at` and `removed_by` and clears `body`
+in the same update. A body is never edited in any other way. A trigger on `budget_threads` rejects deletes
 and any change to `published_budget_id`, `project_id`, `element_id`, `anchor`, `kind`,
-`proposed`, `opened_by` or `opened_at`. Status may move only from open to answered,
+`opened_by` or `opened_at`, and allows `proposed` to change only once, to null, in the
+same update that sets `proposed_removed_at`. Status may move only from open to answered,
 from answered to open, and from either to closed. Closed is final, and `addressed_in`
 is write-once. `budget_readers` rejects deletes and allows only `revoked_at`, once.
 
@@ -312,7 +323,7 @@ plain link carries no comment data at all. `PUBLISHED_BUDGET_HEADERS` already se
 Every body is escaped with `render.ts`'s `esc` and printed as text. Links in a body are
 not made clickable.
 
-Internal routes for replying, closing, releasing and hiding sit under `/api/rom/` and
+Internal routes for replying, closing, releasing, hiding and removing sit under `/api/rom/` and
 follow the app's own auth. While `KULKA_AUTH_OPEN=1` is set, anyone who has the app's
 address can read and answer client comments, and every staff write records
 `open-access@kulka.invalid` as the account. That is the same exposure the rest of the
@@ -386,13 +397,15 @@ version. The Rail's Conceptual Budget item shows the count of threads that need 
 using the `count` field it already has.
 
 A webhook push to a chat channel is a separate ticket. It is built behind an env var
-(`KULKA_COMMENT_WEBHOOK_URL`) and stays off until Matt names the channel. It sends the
+(`KULKA_COMMENT_WEBHOOK_URL`) and stays off for now. When it is turned on, it posts to a
+channel Kulka owns, not a BLDG Labs one, and reaches the version's Prepared By plus one
+person Rob names. It sends the
 same sentence and a link to the thread, never the body. It never sends to the client.
 
 **Why.** The in-app list needs nothing from outside the repo, so it works the day it
-merges. A push is worth having, but the right destination (a Kulka channel, or a BLDG
-Labs one) is Matt's call, and posting a client's words into a chat tool needs his yes
-first.
+merges, and no client's words go into a chat tool until Matt says so. The push goes to
+Kulka's own channel because the feature exists to get Kulka talking to its client, and
+the client relationship is Kulka's.
 
 **The client's side.** The app cannot email the client either. A reader learns about a
 reply by opening their link. The page's Comment control shows how many replies arrived
@@ -475,6 +488,13 @@ first line and its state: "Closed", "Accepted for Next Version",
 "Declined", "Withdrawn" or "Carried Into Version 2". It never disappears from the
 version it was posted on.
 
+**When a client asks for their words to be removed.** Hiding stays the default for
+taking a message off the page. When the writer asks Kulka to remove what they wrote,
+Kulka uses Remove instead. It clears the message's body, or a flag's "What It Should
+Be", and keeps the row, which then reads "Removed at the Writer's Request". The thread
+still reads in order, and Kulka keeps none of the words it was asked to take out. Only
+Kulka can remove, from the Client Comments panel.
+
 **The PDF leaves comments out, always.** The stored PDF is rendered once at publish,
 before any comment exists, and it is the copy a client hands a lender. The print render
 (`?print=1`) never reads the reader cookie, and the page's print styles hide the comment
@@ -515,35 +535,44 @@ flag.
 
 ## Build tickets
 
-Each is one job. None starts until Matt approves this spec, moves it to Ready and sets
-its Agent field. Ticket 2 carries a migration, so its merge waits for Matt to run
+Each is one job. Matt approved this spec on 2026-10-02. None starts until Matt moves
+it to Ready and sets its Agent field. Ticket 2 carries a migration, so its merge waits for Matt to run
 `supabase db push`.
 
 | # | Ticket | Blocked by | Model and effort |
 | -- | -- | -- | -- |
 | 1 | Still frames for comment mode, the composer, a thread, the closed states and the From Earlier Versions list, at 1440 and 390, on MN Test #4. Draw on top of LA-1479's approved drill-down frames. Matt scores them, and the bar is 90. | LA-1479 frames approved | [Opus 5.5 - High] |
-| 2 | Migration for `budget_readers`, `budget_threads` and `budget_messages` with their triggers, plus a `lib/rom/budget-comments.ts` module for create, reply, close, release and hide, with database tests for every check and trigger. | None | [Sonnet 5 - Medium] |
+| 2 | Migration for `budget_readers`, `budget_threads` and `budget_messages` with their triggers, plus a `lib/rom/budget-comments.ts` module for create, reply, close, release, hide and remove, with database tests for every check and trigger. | None | [Sonnet 5 - Medium] |
 | 3 | Reader links. "Add a Reader", "Copy Reader Link" and "Revoke Link" on the Publish panel, the `/b/r/<readerKey>` route, the reader and device cookies, and the "Not You?" clear. | 2 | [Sonnet 5 - High] |
 | 4 | Post routes under `/b/<token>/threads` with the seven checks, element validation against `presentBudget`, the server-side anchor, and the daily limits. | 2, 3 | [Sonnet 5 - High] |
 | 5 | The id scheme. Make `division:<d>:<code>` a `data-el-ref` to `line:<code>`, add a pure `addressableElements(page)` that returns each id's section, label and text for anchors, and add the LA-1479 kinds as the drill-down build adds their data. | LA-1479 build ticket | [Sonnet 5 - Medium] |
 | 6 | The comment layer on `/b/<token>`: the Comment control, comment mode, markers, the composer and threads, built from the ticket 1 frames, hidden in print, checked at 1440 and 390 with no sideways scroll. | 1, 4, 5 | [Opus 5.5 - Medium] |
-| 7 | Client Comments inside the app: the Home list, the saved budget's panel, the Rail count, Reply, Internal Note, Close, Accept for Next Version and Decline. | 2 | [Sonnet 5 - Medium] |
+| 7 | Client Comments inside the app: the Home list, the saved budget's panel, the Rail count, Reply, Internal Note, Close, Remove, Accept for Next Version and Decline. | 2 | [Sonnet 5 - Medium] |
 | 8 | Carry and orphan at publish: `addressed_in` set inside `publishBudget`'s transaction, carried threads and "Changed Since" on the newest version, and the From Earlier Versions list. | 4, 7 | [Sonnet 5 - Medium] |
-| 9 | Webhook push for new threads behind `KULKA_COMMENT_WEBHOOK_URL`, off by default. | 7, and Matt naming the channel | [Sonnet 5 - Low] |
+| 9 | Webhook push for new threads behind `KULKA_COMMENT_WEBHOOK_URL`, off by default, to a Kulka-owned channel. | 7, Rob naming the person, and Matt turning it on | [Sonnet 5 - Low] |
 
 AI drafts get their own spec later. This one only leaves the columns for them.
 
-## Open questions for Matt
+## Decisions Matt made
 
-1. Where should the push for a new comment go: a Kulka Slack or Teams channel, a BLDG
-   Labs channel, or nowhere for now? Who at Kulka should see it?
-2. Should every reader on a project see every thread, as proposed, or should a reader be
-   able to ask Kulka something privately?
-3. Should anyone in the app be able to accept or decline a flag, or only the estimator
-   named as Prepared By?
-4. Is it right that a superseded version takes no new threads, so clients always comment
-   on the current figures?
-5. When a client asks Kulka to remove something they wrote, is hiding it from the page
-   enough, as proposed, or does it need a real delete?
-6. Should the estimator add readers at publish time in the same form, or separately on
-   the Publish panel whenever they like, as proposed?
+Matt answered the spec's open questions on 2026-10-02.
+
+1. **Where a new comment is announced.** For now it shows only in the app's Client
+   Comments list. The webhook push stays off. When it goes on, it posts to a channel
+   Kulka owns and reaches the version's Prepared By plus one person Rob names.
+2. **Who sees which threads.** Every reader on a project sees every thread. Private
+   questions are out of v1. Adding them later takes one nullable column on
+   `budget_threads`.
+3. **Who decides a flag.** Anyone using the internal app, because with sign-in off the
+   app cannot tell who is using it. The "Reply As" name records who acted. Accept and
+   Decline move behind a permission when sign-in returns.
+4. **Older versions.** A superseded version takes no new threads. Its page shows its
+   threads read-only with a band pointing to the current version.
+5. **Removal.** Hiding is the default. When the writer asks for removal, Kulka removes
+   the words for good and the row reads "Removed at the Writer's Request".
+6. **Adding readers.** The estimator adds readers on the Publish panel whenever they
+   like, not as a step in every publish.
+
+## Still open
+
+1. Rob names the Kulka person who receives the comment push. Ticket 9 waits on this.

@@ -1,7 +1,7 @@
 # Client comments hang on a version and an element, and a reader link names the commenter
 
-Status: proposed with the LA-1480 spec (`docs/precon/client-comments-spec.md`). It takes
-effect when Matt approves that spec.
+Status: accepted on 2026-10-02, when Matt approved the LA-1480 spec
+(`docs/precon/client-comments-spec.md`).
 
 A client who opens a published budget at `/b/<token>` will be able to comment on, ask
 about, or flag an assumption on any element of the page. Two choices underneath that

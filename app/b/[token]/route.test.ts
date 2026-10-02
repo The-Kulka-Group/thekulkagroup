@@ -109,7 +109,9 @@ describe("/b/<token>", () => {
     // The seeded test benchmark is $1/GSF on 1,000 GSF, with no markups.
     expect(html).toMatch(/^<!doctype html>\n<html lang="en">/);
     expect(html).toContain("Synthetic test project");
-    expect(html).toContain("Conceptual Budget · Version 1");
+    // LA-1467: the band's record line sets stage and version in their own spans.
+    expect(html).toContain("<span>Conceptual Budget</span>");
+    expect(html).toContain("<span>Version 1</span>");
     expect(html).toContain("Harbor Point Partners (example)");
     expect(html).toContain("Devin (example)");
     expect(html).toContain("90 days from issue");

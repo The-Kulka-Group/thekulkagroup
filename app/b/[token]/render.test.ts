@@ -36,7 +36,8 @@ describe("the rendered page against the reference", () => {
   it("prints the reference's sections in the reference's order", () => {
     const sections = [...page().matchAll(/<section[^>]*id="([^"]*)"/g)].map((m) => m[1]);
 
-    expect(sections).toEqual(referencePage.sections);
+    // LA-1467: the letter follows the band, before everything the reference ordered.
+    expect(sections).toEqual([referencePage.sections[0], "letter", ...referencePage.sections.slice(1)]);
   });
 
   it("carries Version 1's element ids, each once", () => {
@@ -56,7 +57,8 @@ describe("the rendered page against the reference", () => {
     const renamed = (id: string) =>
       id === "record:recorded" ? "record:issued" : id.startsWith("parameter:") ? `parameter:${id.slice(10).replace(/[._]/g, "-")}` : id;
     const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest";
-    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project"]);
+    // LA-1467: the page opens on a letter, which has its own section id.
+    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter"]);
 
     expect(new Set(ids.filter(notComparable))).toEqual(expected);
     expect(ids.filter((id) => id.includes(":comparable:"))).toHaveLength(referencePage.dataEl.filter((id) => id.includes(":comparable:")).length);
@@ -113,8 +115,9 @@ describe("the rendered page against the reference", () => {
     const missing = [...new Set(referencePage.money)].filter((m) => !onPage.has(m) && !referenceRates.has(m) && !gone.has(m));
     expect(missing).toEqual([]);
 
-    // The headline, every ledger row and the built figure, where the frames put them.
-    expect(html).toMatch(/class="fig num" data-el="total:kulka-contract"[^>]*>\$20,296,613</);
+    // The figure first appears at display size in From Trades to Total (LA-1467); the letter only names it.
+    expect(html).toMatch(/class="fig fig--beside num" data-el="total:kulka-contract"[^>]*>\$20,296,613</);
+    expect(html).not.toMatch(/class="fig num"/);
     expect(html).toContain('data-running="$18,650,604"');
     expect(html).toContain('data-running="$19,256,749"');
     expect(html).toContain('data-landed="$20,296,613"');
@@ -204,7 +207,9 @@ describe("client-facing text", () => {
     ]
       .map((m) => (m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? "").replace(/<span class="(?:lg-count|lg-tag)[^"]*">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, " "))
       .map((label) => label.replace(/&amp;/g, "&").replace(/\s+/g, " ").trim())
-      .filter((label) => label.length > 0 && !/^\$|^\d+$/.test(label));
+      .filter((label) => label.length > 0 && !/^\$|^\d+$/.test(label))
+      // A heading that is a sentence, with its full stop, stays sentence case: the letter's title (LA-1467).
+      .filter((label) => !label.endsWith("."));
     const notTitle = labels.filter((label) =>
       label.split(" ").some((word, i) => {
         const letters = word.replace(/^[^A-Za-z0-9]+/, "");
@@ -224,5 +229,20 @@ describe("client-facing text", () => {
       if (row.scope.kind === "unpriced") continue;
       expect(html, row.label).toContain(`<span class="lg-psf num">${rateUsd(row.likely / 64_000)}</span>`);
     }
+  });
+
+  it("opens on the wordmark alone, then the letter, and keeps the figure for the waterfall (LA-1467)", () => {
+    const html = page();
+    const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('id="letter"'));
+    expect(band).toContain('<p class="big-mark" data-travel>Kulka</p>');
+    expect(band).toContain('class="big-proj" data-fade>MN Test #4<');
+    expect(band).not.toContain("$");
+    expect(html).toContain('<section class="sheet sheet--letter" id="letter" data-el="section:letter"');
+    expect(html).toContain("You asked Kulka to price a <span class=\"num\">70</span>-unit multifamily building");
+    expect(html).toContain('<span class="num" data-el-ref="total:kulka-contract">$20,296,613</span>');
+    expect(html).toMatch(/<span class="num" data-el="record:per-sf" title="Kulka contract over gross area[^"]*">\$317<\/span> per square foot/);
+    expect(html).toContain('<li><span class="num">1</span><a href="#the-project">What You Told Us</a></li>');
+    expect(html).toContain('<a href="#letter" data-index="letter">Letter</a>');
+    expect(html).not.toContain("Your Number");
   });
 });

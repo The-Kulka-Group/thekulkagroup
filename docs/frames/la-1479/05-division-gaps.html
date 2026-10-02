@@ -27,7 +27,7 @@
 </style>
 </head>
 <body class="frame">
-<!-- Frame 05. 22 Plumbing opened, the honest case for most divisions: one line priced from 2 Kulka jobs per unit, no sub-items, no written scope, no item from the owner that would raise the mark. Each gap names the field the build needs. -->
+<!-- Frame 05. 22 Plumbing open on its Items tab: one line priced from 2 Kulka jobs, and one quiet line saying there are no sub-items. The What the Model Needs panel, a frame note, gathers every gap from frames 02 to 05. -->
 
 <header class="hd" id="bar" data-state="bar">
   <div class="hd-t1">
@@ -45,7 +45,7 @@
 <section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is">
   <div class="sheet-hd">
     <h1 class="sheet-h">The Ledger</h1>
-    <p class="sheet-sub">By division, in the order the trades build it. Open a division for its items and how sure the figure is, then open an item for what it assumes.</p>
+    <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
   </div>
   <div class="lg" role="table" aria-label="The Ledger">
     <div class="lens" data-lens data-open="true" aria-label="The current row"><div class="lens-in" data-open="true">
@@ -68,47 +68,14 @@
           <span class="lg-pct num">9%</span>
           <span class="dv-meta"><span class="dv-cf"><i class="dot dot--medium" aria-hidden="true"></i>Medium Confidence</span><span>1 Item</span></span>
         </button>
-      <div class="dv-open" id="division-22-lines" data-focus>
-        <div class="dv-bar">
-          <p class="ln-sum">Together, between $1,449,617 and $2,174,426, likely $1,812,022.</p>
-          <div class="dv-ctl"><span class="slot " title="Reserved for the flag and comment control in LA-1480">Reserved · LA-1480 Flag or Comment</span><span class="slot slot--ve" title="Reserved for LA-1481">LA-1481<span class="ve" aria-disabled="true">Value Engineering <b>None Offered Yet</b></span></span></div>
-        </div>
-        <div class="dv-block">
-          <p class="dv-h">Items</p>
-          <div class="si" data-el="line:28" data-open="true">
-            <div class="si-head"><span class="ln-l">Plumbing</span><span class="src"><i class="dot dot--medium" aria-hidden="true"></i>2 Kulka Jobs</span><span class="ln-v num">$1,812,022</span><span class="pill">Close</span></div>
-            <p class="ln-range">$1,449,617 to $2,174,426. <span class="src"><i class="dot dot--medium" aria-hidden="true"></i>Medium Confidence</span></p>
-            <div class="si-body">
-              <section class="si-sec">
-                <h3 class="si-h">Assumptions</h3>
-                <ul class="as">
-                <li><span class="as-l">Units</span><span class="as-v">70</span><span class="as-b"><span class="src"><i class="dot dot--quiet" aria-hidden="true"></i>Stated</span><span>How many units does the building have?</span></span><span class="as-why">Plumbing is priced per unit: $25,886 across 70 units.</span><span class="slot slot--sm" title="Reserved for the flag and comment control in LA-1480">LA-1480</span></li>
-                </ul>
-                <div class="gap"><p class="gap-t">Not in the Model Yet</p><p>No criterion prices Plumbing, and the snapshot does not say which answers the line prices on beyond its per-unit basis. The build needs <code>line.inputs[]</code>.</p></div>
-              </section>
-              <section class="si-sec">
-                <h3 class="si-h">Included and Excluded</h3>
-                <div class="gap"><p class="gap-t">Not in the Model Yet</p><p>Kulka's definition of item 28 (Plumbing Rough-In and Piping) records its sources and quantity driver but no included or excluded list, so there is nothing to show yet. The build needs <code>line.includes[]</code> and <code>line.excludes[]</code>, written by Kulka per item.</p></div>
-              </section>
-              <section class="si-sec">
-                <h3 class="si-h">Where the Figure Came From</h3>
-                <ul class="cmps" aria-label="Where the figure came from">
-              <li class="cmp"><span class="cmp-k">Kulka Budget</span><span class="cmp-j">Fieldstone North Broadway (C00449)</span><span class="cmp-r num">$25,866 per unit</span><span class="cmp-w">Weight 1</span><span class="cmp-d">2026-09-24</span></li>
-              <li class="cmp"><span class="cmp-k">Kulka Budget</span><span class="cmp-j">Jefferson's Ferry NW ILU Building 1 (C00456)</span><span class="cmp-r num">$25,906 per unit</span><span class="cmp-w">Weight 1</span><span class="cmp-d">2026-09-23</span></li>
-            </ul>
-                <p class="ln-basis">2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $25,886 across 70 units. Medium confidence: the range is 20% each side of the blend.</p>
-              </section>
-            </div>
+      <div class="dv-open" data-focus id="division-22-lines">
+          <div class="tabs" role="tablist"><span class="tab is-on" role="tab" aria-selected="true">Items <span class="tab-n">1</span></span><span class="tab" role="tab" aria-selected="false">Confidence</span><span class="tabs-end"><span class="only-desk ctl"><span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></span></span></div>
+          <div class="si" data-el="line:28" data-open="false">
+            <div class="si-head"><span class="ln-l">Plumbing</span><span class="ln-v num">$1,812,022</span><span class="pill">Open</span></div>
+            <p class="si-meta"><span class="dv-cf"><i class="dot dot--medium" aria-hidden="true"></i>Medium</span><i>·</i><span>2 Kulka Jobs</span></p>
           </div>
-          <div class="gap"><p class="gap-t">Not in the Model Yet</p><p>The model prices Plumbing as one line, so the division has one item. Sub-items need either breakouts (<code>block_classification.breakout_of_cost_code = '28'</code>, each with a figure carved from the line) or separate canonical items priced on their own. Item 29, Plumbing Fixtures, is defined but not in this run.</p></div>
-        </div>
-        <div class="dv-block cf-panel">
-          <p class="dv-h">Confidence</p>
-          <div class="cf-big"><span class="dv-cf"><i class="dot dot--medium" aria-hidden="true"></i>Medium Confidence</span></div>
-          <p class="cf-why">A division is high only when every line in it is high, and low when any line is low.</p>
-          <ul class="cf-lines"><li><span>Plumbing</span><span>Medium · 2 Kulka Jobs</span></li></ul>
-          <p class="dec-h">What Would Raise It</p><div class="gap"><p class="gap-t">Not in the Model Yet</p><p>The model ties no item from you to Plumbing. Today the mark comes from Kulka's own figures: a line is medium with at least 2 Kulka jobs behind it inside a 20% spread, and high with at least 5 inside 10% (flag.medium_min_comparables, flag.high_min_comparables). Kulka has 2 completed jobs imported, so no line priced from jobs can be high yet.</p><p>The build needs <code>confidence.raisedBy[]</code>.</p></div>
-        </div>
+          <p class="gm"><i aria-hidden="true"></i>Not in the model: sub-items; Plumbing is one line <code>block_classification.breakout_of_cost_code</code></p>
+          <p class="only-phone ctl ctl--foot"><span class="ve" title="LA-1481: Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span><span class="slot" title="Reserved for the LA-1480 flag or comment control">LA-1480</span></p>
       </div>
       </div>
       <div class="lg-item" data-el="division:23" data-open="false" role="row">
@@ -133,23 +100,24 @@
           <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>1 Item</span></span>
         </button>
       </div>
-      <div class="lg-item" data-el="division:27" data-open="false" role="row">
-        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false">
-          <span class="lg-div num">27</span>
-          <span class="lg-name">Communications</span>
-          <span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low</span>
-          <span class="lg-amt num">$394,368</span>
-          <span class="lg-psf num">$6.16</span>
-          <span class="lg-pct num">2%</span>
-          <span class="dv-meta"><span class="dv-cf"><i class="dot dot--low" aria-hidden="true"></i>Low Confidence</span><span>1 Item</span></span>
-        </button>
-      </div>
-    <p class="lg-elide">3 more divisions, closed, as frame 01 shows them.</p>
+    <p class="lg-elide">4 more divisions, closed</p>
   </div>
-</section>
+</section><div class="only-phone">
+    <div class="needs" aria-label="What the Model Needs">
+      <p class="needs-h">What the Model Needs</p>
+      <p class="needs-sub">Frame note, not page content. Every gap on frames 02 to 05, in one place.</p>
+      <ul>
+        <li><span class="needs-f"><code>line.inputs[]</code></span><span>The answers each line prices on</span></li>
+        <li><span class="needs-f"><code>line.quantity</code> <code>comparable.unit</code></span><span>A stated rate's quantity and unit</span></li>
+        <li><span class="needs-f"><code>line.includes[]</code> <code>line.excludes[]</code></span><span>Each item's written scope, from Kulka</span></li>
+        <li><span class="needs-f"><code>breakout_of_cost_code</code></span><span>Sub-items inside a one-line division</span></li>
+        <li><span class="needs-f"><code>confidence.raisedBy[]</code></span><span>What would move each mark, and to what</span></li>
+        <li><span class="needs-f"><code>line.division</code></span><span>The division, carried in the snapshot</span></li>
+      </ul>
+    </div></div>
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
-    <div class="dwg dwg--crop dwg--live" data-dwg="section"><svg xmlns="http://www.w3.org/2000/svg" id="ds" viewBox="0 0 1000 640" data-vb-desk="0 0 1000 640" data-vb-phone="40 94 920 490" data-stories="5" data-floor-tops="426 372 318 264 210 156" data-floor-t="10" data-grade="430" role="img" aria-label="Scope diagram, building section, drawn from the budget's own lines. Not a design." shape-rendering="geometricPrecision">
+    <div class="dwg dwg--crop dwg--live" data-dwg="section" data-now="line:28"><svg xmlns="http://www.w3.org/2000/svg" id="ds" viewBox="0 0 1000 640" data-vb-desk="0 0 1000 640" data-vb-phone="40 94 920 490" data-stories="5" data-floor-tops="426 372 318 264 210 156" data-floor-t="10" data-grade="430" role="img" aria-label="Scope diagram, building section, drawn from the budget's own lines. Not a design." shape-rendering="geometricPrecision">
 <defs>
   <pattern id="ds-earth" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#CBCAC2" stroke-width="0.9"></line></pattern>
   <pattern id="ds-conc" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="1.2" cy="1.5" r="0.6" fill="#55544E"></circle><circle cx="4.4" cy="4.6" r="0.6" fill="#55544E"></circle><path d="M2.2 4.4 l1.2 -1.6 l0.9 1.6 z" fill="#55544E"></path></pattern>
@@ -499,42 +467,42 @@
 <line x1="418" y1="179" x2="418" y2="182" class="s w1 is-up" stroke="#121211" data-story="5"></line>
 <line x1="448" y1="179" x2="448" y2="182" class="s w1 is-up" stroke="#121211" data-story="5"></line>
 <line x1="510" y1="444" x2="510" y2="164" class="hit"></line><line x1="510" y1="395" x2="348" y2="395" class="hit" data-story="1"></line><line x1="358" y1="395" x2="358" y2="398" class="hit" data-story="1"></line><line x1="388" y1="395" x2="388" y2="398" class="hit" data-story="1"></line><line x1="418" y1="395" x2="418" y2="398" class="hit" data-story="1"></line><line x1="448" y1="395" x2="448" y2="398" class="hit" data-story="1"></line><line x1="510" y1="341" x2="348" y2="341" class="hit" data-story="2"></line><line x1="358" y1="341" x2="358" y2="344" class="hit" data-story="2"></line><line x1="388" y1="341" x2="388" y2="344" class="hit" data-story="2"></line><line x1="418" y1="341" x2="418" y2="344" class="hit" data-story="2"></line><line x1="448" y1="341" x2="448" y2="344" class="hit" data-story="2"></line><line x1="510" y1="287" x2="348" y2="287" class="hit" data-story="3"></line><line x1="358" y1="287" x2="358" y2="290" class="hit" data-story="3"></line><line x1="388" y1="287" x2="388" y2="290" class="hit" data-story="3"></line><line x1="418" y1="287" x2="418" y2="290" class="hit" data-story="3"></line><line x1="448" y1="287" x2="448" y2="290" class="hit" data-story="3"></line><line x1="510" y1="233" x2="348" y2="233" class="hit" data-story="4"></line><line x1="358" y1="233" x2="358" y2="236" class="hit" data-story="4"></line><line x1="388" y1="233" x2="388" y2="236" class="hit" data-story="4"></line><line x1="418" y1="233" x2="418" y2="236" class="hit" data-story="4"></line><line x1="448" y1="233" x2="448" y2="236" class="hit" data-story="4"></line><line x1="510" y1="179" x2="348" y2="179" class="hit" data-story="5"></line><line x1="358" y1="179" x2="358" y2="182" class="hit" data-story="5"></line><line x1="388" y1="179" x2="388" y2="182" class="hit" data-story="5"></line><line x1="418" y1="179" x2="418" y2="182" class="hit" data-story="5"></line><line x1="448" y1="179" x2="448" y2="182" class="hit" data-story="5"></line></g>
-<g data-layer="line:28" data-ink="full" aria-label="22 Plumbing" class="is-drawn is-now">
+<g data-layer="line:28" data-ink="full" aria-label="22 Plumbing" class="is-drawn">
 <line x1="514" y1="444" x2="514" y2="164" class="s w1" stroke="#121211" stroke-dasharray="4 2"></line>
 <circle cx="514" cy="164" r="1.4" fill="#121211"></circle>
 <line x1="514" y1="444" x2="514" y2="164" class="hit"></line></g>
-<g data-layer="line:30" data-ink="full" aria-label="23 Mechanical">
+<g data-layer="line:30" data-ink="full" aria-label="23 Mechanical" class="is-drawn">
 <line x1="518" y1="444" x2="518" y2="164" class="s w1" stroke="#121211" stroke-dasharray="1.5 1.5"></line>
 <circle cx="518" cy="164" r="1.4" fill="#121211"></circle>
 <line x1="518" y1="444" x2="518" y2="164" class="hit"></line></g>
-<g data-layer="line:31" data-ink="full" aria-label="26 Electrical">
+<g data-layer="line:31" data-ink="full" aria-label="26 Electrical" class="is-drawn">
 <line x1="22" y1="464" x2="347" y2="464" class="s w2" stroke="#121211"></line>
 <line x1="347" y1="464" x2="347" y2="420" class="s w2" stroke="#121211"></line>
 <rect x="342" y="396" width="10" height="24" class="s w2" stroke="#121211" fill="#FFFFFF"></rect>
 <line x1="347" y1="396" x2="347" y2="164" class="s w1" stroke="#121211"></line>
 <line x1="22" y1="464" x2="347" y2="464" class="hit"></line><line x1="347" y1="464" x2="347" y2="420" class="hit"></line><rect x="342" y="396" width="10" height="24" class="hit"></rect><line x1="347" y1="396" x2="347" y2="164" class="hit"></line></g>
-<g data-layer="line:31a" data-ink="full" aria-label="27 Low Voltage">
+<g data-layer="line:31a" data-ink="full" aria-label="27 Low Voltage" class="is-drawn">
 <line x1="351" y1="418" x2="351" y2="164" class="s w1" stroke="#121211" stroke-dasharray="4 2"></line>
 <line x1="351" y1="418" x2="351" y2="164" class="hit"></line></g>
-<g data-layer="line:32" data-ink="full" aria-label="28 Fire Alarm">
+<g data-layer="line:32" data-ink="full" aria-label="28 Fire Alarm" class="is-drawn">
 <line x1="355" y1="418" x2="355" y2="164" class="s w1" stroke="#121211" stroke-dasharray="1.5 1.5"></line>
 <line x1="355" y1="418" x2="355" y2="164" class="hit"></line></g>
-<g data-layer="line:34" data-ink="full" aria-label="31 Site Work">
+<g data-layer="line:34" data-ink="full" aria-label="31 Site Work" class="is-drawn">
 <line x1="308" y1="482" x2="258" y2="430" class="s w1" stroke="#121211" stroke-dasharray="6 3"></line>
 <line x1="762" y1="482" x2="812" y2="430" class="s w1" stroke="#121211" stroke-dasharray="6 3"></line>
 <line x1="308" y1="482" x2="762" y2="482" class="s w1" stroke="#121211" stroke-dasharray="6 3"></line>
 <line x1="60" y1="440" x2="300" y2="440" class="s w1" stroke="#121211"></line>
 <line x1="308" y1="482" x2="258" y2="430" class="hit"></line><line x1="762" y1="482" x2="812" y2="430" class="hit"></line><line x1="308" y1="482" x2="762" y2="482" class="hit"></line><line x1="60" y1="440" x2="300" y2="440" class="hit"></line></g>
-<g data-layer="line:38" data-ink="full" aria-label="32 Asphalt">
+<g data-layer="line:38" data-ink="full" aria-label="32 Asphalt" class="is-drawn">
 <rect x="60" y="427" width="240" height="3" fill="#121211"></rect>
 <rect x="60" y="430" width="240" height="10" class="s w1" stroke="#121211" fill="url(#ds-gravel)"></rect>
 <line x1="60" y1="427" x2="300" y2="427" class="s w3" stroke="#121211"></line>
 <rect x="60" y="430" width="240" height="10" class="hit"></rect><line x1="60" y1="427" x2="300" y2="427" class="hit"></line></g>
-<g data-layer="line:39" data-ink="full" aria-label="32 Site Concrete">
+<g data-layer="line:39" data-ink="full" aria-label="32 Site Concrete" class="is-drawn is-now">
 <rect x="300" y="418" width="8" height="24" class="s w2" stroke="#121211" fill="url(#ds-conc)"></rect>
 <rect x="308" y="425" width="22" height="6" class="s w2" stroke="#121211" fill="url(#ds-conc)"></rect>
 <rect x="300" y="418" width="8" height="24" class="hit"></rect><rect x="308" y="425" width="22" height="6" class="hit"></rect></g>
-<g data-layer="line:37" data-ink="full" aria-label="32 Landscaping">
+<g data-layer="line:37" data-ink="full" aria-label="32 Landscaping" class="is-drawn">
 <line x1="836" y1="430" x2="837.5" y2="427" class="s w1" stroke="#121211"></line>
 <line x1="841" y1="430" x2="842.5" y2="426" class="s w1" stroke="#121211"></line>
 <line x1="847" y1="430" x2="848.5" y2="425" class="s w1" stroke="#121211"></line>
@@ -607,7 +575,7 @@
 <text x="248" y="108" class="t" font-size="12.5" fill="#55544E" text-anchor="end">Fire Protection, Plumbing</text>
 <text x="248" y="123" class="t" font-size="12.5" fill="#55544E" text-anchor="end">and Mechanical Risers</text>
 </g>
-<g data-note="line:38">
+<g data-note="line:38" class="is-drawn">
 <line x1="270" y1="428" x2="240" y2="480" class="s w1" stroke="#55544E"></line>
 <line x1="240" y1="480" x2="230" y2="480" class="s w1" stroke="#55544E"></line>
 <circle cx="270" cy="428" r="1.6" fill="#55544E"></circle>
@@ -722,17 +690,65 @@
 <text x="26" y="595" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:22" class="is-drawn">Appliances (Bought by the Owner),</tspan> <tspan data-note="line:24a" class="is-drawn">Countertops,</tspan> <tspan data-note="line:24b" class="is-drawn">Window Treatments,</tspan></text>
 <text x="26" y="607.5" class="t" font-size="10.5" fill="#55544E"><tspan data-note="line:25" class="is-drawn">Furnishings &amp; Fireplace.</tspan></text>
 </g>
-</svg></div>
-    <p class="dwg-cap only-phone"><b>Building Section</b> · 5 Stories · 70 Units · 64,000 SF</p>
+</svg><p class="dwg-tag" hidden><b>22 Plumbing</b><span class="num">$1,812,022</span><span class="dv-cf"><i class="dot dot--medium" aria-hidden="true"></i>Medium</span></p><i class="dwg-lead" hidden></i></div>
+    <p class="dwg-cap only-phone"><b>Building Section</b> · 5 Stories · 70 Units · 64,000 SF</p><div class="only-desk">
+    <div class="needs" aria-label="What the Model Needs">
+      <p class="needs-h">What the Model Needs</p>
+      <p class="needs-sub">Frame note, not page content. Every gap on frames 02 to 05, in one place.</p>
+      <ul>
+        <li><span class="needs-f"><code>line.inputs[]</code></span><span>The answers each line prices on</span></li>
+        <li><span class="needs-f"><code>line.quantity</code> <code>comparable.unit</code></span><span>A stated rate's quantity and unit</span></li>
+        <li><span class="needs-f"><code>line.includes[]</code> <code>line.excludes[]</code></span><span>Each item's written scope, from Kulka</span></li>
+        <li><span class="needs-f"><code>breakout_of_cost_code</code></span><span>Sub-items inside a one-line division</span></li>
+        <li><span class="needs-f"><code>confidence.raisedBy[]</code></span><span>What would move each mark, and to what</span></li>
+        <li><span class="needs-f"><code>line.division</code></span><span>The division, carried in the snapshot</span></li>
+      </ul>
+    </div></div>
   </aside>
 </div>
 </main>
 <script>
-  // The phone crops the section to the building, as the shipped page does (budget-page.js).
-  if (innerWidth <= 860) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
-  // On a phone the lens holds under the pinned section, as budget-page.js places it.
-  const dwg = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
-  if (innerWidth <= 860 && dwg && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + dwg.offsetHeight + "px");
+  const phone = innerWidth <= 860;
+  if (phone) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
+  const aside = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
+  if (phone && aside && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + aside.offsetHeight + "px");
+  // The open division's layers light in place; every other layer stays drawn, in light ink.
+  const box = document.querySelector("[data-dwg][data-now]");
+  if (box) {
+    const now = box.dataset.now.split(" ");
+    box.classList.add("dwg--focus");
+    const lit = [];
+    box.querySelectorAll("[data-layer]").forEach((g) => {
+      const on = now.includes(g.dataset.layer);
+      g.classList.add("is-drawn");
+      g.classList.toggle("is-now", on);
+      if (on && g.querySelector(".s")) lit.push(g);
+    });
+    box.querySelectorAll("[data-story], [data-roof]").forEach((e) => e.classList.add("is-up"));
+    // The tag sits beside the lit strokes, with a short lead to them.
+    const c = box.getBoundingClientRect();
+    const rs = lit.map((g) => g.getBoundingClientRect()).filter((r) => r.width + r.height > 0);
+    const tag = box.querySelector(".dwg-tag"), lead = box.querySelector(".dwg-lead");
+    if (rs.length && tag) {
+      const r = { left: Math.min(...rs.map((x) => x.left)) - c.left, right: Math.max(...rs.map((x) => x.right)) - c.left, top: Math.min(...rs.map((x) => x.top)) - c.top, bottom: Math.max(...rs.map((x) => x.bottom)) - c.top };
+      const w = tag.offsetWidth, h = tag.offsetHeight, gap = phone ? 10 : 26;
+      // Above the lit strokes when there is room (a low layer); beside them when the layer is tall.
+      const above = r.top - gap - h >= 8 && r.bottom - r.top < c.height * 0.45;
+      if (above) {
+        const x = Math.min(Math.max(8, r.left), c.width - w - 8), y = r.top - gap - h;
+        tag.style.left = x + "px"; tag.style.top = y + "px";
+        const lx = Math.min(Math.max(x + 12, (r.left + r.right) / 2), x + w - 12);
+        Object.assign(lead.style, { left: lx + "px", top: y + h + "px", width: "1px", height: gap - 2 + "px" });
+      } else {
+        const right = r.right + gap + w <= c.width - 8;
+        const x = right ? r.right + gap : Math.max(8, r.left - gap - w);
+        const y = Math.min(Math.max(8, r.top + (phone ? 4 : 24)), c.height - h - 8);
+        tag.style.left = x + "px"; tag.style.top = y + "px";
+        Object.assign(lead.style, { top: y + h / 2 + "px", left: (right ? r.right + 2 : x + w) + "px", width: Math.max(0, right ? x - r.right - 2 : r.left - 2 - (x + w)) + "px", height: "1px" });
+      }
+      tag.hidden = false; lead.hidden = false;
+    }
+  }
 </script>
 </body>
 </html>

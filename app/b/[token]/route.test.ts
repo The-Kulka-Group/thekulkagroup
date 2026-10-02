@@ -96,11 +96,9 @@ describe("/b/<token>", () => {
     const print = await (await GET(new Request(`http://localhost/b/${token}?print=1`), { params: Promise.resolve({ token }) })).text();
     const screen = await render(token);
 
-    expect(print).toContain('data-tier="detail" data-print="1"');
-    expect(print).toContain('id="appendix"');
+    expect(print).toContain('<html lang="en" data-print="1">');
     expect(print).not.toContain('class="hd"');
     expect(screen).not.toContain("data-print");
-    expect(screen).not.toContain('id="appendix"');
   });
 
   it("prints the reference page with the snapshot's own figures", async () => {
@@ -109,7 +107,7 @@ describe("/b/<token>", () => {
     const html = await render(token);
 
     // The seeded test benchmark is $1/GSF on 1,000 GSF, with no markups.
-    expect(html).toMatch(/^<!doctype html>\n<html lang="en" data-tier="summary">/);
+    expect(html).toMatch(/^<!doctype html>\n<html lang="en">/);
     expect(html).toContain("Synthetic test project");
     expect(html).toContain("Conceptual Budget · Version 1");
     expect(html).toContain("Harbor Point Partners (example)");

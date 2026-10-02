@@ -50,8 +50,8 @@ describe("the rendered page against the reference", () => {
     // parameter's id is a slug, so no engine parameter key reaches the page.
     // The reference printed the engine snapshot hash in the record; a client
     // has no use for it, so the page leaves it out. LA-1459: the Summary
-    // fold (scopes:rest) is gone, because the ledger shows every row at every
-    // depth so the section can be drawn row by row; the foot names the
+    // fold (scopes:rest) is gone, because the ledger shows every row so the
+    // section can be drawn row by row; the foot names the
     // project (record:project), as the approved close does.
     const renamed = (id: string) =>
       id === "record:recorded" ? "record:issued" : id.startsWith("parameter:") ? `parameter:${id.slice(10).replace(/[._]/g, "-")}` : id;
@@ -106,9 +106,10 @@ describe("the rendered page against the reference", () => {
         .flatMap((s) => s.lines)
         .flatMap((line) => romLine.get(line.costCode)!.comparables.filter((c) => c.kind !== "reviewed_judgment").map((c) => usd(c.rate))),
     );
-    // Two more departures (LA-1459): the Summary fold's own figure went with
-    // the fold, and the running receipt's "$0" went with the receipt.
-    const gone = new Set(["$0", ...(model.money.rest ? [usd(model.money.rest.likely)] : [])]);
+    // Two more departures (LA-1459): the Summary fold's own figure, the 27
+    // smallest scopes together, went with the fold, and the running receipt's
+    // "$0" went with the receipt.
+    const gone = new Set(["$0", usd(6_280_149.5)]);
     const missing = [...new Set(referencePage.money)].filter((m) => !onPage.has(m) && !referenceRates.has(m) && !gone.has(m));
     expect(missing).toEqual([]);
 
@@ -147,13 +148,14 @@ describe("the section on the page", () => {
     expect(divs).toContain("32");
   });
 
-  it("keeps the printed page at rest: one sheet, no chrome, the appendix, every id a destination", () => {
+  it("keeps the printed page at rest: one sheet, no chrome, no appendix, every id a destination", () => {
     const html = renderBudgetPage(presentBudget(referencePublication()), { print: true });
-    expect(html).toContain('<html lang="en" data-tier="detail" data-print="1">');
+    expect(html).toContain('<html lang="en" data-print="1">');
     expect(html).not.toContain('class="hd"');
     expect(html).not.toContain("data-sc-progress");
     expect(html).not.toContain("scrollcraft.js");
-    expect(html).toContain('id="appendix"');
+    // LA-1462: the body is the full depth, so there is nothing left for an appendix to add.
+    expect(html).not.toContain('id="appendix"');
     expect(html).toContain('data-dwg="section"');
   });
 });

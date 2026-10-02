@@ -3,8 +3,7 @@
    (daylight.css) for the canvas, type scale and radii; the black band and the
    ledger (rom-blocks.css, ledger-rail.css) for everything on the band and on
    the sheet. Ported from the approved frames' frames.css (LA-1456, tag
-   approved-2026-10-02) and extended with the page's states: the three tiers,
-   the header's two states, the drill-down, the drawn layers, the waterfall,
+   approved-2026-10-02) and extended with the page's states: the header's two states, the drill-down, the drawn layers, the waterfall,
    print and reduced motion. */
 
 :root {
@@ -73,17 +72,12 @@ b, strong { font-weight: 600; }
 .missing { color: var(--rb-blk-mute); font-weight: 400; }
 .only-phone { display: none !important; }
 
-/* Tiers: three depths of one DOM, switched on <html data-tier>. */
-[data-tier="summary"] .tier-detail, [data-tier="summary"] .tier-full { display: none !important; }
-[data-tier="detail"] .tier-full { display: none !important; }
-[data-tier="detail"] .tier-summary, [data-tier="full"] .tier-summary { display: none !important; }
-
 /* The engine's progress hairline, in the accent. */
 [data-sc-progress] { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--primary); z-index: 61; pointer-events: none; }
 
 /* --- The two-tier header: the band compressed ------------------------------
-   Tier one is the band's first row (wordmark, project, the figure's slot, the
-   tier switch). Tier two is the hairline meta row with the section links. In
+   Tier one is the band's first row (wordmark, project, the figure's
+   slot). Tier two is the hairline meta row with the section links. In
    the band state (the first screen) tier two is folded and the slot is empty;
    as the band compresses, tier two unfolds and the figure arrives in its slot. */
 
@@ -112,32 +106,9 @@ b, strong { font-weight: 600; }
 }
 .hd-fig-l { font-size: var(--meta-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
 .hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
-.hd-t1 .hd-fig + .sw { margin-left: 16px; }
 .hd[data-state="band"] .hd-fig, .hd[data-fig-hidden] .hd-fig { opacity: 0; }
 /* While the band is still behind it the header is clear, so the travelling figure never passes under it. */
 .hd[data-state="band"] { background: transparent; }
-
-/* The tier switch, the band's own pill (rom-blocks.css .rb-vsw). */
-.sw {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--control-h);
-  padding: 0 16px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--rb-pnl-line2);
-  background: var(--rb-pnl-raise);
-  font-size: var(--ui-size);
-  font-weight: 600;
-  color: var(--rb-pnl-mute);
-  flex: none;
-}
-.hd-t1 .sw { margin-left: auto; }
-.hd-t1 .hd-fig + .sw { margin-left: 16px; }
-.sw-t { color: var(--rb-pnl-mute); font-weight: 600; transition: color 150ms var(--ease); }
-.sw-t:hover { color: var(--rb-ink2-on-black); }
-.sw-t[aria-pressed="true"] { color: var(--rb-ink-on-black); }
-.sw i { font-style: normal; color: var(--rb-pnl-line2); }
 
 .hd-t2 {
   display: flex;
@@ -378,8 +349,7 @@ body { overflow-anchor: none; }
 .ln-v { margin-left: auto; font-weight: 600; white-space: nowrap; }
 .ln-range { font-size: var(--meta-size); color: var(--rb-blk-ink2); margin-top: 2px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .cmps { margin-top: 6px; display: grid; gap: 4px; }
-.cmp { display: grid; grid-template-columns: 160px minmax(0, 1fr) 140px; gap: 12px; font-size: var(--meta-size); color: var(--rb-blk-ink2); }
-[data-tier="full"] .cmp { grid-template-columns: 160px minmax(0, 1fr) 120px 80px 100px; }
+.cmp { display: grid; grid-template-columns: 160px minmax(0, 1fr) 120px 80px 100px; gap: 12px; font-size: var(--meta-size); color: var(--rb-blk-ink2); }
 .cmp-k { color: var(--rb-blk-ink); }
 .cmp-j { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmp-r { text-align: right; }
@@ -446,9 +416,12 @@ body { overflow-anchor: none; }
 .sheet--ledger .sheet-h { font-size: 22px; line-height: 30px; }
 .sheet--ledger .sheet-sub { font-size: var(--ui-size); }
 .sheet--ledger .lg-lines { padding-left: 56px; }
-.sheet--ledger .cmp { grid-template-columns: 130px minmax(0, 1fr) 110px; }
-[data-tier="full"] .sheet--ledger .cmp { grid-template-columns: 130px minmax(0, 1fr); }
-[data-tier="full"] .sheet--ledger .cmp-r, [data-tier="full"] .sheet--ledger .cmp-w, [data-tier="full"] .sheet--ledger .cmp-d { grid-column: 2; text-align: left; }
+.sheet--ledger .cmp { grid-template-columns: 130px max-content max-content minmax(0, 1fr); gap: 0 12px; }
+/* Narrowed, the job takes its own line and the rate, weight and date share the one beneath it. */
+.sheet--ledger .cmp-k { grid-row: span 2; }
+.sheet--ledger .cmp-j { grid-column: 2 / -1; }
+.sheet--ledger .cmp-r { text-align: left; }
+.sheet--ledger .cmp-w, .sheet--ledger .cmp-d { color: var(--rb-blk-mute); }
 
 /* --- Proven: the drawing with the count and the key beside it ------------- */
 
@@ -633,7 +606,7 @@ body { overflow-anchor: none; }
 
 .gates-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 .gates-h { font-size: var(--t3-size); font-weight: 600; line-height: 24px; margin-bottom: 4px; }
-.gates-h.tier-detail, .gates-col .gates-h + .gates-h { margin-top: 20px; }
+.gates-h--after, .gates-col .gates-h + .gates-h { margin-top: 20px; }
 .plain { display: grid; }
 .plain li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--ui-size); }
 .plain li:first-child { border-top: 0; }
@@ -706,7 +679,6 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .hd-t1 { gap: 10px; }
   .hd-proj { font-size: var(--meta-size); }
   .hd-t1 .hd-fig { display: none; }
-  .hd-t1 .sw { margin-left: auto; padding: 0 12px; font-size: var(--meta-size); }
   .hd-t2 { gap: 12px; }
   .hd-ix { display: none; }
   .hd-t2 .hd-fig { display: inline-flex; margin-left: 0; align-self: center; }
@@ -740,8 +712,9 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .sheet--ledger .sheet-sub { font-size: var(--meta-size); line-height: 18px; }
   .lg-lines, .sheet--ledger .lg-lines { padding: 4px 12px 12px; }
   .ln-head { flex-wrap: wrap; gap: 6px 12px; }
-  .cmp, .sheet--ledger .cmp, [data-tier="full"] .cmp, [data-tier="full"] .sheet--ledger .cmp { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 6px 0; border-top: 1px solid var(--rb-blk-line); }
-  .cmp-r, [data-tier="full"] .sheet--ledger .cmp-r { text-align: left; }
+  .cmp, .sheet--ledger .cmp { grid-template-columns: max-content max-content minmax(0, 1fr); gap: 0 10px; padding: 6px 0; border-top: 1px solid var(--rb-blk-line); }
+  .cmp-k, .cmp-j, .sheet--ledger .cmp-k, .sheet--ledger .cmp-j { grid-column: 1 / -1; grid-row: auto; }
+  .cmp-r, .sheet--ledger .cmp-r { text-align: left; }
 
   .trio { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 12px 16px 32px; padding: 0; }
   .trio-main { gap: 12px; }
@@ -807,13 +780,6 @@ html.is-reduce .band--peak *, html.is-reduce .band--peak { animation: none !impo
 html[data-print] body { padding-top: 0; }
 .dests { display: none; }
 .dest { position: absolute; width: 0; height: 0; }
-.appendix { display: none; }
-.appx { margin-top: 20px; }
-.appx h3 { font-size: 13pt; margin: 0 0 8px; }
-.appx h4 { font-size: 11pt; margin: 14px 0 4px; }
-.appx-line { padding: 6px 0; border-bottom: 1px solid var(--border-light); }
-.appx-label { font-weight: 600; }
-.appx p { margin: 0; }
 
 @media print {
   @page { margin: 16mm 14mm 18mm; }
@@ -861,17 +827,16 @@ html[data-print] body { padding-top: 0; }
   .lg-lines { display: block !important; background: none; }
   .lg-item.is-cur > .lg-btn { box-shadow: none; }
   .lg-btn:hover { background: none; }
-  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .confidence div, .cmp, .count, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .appx-line, .jobs li, .key li, .crit li { break-inside: avoid; }
+  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .confidence div, .cmp, .count, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .jobs li, .key li, .crit li { break-inside: avoid; }
   /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
      and What Is Not, follows From Trades to Total on the page it ends on. */
-  #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes, #appendix { break-before: page; }
+  #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes { break-before: page; }
   h1, h2, h3, h4 { break-after: avoid; }
   .params thead { display: table-header-group; }
   /* The three columns stack on paper, each kept whole, so no heading strands at a page foot. */
   .gates-grid { display: block; }
   .gates-col { break-inside: avoid; margin-bottom: 16px; }
   .superseded { border: 1px solid var(--rb-blk-line); }
-  html[data-print] .appendix { display: block; }
   /* A transition still running when print media switches on would print half-faded. */
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }

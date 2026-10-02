@@ -8,25 +8,33 @@ import {
   type Criterion,
   type Fact,
   type GateRow,
+  type LedgerRow,
   type PricedLine,
-  type Scope,
   type Tier,
   type Tone,
   type UnpricedLine,
   type WaterfallRow,
 } from "@/lib/rom/presentation";
+import { DIAGRAM_LINE, drawSection, sectionStyle } from "@/lib/rom/section";
 
-// LA-1418. The LA-1416 reference page (~/scrollcraft/builds/kulka-budget-page,
-// tools/render.mjs), rendered from the presentation model instead of the
-// build's own snapshot.json. The markup, class names, ids, tiers, receipt and
-// print rules are the reference's, kept byte-close so the vendored engine
-// (public/scrollcraft/scrollcraft.js) and the page script
-// (public/scrollcraft/budget-page.js, the reference's tools/page.js) drive it
-// unchanged. Every figure, label and id comes from the model; nothing here
-// prices, words or orders anything.
+// LA-1459. The client budget page, "The Ledger, Opened with the Section",
+// rendered from the presentation model on the approved frames
+// (~/scrollcraft/frames/kulka-ledger-opened, tag approved-2026-10-02;
+// brief-v3.md and brief-v3-section.md on LA-1309). The internal saved-budget
+// screen grown into a presentation: the black band at full viewport, the
+// figure rising into the two-tier header, the ledger in MasterFormat order
+// with the section drawn beside it row by row, Proven, the criteria called
+// out, the second black band as the waterfall, What Is In, the ask.
 //
-// Where this departs from the reference, it is so every id appears once and
-// the tiers match LA-1309's table; each departure is named where it happens.
+// Every figure, label and id comes from the model; nothing here prices,
+// words or orders anything. The markup is driven by public/scrollcraft/
+// budget-page.js over the vendored engine (scrollcraft.js, untouched), and
+// styled by public/scrollcraft/budget-page.css, whose tokens are the
+// internal screen's own. Three tiers of one DOM, switched on <html data-tier>.
+//
+// Version 1's element ids are kept, with one departure: the Summary fold
+// (`scopes:rest`) is gone, because the ledger shows every row at every depth
+// so the section can be drawn row by row.
 
 const esc = (t: string | number): string =>
   String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -38,408 +46,384 @@ const elAttr = (el: string | null, ref: string | null = null): string =>
 const tierClass = (tier: Tier): string => (tier === "summary" ? "" : ` tier-${tier}`);
 
 const toneWord: Record<Tone, string> = { high: "High", medium: "Medium", low: "Low", none: "None" };
-const chip = (tone: Tone | "working", text: string) => `<span class="chip chip--${tone}"><i class="dot" aria-hidden="true"></i>${esc(text)}</span>`;
-const chipOf = (c: Chip) => chip(c.tone, c.text);
-const confChip = (tone: Tone) => chip(tone, `${toneWord[tone]} Confidence`);
+/** A source, dot plus ink: the internal ledger's own cell. */
+const src = (tone: Tone | "working" | "quiet", text: string, cls = "") =>
+  `<span class="src${cls}"><i class="dot dot--${tone}" aria-hidden="true"></i>${esc(text)}</span>`;
+const srcOf = (c: Chip) => src(c.tone, c.text);
 const time = (iso: string) => `<time datetime="${esc(iso)}">${longDate(iso)}</time>`;
 
-// --- 1. Your Number ------------------------------------------------------------------
-
-function stageBar(page: BudgetPage): string {
-  return `
-<ol class="stages" aria-label="Where this estimate stands">
-${page.stages
-  .map(
-    (st) => `  <li class="stage${st.current ? " is-current" : ""}"${st.current ? ' aria-current="step"' : ""}>
-    <span class="stage__name">${esc(st.label)}</span>
-    <span class="stage__words">${esc(st.words)}</span>
-  </li>`,
-  )
-  .join("\n")}
-</ol>`;
+/** The range on a scale from $0, as the internal screen's RangeBand draws it: max = high × 1.04. */
+function rangeBand(low: number, mid: number, high: number, lowEl: string, highEl: string): string {
+  const max = high * 1.04;
+  const pct = (v: number) => ((v / max) * 100).toFixed(2);
+  return `<span class="prb" aria-label="Range ${usd(low)} to ${usd(high)}">
+        <span class="prb-track" aria-hidden="true">
+          <span class="prb-band" style="left:${pct(low)}%;width:${pct(high - low)}%"></span>
+          <span class="prb-mid" style="left:${pct(mid)}%"></span>
+        </span>
+        <span class="prb-lbls">
+          <span class="prb-lbl num" style="left:${pct(low)}%" data-el="${esc(lowEl)}">${usd(low)}</span>
+          <span class="prb-lbl prb-lbl--end num" style="left:${pct(high)}%" data-el="${esc(highEl)}">${usd(high)}</span>
+        </span>
+      </span>`;
 }
 
-function record(page: BudgetPage): string {
-  const r = page.record;
-  const h = page.headline;
-  // Departure: the reference names the run's recorded date; a published page
-  // names its issue date. Gross Area and Units take record ids here, because
-  // the fact rows below hold fact:grossSquareFeet and fact:unitCount.
-  return `
-<dl class="record">
-  <div><dt>Prepared For</dt><dd data-el="record:prepared-for">${r.preparedFor ? esc(r.preparedFor) : '<span class="missing">Not Named</span>'}</dd></div>
-  <div><dt>Prepared By</dt><dd data-el="record:prepared-by">${esc(r.preparedBy)}</dd></div>
-  <div><dt>Version</dt><dd data-el="record:version">${r.version}</dd></div>
-  <div><dt>Issued</dt><dd data-el="record:issued">${time(r.issuedAt)}</dd></div>${
-    h.grossSquareFeet !== null ? `\n  <div><dt>Gross Area</dt><dd data-el="record:gross-area">${wholeNumber(h.grossSquareFeet)} SF</dd></div>` : ""
-  }${h.unitCount !== null ? `\n  <div><dt>Units</dt><dd data-el="record:units">${wholeNumber(h.unitCount)}</dd></div>` : ""}${
-    h.perSquareFoot ? `\n  <div><dt>Per SF</dt><dd data-el="record:per-sf" title="${esc(h.perSquareFoot.arithmetic)}">${usd(h.perSquareFoot.value)}</dd></div>` : ""
-  }${h.perUnit ? `\n  <div><dt>Per Unit</dt><dd data-el="record:per-unit" title="${esc(h.perUnit.arithmetic)}">${usd(h.perUnit.value)}</dd></div>` : ""}
-  <div><dt>Figures Valid</dt><dd data-el="record:validity">${r.validityDays ? `${r.validityDays} days from issue` : '<span class="missing">Not Set</span>'}</dd></div>
-</dl>`;
+// --- The drawings ---------------------------------------------------------------------
+
+function drawings(page: BudgetPage) {
+  const d = page.drawing;
+  const ink = new Map(Object.entries(d.ink));
+  // The three drawings' style rules live in the head, so no <style> sits in the body.
+  return {
+    ledger: drawSection({ facts: d.facts, ink, criteria: [], notes: { noLayer: d.noLayer }, idPrefix: "dl", styleInSvg: false }),
+    proven: drawSection({ facts: d.facts, ink, criteria: d.criteria, notes: { ink: d.inkNote, noLayer: d.noLayer }, idPrefix: "dp", styleInSvg: false }),
+    peak: drawSection({ facts: d.facts, ink, criteria: d.criteria, theme: "band", variant: "plain", idPrefix: "dk", styleInSvg: false }),
+    style: `<style>${sectionStyle("dl")}${sectionStyle("dp")}${sectionStyle("dk", "band")}</style>`,
+  };
 }
 
-function sectionNumber(page: BudgetPage): string {
-  const h = page.headline;
-  const r = page.record;
-  return `
-<section class="sheet hero" id="your-number" data-el="section:your-number" data-sc-act="flow">
-  <div class="wrap">
-    <p class="meta">${esc(r.stageLabel)} · Version ${r.version} · Issued ${time(r.issuedAt)}</p>
-    <h1 class="title">${esc(page.projectName)}</h1>${r.coverSentence ? `\n    <p class="lede cover" data-el="record:cover">${esc(r.coverSentence)}</p>` : ""}
-    <div class="hero__grid">
-      <div class="hero__figure">
-        <p class="label">Kulka Contract</p>
-        <p class="figure figure--xl" data-el="total:kulka-contract">${usd(h.kulkaContract.likely)}</p>
-        <p class="range">Likely, between <span data-el="total:kulka-contract:low">${usd(h.kulkaContract.low)}</span> and <span data-el="total:kulka-contract:high">${usd(h.kulkaContract.high)}</span></p>
-        <p class="label label--gap">Total Project Cost</p>
-        <p class="figure figure--md" data-el="total:total-project-cost">${usd(h.totalProjectCost.likely)}</p>
-        <p class="range">Kulka's contract plus what the owner buys direct, between ${usd(h.totalProjectCost.low)} and ${usd(h.totalProjectCost.high)}</p>
-      </div>
-      <aside class="hero__record" aria-label="The record">${record(page)}</aside>
-    </div>
-    ${stageBar(page)}
-  </div>
-</section>`;
-}
+// --- Chrome: the two-tier header ------------------------------------------------------
 
-// --- 2. The Project as We Understood It --------------------------------------------------
-
-function factRow(f: Fact): string {
-  return `
-    <div class="fact${tierClass(f.tier)}" data-el="${esc(f.el)}">
-      <dt>${esc(f.label)}</dt>
-      <dd>
-        <span class="fact__value">${esc(f.value)}</span>
-        ${f.basis === "assumed" ? chip("working", `Assumed, ${f.assumedBy}`) : `<span class="chip chip--quiet tier-detail"><i class="dot" aria-hidden="true"></i>Stated</span>`}
-        <span class="fact__basis tier-full">${esc(f.basisWords)}</span>
-      </dd>
+function tierSwitch(): string {
+  return `<div class="sw" role="group" aria-label="Depth">
+      <button type="button" class="sw-t" data-tier="summary" aria-pressed="true">Summary</button><i aria-hidden="true">·</i><button type="button" class="sw-t" data-tier="detail" aria-pressed="false">Detail</button><i aria-hidden="true">·</i><button type="button" class="sw-t" data-tier="full" aria-pressed="false">Full</button>
     </div>`;
 }
 
-function sectionProject(page: BudgetPage): string {
-  const { project, headline } = page;
-  const n = project.assumedCount;
+function header(page: BudgetPage): string {
+  const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Kulka Contract</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
   return `
-<section class="sheet" id="the-project" data-el="section:the-project" data-sc-act="flow">
-  <div class="wrap">
-    <h2>The Project as We Understood It</h2>${
-      headline.grossSquareFeet !== null ? `\n    <p class="figure figure--lg" data-el="fact:grossSquareFeet:figure">${wholeNumber(headline.grossSquareFeet)} SF</p>` : ""
-    }${project.line ? `\n    <p class="sub">${esc(project.line)}</p>` : ""}
-    <p class="lede">What you told Kulka, read back.${n > 0 ? ` ${n} ${n === 1 ? "fact below was" : "facts below were"} set by Kulka's design criteria rather than stated, and each is marked.` : ""}</p>
-    <dl class="facts" data-sc-in data-sc-stagger="12">${project.facts.map(factRow).join("")}
-    </dl>
+<header class="hd" id="bar" data-state="band">
+  <div class="hd-t1">
+    <a class="hd-mark" href="#your-number">Kulka</a>
+    <span class="hd-proj">${esc(page.projectName)}</span>
+    ${figure}
+    ${tierSwitch()}
+  </div>
+  <nav class="hd-t2" aria-label="Sections">
+    ${figure}
+    <ul class="hd-ix">${page.sections
+      .filter((s) => s.id !== "design-and-engineering" || page.criteria.length > 0)
+      .map((s) => `<li${s.tier === "summary" ? "" : ` class="tier-${s.tier}"`}><a href="#${s.id}" data-index="${s.id}">${esc(s.indexLabel)}</a></li>`)
+      .join("")}</ul>
+    <span class="hd-here" data-here>${esc(page.sections[0].indexLabel)}</span>
+  </nav>
+</header>`;
+}
+
+// --- 1. Your Number: the band grown to the viewport -----------------------------------------
+
+function sectionNumber(page: BudgetPage): string {
+  const h = page.headline;
+  return `
+<section class="band band--first" id="your-number" data-el="section:your-number" data-sc-act="flow" data-sc-verify-state="travel:0">
+  <div class="band-stage">
+    <div class="band-main">
+      <div class="fig-wrap">
+        <p class="fig-l" data-fade>Kulka Contract</p>
+        <p class="fig num" data-el="total:kulka-contract" data-travel>${usd(h.kulkaContract.likely)}</p>
+        <span data-fade>${rangeBand(h.kulkaContract.low, h.kulkaContract.likely, h.kulkaContract.high, "total:kulka-contract:low", "total:kulka-contract:high")}</span>
+        <p class="rates" data-fade>
+          <span>Total Project Cost <b class="num" data-el="total:total-project-cost">${usd(h.totalProjectCost.likely)}</b></span>${
+            h.perSquareFoot ? `\n          <span><b class="num" data-el="record:per-sf" title="${esc(h.perSquareFoot.arithmetic)}">${usd(h.perSquareFoot.value)}</b> per SF</span>` : ""
+          }${h.perUnit ? `\n          <span><b class="num" data-el="record:per-unit" title="${esc(h.perUnit.arithmetic)}">${usd(h.perUnit.value)}</b> per unit</span>` : ""}
+        </p>
+        <p class="band-meta tier-detail" data-fade>${esc(page.record.stageLabel)} · Version ${page.record.version} · Issued ${time(page.record.issuedAt)}</p>
+      </div>
+    </div>
+    <footer class="band-foot" data-fade>
+      <ol class="stg" aria-label="Where this budget stands">${page.stages
+        .map(
+          (st) => `
+        <li${st.current ? ' aria-current="step"' : ""}><span class="stg-name">${esc(st.label)}</span><span class="stg-words tier-detail">${esc(st.words)}</span></li>`,
+        )
+        .join("")}
+      </ol>
+    </footer>
   </div>
 </section>`;
 }
 
-// --- 3. Where the Money Is -----------------------------------------------------------------
+// --- 2. What You Told Us ------------------------------------------------------------------------
+
+function factRow(f: Fact): string {
+  return `
+      <div class="fact lg-row${tierClass(f.tier)}" data-el="${esc(f.el)}">
+        <dt class="fact-l">${esc(f.label)}</dt>
+        <dd class="fact-d">
+          <span class="fact-v">${esc(f.value)}</span>
+          ${f.basis === "assumed" ? src("working", `Assumed, ${f.assumedBy}`) : src("quiet", "Stated", " tier-detail")}
+          <span class="fact-basis tier-full">${esc(f.basisWords)}</span>
+        </dd>
+      </div>`;
+}
+
+function sectionProject(page: BudgetPage): string {
+  const { project, headline, record } = page;
+  const n = project.assumedCount;
+  return `
+<section class="sheet" id="the-project" data-el="section:the-project" data-sc-act="flow">
+  <div class="sheet-hd">
+    <h1 class="sheet-h">What You Told Us</h1>${project.line ? `\n    <p class="sheet-sub">${esc(project.line)}</p>` : ""}
+  </div>${record.coverSentence ? `\n  <p class="lede cover" data-el="record:cover">${esc(record.coverSentence)}</p>` : ""}${
+    headline.grossSquareFeet !== null ? `\n  <p class="fig-md num" data-el="fact:grossSquareFeet:figure">${wholeNumber(headline.grossSquareFeet)} SF</p>` : ""
+  }
+  <p class="lede">What you told Kulka, read back.${n > 0 ? ` ${n} ${n === 1 ? "fact below was" : "facts below were"} set by Kulka's design criteria rather than stated, and each is marked.` : ""}</p>
+  <dl class="facts lg" data-sc-in data-sc-stagger="12">${project.facts.map(factRow).join("")}
+  </dl>
+</section>`;
+}
+
+// --- 3. The Ledger, with the Section beside it ---------------------------------------------------
 
 function comparableRows(line: PricedLine): string {
   return line.comparables
     .map(
       (c) => `
-          <li class="cmp" data-el="${esc(c.el)}">
-            <span class="cmp__kind">${esc(c.kindWords)}</span>
-            <span class="cmp__job">${esc(c.jobs)}</span>
-            <span class="cmp__rate num">${esc(c.rate)}</span>
-            <span class="cmp__weight tier-full">Weight ${c.weight}</span>
-            <span class="cmp__date tier-full">${esc(c.recordedAt)}</span>
-          </li>`,
+            <li class="cmp" data-el="${esc(c.el)}">
+              <span class="cmp-k">${esc(c.kindWords)}</span>
+              <span class="cmp-j">${esc(c.jobs)}</span>
+              <span class="cmp-r num">${esc(c.rate)}</span>
+              <span class="cmp-w tier-full">Weight ${c.weight}</span>
+              <span class="cmp-d tier-full">${esc(c.recordedAt)}</span>
+            </li>`,
     )
     .join("");
 }
 
 function lineDetail(line: PricedLine): string {
   return `
-        <div class="line"${elAttr(line.el)}>
-          <div class="line__head">
-            <span class="line__label">${esc(line.label)}</span>
-            ${chipOf(line.source)}
-            <span class="line__likely num">${usd(line.likely)}</span>
-          </div>
-          <p class="line__range">${usd(line.low)} to ${usd(line.high)}. ${confChip(line.confidence)}</p>
-          <ul class="cmps" aria-label="Where the figure came from">${comparableRows(line)}
-          </ul>
-          <p class="line__basis tier-full">${esc(line.basis)}</p>
-        </div>`;
+          <div class="ln"${elAttr(line.el)}>
+            <div class="ln-head">
+              <span class="ln-l">${esc(line.label)}</span>
+              ${srcOf(line.source)}
+              <span class="ln-v num">${usd(line.likely)}</span>
+            </div>
+            <p class="ln-range">${usd(line.low)} to ${usd(line.high)}. ${src(line.confidence, `${toneWord[line.confidence]} Confidence`)}</p>
+            <ul class="cmps" aria-label="Where the figure came from">${comparableRows(line)}
+            </ul>
+            <p class="ln-basis tier-full">${esc(line.basis)}</p>
+          </div>`;
 }
 
 function unpricedRow(u: UnpricedLine): string {
   return `
-        <div class="line line--unpriced" data-el="${esc(u.el)}">
-          <div class="line__head">
-            <span class="line__label">${esc(u.label)}</span>
-            ${chip("none", "No Rate Yet")}
-            <span class="line__likely num missing">Outside the Total</span>
-          </div>
-        </div>`;
-}
-
-function bar(page: BudgetPage, low: number, high: number): string {
-  const max = page.money.scaleHigh;
-  return `<span class="rbar" aria-hidden="true"><span class="rbar__range" style="left:${((low / max) * 100).toFixed(2)}%;width:${(((high - low) / max) * 100).toFixed(2)}%"></span></span>`;
-}
-
-function scopeRow(page: BudgetPage, sc: Scope): string {
-  const count = sc.lines.length + sc.unpriced.length;
-  return `
-    <div class="scope${tierClass(sc.tier)}" id="${esc(sc.domId)}" data-el="${esc(sc.el)}" data-open="false" data-receipt-label="${esc(sc.label)}" data-receipt-amount="${sc.likely}"${sc.ownerDirect ? ' data-receipt-owner="true"' : ""}>
-      <button class="scope__row" type="button" aria-expanded="false" aria-controls="${esc(sc.domId)}-lines">
-        <span class="scope__label">${esc(sc.label)}${sc.kind === "element" ? ` <span class="scope__count">${count} items</span>` : ""}</span>
-        <span class="scope__source">${chipOf(sc.chip)}</span>
-        ${bar(page, sc.low, sc.high)}
-        <span class="scope__share num tier-detail">${sc.share === null ? "" : percentOf(sc.share)}</span>
-        <span class="scope__likely num">${usd(sc.likely)}</span>
-        <span class="scope__range num tier-detail">${usd(sc.low)} to ${usd(sc.high)}</span>
-      </button>
-      <div class="scope__lines" id="${esc(sc.domId)}-lines">${sc.lines.map(lineDetail).join("")}${sc.unpriced.map(unpricedRow).join("")}
-      </div>
-    </div>`;
-}
-
-/** Departure: the reference has no By Division view. It shows at Detail, below By Scope, when the model carries one. */
-function divisionLedger(page: BudgetPage): string {
-  const divisions = page.money.divisions;
-  if (!divisions) return "";
-  return `
-    <h3 class="ledger__h3 tier-detail">By Division</h3>
-    <div class="ledger ledger--division tier-detail">${divisions
-      .map(
-        (d) => `
-      <div class="scope" id="division-${esc(d.division)}" data-el="${esc(d.el)}" data-open="false">
-        <button class="scope__row" type="button" aria-expanded="false" aria-controls="division-${esc(d.division)}-lines">
-          <span class="scope__label">${esc(d.label)} <span class="scope__count">${d.items.length} items</span></span>
-          <span class="scope__source"></span>
-          ${bar(page, d.low, d.high)}
-          <span class="scope__likely num">${usd(d.likely)}</span>
-          <span class="scope__range num tier-detail">${usd(d.low)} to ${usd(d.high)}</span>
-        </button>
-        <div class="scope__lines" id="division-${esc(d.division)}-lines">${d.items
-          .map(
-            (item) => `
-          <div class="line${item.likely === null ? " line--unpriced" : ""}" data-el="${esc(item.el)}">
-            <div class="line__head">
-              <span class="line__label">${esc(item.label)}</span>
-              <span class="line__likely num${item.likely === null ? " missing" : ""}">${item.likely === null ? "Outside the Total" : usd(item.likely)}</span>
+          <div class="ln ln--unpriced" data-el="${esc(u.el)}">
+            <div class="ln-head">
+              <span class="ln-l">${esc(u.label)}</span>
+              ${src("none", "No Rate Yet")}
+              <span class="ln-v num missing">Outside the Total</span>
             </div>
-          </div>`,
-          )
-          .join("")}
-        </div>
-      </div>`,
-      )
-      .join("")}
-      <div class="ledger__foot" data-el-ref="total:trades">
-        <span>Trades, Kulka's Contract</span>
-        <span class="num">${usd(page.money.trades.likely)}</span>
-      </div>
-    </div>`;
+          </div>`;
 }
 
-function sectionMoney(page: BudgetPage): string {
-  const { money, headline } = page;
-  const tradeLikely = money.trades.likely;
-  const share = (likely: number) => (tradeLikely > 0 ? likely / tradeLikely : 0);
-  const rest = money.rest;
+function ledgerRow(row: LedgerRow): string {
+  const sc = row.scope;
+  const items = sc.lines.length + sc.unpriced.length;
+  const amount = sc.kind === "unpriced" ? '<span class="missing">Outside the Total</span>' : usd(row.likely);
+  const rate = [row.perSquareFoot ? `${row.perSquareFoot} per SF` : null, row.shareOfContract].filter(Boolean).join(" · ");
   return `
-<section class="sheet money" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow">
-  <div class="wrap">
-    <h2>Where the Money Is</h2>
-    <p class="label">Trade Cost</p>
-    <p class="figure figure--lg" data-el="total:trade-cost">${usd(headline.tradeCost.likely)}</p>
-    <p class="range">Every scope below, before General Requirements, General Conditions, fee and insurance. Between ${usd(headline.tradeCost.low)} and ${usd(headline.tradeCost.high)}.</p>
-    <div class="strip" aria-label="Share of trade cost by scope">${money.scopes
-      .filter((x) => x.tier === "summary")
-      .map((x) => `<span class="strip__seg" style="width:${(share(x.likely) * 100).toFixed(2)}%" title="${esc(x.label)}, ${percentOf(share(x.likely))}"></span>`)
-      .join("")}${
-      rest
-        ? `<span class="strip__seg strip__seg--rest" style="width:${(share(rest.likely) * 100).toFixed(2)}%" title="${rest.count} more scopes, ${percentOf(share(rest.likely))}"></span>`
-        : ""
-    }</div>
-    <p class="lede">Largest first. Open any scope to see the lines inside it and where each figure came from.</p>
-    <div class="ledger" data-sc-in data-sc-stagger="18">${money.scopes.map((sc) => scopeRow(page, sc)).join("")}${
-      rest
-        ? `
-      <div class="scope scope--rest tier-summary" data-el="scopes:rest" data-receipt-label="${rest.count} More Scopes" data-receipt-amount="${rest.likely}">
-        <button class="scope__row" type="button" data-tier-to="detail">
-          <span class="scope__label">${rest.count} More Scopes <span class="scope__count">Switch to Detail to read every scope</span></span>
-          <span class="scope__source"></span>
-          <span class="rbar rbar--none" aria-hidden="true"></span>
-          <span class="scope__likely num">${usd(rest.likely)}</span>
+      <div class="lg-item${sc.ownerDirect ? " lg-item--owner" : ""}" id="${esc(sc.domId)}" data-el="${esc(sc.el)}" data-layer="${esc(row.key)}" data-open="false" role="row">
+        <button class="lg-row lg-btn" type="button" aria-expanded="false" aria-controls="${esc(sc.domId)}-lines">
+          <span class="lg-div num">${esc(row.division ?? "")}</span>
+          <span class="lg-name">${esc(row.label)}${sc.ownerDirect ? ` <span class="lg-tag">Bought by the Owner</span>` : ""}${
+            sc.kind === "element" ? ` <span class="lg-count tier-detail">${items} ${items === 1 ? "Item" : "Items"}</span>` : ""
+          }</span>
+          <span class="lg-amt num">${amount}</span>
+          <span class="lg-psf num">${esc(row.perSquareFoot ?? "")}</span>
+          <span class="lg-pct num">${esc(row.shareOfContract ?? "")}</span>
+          <span class="lg-rate num">${esc(rate)}</span>
+          <span class="lg-more">${src(row.sourceTone, row.sourceText)}<span class="pill">Open</span></span>
         </button>
-      </div>`
-        : ""
-    }
-      <div class="ledger__foot" data-el="total:trades">
-        <span>Trades, Kulka's Contract</span>
-        <span class="num">${usd(tradeLikely)}</span>
+        <div class="lg-lines" id="${esc(sc.domId)}-lines">${
+          sc.kind === "element" ? `\n          <p class="ln-sum tier-detail">Together, between ${usd(sc.low)} and ${usd(sc.high)}, likely ${usd(sc.likely)}.</p>` : ""
+        }${sc.lines.map(lineDetail).join("")}${sc.unpriced.map(unpricedRow).join("")}
+        </div>
+      </div>`;
+}
+
+function sectionLedger(page: BudgetPage, svg: string): string {
+  const { money, headline } = page;
+  const facts = page.drawing.facts;
+  const program = [`${facts.stories} Stories Above Grade`, facts.units !== null ? `${wholeNumber(facts.units)} Units` : null, facts.grossArea].filter(Boolean).join(" · ");
+  return `
+<section class="split" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow" data-sc-verify-state="ledger:-1:0">
+  <div class="sheet sheet--ledger">
+    <div class="sheet-hd">
+      <h1 class="sheet-h">The Ledger</h1>
+      <p class="sheet-sub">In the order the trades build it. Each row draws its layer on the section. Open any row to see its lines and where each figure came from.</p>
+    </div>
+    <div class="lg" role="table" aria-label="The Ledger">
+      <div class="lg-row lg-cols" role="row">
+        <span class="lg-div">Div</span>
+        <span class="lg-name">Item</span>
+        <span class="lg-amt">Amount</span>
+        <span class="lg-psf">$/SF</span>
+        <span class="lg-pct">%</span>
+      </div>${page.ledger.map(ledgerRow).join("")}
+      <div class="lg-foot" data-el="total:trades">
+        <span>Trade Cost, Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.trades.low)} to ${usd(money.trades.high)}</span></span>
+        <span class="num">${usd(money.trades.likely)}</span>
       </div>${
         money.ownerScopes.length > 0
           ? `
-      <h3 class="ledger__h3">Bought by the Owner</h3>${money.ownerScopes.map((sc) => scopeRow(page, sc)).join("")}
-      <div class="ledger__foot" data-el="total:owner-direct">
-        <span>Owner-Direct, Outside Kulka's Contract</span>
+      <div class="lg-foot lg-foot--quiet" data-el="total:owner-direct">
+        <span>Bought by the Owner, Outside Kulka's Contract <span class="lg-foot-range num tier-detail">${usd(money.ownerDirect.low)} to ${usd(money.ownerDirect.high)}</span></span>
         <span class="num">${usd(money.ownerDirect.likely)}</span>
+      </div>
+      <div class="lg-foot lg-foot--quiet tier-detail" data-el="total:trade-cost">
+        <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">${usd(headline.tradeCost.low)} to ${usd(headline.tradeCost.high)}</span></span>
+        <span class="num">${usd(headline.tradeCost.likely)}</span>
       </div>`
           : ""
       }
-    </div>${divisionLedger(page)}
+    </div>
   </div>
+  <aside class="sheet sheet--dwg" aria-label="The Section">
+    <div class="dwg dwg--crop" data-dwg="ledger">${svg}</div>
+    <p class="dwg-cap only-phone"><b>Building Section</b> · <span data-cap-story>${facts.stories} Stories Above Grade</span><br>${esc(program)}<br>${DIAGRAM_LINE}</p>
+  </aside>
 </section>`;
 }
 
-// --- The receipt (signature move). Fixed on screen, in flow under print. ---------------
+// --- 4. Proven: the section complete ---------------------------------------------------------------
 
-function receipt(page: BudgetPage): string {
-  const h = page.headline;
-  return `
-<aside class="receipt" id="receipt" aria-label="What you have read so far" data-sc-verify-state="0:0:hidden" data-state="hidden">
-  <button class="receipt__toggle" type="button" aria-expanded="false" aria-controls="receipt-body">
-    <span class="receipt__title">Read So Far</span>
-    <span class="receipt__count" data-receipt-count>No Scopes Yet</span>
-    <span class="receipt__running num" data-receipt-running>$0</span>
-  </button>
-  <div class="receipt__body" id="receipt-body">
-    <ol class="receipt__lines" data-receipt-lines aria-live="off"></ol>
-    <div class="receipt__total" data-receipt-total>
-      <span>Trades So Far</span>
-      <span class="num" data-receipt-running-2>$0</span>
-    </div>
-  </div>
-  <div class="receipt__foot">
-    <div><span>Kulka Contract</span><span class="num">${usd(h.kulkaContract.likely)}</span></div>
-    <div><span>Total Project Cost</span><span class="num">${usd(h.totalProjectCost.likely)}</span></div>
-  </div>
-  <p class="receipt__print">Printed as read: every scope in order, then the trades total the waterfall starts from.</p>
-</aside>`;
-}
-
-// --- 4. What This Rests On ----------------------------------------------------------------
-
-function sectionRests(page: BudgetPage): string {
+function sectionProven(page: BudgetPage, svg: string): string {
   const c = page.restsOn;
-  const shareWords = (share: number) => `<span class="count__share tier-detail">, ${percentOf(share)} of trade cost</span>`;
+  const d = page.drawing;
   const named = c.jobs.filter((j) => j.name !== null);
-  // Departure: LA-1309 asks for each group's share of the number, and the jobs by name at Detail.
+  const share = (s: number) => `<span class="count-share tier-detail">, ${percentOf(s)} of trade cost</span>`;
   return `
-<section class="sheet rests" id="what-this-rests-on" data-el="section:what-this-rests-on" data-sc-act="flow">
-  <div class="wrap">
-    <h2>What This Number Rests On</h2>
-    <div class="counts">
-      <div class="count" data-el="count:from-kulka-jobs">
-        <p class="figure figure--lg num" data-sc-count="0 ${c.fromKulkaJobs}" data-sc-count-at="0.04 0.2">${c.fromKulkaJobs}</p>
-        <p class="count__words">of ${c.priced} priced lines come from Kulka's completed jobs${shareWords(c.shares.fromKulkaJobs)}</p>
-      </div>
-      <div class="count" data-el="count:from-kulka-rates">
-        <p class="figure figure--md num" data-sc-count="0 ${c.fromKulkaRates}" data-sc-count-at="0.06 0.22">${c.fromKulkaRates}</p>
-        <p class="count__words">rest on rates Kulka has stated${shareWords(c.shares.fromKulkaRates)}</p>
-      </div>${
+<section class="sheet sheet--proven" id="what-this-rests-on" data-el="section:what-this-rests-on" data-sc-act="flow">
+  <div class="sheet-hd">
+    <h1 class="sheet-h">Proven</h1>
+    <p class="sheet-sub">The section complete. Full ink is priced from Kulka's completed jobs. The lighter ink is priced from Kulka's stated rates.</p>
+  </div>
+  <div class="proven">
+    <div class="dwg dwg--crop" data-dwg="proven">${svg}</div>
+    <div class="proven-rail">
+      <p class="count" data-el="count:from-kulka-jobs"><b class="num">${c.fromKulkaJobs} of ${c.priced}</b> priced lines stand on Kulka's completed jobs${share(c.shares.fromKulkaJobs)}</p>
+      <ul class="jobs" data-el="count:source-jobs" aria-label="The jobs behind the figures">${
+        named.length > 0
+          ? named.map((j) => `\n        <li><i class="dot dot--high" aria-hidden="true"></i><span>${esc(j.name!.replace(/ \(C\d+\)$/, ""))}</span><span class="jobs-n tier-detail">Behind ${j.lines} priced ${j.lines === 1 ? "line" : "lines"}</span></li>`).join("")
+          : `\n        <li><i class="dot dot--high" aria-hidden="true"></i><span>${c.jobs.length} Kulka ${c.jobs.length === 1 ? "job stands" : "jobs stand"} behind the figures</span></li>`
+      }
+      </ul>
+      <ul class="key" aria-label="Ink">
+        <li><span class="key-ink" aria-hidden="true"></span>Priced from Kulka's completed jobs</li>
+        <li><span class="key-ink key-ink--light" aria-hidden="true"></span>Priced from Kulka's stated rates${d.lightRows.length ? `: ${esc(d.lightRows.join(", "))}` : ""}</li>
+      </ul>
+      <p class="count count--sm tier-detail" data-el="count:from-kulka-rates"><b class="num">${c.fromKulkaRates}</b> rest on rates Kulka has stated${share(c.shares.fromKulkaRates)}</p>${
         c.placeholder > 0
           ? `
-      <div class="count" data-el="count:placeholder-rates">
-        <p class="figure figure--md num" data-sc-count="0 ${c.placeholder}" data-sc-count-at="0.07 0.23">${c.placeholder}</p>
-        <p class="count__words">carry a Placeholder Rate until Kulka states one${shareWords(c.shares.placeholder)}</p>
-      </div>`
+      <p class="count count--sm tier-detail" data-el="count:placeholder-rates"><b class="num">${c.placeholder}</b> carry a Placeholder Rate until Kulka states one${share(c.shares.placeholder)}</p>`
           : ""
       }
-      <div class="count" data-el="count:source-jobs">
-        <p class="figure figure--md num" data-sc-count="0 ${c.jobs.length}" data-sc-count-at="0.08 0.24">${c.jobs.length}</p>
-        <p class="count__words">Kulka jobs stand behind the figures</p>
-      </div>
+      <p class="rail-p tier-detail">${c.placeholder === 0 ? "No line on this page is a placeholder. " : ""}Every priced line blends Kulka's own cost records, weighted actuals over budgets, with Kulka's stated rates where no record exists yet.</p>
+      <dl class="confidence tier-detail">
+        <div data-el="count:confidence:high"><dt>${src("high", "High Confidence")}</dt><dd><span class="num">${c.confidence.high}</span> ${c.confidence.high === 1 ? "line" : "lines"}, range 10% each side</dd></div>
+        <div data-el="count:confidence:medium"><dt>${src("medium", "Medium Confidence")}</dt><dd><span class="num">${c.confidence.medium}</span> ${c.confidence.medium === 1 ? "line" : "lines"}, range 20% each side</dd></div>
+        <div data-el="count:confidence:low"><dt>${src("low", "Low Confidence")}</dt><dd><span class="num">${c.confidence.low}</span> ${c.confidence.low === 1 ? "line" : "lines"}, range 35% each side, held for Kulka's review</dd></div>
+      </dl>${
+        page.criteria.length > 0
+          ? `
+      <p class="rail-h">Design and Engineering</p>
+      <ol class="crit" aria-label="Design and Engineering criteria">${page.criteria
+        .map((k) => `\n        <li><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span></li>`)
+        .join("")}
+      </ol>`
+          : ""
+      }
+      <p class="dwg-cap only-phone">${DIAGRAM_LINE}</p>
     </div>
-    <p class="lede">${c.placeholder === 0 ? "No line on this page is a placeholder. " : ""}Every priced line blends Kulka's own cost records, weighted actuals over budgets, with Kulka's stated rates where no record exists yet.</p>${
-      named.length > 0
-        ? `
-    <ul class="plain tier-detail" aria-label="The jobs behind the figures">${named
-      .map((j) => `<li><span>${esc(j.name!)}</span><span class="answer">Behind ${j.lines} priced ${j.lines === 1 ? "line" : "lines"}</span></li>`)
-      .join("")}</ul>`
-        : ""
-    }
-    <dl class="confidence" data-sc-in data-sc-stagger="50">
-      <div data-el="count:confidence:high"><dt>${confChip("high")}</dt><dd><span class="num">${c.confidence.high}</span> ${c.confidence.high === 1 ? "line" : "lines"}, range 10% each side</dd></div>
-      <div data-el="count:confidence:medium"><dt>${confChip("medium")}</dt><dd><span class="num">${c.confidence.medium}</span> ${c.confidence.medium === 1 ? "line" : "lines"}, range 20% each side</dd></div>
-      <div data-el="count:confidence:low"><dt>${confChip("low")}</dt><dd><span class="num">${c.confidence.low}</span> ${c.confidence.low === 1 ? "line" : "lines"}, range 35% each side, held for Kulka's review</dd></div>
-    </dl>
   </div>
 </section>`;
 }
 
-// --- 5. Design and Engineering, as Planned -------------------------------------------------
+// --- 5. Design and Engineering: the criteria, no money ------------------------------------------------
 
-function criterionCard(k: Criterion): string {
+function criterionRow(k: Criterion): string {
   return `
-      <article class="criterion" data-el="${esc(k.el)}">
-        <header class="criterion__head">
-          <span class="criterion__code">${esc(k.code)}</span>
-          <h3 class="criterion__label">${esc(k.label)}</h3>
-          ${k.settled ? chip("high", "Settled") : chip("working", "Planning Assumption")}
-        </header>
-        <p class="criterion__value">${esc(k.value)}</p>
-        <p class="criterion__method tier-detail">${esc(k.method)}</p>
-        <p class="criterion__prices tier-detail">Prices ${k.prices.map(esc).join("; ")}.</p>
-        <p class="criterion__why tier-detail">${esc(k.confidenceReason)}</p>
-        <dl class="criterion__inputs tier-full">${k.inputs.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${esc(i.value)} <span class="basis basis--${i.basis}">${i.basis}</span></dd></div>`).join("")}</dl>
-        <ol class="criterion__steps tier-full">${k.steps.map((st) => `<li><span>${esc(st.label)}</span><span>${esc(st.result)}</span></li>`).join("")}</ol>
-        ${k.corrected ? `<p class="criterion__corrected">Corrected by Kulka, ${esc(k.corrected.on)}: ${esc(k.corrected.reason)}</p>` : ""}
+      <article class="criterion lg-row" data-el="${esc(k.el)}">
+        <span class="crit-tag num">${esc(k.code)}</span>
+        <div class="crit-body">
+          <h2 class="crit-h">${esc(k.label)}</h2>
+          <p class="crit-method tier-detail">${esc(k.method)}</p>${k.prices.length ? `\n          <p class="crit-prices tier-detail">Prices ${k.prices.map(esc).join("; ")}.</p>` : ""}
+          <p class="crit-why tier-detail">${esc(k.confidenceReason)}</p>
+          <dl class="crit-inputs tier-full">${k.inputs.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${esc(i.value)} <span class="basis basis--${i.basis}">${i.basis}</span></dd></div>`).join("")}</dl>
+          <ol class="crit-steps tier-full">${k.steps.map((st) => `<li><span>${esc(st.label)}</span><span>${esc(st.result)}</span></li>`).join("")}</ol>${
+            k.corrected ? `\n          <p class="crit-corrected">Corrected by Kulka, ${esc(k.corrected.on)}: ${esc(k.corrected.reason)}</p>` : ""
+          }
+        </div>
+        <span class="crit-v num">${esc(k.value)}</span>
+        ${k.settled ? src("high", "Settled") : src("working", "Planning Assumption")}
       </article>`;
 }
 
 function sectionDesign(page: BudgetPage): string {
   if (page.criteria.length === 0) return "";
   const settled = page.criteria.filter((x) => x.settled).length;
-  // Departure: LA-1309's table shows Design and Engineering from Detail on; the reference showed it at Summary.
   return `
-<section class="sheet design tier-detail" id="design-and-engineering" data-el="section:design-and-engineering" data-sc-act="flow">
-  <div class="wrap">
-    <h2>Design and Engineering, as Planned</h2>
-    <p class="lede">${page.criteria.length} criteria set what this budget assumes about the building's design. ${settled} ${settled === 1 ? "is" : "are"} settled by code. The rest are planning assumptions until your design team decides them, and each says what it prices.</p>
-    <div class="criteria" data-sc-in data-sc-stagger="45">${page.criteria.map(criterionCard).join("")}
-    </div>
+<section class="sheet" id="design-and-engineering" data-el="section:design-and-engineering" data-sc-act="flow">
+  <div class="sheet-hd">
+    <h1 class="sheet-h">Design and Engineering</h1>
+    <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building, each keyed on the section. ${settled} ${settled === 1 ? "is" : "are"} settled by code. The rest are planning assumptions until your design team decides them.</p>
+  </div>
+  <div class="crits lg" data-sc-in data-sc-stagger="30">${page.criteria.map(criterionRow).join("")}
   </div>
 </section>`;
 }
 
-// --- 6. From Trades to Total (the peak) ------------------------------------------------------
+// --- 6. From Trades to Total: the peak ------------------------------------------------------------------
 
-const cueAt: Record<WaterfallRow["key"], string> = {
-  subtotal: "-0.2",
-  gr: "0.12",
-  gc: "0.17",
-  fee: "0.29",
-  insurance: "0.41",
-  "kulka-contract": "0.52",
-  "owner-direct": "0.76",
-  "total-project-cost": "0.86",
-};
+/** Where each line arrives in the band's own scroll, 0 to 1. The subtotal is already there. */
+function cueFor(index: number, count: number): string {
+  return (0.06 + (index * 0.6) / Math.max(count - 1, 1)).toFixed(2);
+}
 
-function wfRow(w: WaterfallRow): string {
-  const land = w.key === "kulka-contract";
-  const total = w.key === "total-project-cost";
+function wfRow(w: WaterfallRow, index: number, count: number): string {
+  const cue = cueFor(index, count);
   return `
-      <div class="wf__row${land ? " wf__row--land" : ""}${total ? " wf__row--total" : ""}${w.key === "subtotal" ? " wf__row--trades" : ""}"${elAttr(w.el, w.elRef)} data-sc-cue="${cueAt[w.key]}" data-wf="${esc(w.key)}">
-        <div class="wf__line">
-          <span class="wf__label">${w.key === "subtotal" || land || total ? "" : "+ "}${esc(w.label)}</span>
-          <span class="wf__amount num">${w.tbd ? '<span class="missing">TBD</span>' : usd(w.likely)}</span>
+        <li class="wf-row"${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}" data-sc-cue="${cue}" data-cue-at="${cue}"${w.running !== null ? ` data-running="${usd(w.running)}"` : ""}>
+          <span class="wf-lab"><i class="dot dot--next" aria-hidden="true"></i><span>${esc(w.label)}</span></span>
+          <span class="wf-amt num">${w.tbd ? '<span class="missing">TBD</span>' : usd(w.likely)}</span>
+          <span class="wf-range num tier-detail">${w.tbd ? "Outside the total until it has a basis" : `${usd(w.low)} to ${usd(w.high)}`}</span>
+          <span class="wf-why">${esc(w.basis)}</span>${
+            w.plan.length > 0 ? `\n          <ul class="wf-plan tier-full">${w.plan.map((pl) => `<li data-el="${esc(pl.el)}"><span>${esc(pl.label)}</span><span class="num">${usd(pl.amount)}</span></li>`).join("")}</ul>` : ""
+          }
+        </li>`;
+}
+
+function sectionWaterfall(page: BudgetPage, svg: string): string {
+  const built = page.waterfall.filter((w) => w.key === "subtotal" || w.key === "gr" || w.key === "gc" || w.key === "fee" || w.key === "insurance");
+  const after = page.waterfall.filter((w) => w.key === "kulka-contract" || w.key === "owner-direct" || w.key === "total-project-cost");
+  const trades = page.waterfall[0];
+  const land = page.waterfall.find((w) => w.key === "kulka-contract")!;
+  const afterCue = (0.06 + 0.6 + 0.14).toFixed(2);
+  return `
+<section class="band band--peak" id="from-trades-to-total" data-el="section:from-trades-to-total" data-sc-act="pin" data-sc-span="3">
+  <div class="band-stage sc-stage" data-sc-stage data-sc-verify-state="wf:0">
+    <div class="wf-main">
+      <div class="wf-in">
+        <h1 class="wf-h">From Trades to Total</h1>
+        <div class="wf-fig" data-el-ref="total:kulka-contract">
+          <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
+          <p class="fig fig--beside num" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
+          <p class="wf-landed tier-detail">Likely, between <span class="num">${usd(land.low)}</span> and <span class="num">${usd(land.high)}</span>. ${esc(land.basis)} Total Project Cost, with what the owner buys direct, between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
         </div>
-        <p class="wf__range num tier-detail">${w.tbd ? "Outside the total until it has a basis" : `${usd(w.low)} to ${usd(w.high)}`}</p>
-        <p class="wf__basis">${esc(w.basis)}</p>
-        ${w.plan.length > 0 ? `<ul class="wf__plan tier-full">${w.plan.map((pl) => `<li data-el="${esc(pl.el)}"><span>${esc(pl.label)}</span><span class="num">${usd(pl.amount)}</span></li>`).join("")}</ul>` : ""}
-      </div>`;
-}
-
-function sectionWaterfall(page: BudgetPage): string {
-  return `
-<section class="band" id="from-trades-to-total" data-el="section:from-trades-to-total" data-sc-act="pin" data-sc-span="3.2">
-  <div data-sc-stage class="wf">
-    <div class="wf__inner">
-      <h2 class="wf__h2">From Trades to Total</h2>${page.waterfall.map(wfRow).join("")}
+        <div class="dwg dwg--band dwg--crop" data-dwg="peak" aria-label="The Section">${svg}</div>
+        <ol class="wf">${built.map((w, i) => wfRow(w, i, built.length)).join("")}
+        </ol>
+        <p class="wf-after tier-detail" data-sc-cue="${afterCue}" data-cue-at="${afterCue}">${after
+          .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
+          .join('<i aria-hidden="true">·</i>')}</p>
+      </div>
     </div>
   </div>
 </section>`;
 }
 
-// --- 7. What Is In, and What Is Not; Notes -------------------------------------------------------
+// --- 7. What Is In, and What Is Not; Notes ---------------------------------------------------------------
 
 /** The answer that decided a gate at every tier; the question as asked at Full (LA-1309). */
 function decided(row: GateRow): string {
@@ -456,69 +440,82 @@ function sectionGates(page: BudgetPage): string {
   const g = page.gates;
   return `
 <section class="sheet gates" id="what-is-in" data-el="section:what-is-in" data-sc-act="flow">
-  <div class="wrap">
-    <h2>What Is In, and What Is Not</h2>
-    <div class="gates__grid" data-sc-in data-sc-stagger="40">
-      <div class="gates__col">
-        <h3>In the Number</h3>
-        <p class="sub">The base building and site, plus everything your answers brought in.</p>
-        ${gateList(g.answeredYes)}${
-          g.assumedPresent.length > 0
-            ? `
-        <h3 class="tier-detail">Assumed Present</h3>
-        <p class="sub tier-detail">Nobody answered the question behind these, so the budget carries them.</p>
-        ${gateList(g.assumedPresent, " tier-detail")}`
-            : ""
-        }
-      </div>
-      <div class="gates__col">
-        <h3>Not in This Job</h3>
-        <p class="sub">Removed from the total by an answer.</p>
-        ${gateList(g.notInThisJob)}
-      </div>
-      <div class="gates__col">
-        <h3>Waiting on an Answer</h3>
-        <p class="sub">Outside the total until you decide.</p>
-        ${gateList(g.waiting)}${
-          g.unpriced.length > 0
-            ? `
-        <h3 class="tier-detail">In Scope, No Rate Yet</h3>
-        <p class="sub tier-detail">${g.unpriced.length} ${g.unpriced.length === 1 ? "item" : "items"} your answers brought in that Kulka has not rated. Each is kept out of the total rather than guessed.</p>
-        <ul class="plain tier-detail">${g.unpriced.map((x) => `<li><span>${esc(x.label)}</span><span class="answer">${x.broughtInBy ? `Brought in by ${esc(x.broughtInBy)}` : "In scope"}</span></li>`).join("")}</ul>`
-            : ""
-        }
-      </div>
-    </div>
-    <h2 class="h2--notes" id="notes">Notes and Clarifications</h2>
-    <ol class="notes" data-sc-in data-sc-stagger="15">${page.notes
-      .map(
-        (n) => `
-      <li class="note${tierClass(n.tier)}" data-el="${esc(n.el)}" value="${n.number}"><span class="note__n num">${n.number}</span><span class="note__text">${esc(n.text)}</span></li>`,
-      )
-      .join("")}
-    </ol>${
-      page.parameters.length > 0
-        ? `
-    <div class="parameters tier-full">
-      <h3>Pricing Parameters This Budget Ran With</h3>
-      <table class="params">
-        <thead><tr><th scope="col">Parameter</th><th scope="col" class="right">Value</th><th scope="col">Set By</th><th scope="col">Date</th></tr></thead>
-        <tbody>${page.parameters
-          .map(
-            (p) => `
-          <tr data-el="${esc(p.el)}"><td>${esc(p.label)}</td><td class="right num">${esc(p.value)}</td><td>${esc(p.recordedBy)}</td><td>${esc(p.recordedAt)}</td></tr>`,
-          )
-          .join("")}
-        </tbody>
-      </table>${page.markupWords ? `\n      <p class="sub">${esc(page.markupWords)}</p>` : ""}
-    </div>`
-        : ""
-    }
+  <div class="sheet-hd">
+    <h1 class="sheet-h">What Is In, and What Is Not</h1>
   </div>
+  <div class="gates-grid" data-sc-in data-sc-stagger="40">
+    <div class="gates-col">
+      <h2 class="gates-h">In the Number</h2>
+      <p class="sub">The base building and site, plus everything your answers brought in.</p>
+      ${gateList(g.answeredYes)}${
+        g.assumedPresent.length > 0
+          ? `
+      <h2 class="gates-h tier-detail">Assumed Present</h2>
+      <p class="sub tier-detail">Nobody answered the question behind these, so the budget carries them.</p>
+      ${gateList(g.assumedPresent, " tier-detail")}`
+          : ""
+      }
+    </div>
+    <div class="gates-col">
+      <h2 class="gates-h">Not in This Job</h2>
+      <p class="sub">Removed from the total by an answer.</p>
+      ${gateList(g.notInThisJob)}
+    </div>
+    <div class="gates-col">
+      <h2 class="gates-h">Waiting on an Answer</h2>
+      <p class="sub">Outside the total until you decide.</p>
+      ${gateList(g.waiting)}${
+        g.unpriced.length > 0
+          ? `
+      <h2 class="gates-h tier-detail">In Scope, No Rate Yet</h2>
+      <p class="sub tier-detail">${g.unpriced.length} ${g.unpriced.length === 1 ? "item" : "items"} your answers brought in that Kulka has not rated. Each is kept out of the total rather than guessed.</p>
+      <ul class="plain tier-detail">${g.unpriced.map((x) => `<li><span>${esc(x.label)}</span><span class="answer">${x.broughtInBy ? `Brought in by ${esc(x.broughtInBy)}` : "In scope"}</span></li>`).join("")}</ul>`
+          : ""
+      }
+    </div>
+  </div>
+  <h2 class="sheet-h sheet-h--notes" id="notes">Notes and Clarifications</h2>
+  <ol class="notes" data-sc-in data-sc-stagger="15">${page.notes
+    .map(
+      (n) => `
+    <li class="note${tierClass(n.tier)}" data-el="${esc(n.el)}" value="${n.number}"><span class="note-n num">${n.number}</span><span class="note-text">${esc(n.text)}</span></li>`,
+    )
+    .join("")}
+  </ol>${
+    page.parameters.length > 0
+      ? `
+  <div class="parameters tier-full">
+    <h2 class="gates-h">Pricing Parameters This Budget Ran With</h2>
+    <table class="params">
+      <thead><tr><th scope="col">Parameter</th><th scope="col" class="right">Value</th><th scope="col">Set By</th><th scope="col">Date</th></tr></thead>
+      <tbody>${page.parameters
+        .map(
+          (p) => `
+        <tr data-el="${esc(p.el)}"><td>${esc(p.label)}</td><td class="right num">${esc(p.value)}</td><td>${esc(p.recordedBy)}</td><td>${esc(p.recordedAt)}</td></tr>`,
+        )
+        .join("")}
+      </tbody>
+    </table>${page.markupWords ? `\n    <p class="sub">${esc(page.markupWords)}</p>` : ""}
+  </div>`
+      : ""
+  }
 </section>`;
 }
 
-// --- 8. What Happens Next -------------------------------------------------------------------------
+// --- 8. What Happens Next --------------------------------------------------------------------------------------
+
+function record(page: BudgetPage): string {
+  const r = page.record;
+  const h = page.headline;
+  return `
+  <dl class="record tier-detail">
+    <div><dt>Prepared For</dt><dd data-el="record:prepared-for">${r.preparedFor ? esc(r.preparedFor) : '<span class="missing">Not Named</span>'}</dd></div>
+    <div><dt>Issued</dt><dd data-el="record:issued">${time(r.issuedAt)}</dd></div>${
+      h.grossSquareFeet !== null ? `\n    <div><dt>Gross Area</dt><dd data-el="record:gross-area">${wholeNumber(h.grossSquareFeet)} SF</dd></div>` : ""
+    }${h.unitCount !== null ? `\n    <div><dt>Units</dt><dd data-el="record:units">${wholeNumber(h.unitCount)}</dd></div>` : ""}
+    <div><dt>Figures Valid</dt><dd data-el="record:validity">${r.validityDays ? `${r.validityDays} days from issue` : '<span class="missing">Not Set</span>'}</dd></div>
+  </dl>`;
+}
 
 function sectionNext(page: BudgetPage): string {
   const open = page.next.openQuestions;
@@ -526,48 +523,23 @@ function sectionNext(page: BudgetPage): string {
   const r = page.record;
   return `
 <section class="sheet next" id="what-happens-next" data-el="section:what-happens-next" data-sc-act="flow">
-  <div class="wrap">
-    <h2>What Happens Next</h2>
-    <ol class="steps" data-sc-cue="0.02">
-      <li><strong>Confirm the facts.</strong> Read The Project as We Understood It. If a fact is wrong, tell Kulka and the budget is repriced from the corrected fact.</li>${
-        open.length > 0
-          ? `
-      <li><strong>Answer the open ${open.length === 1 ? "item" : "items"}.</strong> ${open.map(esc).join(" ")} ${open.length === 1 ? "An answer moves" : "Answers move"} what waits on it into, or out of, the number.</li>`
-          : ""
-      }${nextStage ? `\n      <li><strong>Reprice at ${esc(nextStage.label)}.</strong> ${esc(nextStage.words)}</li>` : ""}
-    </ol>
-    <p class="reach">To reach Kulka, reply to the estimator who sent you this link.</p>
-    <footer class="foot">
-      <span class="wordmark">Kulka</span>
-      <span class="foot__meta">${esc(page.projectName)} · Version ${r.version} · Issued ${longDate(r.issuedAt)} · Prepared by ${esc(r.preparedBy)}</span>
-    </footer>
+  <div class="sheet-hd">
+    <h1 class="sheet-h">What Happens Next</h1>
   </div>
+  <ol class="steps">
+    <li><b>Confirm the facts.</b> Read What You Told Us. If a fact is wrong, tell Kulka and the budget is repriced from the corrected fact.</li>${
+      open.length > 0
+        ? `
+    <li><b>Answer the open ${open.length === 1 ? "item" : "items"}.</b> ${open.map(esc).join(" ")} ${open.length === 1 ? "An answer moves" : "Answers move"} what waits on it into, or out of, the number.</li>`
+        : ""
+    }${nextStage ? `\n    <li><b>Reprice at ${esc(nextStage.label)}.</b> ${esc(nextStage.words)}</li>` : ""}
+  </ol>
+  <p class="reach">To reach Kulka, reply to the estimator who sent you this link.</p>${record(page)}
+  <footer class="foot">
+    <span class="foot-mark">Kulka</span>
+    <span class="foot-rec"><span data-el="record:project">${esc(page.projectName)}</span> · <span data-el="record:version">Version ${r.version}</span> · <span data-el="record:prepared-by">Prepared by ${esc(r.preparedBy)}</span></span>
+  </footer>
 </section>`;
-}
-
-// --- Chrome ------------------------------------------------------------------------------------------
-
-function chrome(page: BudgetPage): string {
-  return `
-<header class="bar" id="bar">
-  <div class="bar__top">
-    <a class="wordmark" href="#your-number">Kulka</a>
-    <span class="bar__project">${esc(page.projectName)}</span>
-    <div class="tiers" role="group" aria-label="Depth">
-      <button type="button" class="tier" data-tier="summary" aria-pressed="true">Summary</button>
-      <button type="button" class="tier" data-tier="detail" aria-pressed="false">Detail</button>
-      <button type="button" class="tier" data-tier="full" aria-pressed="false">Full</button>
-    </div>
-  </div>
-  <nav class="bar__index" aria-label="Sections">
-    <ul>${page.sections
-      .filter((s) => s.id !== "design-and-engineering" || page.criteria.length > 0)
-      .map((s) => `<li${s.tier === "summary" ? "" : ` class="tier-${s.tier}"`}><a href="#${s.id}" data-index="${s.id}">${esc(s.indexLabel)}</a></li>`)
-      .join("")}</ul>
-    <span class="pill" title="Lines with a figure in the total">${page.pricedLineCount} Priced Lines</span>
-  </nav>
-</header>
-`;
 }
 
 /** A superseded page keeps its figures under a band naming the newer version (LA-1309 decision 3). */
@@ -577,7 +549,7 @@ function newerBand(page: BudgetPage): string {
 <p class="superseded" role="note">Version ${page.newer.version} replaces this budget. <a href="${esc(page.newer.href)}">Open Version ${page.newer.version}</a></p>`;
 }
 
-// --- Print (LA-1420) -----------------------------------------------------------------------------
+// --- Print (LA-1420) -------------------------------------------------------------------------------------------------
 
 /**
  * The stored PDF is the Detail tier with a Full appendix, because paper cannot
@@ -606,11 +578,11 @@ function appendix(page: BudgetPage): string {
       <h3>How Each Line Was Priced</h3>${priced
         .map(
           (sc) => `
-      <div class="appx__group"><h4>${esc(sc.label)}</h4>${sc.lines
+      <div class="appx-group"><h4>${esc(sc.label)}</h4>${sc.lines
         .map(
           (line) => `
-        <div class="appx__line">
-          <p class="appx__label">${esc(line.label)}</p>
+        <div class="appx-line">
+          <p class="appx-label">${esc(line.label)}</p>
           <p>${esc(line.basis)}</p>${
             line.comparables.length > 0
               ? `
@@ -632,9 +604,9 @@ function appendix(page: BudgetPage): string {
       <h3>How Each Design Criterion Was Worked</h3>${page.criteria
         .map(
           (k) => `
-      <div class="appx__group appx__line"><h4>${esc(k.code)} ${esc(k.label)}: ${esc(k.value)}</h4>
-        <dl class="criterion__inputs">${k.inputs.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${esc(i.value)} <span class="basis basis--${i.basis}">${i.basis}</span></dd></div>`).join("")}</dl>
-        <ol class="criterion__steps">${k.steps.map((st) => `<li><span>${esc(st.label)}</span><span>${esc(st.result)}</span></li>`).join("")}</ol>
+      <div class="appx-group appx-line"><h4>${esc(k.code)} ${esc(k.label)}: ${esc(k.value)}</h4>
+        <dl class="crit-inputs">${k.inputs.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${esc(i.value)} <span class="basis basis--${i.basis}">${i.basis}</span></dd></div>`).join("")}</dl>
+        <ol class="crit-steps">${k.steps.map((st) => `<li><span>${esc(st.label)}</span><span>${esc(st.result)}</span></li>`).join("")}</ol>
       </div>`,
         )
         .join("")}
@@ -646,8 +618,8 @@ function appendix(page: BudgetPage): string {
     <div class="appx">
       <h3>Allocated Resources Plan</h3>${planned
         .map((w) => `
-      <div class="appx__group"><h4>${esc(w.label)}</h4>
-        <ul class="wf__plan">${w.plan.map((pl) => `<li><span>${esc(pl.label)}</span><span class="num">${usd(pl.amount)}</span></li>`).join("")}</ul>
+      <div class="appx-group"><h4>${esc(w.label)}</h4>
+        <ul class="wf-plan">${w.plan.map((pl) => `<li><span>${esc(pl.label)}</span><span class="num">${usd(pl.amount)}</span></li>`).join("")}</ul>
       </div>`)
         .join("")}
     </div>`);
@@ -678,17 +650,17 @@ function appendix(page: BudgetPage): string {
 
   return `
 <section class="sheet appendix" id="appendix" data-el="section:appendix">
-  <div class="wrap">
-    <h2>Appendix: Full Depth</h2>
-    <p class="lede">What the Full depth of the page adds to the Detail pages, in the order the sections above use.</p>${parts.join("")}
+  <div class="sheet-hd">
+    <h1 class="sheet-h">Appendix: Full Depth</h1>
   </div>
+  <p class="lede">What the Full depth of the page adds to the Detail pages, in the order the sections above use.</p>${parts.join("")}
 </section>`;
 }
 
 /**
  * Names every `data-el` element as a PDF destination. An element with no id
  * takes its `data-el` as its id. One that has an id already (a section, a
- * scope) gets an empty marker inside it carrying the `data-el`. Chromium
+ * row) gets an empty marker inside it carrying the `data-el`. Chromium
  * writes a named destination for each same-page link target, so a hidden
  * list of links to every id makes them all reach the PDF (LA-1309, "The PDF
  * carries the same ids as named destinations").
@@ -712,6 +684,7 @@ export type RenderOptions = {
 /** The whole document for one published budget. */
 export function renderBudgetPage(page: BudgetPage, options: RenderOptions = {}): string {
   const print = options.print === true;
+  const svg = drawings(page);
   const html = `<!doctype html>
 <html lang="en" data-tier="${print ? "detail" : "summary"}"${print ? ' data-print="1"' : ""}>
 <head>
@@ -721,22 +694,22 @@ export function renderBudgetPage(page: BudgetPage, options: RenderOptions = {}):
 <meta name="referrer" content="no-referrer">
 <title>${esc(page.documentTitle)}</title>
 <meta name="description" content="${esc(page.description)}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231D1D1F'/><text x='16' y='22' text-anchor='middle' font-family='Open Sans, Arial, sans-serif' font-weight='800' font-size='18' fill='white'>K</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230B0B0A'/><text x='16' y='22' text-anchor='middle' font-family='Open Sans, Arial, sans-serif' font-weight='800' font-size='18' fill='white'>K</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/scrollcraft/scrollcraft.css">
 <link rel="stylesheet" href="/scrollcraft/budget-page.css">
+${svg.style}
 </head>
-<body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : chrome(page)}
+<body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : header(page)}
 <main id="top">${newerBand(page)}
 ${sectionNumber(page)}
 ${sectionProject(page)}
-${sectionMoney(page)}
-${receipt(page)}
-${sectionRests(page)}
+${sectionLedger(page, svg.ledger)}
+${sectionProven(page, svg.proven)}
 ${sectionDesign(page)}
-${sectionWaterfall(page)}
+${sectionWaterfall(page, svg.peak)}
 ${sectionGates(page)}
 ${sectionNext(page)}${print ? appendix(page) : ""}
 </main>${print ? "" : '\n<script src="/scrollcraft/scrollcraft.js"></script>'}
@@ -764,11 +737,9 @@ export function renderWithdrawnPage(version: number, preparedBy: string | null):
 </head>
 <body class="withdrawn">
 <main class="sheet">
-  <div class="wrap">
-    <p class="meta">The Kulka Group</p>
-    <h1 class="title">This budget was withdrawn</h1>
-    <p class="lede">Version ${version} is no longer open. Ask ${esc(who)} for the current figures.</p>
-  </div>
+  <p class="meta">The Kulka Group</p>
+  <h1 class="sheet-h">This budget was withdrawn</h1>
+  <p class="lede">Version ${version} is no longer open. Ask ${esc(who)} for the current figures.</p>
 </main>
 </body>
 </html>

@@ -58,10 +58,15 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         ].filter(Boolean);
         if (problems.length) bad.push(`${el.tagName.toLowerCase()}.${el.className || ""}[${el.getAttribute("data-el") ?? ""}] ${problems.join(", ")}`);
       }
-      const scopes = [...document.querySelectorAll(".scope[data-open]")].filter(shown);
+      const scopes = [...document.querySelectorAll(".lg-item[data-open]")].filter(shown);
       const closed = scopes.filter(
-        (s) => s.getAttribute("data-open") !== "true" || getComputedStyle(s.querySelector(".scope__lines")!).display === "none",
+        (s) => s.getAttribute("data-open") !== "true" || getComputedStyle(s.querySelector(".lg-lines")!).display === "none",
       );
+      // LA-1459: every layer of the section is drawn, and the drawing at rest is the one sheet.
+      const undrawn = [...document.querySelectorAll('[data-dwg="proven"] [data-layer], [data-dwg="proven"] [data-story]')].filter(
+        (g) => getComputedStyle(g).opacity !== "1",
+      ).length;
+      const drawings = [...document.querySelectorAll("[data-dwg]")].filter(shown).map((d) => d.getAttribute("data-dwg"));
       const acts = [...document.querySelectorAll("[data-sc-act]")];
       return {
         bad,
@@ -70,7 +75,9 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         actsNotAtEnd: acts.filter((a) => (a as HTMLElement).style.getPropertyValue("--sc-p") !== "1").length,
         acts: acts.length,
         pinnedStage: getComputedStyle(document.querySelector("#from-trades-to-total [data-sc-stage]")!).position,
-        chrome: document.querySelectorAll(".bar, .tiers, .bar__index, [data-sc-progress]").length,
+        chrome: document.querySelectorAll(".hd, .sw, .hd-ix, [data-sc-progress]").length,
+        undrawn,
+        drawings,
         engineMounted: document.documentElement.classList.contains("sc-ready"),
         tier: document.documentElement.getAttribute("data-tier"),
       };
@@ -83,6 +90,8 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
     expect(state.actsNotAtEnd).toBe(0);
     expect(state.pinnedStage).toBe("static");
     expect(state.chrome).toBe(0);
+    expect(state.undrawn).toBe(0);
+    expect(state.drawings).toEqual(["proven"]);
     expect(state.engineMounted).toBe(false);
     expect(state.tier).toBe("detail");
   } finally {
@@ -101,7 +110,7 @@ test("the PDF has a stable page count, clean page breaks and named destinations"
   expect(a.pages.length).toBeGreaterThan(5);
   expect(b.pages.length).toBe(a.pages.length);
 
-  const titles = ["Where the Money Is", "Design and Engineering, as Planned", "From Trades to Total", "Notes and Clarifications"];
+  const titles = ["The Ledger", "Design and Engineering", "From Trades to Total", "Notes and Clarifications"];
   // A title starts a page when nothing sits above it in the body area, below the running header.
   const bodyTop = PAGE_HEIGHT - TOP_MARGIN;
   const startsPage = (title: string) =>
@@ -135,7 +144,7 @@ async function headingTexts(): Promise<Set<string>> {
   try {
     const { page } = await openPrintPage(browser, job);
     const texts = await page.evaluate(() =>
-      [...document.querySelectorAll("h2, h3")].filter((h) => h.getClientRects().length > 0).map((h) => (h as HTMLElement).innerText.trim()),
+      [...document.querySelectorAll("h1, h2, h3")].filter((h) => h.getClientRects().length > 0).map((h) => (h as HTMLElement).innerText.trim()),
     );
     return new Set(texts);
   } finally {

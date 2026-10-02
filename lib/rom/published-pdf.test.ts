@@ -190,7 +190,7 @@ describe("buildPrintJob", () => {
   it("prints the Detail tier with no chrome, no engine and a Full appendix", () => {
     const { html } = job();
     expect(html).toContain('<html lang="en" data-tier="detail" data-print="1">');
-    expect(html).not.toContain('class="bar"');
+    expect(html).not.toContain('class="hd"');
     expect(html).not.toContain("data-sc-progress");
     expect(html).not.toContain("scrollcraft.js");
     expect(html).toContain('id="appendix"');

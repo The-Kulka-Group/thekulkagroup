@@ -1,12 +1,14 @@
 import type { BlockClassification, Comparable, ConfidenceFlag, MarkupLine, Rom, RomLine } from "@kulka/engine";
 
-import { buildLedger, divisionTitle, sourceOf, type LedgerItem, type LedgerRow } from "@/app/(app)/rom/ledger";
+import { buildLedger, divisionTitle, sourceOf, type LedgerItem, type LedgerRow as SavedLedgerRow } from "@/app/(app)/rom/ledger";
 import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
-import { buildField, orderField } from "@/app/(app)/rom/field-order";
+import { buildField, divisionFor, divisionRank, orderField, statedDivisions } from "@/app/(app)/rom/field-order";
 import flow from "@/config/rom/tier1-flow.json";
 import { titleCase } from "@/lib/format/title-case";
 import { publicWording } from "@/lib/rom/derived-assumptions";
+import { ITEM_DIVISION_MAP, compareItemCodes } from "@/lib/rom/masterformat-item-divisions";
 import type { PublishedBudgetSnapshot, PublishedStage } from "@/lib/rom/published-snapshot";
+import { LAYERS, type SectionFacts, type SectionInk } from "@/lib/rom/section";
 
 // LA-1418. The presentation model: what the client page at /b/<token> shows,
 // built from a published snapshot and nothing else. It reads no clock, no
@@ -86,6 +88,46 @@ export type Scope = Figure & {
 
 export type DivisionGroup = Figure & { el: string; division: string; label: string; items: { el: string; label: string; likely: number | null }[] };
 
+/**
+ * One row of the client ledger (LA-1459): a scope in MasterFormat order with
+ * its division, the layer it draws on the section, and the ink it draws in.
+ * The scope itself carries the drill-down.
+ */
+export type LedgerRow = {
+  /** The row key: the scope's id, which is also its layer key. */
+  key: string;
+  scope: Scope;
+  /** The MasterFormat division, "09", or null when the snapshot's cost code has none. */
+  division: string | null;
+  label: string;
+  likely: number;
+  /** The row's rate per SF in words, or null when the budget has no gross area. */
+  perSquareFoot: string | null;
+  /** The row's share of the Kulka contract in words, or null for owner-direct scope. */
+  shareOfContract: string | null;
+  /** Where the figure came from, dot plus words: one line's source, or each line's. */
+  sourceText: string;
+  sourceTone: Tone;
+  ink: SectionInk;
+  /** True when the row owns a layer on the section; a row with none is named in the sheet's notes. */
+  hasLayer: boolean;
+};
+
+/** What the section is drawn from (lib/rom/section.ts), read off the snapshot. */
+export type Drawing = {
+  facts: SectionFacts;
+  /** Ink per layer key, and per priced line inside an element, so a mixed element draws both. */
+  ink: Record<string, SectionInk>;
+  /** Rows priced wholly or partly from stated rates or placeholders, in ledger order. */
+  lightRows: string[];
+  /** Rows with no layer to draw, in ledger order, the owner's marked. */
+  noLayer: { key: string; label: string }[];
+  inkNote: string;
+  /** The jobs behind the figures, by name, without Kulka's job codes. */
+  jobs: string[];
+  criteria: { code: string; value: string }[];
+};
+
 export type WaterfallRow = Figure & {
   key: "subtotal" | "gr" | "gc" | "fee" | "insurance" | "kulka-contract" | "owner-direct" | "total-project-cost";
   /** The row's own id, or null when an earlier element on the page holds it. */
@@ -95,6 +137,12 @@ export type WaterfallRow = Figure & {
   basis: string;
   tbd: boolean;
   plan: { el: string; label: string; amount: number }[];
+  /**
+   * The figure the page shows once this row has joined: trade cost, then the
+   * running sum of the rounded markups, landing on the contract figure itself
+   * at the last markup (LA-1459). Null on the rows after the landing.
+   */
+  running: number | null;
 };
 
 export type Criterion = {
@@ -165,6 +213,9 @@ export type BudgetPage = {
     divisions: DivisionGroup[] | null;
     summaryScopeCount: number;
   };
+  /** The client ledger in MasterFormat order, Kulka's trades and the owner's rows together (LA-1459). */
+  ledger: LedgerRow[];
+  drawing: Drawing;
   restsOn: {
     priced: number;
     fromKulkaJobs: number;
@@ -246,13 +297,15 @@ function figure(range: { low: number; high: number }): Figure {
 
 /** The page's sections in reading order, with the tier each first shows at (LA-1309 table). */
 export const SECTIONS: readonly SectionHead[] = (
+  // The ids are Version 1's, so every section keeps its element id; the titles
+  // are the approved frames' (LA-1456, brief-v3).
   [
   { id: "your-number", title: "Your Number", indexLabel: "Your Number", tier: "summary" },
-  { id: "the-project", title: "The Project as We Understood It", indexLabel: "The Project", tier: "summary" },
-  { id: "where-the-money-is", title: "Where the Money Is", indexLabel: "Where the Money Is", tier: "summary" },
-  { id: "what-this-rests-on", title: "What This Number Rests On", indexLabel: "What This Rests On", tier: "summary" },
-  // The spec's table gives Design and Engineering nothing at Summary.
-  { id: "design-and-engineering", title: "Design and Engineering, as Planned", indexLabel: "Design and Engineering", tier: "detail" },
+  { id: "the-project", title: "What You Told Us", indexLabel: "What You Told Us", tier: "summary" },
+  { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger", tier: "summary" },
+  { id: "what-this-rests-on", title: "Proven", indexLabel: "Proven", tier: "summary" },
+  // LA-1459: the criteria are called out on the drawing at every depth, with no money.
+  { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering", tier: "summary" },
   { id: "from-trades-to-total", title: "From Trades to Total", indexLabel: "From Trades to Total", tier: "summary" },
   { id: "what-is-in", title: "What Is In, and What Is Not", indexLabel: "What Is In", tier: "summary" },
   { id: "what-happens-next", title: "What Happens Next", indexLabel: "What Happens Next", tier: "summary" },
@@ -623,7 +676,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
   const lineByCode = new Map(rom.lines.map((line) => [line.costCode, line]));
   const gsf = snapshot.answers.grossSquareFeet;
 
-  const toScope = (row: LedgerRow, ownerDirect: boolean): Scope => {
+  const toScope = (row: SavedLedgerRow, ownerDirect: boolean): Scope => {
     const items: LedgerItem[] = row.kind === "group" ? row.items : [row];
     const romLines = items.flatMap((item) => (item.amount === null ? [] : [lineByCode.get(item.costCode)!]));
     const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: `unpriced:${item.costCode}`, costCode: item.costCode, label: titleCase(item.label) }));
@@ -658,7 +711,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
 function divisionsOf(rom: Rom, classifications: readonly BlockClassification[]): DivisionGroup[] | null {
   const entries = orderField(buildField("scope", rom, classifications), "masterformat");
   const ledger = buildLedger(rom, entries, "division", "masterformat", classifications, new Map());
-  const groups = ledger.trade.filter((row): row is Extract<LedgerRow, { kind: "group" }> => row.kind === "group");
+  const groups = ledger.trade.filter((row): row is Extract<SavedLedgerRow, { kind: "group" }> => row.kind === "group");
   if (groups.length === 0 || groups.some((group) => group.division === null)) return null;
   const lineByCode = new Map(rom.lines.map((line) => [line.costCode, line]));
   return groups.map((group) => {
@@ -700,15 +753,16 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot, ownerOnLedger: boolean):
   const m = rom.markups;
   const ownerDirect = m ? m.ownerDirect : { low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high };
   const plan = planLines(snapshot).map((line) => ({ el: `plan-line:${line.id}`, label: titleCase(line.label), amount: line.amount }));
-  const row = (over: Omit<WaterfallRow, "likely" | "plan" | "tbd"> & { tbd?: boolean; plan?: WaterfallRow["plan"] }): WaterfallRow => ({
+  const row = (over: Omit<WaterfallRow, "likely" | "plan" | "tbd" | "running"> & { tbd?: boolean; plan?: WaterfallRow["plan"] }): WaterfallRow => ({
     ...over,
     likely: midpoint(over),
     tbd: over.tbd ?? false,
     plan: over.plan ?? [],
+    running: null,
   });
   const rows: WaterfallRow[] = [];
   const subtotal = m ? m.subtotal : { ...rom.kulkaContractTotal, basis: "Kulka's contract trade cost, owner-direct lines excluded" };
-  rows.push(row({ key: "subtotal", el: null, elRef: "total:trades", label: "Trades", low: subtotal.low, high: subtotal.high, basis: clientBasis(subtotal.basis) }));
+  rows.push(row({ key: "subtotal", el: null, elRef: "total:trades", label: "Trade Cost", low: subtotal.low, high: subtotal.high, basis: clientBasis(subtotal.basis) }));
   if (m) {
     if (m.generalRequirements) {
       const gr = m.generalRequirements;
@@ -756,7 +810,102 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot, ownerOnLedger: boolean):
   );
   const tpc = m ? m.totalProjectCost : rom.total;
   rows.push(row({ key: "total-project-cost", el: null, elRef: "total:total-project-cost", label: "Total Project Cost", low: tpc.low, high: tpc.high, basis: "Kulka's contract plus what the owner buys direct." }));
+
+  // The figure as it is built: trade cost, then each markup's rounded figure
+  // added on, and the contract figure itself when the last one has joined.
+  const markups = rows.filter((r) => r.key === "gr" || r.key === "gc" || r.key === "fee" || r.key === "insurance");
+  let running = Math.round(rows[0].likely);
+  rows[0].running = running;
+  markups.forEach((r, i) => {
+    if (!r.tbd) running += Math.round(r.likely);
+    r.running = i === markups.length - 1 ? Math.round(midpoint(contract)) : running;
+  });
   return rows;
+}
+
+// --- The client ledger, in MasterFormat order, and the section's facts (LA-1459) ------
+
+const YES = (value: unknown) => value === "yes" || value === true || value === "Yes";
+
+function count(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+/** A line is measured when a Kulka job's record stands behind it, rather than a stated rate or a placeholder. */
+function isMeasured(line: RomLine): boolean {
+  return line.comparables.some((c) => c.kind === "actuals" || c.kind === "proest_budget");
+}
+
+function ledgerOf(
+  snapshot: PresentableSnapshot,
+  scopes: { trade: Scope[]; owner: Scope[]; classifications: BlockClassification[] },
+  contract: Figure,
+): { ledger: LedgerRow[]; ink: Record<string, SectionInk>; lightRows: string[]; noLayer: { key: string; label: string }[] } {
+  const { rom, answers } = snapshot;
+  const gsf = answers.grossSquareFeet > 0 ? answers.grossSquareFeet : null;
+  const stated = statedDivisions(scopes.classifications);
+  const lineByCode = new Map(rom.lines.map((line) => [line.costCode, line]));
+  const codeOf = (scope: Scope) => scope.lines[0]?.costCode ?? scope.unpriced[0]?.costCode ?? "";
+  const inkMap: Record<string, SectionInk> = {};
+  const rows = [...scopes.trade, ...scopes.owner].map((scope): LedgerRow => {
+    const romLines = scope.lines.map((l) => lineByCode.get(l.costCode)).filter((l): l is RomLine => l !== undefined);
+    const measured = romLines.filter(isMeasured);
+    const ink: SectionInk = romLines.length > 0 && measured.length === 0 ? "light" : "full";
+    inkMap[scope.el] = ink;
+    for (const line of romLines) inkMap[`line:${line.costCode}`] = isMeasured(line) ? "full" : "light";
+    const sourceText = scope.kind === "line" ? scope.lines[0].source.text : scope.kind === "unpriced" ? "No Rate Yet" : scope.lines.map((l) => `${l.label}: ${l.source.text}`).join(" · ");
+    return {
+      key: scope.el,
+      scope,
+      division: divisionFor(codeOf(scope), stated, ITEM_DIVISION_MAP),
+      label: scope.label,
+      likely: scope.likely,
+      perSquareFoot: gsf ? rateUsd(scope.likely / gsf) : null,
+      shareOfContract: scope.ownerDirect ? null : `${Math.round((contract.likely > 0 ? scope.likely / contract.likely : 0) * 100)}%`,
+      sourceText,
+      sourceTone: scope.confidence,
+      ink,
+      hasLayer: scope.el in LAYERS,
+    };
+  });
+  // Ascending division, then cost code; a row with no division sorts last, in item order.
+  rows.sort((a, b) => divisionRank(a.division) - divisionRank(b.division) || compareItemCodes(codeOf(a.scope), codeOf(b.scope)) || a.label.localeCompare(b.label));
+  const mixed = rows.filter((r) => r.scope.lines.some((l) => inkMap[`line:${l.costCode}`] === "light"));
+  return {
+    ledger: rows,
+    ink: inkMap,
+    lightRows: mixed.map((r) => r.label),
+    noLayer: rows.filter((r) => !r.hasLayer).map((r) => ({ key: r.key, label: r.scope.ownerDirect ? `${r.label} (Bought by the Owner)` : r.label })),
+  };
+}
+
+function sectionFactsOf(snapshot: PresentableSnapshot, publication: Publication, criteria: Criterion[]): SectionFacts {
+  const { answers } = snapshot;
+  const facts = (answers.facts ?? {}) as Record<string, unknown>;
+  const gates = answers.branchGates ?? {};
+  const criterion = (code: string) => criteria.find((c) => c.code === code)?.value ?? null;
+  const gsf = answers.grossSquareFeet > 0 ? answers.grossSquareFeet : null;
+  const units = count(facts.unitCount);
+  const elevator = YES(gates.elevator ?? facts.elevator);
+  return {
+    project: snapshot.project.name,
+    version: publication.version,
+    date: longDate(publication.issuedAt),
+    stories: Math.max(1, count(facts.storiesAboveGrade, 1)),
+    belowGrade: YES(gates.levels_below_grade ?? facts.levels_below_grade),
+    units: units > 0 ? units : null,
+    grossArea: gsf ? `${wholeNumber(gsf)} SF` : null,
+    parking: typeof facts.parkingType === "string" ? prettyValue(facts.parkingType) : null,
+    demolition: YES(gates.demolition ?? facts.demolition),
+    elevators: elevator ? Math.max(1, count(facts.elevatorCount, 1)) : 0,
+    elevatorType: criterion("V-1") ?? (typeof facts.elevatorType === "string" ? prettyValue(facts.elevatorType) : null),
+    jack: criterion("V-2") ?? (typeof facts.hydraulicJackType === "string" ? prettyValue(facts.hydraulicJackType) : null),
+    machineRooms: elevator ? count(facts.elevatorMachineRooms) : 0,
+    balconies: YES(gates.balconies ?? facts.balconies),
+    storefront: YES(gates.retail_storefronts ?? facts.retail_storefronts),
+    form: criterion("A-2"),
+  };
 }
 
 // --- Gates ------------------------------------------------------------------------------
@@ -958,6 +1107,22 @@ export function presentBudget(publication: Publication): BudgetPage {
     };
   });
 
+  // The ledger in MasterFormat order and the section it draws (LA-1459).
+  const built = ledgerOf(snapshot, { trade, owner, classifications }, contract);
+  const drawing: Drawing = {
+    facts: sectionFactsOf(snapshot, publication, criteria),
+    ink: built.ink,
+    lightRows: built.lightRows,
+    noLayer: built.noLayer,
+    inkNote: "Full ink is priced from Kulka's completed jobs. Light ink is priced from Kulka's stated rates.",
+    jobs: [...jobLines.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => names[id])
+      .filter((name): name is string => Boolean(name))
+      .map((name) => name.replace(/ \(C\d+\)$/, "")),
+    criteria: criteria.map((c) => ({ code: c.code, value: c.value })),
+  };
+
   return {
     documentTitle: `${projectName} · ${stages[currentIndex].label} · Kulka`,
     description: `Kulka's ${stages[currentIndex].label.toLowerCase()} for ${projectName}: the number, its range, where the money is, and what it rests on.`,
@@ -996,6 +1161,8 @@ export function presentBudget(publication: Publication): BudgetPage {
       divisions: divisionsOf(rom, classifications),
       summaryScopeCount: SUMMARY_SCOPES,
     },
+    ledger: built.ledger,
+    drawing,
     restsOn: {
       priced: priced.length,
       fromKulkaJobs: fromJobs.length,

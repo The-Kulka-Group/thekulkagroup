@@ -75,6 +75,103 @@ describe("the ledger", () => {
   });
 });
 
+// LA-1459: the client ledger in MasterFormat order, and what the section is drawn from.
+describe("the client ledger", () => {
+  it("orders every row by division, then cost code, the owner's rows in their division", () => {
+    const page = presentBudget(referencePublication());
+    const rows = page.ledger.map((r) => [r.division, r.label]);
+
+    expect(rows.slice(0, 6)).toEqual([
+      ["02", "Demolition"],
+      ["03", "Concrete & Site Concrete"],
+      ["03", "Gypcrete"],
+      ["04", "Masonry"],
+      ["05", "Misc Steel Stairs Mesh Screens + Canopy"],
+      ["06", "Wood Framing - Install + Wood Framing - Supply"],
+    ]);
+    expect(rows.find(([, label]) => label === "Appliances")).toEqual(["11", "Appliances"]);
+    expect(rows[rows.length - 1][0]).toBe("32");
+    expect(page.ledger).toHaveLength(page.money.scopes.length + page.money.ownerScopes.length);
+    expect(new Set(page.ledger.map((r) => r.key)).size).toBe(page.ledger.length);
+  });
+
+  it("prints each row's rate per SF to the cent and its share of the contract", () => {
+    const page = presentBudget(referencePublication());
+    const drywall = page.ledger.find((r) => r.key === "line:17")!;
+    const appliances = page.ledger.find((r) => r.label === "Appliances")!;
+
+    expect(drywall.perSquareFoot).toBe("$50.69");
+    expect(drywall.shareOfContract).toBe("16%");
+    expect(drywall.sourceText).toBe("2 Kulka Jobs");
+    expect(appliances.shareOfContract).toBeNull();
+    expect(page.ledger.find((r) => r.key === "element:elevator")!.sourceText).toBe("Elevators: Kulka Rate · Elevator Bulkhead: Kulka Rate");
+  });
+
+  it("inks a layer light when a stated rate prices it, and names the mixed rows", () => {
+    const page = presentBudget(referencePublication());
+    const { drawing } = page;
+
+    expect(drawing.ink["element:elevator"]).toBe("light");
+    expect(drawing.ink["element:demolition"]).toBe("full");
+    expect(drawing.ink["line:1a"]).toBe("light");
+    expect(drawing.ink["line:1"]).toBe("full");
+    expect(drawing.ink["line:17"]).toBe("full");
+    expect(drawing.lightRows).toEqual(["Demolition", "Elevator"]);
+    expect(drawing.noLayer.map((r) => r.label)).toEqual([
+      "Wood Stairs",
+      "Finish Carpentry",
+      "Millwork",
+      "Ceramic Tile",
+      "Painting",
+      "Specialties & F.E. + Signage",
+      "Appliances (Bought by the Owner)",
+      "Countertops",
+      "Window Treatments",
+      "Furnishings & Fireplace",
+    ]);
+    // The job behind more lines first, without Kulka's job codes.
+    expect(drawing.jobs).toEqual(["Fieldstone North Broadway", "Jefferson's Ferry NW ILU Building 1"]);
+  });
+
+  it("reads the section's facts off the snapshot and the criteria", () => {
+    const { facts } = presentBudget(referencePublication()).drawing;
+
+    expect(facts).toEqual({
+      project: "MN Test #4",
+      version: 1,
+      date: "September 28, 2026",
+      stories: 5,
+      belowGrade: false,
+      units: 70,
+      grossArea: "64,000 SF",
+      parking: "Surface",
+      demolition: true,
+      elevators: 2,
+      elevatorType: "Hydraulic",
+      jack: "In-Ground",
+      machineRooms: 1,
+      balconies: true,
+      storefront: false,
+      form: "Bar",
+    });
+  });
+
+  it("builds the figure line by line and lands it on the contract figure", () => {
+    const page = presentBudget(referencePublication());
+    const running = page.waterfall.map((w) => [w.key, w.running]);
+
+    expect(running).toEqual([
+      ["subtotal", 17_430_471],
+      ["gc", 18_650_604],
+      ["fee", 19_256_749],
+      ["insurance", 20_296_613],
+      ["kulka-contract", null],
+      ["owner-direct", null],
+      ["total-project-cost", null],
+    ]);
+  });
+});
+
 describe("client wording", () => {
   it("maps every source label the saved budget uses to a client word", () => {
     expect(clientSource("AI Figure")).toBe("Placeholder Rate");
@@ -155,13 +252,15 @@ describe("tiers", () => {
     const page = presentBudget(referencePublication());
     const tierOf = Object.fromEntries(page.sections.map((s) => [s.id, s.tier]));
 
-    // LA-1309, "Sections, and what each tier shows".
+    // LA-1309, "Sections, and what each tier shows". LA-1459 moves Design and
+    // Engineering to Summary: the criteria are called out on the drawing at
+    // every depth, with no money, and the depth below them is tiered.
     expect(tierOf).toEqual({
       "your-number": "summary",
       "the-project": "summary",
       "where-the-money-is": "summary",
       "what-this-rests-on": "summary",
-      "design-and-engineering": "detail",
+      "design-and-engineering": "summary",
       "from-trades-to-total": "summary",
       "what-is-in": "summary",
       "what-happens-next": "summary",

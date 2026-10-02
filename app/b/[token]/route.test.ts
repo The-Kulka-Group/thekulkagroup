@@ -98,7 +98,7 @@ describe("/b/<token>", () => {
 
     expect(print).toContain('data-tier="detail" data-print="1"');
     expect(print).toContain('id="appendix"');
-    expect(print).not.toContain('class="bar"');
+    expect(print).not.toContain('class="hd"');
     expect(screen).not.toContain("data-print");
     expect(screen).not.toContain('id="appendix"');
   });
@@ -115,7 +115,7 @@ describe("/b/<token>", () => {
     expect(html).toContain("Harbor Point Partners (example)");
     expect(html).toContain("Devin (example)");
     expect(html).toContain("90 days from issue");
-    expect(html).toMatch(/data-el="total:kulka-contract">\$1,000</);
+    expect(html).toMatch(/data-el="total:kulka-contract"[^>]*>\$1,000</);
     expect(html).toMatch(/data-el="record:per-sf" title="[^"]*">\$1</);
     expect(html).toContain('<script src="/scrollcraft/scrollcraft.js"></script>');
     expect(html).toContain('<script src="/scrollcraft/budget-page.js"></script>');

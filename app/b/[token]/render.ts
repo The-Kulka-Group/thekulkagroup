@@ -73,12 +73,16 @@ function rangeBand(low: number, mid: number, high: number, lowEl: string, highEl
 function drawings(page: BudgetPage) {
   const d = page.drawing;
   const ink = new Map(Object.entries(d.ink));
-  // The three drawings' style rules live in the head, so no <style> sits in the body.
+  // The drawings' style rules live in the head, so no <style> sits in the body.
+  // The Design and Engineering drawing owns the criteria's ids on its callouts.
+  const base = { facts: d.facts, ink, styleInSvg: false as const };
   return {
-    ledger: drawSection({ facts: d.facts, ink, criteria: [], notes: { noLayer: d.noLayer }, idPrefix: "dl", styleInSvg: false }),
-    proven: drawSection({ facts: d.facts, ink, criteria: d.criteria, notes: { ink: d.inkNote, noLayer: d.noLayer }, idPrefix: "dp", styleInSvg: false }),
-    peak: drawSection({ facts: d.facts, ink, criteria: d.criteria, theme: "band", variant: "plain", idPrefix: "dk", styleInSvg: false }),
-    style: `<style>${sectionStyle("dl")}${sectionStyle("dp")}${sectionStyle("dk", "band")}</style>`,
+    ledger: drawSection({ ...base, criteria: [], notes: { noLayer: d.noLayer }, idPrefix: "dl" }),
+    proven: drawSection({ ...base, criteria: d.criteria, notes: { ink: d.inkNote, noLayer: d.noLayer }, idPrefix: "dp" }),
+    design: drawSection({ ...base, criteria: d.criteria, variant: "plain", idPrefix: "dd", calloutEl: "criterion:" }),
+    peak: drawSection({ ...base, criteria: d.criteria, theme: "band", variant: "plain", idPrefix: "dk" }),
+    peakLight: drawSection({ ...base, criteria: d.criteria, variant: "plain", idPrefix: "dq" }),
+    style: `<style>${sectionStyle("dl")}${sectionStyle("dp")}${sectionStyle("dd")}${sectionStyle("dk", "band")}${sectionStyle("dq")}</style>`,
   };
 }
 
@@ -169,7 +173,7 @@ function sectionProject(page: BudgetPage): string {
     headline.grossSquareFeet !== null ? `\n  <p class="fig-md num" data-el="fact:grossSquareFeet:figure">${wholeNumber(headline.grossSquareFeet)} SF</p>` : ""
   }
   <p class="lede">What you told Kulka, read back.${n > 0 ? ` ${n} ${n === 1 ? "fact below was" : "facts below were"} set by Kulka's design criteria rather than stated, and each is marked.` : ""}</p>
-  <dl class="facts lg" data-sc-in data-sc-stagger="12">${project.facts.map(factRow).join("")}
+  <dl class="facts lg">${project.facts.map(factRow).join("")}
   </dl>
 </section>`;
 }
@@ -281,7 +285,7 @@ function sectionLedger(page: BudgetPage, svg: string): string {
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
     <div class="dwg dwg--crop" data-dwg="ledger">${svg}</div>
-    <p class="dwg-cap only-phone"><b>Building Section</b> · <span data-cap-story>${facts.stories} Stories Above Grade</span><br>${esc(program)}<br>${DIAGRAM_LINE}</p>
+    <p class="dwg-cap only-phone"><b>Building Section</b><span data-cap-story></span> · ${esc(program)}<br>${DIAGRAM_LINE}</p>
   </aside>
 </section>`;
 }
@@ -324,27 +328,19 @@ function sectionProven(page: BudgetPage, svg: string): string {
         <div data-el="count:confidence:high"><dt>${src("high", "High Confidence")}</dt><dd><span class="num">${c.confidence.high}</span> ${c.confidence.high === 1 ? "line" : "lines"}, range 10% each side</dd></div>
         <div data-el="count:confidence:medium"><dt>${src("medium", "Medium Confidence")}</dt><dd><span class="num">${c.confidence.medium}</span> ${c.confidence.medium === 1 ? "line" : "lines"}, range 20% each side</dd></div>
         <div data-el="count:confidence:low"><dt>${src("low", "Low Confidence")}</dt><dd><span class="num">${c.confidence.low}</span> ${c.confidence.low === 1 ? "line" : "lines"}, range 35% each side, held for Kulka's review</dd></div>
-      </dl>${
-        page.criteria.length > 0
-          ? `
-      <p class="rail-h">Design and Engineering</p>
-      <ol class="crit" aria-label="Design and Engineering criteria">${page.criteria
-        .map((k) => `\n        <li><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span></li>`)
-        .join("")}
-      </ol>`
-          : ""
-      }
+      </dl>
       <p class="dwg-cap only-phone">${DIAGRAM_LINE}</p>
     </div>
   </div>
 </section>`;
 }
 
-// --- 5. Design and Engineering: the criteria, no money ------------------------------------------------
+// --- 5. Design and Engineering: the criteria called out on the drawing, no money ----------------------
 
+/** The depth under the callouts, from Detail on. The ids sit on the callouts themselves. */
 function criterionRow(k: Criterion): string {
   return `
-      <article class="criterion lg-row" data-el="${esc(k.el)}">
+      <article class="criterion lg-row">
         <span class="crit-tag num">${esc(k.code)}</span>
         <div class="crit-body">
           <h2 class="crit-h">${esc(k.label)}</h2>
@@ -360,25 +356,35 @@ function criterionRow(k: Criterion): string {
       </article>`;
 }
 
-function sectionDesign(page: BudgetPage): string {
+function sectionDesign(page: BudgetPage, svg: string): string {
   if (page.criteria.length === 0) return "";
   const settled = page.criteria.filter((x) => x.settled).length;
   return `
-<section class="sheet" id="design-and-engineering" data-el="section:design-and-engineering" data-sc-act="flow">
+<section class="sheet sheet--design" id="design-and-engineering" data-el="section:design-and-engineering" data-sc-act="flow">
   <div class="sheet-hd">
     <h1 class="sheet-h">Design and Engineering</h1>
-    <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building, each keyed on the section. ${settled} ${settled === 1 ? "is" : "are"} settled by code. The rest are planning assumptions until your design team decides them.</p>
+    <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building, called out on the section. ${settled} ${settled === 1 ? "is" : "are"} settled by code; the rest are planning assumptions until your design team decides them.</p>
   </div>
-  <div class="crits lg" data-sc-in data-sc-stagger="30">${page.criteria.map(criterionRow).join("")}
+  <div class="dwg dwg--crop dwg--design" data-dwg="design">${svg}</div>
+  <ol class="crit only-phone" aria-label="Design and Engineering criteria">${page.criteria
+    .map((k) => `\n    <li><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span></li>`)
+    .join("")}
+  </ol>
+  <p class="dwg-cap only-phone">${DIAGRAM_LINE}</p>
+  <div class="crits lg tier-detail">${page.criteria.map(criterionRow).join("")}
   </div>
 </section>`;
 }
 
 // --- 6. From Trades to Total: the peak ------------------------------------------------------------------
 
-/** Where each line arrives in the band's own scroll, 0 to 1. The subtotal is already there. */
+/**
+ * Where each line arrives in the band's own scroll, 0 to 1. The last line
+ * arrives by 0.48 and has joined by 0.62; the landing holds from there to
+ * the end of the pin, the longest hold on the page.
+ */
 function cueFor(index: number, count: number): string {
-  return (0.06 + (index * 0.6) / Math.max(count - 1, 1)).toFixed(2);
+  return (0.06 + (index * 0.42) / Math.max(count - 1, 1)).toFixed(2);
 }
 
 function wfRow(w: WaterfallRow, index: number, count: number): string {
@@ -394,14 +400,15 @@ function wfRow(w: WaterfallRow, index: number, count: number): string {
         </li>`;
 }
 
-function sectionWaterfall(page: BudgetPage, svg: string): string {
+function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: string }): string {
   const built = page.waterfall.filter((w) => w.key === "subtotal" || w.key === "gr" || w.key === "gc" || w.key === "fee" || w.key === "insurance");
-  const after = page.waterfall.filter((w) => w.key === "kulka-contract" || w.key === "owner-direct" || w.key === "total-project-cost");
+  const after = page.waterfall.filter((w) => w.key === "owner-direct" || w.key === "total-project-cost");
   const trades = page.waterfall[0];
   const land = page.waterfall.find((w) => w.key === "kulka-contract")!;
-  const afterCue = (0.06 + 0.6 + 0.14).toFixed(2);
+  // The owner's line and the total arrive once the figure has landed.
+  const afterCue = (0.06 + 0.42 + 0.22).toFixed(2);
   return `
-<section class="band band--peak" id="from-trades-to-total" data-el="section:from-trades-to-total" data-sc-act="pin" data-sc-span="3">
+<section class="band band--peak" id="from-trades-to-total" data-el="section:from-trades-to-total" data-sc-act="pin" data-sc-span="3.6" data-landed="false">
   <div class="band-stage sc-stage" data-sc-stage data-sc-verify-state="wf:0">
     <div class="wf-main">
       <div class="wf-in">
@@ -410,13 +417,16 @@ function sectionWaterfall(page: BudgetPage, svg: string): string {
           <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
           <p class="fig fig--beside num" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
           <p class="wf-landed tier-detail">Likely, between <span class="num">${usd(land.low)}</span> and <span class="num">${usd(land.high)}</span>. ${esc(land.basis)} Total Project Cost, with what the owner buys direct, between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
+          <p class="wf-after" data-sc-cue="${afterCue}" data-cue-at="${afterCue}">${after
+            .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
+            .join('<i aria-hidden="true">·</i>')}</p>
         </div>
-        <div class="dwg dwg--band dwg--crop" data-dwg="peak" aria-label="The Section">${svg}</div>
+        <div class="dwg-swap" aria-label="The Section">
+          <div class="dwg dwg--band dwg--crop dwg--dark" data-dwg="peak">${svg.peak}</div>
+          <div class="dwg dwg--crop dwg--light" data-dwg="peak-light" aria-hidden="true">${svg.peakLight}</div>
+        </div>
         <ol class="wf">${built.map((w, i) => wfRow(w, i, built.length)).join("")}
         </ol>
-        <p class="wf-after tier-detail" data-sc-cue="${afterCue}" data-cue-at="${afterCue}">${after
-          .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
-          .join('<i aria-hidden="true">·</i>')}</p>
       </div>
     </div>
   </div>
@@ -708,8 +718,8 @@ ${sectionNumber(page)}
 ${sectionProject(page)}
 ${sectionLedger(page, svg.ledger)}
 ${sectionProven(page, svg.proven)}
-${sectionDesign(page)}
-${sectionWaterfall(page, svg.peak)}
+${sectionDesign(page, svg.design)}
+${sectionWaterfall(page, svg)}
 ${sectionGates(page)}
 ${sectionNext(page)}${print ? appendix(page) : ""}
 </main>${print ? "" : '\n<script src="/scrollcraft/scrollcraft.js"></script>'}

@@ -1,10 +1,11 @@
 /* The page's own code (LA-1459, "The Ledger, Opened with the Section"). The
-   engine (scrollcraft.js) is untouched: it pins the two black bands and
-   publishes each act's progress as --sc-p, and it drives the waterfall's
-   cues. Everything here is page-local: the tier switch, the drill-downs, the
-   section index, the header's two states and the figure's travel into its
+   engine (scrollcraft.js) is untouched: it pins the second black band,
+   publishes each act's progress as --sc-p, and drives the waterfall's cues.
+   Everything here is page-local: the tier switch, the drill-downs, the
+   section index, the header's two states and the figure's flight into its
    slot, the ledger's current row and the layer it draws on the section, the
-   waterfall's figure advancing line by line, and the print rest. */
+   waterfall's figure advancing line by line and landing in light, and the
+   print rest. */
 (function () {
   'use strict';
   var doc = document, root = doc.documentElement;
@@ -14,6 +15,7 @@
   var printing = root.hasAttribute('data-print');
   var clamp = function (v) { return v < 0 ? 0 : v > 1 ? 1 : v; };
   var ease = function (t) { t = clamp(t); return t * t * (3 - 2 * t); };
+  var lerp = function (a, b, t) { return a + (b - a) * t; };
   var each = function (sel, fn, from) { Array.prototype.forEach.call((from || doc).querySelectorAll(sel), fn); };
   var hdH = function () { return parseFloat(getComputedStyle(root).getPropertyValue('--hd-h')) || 96; };
   if (reduce) root.classList.add('is-reduce');
@@ -26,15 +28,23 @@
     each('[data-sc-cue]', function (c) { c.removeAttribute('data-sc-cue'); });
   }
   // On a phone, or a short window, the waterfall's lines do not fit a pinned
-  // viewport. The band flows instead, taller than the screen, and the lines
-  // arrive as it passes: the figure still advances on each markup.
+  // viewport. The band flows instead, the figure holds under the header, and
+  // the lines arrive as they pass beneath it: the figure still advances on
+  // each markup and lands in light.
   var peakAct = doc.getElementById('from-trades-to-total');
   if (peakAct && !printing && !reduce && (phone() || innerHeight < 700)) {
     peakAct.setAttribute('data-sc-act', 'flow');
     peakAct.removeAttribute('data-sc-span');
     peakAct.classList.add('band--flow');
-    each('.wf-row[data-cue-at], .wf-after[data-cue-at]', function (r, i) {
+    var rowsAt = peakAct.querySelectorAll('.wf-row[data-cue-at]');
+    Array.prototype.forEach.call(rowsAt, function (r, i) {
       var c = (0.2 + i * 0.055).toFixed(2);
+      r.setAttribute('data-sc-cue', c);
+      r.setAttribute('data-cue-at', c);
+    });
+    // The owner's line lands with the last markup, while the figure is still on screen.
+    each('.wf-after[data-cue-at]', function (r) {
+      var c = (0.2 + (rowsAt.length - 1) * 0.055).toFixed(2);
       r.setAttribute('data-sc-cue', c);
       r.setAttribute('data-cue-at', c);
     }, peakAct);
@@ -51,7 +61,6 @@
     root.setAttribute('data-tier', t);
     Array.prototype.forEach.call(tierButtons, function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tier') === t)); });
     if (remember) { try { localStorage.setItem('kulka-budget-tier', t); } catch (e) {} }
-    sc.layout();
     relayout();
   }
   Array.prototype.forEach.call(tierButtons, function (b) {
@@ -73,7 +82,6 @@
     btn.addEventListener('click', function () {
       var item = btn.closest('.lg-item');
       setOpen(item, item.getAttribute('data-open') !== 'true');
-      sc.layout();
       relayout();
     });
   });
@@ -95,28 +103,38 @@
     });
   }
 
-  /* ---- the header's two states, and the figure's travel into its slot ----
+  /* ---- the header's two states, and the figure's flight into its slot ----
      The first screen is the band grown to the viewport. As it scrolls up
-     under the fixed header the label, range, rates and stages leave (CSS,
-     off --travel), tier two unfolds, and the figure moves and shrinks into
-     the header's slot; when the band's foot reaches the header the header's
-     own figure takes over. One moving thing. */
+     under the header the label, range, rates and stages leave (CSS, off
+     --travel) and the figure, one object, moves and shrinks along a straight
+     path from where it stood to the exact box of the header's slot, painted
+     above the header the whole way. When it arrives the header's own copy
+     shows in the same box and the band's figure is hidden. The figure's
+     block travels with it, so nothing drifts out from under it. */
   var hd = doc.getElementById('bar');
   var band = doc.getElementById('your-number');
+  var wrap = band && band.querySelector('.fig-wrap');
   var fig = band && band.querySelector('[data-travel]');
-  var travel = { dx: 0, top: 0, slotTop: 0, s: 1 };
+  var flight = { top: 0, left: 0, right: 0, font: 1, slotTop: 0, slotLeft: 0, slotRight: 0, slotFont: 22 };
   function slot() { return hd.querySelector(phone() ? '.hd-t2 .hd-fig-v' : '.hd-t1 .hd-fig-v'); }
-  function measureTravel() {
-    if (!hd || !fig) return;
+  function measureFlight() {
+    if (!hd || !fig || !wrap) return;
     var was = hd.style.getPropertyValue('--hd-t2');
     hd.style.setProperty('--hd-t2', '1');
+    wrap.style.transform = 'none';
     fig.style.transform = 'none';
     var a = fig.getBoundingClientRect(), b = slot().getBoundingClientRect();
     hd.style.setProperty('--hd-t2', was);
-    travel.dx = b.left - a.left;
-    travel.top = a.top + scrollY;
-    travel.slotTop = b.top;
-    travel.s = (parseFloat(getComputedStyle(slot()).fontSize) || 22) / (parseFloat(getComputedStyle(fig).fontSize) || 200);
+    // Where the figure stands at the top of the page, in viewport terms.
+    flight.top = a.top + scrollY;
+    flight.left = a.left;
+    flight.right = a.right;
+    flight.font = parseFloat(getComputedStyle(fig).fontSize) || 200;
+    flight.slotTop = b.top;
+    flight.slotLeft = b.left;
+    flight.slotRight = b.right;
+    flight.slotFont = parseFloat(getComputedStyle(slot()).fontSize) || 22;
+    band.setAttribute('data-fly', 'true');
   }
   function driveHeader() {
     if (!hd || !band) return;
@@ -124,17 +142,34 @@
     var q = clamp(scrollY / span);
     if (reduce) q = q >= 0.999 ? 1 : 0;
     var e = ease(q);
-    if (!reduce && fig) {
-      var dy = travel.slotTop - (travel.top - scrollY);
-      fig.style.transform = 'translate(' + (travel.dx * e).toFixed(1) + 'px, ' + (dy * e).toFixed(1) + 'px) scale(' + (1 - (1 - travel.s) * e).toFixed(4) + ')';
+    if (!reduce && fig && wrap) {
+      // The block follows the eased path, not the scroll: the figure's top
+      // goes from where it stood straight to the slot and never past it.
+      var top = lerp(flight.top, flight.slotTop, e);
+      var natural = flight.top - scrollY;
+      wrap.style.transform = 'translate3d(0, ' + (top - natural).toFixed(1) + 'px, 0)';
+      var s = lerp(flight.font, flight.slotFont, e) / flight.font;
+      var dx = phone() ? (flight.slotLeft - flight.left) * e : (flight.slotRight - flight.right) * e;
+      fig.style.transformOrigin = phone() ? 'left top' : 'right top';
+      fig.style.transform = 'translate3d(' + dx.toFixed(1) + 'px, 0, 0) scale(' + s.toFixed(4) + ')';
     }
     band.style.setProperty('--travel', q.toFixed(3));
-    hd.style.setProperty('--hd-t2', reduce ? String(q) : clamp((q - 0.55) / 0.45).toFixed(3));
+    // Tier two unfolds under the figure's path: early on a phone, where the
+    // slot is in tier two; after the figure has passed, on a desktop.
+    hd.style.setProperty('--hd-t2', reduce ? String(q) : (phone() ? clamp((q - 0.25) / 0.35) : clamp((q - 0.88) / 0.12)).toFixed(3));
     var parked = q >= 0.995;
     hd.setAttribute('data-state', parked ? 'page' : 'band');
     band.setAttribute('data-parked', String(parked));
     band.setAttribute('data-sc-verify-state', 'travel:' + q.toFixed(2));
     if (parked) band.setAttribute('data-sc-verify-hold', 'true'); else band.removeAttribute('data-sc-verify-hold');
+    // The header's small figure yields to a band figure on screen.
+    var peakFig = peakAct && peakAct.querySelector('.wf-fig');
+    var near = false;
+    if (peakFig) {
+      var r = peakFig.getBoundingClientRect();
+      near = r.bottom > hdH() && r.top < innerHeight;
+    }
+    if (near) hd.setAttribute('data-fig-hidden', ''); else hd.removeAttribute('data-fig-hidden');
   }
 
   /* ---- the phone crop: each section drawn once, cropped to the building on a phone ---- */
@@ -149,10 +184,12 @@
      section) at 0.42 of what is left. The last row whose top has crossed it
      is current: every row above it has drawn its layer, the current one is
      lit, everything below is undrawn. The framing row raises the frame story
-     by story across its own height. */
+     by story across its own height. When the current row changes, the row
+     before it shrinks and the new one grows; the page scrolls by the
+     difference so the new row and the pinned section stay where they are. */
   var ledger = (function () {
     var section = doc.getElementById('where-the-money-is');
-    if (!section) return { read: function () {}, measure: function () {}, all: function () {} };
+    if (!section) return { read: function () {}, measure: function () {}, all: function () {}, scrollToRow: function () {} };
     var aside = section.querySelector('.sheet--dwg');
     var items = Array.prototype.slice.call(section.querySelectorAll('.lg-item'));
     var keys = items.map(function (i) { return i.getAttribute('data-layer'); });
@@ -173,9 +210,13 @@
     var current = -2, drawnStories = -1;
     if (dwg) dwg.parentNode.classList.add('dwg--live');
 
-    function readingLine() {
+    function topOfRows() {
       var top = hdH();
       if (phone() && aside) top = Math.max(top, aside.getBoundingClientRect().bottom);
+      return top;
+    }
+    function readingLine() {
+      var top = topOfRows();
       return top + (innerHeight - top) * 0.42;
     }
     function bracketTo(n) {
@@ -188,12 +229,18 @@
       bracket.setAttribute('transform', 'rotate(-90 ' + tx + ' ' + ty.toFixed(2) + ')');
       if (bracketLine) bracketLine.setAttribute('y2', top.toFixed(2));
       if (bracketCap) { bracketCap.setAttribute('y1', top.toFixed(2)); bracketCap.setAttribute('y2', top.toFixed(2)); }
-      if (cap) cap.textContent = label;
+      if (cap) cap.textContent = n > 0 && n < stories ? ' · Story ' + n + ' of ' + stories : '';
     }
     function apply(idx, nStories) {
       if (idx === current && nStories === drawnStories) return;
       if (idx !== current) {
+        var before = idx >= 0 ? items[idx].getBoundingClientRect().top : null;
         items.forEach(function (it, i) { it.classList.toggle('lg-now', i === idx); });
+        if (before !== null && !printing) {
+          var after = items[idx].getBoundingClientRect().top;
+          var d = after - before;
+          if (Math.abs(d) > 0.5) scrollBy(0, d);
+        }
         layers.forEach(function (g) {
           var i = keys.indexOf(g.getAttribute('data-layer'));
           g.classList.toggle('is-drawn', i > -1 && i <= idx);
@@ -225,21 +272,29 @@
       apply(idx, nStories);
     }
     function all() { apply(items.length - 1, stories); }
-    // A layer click opens its row.
+    // Scrolls the ledger so a row is current, keeping the pinned section where it is.
+    function scrollToRow(item) {
+      var r = item.getBoundingClientRect();
+      var target = scrollY + r.top - readingLine() + 1;
+      var s = section.getBoundingClientRect();
+      var lo = scrollY + s.top - hdH() - 24, hi = scrollY + s.bottom - innerHeight;
+      target = Math.max(lo, Math.min(hi, target));
+      scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
+    }
+    // A layer click opens its row and brings it to the reading line.
     if (dwg) dwg.addEventListener('click', function (e) {
       var g = e.target.closest('[data-layer]');
       if (!g) return;
-      var key = g.getAttribute('data-layer');
-      var item = items[keys.indexOf(key)];
+      var item = items[keys.indexOf(g.getAttribute('data-layer'))];
       if (!item) return;
       setOpen(item, true);
       sc.layout();
-      item.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      scrollToRow(item);
     });
-    return { read: read, all: all, items: items };
+    return { read: read, all: all, items: items, scrollToRow: scrollToRow };
   })();
 
-  /* ---- the waterfall: the figure advances as each line joins ---- */
+  /* ---- the waterfall: the figure advances as each line joins, and lands in light ---- */
   var wf = (function () {
     var section = doc.getElementById('from-trades-to-total');
     if (!section) return { read: function () {}, all: function () {} };
@@ -259,7 +314,8 @@
         var dot = r.querySelector('.dot');
         if (dot) dot.className = 'dot ' + (i < n ? 'dot--in' : 'dot--next');
       });
-      stage.setAttribute('data-sc-verify-state', 'wf:' + n);
+      section.setAttribute('data-landed', String(landed));
+      stage.setAttribute('data-sc-verify-state', 'wf:' + n + (landed ? ':light' : ''));
       if (landed) stage.setAttribute('data-sc-verify-hold', 'true'); else stage.removeAttribute('data-sc-verify-hold');
     }
     function read() {
@@ -278,13 +334,13 @@
     if (ticking) return; ticking = true;
     requestAnimationFrame(function () { ticking = false; driveHeader(); ledger.read(); wf.read(); spy(); });
   }
-  function relayout() { cropDrawings(); sc.layout(); measureTravel(); driveHeader(); ledger.read(); wf.read(); spy(); }
+  function relayout() { cropDrawings(); sc.layout(); measureFlight(); driveHeader(); ledger.read(); wf.read(); spy(); }
   // The current row grows and shrinks as it changes, which moves every act
   // below it; the engine measures again once the row has settled.
   var relayoutTimer = 0;
   function relayoutSoon() {
     clearTimeout(relayoutTimer);
-    relayoutTimer = setTimeout(function () { sc.layout(); sc.read(); driveHeader(); wf.read(); spy(); }, 240);
+    relayoutTimer = setTimeout(function () { sc.layout(); sc.read(); driveHeader(); wf.read(); spy(); }, 120);
   }
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', relayout, { passive: true });
@@ -297,7 +353,7 @@
     each('.lg-now', function (s) { s.classList.remove('lg-now'); });
     ledger.all();
     wf.all();
-    if (band) { band.setAttribute('data-parked', 'false'); if (fig) fig.style.transform = 'none'; }
+    if (band) { band.setAttribute('data-parked', 'false'); band.removeAttribute('data-fly'); if (fig) fig.style.transform = 'none'; if (wrap) wrap.style.transform = 'none'; }
   }
   addEventListener('beforeprint', rest);
   window.KulkaBudget = { setTier: setTier, rest: rest, engine: sc, ledger: ledger, waterfall: wf };

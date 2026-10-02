@@ -124,10 +124,12 @@ describe("the rendered page against the reference", () => {
 });
 
 describe("the section on the page", () => {
-  it("draws the section three times, each with its own pattern ids, and every layer keyed by a ledger row", () => {
+  it("draws the section five times, each with its own pattern ids, and every layer keyed by a ledger row", () => {
     const html = page();
     const drawings = [...html.matchAll(/<div class="dwg[^"]*" data-dwg="([^"]*)"/g)].map((m) => m[1]);
-    expect(drawings).toEqual(["ledger", "proven", "peak"]);
+    expect(drawings).toEqual(["ledger", "proven", "design", "peak", "peak-light"]);
+    // The criteria's ids sit on the Design and Engineering drawing's callouts, once each.
+    expect([...html.matchAll(/data-el="criterion:([^"]*)"/g)].map((m) => m[1]).sort()).toEqual(["A-1", "A-2", "E-1", "M-0", "M-1", "S-1", "V-1", "V-2", "V-3"]);
     const ids = [...html.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]);
     expect(new Set(ids).size).toBe(ids.length);
     const layerKeys = new Set([...html.matchAll(/<g data-layer="([^"]*)"/g)].map((m) => m[1]));
@@ -185,7 +187,7 @@ describe("client-facing text", () => {
     expect(text).not.toMatch(/[–—]/);
     // The criteria's worked steps may say feet; the drawings never do.
     const drawings = [...html.matchAll(/<svg [^>]*data-vb-desk[\s\S]*?<\/svg>/g)].map((m) => m[0].replace(/<style[\s\S]*?<\/style>/g, " ").replace(/<[^>]+>/g, " "));
-    expect(drawings).toHaveLength(3);
+    expect(drawings).toHaveLength(5);
     for (const d of drawings) expect(d).not.toMatch(/\d\s?(ft\b|feet|'|′|"|″|inch)/i);
   });
 

@@ -109,12 +109,11 @@ b, strong { font-weight: 600; }
   display: inline-flex;
   align-items: baseline;
   gap: 10px;
-  transition: opacity 180ms var(--ease);
 }
 .hd-fig-l { font-size: var(--meta-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
 .hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
 .hd-t1 .hd-fig + .sw { margin-left: 16px; }
-.hd[data-state="band"] .hd-fig { opacity: 0; }
+.hd[data-state="band"] .hd-fig, .hd[data-fig-hidden] .hd-fig { opacity: 0; }
 /* While the band is still behind it the header is clear, so the travelling figure never passes under it. */
 .hd[data-state="band"] { background: transparent; }
 
@@ -182,8 +181,10 @@ b, strong { font-weight: 600; }
 }
 .band-foot { padding: 0 24px 28px; }
 /* What leaves as the band compresses: everything but the figure. */
-.band--first [data-fade] { opacity: clamp(0, 1 - var(--travel, 0) * 2.4, 1); }
+.band--first [data-fade] { opacity: clamp(0, 1 - var(--travel, 0) * 3, 1); }
 .band--first[data-parked="true"] [data-travel] { visibility: hidden; }
+/* In flight the figure's block paints above the header, so the bar never clips it. */
+.band--first[data-fly="true"]:not([data-parked="true"]) .fig-wrap { position: relative; z-index: 61; will-change: transform; }
 
 .fig-l { font-size: var(--body-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
 .fig-wrap { display: inline-grid; justify-items: stretch; gap: 16px; }
@@ -195,7 +196,7 @@ b, strong { font-weight: 600; }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.band--first .fig { transform-origin: left top; will-change: transform; }
+.band--first .fig { will-change: transform; }
 .band-meta { font-size: var(--meta-size); color: var(--rb-ink2-on-black); margin-top: 8px; text-align: center; }
 
 /* The range drawn on a scale from $0 (ledger-rail.tsx RangeBand). */
@@ -242,8 +243,8 @@ b, strong { font-weight: 600; }
   box-shadow: var(--shadow-card);
 }
 .sheet + .sheet { margin-top: 0; }
-/* The ask closes with the canvas beneath it, so the last screen is the close alone (frame 04). */
-main { padding-bottom: 40vh; }
+/* The page ends with the ask; the browser does not re-anchor the scroll when a ledger row grows. */
+body { overflow-anchor: none; }
 .sheet-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 16px; }
 .sheet-h { font-size: var(--sheet-title-size); line-height: var(--sheet-title-line); letter-spacing: var(--sheet-title-track); font-weight: 800; color: var(--rb-blk-ink); }
 .sheet-sub { font-size: var(--body-size); color: var(--rb-blk-ink2); max-width: 720px; }
@@ -372,7 +373,11 @@ main { padding-bottom: 40vh; }
 .dwg--live [data-layer].is-drawn, .dwg--live [data-note].is-drawn { opacity: 1; }
 .dwg--live [data-story], .dwg--live [data-roof] { opacity: 0; transition: opacity 200ms var(--ease); }
 .dwg--live [data-story].is-up, .dwg--live [data-roof].is-up { opacity: 1; }
+.dwg--live [data-layer].is-now { filter: drop-shadow(0 0 2px rgba(0, 115, 234, 0.45)); }
 .dwg--live [data-layer].is-now .s { stroke: var(--primary); }
+.dwg--live [data-layer].is-now .w1 { stroke-width: 1.5px; }
+.dwg--live [data-layer].is-now .w2 { stroke-width: 2.2px; }
+.dwg--live [data-layer].is-now .w3 { stroke-width: 3px; }
 .dwg--live [data-layer].is-now text { fill: var(--primary); }
 .dwg--live [data-layer] { cursor: pointer; }
 .dwg--live [data-layer]:hover .s { stroke: var(--primary); }
@@ -422,7 +427,11 @@ main { padding-bottom: 40vh; }
 .crit-tag { display: inline-flex; justify-content: center; align-items: center; height: 16px; min-width: 34px; border: 1px solid var(--rb-blk-ink); border-radius: 2px; font-size: 10px; font-weight: 600; color: var(--rb-blk-ink); }
 .crit-v { color: var(--rb-blk-ink); font-weight: 600; text-align: right; white-space: nowrap; }
 
-/* --- Design and Engineering: the criteria, keyed, no money ----------------- */
+/* --- Design and Engineering: the criteria called out on the drawing --------- */
+
+.sheet--design { max-width: 1392px; }
+.dwg--design { max-width: 1120px; margin: 0 auto; }
+.crits { margin-top: 24px; }
 
 .crits .criterion { grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: baseline; padding: 12px 16px; }
 .crit-body { display: grid; gap: 4px; min-width: 0; }
@@ -442,8 +451,11 @@ main { padding-bottom: 40vh; }
 /* The band flowing rather than pinned: a phone, a short window, or reduced motion. */
 .band--peak.band--flow .band-stage { position: static; height: auto; min-height: 100svh; overflow: visible; }
 .band--peak.band--flow .wf-main { padding-bottom: 48px; }
-/* In the flowing band the figure holds under the header while the lines pass beneath it and it advances. */
-.band--peak.band--flow .wf-fig { position: sticky; top: var(--hd-h); z-index: 2; background: var(--rb-black); padding: 8px 0; }
+/* In a short window the figure holds under the header while the lines pass beneath it and it advances.
+   On a phone the band is one screen, so the figure scrolls with its lines. */
+@media (min-width: 861px) {
+  .band--peak.band--flow .wf-fig { position: sticky; top: var(--hd-h); z-index: 2; background: var(--rb-black); padding: 8px 0; }
+}
 .wf-h { font-size: var(--sheet-title-size); line-height: var(--sheet-title-line); letter-spacing: var(--sheet-title-track); font-weight: 800; }
 .wf-main { flex: 1; display: grid; align-content: center; padding: 24px; min-height: 0; }
 .wf-in {
@@ -486,6 +498,31 @@ main { padding-bottom: 40vh; }
 .wf-after b { color: var(--rb-ink-on-black); }
 .wf-after i { font-style: normal; color: var(--rb-pnl-line2); }
 .dwg--band svg { width: 100%; }
+.dwg-swap { grid-area: dwg; position: relative; }
+.dwg-swap .dwg--light { position: absolute; inset: 0; opacity: 0; transition: opacity 700ms var(--ease); }
+.dwg-swap .dwg--dark { opacity: 1; transition: opacity 700ms var(--ease); }
+.wf-after { font-size: var(--body-size); }
+
+/* The landing: once Insurance has joined, the figure grows to the first
+   screen's size, full width, and the band's ground lifts from Kulka black to
+   Daylight; the figure turns to ink and the section to ink, and holds. */
+.band--peak, .band--peak .band-stage, .band--peak .wf-h, .band--peak .fig-l, .band--peak .fig, .band--peak .wf-lab, .band--peak .wf-amt, .band--peak .wf-why, .band--peak .wf-range, .band--peak .wf-after, .band--peak .wf-after b, .band--peak .wf-landed, .band--peak .wf, .band--peak .wf-row, .band--peak .wf-fig {
+  transition: background-color 700ms var(--ease), color 700ms var(--ease), border-color 700ms var(--ease);
+}
+.fig--beside { transition: font-size 700ms var(--ease); }
+.band--peak[data-landed="true"], .band--peak[data-landed="true"] .band-stage, .band--peak[data-landed="true"] .wf-fig { background: var(--canvas); color: var(--rb-blk-ink); }
+.band--peak[data-landed="true"] .fig-l, .band--peak[data-landed="true"] .wf-why, .band--peak[data-landed="true"] .wf-after, .band--peak[data-landed="true"] .wf-landed { color: var(--rb-blk-ink2); }
+.band--peak[data-landed="true"] .wf-range { color: var(--rb-blk-mute); }
+.band--peak[data-landed="true"] .wf-after b { color: var(--rb-blk-ink); }
+.band--peak[data-landed="true"] .wf-after i { color: var(--rb-blk-line); }
+.band--peak[data-landed="true"] .wf { border-top-color: var(--rb-blk-ink); }
+.band--peak[data-landed="true"] .wf-row { border-top-color: var(--rb-blk-line); }
+.band--peak[data-landed="true"] .wf .dot--in { background: var(--rb-blk-ink); }
+.band--peak[data-landed="true"] .wf-in { grid-template-areas: "h h" "fig fig" "wf dwg"; align-items: start; gap: 16px 40px; }
+.band--peak[data-landed="true"] .wf-main { align-content: start; }
+.band--peak[data-landed="true"] .fig--beside { font-size: 15vw; }
+.band--peak[data-landed="true"] .dwg--light { opacity: 1; }
+.band--peak[data-landed="true"] .dwg--dark { opacity: 0; }
 
 /* --- What Is In, and What Is Not; Notes ------------------------------------ */
 
@@ -549,6 +586,7 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .wf-why { font-size: var(--meta-size); line-height: 18px; }
   .wf-h { font-size: 22px; line-height: 28px; }
   .fig--beside { font-size: clamp(40px, 5vw, 64px); }
+  .band--peak[data-landed="true"] .fig--beside { font-size: 15vw; }
   .wf-main { padding: 12px 24px; }
 }
 
@@ -612,9 +650,10 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
 
   .split { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 12px 16px 32px; padding: 0; }
   .split .sheet { margin: 0; }
-  .split .sheet--dwg { order: -1; padding: 12px; top: var(--hd-h); z-index: 5; }
+  .split .sheet--dwg { order: -1; padding: 10px 10px 8px; top: var(--hd-h); z-index: 5; }
+  .split .dwg-cap { margin-top: 4px; }
   /* The phone crops to the building: the sheet's words are carried in HTML beneath. */
-  .dwg--crop [data-part] { display: none; }
+  .dwg--crop [data-part]:not([data-part="grade"]) { display: none; }
 
   .proven { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .count b { font-size: 36px; }
@@ -627,9 +666,10 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .wf-main { padding: 16px; }
   .wf-in { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "fig" "dwg" "wf" "after"; gap: 12px; }
   .band--peak.band--flow .wf-main { padding-bottom: 16px; }
-  .band--peak.band--flow .wf-fig { padding: 0 0 6px; }
+  .band--peak.band--flow .wf-fig { padding: 0; }
   .wf-h { font-size: 22px; line-height: 30px; }
   .fig--beside { font-size: 15vw; }
+  .band--peak[data-landed="true"] .wf-in { grid-template-areas: "h" "fig" "dwg" "wf"; }
   .wf-row { padding: 12px 0; gap: 2px 12px; }
   .wf-lab { font-size: var(--body-size); }
   .wf-lab .dot { display: inline-block; }
@@ -675,7 +715,8 @@ html[data-print] body { padding-top: 0; }
   .split { display: block; margin: 0 0 10mm; padding: 0; max-width: none; }
   .split .sheet { margin: 0; }
   /* One section at rest, as a sheet: Proven's, complete with its title block. */
-  #where-the-money-is .sheet--dwg, .band--peak .dwg { display: none !important; }
+  #where-the-money-is .sheet--dwg, .band--peak .dwg-swap, #design-and-engineering .dwg, #design-and-engineering .dwg-cap { display: none !important; }
+  .band--peak[data-landed="true"] .wf-in { display: block; }
   .sheet--dwg { position: static; }
   .proven { grid-template-columns: minmax(0, 1fr); }
   .proven .dwg { max-width: 640px; border: 1px solid var(--rb-blk-line); }
@@ -719,6 +760,9 @@ html[data-print] body { padding-top: 0; }
   #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes, #appendix { break-before: page; }
   h1, h2, h3, h4 { break-after: avoid; }
   .params thead { display: table-header-group; }
+  /* The three columns stack on paper, each kept whole, so no heading strands at a page foot. */
+  .gates-grid { display: block; }
+  .gates-col { break-inside: avoid; margin-bottom: 16px; }
   .superseded { border: 1px solid var(--rb-blk-line); }
   html[data-print] .appendix { display: block; }
   /* A transition still running when print media switches on would print half-faded. */

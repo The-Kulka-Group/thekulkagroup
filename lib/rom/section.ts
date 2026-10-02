@@ -72,6 +72,8 @@ export type SectionOptions = {
   idPrefix?: string;
   /** False leaves the `<style>` out of the SVG; the page then holds `sectionStyle()` in its head. */
   styleInSvg?: boolean;
+  /** When set, each criterion callout carries `data-el="<prefix><code>"`, so one drawing on the page owns the criteria's ids. */
+  calloutEl?: string;
 };
 
 /** Every layer a ledger row can own, by row key, in the words the page uses. */
@@ -273,11 +275,10 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
   const thickenedAt = [mid(G.corrL), mid(G.corrR), G.stair[0] + G.stairWall / 2, G.stair[1] - G.stairWall / 2];
   const concrete = (key: string) => (ink.get(key) === "light" ? url("conc-light") : url("conc"));
 
-  // --- 02 Demolition: the site as found. Grade, earth, the structure that came down.
+  // --- 02 Demolition: the site as found. The earth and the structure that came down.
   if (has("element:demolition")) {
     const g: string[] = [];
     g.push(`<rect x="${G.border + 8}" y="${G.grade}" width="${G.W - 2 * G.border - 16}" height="${G.earthBot - G.grade}" fill="${url("earth")}"/>`);
-    g.push(line(G.border + 8, G.grade, G.W - G.border - 8, G.grade, "w3", C.ink));
     if (facts.demolition) {
       const lc = (ink.get("element:demolition:structure") ?? ink.get("line:1a")) === "light" ? C.light : C.ink;
       const [px0, px1] = [G.parking[0] + 10, G.parking[0] + 150];
@@ -289,6 +290,8 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
     }
     L(group("element:demolition", g, "02 Demolition"));
   }
+  // The grade line is the sheet's own ground: drawn before any row, so the sheet is never blank.
+  L(part("grade", [line(G.border + 8, G.grade, G.W - G.border - 8, G.grade, "w3", C.ink)]));
 
   // --- 03 Concrete: spread footings, foundation walls, the slab, a basement when there is one.
   if (has("line:2")) {
@@ -319,8 +322,8 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
     const g: string[] = [];
     const c = col("line:6");
     const top = F(2) + floorT;
-    g.push(rect(G.x0 - 4, top, 4, G.grade - top, "w1", c, url("mas")));
-    g.push(rect(G.x1, top, 4, G.grade - top, "w1", c, url("mas")));
+    g.push(rect(G.x0 - 6, top, 6, G.grade - top, "w2", c, url("mas")));
+    g.push(rect(G.x1, top, 6, G.grade - top, "w2", c, url("mas")));
     L(group("line:6", g, "04 Masonry"));
   }
 
@@ -524,11 +527,11 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
     L(group("line:17", g, "09 Drywall and Ceilings"));
   }
 
-  // --- 03 Gypcrete topping and 09 flooring on every framed floor.
+  // --- 03 Gypcrete topping, over the slab and on every framed floor; 09 flooring on every floor.
   if (has("line:3a")) {
     const g: string[] = [];
     const c = ink.get("line:3a") === "light" ? C.light : C.ink2;
-    for (let n = 2; n <= framedTo; n++) g.push(rect(G.x0 + G.extWall, F(n) - 3, G.x1 - G.x0 - 2 * G.extWall, 3, "w1", c, C.fill, story(n)));
+    for (let n = 1; n <= Math.max(1, framedTo); n++) g.push(rect(G.x0 + G.extWall, F(n) - 3, G.x1 - G.x0 - 2 * G.extWall, 3, "w2", c, C.fill, n === 1 ? "" : story(n)));
     L(group("line:3a", g, "03 Gypcrete"));
   }
   if (has("line:19")) {
@@ -774,14 +777,16 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
       const [ax, ay, [tx, ty]] = a;
       const right = tx >= ax;
       const sh = right ? 10 : -10;
-      g.push(line(ax, ay, tx, ty, "w1", C.ink));
-      g.push(line(tx, ty, tx + sh, ty, "w1", C.ink));
-      g.push(`<circle cx="${n2(ax)}" cy="${n2(ay)}" r="1.6" fill="${C.ink}"/>`);
+      const one: string[] = [];
+      one.push(line(ax, ay, tx, ty, "w1", C.ink));
+      one.push(line(tx, ty, tx + sh, ty, "w1", C.ink));
+      one.push(`<circle cx="${n2(ax)}" cy="${n2(ay)}" r="1.6" fill="${C.ink}"/>`);
       const tagW = 30, tagH = 15;
       const bx = right ? tx + sh + 2 : tx + sh - 2 - tagW;
-      g.push(rect(bx, ty - tagH / 2, tagW, tagH, "w1", C.ink, C.tag, ` rx="1.5"`));
-      g.push(text(bx + tagW / 2, ty + 4, cr.code, 10, C.ink, ` text-anchor="middle" class="t tb tn"`));
-      g.push(text(right ? bx + tagW + 6 : bx - 6, ty + 4, cr.value, 12.5, C.ink, right ? "" : ` text-anchor="end"`));
+      one.push(rect(bx, ty - tagH / 2, tagW, tagH, "w1", C.ink, C.tag, ` rx="1.5"`));
+      one.push(text(bx + tagW / 2, ty + 4, cr.code, 10, C.ink, ` text-anchor="middle" class="t tb tn"`));
+      one.push(text(right ? bx + tagW + 6 : bx - 6, ty + 4, cr.value, 12.5, C.ink, right ? "" : ` text-anchor="end"`));
+      g.push(`<g data-callout="${esc(cr.code)}"${opts.calloutEl ? ` data-el="${esc(opts.calloutEl + cr.code)}"` : ""}>\n${one.join("\n")}\n</g>`);
     }
     L(part("criteria", g));
   }
@@ -799,9 +804,12 @@ ${opts.styleInSvg === false ? "" : `<style>${sectionStyle(pid, theme)}</style>`}
     g.push(poly([[cx - 4, ky + kh + 6], [cx + 4, ky + kh + 6], [cx, ky + kh + 1]], "w1", C.ink, C.ink));
     const a2 = criteria.find((c) => c.code === "A-2");
     if (a2) {
-      g.push(rect(kx, ky + kh + 14, 30, 15, "w1", C.ink, C.tag, ` rx="1.5"`));
-      g.push(text(kx + 15, ky + kh + 25.5, "A-2", 10, C.ink, ` text-anchor="middle" class="t tb tn"`));
-      g.push(text(kx + 36, ky + kh + 25.5, `${a2.value} Building`, 12.5, C.ink));
+      const tag = [
+        rect(kx, ky + kh + 14, 30, 15, "w1", C.ink, C.tag, ` rx="1.5"`),
+        text(kx + 15, ky + kh + 25.5, "A-2", 10, C.ink, ` text-anchor="middle" class="t tb tn"`),
+        text(kx + 36, ky + kh + 25.5, `${a2.value} Building`, 12.5, C.ink),
+      ];
+      g.push(`<g data-callout="A-2"${opts.calloutEl ? ` data-el="${esc(opts.calloutEl + "A-2")}"` : ""}>\n${tag.join("\n")}\n</g>`);
     } else if (facts.form) {
       g.push(text(kx, ky + kh + 25.5, `${facts.form} Building`, 11, C.ink2));
     }

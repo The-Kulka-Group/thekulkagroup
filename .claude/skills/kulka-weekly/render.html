@@ -1,5 +1,8 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kulka AI Weekly 05</title>
+<!-- Kulka AI weekly report shell. Locked design, panel-scored 95 on 2026-08-28.
+     Fill the {{TOKENS}}, follow the comment rules, do not restyle.
+     The design contract lives in SKILL.md next to this file. -->
+<title>Kulka AI Weekly 06</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -100,7 +103,7 @@
   }
 
   /* Done list */
-  .done-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  .done-list { list-style: none; margin: 0; padding: 0; }
   .done-list li {
     display: flex; gap: 14px; align-items: flex-start;
     padding: 12px 0; border-bottom: 1px solid var(--line);
@@ -117,7 +120,7 @@
   .done-list .t .sub { color: var(--ink-2); }
 
   /* Ahead list */
-  .ahead-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  .ahead-list { list-style: none; margin: 0; padding: 0; }
   .ahead-list li { display: flex; gap: 14px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .ahead-list li:last-child { border-bottom: none; }
   .when {
@@ -157,24 +160,24 @@
 <header class="mast">
   <div class="mast-in">
     <div class="wordmark">BLDG&nbsp;<span class="labs">LABS</span></div>
-    <div class="mast-meta"><strong>KULKA AI · WEEKLY 05</strong><br>Sep 19 to Sep 25, 2026</div>
+    <div class="mast-meta"><strong>KULKA AI · WEEKLY 06</strong><br>Sep 26 to Oct 2, 2026</div>
   </div>
 </header>
 
 <main class="wrap">
   <p class="eyebrow">For Kulka leadership</p>
-  <h1>The rough budget tool is now runnable on your&nbsp;site.</h1>
-  <p class="lede"><strong>This week the conceptual budgeting build flipped from specs and skills into a live ROM surface.</strong> ROM means rough order of magnitude: the early budget view you asked for on Monday. Estimators can run a budget, open any line to see where the number came from, enter judgment rules as data, and turn scope questions on or off. We also staged an ingestion gate so cost lines can be reviewed before they price a run, and we filed Autodesk Cost Budget and Contract reports for Fieldstone North Broadway and Jefferson Ferry. The Cost Export confirm from last week is still open on our side; we are not asking your team again this letter.</p>
+  <h1>A live rough budget landed within two dollars a square&nbsp;foot.</h1>
+  <p class="lede"><strong>Monday we ran the rough budget tool live with Devin, Rob, and Gina.</strong> On a 48,000 SF wood-frame test job the tool came in about $272 per SF against Rob's independent about $270 per SF, with about sixteen questions answered. The same week we shipped a publish path so a budget can freeze as a shareable link, locked the client budget page frames, and started pricing General Conditions and General Requirements from allocated resources. The cost library still has only two comparable jobs, so the two asks at the bottom matter before Monday's weekly.</p>
 
   <section class="section">
     <hr class="rule">
     <h2>Where the build stands</h2>
-    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, confirm costs. Last step: in your hands.</p>
+    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, more ProEst data. Last step: in your hands.</p>
     <div class="steps" aria-hidden="true">
       <div class="step done"><div class="step-bar"></div><div class="step-name">Decision</div></div>
       <div class="step done"><div class="step-bar"></div><div class="step-name">Setup</div></div>
       <div class="step done"><div class="step-bar"></div><div class="step-name">Sample budget</div></div>
-      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">Confirm costs</span></div></div>
+      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">More ProEst data</span></div></div>
       <div class="step"><div class="step-bar"></div><div class="step-name">In your hands</div></div>
     </div>
   </section>
@@ -183,10 +186,10 @@
     <hr class="rule">
     <h2>What we counted</h2>
     <div class="stats">
-      <div class="stat"><div class="stat-n">129</div><div class="stat-l">Code changes shipped</div></div>
-      <div class="stat"><div class="stat-n">17</div><div class="stat-l">Tickets closed</div></div>
-      <div class="stat"><div class="stat-n">4</div><div class="stat-l">Autodesk cost files</div></div>
-      <div class="stat"><div class="stat-n">1</div><div class="stat-l">Meetings held</div></div>
+      <div class="stat"><div class="stat-n">227</div><div class="stat-l">Code changes shipped</div></div>
+      <div class="stat"><div class="stat-n">110</div><div class="stat-l">Tickets closed</div></div>
+      <div class="stat"><div class="stat-n">1</div><div class="stat-l">Live demos held</div></div>
+      <div class="stat"><div class="stat-n">3</div><div class="stat-l">Meetings held</div></div>
     </div>
   </section>
 
@@ -194,12 +197,12 @@
     <hr class="rule">
     <h2>Done this week</h2>
     <ul class="done-list">
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Shipped the ROM budgeting surface into the GitHub account you own.</strong> <span class="sub">A run stays browsable after it finishes. Any line opens to show where its number came from. Estimator judgment rules enter as data and blend under actuals. The first-tier question flow reads from a definition file.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Built the ingestion gate and the block board around it.</strong> <span class="sub">Cost lines stage, get approved, then become queryable. Reviewers can remap a line before approval. Every ROM line sits on one board by level so a carved-out block cannot double count.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Added a leave-one-out backtest against each job's own budget.</strong> <span class="sub">No Kulka job has closed yet, so the check prices each job with its own benchmarks left out and scores the worst misses at a ten percent bar.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Filed Liam's full answers to the budgeting questionnaire.</strong> <span class="sub">Nineteen of nineteen questions answered and committed, including which ProEst unit cost files are current and which Autodesk scopes match.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Landed Autodesk Cost Budget and Contract reports for two multifamily jobs.</strong> <span class="sub">Fieldstone North Broadway and Jefferson Ferry are on disk from the Aug 31 Cost Export mail. A fresh Autodesk export is still blocked on our sign in, so the confirm stays open without a new chase.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Held the Monday weekly with Devin, Rob, and Gina.</strong> <span class="sub">You asked for a visual of the blocks and workflow from project start through design and engineering into a priced ROM. That visual is next.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Ran the rough budget live on Monday with Devin, Rob, and Gina.</strong> <span class="sub">The tool priced about $272 per SF on a 48,000 SF, 45-unit wood-frame test against Rob's independent about $270 per SF.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Shipped a publish path for a frozen budget link.</strong> <span class="sub">A saved run can publish with a version, open at a shareable page outside sign-in, and print a stored PDF when it publishes.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Locked the client budget page frames and started the build.</strong> <span class="sub">The approved Ledger Opened frames are the target for the shareable page. The page build is in progress on the GitHub account you own.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Started pricing General Conditions and General Requirements from allocated resources.</strong> <span class="sub">Rates load from a completed job sheet. Quantities follow the project's facts and schedule. Lines switch on or off from the answers.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Rebuilt New Budget as one question at a time with a live scope preview.</strong> <span class="sub">Design and Engineering answers play on a stage. Elevators, service size, and HVAC tonnage derive from the project's facts before a run finishes.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Held three sessions with Kulka this week.</strong> <span class="sub">Monday weekly with Devin, Rob, and Gina. Tuesday one-on-one with Devin. Friday sync with Rob and Devin on the client budget drill-down and a five-contact pilot review.</span></div></li>
     </ul>
   </section>
 
@@ -207,10 +210,23 @@
     <hr class="rule">
     <h2>Coming up</h2>
     <ul class="ahead-list">
-      <li><span class="when">Mon Sep 28</span><div class="t">BLDG and Kulka weekly meeting (10:00am ET on the Labs calendar).</div></li>
-      <li><span class="when">Mon Sep 28</span><div class="t">Deliver the <strong>ROM workflow visual</strong> Devin asked for on Sep 21 (project start through design and engineering with pricing inside the blocks).</div></li>
-      <li><span class="when">After Mon Sep 28</span><div class="t">Keep pricing against the Fieldstone and Jefferson Ferry Autodesk working set until the Cost Export confirm closes on our side.</div></li>
+      <li><span class="when">Mon Oct 5</span><div class="t">BLDG and Kulka weekly meeting (10:00am ET on the Labs calendar).</div></li>
+      <li><span class="when">Mon Oct 5</span><div class="t">Deliver the <strong>ROM workflow visual</strong> still owed from Sep 21 (project start through design and engineering with pricing inside the blocks).</div></li>
+      <li><span class="when">Mon Oct 5</span><div class="t">Keep the <strong>client budget page</strong> build on the locked Ledger Opened frames toward pilot-review readiness.</div></li>
+      <li><span class="when">After Mon Oct 5</span><div class="t">Rob schedules pilot-review sessions with about five construction-savvy contacts once the page is ready (from the Fri Oct 2 sync).</div></li>
     </ul>
+  </section>
+
+  <section class="asks">
+    <h2>We need two things from your team</h2>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Email more ProEst historical cost exports to Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 5. <span class="why">The library still has only two comparable jobs, so General Requirements and General Conditions stay light.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Share the cleaned Python slab takeoff program with Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 5. <span class="why">You offered it on Sep 28 before a wider rollout.</span></div>
+    </div>
   </section>
 
 </main>

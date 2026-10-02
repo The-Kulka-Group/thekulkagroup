@@ -1,0 +1,240 @@
+<!-- Kulka AI weekly report shell. Locked design, panel-scored 95 on 2026-08-28.
+     Fill the {{TOKENS}}, follow the comment rules, do not restyle.
+     The design contract lives in SKILL.md next to this file. -->
+<title>Kulka AI Weekly 06</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --paper: #FFFFFF;
+    --ink: #0B0C09;
+    --ink-2: #5A5F52;
+    --line: #D3D7CA;
+    --track: #6E7365;
+    --lime: #8FE800;
+    --green: #2F7200;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: "Archivo", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 0 20px; }
+  footer.wrap { padding-bottom: 56px; }
+  main.wrap { padding-bottom: 0; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .mast, .asks, .step-bar, .check, .who {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+
+  /* Masthead */
+  .mast { background: var(--ink); color: #FFFFFF; }
+  .mast-in {
+    max-width: 700px; margin: 0 auto; padding: 18px 20px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .wordmark { font-weight: 900; font-size: 17px; letter-spacing: .16em; white-space: nowrap; }
+  .wordmark .labs { color: var(--lime); }
+  .mast-meta { font-family: var(--mono); font-size: 11px; line-height: 1.6; text-align: right; color: #C9CDBF; }
+  .mast-meta strong { color: #FFFFFF; font-weight: 600; }
+
+  /* Hero */
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--green);
+    margin: 40px 0 14px;
+  }
+  h1 {
+    font-size: clamp(34px, 8vw, 52px);
+    font-weight: 900; line-height: 1.02; letter-spacing: -0.02em;
+    margin: 0 0 16px; text-wrap: balance;
+  }
+  .lede { font-size: 18px; line-height: 1.55; color: var(--ink); max-width: 60ch; margin: 0 0 40px; }
+  .lede strong { font-weight: 700; }
+
+  /* Sections share one header voice */
+  .section { margin-bottom: 40px; }
+  .rule { border: 0; border-top: 2px solid var(--ink); margin: 0 0 16px; }
+  h2 {
+    font-size: 14px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  /* Tracker: fill + outline encode state, so it survives grayscale.
+     Done = full lime, current = half lime, not started = hollow. */
+  .steps { display: flex; gap: 6px; margin-top: 12px; }
+  .step { flex: 1; min-width: 0; }
+  .step-bar { height: 8px; margin-bottom: 8px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--track); }
+  .step.done .step-bar { background: var(--lime); box-shadow: inset 0 0 0 1px var(--ink); }
+  .step.now .step-bar { background: linear-gradient(90deg, var(--lime) 50%, var(--paper) 50%); box-shadow: inset 0 0 0 2px var(--ink); }
+  .step-name {
+    font-family: var(--mono); font-size: 11px; line-height: 1.4; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ink-2); min-height: 2.8em; padding-right: 4px;
+  }
+  .step.done .step-name, .step.now .step-name { color: var(--ink); font-weight: 600; }
+  .step-name .due { display: block; color: var(--green); }
+  @media (max-width: 560px) {
+    .step-name { letter-spacing: 0; min-height: 4.2em; font-size: 10px; }
+  }
+
+  /* Scoreboard */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border: 2px solid var(--ink); margin-top: 12px; }
+  .stat { padding: 16px 14px 14px; border-left: 2px solid var(--ink); }
+  .stat:first-child { border-left: none; }
+  .stat-n { font-family: var(--mono); font-size: clamp(26px, 5.5vw, 34px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+  .stat-l { font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); margin-top: 8px; line-height: 1.4; min-height: 2.8em; }
+  @media (max-width: 620px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat:nth-child(3) { border-left: none; }
+    .stat:nth-child(n+3) { border-top: 2px solid var(--ink); }
+  }
+
+  /* Done list */
+  .done-list { list-style: none; margin: 0; padding: 0; }
+  .done-list li {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
+  }
+  .done-list li:last-child { border-bottom: none; }
+  .check {
+    flex: none; width: 22px; height: 22px; margin-top: 1px;
+    background: var(--lime); box-shadow: inset 0 0 0 1px var(--ink);
+    display: grid; place-items: center;
+  }
+  .check svg { display: block; }
+  .done-list .t { font-size: 16px; line-height: 1.5; max-width: 60ch; }
+  .done-list .t strong { font-weight: 700; }
+  .done-list .t .sub { color: var(--ink-2); }
+
+  /* Ahead list */
+  .ahead-list { list-style: none; margin: 0; padding: 0; }
+  .ahead-list li { display: flex; gap: 14px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .ahead-list li:last-child { border-bottom: none; }
+  .when {
+    flex: none; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--green);
+    width: 108px;
+  }
+  .ahead-list .t { font-size: 16px; line-height: 1.5; max-width: 60ch; }
+  .ahead-list .t strong { font-weight: 700; }
+
+  /* Asks: the black card */
+  .asks { background: var(--ink); color: #FFFFFF; padding: 24px 22px; margin-bottom: 40px; }
+  .asks h2 { color: var(--lime); margin-bottom: 16px; }
+  .ask { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; border-top: 1px solid #2A2C26; }
+  .ask:first-child { border-top: none; padding-top: 0; }
+  .ask:last-child { padding-bottom: 2px; }
+  .who {
+    flex: none; font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; background: var(--lime); color: var(--ink);
+    padding: 3px 8px; margin-top: 2px; min-width: 56px; text-align: center;
+  }
+  .ask .t { font-size: 16px; line-height: 1.55; color: #F2F4EC; max-width: 60ch; }
+  .ask .t strong { color: #FFFFFF; font-weight: 700; }
+  .ask .t .why { color: #A9AE9E; }
+  .ask .t a { color: #FFFFFF; text-decoration: underline; text-decoration-color: #A9AE9E; text-underline-offset: 2px; }
+
+  /* Footer */
+  .foot { margin-bottom: 0; }
+  .foot-in { display: flex; flex-wrap: wrap; gap: 10px 28px; justify-content: space-between; align-items: baseline; }
+  .foot p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-2); max-width: 46ch; }
+  .foot .sig { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+  .foot .sig .dot { color: var(--green); }
+
+  @media (max-width: 560px) { .when { width: 96px; } }
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="wordmark">BLDG&nbsp;<span class="labs">LABS</span></div>
+    <div class="mast-meta"><strong>KULKA AI · WEEKLY 06</strong><br>Sep 26 to Oct 2, 2026</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="eyebrow">For Kulka leadership</p>
+  <h1>A live rough budget landed within two dollars a square&nbsp;foot.</h1>
+  <p class="lede"><strong>Monday we ran the rough budget tool live with Devin, Rob, and Gina.</strong> On a 48,000 SF wood-frame test job the tool came in about $272 per SF against Rob's independent about $270 per SF, with about sixteen questions answered. The same week we shipped a publish path so a budget can freeze as a shareable link, locked the client budget page frames, and started pricing General Conditions and General Requirements from allocated resources. The cost library still has only two comparable jobs, so the two asks at the bottom matter before Monday's weekly.</p>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Where the build stands</h2>
+    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, more ProEst data. Last step: in your hands.</p>
+    <div class="steps" aria-hidden="true">
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Decision</div></div>
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Setup</div></div>
+      <div class="step done"><div class="step-bar"></div><div class="step-name">Sample budget</div></div>
+      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">More ProEst data</span></div></div>
+      <div class="step"><div class="step-bar"></div><div class="step-name">In your hands</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>What we counted</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-n">227</div><div class="stat-l">Code changes shipped</div></div>
+      <div class="stat"><div class="stat-n">110</div><div class="stat-l">Tickets closed</div></div>
+      <div class="stat"><div class="stat-n">1</div><div class="stat-l">Live demos held</div></div>
+      <div class="stat"><div class="stat-n">3</div><div class="stat-l">Meetings held</div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Done this week</h2>
+    <ul class="done-list">
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Ran the rough budget live on Monday with Devin, Rob, and Gina.</strong> <span class="sub">The tool priced about $272 per SF on a 48,000 SF, 45-unit wood-frame test against Rob's independent about $270 per SF.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Shipped a publish path for a frozen budget link.</strong> <span class="sub">A saved run can publish with a version, open at a shareable page outside sign-in, and print a stored PDF when it publishes.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Locked the client budget page frames and started the build.</strong> <span class="sub">The approved Ledger Opened frames are the target for the shareable page. The page build is in progress on the GitHub account you own.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Started pricing General Conditions and General Requirements from allocated resources.</strong> <span class="sub">Rates load from a completed job sheet. Quantities follow the project's facts and schedule. Lines switch on or off from the answers.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Rebuilt New Budget as one question at a time with a live scope preview.</strong> <span class="sub">Design and Engineering answers play on a stage. Elevators, service size, and HVAC tonnage derive from the project's facts before a run finishes.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Held three sessions with Kulka this week.</strong> <span class="sub">Monday weekly with Devin, Rob, and Gina. Tuesday one-on-one with Devin. Friday sync with Rob and Devin on the client budget drill-down and a five-contact pilot review.</span></div></li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <hr class="rule">
+    <h2>Coming up</h2>
+    <ul class="ahead-list">
+      <li><span class="when">Mon Oct 5</span><div class="t">BLDG and Kulka weekly meeting (10:00am ET on the Labs calendar).</div></li>
+      <li><span class="when">Mon Oct 5</span><div class="t">Deliver the <strong>ROM workflow visual</strong> still owed from Sep 21 (project start through design and engineering with pricing inside the blocks).</div></li>
+      <li><span class="when">Mon Oct 5</span><div class="t">Keep the <strong>client budget page</strong> build on the locked Ledger Opened frames toward pilot-review readiness.</div></li>
+      <li><span class="when">After Mon Oct 5</span><div class="t">Rob schedules pilot-review sessions with about five construction-savvy contacts once the page is ready (from the Fri Oct 2 sync).</div></li>
+    </ul>
+  </section>
+
+  <section class="asks">
+    <h2>We need two things from your team</h2>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Email more ProEst historical cost exports to Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 5. <span class="why">The library still has only two comparable jobs, so General Requirements and General Conditions stay light.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">ROB</span>
+      <div class="t"><strong>Share the cleaned Python slab takeoff program with Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 5. <span class="why">You offered it on Sep 28 before a wider rollout.</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap section foot">
+  <hr class="rule">
+  <h2>How we work</h2>
+  <div class="foot-in">
+    <p>Takeoff stays human and you own the code. No AI output reaches your team until I have checked it and hit send.</p>
+    <p class="sig">Matt Nicosia <span class="dot">·</span> BLDG Labs</p>
+  </div>
+</footer>

@@ -1,0 +1,856 @@
+/* The Ledger, Opened with the Section: the Kulka client budget page (LA-1459).
+   Every token below is the internal saved-budget screen's own: Daylight
+   (daylight.css) for the canvas, type scale and radii; the black band and the
+   ledger (rom-blocks.css, ledger-rail.css) for everything on the band and on
+   the sheet. Ported from the approved frames' frames.css (LA-1456, tag
+   approved-2026-10-02) and extended with the page's states: the header's two states, the drill-down, the drawn layers, the waterfall,
+   print and reduced motion. */
+
+:root {
+  /* Daylight */
+  --canvas: #F6F7FB;
+  --surface: #FFFFFF;
+  --border-light: #E6E9EF;
+  --primary: #0073EA;
+  --working: #FF9500;
+  --working-tint: #FFE8CC;
+  --family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif;
+  --label-size: 11px; --chip-size: 12px; --meta-size: 13px; --ui-size: 14px; --body-size: 15px;
+  --t3-size: 16px; --t2-size: 20px; --t1-size: 22px;
+  --sheet-title-size: 26px; --sheet-title-line: 34px; --sheet-title-track: -0.02em;
+  --r-md: 8px; --r-lg: 12px; --r-pill: 999px;
+  --control-h: 32px;
+  --shadow-card: 0 1px 2px rgba(29, 29, 31, 0.04), 0 8px 16px rgba(29, 29, 31, 0.03);
+
+  /* The black band (rom-blocks.css .rb) */
+  --rb-black: #0B0B0A;
+  --rb-ink-on-black: #F4F3EE;
+  --rb-ink2-on-black: #BDBCB3;
+  --rb-hover-on-black: #1A1A18;
+  --rb-line-on-black: #2E2D29;
+  --rb-pnl-raise: #181816;
+  --rb-pnl-line: #2A2926;
+  --rb-pnl-line2: #45443F;
+  --rb-pnl-mute: #9E9D94;
+
+  /* The white field and the ledger */
+  --rb-blk-line: #DEDDD7;
+  --rb-blk-ink: #121211;
+  --rb-blk-ink2: #55544E;
+  --rb-blk-mute: #6B6A64;
+  --rb-blk-hover: #F6F5F1;
+
+  /* The two-tier header */
+  --hd-t1: 56px;
+  --hd-t2-h: 40px;
+  --hd-h: 96px;
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* The engine's floor, in the page's own colours. */
+  --sc-canvas: #F6F7FB;
+  --sc-accent: #0073EA;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: calc(var(--hd-h) + 16px); }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  background: var(--canvas);
+  color: var(--rb-blk-ink);
+  font-family: var(--family);
+  font-size: var(--ui-size);
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, p, ol, ul, dl, dd, dt { margin: 0; }
+ol, ul { padding: 0; list-style: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+b, strong { font-weight: 600; }
+.missing { color: var(--rb-blk-mute); font-weight: 400; }
+.only-phone { display: none !important; }
+
+/* The engine's progress hairline, in the accent. */
+[data-sc-progress] { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--primary); z-index: 61; pointer-events: none; }
+
+/* --- The two-tier header: the band compressed ------------------------------
+   Tier one is the band's first row (wordmark, project, the figure's slot).
+   Tier two is the hairline meta row with the section links. In the band state
+   (the first screen) tier two is folded and the mark's place is empty; as the
+   band compresses, tier two unfolds and the big wordmark arrives as the mark
+   (LA-1467). The figure's slot stays empty until the waterfall has landed. */
+
+.hd {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 60;
+  background: var(--rb-black);
+  color: var(--rb-ink-on-black);
+  padding: 0 24px;
+}
+.hd-t1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--hd-t1);
+  white-space: nowrap;
+}
+.hd-mark { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.hd-proj { font-size: var(--ui-size); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hd-fig {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.hd-fig-l { font-size: var(--meta-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
+.hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
+.hd[data-state="band"] .hd-fig, .hd[data-fig-hidden] .hd-fig, .hd[data-fig-wait] .hd-fig { opacity: 0; }
+/* On the band the mark's place is empty: the big wordmark is on its way there. */
+.hd[data-state="band"] .hd-mark, .hd[data-state="band"] .hd-proj { opacity: 0; }
+/* While the band is still behind it the header is clear, so the travelling figure never passes under it. */
+.hd[data-state="band"] { background: transparent; }
+
+.hd-t2 {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  height: calc(var(--hd-t2-h) * var(--hd-t2, 1));
+  opacity: var(--hd-t2, 1);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--rb-line-on-black);
+  font-size: var(--meta-size);
+  font-weight: 600;
+  color: var(--rb-ink2-on-black);
+  white-space: nowrap;
+}
+.hd-ix { display: flex; gap: 24px; height: var(--hd-t2-h); }
+.hd-ix a { display: inline-flex; align-items: center; height: 100%; border-bottom: 2px solid transparent; padding-top: 2px; transition: color 150ms var(--ease); }
+.hd-ix a:hover { color: var(--rb-ink-on-black); }
+.hd-ix a[aria-current="true"] { color: var(--rb-ink-on-black); border-bottom-color: var(--primary); }
+.hd-t2 .hd-here { display: none; }
+.hd-t2 .hd-fig { display: none; }
+
+/* --- The band grown to the viewport (the first screen) -------------------- */
+
+.band { background: var(--rb-black); color: var(--rb-ink-on-black); }
+.band-stage {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100svh;
+  background: var(--rb-black);
+  color: var(--rb-ink-on-black);
+}
+.band--first .band-stage { padding-top: var(--hd-t1); }
+.band-main {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: 24px 24px;
+  min-height: 0;
+}
+.band-foot { padding: 0 24px 28px; }
+/* What leaves as the band compresses: everything but the figure. */
+.band--first [data-fade] { opacity: clamp(0, 1 - var(--travel, 0) * 3, 1); }
+.band--first[data-parked="true"] [data-travel] { visibility: hidden; }
+/* In flight the figure's block paints above the header, so the bar never clips it. */
+.band--first[data-fly="true"]:not([data-parked="true"]) .fig-wrap { position: relative; z-index: 61; will-change: transform; }
+
+.fig-l { font-size: var(--body-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
+.fig-wrap { display: inline-grid; justify-items: stretch; gap: 16px; }
+.fig {
+  font-size: 15vw;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.band--first .fig { will-change: transform; }
+.band-meta { font-size: var(--meta-size); color: var(--rb-ink2-on-black); margin-top: 8px; text-align: center; }
+
+/* The first screen (LA-1467): the wordmark big and bold where the figure was, the project and the record under it. */
+.big { gap: 22px; justify-items: start; }
+.big-mark {
+  font-size: 23vw;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  margin-left: -0.04em;
+  white-space: nowrap;
+  will-change: transform;
+  transform-origin: left top;
+}
+.big-proj { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
+.big-meta { margin-top: 0; text-align: left; font-size: var(--body-size); }
+.big-meta i { font-style: normal; color: var(--rb-pnl-line2); margin: 0 10px; }
+
+/* The four stages in words, along the foot. */
+.stg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stg li { display: grid; gap: 10px; font-size: var(--meta-size); font-weight: 600; color: var(--rb-ink2-on-black); }
+.stg li::before { content: ""; display: block; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--rb-ink-on-black) 14%, transparent); }
+.stg li[aria-current="step"] { color: var(--rb-ink-on-black); }
+.stg li[aria-current="step"]::before { background: var(--primary); }
+.stg-words { font-size: var(--chip-size); font-weight: 400; line-height: 16px; color: var(--rb-pnl-mute); }
+
+/* --- The letter on a sheet (LA-1467) --------------------------------------- */
+
+.sheet--letter { padding: 32px 40px 36px; }
+.letter { display: grid; grid-template-columns: 264px minmax(0, 640px); column-gap: 64px; justify-content: start; }
+.letter-side { padding-top: 6px; }
+.ref { display: grid; font-size: var(--chip-size); line-height: 16px; }
+.ref > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; padding: 7px 0; border-top: 1px solid var(--border-light); }
+.ref > div:first-child { border-top: 0; padding-top: 0; }
+.ref dt { color: var(--rb-blk-mute); font-weight: 600; }
+.ref dd { color: var(--rb-blk-ink); font-weight: 600; white-space: nowrap; }
+.inside { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--rb-blk-line); }
+.inside-h { font-size: var(--label-size); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rb-blk-mute); margin-bottom: 6px; }
+.inside li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 4px 0; font-size: var(--meta-size); line-height: 18px; font-weight: 600; color: var(--rb-blk-ink2); }
+.inside li span:first-child { color: var(--rb-blk-mute); }
+.letter-main { font-size: var(--t3-size); line-height: 26px; color: var(--rb-blk-ink); }
+.letter-date { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink2); margin-bottom: 14px; }
+.letter-to { margin-bottom: 10px; }
+.letter-h { font-size: 30px; line-height: 38px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 16px; }
+.letter-main p + p { margin-top: 13px; }
+/* A figure inside a sentence stays at the sentence's size, one weight up, never a headline. */
+.letter-main .num { font-weight: 600; }
+.sign { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--rb-blk-line); }
+.sign-name { font-size: var(--ui-size); font-weight: 600; color: var(--rb-blk-ink); }
+.sign-role { font-size: var(--meta-size); color: var(--rb-blk-mute); }
+
+/* --- The white sheet on the canvas ----------------------------------------- */
+
+.sheet {
+  max-width: 1200px;
+  margin: 32px auto 48px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+}
+.sheet + .sheet { margin-top: 0; }
+/* The page ends with the ask; the browser does not re-anchor the scroll when a ledger row grows. */
+body { overflow-anchor: none; }
+.sheet-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 16px; }
+.sheet-h { font-size: var(--sheet-title-size); line-height: var(--sheet-title-line); letter-spacing: var(--sheet-title-track); font-weight: 800; color: var(--rb-blk-ink); }
+.sheet-sub { font-size: var(--body-size); color: var(--rb-blk-ink2); max-width: 720px; }
+.lede { font-size: var(--body-size); line-height: 22px; color: var(--rb-blk-ink2); max-width: 720px; margin-bottom: 16px; }
+.fig-md { font-size: 44px; line-height: 1; font-weight: 600; letter-spacing: -0.035em; margin: 4px 0 16px; }
+.sub { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); margin-bottom: 8px; }
+
+/* A source, dot plus ink (LedgerView SourceCell; ledger-rail.css rings for medium and low). */
+.src { display: inline-flex; align-items: center; gap: 7px; font-size: var(--meta-size); color: var(--rb-blk-ink2); white-space: nowrap; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.dot--high { background: var(--rb-blk-ink); }
+.dot--medium, .dot--low { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+.dot--none, .dot--working { background: var(--working); }
+.dot--quiet { background: var(--rb-blk-line); }
+
+/* A pill on the white field (ledger-rail.css .ptb .rb-hbtn). */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid var(--rb-blk-line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: var(--meta-size);
+  font-weight: 600;
+  color: var(--rb-blk-ink);
+}
+.lg-item[data-open="true"] .pill { background: var(--rb-blk-ink); color: var(--surface); border-color: var(--rb-blk-ink); }
+
+/* --- What You Told Us: the facts as rows ----------------------------------- */
+
+.facts .fact { grid-template-columns: 240px minmax(0, 1fr); align-items: baseline; }
+.fact-l { font-weight: 600; }
+.fact-d { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; min-width: 0; }
+.fact-v { font-weight: 400; }
+.fact-basis { font-size: var(--meta-size); color: var(--rb-blk-mute); }
+.cover { margin-bottom: 8px; color: var(--rb-blk-ink); }
+
+/* --- The ledger (rom-blocks.css .lg): one grid for every row --------------- */
+
+.lg {
+  border: 1px solid var(--rb-blk-line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--rb-blk-ink);
+  overflow: clip;
+}
+.lg-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 250px 96px 72px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  font-size: var(--ui-size);
+}
+.lg > * + * { border-top: 1px solid var(--rb-blk-line); }
+.lg-cols { font-size: var(--meta-size); color: var(--rb-blk-ink2); padding-top: 10px; padding-bottom: 10px; }
+.lg-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-item .lg-name { font-weight: 600; }
+.lg-div, .lg-psf, .lg-pct { color: var(--rb-blk-ink2); }
+.lg-amt, .lg-psf, .lg-pct { text-align: right; }
+.lg-btn { width: 100%; display: grid; transition: background 120ms var(--ease); }
+.lg-btn:hover { background: var(--rb-blk-hover); }
+.lg-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.lg-rate, .lg-more { display: none; }
+.lg-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 3px; background: var(--working-tint); color: var(--rb-blk-ink); font-size: var(--label-size); font-weight: 600; line-height: 16px; vertical-align: 1px; }
+.lg-count { margin-left: 6px; font-size: var(--chip-size); font-weight: 400; color: var(--rb-blk-mute); }
+.lg-foot { display: flex; justify-content: space-between; gap: 16px; padding: 11px 16px; font-weight: 600; border-top: 2px solid var(--rb-blk-ink) !important; }
+.lg-foot--quiet { border-top-width: 1px !important; border-top-color: var(--rb-blk-line) !important; color: var(--rb-blk-ink2); font-weight: 600; }
+
+/* The current row in the list carries only the accent bar, its text dimmed: the lens shows it, so the figure reads once. */
+.lg-item.is-cur > .lg-btn { box-shadow: inset 3px 0 0 var(--primary); }
+.lg-btn > * { transition: opacity 160ms var(--ease); }
+.lg-item.is-cur > .lg-btn > * { opacity: 0.35; transition: none; }
+
+/* The lens: a reserved band of display-scale height at the top of the list.
+   It holds under the header once the list reaches it, the rows begin below
+   it, and the row directly under its bottom edge is current, shown here at
+   display scale. The list never changes length; a row opens in the list. */
+.lens {
+  position: sticky;
+  top: var(--lens-top, 96px);
+  z-index: 4;
+  box-sizing: border-box;
+  padding-top: var(--lens-pad, 24px);
+  height: calc(var(--lens-h, 152px) + var(--lens-pad, 24px));
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--rb-blk-line), 0 8px 16px rgba(29, 29, 31, 0.06);
+  overflow: hidden;
+}
+.lens-in {
+  position: absolute;
+  inset: var(--lens-pad, 24px) 0 0 0;
+  background: var(--surface);
+  transition: opacity 160ms var(--ease);
+}
+.lens-in.is-arriving { opacity: 0; }
+.lens-in > .lg-btn {
+  grid-template-rows: auto auto auto;
+  align-items: baseline;
+  row-gap: 8px;
+  padding: 16px 14px 14px;
+  box-shadow: inset 3px 0 0 var(--primary);
+  min-height: var(--lens-h, 152px);
+  align-content: start;
+}
+.lens-in .lg-div { align-self: baseline; }
+.lens-in .lg-name { grid-column: 2 / -1; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lens-in .lg-amt { grid-column: 2; grid-row: 2; font-size: 32px; line-height: 1; font-weight: 600; letter-spacing: -0.035em; text-align: left; color: var(--rb-blk-ink); }
+.lens-in .lg-psf, .lens-in .lg-pct { display: none; }
+.lens-in .lg-rate { display: block; grid-column: 3 / -1; grid-row: 2; align-self: baseline; text-align: right; font-size: var(--body-size); font-weight: 600; color: var(--rb-blk-ink2); }
+.lens-in .lg-more { grid-column: 2 / -1; grid-row: 3; display: flex; align-items: center; gap: 16px; min-width: 0; }
+.lens-in .lg-more .src { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lens-in .lg-more .src > .dot { margin-right: 7px; vertical-align: 1px; }
+.lens-in .lg-more .pill { flex: none; }
+.lens-in .lg-tag { vertical-align: middle; }
+.pill-close { display: none; }
+.lg-item[data-open="true"] .pill-open, .lens-in[data-open="true"] .pill-open { display: none; }
+.lg-item[data-open="true"] .pill-close, .lens-in[data-open="true"] .pill-close { display: inline; }
+.ln-sub { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rb-blk-line); font-size: var(--label-size); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rb-blk-mute); }
+
+/* The drill-down: a row's lines, with their sources, open at every depth. */
+.lg-lines { display: none; padding: 4px 16px 14px 72px; background: var(--rb-blk-hover); }
+.lg-item[data-open="true"] .lg-lines { display: block; }
+/* In the list the lines open under the lens; the lens shows them. */
+.ln { padding: 10px 0; border-top: 1px solid var(--rb-blk-line); }
+.ln:first-child { border-top: 0; }
+.ln-head { display: flex; align-items: baseline; gap: 14px; }
+.ln-l { font-weight: 600; min-width: 0; }
+.ln-v { margin-left: auto; font-weight: 600; white-space: nowrap; }
+.ln-range { font-size: var(--meta-size); color: var(--rb-blk-ink2); margin-top: 2px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.cmps { margin-top: 6px; display: grid; gap: 4px; }
+.cmp { display: grid; grid-template-columns: 160px minmax(0, 1fr) 120px 80px 100px; gap: 12px; font-size: var(--meta-size); color: var(--rb-blk-ink2); }
+.cmp-k { color: var(--rb-blk-ink); }
+.cmp-j { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmp-r { text-align: right; }
+.ln-basis { margin-top: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
+
+/* --- One Section beside three sheets --------------------------------------
+   A drawing sheet beside The Ledger and Design and Engineering:
+   inline SVG, ink on white, reversed on the band. It is one instance,
+   pinned through both, changing state in place. */
+
+.trio {
+  display: grid;
+  grid-template-columns: minmax(400px, 584px) minmax(0, 1fr);
+  gap: 24px;
+  max-width: 1392px;
+  margin: 32px auto 32px;
+  padding: 0 24px;
+  align-items: start;
+}
+.trio-main { display: grid; gap: 24px; min-width: 0; }
+.trio .sheet { margin: 0; max-width: none; min-width: 0; }
+.sheet--dwg { padding: 16px; display: grid; align-content: start; position: sticky; top: calc(var(--hd-h) + 24px); }
+.dwg { display: block; }
+.dwg svg { display: block; width: 100%; height: auto; }
+.dwg-cap { font-size: var(--chip-size); line-height: 16px; color: var(--rb-blk-ink2); margin-top: 8px; }
+.dwg-cap b { color: var(--rb-blk-ink); font-weight: 600; }
+
+/* Layers: undrawn until their row is current, then drawn; the current one lit in the accent. */
+.dwg--live [data-layer], .dwg--live [data-note] { opacity: 0; transition: opacity 260ms var(--ease); }
+.dwg--live [data-layer].is-drawn, .dwg--live [data-note].is-drawn { opacity: 1; }
+.dwg--live [data-story], .dwg--live [data-roof] { opacity: 0; transition: opacity 200ms var(--ease); }
+.dwg--live [data-story].is-up, .dwg--live [data-roof].is-up { opacity: 1; }
+.dwg--live [data-layer].is-now { filter: drop-shadow(0 0 2px rgba(0, 115, 234, 0.45)); }
+.dwg--live [data-layer].is-now .s { stroke: var(--primary); }
+.dwg--live [data-layer].is-now .w1 { stroke-width: 1.5px; }
+.dwg--live [data-layer].is-now .w2 { stroke-width: 2.2px; }
+.dwg--live [data-layer].is-now .w3 { stroke-width: 3px; }
+.dwg--live [data-layer].is-now text { fill: var(--primary); }
+.dwg--live [data-layer], .dwg--live [data-callout] { cursor: pointer; }
+/* Hover is the nearest stroke to the pointer (the script sets it), not the topmost paint. */
+.dwg--live [data-layer].is-hover .s, .dwg--live [data-callout].is-hover .s, .dwg--live [data-callout].is-now .s { stroke: var(--primary); }
+.dwg--live [data-callout].is-hover text, .dwg--live [data-callout].is-now text { fill: var(--primary); }
+.dwg--live .hit { fill: none; stroke: transparent; stroke-width: 8px; pointer-events: stroke; vector-effect: non-scaling-stroke; filter: none; }
+.dwg--live .hit--box { fill: transparent; stroke: none; pointer-events: fill; }
+.dwg--live [data-part="criteria"], .dwg--live [data-part="criteria"] .hit--box { pointer-events: none; }
+[data-trio][data-state="design"] .dwg--live [data-part="criteria"] { pointer-events: auto; }
+[data-trio][data-state="design"] .dwg--live [data-part="criteria"] .hit--box { pointer-events: fill; }
+/* The inks settle at Design and Engineering: through the ledger every layer draws in full ink; a stated-rate layer dims to its light ink over 400ms. */
+.dwg--live [data-layer][data-ink="light"] .s { stroke: #121211; transition: stroke 400ms var(--ease); }
+.dwg--live [data-layer][data-ink="light"] text { fill: #121211; transition: fill 400ms var(--ease); }
+[data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
+[data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] text { fill: #6B6A64; }
+.dwg--live [data-layer].is-now[data-ink="light"] .s { stroke: var(--primary); }
+/* The ink note shows once the section is complete; the callouts at Design and Engineering. */
+.dwg--live [data-ink-note], .dwg--live [data-part="criteria"] { opacity: 0; transition: opacity 420ms var(--ease); }
+[data-trio][data-state="design"] .dwg--live [data-ink-note], [data-trio][data-state="design"] .dwg--live [data-part="criteria"] { opacity: 1; }
+
+/* The ledger narrowed beside the drawing. */
+.sheet--ledger .lg-row { grid-template-columns: 32px minmax(0, 1fr) 92px 58px 40px; gap: 10px; padding: 7px 14px; }
+.sheet--ledger .lg-cols { padding-top: 8px; padding-bottom: 8px; }
+.sheet--ledger .lg-foot { padding: 9px 14px; }
+.sheet--ledger .sheet-hd { margin-bottom: 12px; }
+.sheet--ledger .sheet-h { font-size: 22px; line-height: 30px; }
+.sheet--ledger .sheet-sub { font-size: var(--ui-size); }
+.sheet--ledger .lg-lines { padding-left: 56px; }
+.sheet--ledger .cmp { grid-template-columns: 130px max-content max-content minmax(0, 1fr); gap: 0 12px; }
+/* Narrowed, the job takes its own line and the rate, weight and date share the one beneath it. */
+.sheet--ledger .cmp-k { grid-row: span 2; }
+.sheet--ledger .cmp-j { grid-column: 2 / -1; }
+.sheet--ledger .cmp-r { text-align: left; }
+.sheet--ledger .cmp-w, .sheet--ledger .cmp-d { color: var(--rb-blk-mute); }
+
+/* --- Where the figures come from: one line under the ledger (LA-1478) ---- */
+
+.lg-source { margin-top: 12px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
+.crit { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
+.rail-h { padding-top: 12px; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
+.crit li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
+/* Two columns of keyed criteria; each lights in turn as the reader passes through the list. */
+.crit--keyed { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
+.crit--keyed li { grid-template-columns: 34px minmax(0, 1fr) auto; grid-template-rows: auto auto; padding: 10px 0; border-top: 1px solid var(--rb-blk-line); cursor: default; }
+.crit--keyed li:nth-child(-n + 2) { border-top: 0; }
+.crit--keyed li .src { grid-column: 2 / -1; font-size: var(--chip-size); }
+.crit--keyed li .crit-tag, .crit--keyed li .crit-l { transition: color 160ms var(--ease), border-color 160ms var(--ease); }
+.crit--keyed li.is-now .crit-tag { border-color: var(--primary); color: var(--primary); }
+.crit--keyed li.is-now .crit-l { color: var(--primary); }
+.crit-tag { display: inline-flex; justify-content: center; align-items: center; height: 16px; min-width: 34px; border: 1px solid var(--rb-blk-ink); border-radius: 2px; font-size: 10px; font-weight: 600; color: var(--rb-blk-ink); }
+.crit-v { color: var(--rb-blk-ink); font-weight: 600; text-align: right; white-space: nowrap; }
+
+/* --- Design and Engineering: the depth under the callouts ----------------- */
+
+.crits { margin-top: 24px; }
+
+.crits .criterion { grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: baseline; padding: 12px 16px; }
+.crit-body { display: grid; gap: 4px; min-width: 0; }
+.crit-h { font-size: var(--ui-size); font-weight: 600; line-height: 20px; }
+.crit-method, .crit-prices, .crit-why { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
+.crit-inputs { display: grid; gap: 2px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); margin-top: 4px; }
+.crit-inputs div { display: flex; gap: 8px; }
+.crit-inputs dt { color: var(--rb-blk-ink); }
+.crit-steps { display: grid; gap: 2px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); margin-top: 4px; list-style: decimal; padding-left: 18px; }
+.crit-steps li { display: flex; justify-content: space-between; gap: 12px; }
+.crit-corrected { font-size: var(--meta-size); color: var(--rb-blk-ink); }
+.basis { font-size: var(--label-size); color: var(--rb-blk-mute); }
+
+/* --- The second band: from trades to total --------------------------------- */
+
+.band--peak .band-stage { padding-top: var(--hd-h); }
+/* The band flowing rather than pinned: a phone, a short window, or reduced motion. */
+.band--peak.band--flow .band-stage { position: static; height: auto; min-height: 100svh; overflow: visible; }
+.band--peak.band--flow .wf-main { padding-bottom: 48px; }
+/* In a short window the figure holds under the header while the lines pass beneath it and it advances.
+   On a phone the band is one screen, so the figure scrolls with its lines. */
+@media (min-width: 861px) {
+  .band--peak.band--flow .wf-fig { position: sticky; top: var(--hd-h); z-index: 2; background: var(--rb-black); padding: 8px 0; }
+}
+.wf-h { font-size: var(--sheet-title-size); line-height: var(--sheet-title-line); letter-spacing: var(--sheet-title-track); font-weight: 800; }
+.wf-main { flex: 1; display: grid; align-content: center; padding: 24px; min-height: 0; }
+.wf-in {
+  width: min(100%, 1392px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 52%);
+  grid-template-areas: "h dwg" "fig dwg" "wf dwg" "after dwg";
+  gap: 24px 40px;
+  align-items: center;
+}
+.wf-in > .wf-h { grid-area: h; align-self: end; }
+.wf-in > .wf-fig { grid-area: fig; }
+.wf-in > .dwg { grid-area: dwg; }
+.wf-in > .wf { grid-area: wf; }
+.wf-in > .wf-after { grid-area: after; align-self: start; }
+.wf-fig { display: grid; gap: 10px; }
+.fig--beside { font-size: clamp(44px, 5.8vw, 84px); }
+.wf-landed { font-size: var(--meta-size); color: var(--rb-ink2-on-black); max-width: 560px; }
+.wf { border-top: 2px solid var(--rb-ink-on-black); }
+.wf-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 24px;
+  padding: 14px 0;
+  border-top: 1px solid var(--rb-line-on-black);
+}
+.wf-row:first-child { border-top: 0; }
+.wf-lab { display: inline-flex; align-items: flex-start; gap: 10px; font-size: var(--t3-size); font-weight: 600; }
+.wf-lab .dot { margin-top: 7px; display: none; }
+.wf-amt { font-size: var(--t2-size); font-weight: 600; letter-spacing: -0.02em; text-align: right; white-space: nowrap; }
+.wf-range { grid-column: 1 / -1; font-size: var(--meta-size); color: var(--rb-pnl-mute); }
+.wf-why { grid-column: 1 / -1; font-size: var(--ui-size); line-height: 20px; color: var(--rb-ink2-on-black); }
+.wf-plan { grid-column: 1 / -1; display: grid; gap: 2px; font-size: var(--meta-size); color: var(--rb-ink2-on-black); margin-top: 4px; }
+.wf-plan li { display: flex; justify-content: space-between; gap: 12px; }
+.wf .dot--in { background: var(--rb-ink-on-black); box-shadow: none; }
+.wf .dot--next { background: transparent; box-shadow: inset 0 0 0 1.5px var(--rb-ink2-on-black); }
+.wf-after { font-size: var(--meta-size); color: var(--rb-ink2-on-black); display: flex; flex-wrap: wrap; gap: 6px 10px; padding-bottom: 10px; opacity: 0; }
+.wf-after b { color: var(--rb-ink-on-black); }
+.wf-after i { font-style: normal; color: var(--rb-pnl-line2); }
+.dwg--band svg { width: 100%; }
+.dwg-swap { grid-area: dwg; position: relative; }
+.dwg-swap .dwg--light { position: absolute; inset: 0; opacity: 0; transition: opacity 700ms var(--ease); }
+.dwg-swap .dwg--dark { opacity: 1; transition: opacity 700ms var(--ease); }
+.band--peak[data-landed="true"] .dwg-swap .dwg--light, .band--peak[data-landed="still"] .dwg-swap .dwg--light, .band--peak[data-landed="measure"] .dwg-swap .dwg--light { position: relative; }
+.band--peak[data-landed="true"] .dwg-swap .dwg--dark, .band--peak[data-landed="still"] .dwg-swap .dwg--dark, .band--peak[data-landed="measure"] .dwg-swap .dwg--dark { position: absolute; inset: 0; }
+.band--peak.is-sized .dwg-swap .dwg--light svg { height: var(--dwg-h); width: auto; max-width: 100%; margin: 0 auto; }
+.band--peak.band--flow.is-sized .dwg-swap { position: sticky; top: var(--dwg-top); align-self: start; }
+/* In the flowing band the held figure block takes the ground's colour, so the lines pass beneath it rather than through it. */
+.band--peak.band--flow[data-landed="true"] .wf-fig { animation: ground-up 700ms 1020ms linear both; }
+.band--peak.band--flow[data-landed="still"] .wf-fig, .band--peak.band--flow[data-landed="measure"] .wf-fig { background: var(--canvas); }
+.band--peak.band--flow[data-landed="false"] .wf-fig { animation: ground-down 700ms 120ms linear both; }
+.wf-after { font-size: var(--body-size); }
+
+/* The landing: once Insurance has joined, the figure grows to the first
+   screen's size, full width, and the band's ground lifts from Kulka black to
+   Daylight; the figure turns to ink and the section to ink, and holds.
+   A sequence of keyframes keyed off data-landed (budget-page.js measures
+   each mover's path into --fx/--fy/--fsx/--fsy), so it keeps time in a
+   throttled tab: the lines leave (0 to 120ms); the section recedes to its
+   landed place (120 to 420ms); the figure rises to the opening's size, never
+   smaller than it was (420 to 1020ms); the ground lifts to #6E6E6E, the last
+   grey that carries the band's white ink at 4.5:1, the ink flips to Kulka
+   black in one step on #7F7F7F, which carries it at 4.5:1, and the ground
+   lifts to Daylight (1020 to 1720ms); the lines return in ink (1720 to
+   1900ms). Scrolling back plays the mirror. */
+@keyframes lines-out-in { 0% { opacity: 1; } 6.3% { opacity: 0; } 90.5% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes mover { from { transform: translate(var(--fx, 0px), var(--fy, 0px)) scale(var(--fsx, 1), var(--fsy, 1)); } to { transform: none; } }
+@keyframes ground-up { 0% { background-color: #0B0B0A; } 45.7% { background-color: #6E6E6E; } 45.8% { background-color: #7F7F7F; } 100% { background-color: #F6F7FB; } }
+@keyframes ground-down { 0% { background-color: #F6F7FB; } 54.2% { background-color: #7F7F7F; } 54.3% { background-color: #6E6E6E; } 100% { background-color: #0B0B0A; } }
+@keyframes ink-up { 0%, 45.7% { color: #F4F3EE; } 45.8%, 100% { color: #121211; } }
+@keyframes ink-down { 0%, 54.2% { color: #121211; } 54.3%, 100% { color: #F4F3EE; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.band--peak .fig, .band--peak .dwg-swap { transform-origin: left top; }
+/* Landing. */
+.band--peak[data-landed="true"] .wf-h, .band--peak[data-landed="true"] .wf, .band--peak[data-landed="true"] .wf-landed { animation: lines-out-in 1900ms linear both; }
+/* The owner's line and the total appear once the figure has landed in light. */
+.band--peak[data-landed="true"] .wf-after { animation: fade-in 500ms 1720ms both; }
+.band--peak[data-landed="still"] .wf-after, .band--peak[data-landed="measure"] .wf-after { opacity: 1; }
+.band--peak[data-landed="false"] .wf-after { animation: fade-out 200ms both; }
+.band--peak[data-landed="true"] .dwg-swap { animation: mover 300ms 120ms cubic-bezier(0.2, 0, 0.2, 1) both; }
+.band--peak[data-landed="true"] .fig { animation: mover 600ms 420ms cubic-bezier(0.2, 0, 0.2, 1) both; }
+.band--peak[data-landed="true"] .fig-l { animation: lines-out-in 1900ms linear both; }
+.band--peak[data-landed="true"] .band-stage { animation: ground-up 700ms 1020ms linear both; }
+.band--peak[data-landed="true"] .fig { animation: mover 600ms 420ms cubic-bezier(0.2, 0, 0.2, 1) both, ink-up 700ms 1020ms linear both; }
+.band--peak[data-landed="true"] .fig-l, .band--peak[data-landed="true"] .wf-h { animation: lines-out-in 1900ms linear both, ink-up 700ms 1020ms linear both; }
+.band--peak[data-landed="true"] .wf-lab, .band--peak[data-landed="true"] .wf-amt { animation: ink-up 700ms 1020ms linear both; }
+.band--peak[data-landed="true"] .dwg--dark { animation: fade-out 500ms 1120ms both; }
+.band--peak[data-landed="true"] .dwg--light { animation: fade-in 500ms 1120ms both; }
+/* Taking off again. */
+.band--peak[data-landed="false"] .wf-h, .band--peak[data-landed="false"] .wf, .band--peak[data-landed="false"] .wf-landed { animation: lines-out-in 1900ms linear both; }
+.band--peak[data-landed="false"] .band-stage { animation: ground-down 700ms 120ms linear both; }
+.band--peak[data-landed="false"] .wf-lab, .band--peak[data-landed="false"] .wf-amt { animation: ink-down 700ms 120ms linear both; }
+.band--peak[data-landed="false"] .fig { animation: mover 600ms 820ms cubic-bezier(0.2, 0, 0.2, 1) both, ink-down 700ms 120ms linear both; }
+.band--peak[data-landed="false"] .fig-l, .band--peak[data-landed="false"] .wf-h { animation: lines-out-in 1900ms linear both, ink-down 700ms 120ms linear both; }
+.band--peak[data-landed="false"] .dwg-swap { animation: mover 300ms 1420ms cubic-bezier(0.2, 0, 0.2, 1) both; }
+.band--peak[data-landed="false"] .dwg--dark { animation: fade-in 500ms 220ms both; }
+.band--peak[data-landed="false"] .dwg--light { animation: fade-out 500ms 220ms both; }
+/* At rest after the landing, and when motion is reduced or the page prints: the landed state, still. */
+.band--peak[data-landed="still"], .band--peak[data-landed="still"] .band-stage, .band--peak[data-landed="still"] .wf-fig,
+.band--peak[data-landed="measure"], .band--peak[data-landed="measure"] .band-stage { background: var(--canvas); color: var(--rb-blk-ink); }
+.band--peak[data-landed="still"] .dwg--dark, .band--peak[data-landed="measure"] .dwg--dark { opacity: 0; }
+.band--peak[data-landed="still"] .dwg--light, .band--peak[data-landed="measure"] .dwg--light { opacity: 1; }
+.band--peak[data-landed="true"] .wf-fig, .band--peak[data-landed="still"] .wf-fig, .band--peak[data-landed="measure"] .wf-fig { background: transparent; }
+/* The landed inks for everything but the figure and its label, which the keyframes carry. */
+.band--peak[data-landed="true"] .wf-why, .band--peak[data-landed="true"] .wf-after, .band--peak[data-landed="true"] .wf-landed, .band--peak[data-landed="still"] .fig-l, .band--peak[data-landed="still"] .wf-why, .band--peak[data-landed="still"] .wf-after, .band--peak[data-landed="still"] .wf-landed, .band--peak[data-landed="measure"] .wf-why, .band--peak[data-landed="measure"] .wf-after, .band--peak[data-landed="measure"] .wf-landed { color: var(--rb-blk-ink2); }
+.band--peak[data-landed="true"] .wf-range, .band--peak[data-landed="still"] .wf-range, .band--peak[data-landed="measure"] .wf-range { color: var(--rb-blk-mute); }
+.band--peak[data-landed="true"] .wf-after b, .band--peak[data-landed="still"] .wf-after b, .band--peak[data-landed="measure"] .wf-after b { color: var(--rb-blk-ink); }
+.band--peak[data-landed="true"] .wf-after i, .band--peak[data-landed="still"] .wf-after i, .band--peak[data-landed="measure"] .wf-after i { color: var(--rb-blk-line); }
+.band--peak[data-landed="true"] .wf, .band--peak[data-landed="still"] .wf, .band--peak[data-landed="measure"] .wf { border-top-color: var(--rb-blk-ink); }
+.band--peak[data-landed="true"] .wf-row, .band--peak[data-landed="still"] .wf-row, .band--peak[data-landed="measure"] .wf-row { border-top-color: var(--rb-blk-line); }
+.band--peak[data-landed="true"] .wf .dot--in, .band--peak[data-landed="still"] .wf .dot--in, .band--peak[data-landed="measure"] .wf .dot--in { background: var(--rb-blk-ink); }
+.dwg-swap .dwg--light, .dwg-swap .dwg--dark { transition: none; }
+.band--peak[data-landed="true"] .wf-in, .band--peak[data-landed="still"] .wf-in, .band--peak[data-landed="measure"] .wf-in { grid-template-areas: "h h" "fig fig" "wf dwg"; align-items: start; gap: 16px 40px; }
+.band--peak[data-landed="true"] .wf-main, .band--peak[data-landed="still"] .wf-main, .band--peak[data-landed="measure"] .wf-main { align-content: start; }
+.band--peak[data-landed="true"] .fig--beside, .band--peak[data-landed="still"] .fig--beside, .band--peak[data-landed="measure"] .fig--beside { font-size: 15vw; }
+
+/* --- What Is In, and What Is Not; Notes ------------------------------------ */
+
+.gates-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.gates-h { font-size: var(--t3-size); font-weight: 600; line-height: 24px; margin-bottom: 4px; }
+.gates-h--after, .gates-col .gates-h + .gates-h { margin-top: 20px; }
+.plain { display: grid; }
+.plain li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--ui-size); }
+.plain li:first-child { border-top: 0; }
+.plain .answer { text-align: right; color: var(--rb-blk-ink2); font-size: var(--meta-size); flex: none; max-width: 55%; }
+.plain .answer strong { color: var(--rb-blk-ink); }
+.sheet-h--notes { margin-top: 36px; margin-bottom: 12px; font-size: var(--t1-size); line-height: 30px; }
+.notes { display: grid; max-width: 860px; }
+.note { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--ui-size); line-height: 20px; color: var(--rb-blk-ink2); }
+.note:first-child { border-top: 0; }
+.note-n { color: var(--rb-blk-mute); }
+.parameters { margin-top: 28px; }
+.params { width: 100%; border-collapse: collapse; font-size: var(--meta-size); }
+.params th, .params td { text-align: left; padding: 6px 8px 6px 0; border-top: 1px solid var(--rb-blk-line); }
+.params th { font-weight: 600; color: var(--rb-blk-ink2); border-top: 0; }
+.params .right { text-align: right; }
+
+/* --- The close ------------------------------------------------------------ */
+
+.steps { padding-left: 20px; display: grid; gap: 10px; max-width: 720px; font-size: var(--ui-size); line-height: 20px; color: var(--rb-blk-ink2); list-style: decimal; }
+.steps b { color: var(--rb-blk-ink); font-weight: 600; }
+.reach { margin-top: 28px; font-size: var(--t3-size); font-weight: 600; color: var(--rb-blk-ink); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.record { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 24px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); }
+.record dt { color: var(--rb-blk-ink2); }
+.record dd { font-weight: 600; }
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rb-blk-line);
+  font-size: var(--meta-size);
+  color: var(--rb-blk-ink2);
+  flex-wrap: wrap;
+}
+.foot-mark { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; color: var(--rb-blk-ink); }
+
+/* A superseded version keeps its figures under a band naming the newer one. */
+.superseded { position: relative; z-index: 2; margin: 0; padding: 10px 24px; background: var(--working-tint); color: var(--rb-blk-ink); font-size: var(--ui-size); line-height: 20px; }
+.superseded a { color: var(--primary); font-weight: 600; text-decoration: underline; }
+
+/* A withdrawn link is one plain sheet, with no header above it. */
+body.withdrawn .sheet { max-width: 720px; margin: 48px auto; }
+body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); margin-bottom: 8px; }
+
+/* --- Narrow desktops ------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .split { grid-template-columns: minmax(380px, 1fr) minmax(0, 1fr); }
+}
+@media (max-height: 640px) {
+  .wf-in { gap: 12px 32px; }
+  .wf-row { padding: 8px 0; }
+  .wf-why { font-size: var(--meta-size); line-height: 18px; }
+  .wf-h { font-size: 22px; line-height: 28px; }
+  .fig--beside { font-size: clamp(40px, 5vw, 64px); }
+  .band--peak[data-landed="true"] .fig--beside, .band--peak[data-landed="still"] .fig--beside, .band--peak[data-landed="measure"] .fig--beside { font-size: 15vw; }
+  .wf-main { padding: 12px 24px; }
+}
+
+/* --- Phone ----------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  :root { --hd-t1: 52px; --hd-h: 92px; }
+  .only-desk { display: none !important; }
+  .only-phone { display: revert !important; }
+
+  .hd { padding: 0 16px; }
+  .hd-t1 { gap: 10px; }
+  .hd-proj { font-size: var(--meta-size); }
+  .hd-t1 .hd-fig { display: none; }
+  .hd-t2 { gap: 12px; }
+  .hd-ix { display: none; }
+  .hd-t2 .hd-fig { display: inline-flex; margin-left: 0; align-self: center; }
+  .hd-t2 .hd-fig-v { font-size: 18px; }
+  .hd-t2 .hd-here { display: inline-flex; align-items: center; margin-left: auto; color: var(--rb-ink-on-black); border-bottom: 2px solid var(--primary); padding-top: 2px; }
+
+  .band-main { padding: 16px; justify-items: stretch; }
+  .fig-wrap { display: grid; }
+  .band-meta { text-align: left; }
+  .big { gap: 14px; }
+  .big-mark { font-size: 30vw; }
+  .big-proj { font-size: 20px; line-height: 26px; }
+  .big-meta { display: grid; gap: 2px; font-size: var(--meta-size); }
+  .big-meta i { display: none; }
+  .big-meta span { display: block; }
+
+  .sheet--letter { padding: 20px 16px 24px; }
+  .letter { grid-template-columns: minmax(0, 1fr); row-gap: 24px; }
+  .letter-side { order: 2; padding-top: 0; }
+  .letter-h { font-size: 24px; line-height: 31px; margin-bottom: 14px; }
+  .letter-main { font-size: var(--body-size); line-height: 24px; }
+  .inside { margin-top: 22px; }
+  .band-foot { padding: 0 16px 20px; }
+  .stg { gap: 8px; }
+  .stg li { font-size: var(--chip-size); line-height: 16px; gap: 8px; }
+  .stg-words { display: none !important; }
+
+  .sheet { margin: 16px 16px 32px; padding: 16px; }
+  .sheet-hd { margin-bottom: 12px; }
+  .sheet-h { font-size: 22px; line-height: 30px; }
+  .sheet-sub { font-size: var(--ui-size); }
+  .fig-md { font-size: 36px; }
+
+  .facts .fact { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 9px 12px; }
+
+  .lg-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 9px 12px; }
+  .lg-div, .lg-psf, .lg-pct { display: none; }
+  .lg-foot { padding: 9px 12px; }
+  .sheet--ledger .lg-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 8px 12px; }
+  .sheet--ledger .sheet-h { font-size: 20px; line-height: 26px; }
+  .sheet--ledger .sheet-sub { font-size: var(--meta-size); line-height: 18px; }
+  .lg-lines, .sheet--ledger .lg-lines { padding: 4px 12px 12px; }
+  .ln-head { flex-wrap: wrap; gap: 6px 12px; }
+  .cmp, .sheet--ledger .cmp { grid-template-columns: max-content max-content minmax(0, 1fr); gap: 0 10px; padding: 6px 0; border-top: 1px solid var(--rb-blk-line); }
+  .cmp-k, .cmp-j, .sheet--ledger .cmp-k, .sheet--ledger .cmp-j { grid-column: 1 / -1; grid-row: auto; }
+  .cmp-r, .sheet--ledger .cmp-r { text-align: left; }
+
+  .trio { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 12px 16px 32px; padding: 0; }
+  .trio-main { gap: 12px; }
+  .trio .sheet { margin: 0; }
+  .trio .sheet--dwg { order: -1; padding: 10px 10px 8px; top: var(--hd-h); z-index: 5; }
+  .trio .dwg-cap { margin-top: 4px; }
+  .sheet--design { min-height: 0; }
+  .lens { --lens-h: 168px; }
+  .trio .dwg-cap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lens-in > .lg-btn { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; padding: 14px 12px 12px; row-gap: 8px; }
+  .lens-in .lg-name { grid-column: 1; font-size: 20px; }
+  .lens-in .lg-amt { grid-column: 1; grid-row: 2; font-size: 30px; }
+  .lens-in .lg-rate { grid-column: 1; grid-row: 3; text-align: left; }
+  .lens-in .lg-more { grid-column: 1; grid-row: 4; justify-content: flex-start; }
+  /* The phone crops to the building: the sheet's words are carried in HTML beneath. */
+  .dwg--crop [data-part]:not([data-part="grade"]) { display: none; }
+
+  .count b { font-size: 36px; }
+  .crit-v { white-space: normal; }
+  .crits .criterion { grid-template-columns: 40px minmax(0, 1fr); padding: 12px; }
+  .crits .crit-v { grid-column: 2; text-align: left; }
+  .crits .src { grid-column: 2; }
+
+  .band--peak .band-stage { padding-top: var(--hd-h); }
+  .wf-main { padding: 8px 16px 4px; }
+  .wf-in { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "fig" "dwg" "wf" "after"; gap: 10px; }
+  .band--peak.band--flow .wf-main { padding-bottom: 16px; }
+  .band--peak.band--flow .wf-fig { padding: 0; }
+  .wf-h { font-size: 22px; line-height: 30px; }
+  .fig--beside { font-size: 15vw; }
+  .band--peak[data-landed="true"] .wf-in, .band--peak[data-landed="still"] .wf-in, .band--peak[data-landed="measure"] .wf-in { grid-template-areas: "h" "fig" "dwg" "wf"; }
+  .crit--keyed { grid-template-columns: minmax(0, 1fr); }
+  .crit--keyed li:nth-child(2) { border-top: 1px solid var(--rb-blk-line); }
+  .wf-row { padding: 7px 0; gap: 2px 12px; }
+  .wf-lab { font-size: var(--body-size); }
+  .wf-lab .dot { display: inline-block; }
+  .wf-amt { font-size: var(--t3-size); }
+  .wf-why { font-size: var(--meta-size); line-height: 18px; }
+  .wf-landed { display: none !important; }
+
+  .gates-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .plain .answer { max-width: 50%; }
+  .steps { gap: 8px; }
+  .foot { margin-top: 28px; display: grid; gap: 6px; }
+}
+
+/* A nav jump renders its destination at once: the drawing's layers and the lens take no transition for that frame. */
+html.is-jump .dwg--live *, html.is-jump .lens-in, html.is-jump .lg-btn > * { transition: none !important; }
+
+/* --- Reduced motion: every layer drawn, both bands resolved ---------------- */
+
+html.is-reduce .band--first [data-fade] { opacity: 1; }
+html.is-reduce .band--first .fig, html.is-reduce .band--first .big-mark { transform: none !important; }
+html.is-reduce .dwg--live [data-layer], html.is-reduce .dwg--live [data-note], html.is-reduce .dwg--live [data-story], html.is-reduce .dwg--live [data-roof] { transition: none; }
+html.is-reduce .lg-name, html.is-reduce .lg-amt, html.is-reduce .lg-btn, html.is-reduce .hd-fig, html.is-reduce .lens-in { transition: none; }
+html.is-reduce .band--peak *, html.is-reduce .band--peak { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0ms !important; }
+}
+
+/* --- Print: the same page with the engine at rest (LA-1420) ---------------- */
+
+html[data-print] body { padding-top: 0; }
+.dests { display: none; }
+.dest { position: absolute; width: 0; height: 0; }
+
+@media print {
+  @page { margin: 16mm 14mm 18mm; }
+  html { scroll-padding-top: 0; }
+  body { padding: 0; background: #FFFFFF; color: var(--rb-blk-ink); font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hd, [data-sc-progress], .sc-grain { display: none !important; }
+  .sheet { margin: 0 0 10mm; padding: 0; border: 0; border-radius: 0; box-shadow: none; max-width: none; }
+  .trio { display: block; margin: 0; padding: 0; max-width: none; }
+  .trio-main { display: block; }
+  .trio .sheet { margin: 0 0 10mm; }
+  .sheet--design { min-height: 0; }
+  /* The one section at rest, as a sheet, complete with its title block and callouts. */
+  .band--peak .dwg-swap, .lens { display: none !important; }
+  .band--peak[data-landed="still"] .wf-in { display: block; }
+  .band--peak[data-landed="still"] .band-stage { animation: none; }
+  .sheet--dwg { position: static; break-before: page; }
+  .sheet--dwg .dwg { max-width: 760px; border: 1px solid var(--rb-blk-line); }
+  .dwg--live [data-layer], .dwg--live [data-note], .dwg--live [data-story], .dwg--live [data-roof], .dwg--live [data-ink-note], .dwg--live [data-part="criteria"] { opacity: 1 !important; }
+  /* The bands print on white, the figure in ink. */
+  .band, .band-stage { background: #FFFFFF; color: var(--rb-blk-ink); height: auto; padding: 0; margin: 0 0 10mm; }
+  .band--first .band-stage, .band--peak .band-stage { padding: 0; }
+  .band-main { padding: 0; justify-items: start; }
+  .band-foot { padding: 12mm 0 0; }
+  .fig, .big-mark { transform: none !important; visibility: visible !important; }
+  .fig { font-size: 56pt; }
+  .big-mark { font-size: 72pt; }
+  .big-proj { font-size: 16pt; }
+  .big-meta i { color: var(--rb-blk-line); }
+  .band--first [data-fade] { opacity: 1 !important; }
+  .fig-l, .band-meta, .stg li, .wf-why, .wf-landed, .wf-after { color: var(--rb-blk-ink2); }
+  .stg li[aria-current="step"], .wf-after b { color: var(--rb-blk-ink); }
+  .sheet--letter { padding: 0; }
+  .letter { grid-template-columns: 180px minmax(0, 1fr); column-gap: 32px; }
+  .stg li::before { background: var(--rb-blk-line); }
+  .stg li[aria-current="step"]::before { background: var(--primary); }
+  .wf-main { padding: 0; }
+  .wf-in { display: block; width: auto; max-width: 720px; margin: 0; }
+  .wf-in > * + * { margin-top: 16px; }
+  .wf { border-top-color: var(--rb-blk-ink); }
+  .wf-row { border-top-color: var(--rb-blk-line); }
+  .wf-lab .dot { display: none; }
+  .wf-range { color: var(--rb-blk-mute); }
+  .fig--beside { font-size: 40pt; }
+  [data-sc-act] { height: auto !important; }
+  .sc-stage, [data-sc-stage] { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+  [data-sc-cue], [data-sc-in], [data-sc-stagger] > *, .sc-split__i { opacity: 1 !important; transform: none !important; visibility: visible !important; pointer-events: auto !important; transition: none !important; animation: none !important; }
+  .lg-lines { display: block !important; background: none; }
+  .lg-item.is-cur > .lg-btn { box-shadow: none; }
+  .lg-btn:hover { background: none; }
+  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .cmp, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .crit li { break-inside: avoid; }
+  /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
+     and What Is Not, follows From Trades to Total on the page it ends on. */
+  #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes { break-before: page; }
+  h1, h2, h3, h4 { break-after: avoid; }
+  .params thead { display: table-header-group; }
+  /* The three columns stack on paper, each kept whole, so no heading strands at a page foot. */
+  .gates-grid { display: block; }
+  .gates-col { break-inside: avoid; margin-bottom: 16px; }
+  .superseded { border: 1px solid var(--rb-blk-line); }
+  /* A transition still running when print media switches on would print half-faded. */
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

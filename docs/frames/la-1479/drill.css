@@ -1,0 +1,189 @@
+/* LA-1479. The budget drill-down, drawn on top of the shipped page's own
+   stylesheet (page.css is public/scrollcraft/budget-page.css at 38a8e4a,
+   copied unchanged). Everything here is new: the division row, the open
+   division, the sub-item, its assumptions, the confidence mark, and the two
+   frame-only markers (a model gap, a reserved slot). No new colour enters the
+   page: ink, the working orange the page already uses for assumed facts, and
+   the one blue. */
+
+:root {
+  --gap-hatch: repeating-linear-gradient(135deg, #F6F5F1 0 6px, #E9E8E2 6px 7px);
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* The frames start at the trio, under the fixed header. */
+body.frame main { padding-top: var(--hd-h); }
+body.frame .hd { background: var(--rb-black); }
+
+/* The three marks read apart: high a full dot, medium half, low a ring.
+   Today medium and low share the ring. */
+.dot--medium { background: linear-gradient(90deg, var(--rb-blk-ink2) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+
+/* --- The division row: one more column, the confidence ------------------- */
+
+.sheet--ledger .dv-row { grid-template-columns: 24px minmax(0, 1fr) 66px 84px 48px 30px; gap: 8px; }
+.dv-open, .dv-open > *, .dv-block, .si, .si-body, .si-sec { min-width: 0; }
+.lg-elide { padding: 10px 14px; font-size: var(--meta-size); color: var(--rb-blk-mute); border-top: 1px dashed #9E9D94 !important; text-align: center; }
+.dv-row .lg-name { white-space: normal; line-height: 18px; }
+.dv-row .lg-count { margin-left: 4px; white-space: nowrap; }
+.dv-cf { display: inline-flex; align-items: center; gap: 6px; font-size: var(--meta-size); color: var(--rb-blk-ink2); white-space: nowrap; }
+.lg-cols .dv-cf { display: block; }
+.dv-row .dv-meta { display: none; }
+
+/* The lens carries the division at display scale, its mark beside its count. */
+.lens-in .dv-more { display: flex; align-items: center; gap: 14px; grid-column: 2 / -1; grid-row: 3; min-width: 0; }
+.lens-in .dv-more .lg-count { margin: 0; font-size: var(--meta-size); }
+.lens-in .dv-more .pill { margin-left: auto; }
+.lens-in .dv-cf { font-size: var(--ui-size); color: var(--rb-blk-ink); font-weight: 600; }
+
+/* --- The open division ---------------------------------------------------- */
+
+.dv-open { padding: 6px 14px 16px 48px; background: var(--rb-blk-hover); display: grid; gap: 14px; }
+.dv-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding-top: 4px; }
+.dv-bar .ln-sum { font-size: var(--meta-size); color: var(--rb-blk-ink2); }
+.dv-ctl { display: flex; gap: 8px; flex-wrap: wrap; }
+.dv-h { font-size: var(--label-size); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rb-blk-mute); margin-bottom: 2px; }
+.dv-block { display: grid; gap: 0; }
+.dv-block + .dv-block { padding-top: 12px; border-top: 1px solid var(--rb-blk-line); }
+
+/* A sub-item: its name, source and figure, the range under it, then its depth. */
+.si { padding: 10px 0; border-top: 1px solid var(--rb-blk-line); }
+.si:first-of-type { border-top: 0; }
+.dv-h + .si { border-top: 0; }
+.si-head { display: flex; align-items: baseline; gap: 10px 12px; flex-wrap: wrap; }
+.si-head .ln-l { font-weight: 600; }
+.si-head .ln-v { margin-left: auto; font-weight: 600; white-space: nowrap; }
+.si-head .pill { height: 24px; padding: 0 10px; font-size: var(--chip-size); align-self: center; }
+.si[data-open="true"] .si-head .pill { background: var(--rb-blk-ink); color: var(--surface); border-color: var(--rb-blk-ink); }
+.si .ln-range { margin-top: 2px; }
+.si--quiet .ln-l { font-weight: 400; }
+.si--quiet .ln-v { font-weight: 400; color: var(--rb-blk-mute); }
+.si--quiet { padding: 7px 0; }
+
+.si-body { margin-top: 12px; padding: 14px 14px 4px; background: var(--surface); border: 1px solid var(--rb-blk-line); border-radius: var(--r-md); display: grid; gap: 16px; }
+.si-sec { display: grid; gap: 6px; }
+.si-sec + .si-sec { padding-top: 14px; border-top: 1px solid var(--rb-blk-line); }
+.si-h { font-size: var(--ui-size); font-weight: 600; line-height: 20px; }
+.si-sub { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
+
+/* Assumptions: each one shows, marked by who set it, with room to correct it. */
+.as { display: grid; }
+.as li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 8px 0; border-top: 1px solid var(--rb-blk-line); align-items: baseline; }
+.as li:first-child { border-top: 0; }
+.as-l { font-size: var(--meta-size); color: var(--rb-blk-ink2); }
+.as-v { font-weight: 600; color: var(--rb-blk-ink); grid-column: 1; }
+.as-b { grid-column: 1; display: flex; gap: 6px 12px; flex-wrap: wrap; align-items: baseline; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.as-b .src { font-size: var(--chip-size); }
+.as .slot { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+.as-why { grid-column: 1; font-size: var(--chip-size); line-height: 17px; color: var(--rb-blk-ink2); margin-top: 2px; }
+
+/* Included and Excluded, side by side. */
+.io { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.io ul { display: grid; gap: 0; }
+.io li { padding: 5px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink); }
+.io li:first-child { border-top: 0; }
+.io-h { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+.io-h i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.io-h--in i { background: var(--rb-blk-ink); }
+.io-h--out i { box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+.io li small { display: block; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+
+/* The comparables keep the shipped grid inside the sub-item. */
+.si-body .cmps { margin-top: 0; }
+.si-body .ln-basis { margin-top: 2px; }
+
+/* --- The confidence panel ---------------------------------------------------- */
+
+.cf-panel { display: grid; gap: 10px; }
+.cf-big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cf-big .dv-cf { font-size: var(--t3-size); font-weight: 600; color: var(--rb-blk-ink); }
+.cf-big .dot { width: 9px; height: 9px; }
+.cf-why { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
+.cf-lines { display: grid; gap: 2px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
+.cf-lines li { display: flex; justify-content: space-between; gap: 12px; }
+.cf-lines li span:first-child { color: var(--rb-blk-ink); }
+.raise { display: grid; }
+.raise li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 2px 10px; padding: 9px 0; border-top: 1px solid var(--rb-blk-line); align-items: baseline; }
+.raise li:first-child { border-top: 0; }
+.raise .crit-tag { grid-row: 1; }
+.raise-t { font-weight: 600; font-size: var(--meta-size); }
+.raise-v { font-weight: 400; color: var(--rb-blk-ink2); }
+.raise-why { grid-column: 2; font-size: var(--chip-size); line-height: 17px; color: var(--rb-blk-ink2); }
+.raise-b { grid-column: 2; }
+.raise-b .src { font-size: var(--chip-size); }
+.raise .slot { grid-column: 3; grid-row: 1 / span 3; align-self: center; }
+.raise .q-tag { display: inline-flex; justify-content: center; align-items: center; height: 16px; min-width: 34px; border-radius: 2px; background: var(--working-tint); font-size: 10px; font-weight: 600; color: var(--rb-blk-ink); }
+
+/* What decided the division: What Is In, moved under it. */
+.dec { display: grid; }
+.dec li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); }
+.dec li:first-child { border-top: 0; }
+.dec .answer { text-align: right; color: var(--rb-blk-ink2); max-width: 62%; }
+.dec .answer strong { color: var(--rb-blk-ink); }
+.dec-h { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); margin-top: 6px; }
+.dec-h:first-child { margin-top: 0; }
+
+/* The VE control in its empty state: present, quiet, nothing to open. */
+.ve { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-pill); background: var(--surface); font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-mute); cursor: default; }
+.ve b { font-weight: 400; }
+
+/* --- Frame-only markers: never part of the built page ----------------------
+   A gap is a field the model does not hold yet, hatched like the section's
+   ground so it can never be read as content. A slot is room kept for another
+   issue's control. */
+
+.gap { background: var(--gap-hatch); border: 1px dashed var(--rb-blk-mute); border-radius: var(--r-md); padding: 10px 12px; display: grid; gap: 6px; color: var(--rb-blk-ink); }
+.gap-t { font-size: var(--label-size); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rb-blk-ink); display: flex; align-items: center; gap: 6px; }
+.gap-t::before { content: ""; width: 10px; height: 10px; border: 1.5px solid var(--rb-blk-ink); border-radius: 2px; background: repeating-linear-gradient(135deg, transparent 0 2px, var(--rb-blk-ink) 2px 3px); }
+.gap p { font-size: var(--chip-size); line-height: 17px; color: var(--rb-blk-ink2); }
+.gap code, .gap-inline code { font-family: var(--mono); font-size: 11px; background: rgba(255, 255, 255, 0.85); border: 1px solid var(--rb-blk-line); border-radius: 3px; padding: 0 4px; color: var(--rb-blk-ink); white-space: nowrap; }
+.gap .io { background: rgba(255, 255, 255, 0.82); border-radius: 6px; padding: 8px 10px; }
+.gap-src { font-size: var(--chip-size); color: var(--rb-blk-ink2); }
+.gap-inline { display: inline-flex; align-items: center; gap: 6px; padding: 1px 6px; border: 1px dashed var(--rb-blk-mute); border-radius: 4px; background: var(--gap-hatch); font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink); }
+
+.slot { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px dashed #9E9D94; border-radius: var(--r-pill); background: transparent; font-family: var(--mono); font-size: 10.5px; color: var(--rb-blk-mute); white-space: nowrap; }
+.slot--sm { height: 24px; padding: 0 8px; font-size: 10px; }
+.slot--ve { border-radius: var(--r-pill); padding: 0 4px 0 10px; gap: 8px; }
+.slot--ve .ve { height: 22px; border: 0; padding: 0 8px; background: var(--surface); }
+
+/* The elision between two parts of one frame. */
+.elide { max-width: 1200px; margin: 0 auto 32px; padding: 14px 18px; border: 1px dashed #9E9D94; border-radius: var(--r-lg); font-size: var(--meta-size); color: var(--rb-blk-mute); text-align: center; }
+
+/* What You Told Us, cut to the whole project, and where its other answers went. */
+.moved { margin-top: 20px; }
+.moved .plain li a { font-weight: 600; color: var(--rb-blk-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; text-decoration-color: var(--rb-blk-line); }
+
+/* --- Phone ------------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .sheet--ledger .dv-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; }
+  .dv-row .dv-cf, .dv-row .lg-count { display: none; }
+  .lg-cols .dv-cf { display: none; }
+  .dv-row .dv-meta { display: flex; grid-column: 1; grid-row: 2; gap: 10px; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+  .dv-row .dv-meta .dv-cf { display: inline-flex; font-size: var(--chip-size); }
+  .dv-row .lg-amt { grid-row: 1; grid-column: 2; }
+  .lens-in .dv-more { grid-column: 1; grid-row: 4; }
+  .dv-open { padding: 6px 12px 14px; }
+  .si-body { padding: 12px 12px 2px; }
+  .io { grid-template-columns: minmax(0, 1fr); }
+  .raise li { grid-template-columns: 34px minmax(0, 1fr); }
+  .raise .slot { grid-column: 2; grid-row: auto; justify-self: start; margin-top: 4px; }
+  .as li { grid-template-columns: minmax(0, 1fr); }
+  .as .slot { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 4px; }
+  .dec li { display: grid; gap: 2px; }
+  .dec .answer { text-align: left; max-width: none; }
+  .elide { margin: 0 16px 24px; }
+  .slot { white-space: normal; height: auto; min-height: 24px; padding: 3px 10px; text-align: center; }
+  .slot--ve { padding: 3px 4px 3px 10px; flex-wrap: wrap; justify-content: flex-start; border-radius: var(--r-md); }
+  .si-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 2px 10px; align-items: baseline; }
+  .si-head .ln-l { grid-column: 1; }
+  .si-head .ln-v { grid-column: 2; margin-left: 0; }
+  .si-head .pill { grid-column: 3; grid-row: 1; }
+  .si-head .src { grid-column: 1 / -1; grid-row: 2; font-size: var(--chip-size); }
+  .si--quiet .si-head { grid-template-columns: minmax(0, 1fr) auto; }
+  .si--quiet .ln-v { font-size: var(--chip-size); }
+}
+
+/* Inside an open division the shipped open-row pill rule would ink every pill; only an open item's pill is inked. */
+.dv-open .si .pill { background: var(--surface); color: var(--rb-blk-ink); border-color: var(--rb-blk-line); }
+.dv-open .si[data-open="true"] .si-head .pill { background: var(--rb-blk-ink); color: var(--surface); border-color: var(--rb-blk-ink); }

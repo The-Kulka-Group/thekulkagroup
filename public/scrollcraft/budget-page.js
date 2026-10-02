@@ -34,7 +34,7 @@
     peakAct.removeAttribute('data-sc-span');
     peakAct.classList.add('band--flow');
     each('.wf-row[data-cue-at], .wf-after[data-cue-at]', function (r, i) {
-      var c = (0.2 + i * 0.09).toFixed(2);
+      var c = (0.2 + i * 0.055).toFixed(2);
       r.setAttribute('data-sc-cue', c);
       r.setAttribute('data-cue-at', c);
     }, peakAct);
@@ -282,7 +282,10 @@
   // The current row grows and shrinks as it changes, which moves every act
   // below it; the engine measures again once the row has settled.
   var relayoutTimer = 0;
-  function relayoutSoon() { clearTimeout(relayoutTimer); relayoutTimer = setTimeout(function () { sc.layout(); }, 240); }
+  function relayoutSoon() {
+    clearTimeout(relayoutTimer);
+    relayoutTimer = setTimeout(function () { sc.layout(); sc.read(); driveHeader(); wf.read(); spy(); }, 240);
+  }
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', relayout, { passive: true });
   if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(relayout);

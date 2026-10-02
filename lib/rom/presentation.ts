@@ -363,8 +363,9 @@ const COMPARABLE_WORDS: Record<string, string> = {
 export function clientBasis(basis: string): string {
   return basis
     .replace(/Kulka's contract trade cost, owner-direct lines excluded/, "Every scope above, added up. Owner-direct scope is kept out and added back below.")
-    .replace(/user override \(history: ([^ ]+) from (\d+) jobs?: ([^)]*)\)/g, (_, rate: string, n: string, names: string) =>
-      `set by Kulka's estimator (Kulka's completed jobs average ${rate} across ${n} ${n === "1" ? "job" : "jobs"}: ${names})`)
+    // The approved frames' wording (LA-1456): the average, with no job codes.
+    .replace(/user override \(history: ([^ ]+) from (\d+) jobs?: .*\)/, (_, rate: string, n: string) =>
+      `set by Kulka's estimator. Kulka's completed jobs average ${rate} across ${n} ${n === "1" ? "job" : "jobs"}.`)
     .replace(/user override/g, "set by Kulka's estimator")
     .replace(/, from (\d+) jobs?: (.*)$/, (_, n: string, names: string) =>
       `, the average of Kulka's completed ${n === "1" ? "job" : "jobs"}: ${names}`)

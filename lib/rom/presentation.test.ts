@@ -203,9 +203,7 @@ describe("client wording", () => {
       clientBasis(
         "7.00% of subtotal, user override (history: 11.49% from 2 jobs: Fieldstone North Broadway (C00449), Jefferson's Ferry NW ILU Building 1 (C00456))",
       ),
-    ).toBe(
-      "7.00% of subtotal, set by Kulka's estimator (Kulka's completed jobs average 11.49% across 2 jobs: Fieldstone North Broadway (C00449), Jefferson's Ferry NW ILU Building 1 (C00456))",
-    );
+    ).toBe("7.00% of subtotal, set by Kulka's estimator. Kulka's completed jobs average 11.49% across 2 jobs.");
     expect(clientBasis("3.25% of subtotal plus General Requirements & General Conditions, parameter fee.rate, someone@example.com 2026-09-23")).toBe(
       "3.25% of subtotal plus General Requirements and General Conditions, Kulka's stated rate, set 2026-09-23",
     );

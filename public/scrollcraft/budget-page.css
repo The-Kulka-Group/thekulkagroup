@@ -442,6 +442,8 @@ main { padding-bottom: 40vh; }
 /* The band flowing rather than pinned: a phone, a short window, or reduced motion. */
 .band--peak.band--flow .band-stage { position: static; height: auto; min-height: 100svh; overflow: visible; }
 .band--peak.band--flow .wf-main { padding-bottom: 48px; }
+/* In the flowing band the figure holds under the header while the lines pass beneath it and it advances. */
+.band--peak.band--flow .wf-fig { position: sticky; top: var(--hd-h); z-index: 2; background: var(--rb-black); padding: 8px 0; }
 .wf-h { font-size: var(--sheet-title-size); line-height: var(--sheet-title-line); letter-spacing: var(--sheet-title-track); font-weight: 800; }
 .wf-main { flex: 1; display: grid; align-content: center; padding: 24px; min-height: 0; }
 .wf-in {
@@ -474,8 +476,8 @@ main { padding-bottom: 40vh; }
 .wf-lab { display: inline-flex; align-items: flex-start; gap: 10px; font-size: var(--t3-size); font-weight: 600; }
 .wf-lab .dot { margin-top: 7px; display: none; }
 .wf-amt { font-size: var(--t2-size); font-weight: 600; letter-spacing: -0.02em; text-align: right; white-space: nowrap; }
-.wf-range { grid-column: 2; grid-row: 2; text-align: right; font-size: var(--meta-size); color: var(--rb-pnl-mute); }
-.wf-why { grid-column: 1; grid-row: 2; font-size: var(--ui-size); line-height: 20px; color: var(--rb-ink2-on-black); }
+.wf-range { grid-column: 1 / -1; font-size: var(--meta-size); color: var(--rb-pnl-mute); }
+.wf-why { grid-column: 1 / -1; font-size: var(--ui-size); line-height: 20px; color: var(--rb-ink2-on-black); }
 .wf-plan { grid-column: 1 / -1; display: grid; gap: 2px; font-size: var(--meta-size); color: var(--rb-ink2-on-black); margin-top: 4px; }
 .wf-plan li { display: flex; justify-content: space-between; gap: 12px; }
 .wf .dot--in { background: var(--rb-ink-on-black); box-shadow: none; }
@@ -623,7 +625,9 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
 
   .band--peak .band-stage { padding-top: var(--hd-h); }
   .wf-main { padding: 16px; }
-  .wf-in { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "fig" "dwg" "wf" "after"; gap: 16px; }
+  .wf-in { grid-template-columns: minmax(0, 1fr); grid-template-areas: "h" "fig" "dwg" "wf" "after"; gap: 12px; }
+  .band--peak.band--flow .wf-main { padding-bottom: 16px; }
+  .band--peak.band--flow .wf-fig { padding: 0 0 6px; }
   .wf-h { font-size: 22px; line-height: 30px; }
   .fig--beside { font-size: 15vw; }
   .wf-row { padding: 12px 0; gap: 2px 12px; }

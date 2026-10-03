@@ -79,13 +79,13 @@ from snapshot keys, each once on the page. A figure that shows twice carries
 | `element` | slug of the element's label | 2 | `element:demolition`, `element:elevator` |
 | `line` | cost code | 38 | `line:1a`, `line:31a` |
 | `unpriced` | cost code | 11 | `unpriced:28a`, `unpriced:31f`, `unpriced:26b` |
-| `division` | MasterFormat division | 0 (the fixture has no full division map) | `division:26`, and `division:26:31a` for an item inside it |
+| `division` | MasterFormat division | 0 (the fixture has no full division map) | `division:26`. An item inside it is a `data-el-ref` to its `line:<code>`, not an id (LA-1488). |
 | `total` | total key | 7 | `total:trades`, `total:trade-cost`, `total:kulka-contract`, `total:kulka-contract:low`, `total:kulka-contract:high`, `total:owner-direct`, `total:total-project-cost` |
 | `markup` | ADR 0004 code | 3 | `markup:90-20-00`, `markup:90-30-00`, `markup:90-40-00` |
 | `plan-line` | Allocated Resources line id | 0 (the fixture has no plan) | `plan-line:superintendent` |
 | `criterion` | criterion code | 9 | `criterion:A-1`, `criterion:A-2`, `criterion:S-1`, `criterion:M-0`, `criterion:M-1`, `criterion:E-1`, `criterion:V-1` to `criterion:V-3` |
 | `gate` | cost code or gate section | 11 | `gate:demolition`, `gate:elevator`, `gate:15a`, `gate:levels_below_grade` |
-| `note` | note number, by position in `rom.assumptions` | 14 | `note:1` to `note:14` |
+| `note` | 10-hex-digit hash of the assumption's own text in `rom.assumptions`, with `-2`, `-3` on a repeat (LA-1488) | 14 | `note:3fa9c1d2e0`. The number the page prints is not part of the id. |
 | `parameter` | slug of the engine parameter | 5 | `parameter:fee-rate`, `parameter:spread-low`, `parameter:insurance-rate` |
 
 The letter's figures and the record line point at ids with `data-el-ref`:
@@ -93,12 +93,17 @@ The letter's figures and the record line point at ids with `data-el-ref`:
 `record:gross-area`, `record:prepared-by`, `total:kulka-contract` with its low and
 high, and `total:total-project-cost`.
 
-Three kinds do not meet LA-1309's own rule that keys come from the snapshot and never
-from order or wording. `note:<n>` is a position in a list, and PR 136 already shifted
-it: dropping one note renumbered every note after it. `element:<slug>` comes from the element's label, so renaming it renames the id.
-`division:<d>:<code>` names a line by its grouping, so the same line has a different id
-under By Scope and By Division. Within one version none of this matters, because the
-snapshot is frozen. Across versions it does, and the orphan rule below handles it.
+One kind does not meet LA-1309's own rule that keys come from the snapshot and never
+from order or wording. `element:<slug>` comes from the element's label, so renaming it
+renames the id. Within one version that does not matter, because the snapshot is frozen.
+Across versions it does, and the orphan rule below handles it.
+
+LA-1488 fixed the other two. A note's key is a hash of the run's own words for it (the
+assumption text before `clientNote` rewords it), so the id follows the note and not its
+place in the list: dropping or adding another note leaves every other id as it was. Two
+notes with the same words take `-2`, `-3` in the order the run wrote them. An item inside
+a division is a `data-el-ref` to the `line:<code>` the Ledger already shows, so the same
+line has the one id under By Scope and By Division.
 
 ## Decision 1: who the commenter is
 
@@ -348,9 +353,11 @@ new version is published.
    version, the thread does not move to a guessed element. It shows in a "From Earlier
    Versions" list at the end of What Happens Next, quoting its anchor. The internal inbox
    marks it "Element Not in Version 2" until Kulka replies and closes it.
-5. **Position-keyed ids carry only on an exact match.** `note:<n>` carries only when
-   the new model's text for that id equals the anchor's. Otherwise the thread orphans,
-   so a comment on old note 4 never lands on a different new note 4.
+5. **Notes carry by their words.** `note:<key>` is a hash of the assumption's text, so a
+   note carries when the new version still holds the same words, wherever it now sits in
+   the numbering. When the run rewrites the assumption, the key changes and the thread
+   orphans under rule 4. A comment on a note never lands on a different note, because no
+   two notes share a key.
 
 ### Id scheme for the LA-1479 drill-down
 
@@ -426,7 +433,7 @@ can still tell the client by their own mail or phone.
 | Flag | "Flag This Assumption" | Assumption elements only | Kulka, as Accepted or Declined. The reader may withdraw their own open flag. | Open, Accepted, Declined, Withdrawn, Carried Into Version 2 |
 
 **Assumption elements** are the ones a client can correct: `fact:*` (stated and
-assumed), `criterion:*`, `note:<n>`, `gate:*`, and LA-1479's `assumption:*`,
+assumed), `criterion:*`, `note:<key>`, `gate:*`, and LA-1479's `assumption:*`,
 `inclusion:*`, `exclusion:*` and `raise:*`. A line's figure, a total, a markup, a
 parameter and a record take comments and questions, not flags. A client who thinks a
 figure is wrong asks about it, and Kulka answers with the assumption behind it.

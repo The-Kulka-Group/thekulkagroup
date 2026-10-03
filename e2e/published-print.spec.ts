@@ -10,7 +10,8 @@ import { referencePublication } from "../test/fixtures/published-budget";
 // serves the page and its three assets from a private origin, the same way it
 // does at publish.
 
-const job = buildPrintJob(presentBudget(referencePublication()));
+const model = presentBudget(referencePublication());
+const job = buildPrintJob(model);
 
 // What Chromium prints on a Letter page: 11pt text at a 1.6 line height, inside
 // 18mm top and bottom margins (lib/rom/pdf-renderer.ts, budget-page.css).
@@ -124,7 +125,7 @@ test("the PDF has a stable page count, clean page breaks and named destinations"
   expect(stranded).toEqual([]);
 
   // Named destinations: every section, and the ids a question would cite.
-  for (const id of ["section:where-the-money-is", "section:from-trades-to-total", "total:kulka-contract", "note:1"]) {
+  for (const id of ["section:where-the-money-is", "section:from-trades-to-total", "total:kulka-contract", model.notes[0].el]) {
     expect(a.destinations, id).toContain(id);
   }
   expect(a.destinations.length).toBeGreaterThan(100);

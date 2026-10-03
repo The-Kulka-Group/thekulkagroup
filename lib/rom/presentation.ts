@@ -80,7 +80,12 @@ export type Scope = Figure & {
   unpriced: UnpricedLine[];
 };
 
-export type DivisionGroup = Figure & { el: string; division: string; label: string; items: { el: string; label: string; likely: number | null }[] };
+/**
+ * An item inside a division is a line the Ledger already shows, so it holds no
+ * id of its own: `elRef` points at that line's `line:<costCode>` (LA-1488). A
+ * thread on the line then stays on it when the page regroups.
+ */
+export type DivisionGroup = Figure & { el: string; division: string; label: string; items: { el: null; elRef: string; label: string; likely: number | null }[] };
 
 /**
  * One row of the client ledger (LA-1459): a scope in MasterFormat order with
@@ -154,7 +159,12 @@ export type Criterion = {
 
 export type GateRow = { el: string | null; label: string; decidedBy: { question: string | null; gate: string; answer: string }[] };
 
-export type Note = { el: string; number: number; text: string };
+/**
+ * A run note. `key` comes from the note's own words (see `noteKey`), so the id
+ * `note:<key>` names the same note in every version that still carries it.
+ * `number` is the position the page prints and is never part of an id.
+ */
+export type Note = { el: string; key: string; number: number; text: string };
 
 export type Parameter = { el: string; label: string; value: string; recordedBy: string; recordedAt: string };
 
@@ -378,6 +388,28 @@ export function clientBasis(basis: string): string {
  * of the notes, and the rest are numbered without it (LA-1483).
  */
 const SPLITS_OFF_PAST_JOBS = /^\d+ of \d+ lines rest on estimator judgment with no measured Kulka figure behind them yet\.$/;
+
+/**
+ * The id key of a note (LA-1488): a 40-bit hash of the run's own words for it,
+ * before `clientNote` rewords it, so a wording change on the client page does
+ * not rename the id. The key follows the note, not its place in the list:
+ * dropping or adding another note leaves it as it was. Two notes with the same
+ * words take `-2`, `-3` in the order the run wrote them.
+ */
+export function noteKey(text: string): string {
+  // cyrb53, 53 bits: pure, no imports, the same on every runtime.
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  return hash.toString(16).padStart(14, "0").slice(-10);
+}
 
 /** The run's assumptions, in client words: they become the numbered notes. */
 export function clientNote(text: string): string {
@@ -695,7 +727,7 @@ function divisionsOf(rom: Rom, classifications: readonly BlockClassification[]):
       el: `division:${group.division}`,
       division: group.division!,
       label: divisionTitle(group.division),
-      items: group.items.map((item) => ({ el: `division:${group.division}:${item.costCode}`, label: titleCase(item.label), likely: item.amount })),
+      items: group.items.map((item) => ({ el: null, elRef: `line:${item.costCode}`, label: titleCase(item.label), likely: item.amount })),
     };
   });
 }
@@ -1152,7 +1184,17 @@ export function presentBudget(publication: Publication): BudgetPage {
   const tradeCost = figure(rom.total);
 
   // Notes: the run's own assumptions, numbered in the order the run wrote them.
-  const notes = rom.assumptions.filter((text) => !SPLITS_OFF_PAST_JOBS.test(text)).map((text, i) => ({ el: `note:${i + 1}`, number: i + 1, text: clientNote(text) }));
+  // The id comes from the note's words, never its number (LA-1488).
+  const seen = new Map<string, number>();
+  const notes: Note[] = rom.assumptions
+    .filter((text) => !SPLITS_OFF_PAST_JOBS.test(text))
+    .map((text, i) => {
+      const base = noteKey(text);
+      const nth = (seen.get(base) ?? 0) + 1;
+      seen.set(base, nth);
+      const key = nth === 1 ? base : `${base}-${nth}`;
+      return { el: `note:${key}`, key, number: i + 1, text: clientNote(text) };
+    });
 
   const facts = factsOf(snapshot);
   const factValue = (key: string) => facts.find((f) => f.key === key)?.value ?? null;

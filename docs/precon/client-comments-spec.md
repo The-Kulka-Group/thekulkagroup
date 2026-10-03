@@ -68,8 +68,8 @@ Discovery Inbox, but it lists public source records, not messages.
 **Element ids.** `presentBudget` gives every addressable element a `data-el` id built
 from snapshot keys, each once on the page. A figure that shows twice carries
 `data-el-ref` pointing at the element that holds the id. The MN Test #4 fixture
-(`test/fixtures/published-budget-mn4.json`) renders 218 ids, and the print render
-carries the same 218.
+(`test/fixtures/published-budget-mn4.json`) renders 146 ids, counted after PR 136
+(LA-1483) took past jobs off the page.
 
 | Kind | Key today | Count on MN Test #4 | Examples |
 | -- | -- | -- | -- |
@@ -77,8 +77,7 @@ carries the same 218.
 | `record` | record field | 10 | `record:per-sf`, `record:per-unit`, `record:prepared-for`, `record:issued`, `record:gross-area`, `record:units`, `record:validity`, `record:project`, `record:version`, `record:prepared-by` |
 | `fact` | answer key | 28 | `fact:projectType`, `fact:grossSquareFeet`, `fact:grossSquareFeet:figure`, `fact:framingSystem`, `fact:laborType`, `fact:demolition` |
 | `element` | slug of the element's label | 2 | `element:demolition`, `element:elevator` |
-| `line` | cost code | 103 with comparables | `line:1a`, `line:31a` |
-| `line:<code>:comparable` | position in the blend, heaviest first | (in the 103) | `line:1:comparable:2` |
+| `line` | cost code | 38 | `line:1a`, `line:31a` |
 | `unpriced` | cost code | 11 | `unpriced:28a`, `unpriced:31f`, `unpriced:26b` |
 | `division` | MasterFormat division | 0 (the fixture has no full division map) | `division:26`, and `division:26:31a` for an item inside it |
 | `total` | total key | 7 | `total:trades`, `total:trade-cost`, `total:kulka-contract`, `total:kulka-contract:low`, `total:kulka-contract:high`, `total:owner-direct`, `total:total-project-cost` |
@@ -86,17 +85,17 @@ carries the same 218.
 | `plan-line` | Allocated Resources line id | 0 (the fixture has no plan) | `plan-line:superintendent` |
 | `criterion` | criterion code | 9 | `criterion:A-1`, `criterion:A-2`, `criterion:S-1`, `criterion:M-0`, `criterion:M-1`, `criterion:E-1`, `criterion:V-1` to `criterion:V-3` |
 | `gate` | cost code or gate section | 11 | `gate:demolition`, `gate:elevator`, `gate:15a`, `gate:levels_below_grade` |
-| `note` | note number, by position in `rom.assumptions` | 16 | `note:1` to `note:15`, `note:sourcing` |
-| `parameter` | slug of the engine parameter | 10 | `parameter:fee-rate`, `parameter:spread-low`, `parameter:weight-actuals` |
+| `note` | note number, by position in `rom.assumptions` | 14 | `note:1` to `note:14` |
+| `parameter` | slug of the engine parameter | 5 | `parameter:fee-rate`, `parameter:spread-low`, `parameter:insurance-rate` |
 
 The letter's figures and the record line point at ids with `data-el-ref`:
 `record:project`, `record:prepared-for`, `record:version`, `record:issued`,
 `record:gross-area`, `record:prepared-by`, `total:kulka-contract` with its low and
 high, and `total:total-project-cost`.
 
-Four kinds do not meet LA-1309's own rule that keys come from the snapshot and never
-from order or wording. `note:<n>` and `line:<code>:comparable:<i>` are positions in a
-list. `element:<slug>` comes from the element's label, so renaming it renames the id.
+Three kinds do not meet LA-1309's own rule that keys come from the snapshot and never
+from order or wording. `note:<n>` is a position in a list, and PR 136 already shifted
+it: dropping one note renumbered every note after it. `element:<slug>` comes from the element's label, so renaming it renames the id.
 `division:<d>:<code>` names a line by its grouping, so the same line has a different id
 under By Scope and By Division. Within one version none of this matters, because the
 snapshot is frozen. Across versions it does, and the orphan rule below handles it.
@@ -349,10 +348,9 @@ new version is published.
    version, the thread does not move to a guessed element. It shows in a "From Earlier
    Versions" list at the end of What Happens Next, quoting its anchor. The internal inbox
    marks it "Element Not in Version 2" until Kulka replies and closes it.
-5. **Position-keyed ids carry only on an exact match.** `note:<n>` and
-   `line:<code>:comparable:<i>` carry only when the new model's text for that id equals
-   the anchor's. Otherwise the thread orphans, so a comment on old note 4 never lands
-   on a different new note 4.
+5. **Position-keyed ids carry only on an exact match.** `note:<n>` carries only when
+   the new model's text for that id equals the anchor's. Otherwise the thread orphans,
+   so a comment on old note 4 never lands on a different new note 4.
 
 ### Id scheme for the LA-1479 drill-down
 

@@ -19,8 +19,8 @@ When a new version is published, open and answered threads carry forward onto th
 element with the same id, and show what changed when the anchor no longer matches. A
 thread whose id is gone from the new version is listed apart from the elements, quoting
 its anchor, until Kulka answers and closes it. Nothing moves a thread to a guessed
-element. Ids keyed by a position in a list (`note:<n>`, `line:<code>:comparable:<i>`)
-carry only when the text is identical.
+element. Ids keyed by a position in a list (`note:<n>`) carry only when the text is
+identical.
 
 This makes LA-1309's id rule binding for every new kind of element: a key comes from the
 snapshot's data and never from a label, a position or the DOM, and one element has one

@@ -36,6 +36,21 @@ describe("sidebar navigation", () => {
     expect(html).not.toMatch(/>31<|>9<|>6</);
   });
 
+  it("shows the count of client comments that need Kulka on Conceptual Budget only (LA-1490)", () => {
+    const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com", needsKulka: 3 }));
+    expect(html).toMatch(/href="\/rom"[^>]*>.*?<span>Conceptual Budget<\/span><span class="count"[^>]*>3<\/span>/);
+    expect(html.match(/class="count"/g)?.length).toBe(3);
+    expect(html).toContain('title="Client comments that need Kulka"');
+  });
+
+  it("shows no count at zero or by default (LA-1490)", () => {
+    for (const props of [{}, { needsKulka: 0 }]) {
+      const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com", ...props }));
+      expect(html).not.toContain("Client comments that need Kulka");
+      expect(html.match(/class="count"/g)?.length).toBe(2);
+    }
+  });
+
   it("does not mark Home as active on another page", () => {
     pathname = "/pursuits";
 

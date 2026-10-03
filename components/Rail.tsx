@@ -87,10 +87,13 @@ export function Rail({
   email,
   openAccess = false,
   initialPinned = false,
+  needsKulka = 0,
 }: {
   email: string;
   openAccess?: boolean;
   initialPinned?: boolean;
+  /** LA-1490: client comment threads waiting on Kulka. Conceptual Budget shows the count, and shows nothing at zero. */
+  needsKulka?: number;
 }) {
   const path = usePathname();
   const router = useRouter();
@@ -263,9 +266,10 @@ export function Rail({
           {groups.map((group) => (
             <div className="rail-group" key={group.label}>
               <div className="rail-section t-label">{group.label}</div>
-              {group.items.map(({ href, label, count, Icon }) => {
+              {group.items.map(({ href, label, count: fixed, Icon }) => {
                 // The longest href that matches the path wins.
                 const active = href === activeHref;
+                const count = href === "/rom" ? needsKulka : fixed;
                 return (
                   <Link
                     key={href}
@@ -275,7 +279,11 @@ export function Rail({
                   >
                     <Icon size={16} />
                     <span>{label}</span>
-                    {count ? <span className="count">{count}</span> : null}
+                    {count ? (
+                      <span className="count" title={href === "/rom" ? "Client comments that need Kulka" : undefined}>
+                        {count}
+                      </span>
+                    ) : null}
                   </Link>
                 );
               })}

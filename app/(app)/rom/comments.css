@@ -1,0 +1,37 @@
+/* LA-1490. The Client Comments panel on a saved budget. Reuses .input,
+   .field-label, .btn, .rb-acts, .rb-pp, .rb-dot and publish.css's .pb-hint,
+   .pb-none and .pb-list-head. Every row wraps and nothing has a fixed width,
+   so the panel fits a phone (390px) with no sideways scroll. */
+
+.cc-panel { display: grid; gap: 4px; min-width: 0; }
+.cc-replyas { display: block; margin: 4px 0 8px; min-width: 0; }
+.cc-version-state { margin-left: 10px; font-weight: 400; color: var(--rb-sel-ink2); }
+.cc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; min-width: 0; }
+.cc-thread { padding: 14px 0; border-top: 1px solid var(--rb-pnl-line); min-width: 0; }
+.cc-thread:last-child { border-bottom: 1px solid var(--rb-pnl-line); }
+.cc-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.cc-label { font-weight: 600; overflow-wrap: anywhere; }
+.cc-kind { color: var(--rb-sel-ink2); font-size: var(--meta-size); }
+.cc-state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--meta-size); color: var(--rb-sel-ink2); }
+.cc-by { margin: 4px 0 0; font-size: var(--meta-size); color: var(--rb-sel-ink2); overflow-wrap: anywhere; }
+.cc-when { color: var(--rb-pnl-mute); font-size: var(--meta-size); margin-left: 6px; }
+.cc-marks { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-mark { font-size: var(--chip-size); border: 1px solid var(--rb-pnl-line); border-radius: 999px; padding: 1px 8px; color: var(--rb-sel-ink2); }
+.cc-mark--warn { border-color: var(--working); color: var(--rb-ink-on-black); }
+.cc-anchor { margin: 8px 0 0; font-size: var(--meta-size); color: var(--rb-sel-ink2); overflow-wrap: anywhere; }
+.cc-flag { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 8px 16px; margin: 10px 0 0; }
+.cc-flag dt { margin: 0; color: var(--rb-sel-ink2); }
+.cc-flag dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.cc-msgs { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.cc-msg { padding-left: 10px; border-left: 2px solid var(--rb-pnl-line); min-width: 0; }
+.cc-msg--internal { border-left-color: var(--working); }
+.cc-msg-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--meta-size); }
+.cc-msg-who { font-weight: 600; }
+.cc-msg-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cc-removed { color: var(--rb-sel-ink2); font-style: italic; }
+.cc-msg-remove { margin-top: 2px; padding: 0 var(--s2); font-size: var(--meta-size); }
+.cc-compose { display: grid; gap: 8px; margin-top: 10px; }
+.cc-compose label { display: block; min-width: 0; }
+.cc-compose textarea.input { min-height: 72px; resize: vertical; font: inherit; }
+.cc-compose .rb-acts, .cc-confirm .rb-acts, .cc-acts { flex-wrap: wrap; margin: 8px 0 0; align-items: center; }
+.rb-dot--neutral { background: var(--rb-pnl-mute); }

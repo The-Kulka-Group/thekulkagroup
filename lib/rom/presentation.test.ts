@@ -235,7 +235,11 @@ describe("notes", () => {
     const again = presentBudget(referencePublication()).notes;
 
     expect(again).toEqual(first);
-    expect(first.map((n) => n.el)).toEqual(Array.from({ length: 14 }, (_, i) => `note:${i + 1}`));
+    // LA-1488: the id comes from the note's words, so the numbers 1 to 14 are only what the page prints.
+    expect(first.map((n) => n.number)).toEqual(Array.from({ length: 14 }, (_, i) => i + 1));
+    expect(first.map((n) => n.el)).toEqual(first.map((n) => `note:${n.key}`));
+    for (const n of first) expect(n.key).toMatch(/^[0-9a-f]{10}(-\d+)?$/);
+    expect(new Set(first.map((n) => n.el)).size).toBe(14);
     // LA-1483: the run's "rest on estimator judgment with no measured Kulka figure" note is left out, and the rest renumber.
     expect(first.map((n) => n.text).join("\n")).not.toMatch(/estimator judgment|measured Kulka figure/);
     expect(first[7].text).toMatch(/^Not in this job, so removed from the total: Overhead Doors \(parking type\)/);

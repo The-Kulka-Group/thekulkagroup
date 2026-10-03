@@ -64,12 +64,14 @@ describe("the rendered page against the reference", () => {
       id === "record:recorded" ? "record:issued" : id.startsWith("parameter:") ? `parameter:${id.slice(10).replace(/[._]/g, "-")}` : id;
     const proven = (id: string) => id === "section:what-this-rests-on" || id.startsWith("count:");
     const pastJobParameters = new Set(["weight-actuals", "weight-proest-budget", "weight-reviewed-judgment", "flag-high-min-comparables", "flag-medium-min-comparables"]);
-    const noteCount = presentBudget(referencePublication()).notes.length;
-    const cutNote = (id: string) => id.startsWith("note:") && /^\d+$/.test(id.slice(5)) && Number(id.slice(5)) > noteCount;
+    // LA-1488: a note's id comes from its words. The reference's `note:<n>` ids are positions, so the
+    // reference's notes are swapped for the model's ids, which are the ones the page now prints.
+    const modelNotes = presentBudget(referencePublication()).notes.map((n) => n.el);
+    const referenceNote = (id: string) => id.startsWith("note:");
     const cutParameter = (id: string) => id.startsWith("parameter:") && pastJobParameters.has(renamed(id).slice(10));
-    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest" && !proven(id) && !cutNote(id) && !cutParameter(id);
+    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest" && !proven(id) && !referenceNote(id) && !cutParameter(id);
     // LA-1467: the page opens on a letter, which has its own section id.
-    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter"]);
+    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter", ...modelNotes]);
 
     expect(new Set(ids.filter(notComparable))).toEqual(expected);
     expect(ids.filter((id) => id.includes(":comparable:"))).toEqual([]);

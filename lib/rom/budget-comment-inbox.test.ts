@@ -155,11 +155,17 @@ describe("threads that need Kulka", () => {
   });
 
   it("lists the newest client activity first", async () => {
+    // Writes in the same millisecond tie on time, and the inbox cannot order
+    // them. Real replies never land that close, so the test waits (LA-1547).
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
     const first = await open("comment", "line:1a", "First.");
+    await tick();
     await open("comment", "line:2a", "Second.");
     expect((await listThreadsNeedingKulka(db as Db)).map((i) => i.said)).toEqual(["Second.", "First."]);
     // A later reply on the older thread moves it to the top.
+    await tick();
     await staffReply(first.thread.id);
+    await tick();
     await readerReply(first.thread.id);
     expect((await listThreadsNeedingKulka(db as Db)).map((i) => i.said)).toEqual(["Thanks, one more thing.", "Second."]);
   });

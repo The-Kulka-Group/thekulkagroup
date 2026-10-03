@@ -14,12 +14,12 @@ import type { PdfRenderer, PrintJob } from "./published-pdf";
 //
 // The page is not fetched from the app's own address. The job carries the
 // finished HTML, and the browser is given a private origin whose only
-// contents are that HTML and the three files the print page loads from
+// contents are that HTML and the four files the print page loads from
 // public/scrollcraft. So the render needs no network path back into the app,
 // no deployment protection bypass and no second request to the database.
 
 const ORIGIN = "https://print.kulka.invalid";
-const ASSETS = ["scrollcraft.css", "budget-page.css", "budget-page.js"] as const;
+const ASSETS = ["scrollcraft.css", "budget-page.css", "drill-down.css", "budget-page.js"] as const;
 const TYPES: Record<string, string> = { css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8" };
 
 async function launch(): Promise<Browser> {

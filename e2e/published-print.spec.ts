@@ -109,7 +109,8 @@ test("the PDF has a stable page count, clean page breaks and named destinations"
   expect(a.pages.length).toBeGreaterThan(5);
   expect(b.pages.length).toBe(a.pages.length);
 
-  const titles = ["The Ledger", "Design and Engineering", "From Trades to Total", "Notes and Clarifications"];
+  // LA-1504: Notes and Clarifications became the Clarifications sheet.
+  const titles = ["The Ledger", "Design and Engineering", "From Trades to Total", "Clarifications"];
   // A title starts a page when nothing sits above it in the body area, below the running header.
   const bodyTop = PAGE_HEIGHT - TOP_MARGIN;
   const startsPage = (title: string) =>
@@ -142,9 +143,13 @@ async function headingTexts(): Promise<Set<string>> {
   const browser = await launchChromium();
   try {
     const { page } = await openPrintPage(browser, job);
-    const texts = await page.evaluate(() =>
-      [...document.querySelectorAll("h1, h2, h3")].filter((h) => h.getClientRects().length > 0).map((h) => (h as HTMLElement).innerText.trim()),
-    );
+    // LA-1504: a criterion's name is also a Basis label in the ledger, so a
+    // text that also reads outside a heading is not counted as one.
+    const texts = await page.evaluate(() => {
+      const headings = [...document.querySelectorAll("h1, h2, h3")].filter((h) => h.getClientRects().length > 0).map((h) => (h as HTMLElement).innerText.trim());
+      const elsewhere = new Set([...document.querySelectorAll(".as-l, .raise-t, .dec-l")].map((el) => (el as HTMLElement).innerText.replace(/^[A-Z]-\d+\s*/, "").trim()));
+      return headings.filter((t) => !elsewhere.has(t));
+    });
     return new Set(texts);
   } finally {
     await browser.close();

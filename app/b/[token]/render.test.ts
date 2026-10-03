@@ -70,8 +70,29 @@ describe("the rendered page against the reference", () => {
     const referenceNote = (id: string) => id.startsWith("note:");
     const cutParameter = (id: string) => id.startsWith("parameter:") && pastJobParameters.has(renamed(id).slice(10));
     const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest" && !proven(id) && !referenceNote(id) && !cutParameter(id);
+    // LA-1504: the ledger is By Division. An element's row gives way to its
+    // division's, and a scope decision moves from What Is In to its division,
+    // or stays off the page when its answer already reads in Project Basis.
+    const model = presentBudget(referencePublication());
+    const divisionIds = model.divisions.flatMap((d) => [
+      d.el,
+      ...(d.items.length > 0 ? [`confidence:${d.division}`] : []),
+      ...d.items.flatMap((i) => [i.el, ...i.basis.map((b) => b.el), ...i.includes.map((x) => x.el), ...i.excludes.map((x) => x.el)]),
+      ...d.supporting.map((u) => u.el),
+      ...d.raise.map((r) => r.el),
+      ...Object.values(d.decisions).flatMap((rows) => rows.map((r) => r.el)),
+    ]);
+    const regrouped = (id: string) => id.startsWith("element:") || (id.startsWith("gate:") && !divisionIds.includes(id));
     // LA-1467: the page opens on a letter, which has its own section id.
-    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter", ...modelNotes]);
+    const expected = new Set([
+      ...referencePage.dataEl.filter(clientFacing).filter((id) => !regrouped(id)).map(renamed),
+      "record:gross-area",
+      "record:units",
+      "record:project",
+      "section:letter",
+      ...modelNotes,
+      ...divisionIds,
+    ]);
 
     expect(new Set(ids.filter(notComparable))).toEqual(expected);
     expect(ids.filter((id) => id.includes(":comparable:"))).toEqual([]);
@@ -101,6 +122,12 @@ describe("the rendered page against the reference", () => {
       }
     }
     for (const row of model.ledger) if (row.perSquareFoot) held.add(row.perSquareFoot);
+    // LA-1504: each division's own figure and rate.
+    for (const d of model.divisions) {
+      figure(d);
+      if (d.perSquareFoot) held.add(d.perSquareFoot);
+      for (const item of d.items) figure(item);
+    }
     for (const w of model.waterfall) {
       figure(w);
       moneyOf(w.basis).forEach((m) => held.add(m));
@@ -123,7 +150,9 @@ describe("the rendered page against the reference", () => {
     // Two more departures (LA-1459): the Summary fold's own figure, the 27
     // smallest scopes together, went with the fold, and the running receipt's
     // "$0" went with the receipt.
-    const gone = new Set(["$0", usd(6_280_149.5)]);
+    // LA-1504: an element's range ("together, between") went with the element's row.
+    const elementRanges = model.money.scopes.filter((s) => s.kind === "element").flatMap((s) => [usd(s.low), usd(s.high)]);
+    const gone = new Set(["$0", usd(6_280_149.5), ...elementRanges]);
     const missing = [...new Set(referencePage.money)].filter((m) => !onPage.has(m) && !referenceRates.has(m) && !gone.has(m));
     expect(missing).toEqual([]);
 
@@ -133,9 +162,10 @@ describe("the rendered page against the reference", () => {
     expect(html).toContain('data-running="$18,650,604"');
     expect(html).toContain('data-running="$19,256,749"');
     expect(html).toContain('data-landed="$20,296,613"');
-    for (const row of model.ledger) expect(html, row.label).toContain(`data-layer="${row.key}"`);
-    expect(html).toContain(">$50.69<");
-    expect(html).toContain(">16%<");
+    for (const d of model.divisions) expect(html, d.title).toContain(`data-layer="${d.el}"`);
+    // LA-1504: 09 Finishes, the largest division, as the frames print it.
+    expect(html).toContain(">$66.02<");
+    expect(html).toContain(">21%<");
   });
 });
 
@@ -149,7 +179,8 @@ describe("the section on the page", () => {
     const ids = [...html.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]);
     expect(new Set(ids).size).toBe(ids.length);
     const layerKeys = new Set([...html.matchAll(/<g data-layer="([^"]*)"/g)].map((m) => m[1]));
-    const rowKeys = new Set([...html.matchAll(/<div class="lg-item[^"]*" id="[^"]*" data-el="[^"]*" data-layer="([^"]*)"/g)].map((m) => m[1]));
+    // LA-1504: a division row draws every layer its lines own.
+    const rowKeys = new Set([...html.matchAll(/<div class="lg-item[^"]*" id="[^"]*" data-el="[^"]*" data-layer="[^"]*" data-layers="([^"]*)"/g)].flatMap((m) => m[1].split(" ").filter(Boolean)));
     for (const key of layerKeys) expect(rowKeys.has(key), key).toBe(true);
     for (const key of rowKeys) if (key in LAYERS) expect(layerKeys.has(key), key).toBe(true);
     expect(html.split(DIAGRAM_LINE).length - 1).toBeGreaterThanOrEqual(3);
@@ -234,12 +265,12 @@ describe("client-facing text", () => {
     expect(notTitle).toEqual([]);
   });
 
-  it("prints a rate per SF to the cent under $100 on every ledger row", () => {
+  it("prints a rate per SF to the cent under $100 on every division row", () => {
     const html = page();
     const model = presentBudget(referencePublication());
-    for (const row of model.ledger) {
-      if (row.scope.kind === "unpriced") continue;
-      expect(html, row.label).toContain(`<span class="lg-psf num">${rateUsd(row.likely / 64_000)}</span>`);
+    for (const d of model.divisions) {
+      if (d.items.length === 0) continue;
+      expect(html, d.title).toContain(`<span class="lg-psf num">${rateUsd(d.likely / 64_000)}</span>`);
     }
   });
 
@@ -253,7 +284,7 @@ describe("client-facing text", () => {
     expect(html).toContain("You asked Kulka to price a <span class=\"num\">70</span>-unit multifamily building");
     expect(html).toContain('<span class="num" data-el-ref="total:kulka-contract">$20,296,613</span>');
     expect(html).toMatch(/<span class="num" data-el="record:per-sf" title="Kulka contract over gross area[^"]*">\$317<\/span> per square foot/);
-    expect(html).toContain('<li><span class="num">1</span><a href="#the-project">What You Told Us</a></li>');
+    expect(html).toContain('<li><span class="num">1</span><a href="#the-project">Project Basis</a></li>');
     expect(html).toContain('<a href="#letter" data-index="letter">Letter</a>');
     expect(html).not.toContain("Your Number");
   });
@@ -294,12 +325,14 @@ describe("past jobs are off the client page", () => {
     expect(text).not.toMatch(/\d+(\.\d)?% (?:of the trade cost )?(?:is priced )?from/i);
   });
 
-  it("opens a ledger line to its figures, its confidence and how it was built, and no more", () => {
+  it("opens an item to its range, its confidence and its Basis, and no more", () => {
     const html = page();
-    const detail = html.slice(html.indexOf('class="ln"'), html.indexOf("</div>", html.indexOf('class="ln-basis"')));
-    expect(detail).toContain('class="ln-range"');
-    expect(detail).toContain('class="ln-basis"');
-    expect(detail).toContain("A Kulka rate, applied to this project's quantity.");
+    const start = html.indexOf('<div class="si" data-el="line:1a"');
+    const detail = html.slice(start, html.indexOf('<div class="si"', start + 1));
+    expect(detail).toContain('class="num si-range">$128,700 to $267,300</span>');
+    expect(detail).toContain("Low</span>");
+    expect(detail).toContain('<li data-el="assumption:1a:rate"><span class="as-l">Rate</span><span class="as-v">Rate on File</span>');
+    expect(detail).not.toMatch(/\d+ (?:Kulka )?jobs?/i);
   });
 
   it("calls every figure a Kulka rate and never counts the jobs behind it", () => {

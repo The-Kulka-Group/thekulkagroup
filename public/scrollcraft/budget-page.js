@@ -170,7 +170,16 @@
     var lens = section.querySelector('[data-lens]');
     var items = Array.prototype.slice.call(section.querySelectorAll('.lg-item'));
     var keys = items.map(function (i) { return i.getAttribute('data-layer'); });
-    var framingAt = keys.indexOf('line:8');
+    // LA-1504: a division row draws every layer its lines own (data-layers),
+    // so a layer is found by the row that holds it, not by the row's own key.
+    var layerAt = {};
+    items.forEach(function (it, i) {
+      (it.getAttribute('data-layers') || it.getAttribute('data-layer') || '').split(' ').forEach(function (k) {
+        if (k && !(k in layerAt)) layerAt[k] = i;
+      });
+    });
+    function rowOfLayer(k) { return k && k in layerAt ? layerAt[k] : -1; }
+    var framingAt = rowOfLayer('line:8');
     var design = doc.getElementById('design-and-engineering');
     var crits = design ? Array.prototype.slice.call(design.querySelectorAll('.crit--keyed [data-crit]')) : [];
     var dwg = trio.querySelector('[data-dwg="section"] svg');
@@ -320,12 +329,12 @@
         items.forEach(function (it, i) { it.classList.toggle('is-cur', i === idx); });
         if (idx >= 0 && (idx !== lensIdx || !lens || !lens.querySelector('.lens-in'))) { fill(idx); lensIdx = idx; }
         layers.forEach(function (g) {
-          var i = keys.indexOf(g.getAttribute('data-layer'));
+          var i = rowOfLayer(g.getAttribute('data-layer'));
           g.classList.toggle('is-drawn', i > -1 && i <= idx);
           g.classList.toggle('is-now', i === idx && state === 'ledger');
         });
         notes.forEach(function (n) {
-          var i = keys.indexOf(n.getAttribute('data-note'));
+          var i = rowOfLayer(n.getAttribute('data-note'));
           n.classList.toggle('is-drawn', i > -1 && i <= idx);
         });
       }
@@ -335,6 +344,7 @@
         bracketTo(nStories);
       }
       current = idx; drawnStories = nStories;
+      if (openItem) focus();
       section.setAttribute('data-sc-verify-state', 'ledger:' + idx + ':' + nStories + ':' + state + (crit ? ':' + crit : ''));
     }
     function setState(s) {
@@ -394,6 +404,9 @@
     // Open or close a row, in the list and in the lens.
     function toggle(item, open) {
       setOpen(item, open);
+      if (open) openItem = item;
+      else if (openItem === item) openItem = items.filter(function (it) { return it.getAttribute('data-open') === 'true'; }).pop() || null;
+      focus();
       if (lens && lens.getAttribute('data-row') === item.getAttribute('data-layer')) {
         lens.setAttribute('data-open', String(open));
         each('.lens-in', function (inner) { inner.setAttribute('data-open', String(open)); var b = inner.querySelector('.lg-btn'); if (b) b.setAttribute('aria-expanded', String(open)); }, lens);
@@ -442,12 +455,106 @@
       if (c) { pinnedCrit = c.getAttribute('data-callout'); scrollToCrit(pinnedCrit); lightCrit(pinnedCrit); return; }
       var g = hit.closest('[data-layer]');
       if (!g) return;
-      var item = items[keys.indexOf(g.getAttribute('data-layer'))];
+      var item = items[rowOfLayer(g.getAttribute('data-layer'))];
       if (!item) return;
       setOpen(item, true);
       scrollToRow(item, 0.5);
       setTimeout(function () { read(); toggle(item, true); }, reduce ? 50 : 450);
     });
+    /* LA-1504: with a division open, the section draws every layer, lights the
+       open division's (or its open item's) in place, and tags it. On a phone the
+       pinned section folds to one bar; one tap shows the drawing again. */
+    var openItem = null;
+    var dwgBox = dwg ? dwg.parentNode : null;
+    var tag = dwgBox && dwgBox.querySelector('[data-dwg-tag]');
+    var lead = dwgBox && dwgBox.querySelector('[data-dwg-lead]');
+    var foldName = trio.querySelector('[data-fold-name]');
+    function textOf(el) { return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; }
+    function focus() {
+      var on = !!openItem && openItem.getAttribute('data-open') === 'true';
+      trio.classList.toggle('trio--open', on);
+      if (!on) trio.classList.remove('trio--show');
+      if (dwgBox) dwgBox.classList.toggle('dwg--focus', on);
+      if (!on) { if (tag) tag.hidden = true; if (lead) lead.hidden = true; return; }
+      var idx = items.indexOf(openItem);
+      layers.forEach(function (g) {
+        var i = rowOfLayer(g.getAttribute('data-layer'));
+        g.classList.toggle('is-drawn', i > -1);
+        g.classList.toggle('is-now', i === idx);
+      });
+      var si = openItem.querySelector('.si[data-open="true"]:not(.si--group)');
+      var btn = openItem.querySelector('.lg-btn');
+      var name = si ? textOf(si.querySelector('.ln-l')) : (textOf(btn.querySelector('.lg-div')) + ' ' + textOf(btn.querySelector('.lg-name').firstChild)).trim();
+      var figure = si ? textOf(si.querySelector('.ln-v')) : textOf(btn.querySelector('.lg-amt'));
+      var markEl = si ? si.querySelector('.si-meta .dv-cf') : btn.querySelector('.dv-cf');
+      if (foldName) foldName.textContent = name;
+      if (!tag) return;
+      tag.textContent = '';
+      var b = doc.createElement('b'); b.textContent = name; tag.appendChild(b);
+      var f = doc.createElement('span'); f.className = 'num'; f.textContent = figure; tag.appendChild(f);
+      if (markEl && markEl.textContent.trim()) tag.appendChild(markEl.cloneNode(true));
+      placeTag();
+    }
+    // The tag sits beside the lit strokes, with a short lead to them: above a low layer, beside a tall one.
+    function placeTag() {
+      if (!tag || !dwgBox) return;
+      var lit = layers.filter(function (g) { return g.classList.contains('is-now') && g.querySelector('.s'); });
+      var c = dwgBox.getBoundingClientRect();
+      var rs = lit.map(function (g) { return g.getBoundingClientRect(); }).filter(function (r) { return r.width + r.height > 0; });
+      if (!rs.length || !c.width) { tag.hidden = true; if (lead) lead.hidden = true; return; }
+      tag.hidden = false;
+      var r = {
+        left: Math.min.apply(null, rs.map(function (x) { return x.left; })) - c.left,
+        right: Math.max.apply(null, rs.map(function (x) { return x.right; })) - c.left,
+        top: Math.min.apply(null, rs.map(function (x) { return x.top; })) - c.top,
+        bottom: Math.max.apply(null, rs.map(function (x) { return x.bottom; })) - c.top,
+      };
+      var w = tag.offsetWidth, h = tag.offsetHeight, gap = phone() ? 10 : 26;
+      var above = r.top - gap - h >= 8 && r.bottom - r.top < c.height * 0.45;
+      if (above) {
+        var x = Math.min(Math.max(8, r.left), c.width - w - 8), y = r.top - gap - h;
+        tag.style.left = x + 'px'; tag.style.top = y + 'px';
+        var lx = Math.min(Math.max(x + 12, (r.left + r.right) / 2), x + w - 12);
+        if (lead) { lead.hidden = false; lead.style.left = lx + 'px'; lead.style.top = y + h + 'px'; lead.style.width = '1px'; lead.style.height = gap - 2 + 'px'; }
+      } else {
+        var right = r.right + gap + w <= c.width - 8;
+        var x2 = right ? r.right + gap : Math.max(8, r.left - gap - w);
+        var y2 = Math.min(Math.max(8, r.top + (phone() ? 4 : 24)), c.height - h - 8);
+        tag.style.left = x2 + 'px'; tag.style.top = y2 + 'px';
+        if (lead) { lead.hidden = false; lead.style.top = y2 + h / 2 + 'px'; lead.style.left = (right ? r.right + 2 : x2 + w) + 'px'; lead.style.width = Math.max(0, right ? x2 - r.right - 2 : r.left - 2 - (x2 + w)) + 'px'; lead.style.height = '1px'; }
+      }
+    }
+    var show = trio.querySelector('[data-fold-show]');
+    if (show) show.addEventListener('click', function () { trio.classList.add('trio--show'); placeTag(); sc.layout(); });
+
+    // Tabs show one panel at a time, and an item opens to its own tabs.
+    function ownScope(el, scope) { return el.closest('.si-body, .dv-open') === scope; }
+    section.addEventListener('click', function (e) {
+      var tab = e.target.closest('.tab[data-tab]');
+      if (tab) {
+        var scope = tab.closest('.si-body, .dv-open');
+        each('.tab[data-tab]', function (t) {
+          if (!ownScope(t, scope)) return;
+          var on = t === tab;
+          t.classList.toggle('is-on', on);
+          t.setAttribute('aria-selected', String(on));
+        }, scope);
+        each('.dv-panel', function (p) { if (ownScope(p, scope)) p.hidden = p.getAttribute('data-panel') !== tab.getAttribute('data-tab'); }, scope);
+        sc.layout();
+        return;
+      }
+      var head = e.target.closest('.si-head');
+      if (head) {
+        var si = head.closest('.si');
+        var open = si.getAttribute('data-open') !== 'true';
+        si.setAttribute('data-open', String(open));
+        head.setAttribute('aria-expanded', String(open));
+        if (openItem && openItem.contains(si)) focus();
+        sc.layout();
+      }
+    });
+    window.addEventListener('resize', function () { if (openItem) placeTag(); });
+
     hitAreas();
     return { read: read, all: all, items: items, scrollToRow: scrollToRow, scrollToCrit: scrollToCrit, place: place };
   })();

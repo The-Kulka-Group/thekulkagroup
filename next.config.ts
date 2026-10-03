@@ -12,13 +12,14 @@ const nextConfig: NextConfig = {
   // that can collect Suffolk Planning Board PDFs.
   outputFileTracingIncludes: {
     // LA-1420. Publish prints the budget with headless Chromium. It needs the
-    // three files the print page loads, and the compressed Chromium build that
+    // four files the print page loads, and the compressed Chromium build that
     // @sparticuz/chromium unpacks at run time (found by relative path, so
     // tracing does not see it on its own). The key uses * for [runId]: the
     // key is a glob, and [runId] would read as a character class.
     "/api/rom/runs/*/publish": [
       "./public/scrollcraft/scrollcraft.css",
       "./public/scrollcraft/budget-page.css",
+      "./public/scrollcraft/drill-down.css",
       "./public/scrollcraft/budget-page.js",
       "./node_modules/@sparticuz/chromium/bin/chromium.br",
       "./node_modules/@sparticuz/chromium/bin/fonts.tar.br",

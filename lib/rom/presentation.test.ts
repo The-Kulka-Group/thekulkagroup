@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { sourceOf } from "@/app/(app)/rom/ledger";
 import { referencePublication } from "@/test/fixtures/published-budget";
 
-import { clientBasis, clientSource, presentBudget, rateUsd } from "./presentation";
+import { clientBasis, clientSource, noteKey, presentBudget, rateUsd } from "./presentation";
 
 // LA-1418. The presentation model, from the reference run. Expected figures
 // are the ones the LA-1416 reference page printed from the same run.
@@ -235,14 +235,26 @@ describe("notes", () => {
     const again = presentBudget(referencePublication()).notes;
 
     expect(again).toEqual(first);
-    // LA-1488: the id comes from the note's words, so the numbers 1 to 14 are only what the page prints.
-    expect(first.map((n) => n.number)).toEqual(Array.from({ length: 14 }, (_, i) => i + 1));
+    // LA-1488: the id comes from the note's words, so the numbers 1 to 11 are only what the page prints.
+    expect(first.map((n) => n.number)).toEqual(Array.from({ length: 11 }, (_, i) => i + 1));
     expect(first.map((n) => n.el)).toEqual(first.map((n) => `note:${n.key}`));
     for (const n of first) expect(n.key).toMatch(/^[0-9a-f]{10}(-\d+)?$/);
-    expect(new Set(first.map((n) => n.el)).size).toBe(14);
+    expect(new Set(first.map((n) => n.el)).size).toBe(11);
     // LA-1483: the run's "rest on estimator judgment with no measured Kulka figure" note is left out, and the rest renumber.
     expect(first.map((n) => n.text).join("\n")).not.toMatch(/estimator judgment|measured Kulka figure/);
-    expect(first[7].text).toMatch(/^Not in this job, so removed from the total: Overhead Doors \(parking type\)/);
+    // LA-1504 (Matt, 2026-10-02): the notes each division now shows are cut, and two become one line.
+    const text = first.map((n) => n.text);
+    expect(text.join("\n")).not.toMatch(/^Not in this job, so removed from the total/m);
+    expect(text.join("\n")).not.toMatch(/ brings in /);
+    expect(text).toContain("11 items are in scope with no rate yet. Each sits under its division.");
+    expect(text).toContain("1 item sits outside the total until an open question is answered. It sits under its division.");
+  });
+
+  it("keeps a cut note's neighbours on the ids their own words give them", () => {
+    const notes = presentBudget(referencePublication()).notes;
+    const fee = notes.find((n) => n.text.startsWith("Fee computes"))!;
+    expect(fee.number).toBe(11);
+    expect(fee.key).toBe(noteKey(referencePublication().snapshot.rom.assumptions.find((t) => t.startsWith("Fee computes"))!));
   });
 });
 
@@ -424,7 +436,7 @@ describe("the letter", () => {
       "One question is still open: \u201CAre there known groundwater or poor soil conditions?\u201D Until it is answered, what waits on it sits outside the total rather than inside it as a guess.",
     );
     expect(paragraphs[5]).toBe(
-      "Read the facts on the next page. If one is wrong, tell us and we reprice from the corrected fact. Then comes Design Development. Kulka's estimators price the design development drawings, and the range narrows.",
+      "Read the Project Basis on the next page and the Basis under each division. If anything is wrong, tell us and we reprice from the corrected fact. Then comes Design Development. Kulka's estimators price the design development drawings, and the range narrows.",
     );
   });
 

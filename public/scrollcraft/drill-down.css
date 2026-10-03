@@ -1,0 +1,204 @@
+/* LA-1504. The budget drill-down, built from the LA-1479 frames Matt scored 92
+   (docs/frames/la-1479/drill.css). budget-page.css stays as shipped; every rule
+   for the division view is here. No new colour enters the page: ink, the
+   working orange the page already uses for assumed facts, and the one blue.
+   The frames' gap lines, slots and frame notes are not built: where the model
+   has no data, the page shows nothing. */
+
+/* The three marks read apart: high a full dot, medium half, low a ring. */
+.dot--medium { background: linear-gradient(90deg, var(--rb-blk-ink2) 50%, transparent 50%); box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+
+/* --- The division row: one more column, the confidence ------------------- */
+
+.sheet--ledger .dv-row { grid-template-columns: 24px minmax(0, 1fr) 66px 84px 48px 30px; gap: 8px; }
+.dv-row .lg-name { white-space: normal; line-height: 18px; }
+.dv-cf { display: inline-flex; align-items: center; gap: 6px; font-size: var(--meta-size); color: var(--rb-blk-ink2); white-space: nowrap; }
+.lg-cols .dv-cf { display: block; }
+.dv-row .dv-meta { display: none; }
+
+/* The lens carries the division at display scale, its mark beside its count. */
+.lens-in .dv-more { display: flex; align-items: center; gap: 14px; grid-column: 2 / -1; grid-row: 3; min-width: 0; }
+.lens-in .dv-more .lg-count { margin: 0; font-size: var(--meta-size); }
+.lens-in .dv-more .pill { margin-left: auto; }
+.lens-in .dv-cf { font-size: var(--ui-size); color: var(--rb-blk-ink); font-weight: 600; }
+.lens-in .dv-row > .dv-cf { display: none; }
+
+/* With its division open, the row under the lens folds away: the lens already shows it and holds Close. */
+.lg-item.is-cur[data-open="true"] > .lg-btn { display: none; }
+
+/* --- The open division: tabs, then one panel ------------------------------ */
+
+.sheet--ledger .dv-open { padding: 0 14px 14px 48px; background: var(--rb-blk-hover); }
+.dv-open, .dv-open > *, .si, .si-body { min-width: 0; }
+.dv-panel[hidden] { display: none; }
+.print-h { display: none; }
+
+.tabs { display: flex; align-items: center; gap: 18px; min-height: 40px; border-bottom: 1px solid var(--rb-blk-line); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-mute); }
+.tab { display: inline-flex; align-items: center; gap: 5px; height: 40px; padding: 0; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; font: inherit; color: inherit; white-space: nowrap; cursor: pointer; }
+.tab:hover { color: var(--rb-blk-ink); }
+.tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tab.is-on { color: var(--rb-blk-ink); border-bottom-color: var(--primary); }
+.tab-n { font-weight: 400; color: var(--rb-blk-mute); }
+.tabs-end { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+
+/* An item: name, figure, Open on one line; its mark and source under it. */
+.si { padding: 10px 0; border-top: 1px solid var(--rb-blk-line); }
+.dv-panel > .si:first-of-type { border-top: 0; }
+.si-head { display: flex; align-items: baseline; gap: 12px; width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.si-head:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.si-head .ln-l { font-weight: 600; min-width: 0; }
+.si-head .ln-v { margin-left: auto; font-weight: 600; white-space: nowrap; }
+.si-head .pill { height: 24px; padding: 0 10px; font-size: var(--chip-size); align-self: center; flex: none; }
+.si-meta { margin-top: 2px; display: flex; align-items: center; flex-wrap: wrap; gap: 0 6px; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.si-meta i { font-style: normal; color: var(--rb-blk-line); }
+.si-meta .dv-cf { font-size: var(--chip-size); }
+.si[data-open="false"] .si-range { display: none; }
+.si--group .ln-l, .si--group .ln-v { font-weight: 400; }
+.si--group .ln-v { color: var(--rb-blk-ink2); }
+.dv-open .si .pill { background: var(--surface); color: var(--rb-blk-ink); border-color: var(--rb-blk-line); }
+.dv-open .si[data-open="true"] > .si-head .pill { background: var(--rb-blk-ink); color: var(--surface); border-color: var(--rb-blk-ink); }
+/* An item's own pill follows the item, not the open division around it. */
+.si[data-open="false"] > .si-head .pill-open, .si[data-open="true"] > .si-head .pill-close { display: inline; }
+.si[data-open="true"] > .si-head .pill-open, .si[data-open="false"] > .si-head .pill-close { display: none; }
+
+/* An open item's panel: a white card with its own tabs. */
+.si-body { margin-top: 10px; padding: 0 12px 10px; background: var(--surface); border: 1px solid var(--rb-blk-line); border-radius: var(--r-md); }
+.si[data-open="false"] > .si-body { display: none; }
+.si-body .tabs { gap: 14px; min-height: 36px; font-size: var(--chip-size); }
+.si-body .tab { height: 36px; }
+.sup.si-body { margin-top: 6px; padding: 0; background: none; border: 0; border-radius: 0; display: grid; list-style: none; }
+
+/* Basis: one row each, label over value, who set it. */
+.as { margin: 0; padding: 0; list-style: none; }
+.as li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; padding: 7px 0; border-top: 1px solid var(--rb-blk-line); align-items: center; }
+.as li:first-child { border-top: 0; }
+.as-l { grid-column: 1; font-size: var(--chip-size); line-height: 16px; color: var(--rb-blk-mute); }
+.as-l .crit-tag { margin-right: 4px; }
+.as-v { grid-column: 1; font-weight: 600; color: var(--rb-blk-ink); font-size: var(--meta-size); line-height: 18px; }
+.as .src { grid-column: 2; grid-row: 1 / span 2; font-size: var(--chip-size); }
+
+/* Inclusions and Exclusions, side by side. */
+.io { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; padding-top: 8px; }
+.io ul { margin: 0; padding: 0; list-style: none; }
+.io li { padding: 4px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink); }
+.io li:first-child { border-top: 0; }
+.io-h { font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.io-h i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.io-h--in i { background: var(--rb-blk-ink); }
+.io-h--out i { box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink2); }
+
+/* The confidence panel: the mark, then what would raise it. */
+.cf-panel { display: grid; gap: 6px; padding-top: 12px; }
+.cf-big .dv-cf { font-size: var(--t2-size); font-weight: 600; color: var(--rb-blk-ink); gap: 10px; }
+.cf-big .dot { width: 10px; height: 10px; }
+.dv-h { margin-top: 8px; font-size: var(--label-size); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rb-blk-mute); }
+.raise { margin: 0; padding: 0; list-style: none; }
+.raise li { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; padding: 7px 0; border-top: 1px solid var(--rb-blk-line); align-items: center; }
+.raise li:first-child { border-top: 0; }
+.raise .crit-tag, .raise .q-tag { grid-row: 1 / span 2; }
+.raise-t { grid-column: 2; font-size: var(--chip-size); line-height: 16px; color: var(--rb-blk-mute); }
+.raise-v { grid-column: 2; font-size: var(--meta-size); line-height: 18px; font-weight: 600; color: var(--rb-blk-ink); }
+.raise .src { grid-column: 3; grid-row: 1 / span 2; font-size: var(--chip-size); }
+.q-tag { display: inline-flex; justify-content: center; align-items: center; height: 16px; min-width: 34px; border-radius: 2px; background: var(--working-tint); font-size: 10px; font-weight: 600; color: var(--rb-blk-ink); }
+
+/* Scope Decisions: the What Is In rows, under their division. */
+.dec { margin: 0; padding: 0; list-style: none; }
+.dec li { display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px 0; border-top: 1px solid var(--rb-blk-line); }
+.dec li:first-child { border-top: 0; }
+.dec-l { font-weight: 600; font-size: var(--meta-size); }
+.dec-a { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.dec-a strong { color: var(--rb-blk-ink); font-weight: 600; }
+
+/* The VE control in its empty state: present, quiet, nothing to open (LA-1481). */
+.ve { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-pill); background: var(--surface); font-size: 11px; font-weight: 600; color: var(--rb-blk-ink2); white-space: nowrap; }
+.ve b { font-weight: 400; color: var(--rb-blk-mute); }
+.ctl { display: inline-flex; align-items: center; gap: 6px; }
+.ctl--foot { padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--rb-blk-line); }
+
+/* --- The section answers what is open ------------------------------------------
+   Every layer drawn, the open division's lit in the accent, the rest in light
+   ink, and a tag beside the lit strokes naming what is open. */
+
+.dwg { position: relative; }
+.dwg--focus [data-layer].is-drawn:not(.is-now) .s { stroke: #C9C8C1 !important; }
+.dwg--focus [data-layer].is-drawn:not(.is-now) text { fill: #A6A59D !important; }
+.dwg--focus [data-layer].is-now .s { stroke: var(--primary) !important; }
+.dwg--focus [data-layer].is-now text { fill: var(--primary) !important; }
+.dwg--focus [data-note], .dwg--focus [data-ink-note] { opacity: 0.35 !important; }
+.dwg-tag { position: absolute; z-index: 3; display: grid; gap: 1px; margin: 0; padding: 6px 10px 6px 9px; background: var(--surface); border: 1px solid var(--rb-blk-line); border-left: 2px solid var(--primary); border-radius: 6px; box-shadow: var(--shadow-card); font-size: var(--chip-size); line-height: 16px; white-space: nowrap; }
+.dwg-tag[hidden], .dwg-lead[hidden] { display: none; }
+.dwg-tag b { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
+.dwg-tag .num { font-weight: 600; color: var(--rb-blk-ink); }
+.dwg-tag .dv-cf { font-size: var(--chip-size); }
+.dwg-lead { position: absolute; z-index: 2; background: var(--primary); }
+
+/* Where the other answers went. */
+.moved { margin-top: 20px; }
+.moved .plain li a { font-weight: 600; color: var(--rb-blk-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; text-decoration-color: var(--rb-blk-line); }
+
+/* The section's fold bar exists only on a phone, while a division is open. */
+.dwg-fold { display: none; }
+
+/* --- Phone ------------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+  .sheet--ledger .dv-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; }
+  .dv-row > .dv-cf, .lg-cols .dv-cf { display: none; }
+  .dv-row .dv-meta { display: flex; grid-column: 1; grid-row: 2; gap: 10px; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+  .dv-row .dv-meta .dv-cf { display: inline-flex; font-size: var(--chip-size); }
+  .dv-row .lg-amt { grid-row: 1; grid-column: 2; }
+  .lens-in .dv-more { grid-column: 1; grid-row: 4; }
+  .lens-in .dv-meta { display: none; }
+  .sheet--ledger .dv-open { padding: 0 12px 12px; }
+  .tabs { gap: 14px; }
+  .tabs-end { display: none; }
+  .si-body { padding: 0 10px 8px; }
+  .si-body .tabs { gap: 11px; font-size: 11.5px; }
+  .si-body .tab-n { display: none; }
+
+  /* While a division is open the lens folds to two lines on a phone, so what is open gets the screen. */
+  .lens[data-open="true"] { --lens-h: 60px; --lens-pad: 0px; }
+  .lens[data-open="true"] .lens-in > .lg-btn { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: auto auto; row-gap: 2px; column-gap: 10px; min-height: 60px; padding: 9px 12px; align-items: center; }
+  .lens[data-open="true"] .lens-in .lg-name { grid-column: 1 / 3; grid-row: 1; font-size: 16px; line-height: 20px; -webkit-line-clamp: 1; }
+  .lens[data-open="true"] .lens-in .lg-amt { grid-column: 1; grid-row: 2; font-size: 18px; }
+  .lens[data-open="true"] .lens-in .lg-rate { display: none; }
+  .lens[data-open="true"] .lens-in .dv-more { display: contents; }
+  .lens[data-open="true"] .lens-in .dv-more .dv-cf { grid-column: 2; grid-row: 2; font-size: var(--chip-size); font-weight: 600; }
+  .lens[data-open="true"] .lens-in .dv-more .lg-count { display: none; }
+  .lens[data-open="true"] .lens-in .dv-more .pill { grid-column: 3; grid-row: 1 / span 2; }
+  .io { grid-template-columns: minmax(0, 1fr); }
+  .as li { grid-template-columns: minmax(0, 1fr); }
+  .raise li { grid-template-columns: 38px minmax(0, 1fr); }
+  .as .src { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 2px; }
+  .raise .src { grid-column: 2; grid-row: auto; justify-self: start; margin-top: 2px; }
+  .dwg-tag { padding: 3px 7px; font-size: 11px; line-height: 14px; }
+  .dwg-tag b { font-size: var(--chip-size); }
+  .dwg-tag .dv-cf { display: none; }
+
+  /* While a division is open the pinned section folds to one bar; one tap shows the drawing again. */
+  .trio--open:not(.trio--show) .sheet--dwg { padding: 8px 12px; }
+  .trio--open:not(.trio--show) .sheet--dwg .dwg, .trio--open:not(.trio--show) .sheet--dwg .dwg-cap { display: none !important; }
+  .trio--open:not(.trio--show) .dwg-fold { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--chip-size); color: var(--rb-blk-ink2); }
+  .dwg-fold b { color: var(--rb-blk-ink); font-weight: 600; flex: none; }
+  .dwg-fold > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dwg-fold .dot { background: var(--primary); }
+  .dwg-fold .pill { margin-left: auto; height: 24px; padding: 0 10px; font: inherit; font-size: var(--chip-size); font-weight: 600; flex: none; cursor: pointer; }
+}
+
+/* --- Print: every division open, every panel shown under its own heading --------- */
+
+@media print {
+  .lg-item .lg-lines, .si > .si-body, .dv-panel[hidden] { display: block !important; }
+  .tabs, .ve, .ctl, .si-head .pill, .dwg-tag, .dwg-lead, .dwg-fold { display: none !important; }
+  .print-h { display: block; }
+  .si .si-range { display: inline !important; }
+  /* A row never splits across pages, and a panel's heading stays with its first row. */
+  .as li, .raise li, .dec li, .io li, .si-head, .si-meta, .sup li { break-inside: avoid; }
+  .print-h, .dv-h, .si-meta { break-after: avoid; }
+  /* Clarifications starts a page, as Notes and Clarifications did. */
+  #what-is-in { break-before: page; }
+}
+html[data-print] .lg-item .lg-lines, html[data-print] .si > .si-body, html[data-print] .dv-panel[hidden] { display: block; }
+html[data-print] .tabs, html[data-print] .ve, html[data-print] .ctl, html[data-print] .si-head .pill { display: none; }
+html[data-print] .print-h { display: block; }
+html[data-print] .si .si-range { display: inline; }

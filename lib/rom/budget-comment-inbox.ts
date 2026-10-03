@@ -120,8 +120,12 @@ export function needsKulkaSentence(input: {
   return `${input.who} ${verb} ${input.about} on Version ${input.version}.`;
 }
 
-/** Every thread that needs Kulka, newest first. */
-export async function listThreadsNeedingKulka(db: Db): Promise<NeedsKulka[]> {
+/**
+ * Every thread that needs Kulka, newest first. With `threadId`, only that
+ * thread, and none when it does not need Kulka.
+ */
+export async function listThreadsNeedingKulka(db: Db, threadId?: string): Promise<NeedsKulka[]> {
+  if (threadId !== undefined && !isUuid(threadId)) return [];
   const { rows } = await db.query<NeedsRow>(
     `select t.id, t.project_id, p.name as project_name, pb.version,
             pb.snapshot->'copy'->>'preparedBy' as prepared_by,
@@ -137,8 +141,9 @@ export async function listThreadsNeedingKulka(db: Db): Promise<NeedsKulka[]> {
        join budget_readers opener on opener.id = t.opened_by
        ${LAST_VISIBLE}
        left join budget_readers lr on lr.id = last.reader_id
-      where ${NEEDS_KULKA}
+      where ${NEEDS_KULKA}${threadId === undefined ? "" : " and t.id = $1"}
       order by coalesce(last.created_at, t.opened_at) desc, t.id`,
+    threadId === undefined ? [] : [threadId],
   );
   return rows.map((row) => {
     const anchor = parseAnchor(row.anchor);

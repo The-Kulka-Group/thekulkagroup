@@ -1,0 +1,15 @@
+
+  #ds .s { fill: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+  #ds .w3 { stroke-width: 1.6px; } #ds .w2 { stroke-width: 1px; } #ds .w1 { stroke-width: 0.55px; }
+  #ds .t { font-family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif; font-weight: 400; paint-order: stroke; stroke: #FFFFFF; stroke-width: 3; stroke-linejoin: round; }
+  #ds .tb { font-weight: 600; } #ds .tn { font-variant-numeric: tabular-nums; }
+
+  #dk .s { fill: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+  #dk .w3 { stroke-width: 1.6px; } #dk .w2 { stroke-width: 1px; } #dk .w1 { stroke-width: 0.55px; }
+  #dk .t { font-family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif; font-weight: 400; paint-order: stroke; stroke: #0B0B0A; stroke-width: 3; stroke-linejoin: round; }
+  #dk .tb { font-weight: 600; } #dk .tn { font-variant-numeric: tabular-nums; }
+
+  #dq .s { fill: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+  #dq .w3 { stroke-width: 1.6px; } #dq .w2 { stroke-width: 1px; } #dq .w1 { stroke-width: 0.55px; }
+  #dq .t { font-family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif; font-weight: 400; paint-order: stroke; stroke: #FFFFFF; stroke-width: 3; stroke-linejoin: round; }
+  #dq .tb { font-weight: 600; } #dq .tn { font-variant-numeric: tabular-nums; }

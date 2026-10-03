@@ -8,10 +8,12 @@ import { longDate, usd, wholeNumber, type BudgetPage, type Fact } from "@/lib/ro
 // The set is the page's own `data-el` ids and nothing else:
 //
 //   - A `data-el-ref` is a pointer to an id that is already here, so it adds none.
-//   - `division:<d>` names a group the By Division view builds in the model but
-//     the page does not render yet. It joins when LA-1479's build renders it.
-//   - The drill-down kinds (`assumption`, `inclusion`, `exclusion`, `confidence`,
-//     `raise`, `ve`) join when LA-1479's build gives the model their keys.
+//   - LA-1504: the ledger is By Division. Each `division:<d>` opens to its items
+//     (`line:<code>`, `unpriced:<code>`), each item's Basis (`assumption:<code>:<key>`)
+//     and Inclusions and Exclusions (`inclusion:`, `exclusion:`), the division's
+//     `confidence:<d>` and the owner items that would raise it (`raise:<d>:<key>`),
+//     and its Scope Decisions (`gate:<key>`, moved here from What Is In).
+//   - `ve` stays reserved: the VE control is empty until Kulka supplies options.
 //
 // `page:general` is always present: a comment on the budget as a whole, which
 // sits on no element and so carries no section.
@@ -63,21 +65,32 @@ export function addressableElements(page: BudgetPage): ReadonlyMap<string, Addre
     }
   }
 
-  // What You Told Us.
+  // Project Basis: the answers about the whole project, and any scope decision no division holds.
   if (r.coverSentence) add("record:cover", "the-project", "Cover Sentence", r.coverSentence);
   if (h.grossSquareFeet !== null) add("fact:grossSquareFeet:figure", "the-project", "Gross Area", "", `${wholeNumber(h.grossSquareFeet)} SF`);
-  page.project.facts.forEach((f: Fact) => add(f.el, "the-project", f.label, f.basisWords, f.value));
+  (page.projectBasis.facts as Fact[]).forEach((f) => add(f.el, "the-project", f.label, f.basisWords, f.value));
+  const shownFacts = new Set(page.projectBasis.facts.map((f) => f.label));
+  page.projectBasis.unplaced
+    .filter((row) => row.el && !row.answers.every((a) => shownFacts.has(a.label)))
+    .forEach((row) => add(row.el, "the-project", row.label, row.answers.map((a) => `${a.label}: ${a.answer}`).join(" · ")));
 
-  // The Ledger: a scope row, the lines inside it, and the foot.
-  const noRate = "No Rate Yet. Outside the total.";
-  for (const row of page.ledger) {
-    const sc = row.scope;
-    if (sc.kind === "unpriced") add(sc.el, "where-the-money-is", sc.label, noRate);
-    else if (sc.kind === "line") add(sc.el, "where-the-money-is", sc.label, sc.lines[0].basis, usd(sc.likely));
-    else {
-      add(sc.el, "where-the-money-is", sc.label, `${sc.lines.length} priced. Together between ${usd(sc.low)} and ${usd(sc.high)}.`, usd(sc.likely));
-      sc.lines.forEach((l) => add(l.el, "where-the-money-is", l.label, l.basis, usd(l.likely)));
-      sc.unpriced.forEach((u) => add(u.el, "where-the-money-is", u.label, noRate));
+  // The Ledger, By Division (LA-1504): a division, its items and their Basis and
+  // scope, its confidence and what would raise it, its scope decisions, and the foot.
+  const money = "where-the-money-is";
+  const confidenceWords = (tone: string) => ({ high: "High", medium: "Medium", low: "Low" })[tone] ?? "None";
+  for (const d of page.divisions) {
+    add(d.el, money, d.title, `${d.items.length + d.supporting.length} ${d.items.length + d.supporting.length === 1 ? "Item" : "Items"}`, d.items.length > 0 ? usd(d.likely) : "No Rate Yet");
+    for (const item of d.items) {
+      add(item.el, money, item.label, `${usd(item.low)} to ${usd(item.high)}`, usd(item.likely));
+      item.basis.forEach((row) => add(row.el, money, row.label, `${row.value} · ${row.chip.text}`, null));
+      item.includes.forEach((x) => add(x.el, money, "Inclusion", x.text));
+      item.excludes.forEach((x) => add(x.el, money, "Exclusion", x.text));
+    }
+    d.supporting.forEach((u) => add(u.el, money, u.label, "No Rate Yet. Outside the total."));
+    if (d.items.length > 0) add(`confidence:${d.division}`, money, `${d.title} Confidence`, `${confidenceWords(d.confidence)} Confidence`);
+    d.raise.forEach((x) => add(x.el, money, x.label, `${x.value} · ${x.chip.text}`));
+    for (const row of [...d.decisions.inThisJob, ...d.decisions.assumedPresent, ...d.decisions.notInThisJob, ...d.decisions.waiting]) {
+      add(row.el || null, money, row.label, row.answers.map((x) => `${x.label}: ${x.answer}`).join(" · "));
     }
   }
   if (page.money.ownerScopes.length > 0) {
@@ -100,11 +113,7 @@ export function addressableElements(page: BudgetPage): ReadonlyMap<string, Addre
     w.plan.forEach((p) => add(p.el, "from-trades-to-total", p.label, "", usd(p.amount)));
   }
 
-  // What Is In, and What Is Not: the gates, the notes and the parameters.
-  const g = page.gates;
-  for (const row of [...g.answeredYes, ...g.assumedPresent, ...g.notInThisJob, ...g.waiting]) {
-    add(row.el, "what-is-in", row.label, row.decidedBy.map((d) => `${d.question ?? d.gate}: ${d.answer}`).join(" · "));
-  }
+  // Clarifications: the notes and the parameters.
   page.notes.forEach((n) => add(n.el, "what-is-in", `Note ${n.number}`, n.text));
   page.parameters.forEach((p) => add(p.el, "what-is-in", p.label, `Set by ${p.recordedBy}, ${p.recordedAt}`, p.value));
 

@@ -3,18 +3,14 @@ import {
   usd,
   wholeNumber,
   type BudgetPage,
-  type Chip,
   type Criterion,
   type Fact,
-  type GateRow,
-  type LedgerRow,
   type LetterRun,
-  type PricedLine,
   type Tone,
-  type UnpricedLine,
   type WaterfallRow,
 } from "@/lib/rom/presentation";
 import { layerJson, type CommentLayer } from "@/lib/rom/comment-layer";
+import { NO_DIVISION, type BasisRow, type DecisionRow, type DivisionItem, type DivisionRow, type RaiseRow, type ScopeText, type SupportingItem } from "@/lib/rom/drill-down";
 import { drawSection, sectionStyle } from "@/lib/rom/section";
 
 // LA-1459. The client budget page, "The Ledger, Opened with the Section",
@@ -45,11 +41,9 @@ export const esc = (t: string | number): string =>
 const elAttr = (el: string | null, ref: string | null = null): string =>
   el ? ` data-el="${esc(el)}"` : ref ? ` data-el-ref="${esc(ref)}"` : "";
 
-const toneWord: Record<Tone, string> = { high: "High", medium: "Medium", low: "Low", none: "None" };
 /** A source, dot plus ink: the internal ledger's own cell. */
 const src = (tone: Tone | "working" | "quiet", text: string, cls = "") =>
   `<span class="src${cls}"><i class="dot dot--${tone}" aria-hidden="true"></i>${esc(text)}</span>`;
-const srcOf = (c: Chip) => src(c.tone, c.text);
 const time = (iso: string) => `<time datetime="${esc(iso)}">${longDate(iso)}</time>`;
 
 // --- The drawings ---------------------------------------------------------------------
@@ -167,7 +161,7 @@ function sectionLetter(page: BudgetPage): string {
 </section>`;
 }
 
-// --- 2. What You Told Us ------------------------------------------------------------------------
+// --- 2. Project Basis (LA-1504; was What You Told Us) -------------------------------------------
 
 function factRow(f: Fact): string {
   return `
@@ -182,70 +176,206 @@ function factRow(f: Fact): string {
 }
 
 function sectionProject(page: BudgetPage): string {
-  const { project, headline, record } = page;
-  const n = project.assumedCount;
+  const { project, projectBasis, headline, record } = page;
+  const facts = projectBasis.facts as Fact[];
+  const n = facts.filter((f) => f.basis === "assumed").length;
+  const moved = projectBasis.moved;
+  // A scope decision no division holds shows here, unless its answer already reads in the table above.
+  const shown = new Set(facts.map((f) => f.label));
+  const unplaced = projectBasis.unplaced.filter((row) => row.el && !row.answers.every((a) => shown.has(a.label)));
   return `
 <section class="sheet" id="the-project" data-el="section:the-project" data-sc-act="flow">
   <div class="sheet-hd">
-    <h1 class="sheet-h">What You Told Us</h1>${project.line ? `\n    <p class="sheet-sub">${esc(project.line)}</p>` : ""}
+    <h1 class="sheet-h">Project Basis</h1>${project.line ? `\n    <p class="sheet-sub">${esc(project.line)}</p>` : ""}
   </div>${record.coverSentence ? `\n  <p class="lede cover" data-el="record:cover">${esc(record.coverSentence)}</p>` : ""}${
     headline.grossSquareFeet !== null ? `\n  <p class="fig-md num" data-el="fact:grossSquareFeet:figure">${wholeNumber(headline.grossSquareFeet)} SF</p>` : ""
   }
-  <p class="lede">What you told Kulka, read back.${n > 0 ? ` ${n} ${n === 1 ? "fact below was" : "facts below were"} set by Kulka's design criteria rather than stated, and each is marked.` : ""}</p>
-  <dl class="facts lg">${project.facts.map(factRow).join("")}
-  </dl>
+  <p class="lede">${
+    moved.length > 0
+      ? "Your answers about the whole project. Answers about one trade sit in that division&rsquo;s Basis in The Ledger."
+      : "What you told Kulka, read back."
+  }${n > 0 ? ` ${n} ${n === 1 ? "answer below was" : "answers below were"} set by Kulka's design criteria rather than stated, and each is marked.` : ""}</p>
+  <dl class="facts lg">${facts.map(factRow).join("")}
+  </dl>${
+    moved.length > 0
+      ? `
+  <div class="moved">
+    <h2 class="gates-h">Your Other Answers, by Division</h2>
+    <ul class="plain">${moved
+      .map(
+        (m) =>
+          `<li><a href="#division-${esc(m.division)}">${m.division === NO_DIVISION ? "" : `${esc(m.division)} `}${esc(m.title)}</a><span class="answer">${[
+            ...m.answers.map(esc),
+            ...m.removed.map((r) => `<strong>${esc(r)}, Not in This Job</strong>`),
+          ].join(" · ")}</span></li>`,
+      )
+      .join("")}</ul>
+  </div>`
+      : ""
+  }${
+    unplaced.length > 0
+      ? `
+  <div class="moved">
+    <h2 class="gates-h">Scope Decisions for the Whole Project</h2>
+    <ul class="dec">${unplaced.map(decisionRow).join("")}</ul>
+  </div>`
+      : ""
+  }
 </section>`;
 }
 
 // --- 3. The Ledger, with the Section beside it ---------------------------------------------------
 
-function lineDetail(line: PricedLine): string {
+const CONFIDENCE_WORD: Record<string, string> = { high: "High", medium: "Medium", low: "Low", none: "None" };
+
+/** A confidence mark, dot plus ink (LA-1479: a full dot, a half dot, a ring). */
+const mark = (tone: string, text = CONFIDENCE_WORD[tone] ?? tone) =>
+  `<span class="dv-cf"><i class="dot dot--${esc(tone)}" aria-hidden="true"></i>${esc(text)}</span>`;
+const chip = (c: { tone: string; text: string }) => src(c.tone as Tone, c.text);
+const pill = `<span class="pill"><span class="pill-open">Open</span><span class="pill-close">Close</span></span>`;
+const items = (n: number) => `${n} ${n === 1 ? "Item" : "Items"}`;
+/** The VE control in its empty state (LA-1481): present, quiet, nothing to open until Kulka supplies options. */
+const ve = `<span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span>`;
+
+function tabs(list: { key: string; label: string; n?: number }[], end = ""): string {
   return `
-          <div class="ln"${elAttr(line.el)}>
-            <div class="ln-head">
-              <span class="ln-l">${esc(line.label)}</span>
-              ${srcOf(line.source)}
-              <span class="ln-v num">${usd(line.likely)}</span>
+            <div class="tabs" role="tablist">${list
+              .map(
+                (t, i) =>
+                  `<button class="tab${i === 0 ? " is-on" : ""}" type="button" role="tab" aria-selected="${i === 0}" data-tab="${t.key}">${esc(t.label)}${
+                    t.n !== undefined ? ` <span class="tab-n">${t.n}</span>` : ""
+                  }</button>`,
+              )
+              .join("")}${end ? `<span class="tabs-end">${end}</span>` : ""}</div>`;
+}
+
+const panel = (key: string, first: boolean, title: string, body: string) =>
+  `
+            <div class="dv-panel" data-panel="${key}"${first ? "" : " hidden"}><p class="dv-h print-h">${esc(title)}</p>${body}
+            </div>`;
+
+function basisRow(row: BasisRow): string {
+  const tag = row.tag ? `<span class="crit-tag num">${esc(row.tag)}</span> ` : "";
+  return `
+                <li data-el="${esc(row.el)}"><span class="as-l">${tag}${esc(row.label)}</span><span class="as-v">${esc(row.value)}</span>${chip(row.chip)}</li>`;
+}
+
+function divisionItem(item: DivisionItem): string {
+  const scope = item.includes.length + item.excludes.length > 0;
+  const side = (title: string, cls: string, list: ScopeText[]) =>
+    list.length === 0 ? "" : `<div><p class="io-h ${cls}"><i></i>${title}</p><ul>${list.map((x) => `<li data-el="${esc(x.el)}">${esc(x.text)}</li>`).join("")}</ul></div>`;
+  return `
+          <div class="si" data-el="${esc(item.el)}" data-open="false">
+            <button class="si-head" type="button" aria-expanded="false"><span class="ln-l">${esc(item.label)}</span><span class="ln-v num">${usd(item.likely)}</span>${pill}</button>
+            <p class="si-meta"><span class="num si-range">${usd(item.low)} to ${usd(item.high)}</span><i class="si-range">·</i>${mark(item.confidence)}${
+              item.sourceText === "Kulka Rate" ? `<i>·</i><span>Kulka Rate</span>` : item.sourceText === "Placeholder Rate" ? `<i>·</i><span>Placeholder Rate</span>` : ""
+            }</p>
+            <div class="si-body">${tabs([{ key: "basis", label: "Basis", n: item.basis.length }, ...(scope ? [{ key: "scope", label: "Inclusions and Exclusions" }] : [])])}${panel(
+              "basis",
+              true,
+              "Basis",
+              `
+              <ul class="as">${item.basis.map(basisRow).join("")}
+              </ul>`,
+            )}${
+              scope
+                ? panel("scope", false, "Inclusions and Exclusions", `
+              <div class="io">${side("Inclusions", "io-h--in", item.includes)}${side("Exclusions", "io-h--out", item.excludes)}</div>`)
+                : ""
+            }
             </div>
-            <p class="ln-range">${usd(line.low)} to ${usd(line.high)}. ${src(line.confidence, `${toneWord[line.confidence]} Confidence`)}</p>
-            <p class="ln-basis">${esc(line.basis)}</p>
           </div>`;
 }
 
-function unpricedRow(u: UnpricedLine): string {
+function supportingRow(list: SupportingItem[], open: boolean): string {
+  if (list.length === 0) return "";
   return `
-          <div class="ln ln--unpriced" data-el="${esc(u.el)}">
-            <div class="ln-head">
-              <span class="ln-l">${esc(u.label)}</span>
-              ${src("none", "No Rate Yet")}
-              <span class="ln-v num missing">Outside the Total</span>
-            </div>
+          <div class="si si--group" data-open="${open}">
+            <button class="si-head" type="button" aria-expanded="${open}"><span class="ln-l">In Scope, No Rate Yet</span><span class="ln-v">${items(list.length)}</span>${pill}</button>
+            <p class="si-meta">${mark("none", "No Rate Yet")}<i>·</i><span>Outside the Total</span></p>
+            <ul class="sup si-body">${list.map((u) => `<li data-el="${esc(u.el)}">${esc(u.label)}</li>`).join("")}</ul>
           </div>`;
 }
 
-function ledgerRow(row: LedgerRow): string {
-  const sc = row.scope;
-  const items = sc.lines.length + sc.unpriced.length;
-  const amount = sc.kind === "unpriced" ? '<span class="missing">Outside the Total</span>' : usd(row.likely);
-  const rate = [row.perSquareFoot ? `${row.perSquareFoot} per SF` : null, row.shareOfContract].filter(Boolean).join(" · ");
+function decisionRow(row: DecisionRow): string {
+  return `<li${elAttr(row.el || null)}><span class="dec-l">${esc(row.label)}</span><span class="dec-a">${row.answers
+    .map((a) => `${esc(a.label)}: <strong>${esc(a.answer)}</strong>`)
+    .join(" · ")}</span></li>`;
+}
+
+function decisionsPanel(d: DivisionRow): string {
+  const groups: [string, DecisionRow[]][] = [
+    ["In This Job", d.decisions.inThisJob],
+    ["Assumed Present", d.decisions.assumedPresent],
+    ["Not in This Job", d.decisions.notInThisJob],
+    ["Waiting on an Answer", d.decisions.waiting],
+  ];
+  return groups
+    .filter(([, rows]) => rows.length > 0)
+    .map(([title, rows]) => `
+              <p class="dv-h">${title}</p>
+              <ul class="dec">${rows.map(decisionRow).join("")}</ul>`)
+    .join("");
+}
+
+function raiseRow(r: RaiseRow): string {
+  const tag = r.tag === "Open" ? `<span class="q-tag">Open</span>` : `<span class="crit-tag num">${esc(r.tag)}</span>`;
   return `
-      <div class="lg-item${sc.ownerDirect ? " lg-item--owner" : ""}" id="${esc(sc.domId)}" data-el="${esc(sc.el)}" data-layer="${esc(row.key)}" data-open="false" role="row">
-        <button class="lg-row lg-btn" type="button" aria-expanded="false" aria-controls="${esc(sc.domId)}-lines">
-          <span class="lg-div num">${esc(row.division ?? "")}</span>
-          <span class="lg-name">${esc(row.label)}${sc.ownerDirect ? ` <span class="lg-tag">Bought by the Owner</span>` : ""}${
-            sc.kind === "element" ? ` <span class="lg-count">${items} ${items === 1 ? "Item" : "Items"}</span>` : ""
-          }</span>
-          <span class="lg-amt num">${amount}</span>
-          <span class="lg-psf num">${esc(row.perSquareFoot ?? "")}</span>
-          <span class="lg-pct num">${esc(row.shareOfContract ?? "")}</span>
+                <li data-el="${esc(r.el)}">${tag}<span class="raise-t">${esc(r.label)}</span><span class="raise-v">${esc(r.value)}</span>${chip(r.chip)}</li>`;
+}
+
+function divisionRow(d: DivisionRow): string {
+  const priced = d.items.length > 0;
+  const count = d.items.length + d.supporting.length;
+  const word = CONFIDENCE_WORD[d.confidence];
+  const rate = [d.perSquareFoot ? `${d.perSquareFoot} per SF` : null, d.shareOfContract].filter(Boolean).join(" · ");
+  const longMark = priced ? mark(d.confidence, `${word} Confidence`) : mark("none", "Outside the Total");
+  const hasDecisions = Object.values(d.decisions).some((rows) => rows.length > 0);
+  const list = [
+    { key: "items", label: "Items", n: count },
+    ...(priced ? [{ key: "confidence", label: "Confidence" }] : []),
+    ...(hasDecisions ? [{ key: "decisions", label: "Scope Decisions" }] : []),
+  ];
+  const id = `division-${d.division}`;
+  return `
+      <div class="lg-item${d.ownerDirect ? " lg-item--owner" : ""}" id="${esc(id)}" data-el="${esc(d.el)}" data-layer="${esc(d.el)}" data-layers="${esc(d.layers.join(" "))}" data-open="false" role="row">
+        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false" aria-controls="${esc(id)}-open">
+          <span class="lg-div num">${d.division === NO_DIVISION ? "" : esc(d.division)}</span>
+          <span class="lg-name">${esc(d.title)}${d.ownerDirect ? ` <span class="lg-tag">Bought by the Owner</span>` : ""}</span>
+          ${priced ? mark(d.confidence) : '<span class="dv-cf"></span>'}
+          <span class="lg-amt num">${priced ? usd(d.likely) : '<span class="missing">No Rate Yet</span>'}</span>
+          <span class="lg-psf num">${esc(d.perSquareFoot ?? "")}</span>
+          <span class="lg-pct num">${esc(d.shareOfContract ?? "")}</span>
           <span class="lg-rate num">${esc(rate)}</span>
-          <span class="lg-more">${src(row.sourceTone, row.sourceText)}<span class="pill"><span class="pill-open">Open</span><span class="pill-close">Close</span></span></span>
+          <span class="lg-more dv-more">${longMark}<span class="lg-count">${items(count)}</span>${pill}</span>
+          <span class="dv-meta">${longMark}<span>${items(count)}</span></span>
         </button>
-        <div class="lg-lines" id="${esc(sc.domId)}-lines">${
-          sc.kind === "element" ? `\n          <p class="ln-sum">Together, between ${usd(sc.low)} and ${usd(sc.high)}, likely ${usd(sc.likely)}.</p>` : ""
-        }${sc.lines.map(lineDetail).join("")}${
-          sc.unpriced.length > 0 ? `\n          <p class="ln-sub">Unpriced</p>${sc.unpriced.map(unpricedRow).join("")}` : ""
-        }
+        <div class="lg-lines dv-open" id="${esc(id)}-open">${tabs(list, ve)}${panel(
+          "items",
+          true,
+          "Items",
+          `${d.items.map(divisionItem).join("")}${supportingRow(d.supporting, !priced)}`,
+        )}${
+          priced
+            ? panel(
+                "confidence",
+                false,
+                "Confidence",
+                `
+              <div class="cf-panel">
+                <div class="cf-big" data-el="confidence:${esc(d.division)}">${longMark}</div>${
+                  d.raise.length > 0
+                    ? `
+                <p class="dv-h">What Would Raise It</p>
+                <ul class="raise">${d.raise.map(raiseRow).join("")}
+                </ul>`
+                    : ""
+                }
+              </div>`,
+              )
+            : ""
+        }${hasDecisions ? panel("decisions", false, "Scope Decisions", decisionsPanel(d)) : ""}
+          <p class="only-phone ctl ctl--foot">${ve}</p>
         </div>
       </div>`;
 }
@@ -256,17 +386,18 @@ function sectionLedger(page: BudgetPage): string {
 <section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow" data-sc-verify-state="ledger:-1:0">
   <div class="sheet-hd">
     <h1 class="sheet-h">The Ledger</h1>
-    <p class="sheet-sub">In the order the trades build it. Each row draws its layer on the section. Open any row to see its lines and where each figure came from.</p>
+    <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
   </div>
   <div class="lg" role="table" aria-label="The Ledger">
-    <div class="lg-row lg-cols" role="row">
+    <div class="lg-row lg-cols dv-row" role="row">
       <span class="lg-div">Div</span>
-      <span class="lg-name">Item</span>
+      <span class="lg-name">Division</span>
+      <span class="dv-cf">Confidence</span>
       <span class="lg-amt">Amount</span>
       <span class="lg-psf">$/SF</span>
       <span class="lg-pct">%</span>
     </div>
-    <div class="lens" data-lens data-open="false" aria-live="polite" aria-label="The current row"></div>${page.ledger.map(ledgerRow).join("")}
+    <div class="lens" data-lens data-open="false" aria-live="polite" aria-label="The current row"></div>${page.divisions.map(divisionRow).join("")}
     ${
       money.ownerScopes.length > 0
         ? `
@@ -338,8 +469,9 @@ function trio(page: BudgetPage, svg: string): string {
 ${sectionDesign(page)}
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
-    <div class="dwg dwg--crop" data-dwg="section">${svg}</div>
+    <div class="dwg dwg--crop" data-dwg="section">${svg}<p class="dwg-tag" data-dwg-tag hidden></p><i class="dwg-lead" data-dwg-lead hidden></i></div>
     <p class="dwg-cap only-phone"><b>Building Section</b> · ${esc(caption)}</p>
+    <p class="dwg-fold" data-dwg-fold><b>Building Section</b><span><i class="dot" aria-hidden="true"></i><span data-fold-name></span></span><button class="pill" type="button" data-fold-show>Show</button></p>
   </aside>
 </div>`;
 }
@@ -399,58 +531,15 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
 </section>`;
 }
 
-// --- 7. What Is In, and What Is Not; Notes ---------------------------------------------------------------
-
-/** The question as asked, and the answer that decided the gate (LA-1309). */
-function decided(row: GateRow): string {
-  return row.decidedBy
-    .map((d) => `<span>${esc(d.question ?? d.gate)}</span> <strong>${esc(d.answer)}</strong>`)
-    .join(" · ");
-}
-
-function gateList(rows: GateRow[]): string {
-  return `<ul class="plain">${rows.map((x) => `<li${elAttr(x.el)}><span>${esc(x.label)}</span><span class="answer">${decided(x)}</span></li>`).join("")}</ul>`;
-}
+// --- 7. Clarifications (LA-1504; the notes and parameters, once What Is In moved into the divisions) ---------------------------------------------------------------
 
 function sectionGates(page: BudgetPage): string {
-  const g = page.gates;
   return `
 <section class="sheet gates" id="what-is-in" data-el="section:what-is-in" data-sc-act="flow">
   <div class="sheet-hd">
-    <h1 class="sheet-h">What Is In, and What Is Not</h1>
+    <h1 class="sheet-h">Clarifications</h1>
   </div>
-  <div class="gates-grid" data-sc-in data-sc-stagger="40">
-    <div class="gates-col">
-      <h2 class="gates-h">In the Number</h2>
-      <p class="sub">The base building and site, plus everything your answers brought in.</p>
-      ${gateList(g.answeredYes)}${
-        g.assumedPresent.length > 0
-          ? `
-      <h2 class="gates-h gates-h--after">Assumed Present</h2>
-      <p class="sub">Nobody answered the question behind these, so the budget carries them.</p>
-      ${gateList(g.assumedPresent)}`
-          : ""
-      }
-    </div>
-    <div class="gates-col">
-      <h2 class="gates-h">Not in This Job</h2>
-      <p class="sub">Removed from the total by an answer.</p>
-      ${gateList(g.notInThisJob)}
-    </div>
-    <div class="gates-col">
-      <h2 class="gates-h">Waiting on an Answer</h2>
-      <p class="sub">Outside the total until you decide.</p>
-      ${gateList(g.waiting)}${
-        g.unpriced.length > 0
-          ? `
-      <h2 class="gates-h gates-h--after">In Scope, No Rate Yet</h2>
-      <p class="sub">${g.unpriced.length} ${g.unpriced.length === 1 ? "item" : "items"} your answers brought in that Kulka has not rated. Each is kept out of the total rather than guessed.</p>
-      <ul class="plain">${g.unpriced.map((x) => `<li><span>${esc(x.label)}</span><span class="answer">${x.broughtInBy ? `Brought in by ${esc(x.broughtInBy)}` : "In scope"}</span></li>`).join("")}</ul>`
-          : ""
-      }
-    </div>
-  </div>
-  <h2 class="sheet-h sheet-h--notes" id="notes">Notes and Clarifications</h2>
+  <p class="lede">Scope decisions now sit with each division in The Ledger.</p>
   <ol class="notes" data-sc-in data-sc-stagger="15">${page.notes
     .map(
       (n) => `
@@ -503,7 +592,7 @@ function sectionNext(page: BudgetPage): string {
     <h1 class="sheet-h">What Happens Next</h1>
   </div>
   <ol class="steps">
-    <li><b>Confirm the facts.</b> Read What You Told Us. If a fact is wrong, tell Kulka and the budget is repriced from the corrected fact.</li>${
+    <li><b>Check the Basis.</b> Open each division in The Ledger and read the Basis under its items. If anything is wrong, flag it there and Kulka reprices from the corrected fact.</li>${
       open.length > 0
         ? `
     <li><b>Answer the open ${open.length === 1 ? "item" : "items"}.</b> ${open.map(esc).join(" ")} ${open.length === 1 ? "An answer moves" : "Answers move"} what waits on it into, or out of, the number.</li>`
@@ -575,7 +664,8 @@ export function renderBudgetPage(page: BudgetPage, options: RenderOptions = {}):
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/scrollcraft/scrollcraft.css">
-<link rel="stylesheet" href="/scrollcraft/budget-page.css">${comments ? '\n<link rel="stylesheet" href="/scrollcraft/comments.css">' : ""}
+<link rel="stylesheet" href="/scrollcraft/budget-page.css">
+<link rel="stylesheet" href="/scrollcraft/drill-down.css">${comments ? '\n<link rel="stylesheet" href="/scrollcraft/comments.css">' : ""}
 ${svg.style}
 </head>
 <body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : header(page, comments !== null)}

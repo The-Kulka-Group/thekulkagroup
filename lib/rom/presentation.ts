@@ -8,6 +8,7 @@ import { titleCase } from "@/lib/format/title-case";
 import { publicWording } from "@/lib/rom/derived-assumptions";
 import { ITEM_DIVISION_MAP, compareItemCodes } from "@/lib/rom/masterformat-item-divisions";
 import type { PublishedBudgetSnapshot, PublishedStage } from "@/lib/rom/published-snapshot";
+import { drillDown, type DivisionRow, type ProjectBasis } from "@/lib/rom/drill-down";
 import { LAYERS, type SectionFacts, type SectionInk } from "@/lib/rom/section";
 
 // LA-1418. The presentation model: what the client page at /b/<token> shows,
@@ -228,6 +229,10 @@ export type BudgetPage = {
   };
   /** The client ledger in MasterFormat order, Kulka's trades and the owner's rows together (LA-1459). */
   ledger: LedgerRow[];
+  /** LA-1504: the ledger By Division, the page's default view, with each division's drill-down. */
+  divisions: DivisionRow[];
+  /** LA-1504: the answers about the whole project, and where the others went. */
+  projectBasis: ProjectBasis;
   drawing: Drawing;
   restsOn: {
     priced: number;
@@ -313,12 +318,14 @@ export const SECTIONS: readonly SectionHead[] = (
   [
   // LA-1467: the page opens on the wordmark, then a letter; the index starts at the letter.
   { id: "letter", title: "Letter", indexLabel: "Letter" },
-  { id: "the-project", title: "What You Told Us", indexLabel: "What You Told Us" },
+  // LA-1504: Matt's estimate-standard terms (2026-10-02). The ids stay Version 1's.
+  { id: "the-project", title: "Project Basis", indexLabel: "Project Basis" },
   { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger" },
   // LA-1459: the criteria are called out on the drawing, with no money.
   { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering" },
   { id: "from-trades-to-total", title: "From Trades to Total", indexLabel: "From Trades to Total" },
-  { id: "what-is-in", title: "What Is In, and What Is Not", indexLabel: "What Is In" },
+  // LA-1504: What Is In moved into each division's Scope Decisions; the notes and parameters stay here.
+  { id: "what-is-in", title: "Clarifications", indexLabel: "Clarifications" },
   { id: "what-happens-next", title: "What Happens Next", indexLabel: "What Happens Next" },
   ] satisfies Omit<SectionHead, "el">[]
 ).map((section) => ({ ...section, el: `section:${section.id}` }));
@@ -434,6 +441,30 @@ export function clientNote(text: string): string {
     .replace(/GRs\/GCs/g, "General Requirements and General Conditions")
     .replace(/ & /g, " and ")
     .replace(/\bROM\b/g, "budget");
+}
+
+/**
+ * LA-1504 (Matt, 2026-10-02): the notes each division now shows are cut (the
+ * items not in this job, and what each driver brings in), and the two that
+ * listed item names become one line each. Null for a cut note. Every other
+ * note reads as `clientNote` words it.
+ */
+export function clarification(text: string): string | null {
+  if (/^Not in this job, so removed from the total: /.test(text)) return null;
+  if (/ brings in .+\. Each adds to the total on its own once it has a rate\.$/.test(text)) return null;
+  const unrated = /^(\d+) items? (?:is|are) in scope with no rate yet: /.exec(text);
+  if (unrated) {
+    const n = Number(unrated[1]);
+    return n === 1 ? "1 item is in scope with no rate yet. It sits under its division." : `${n} items are in scope with no rate yet. Each sits under its division.`;
+  }
+  const waiting = /^(\d+) items? sits? outside this total as TBD, because nobody knows the answer yet: /.exec(text);
+  if (waiting) {
+    const n = Number(waiting[1]);
+    return n === 1
+      ? "1 item sits outside the total until an open question is answered. It sits under its division."
+      : `${n} items sit outside the total until open questions are answered. Each sits under its division.`;
+  }
+  return clientNote(text);
 }
 
 /** DOE's apartment "prototype" is what M-1's text calls a model; the page says prototype. */
@@ -1145,7 +1176,7 @@ function letterOf(input: {
   }
 
   // What happens next.
-  paragraphs.push([t(`Read the facts on the next page. If one is wrong, tell us and we reprice from the corrected fact.${nextStage ? ` Then comes ${nextStage.label}. ${nextStage.words}` : ""}`)]);
+  paragraphs.push([t(`Read the Project Basis on the next page and the Basis under each division. If anything is wrong, tell us and we reprice from the corrected fact.${nextStage ? ` Then comes ${nextStage.label}. ${nextStage.words}` : ""}`)]);
 
   return {
     date: longDate(record.issuedAt),
@@ -1185,16 +1216,20 @@ export function presentBudget(publication: Publication): BudgetPage {
 
   // Notes: the run's own assumptions, numbered in the order the run wrote them.
   // The id comes from the note's words, never its number (LA-1488).
+  // LA-1504: a note each division now shows is cut, and two become one line.
   const seen = new Map<string, number>();
   const notes: Note[] = rom.assumptions
     .filter((text) => !SPLITS_OFF_PAST_JOBS.test(text))
-    .map((text, i) => {
+    .flatMap((text) => {
       const base = noteKey(text);
       const nth = (seen.get(base) ?? 0) + 1;
       seen.set(base, nth);
+      const words = clarification(text);
+      if (words === null) return [];
       const key = nth === 1 ? base : `${base}-${nth}`;
-      return { el: `note:${key}`, key, number: i + 1, text: clientNote(text) };
-    });
+      return [{ el: `note:${key}`, key, number: 0, text: words }];
+    })
+    .map((note, i) => ({ ...note, number: i + 1 }));
 
   const facts = factsOf(snapshot);
   const factValue = (key: string) => facts.find((f) => f.key === key)?.value ?? null;
@@ -1248,6 +1283,33 @@ export function presentBudget(publication: Publication): BudgetPage {
     criteria: criteria.map((c) => ({ code: c.code, value: c.value })),
   };
 
+  // LA-1504: the ledger By Division, and the answers that stay with the whole project.
+  const priceds = [...trade, ...owner].flatMap((scope) => scope.lines);
+  const { divisions, projectBasis } = drillDown({
+    snapshot,
+    rows: built.ledger.map((row) => ({
+      key: row.key,
+      division: row.division,
+      ownerDirect: row.scope.ownerDirect,
+      lines: row.scope.lines.map((l) => l.costCode),
+      unpriced: row.scope.kind === "unpriced" ? [row.key.slice("unpriced:".length)] : row.scope.unpriced.map((u) => u.costCode),
+    })),
+    items: new Map(
+      priceds.map((l) => [l.costCode, { costCode: l.costCode, label: l.label, low: l.low, high: l.high, likely: l.likely, confidence: l.confidence, sourceText: l.source.text }]),
+    ),
+    facts,
+    criteria,
+    gates,
+    contractLikely: contract.likely,
+    grossSquareFeet: gsf,
+    classifications,
+    keyOf: noteKey,
+    usd,
+    rateUsd,
+    wholeNumber,
+    titleCase,
+  });
+
   const ownerDirect = figure({ low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high });
   const restsOn: BudgetPage["restsOn"] = {
     priced: priced.length,
@@ -1299,6 +1361,8 @@ export function presentBudget(publication: Publication): BudgetPage {
       divisions: divisionsOf(rom, classifications),
     },
     ledger: built.ledger,
+    divisions,
+    projectBasis,
     drawing,
     restsOn,
     criteria,

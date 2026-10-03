@@ -1,6 +1,5 @@
 import {
   longDate,
-  percentOf,
   usd,
   wholeNumber,
   type BudgetPage,
@@ -195,21 +194,6 @@ function sectionProject(page: BudgetPage): string {
 
 // --- 3. The Ledger, with the Section beside it ---------------------------------------------------
 
-function comparableRows(line: PricedLine): string {
-  return line.comparables
-    .map(
-      (c) => `
-            <li class="cmp" data-el="${esc(c.el)}">
-              <span class="cmp-k">${esc(c.kindWords)}</span>
-              <span class="cmp-j">${esc(c.jobs)}</span>
-              <span class="cmp-r num">${esc(c.rate)}</span>
-              <span class="cmp-w">Weight ${c.weight}</span>
-              <span class="cmp-d">${esc(c.recordedAt)}</span>
-            </li>`,
-    )
-    .join("");
-}
-
 function lineDetail(line: PricedLine): string {
   return `
           <div class="ln"${elAttr(line.el)}>
@@ -219,8 +203,6 @@ function lineDetail(line: PricedLine): string {
               <span class="ln-v num">${usd(line.likely)}</span>
             </div>
             <p class="ln-range">${usd(line.low)} to ${usd(line.high)}. ${src(line.confidence, `${toneWord[line.confidence]} Confidence`)}</p>
-            <ul class="cmps" aria-label="Where the figure came from">${comparableRows(line)}
-            </ul>
             <p class="ln-basis">${esc(line.basis)}</p>
           </div>`;
 }
@@ -289,30 +271,8 @@ function sectionLedger(page: BudgetPage): string {
     </div>`
         : ""
     }
-  </div>${sourcingLine(page) ? `
-  <p class="lg-source" data-el="note:sourcing">${esc(sourcingLine(page))}</p>` : ""}
+  </div>
 </section>`;
-}
-
-// --- 4. Where the figures come from: one line under the ledger (LA-1478) ----------------------------
-
-/**
- * The share of trade cost behind each source, in one sentence. Rob cut Proven
- * as too thin to stand as a section (sync, 2026-10-02); this keeps its one
- * fact. Every share is the model's own, and a source with no lines is left out.
- */
-export function sourcingLine(page: BudgetPage): string {
-  const { shares } = page.restsOn;
-  const parts = [
-    { share: shares.fromKulkaJobs, words: "Kulka's completed jobs" },
-    { share: shares.fromKulkaRates, words: "rates Kulka has stated" },
-    { share: shares.placeholder, words: "placeholder rates until Kulka states them" },
-  ].filter((part) => part.share > 0);
-  if (parts.length === 0) return "";
-  if (parts.length === 1) return `All of the trade cost is priced from ${parts[0].words}.`;
-  const [first, ...rest] = parts;
-  const tail = rest.map((part, i) => `${i === rest.length - 1 ? "and " : ""}${percentOf(part.share)} from ${part.words}`);
-  return `${percentOf(first.share)} of the trade cost is priced from ${first.words}, ${tail.join(", ")}.`;
 }
 
 // --- 5. Design and Engineering: the criteria called out on the drawing, no money ----------------------

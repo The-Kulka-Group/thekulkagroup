@@ -368,11 +368,6 @@ body { overflow-anchor: none; }
 .ln-l { font-weight: 600; min-width: 0; }
 .ln-v { margin-left: auto; font-weight: 600; white-space: nowrap; }
 .ln-range { font-size: var(--meta-size); color: var(--rb-blk-ink2); margin-top: 2px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.cmps { margin-top: 6px; display: grid; gap: 4px; }
-.cmp { display: grid; grid-template-columns: 160px minmax(0, 1fr) 120px 80px 100px; gap: 12px; font-size: var(--meta-size); color: var(--rb-blk-ink2); }
-.cmp-k { color: var(--rb-blk-ink); }
-.cmp-j { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cmp-r { text-align: right; }
 .ln-basis { margin-top: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
 
 /* --- One Section beside three sheets --------------------------------------
@@ -417,7 +412,7 @@ body { overflow-anchor: none; }
 .dwg--live [data-part="criteria"], .dwg--live [data-part="criteria"] .hit--box { pointer-events: none; }
 [data-trio][data-state="design"] .dwg--live [data-part="criteria"] { pointer-events: auto; }
 [data-trio][data-state="design"] .dwg--live [data-part="criteria"] .hit--box { pointer-events: fill; }
-/* The inks settle at Design and Engineering: through the ledger every layer draws in full ink; a stated-rate layer dims to its light ink over 400ms. */
+/* The inks settle at Design and Engineering: through the ledger every layer draws in full ink; a placeholder-rate layer dims to its light ink over 400ms. */
 .dwg--live [data-layer][data-ink="light"] .s { stroke: #121211; transition: stroke 400ms var(--ease); }
 .dwg--live [data-layer][data-ink="light"] text { fill: #121211; transition: fill 400ms var(--ease); }
 [data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
@@ -435,16 +430,7 @@ body { overflow-anchor: none; }
 .sheet--ledger .sheet-h { font-size: 22px; line-height: 30px; }
 .sheet--ledger .sheet-sub { font-size: var(--ui-size); }
 .sheet--ledger .lg-lines { padding-left: 56px; }
-.sheet--ledger .cmp { grid-template-columns: 130px max-content max-content minmax(0, 1fr); gap: 0 12px; }
-/* Narrowed, the job takes its own line and the rate, weight and date share the one beneath it. */
-.sheet--ledger .cmp-k { grid-row: span 2; }
-.sheet--ledger .cmp-j { grid-column: 2 / -1; }
-.sheet--ledger .cmp-r { text-align: left; }
-.sheet--ledger .cmp-w, .sheet--ledger .cmp-d { color: var(--rb-blk-mute); }
 
-/* --- Where the figures come from: one line under the ledger (LA-1478) ---- */
-
-.lg-source { margin-top: 12px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
 .crit { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
 .rail-h { padding-top: 12px; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
 .crit li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
@@ -724,9 +710,6 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .sheet--ledger .sheet-sub { font-size: var(--meta-size); line-height: 18px; }
   .lg-lines, .sheet--ledger .lg-lines { padding: 4px 12px 12px; }
   .ln-head { flex-wrap: wrap; gap: 6px 12px; }
-  .cmp, .sheet--ledger .cmp { grid-template-columns: max-content max-content minmax(0, 1fr); gap: 0 10px; padding: 6px 0; border-top: 1px solid var(--rb-blk-line); }
-  .cmp-k, .cmp-j, .sheet--ledger .cmp-k, .sheet--ledger .cmp-j { grid-column: 1 / -1; grid-row: auto; }
-  .cmp-r, .sheet--ledger .cmp-r { text-align: left; }
 
   .trio { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 12px 16px 32px; padding: 0; }
   .trio-main { gap: 12px; }
@@ -841,7 +824,7 @@ html[data-print] body { padding-top: 0; }
   .lg-lines { display: block !important; background: none; }
   .lg-item.is-cur > .lg-btn { box-shadow: none; }
   .lg-btn:hover { background: none; }
-  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .cmp, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .crit li { break-inside: avoid; }
+  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .params tr, .crit li { break-inside: avoid; }
   /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
      and What Is Not, follows From Trades to Total on the page it ends on. */
   #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes { break-before: page; }

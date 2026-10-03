@@ -84,8 +84,9 @@ describe("drawSection", () => {
     expect(svg).toContain("Bar Building");
   });
 
-  it("draws light ink for a layer priced from a stated rate", () => {
-    const svg = drawSection(options());
+  it("draws light ink for a layer priced from a placeholder rate", () => {
+    // The reference run has no placeholder line, so the elevator layer is marked light by hand (LA-1483).
+    const svg = drawSection(options({ ink: new Map([["element:elevator", "light" as const]]) }));
     const elevator = /<g data-layer="element:elevator"[\s\S]*?<\/g>/.exec(svg)![0];
     const concrete = /<g data-layer="line:2"[\s\S]*?<\/g>/.exec(svg)![0];
     expect(elevator).toContain('stroke="#A6A59D"');

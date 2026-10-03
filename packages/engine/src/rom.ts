@@ -40,6 +40,7 @@ import {
   quantityFor,
   readDemolitionFacts,
   STRUCTURE_DEMOLITION_COST_CODE,
+  UNIT_INPUTS,
   type BenchmarkUnit,
   type DemolitionFacts,
 } from "./rom-units";
@@ -254,6 +255,13 @@ export type BlockClassification = {
    * (LA-1181). The engine prices nothing off it.
    */
   division?: string | null;
+  /**
+   * LA-1502: the division the budget's By Division view files this cost code
+   * under, where Matt placed it apart from its own trade division, such as
+   * the utility disconnects in 33 (2026-10-02). Absent or null means the
+   * view uses `division`. The engine prices nothing off it.
+   */
+  ledgerDivision?: string | null;
   statedBy: string;
   statedOn: string;
   reason: string;
@@ -319,7 +327,42 @@ export type UnpricedItem = {
   label: string;
   /** The driver that brought this supporting item in (LA-1154). Absent on anything else. */
   driverCostCode?: string;
+  /** LA-1502: the element its classification names. Absent when it has none. */
+  element?: Element;
+  /** LA-1502: set by the run, the same way as `RomLine.division`. */
+  division?: string | null;
+  /** LA-1502: set by the run, the same way as `RomLine.includes`. */
+  includes?: ScopeEntry[];
+  excludes?: ScopeEntry[];
 };
+
+/**
+ * LA-1502: one entry in a line's Inclusions or Exclusions. AI or a person
+ * drafts it and the estimator approves it (LA-1503). Only an approved entry
+ * reaches a published snapshot.
+ */
+export type ScopeEntry = {
+  text: string;
+  drafter: "ai" | "user";
+  /** Who wrote it, or who asked for the AI draft. */
+  draftedBy: string;
+  /** ISO timestamp. */
+  draftedAt: string;
+  /** Null until the estimator approves it. */
+  approvedBy: string | null;
+  approvedAt: string | null;
+};
+
+/**
+ * LA-1502: an owner item that would firm up a line: a question the line
+ * prices on that is still open, or a Design and Engineering criterion that
+ * names the line and is still a planning assumption. It carries no count, no
+ * job name and no mark it would move the line to (LA-1483).
+ */
+export type RaisingItem = { kind: "question"; key: string } | { kind: "criterion"; code: string };
+
+/** LA-1502: what a line's rate multiplied by, and the unit that rate is stated in. */
+export type LineQuantity = { amount: number; unit: BenchmarkUnit };
 
 export type Answers = {
   projectType: ProjectType;
@@ -352,6 +395,12 @@ export type Comparable = {
   exportLabel: string | null;
   recordedBy: string;
   recordedAt: string;
+  /**
+   * LA-1502: the unit the figure is stated in, so a stated rate can show its
+   * basis. Absent on a run recorded before LA-1502 and on the Engine
+   * Parameters screen's worked example.
+   */
+  unit?: BenchmarkUnit;
 };
 
 /** A figure the blend left out, with the reason in plain words (LA-1103). */
@@ -426,6 +475,39 @@ export type RomLine = {
    * (rom-per-unit.ts), still in dollars per gross square foot of this project.
    */
   perUnit?: PerUnitLine;
+  /**
+   * LA-1502: the quantity the line's rate multiplied by, in the lead rate's
+   * own unit. Null when the figure is not one rate times one quantity (the
+   * elevator bulkhead's shaft pairing). Absent on a run recorded before
+   * LA-1502.
+   */
+  quantity?: LineQuantity | null;
+  /**
+   * LA-1502: the answer keys this line prices on: what its quantity reads,
+   * the branch gates that switch it, the facts its judgment rules and its
+   * relationship turn on, and the unit count or framing system where those
+   * change its rate. Sorted, each once. Absent on a run recorded before LA-1502.
+   */
+  inputs?: string[];
+  /**
+   * LA-1502: the MasterFormat division the budget's By Division view files
+   * this line under. The run sets it (lib/rom/line-details.ts) from the
+   * stated classification and the canonical item list; the engine prices
+   * nothing off it. Null when no division is stated anywhere.
+   */
+  division?: string | null;
+  /**
+   * LA-1502: the line's Inclusions and Exclusions. The run carries every
+   * entry with its approval; a published snapshot carries approved ones only.
+   */
+  includes?: ScopeEntry[];
+  excludes?: ScopeEntry[];
+  /**
+   * LA-1502: the owner items that would firm up this line, under the rule in
+   * docs/precon/drill-down-model-proposal.md. Empty when nothing the owner
+   * holds would. Absent on a run recorded before LA-1502.
+   */
+  raisedBy?: RaisingItem[];
 };
 
 /** One item a branch gate named on the face of the ROM (LA-1028). */
@@ -626,7 +708,11 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     gateResolutions,
     factsAsText,
   );
-  const lines = supporting.lines;
+  // LA-1502: each line names the answers it prices on.
+  const lines = supporting.lines.map((line) => ({
+    ...line,
+    inputs: lineInputs(line, rulesByCostCode, gateRules, snapshot.scopeRelationships ?? []),
+  }));
 
   const gateSummary = (status: GateLineStatus): GateItemSummary[] =>
     lines
@@ -664,7 +750,14 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   // caller or a relationship has put it in scope. A cost code that already
   // produced a line above is priced the ordinary way, so it is never listed
   // twice. rom-relationships.ts does the merge.
-  const unpricedItems = supporting.unpricedItems;
+  //
+  // LA-1502: an unpriced item names its element the way a priced line does,
+  // from its stated classification, so a view can group it without
+  // rebuilding the link from its driver.
+  const unpricedItems = supporting.unpricedItems.map((item) => {
+    const element = classificationsByCostCode.get(item.costCode)?.element;
+    return element ? { ...item, element } : item;
+  });
 
   const assumptions = assumptionsFor(
     answers,
@@ -714,6 +807,52 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   }
 
   return rom;
+}
+
+/**
+ * LA-1502: the answer keys a line prices on. Its quantity's unit says which
+ * answers it multiplies by; a per-unit trade follows the unit count instead
+ * of the square feet, which cancel out (rom-per-unit.ts); items 8 and 17 read
+ * the framing system; an approved judgment rule that moved the line reads its
+ * condition's fact; a branch gate that names the line reads its sections; and
+ * a supporting item reads its relationship's condition and its driver's gates,
+ * because it follows its driver in and out.
+ */
+function lineInputs(
+  line: RomLine,
+  rulesByCostCode: ReadonlyMap<string, readonly JudgmentRule[]>,
+  gateRules: readonly BranchGateItemRule[],
+  relationships: readonly ScopeRelationship[],
+): string[] {
+  const keys = new Set<string>();
+  const gateSections = (costCode: string) => {
+    for (const rule of gateRules) {
+      if (rule.costCode !== costCode) continue;
+      keys.add(rule.section);
+      for (const section of rule.requiresAllSections) keys.add(section);
+    }
+  };
+
+  const unitKeys =
+    line.costCode === ELEVATOR_BULKHEAD_COST_CODE ? ["elevatorCount"] : line.quantity ? UNIT_INPUTS[line.quantity.unit] : [];
+  for (const key of unitKeys) {
+    if (key === "grossSquareFeet" && line.perUnit) continue;
+    keys.add(key);
+  }
+  if (line.perUnit) keys.add("unitCount");
+  if (FRAMING_ITEM_CODES.has(line.costCode)) keys.add("framingSystem");
+  for (const rule of rulesByCostCode.get(line.costCode) ?? []) {
+    if (rule.condition) keys.add(rule.condition.fact);
+  }
+  gateSections(line.costCode);
+  if (line.driverCostCode !== undefined) {
+    const relationship = relationships.find(
+      (r) => r.driverCostCode === line.driverCostCode && r.supportingCostCode === line.costCode,
+    );
+    if (relationship?.condition) keys.add(relationship.condition.fact);
+    gateSections(line.driverCostCode);
+  }
+  return [...keys].sort();
 }
 
 function sumRange(lines: RomLine[]): { low: number; high: number } {
@@ -869,7 +1008,8 @@ function blendLine(
   // (the same cost code always prices on one basis), so the lead row's is
   // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
   // as every ROM computed before this ticket did.
-  const midpoint = judgment.rate * quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount, machineRooms);
+  const quantity = quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount, machineRooms);
+  const midpoint = judgment.rate * quantity;
 
   return {
     costCode: lead.costCode,
@@ -890,6 +1030,7 @@ function blendLine(
     // Set by computeRom once it has resolved the gate map against this cost
     // code (LA-1028). blendLine itself never reads a gate.
     gateStatus: null,
+    quantity: { amount: quantity, unit: lead.unit },
   };
 }
 
@@ -1060,6 +1201,7 @@ function toComparable(row: Benchmark, weight: number): Comparable {
     exportLabel: row.provenance.exportLabel,
     recordedBy: row.provenance.recordedBy,
     recordedAt: row.provenance.recordedAt,
+    unit: row.unit,
   };
 }
 

@@ -124,6 +124,24 @@ export function quantityFor(
   }
 }
 
+/**
+ * LA-1502: the answer keys each unit's quantity reads, so a line can name the
+ * answers it prices on (`RomLine.inputs`). The keys are the ones the facts
+ * land under (config/rom/tier1-flow.json), the same keys `quantityFor`'s
+ * callers read. A lump sum reads none. Item 1a's per-structure-type rate also
+ * reads the structure type, and item 26's per-stop rate reads the elevator
+ * type V-1 sets, because each picks which rate applies.
+ */
+export const UNIT_INPUTS: Readonly<Record<BenchmarkUnit, readonly string[]>> = {
+  usd_per_gsf: ["grossSquareFeet"],
+  usd_lump_sum: [],
+  usd_per_sf_of_structure: ["demolitionStructureSquareFeet", "demolitionStructureType"],
+  usd_each_structure: ["demolitionStructureCount"],
+  usd_per_stop: ["elevatorCount", "storiesAboveGrade", "levels_below_grade", "elevatorType"],
+  usd_each_elevator: ["elevatorCount"],
+  usd_each_machine_room: ["elevatorMachineRooms"],
+};
+
 /** Whether item 1a prices the full span rather than one row's blend: no structure-type answer yet, or an explicit "Don't Know" (ADR 0006). */
 export function isFullSpan(
   structureType: DemolitionStructureType | null,

@@ -167,11 +167,22 @@ describe("a run over the seeded relationships", () => {
 
     expect(rom.lines.map((line) => line.costCode)).toContain("1a");
 
+    // LA-1502: each names its element and the division By Division files it
+    // under, 33 Utilities for all four (Matt, 2026-10-02).
+    const item = (costCode: string, label: string) => ({
+      costCode,
+      label,
+      driverCostCode: "1a",
+      element: "Demolition",
+      division: "33",
+      includes: [],
+      excludes: [],
+    });
     expect(rom.unpricedItems).toEqual([
-      { costCode: "28a", label: "Plumbing Disconnect and Cap", driverCostCode: "1a" },
-      { costCode: "28b", label: "Gas Meter and Service Disconnect", driverCostCode: "1a" },
-      { costCode: "31f", label: "Electrical Service Disconnect", driverCostCode: "1a" },
-      { costCode: "36a", label: "Site Utility Cut and Cap at the Main", driverCostCode: "1a" },
+      item("28a", "Plumbing Disconnect and Cap"),
+      item("28b", "Gas Meter and Service Disconnect"),
+      item("31f", "Electrical Service Disconnect"),
+      item("36a", "Site Utility Cut and Cap at the Main"),
     ]);
   });
 

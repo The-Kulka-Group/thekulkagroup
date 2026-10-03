@@ -162,7 +162,20 @@ async function previewAndRun(): Promise<{ preview: Rom; recorded: Rom }> {
   const answers = previewAnswers(tier1Flow(), responses, "", markups);
   expect(answers).not.toBeNull();
   const preview = computeRom(answers!, await snapshotFor());
-  return { preview, recorded: recorded as Rom };
+  return { preview, recorded: engineOnly(recorded as Rom) };
+}
+
+/**
+ * LA-1502: after the engine, a run sets each line's division, its Inclusions
+ * and Exclusions and its owner items, none of which price anything. The
+ * preview runs the engine alone, so the comparison leaves those out.
+ */
+const RUN_ONLY = new Set(["division", "includes", "excludes", "raisedBy"]);
+
+function engineOnly(rom: Rom): Rom {
+  const strip = <T extends object>(item: T): T =>
+    Object.fromEntries(Object.entries(item).filter(([key]) => !RUN_ONLY.has(key))) as T;
+  return { ...rom, lines: rom.lines.map(strip), unpricedItems: rom.unpricedItems.map(strip) };
 }
 
 describe("previewAnswers", () => {

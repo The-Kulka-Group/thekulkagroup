@@ -1,5 +1,6 @@
-import type { DerivedAssumption, Rom } from "@kulka/engine";
+import type { DerivedAssumption, Rom, RomLine, ScopeEntry, UnpricedItem } from "@kulka/engine";
 
+import { entriesFor, isApproved, raisedByFor, type StoredScopeEntry } from "@/lib/rom/line-details";
 import type { RecordedAnswers, RunRecord } from "@/lib/rom/run-records";
 
 // LA-1417. What a published budget freezes. Pure: no clock, no network, no database. The
@@ -42,7 +43,13 @@ export type PublishedBudgetSnapshot = {
     issuedAt: string;
   };
   project: { id: string; name: string };
-  /** The run's ROM, with lists a pre-LA-1209 run lacked filled in as empty. */
+  /**
+   * The run's ROM, with lists a pre-LA-1209 run lacked filled in as empty.
+   * LA-1502: every line's Inclusions and Exclusions are the approved ones
+   * only, and its owner items are worked out against `criteria` below. A
+   * snapshot published before LA-1502 has neither, nor a line's division,
+   * inputs or quantity, and the page reads each as absent.
+   */
   rom: Rom;
   /** The recorded answers, facts included under `facts`, exactly as the run recorded them. */
   answers: RecordedAnswers;
@@ -70,6 +77,12 @@ export type SnapshotSource = {
   copy: PresentationCopy;
   /** The names publishing looked up for the jobs the comparables cite. */
   sourceJobNames?: Readonly<Record<string, string>>;
+  /**
+   * LA-1502: the project's Inclusions and Exclusions as they stand when
+   * publishing, approved or not. Only approved ones are frozen. Absent means
+   * the snapshot keeps the run's own entries, approved ones only.
+   */
+  scopeEntries?: readonly StoredScopeEntry[];
 };
 
 /** Everything a published page needs, copied out of the run so the page never reads the run again. */
@@ -87,7 +100,7 @@ export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapsho
       issuedAt: source.issuedAt,
     },
     project: { id: run.projectId, name: run.projectName },
-    rom: run.rom,
+    rom: frozenRom(run.rom, answers, source),
     answers,
     criteria: source.criteria.map(frozenCriterion),
     copy: source.copy,
@@ -98,6 +111,39 @@ export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapsho
   }
   if (source.sourceJobNames) snapshot.sourceJobNames = source.sourceJobNames;
   return snapshot;
+}
+
+/**
+ * LA-1502: the run's ROM as a client may read it. An Inclusion or Exclusion
+ * the estimator has not approved never reaches the snapshot. A line's owner
+ * items are worked out again against the criteria this snapshot freezes, so
+ * the two never disagree; a line from a run recorded before LA-1502 has no
+ * inputs to work them from and keeps none.
+ */
+function frozenRom(rom: Rom, answers: RecordedAnswers, source: SnapshotSource): Rom {
+  const approved = (entries: readonly ScopeEntry[]) => entries.filter(isApproved).map((entry) => ({ ...entry }));
+  const scope = <T extends RomLine | UnpricedItem>(item: T): T => {
+    if (source.scopeEntries) {
+      return {
+        ...item,
+        includes: approved(entriesFor(item.costCode, "include", source.scopeEntries)),
+        excludes: approved(entriesFor(item.costCode, "exclude", source.scopeEntries)),
+      };
+    }
+    return {
+      ...item,
+      ...(item.includes ? { includes: approved(item.includes) } : {}),
+      ...(item.excludes ? { excludes: approved(item.excludes) } : {}),
+    };
+  };
+  return {
+    ...rom,
+    lines: rom.lines.map((line) => {
+      const scoped = scope(line);
+      return line.inputs ? { ...scoped, raisedBy: raisedByFor(line, answers, source.criteria) } : scoped;
+    }),
+    unpricedItems: (rom.unpricedItems ?? []).map(scope),
+  };
 }
 
 /** The engine's criterion record, field by field, so no storage id rides along. */

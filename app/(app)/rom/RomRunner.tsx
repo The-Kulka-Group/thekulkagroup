@@ -56,6 +56,7 @@ import { initialMarkupForm, MarkupControls, markupChoicesFrom, type MarkupForm }
 import { planAnswersFromProject } from "./resource-plan-form";
 import { useFieldFlip } from "./motion";
 import { PackageCard, PackagePanel } from "./PackageCard";
+import { CommentsPanel } from "./CommentsPanel";
 import { PublishPanel } from "./PublishPanel";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
 import { BlockPanel, type Drilldown, NOTES_TBD_ID, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
@@ -128,7 +129,9 @@ type Panel =
   | { kind: "rates" }
   | { kind: "budgets" }
   /** LA-1419: publish the run on screen as a client link, and manage its versions (PublishPanel.tsx). */
-  | { kind: "publish" };
+  | { kind: "publish" }
+  /** LA-1490: every client comment thread on the project, with Reply, Close and the rest (CommentsPanel.tsx). */
+  | { kind: "comments" };
 
 // Pinned to Eastern so the server (UTC) and the browser print the same run
 // time; otherwise React reports a hydration mismatch (LA-1102).
@@ -814,6 +817,7 @@ export function RomRunner({
       <MenuItem onClick={() => { close(); openPanel({ kind: "budgets" }); }}>All Budgets</MenuItem>
       {projectId ? <MenuItem onClick={() => { close(); openPanel({ kind: "edit" }); }}>Edit Project</MenuItem> : null}
       {withNew && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "publish" }); }}>Publish Budget</MenuItem> : null}
+      {withNew && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "comments" }); }}>Client Comments</MenuItem> : null}
       {projectId && (markupOptions || scopeDefaults) ? (
         <MenuItem onClick={() => { close(); openPanel({ kind: "settings" }); }}>Run Settings</MenuItem>
       ) : null}
@@ -877,6 +881,16 @@ export function RomRunner({
               onClick={(e) => openPanel({ kind: "publish" }, e.currentTarget)}
             >
               Publish
+            </button>
+          ) : null}
+          {projectId && run ? (
+            <button
+              type="button"
+              className="rb-hbtn pm-wide"
+              aria-expanded={panel?.kind === "comments"}
+              onClick={(e) => openPanel({ kind: "comments" }, e.currentTarget)}
+            >
+              Client Comments
             </button>
           ) : null}
           <div className="pm-wide">
@@ -1198,6 +1212,18 @@ export function RomRunner({
               />
               {/* Keyed by run, so loading another saved run starts the form over for it. */}
               <PublishPanel key={run.runId} projectId={projectId} runId={run.runId} />
+            </>
+          ) : null}
+
+          {panel.kind === "comments" && projectId ? (
+            <>
+              <PanelHead
+                title="Client Comments"
+                sub="Every comment, question and flag the client left on this budget."
+                onClose={closePanel}
+                titleRef={titleRef}
+              />
+              <CommentsPanel projectId={projectId} />
             </>
           ) : null}
 

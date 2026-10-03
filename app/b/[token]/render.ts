@@ -37,7 +37,7 @@ import { drawSection, sectionStyle } from "@/lib/rom/section";
 // (`scopes:rest`) is gone, because the ledger shows every row so the section
 // can be drawn row by row.
 
-const esc = (t: string | number): string =>
+export const esc = (t: string | number): string =>
   String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** One `data-el`, or a pointer at the element that holds it. */

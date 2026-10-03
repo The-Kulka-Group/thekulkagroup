@@ -104,6 +104,9 @@ describe("GET /api/rom/projects/[id]/readers", () => {
 
   it("lists readers newest first, with a link for an active one and none for a revoked one", async () => {
     const dan = await addReader(db as Db, { projectId: TEST_PROJECT_ID, ...DAN, createdBy: "devin@example.com" });
+    // Two inserts can land in the same millisecond, and the list breaks a tie
+    // by random id. A reader row is frozen, so the test waits instead.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     const dana = await addReader(db as Db, {
       projectId: TEST_PROJECT_ID,
       name: "Dana Cole",

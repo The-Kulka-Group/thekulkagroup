@@ -128,7 +128,11 @@ describe("the rendered page against the reference", () => {
     for (const d of model.divisions) {
       figure(d);
       if (d.perSquareFoot) held.add(d.perSquareFoot);
-      for (const item of d.items) figure(item);
+      for (const item of d.items) {
+        figure(item);
+        // LA-1535: each item's rate in its Basis.
+        for (const b of item.basis) moneyOf(b.value).forEach((m) => held.add(m));
+      }
     }
     for (const w of model.waterfall) {
       figure(w);
@@ -341,7 +345,7 @@ describe("past jobs are off the client page", () => {
     const detail = html.slice(start, html.indexOf('<div class="si"', start + 1));
     expect(detail).toContain('class="num si-range">$128,700 to $267,300</span>');
     expect(detail).toContain("Low</span>");
-    expect(detail).toContain('<li data-el="assumption:1a:rate"><span class="as-l">Rate</span><span class="as-v">Rate on File</span>');
+    expect(detail).toContain('<li data-el="assumption:1a:rate"><span class="as-l">Rate</span><span class="as-v">$3.09 per SF of This Building</span>');
     expect(detail).not.toMatch(/\d+ (?:Kulka )?jobs?/i);
   });
 

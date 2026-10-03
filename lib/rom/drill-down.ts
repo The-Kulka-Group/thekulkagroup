@@ -132,6 +132,34 @@ const UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
   usd_each_machine_room: "Machine Rooms",
 };
 
+/** One of a quantity's unit, after "per": $50.69 per SF. Null for a lump sum. */
+const PER_UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
+  usd_per_gsf: "SF",
+  usd_lump_sum: null,
+  usd_per_sf_of_structure: "SF of Structure",
+  usd_each_structure: "Structure",
+  usd_per_stop: "Stop",
+  usd_each_elevator: "Elevator",
+  usd_each_machine_room: "Machine Room",
+};
+
+/**
+ * LA-1535. The rate an item carries, worked back from its figure and its
+ * quantity: "$50.69 per SF". Every item read "Rate on File" before, which
+ * left a reader like Dan asking where the number came from. A snapshot
+ * published before LA-1502 has no quantity, so the rate there reads per SF
+ * of this building, which is what the figure works out to.
+ */
+function rateWords(likely: number, quantity: RomLine["quantity"], input: DrillDownInput): string | null {
+  if (quantity) {
+    const per = PER_UNIT_WORDS[quantity.unit];
+    if (per === null) return `${input.usd(likely)} Lump Sum`;
+    if (quantity.amount > 0) return `${input.rateUsd(likely / quantity.amount)} per ${per}`;
+  }
+  const gsf = input.grossSquareFeet;
+  return gsf ? `${input.rateUsd(likely / gsf)} per SF of This Building` : null;
+}
+
 const isApproved = (entry: ScopeEntry) => entry.approvedBy !== null && entry.approvedAt !== null;
 
 function markOf(lines: readonly { confidence: "high" | "medium" | "low" }[]): DivisionRow["confidence"] {
@@ -324,7 +352,7 @@ function itemOf(source: ItemSource, line: RomLine | undefined, input: DrillDownI
   basis.push({
     el: `assumption:${code}:rate`,
     label: "Rate",
-    value: placeholder ? "Placeholder Until Kulka States a Rate" : "Rate on File",
+    value: rateWords(source.likely, quantity, input) ?? (placeholder ? "Placeholder Until Kulka States a Rate" : "Kulka Rate"),
     chip: placeholder ? { tone: "working", text: "Placeholder Rate" } : { tone: source.confidence, text: "Kulka Rate" },
     tag: null,
   });

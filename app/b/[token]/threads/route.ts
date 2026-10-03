@@ -1,4 +1,6 @@
+import { getDb } from "@/lib/db";
 import { openThread, isAssumptionElement, type CommentKind } from "@/lib/rom/budget-comments";
+import { commentLayerFor } from "@/lib/rom/comment-layer";
 import { addressableElements } from "@/lib/rom/addressable-elements";
 import { presentBudget } from "@/lib/rom/presentation";
 import { loadPublishedBudget } from "@/lib/rom/published-budgets";
@@ -20,6 +22,22 @@ export const dynamic = "force-dynamic";
 // page model, never from the body.
 
 const KINDS = new Set<string>(["comment", "question", "flag"]);
+
+/**
+ * LA-1489. GET /b/<token>/threads is the page's comment layer again, read
+ * after a post so the page can redraw. It answers only a browser whose reader
+ * cookie names an active reader of the version's project, with the same plain
+ * 403 for every other case.
+ */
+export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }): Promise<Response> {
+  const { token } = await params;
+  const db = getDb();
+  const view = await loadPublishedBudget(db, token);
+  if (!view || view.state === "withdrawn") return notFound();
+  const page = presentBudget({ snapshot: view.snapshot, version: view.version, stage: view.stage, issuedAt: view.issuedAt, newer: view.newer });
+  const layer = await commentLayerFor(db, { token, cookieHeader: request.headers.get("cookie"), page });
+  return layer ? json(200, layer) : forbidden();
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }): Promise<Response> {
   const { token } = await params;

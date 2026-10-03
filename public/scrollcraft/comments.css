@@ -1,0 +1,194 @@
+/* LA-1489. The client comment layer, built from the LA-1484 frames as Matt
+   approved them (docs/frames/la-1484/comments.css). It loads only on a reader's
+   page, never in print. Colour stays inside the page's dot-plus-ink style: the
+   working orange for open, the one blue for answered, Daylight's Done green for
+   closed. Labels stay in ink. budget-page.css and scrollcraft.js are unchanged. */
+
+:root {
+  --done-bright: #00C875;
+  --primary-tint: #EAF3FE;
+  --cm-bar-h: 32px;
+}
+
+/* --- The header control ------------------------------------------------------- */
+
+.hd-cmt { margin-left: 16px; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 13px; border: 1px solid var(--rb-pnl-line2); border-radius: var(--r-pill); background: transparent; color: var(--rb-ink-on-black); font: inherit; font-size: var(--meta-size); font-weight: 600; cursor: pointer; }
+.hd-cmt[hidden] { display: none; }
+.hd-cmt i { width: 13px; height: 11px; border: 1.5px solid currentColor; border-radius: 3px; position: relative; }
+.hd-cmt i::after { content: ""; position: absolute; left: 2px; bottom: -4px; width: 4px; height: 4px; border-left: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; background: var(--rb-black); transform: skewY(-35deg); }
+.hd-cmt.is-on { background: var(--rb-ink-on-black); border-color: var(--rb-ink-on-black); color: var(--rb-black); padding: 0 18px; }
+.hd-cmt.is-on i { display: none; }
+.hd-cmt:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.hd-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 1px; padding: 0 5px; border-radius: var(--r-pill); background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
+
+/* Comment mode: one line under the header says what to do. */
+.cmode-bar { display: flex; align-items: center; justify-content: center; height: var(--cm-bar-h); margin: 0 -24px; background: var(--primary); color: #fff; font-size: var(--meta-size); font-weight: 600; }
+html.cmode { --hd-h: calc(96px + var(--cm-bar-h)); }
+
+/* --- Markers: a dot with a count at the element's right edge -------------------
+   They sit on the element's right border, so every marker in the ledger lines up
+   in one rail and none moves or covers a figure. */
+
+.lg { overflow-clip-margin: 30px; }
+.cm-host { position: relative; }
+.cm { position: absolute; top: 50%; left: calc(100% - 4px); transform: translateY(-50%); z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; border: 0; background: none; font: inherit; font-size: var(--chip-size); font-weight: 700; line-height: 1; color: var(--rb-blk-ink); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; }
+.cm .dot { width: 8px; height: 8px; box-shadow: 0 0 0 2.5px var(--surface); }
+.cm:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+/* An inline element (a figure in the letter) carries its marker in the line, after the figure. */
+.cm--inline { position: static; transform: none; margin-left: 4px; vertical-align: 1px; }
+.lens .cm { display: none; }
+
+/* The three thread states, here and in every state label. */
+.cm--open .dot, .st--open .dot { background: var(--working); }
+.cm--answered .dot, .st--answered .dot { background: var(--primary); }
+.cm--done .dot, .st--done .dot { background: var(--done-bright); }
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink); white-space: nowrap; }
+.st .dot { width: 7px; height: 7px; }
+
+/* --- Comment mode: thin outlines on everything a reader can comment on ---------- */
+
+html.cmode [data-cm-able] { outline: 1px dashed rgba(0, 115, 234, 0.4); outline-offset: -2px; border-radius: 6px; cursor: pointer; }
+html.cmode .lg-item[data-cm-able] { outline: 0; }
+html.cmode .lg-item[data-cm-able] > .lg-btn { outline: 1px dashed rgba(0, 115, 234, 0.4); outline-offset: -2px; border-radius: 6px; }
+html.cmode .lg .pill { opacity: 0.35; }
+html.cmode [data-cm-able]:hover:not(:has([data-cm-able]:hover)),
+html.cmode .lg-item[data-cm-able] > .lg-btn:hover,
+[data-cm-on] { outline: 1.5px solid var(--primary) !important; outline-offset: 2px; background: var(--primary-tint); }
+html.cmode .lg-item[data-cm-able]:hover:not(:has([data-cm-able]:hover)) { background: none; outline: 0 !important; }
+.lg-item[data-cm-on] { outline: 0 !important; background: none; }
+.lg-item[data-cm-on] > .lg-btn { outline: 1.5px solid var(--primary); outline-offset: -2px; border-radius: 6px; background: var(--primary-tint); }
+
+/* --- The card: composer and thread ------------------------------------------------ */
+
+.cc { position: absolute; z-index: 40; width: 400px; display: grid; gap: 12px; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--rb-blk-line); border-radius: var(--r-lg); box-shadow: 0 2px 4px rgba(29, 29, 31, 0.06), 0 18px 40px rgba(29, 29, 31, 0.14); font-size: var(--ui-size); color: var(--rb-blk-ink); text-align: left; }
+.cc:focus { outline: 0; }
+.cc--wide { width: 452px; }
+.cc-lead { position: absolute; z-index: 39; height: 1px; background: var(--primary); pointer-events: none; }
+.cc-lead::after { content: ""; position: absolute; right: -1px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+.cc-grab { display: none; }
+.cc p { margin: 0; }
+
+.cc-hd { display: flex; align-items: flex-start; gap: 12px; }
+.cc-on { min-width: 0; flex: 1; display: grid; gap: 1px; }
+.cc-ctx { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.cc-l { font-size: var(--t3-size); font-weight: 600; line-height: 22px; overflow-wrap: anywhere; }
+.cc-v { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink2); }
+.cc-x { flex: none; width: 26px; height: 26px; margin: -2px -4px 0 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: none; color: var(--rb-blk-mute); font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.cc-x:hover { background: var(--rb-blk-hover); }
+.cc-state { flex: none; display: inline-flex; align-items: center; gap: 10px; padding-top: 2px; }
+.cc-kind { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.cc-back { justify-self: start; padding: 0; border: 0; background: none; font: inherit; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--rb-blk-line); }
+.cc-body { display: grid; gap: 12px; }
+
+.views { display: inline-flex; padding: 2px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-pill); background: var(--canvas); }
+.view { height: 26px; display: inline-flex; align-items: center; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: none; font: inherit; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-mute); white-space: nowrap; cursor: pointer; }
+.view.is-on { background: var(--surface); color: var(--rb-blk-ink); box-shadow: 0 1px 2px rgba(29, 29, 31, 0.08); }
+.cc-kinds { justify-self: start; }
+.cc-lab { font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); margin-bottom: 5px; }
+.cc-lab span { font-weight: 400; color: var(--rb-blk-mute); margin-left: 4px; }
+.cc-field { display: block; width: 100%; min-height: 72px; padding: 10px 12px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-md); font: inherit; font-size: var(--ui-size); line-height: 20px; color: var(--rb-blk-ink); background: var(--surface); resize: vertical; }
+.cc-field:focus { outline: 0; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); }
+.cc-field--one { min-height: 0; font-weight: 600; resize: none; }
+.cc-field--short { min-height: 44px; }
+.cc-field::placeholder { color: var(--rb-blk-mute); }
+.cc-err { font-size: var(--chip-size); font-weight: 600; color: #C2410C; }
+.cc-err:empty { display: none; }
+
+.cc-ft { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cc-as { margin-right: auto; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.cc-as b { font-weight: 600; color: var(--rb-blk-ink); }
+.cc-as button { margin-left: 6px; padding: 0; border: 0; background: none; font: inherit; color: var(--rb-blk-ink2); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--rb-blk-line); cursor: pointer; }
+/* With two actions, the Commenting As line takes its own row and the actions sit right. */
+.cc-ft:has(.btn + .btn) .cc-as { flex-basis: 100%; margin-bottom: 2px; }
+.cc-ft:has(.btn + .btn) .btn:first-of-type { margin-left: auto; }
+.btn { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-pill); background: var(--surface); font: inherit; font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); white-space: nowrap; cursor: pointer; }
+.btn--ink { background: var(--rb-blk-ink); border-color: var(--rb-blk-ink); color: var(--surface); padding: 0 18px; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Budget Says beside Owner Says. */
+.says { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.says-c { min-width: 0; }
+.says-v { font-size: var(--meta-size); line-height: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.says-c--budget .says-v { padding: 10px 12px; border-radius: var(--r-md); background: var(--rb-blk-hover); color: var(--rb-blk-ink2); }
+.says-v--owner { padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--rb-blk-line); border-left: 2px solid var(--working); }
+.says .cc-field--one { padding: 10px 12px; font-size: var(--meta-size); line-height: 18px; }
+
+/* From Version N, and what changed since. */
+.cc-from { display: grid; gap: 6px; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.cc-from b { font-weight: 600; color: var(--rb-blk-ink2); }
+.chg { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 4px 0 0; padding: 8px 10px; border-radius: var(--r-md); border-left: 2px solid var(--working); background: var(--rb-blk-hover); }
+.chg dt { font-weight: 600; color: var(--rb-blk-ink2); }
+.chg dd { margin: 0; color: var(--rb-blk-ink); overflow-wrap: anywhere; }
+
+/* The messages, oldest first. */
+.msgs { display: grid; margin: 0; padding: 0; list-style: none; }
+.msg { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--rb-blk-line); }
+.msg:first-child { border-top: 0; padding-top: 0; }
+.msg-who { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.msg-who b { margin-right: 6px; font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
+.msg-b { font-size: var(--ui-size); line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-b--gone { font-style: italic; color: var(--rb-blk-mute); font-weight: 400; }
+.msg--kulka { margin-top: 2px; padding: 10px 12px; border-top: 0; border-radius: var(--r-md); background: var(--rb-blk-hover); }
+.msg--kulka + .msg { border-top: 0; }
+
+/* Threads folded to their state and first line. */
+.folds { display: grid; margin: 0; padding: 0; list-style: none; max-height: 60vh; overflow: auto; }
+.fold { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--rb-blk-line); cursor: pointer; }
+.fold:first-child { border-top: 0; padding-top: 2px; }
+.fold:hover .fold-1 { color: var(--rb-blk-ink); }
+.fold-top { display: flex; align-items: center; gap: 10px; }
+.fold-k { margin-left: auto; font-size: var(--chip-size); color: var(--rb-blk-mute); white-space: nowrap; }
+.fold-1 { padding-left: 13px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fold-1--gone { font-style: italic; color: var(--rb-blk-mute); }
+.fold-r { margin: 4px 0 0 13px !important; padding: 7px 10px; border-radius: var(--r-md); background: var(--rb-blk-hover); font-size: var(--chip-size); line-height: 17px; color: var(--rb-blk-ink2); }
+.fold-r b { font-weight: 600; color: var(--rb-blk-ink); margin-right: 4px; }
+
+/* --- From Earlier Versions, at the end of What Happens Next ------------------------ */
+
+.earlier { margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--rb-blk-line); max-width: 720px; }
+.earlier-sub { margin: 4px 0 10px; font-size: var(--meta-size); color: var(--rb-blk-mute); }
+.orphs { margin: 0; padding: 0; list-style: none; border: 1px solid var(--rb-blk-line); border-radius: var(--r-md); background: var(--surface); }
+.orph { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 16px; padding: 12px 14px; border-top: 1px solid var(--rb-blk-line); }
+.orph:first-child { border-top: 0; }
+.orph-a { min-width: 0; }
+.orph-q { margin: 0; font-size: var(--ui-size); line-height: 20px; font-weight: 600; color: var(--rb-blk-ink); overflow-wrap: anywhere; }
+.orph-q::before { content: "\201C"; }
+.orph-q::after { content: "\201D"; }
+.orph-m { margin: 2px 0 0; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.orph .pill { height: 26px; padding: 0 12px; font: inherit; font-size: var(--chip-size); font-weight: 600; cursor: pointer; }
+
+/* --- Phone ------------------------------------------------------------------------ */
+
+@media (max-width: 860px) {
+  :root { --cm-bar-h: 30px; }
+  html.cmode { --hd-h: calc(92px + var(--cm-bar-h)); }
+  .cmode-bar { margin: 0 -16px; font-size: var(--chip-size); }
+  .hd-cmt { margin-left: auto; height: 28px; padding: 0 11px; font-size: var(--chip-size); }
+  .hd-cmt.is-on { padding: 0 14px; }
+  /* A phone has no gutter to spare: the marker sits inside the element, at its top right. */
+  .cm { left: auto; right: 6px; top: 6px; transform: none; padding: 3px 5px; border-radius: var(--r-pill); background: var(--surface); }
+  .lg-btn .cm { top: auto; bottom: 8px; right: 12px; }
+  .cm--inline { position: static; padding: 0; background: none; }
+
+  /* The card is a bottom sheet. */
+  .cc, .cc--wide { position: fixed; left: 0 !important; right: 0; bottom: 0; top: auto !important; width: auto; max-height: 74vh; overflow: auto; overscroll-behavior: contain; gap: 12px; padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; border-bottom: 0; box-shadow: 0 -2px 6px rgba(29, 29, 31, 0.06), 0 -18px 40px rgba(29, 29, 31, 0.16); }
+  .cc-grab { display: block; justify-self: center; width: 36px; height: 4px; border-radius: 2px; background: var(--rb-blk-line); margin-bottom: 2px; }
+  .cc-lead { display: none; }
+  html.has-sheet main::after { content: ""; position: fixed; inset: 0; z-index: 30; background: rgba(11, 11, 10, 0.18); pointer-events: none; }
+  html.has-sheet .hd { z-index: 35; }
+  .folds { max-height: none; }
+  .says { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .cc-as { flex-basis: 100%; margin-bottom: 2px; }
+  .cc-ft .btn { flex: 1; justify-content: center; }
+  .cc-kinds { justify-self: stretch; display: flex; }
+  .cc-kinds .view { flex: 1; justify-content: center; padding: 0 6px; }
+  .orph { grid-template-columns: minmax(0, 1fr) auto; }
+  .orph .st { grid-column: 1; grid-row: 2; }
+  .orph .pill { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+/* The comment layer never prints. */
+@media print {
+  .cm, .cc, .cc-lead, .cmode-bar, .hd-cmt, .earlier { display: none !important; }
+  html.cmode [data-cm-able], [data-cm-on] { outline: 0 !important; background: none !important; }
+}

@@ -14,6 +14,7 @@ import {
   type UnpricedLine,
   type WaterfallRow,
 } from "@/lib/rom/presentation";
+import { layerJson, type CommentLayer } from "@/lib/rom/comment-layer";
 import { drawSection, sectionStyle } from "@/lib/rom/section";
 
 // LA-1459. The client budget page, "The Ledger, Opened with the Section",
@@ -71,14 +72,18 @@ function drawings(page: BudgetPage) {
 
 // --- Chrome: the two-tier header ------------------------------------------------------
 
-function header(page: BudgetPage): string {
+/** The one Comment control (LA-1489). Only a reader's page has it; comments.js fills the badge. */
+const commentControl = `
+    <button class="hd-cmt" type="button" aria-pressed="false" data-cm-toggle hidden><i aria-hidden="true"></i><span data-cm-label>Comment</span></button>`;
+
+function header(page: BudgetPage, comments: boolean): string {
   const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Kulka Contract</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
   return `
 <header class="hd" id="bar" data-state="band">
   <div class="hd-t1">
     <a class="hd-mark" href="#your-number">Kulka</a>
     <span class="hd-proj">${esc(page.projectName)}</span>
-    ${figure}
+    ${figure}${comments ? commentControl : ""}
   </div>
   <nav class="hd-t2" aria-label="Sections">
     ${figure}
@@ -544,11 +549,17 @@ function withDestinations(html: string): string {
 export type RenderOptions = {
   /** The printed page: the same one depth, no chrome, no engine, every id a PDF destination. */
   print?: boolean;
+  /**
+   * The comment layer, for a browser with a valid reader cookie (LA-1489).
+   * Ignored when printing, so the print render and the stored PDF never carry it.
+   */
+  comments?: CommentLayer | null;
 };
 
 /** The whole document for one published budget. */
 export function renderBudgetPage(page: BudgetPage, options: RenderOptions = {}): string {
   const print = options.print === true;
+  const comments = print ? null : (options.comments ?? null);
   const svg = drawings(page);
   const html = `<!doctype html>
 <html lang="en"${print ? ' data-print="1"' : ""}>
@@ -564,10 +575,10 @@ export function renderBudgetPage(page: BudgetPage, options: RenderOptions = {}):
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/scrollcraft/scrollcraft.css">
-<link rel="stylesheet" href="/scrollcraft/budget-page.css">
+<link rel="stylesheet" href="/scrollcraft/budget-page.css">${comments ? '\n<link rel="stylesheet" href="/scrollcraft/comments.css">' : ""}
 ${svg.style}
 </head>
-<body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : header(page)}
+<body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : header(page, comments !== null)}
 <main id="top">${newerBand(page)}
 ${sectionNumber(page)}
 ${sectionLetter(page)}
@@ -577,7 +588,11 @@ ${sectionWaterfall(page, svg)}
 ${sectionGates(page)}
 ${sectionNext(page)}
 </main>${print ? "" : '\n<script src="/scrollcraft/scrollcraft.js"></script>'}
-<script src="/scrollcraft/budget-page.js"></script>
+<script src="/scrollcraft/budget-page.js"></script>${
+    comments
+      ? `\n<script type="application/json" id="cm-data">${layerJson(comments)}</script>\n<script src="/scrollcraft/comments.js"></script>`
+      : ""
+  }
 </body>
 </html>
 `;

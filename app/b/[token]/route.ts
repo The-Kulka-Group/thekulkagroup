@@ -1,5 +1,6 @@
 import { PUBLISHED_BUDGET_HEADERS } from "@/lib/auth/routes";
 import { getDb } from "@/lib/db";
+import { commentLayerFor } from "@/lib/rom/comment-layer";
 import { loadPublishedBudget } from "@/lib/rom/published-budgets";
 import { presentBudget } from "@/lib/rom/presentation";
 
@@ -26,7 +27,8 @@ function html(body: string, status = 200): Response {
 
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }): Promise<Response> {
   const { token } = await params;
-  const view = await loadPublishedBudget(getDb(), token);
+  const db = getDb();
+  const view = await loadPublishedBudget(db, token);
   // An unknown or malformed token gets a plain 404 with no hint either way.
   if (!view) return new Response("Not Found", { status: 404, headers: { ...PUBLISHED_BUDGET_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
   if (view.state === "withdrawn") return html(renderWithdrawnPage(view.version, view.preparedBy));
@@ -41,5 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   // Full appendix, no chrome, no engine). The PDF is rendered from these same
   // bytes at publish, by lib/rom/published-pdf.ts.
   const print = new URL(request.url).searchParams.get("print") === "1";
-  return html(renderBudgetPage(page, { print }));
+  // LA-1489: the comment layer, only for a reader's browser and never in print.
+  const comments = print ? null : await commentLayerFor(db, { token, cookieHeader: request.headers.get("cookie"), page });
+  return html(renderBudgetPage(page, { print, comments }));
 }

@@ -86,7 +86,9 @@ describe("the ledger by division on MN Test #4", () => {
     const concrete = d03.items.find((i) => i.costCode === "2")!;
     expect(concrete.basis.map((b) => [b.el, b.label, b.value, b.chip.text])).toEqual([
       ["assumption:2:S-1", "Foundation System", "Spread Footings", "Planning Assumption"],
-      ["assumption:2:rate", "Rate", "Rate on File", "Kulka Rate"],
+      // LA-1535: the rate is worked back from the figure. With no quantity on a
+      // pre-LA-1502 line, it reads per SF of this building: $1,132,000 over 64,000 SF.
+      ["assumption:2:rate", "Rate", "$17.69 per SF of This Building", "Kulka Rate"],
     ]);
     // A snapshot published before LA-1502 has no inputs, scope lists or owner items: nothing fills them.
     expect(concrete.includes).toEqual([]);
@@ -103,8 +105,19 @@ describe("with the LA-1502 line fields", () => {
       ["assumption:1a:demolitionStructureType", "Structure Coming Down", "Steel Frame with Concrete on Metal Deck (Type II)", "Stated"],
       ["assumption:1a:grossSquareFeet", "Gross Area", "64,000 SF", "Stated"],
       ["assumption:1a:quantity", "Quantity", "15,000 SF of Structure", "From Your Answers"],
-      ["assumption:1a:rate", "Rate", "Rate on File", "Kulka Rate"],
+      // LA-1535: $198,000 over 15,000 SF of structure.
+      ["assumption:1a:rate", "Rate", "$13.20 per SF of Structure", "Kulka Rate"],
     ]);
+  });
+
+  it("gives every priced item a rate with its unit, on an old snapshot and a new one (LA-1535)", () => {
+    for (const divisions of [page().divisions, page(withLineFields()).divisions]) {
+      for (const item of divisions.flatMap((d) => d.items)) {
+        const rate = item.basis.find((b) => b.label === "Rate")!;
+        expect(rate.value).toMatch(/^\$[\d,]+(\.\d\d)? (per |Lump Sum)/);
+        expect(["Kulka Rate", "Placeholder Rate"]).toContain(rate.chip.text);
+      }
+    }
   });
 
   it("shows approved Inclusions and Exclusions only, each keyed by its own words", () => {

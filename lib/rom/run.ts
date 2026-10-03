@@ -33,6 +33,8 @@ import { applyFoundationCriterion } from "@/lib/rom/foundation-criterion";
 import { applyHvacCriteria } from "@/lib/rom/hvac-criterion";
 import { applyJackCriterion } from "@/lib/rom/jack-criterion";
 import { applyMachineRoomCriterion } from "@/lib/rom/machine-room-criterion";
+import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
+import { describeRom, readScopeEntries } from "@/lib/rom/line-details";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
 import { readProjectRates, withProjectRates } from "@/lib/rom/project-rates";
@@ -200,6 +202,8 @@ type ClassificationRow = {
   is_element_driver: boolean;
   /** LA-1157: the stated MasterFormat division, null until somebody states one. */
   division: string | null;
+  /** LA-1502: Matt's By Division placement, null when the item sits under its own division. */
+  ledger_division: string | null;
   stated_by: string;
   stated_on: Date | string;
   reason: string;
@@ -356,12 +360,23 @@ export async function runRom(
       hashSnapshot(snapshot),
     ]);
 
-    const rom = await step(db, runId, ++seq, "compute_rom", async () =>
+    const rom = await step(db, runId, ++seq, "compute_rom", async () => {
       // LA-1239: the snapshot's hash above is of everything read; the
       // Demolition element sits out of the pricing until its building
       // questions are answered.
-      computeRom(answers, holdUnansweredDemolition(answers, snapshot)),
-    );
+      const computed = computeRom(answers, holdUnansweredDemolition(answers, snapshot));
+      // LA-1502: each line's division, Inclusions and Exclusions and owner
+      // items, which price nothing, set after the engine from what the
+      // project holds now. Read inside this step for the reason the
+      // classification read above gives.
+      return describeRom(computed, {
+        classifications: data.classifications,
+        canonicalDivisions: new Map((await readCanonicalDivisions(db)).map((d) => [d.itemNumber, d.division])),
+        answers,
+        criteria: await listDerivedAssumptions(db, projectId),
+        scopeEntries: await readScopeEntries(db, projectId),
+      });
+    });
 
     await db.query(
       `update runs set status = 'succeeded', rom = $2, finished_at = now() where id = $1`,
@@ -475,7 +490,8 @@ export type ParameterData = {
 export async function readClassifications(db: Db): Promise<BlockClassification[]> {
   const { rows } = await db.query<ClassificationRow>(
     `select cost_code, detail_level, element, breakout_of_cost_code,
-            buyout_package, is_element_driver, division, stated_by, stated_on, reason
+            buyout_package, is_element_driver, division, ledger_division,
+            stated_by, stated_on, reason
        from block_classification
       order by cost_code`,
   );
@@ -728,6 +744,9 @@ function toClassification(row: ClassificationRow): BlockClassification {
     buyoutPackage: row.buyout_package,
     isElementDriver: row.is_element_driver,
     division: row.division,
+    // LA-1502: only when Matt placed it, so a classification without one
+    // fingerprints the way it did before the column existed.
+    ...(row.ledger_division ? { ledgerDivision: row.ledger_division } : {}),
     statedBy: row.stated_by,
     statedOn: isoDate(row.stated_on),
     reason: row.reason,

@@ -171,6 +171,13 @@ export async function publishBudget(db: Db, request: PublishRequest): Promise<Pu
         where project_id = $2 and id <> $1 and superseded_by is null`,
       [published.id, run.projectId],
     );
+    // LA-1491: every accepted flag not yet carried is carried into this
+    // version, once (client-comments-spec.md, "The version and orphan rule").
+    await tx.query(
+      `update budget_threads set addressed_in = $1
+        where project_id = $2 and outcome = 'accepted' and addressed_in is null`,
+      [published.id, run.projectId],
+    );
     return { ...fromRow(published), snapshot };
   });
 }

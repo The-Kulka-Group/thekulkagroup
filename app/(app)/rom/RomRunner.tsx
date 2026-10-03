@@ -1277,6 +1277,7 @@ export function RomRunner({
               <RatePanel
                 key={`${rateItem.costCode}-${panel.editing ? "edit" : "new"}`}
                 projectId={projectId}
+                runId={run.runId}
                 costCode={rateItem.costCode}
                 editing={panel.editing}
                 driverLabel={

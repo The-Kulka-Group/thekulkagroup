@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { ScopeEntries } from "./ScopeEntries";
+
 // Matt, 2026-09-28: a supporting item showing "No Rate Yet" takes a rate on
 // its card. This is the panel the card opens. The rate prices on the item's
 // counting rule (lib/rom/quantity-rules.ts, LA-1257), and it joins the
@@ -20,6 +22,11 @@ import { useEffect, useState } from "react";
 // panel opens this in edit mode, filled with the rate it has. The change
 // stays where the rate lives: a budget-only rate changes for this budget, a
 // shared rate changes for every budget of this kind.
+//
+// LA-1526: an unpriced supporting item opens this panel rather than a block
+// panel, so its Inclusions and Exclusions (LA-1503) sit here, under the rate.
+// An edit of a priced item's rate leaves them out, since that item's block
+// panel already has them.
 
 type Saved = {
   projectRate: { value: number; suggested: boolean } | null;
@@ -42,12 +49,15 @@ export function asksWords(asks: number[]): string {
 
 export function RatePanel({
   projectId,
+  runId,
   costCode,
   driverLabel,
   editing = false,
   onSaved,
 }: {
   projectId: string;
+  /** The run on screen, which a draft of the item's entries reads its answers from. */
+  runId: string;
   costCode: string;
   /** The driver that brings the item in, such as Structure Demolition. */
   driverLabel: string | null;
@@ -145,71 +155,74 @@ export function RatePanel({
   }
 
   return (
-    <form onSubmit={save}>
-      <p className="rb-pp">
-        {editing
-          ? saved?.projectRate
-            ? `This budget has its own rate${saved.projectRate.suggested ? ", which began as a suggestion" : ""}.`
-            : saved?.sharedRate
-              ? "This rate is shared by every budget of this project type and construction kind."
-              : "Reading the saved rate."
-          : "No rate yet."}
-        {driverLabel && saved?.basis ? ` It comes in with ${driverLabel}, ${saved.basis.count}.` : ""}
-      </p>
-      <label className="rt-field">
-        <span className="field-label t-label">{saved?.basis?.fieldLabel ?? "Rate"}</span>
-        <input
-          className="input num"
-          inputMode="decimal"
-          autoFocus
-          value={value}
-          disabled={busy}
-          onChange={(e) => setValue(e.target.value)}
-        />
-      </label>
-      <div className="rb-acts">
-        <button className="btn" type="button" onClick={suggest} disabled={busy || suggesting}>
-          {suggesting ? "Suggesting" : suggestion ? "Suggest Again" : "Suggest a Rate"}
-        </button>
-      </div>
-      {suggestion ? (
-        <div className="rt-sug">
-          <p className="rb-pp">
-            <b>
-              {money(suggestion.value)} {saved?.basis?.per ?? "each"}
-            </b>
-            , range {money(suggestion.low)} to {money(suggestion.high)}.
-            {suggestion.asks && suggestion.asks.length > 1 ? ` ${asksWords(suggestion.asks)}` : ""}
-          </p>
-          <p className="rb-pp">{suggestion.reasoning}</p>
-          {missing.length > 0 ? (
-            <p className="rb-pp">
-              This project has no {missing.join(" or ")} yet, so the range is wider. Add it in Edit Project for a
-              closer figure.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      <p className="rb-pp">
-        {suggestion
-          ? "A suggested rate prices this budget only. Keep the figure or change it, then save. The suggestion is kept with it."
-          : target === "project"
-            ? "The change applies to this budget only."
-            : target === "replace"
-              ? "The change applies to every budget of this project type and construction kind. Use Suggest a Rate for a figure for this budget only."
-              : "A rate you type prices the item on every budget of this project type and construction kind. Use Suggest a Rate for a figure fitted to this budget's location and labor type."}{" "}
-        Saving records a new run of this budget.
-      </p>
-      {error ? (
-        <p className="rb-pp rb-pp--error" role="alert">
-          {error}
+    <>
+      <form onSubmit={save}>
+        <p className="rb-pp">
+          {editing
+            ? saved?.projectRate
+              ? `This budget has its own rate${saved.projectRate.suggested ? ", which began as a suggestion" : ""}.`
+              : saved?.sharedRate
+                ? "This rate is shared by every budget of this project type and construction kind."
+                : "Reading the saved rate."
+            : "No rate yet."}
+          {driverLabel && saved?.basis ? ` It comes in with ${driverLabel}, ${saved.basis.count}.` : ""}
         </p>
-      ) : null}
-      <div className="rb-acts">
-        <button className="btn btn--primary" type="submit" disabled={busy || value.trim() === ""}>
-          {busy ? "Saving" : "Save Rate"}
-        </button>
-      </div>
-    </form>
+        <label className="rt-field">
+          <span className="field-label t-label">{saved?.basis?.fieldLabel ?? "Rate"}</span>
+          <input
+            className="input num"
+            inputMode="decimal"
+            autoFocus
+            value={value}
+            disabled={busy}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </label>
+        <div className="rb-acts">
+          <button className="btn" type="button" onClick={suggest} disabled={busy || suggesting}>
+            {suggesting ? "Suggesting" : suggestion ? "Suggest Again" : "Suggest a Rate"}
+          </button>
+        </div>
+        {suggestion ? (
+          <div className="rt-sug">
+            <p className="rb-pp">
+              <b>
+                {money(suggestion.value)} {saved?.basis?.per ?? "each"}
+              </b>
+              , range {money(suggestion.low)} to {money(suggestion.high)}.
+              {suggestion.asks && suggestion.asks.length > 1 ? ` ${asksWords(suggestion.asks)}` : ""}
+            </p>
+            <p className="rb-pp">{suggestion.reasoning}</p>
+            {missing.length > 0 ? (
+              <p className="rb-pp">
+                This project has no {missing.join(" or ")} yet, so the range is wider. Add it in Edit Project for a
+                closer figure.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        <p className="rb-pp">
+          {suggestion
+            ? "A suggested rate prices this budget only. Keep the figure or change it, then save. The suggestion is kept with it."
+            : target === "project"
+              ? "The change applies to this budget only."
+              : target === "replace"
+                ? "The change applies to every budget of this project type and construction kind. Use Suggest a Rate for a figure for this budget only."
+                : "A rate you type prices the item on every budget of this project type and construction kind. Use Suggest a Rate for a figure fitted to this budget's location and labor type."}{" "}
+          Saving records a new run of this budget.
+        </p>
+        {error ? (
+          <p className="rb-pp rb-pp--error" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="rb-acts">
+          <button className="btn btn--primary" type="submit" disabled={busy || value.trim() === ""}>
+            {busy ? "Saving" : "Save Rate"}
+          </button>
+        </div>
+      </form>
+      {editing ? null : <ScopeEntries key={costCode} projectId={projectId} runId={runId} costCode={costCode} />}
+    </>
   );
 }

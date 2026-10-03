@@ -5,7 +5,7 @@ import type { Db } from "@/lib/db";
 import { publishBudget } from "@/lib/rom/published-budgets";
 import { setRateClientForTests } from "@/lib/rom/rate-suggestion";
 import { runRom } from "@/lib/rom/run";
-import { definitionSection } from "@/lib/rom/scope-draft";
+import { definitionSection, readItemDefinition } from "@/lib/rom/scope-draft";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
 // LA-1503. AI drafts a line's Inclusions and Exclusions, the estimator edits,
@@ -136,6 +136,64 @@ describe("writing and approving entries", () => {
     const page = JSON.stringify(published.snapshot);
     expect(page).not.toContain("Never Approved");
     expect(page).not.toContain("Edited After Approval");
+  });
+});
+
+describe("an unpriced supporting item (LA-1526)", () => {
+  // The demolition setup from rates/project-rates.test.ts: two structures come
+  // down, so 28a (Plumbing Disconnect and Cap) is in the run with no rate yet.
+  async function demolitionProject() {
+    await db.query(
+      `insert into benchmarks
+         (cost_code, label, unit, value, structure_type, project_type, construction_kind, comparable_count,
+          scope_side, provenance_kind, provenance_recorded_by, provenance_recorded_at)
+       values ('1a', 'Synthetic Structure Demolition', 'usd_per_sf_of_structure', 6.6, 'wood_frame_type_v',
+               'multifamily', 'new', 1, 'site', 'reviewed_judgment', 'Test', '2026-09-28')`,
+    );
+    await db.query(
+      `update projects set demolition_gate = 'yes', demolition_structure_count = 2,
+              demolition_structure_square_feet = 8000, demolition_structure_type = 'wood_frame_type_v'
+        where id = $1`,
+      [TEST_PROJECT_ID],
+    );
+  }
+
+  it("takes entries, and a published budget carries only the approved ones on it", async () => {
+    await demolitionProject();
+    const add = async (side: string, text: string) =>
+      (await (await list.POST(request("POST", { costCode: "28a", side, text }), project)).json()).entry as Entry;
+    const kept = await add("include", "Cap at the Main");
+    await add("exclude", "Never Approved");
+    await patch(kept.id, { approved: true });
+
+    const { runId, rom } = await runRom(db as Db, TEST_PROJECT_ID);
+    expect(rom.unpricedItems.map((item) => item.costCode)).toContain("28a");
+    const published = await publishBudget(db as Db, {
+      runId,
+      issuedBy: "devin@example.com",
+      copy: { preparedFor: null, preparedBy: null, validityDays: null, coverSentence: null },
+    });
+    const item = published.snapshot.rom.unpricedItems.find((i) => i.costCode === "28a")!;
+    expect(item.includes?.map((e) => e.text)).toEqual(["Cap at the Main"]);
+    expect(item.excludes).toEqual([]);
+    expect(JSON.stringify(published.snapshot)).not.toContain("Never Approved");
+  });
+
+  it("reads an elevator supporting item's definition from the relationship that brings it in", async () => {
+    const definition = await readItemDefinition(db as Db, "26c");
+    expect(definition).toContain("Elevator Pit Ladder: a supporting item brought in by item 26");
+    expect(definition).toContain("### 26. ");
+    expect(await readItemDefinition(db as Db, "no-such-item")).toBeNull();
+  });
+
+  it("drafts from the item's own definition", async () => {
+    await demolitionProject();
+    const { runId } = await runRom(db as Db, TEST_PROJECT_ID);
+    const sent: { content?: string } = {};
+    fakeModel({ includes: ["Cap at the Main"], excludes: [] }, sent);
+    const response = await draft.POST(request("POST", { costCode: "28a", runId }), project);
+    expect(response.status).toBe(201);
+    expect(JSON.parse(sent.content!).definition).toContain("### 28a. Plumbing Disconnect and Cap");
   });
 });
 

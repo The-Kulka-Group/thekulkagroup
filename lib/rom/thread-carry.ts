@@ -198,7 +198,11 @@ export type PageMessage = {
 export type PageThread = CarryThread & {
   kind: CommentKind;
   proposed: string | null;
+  /** The reader asked Kulka to remove the flag's correction. */
+  proposedRemoved: boolean;
   openedAt: string;
+  /** The opener's reader id, for the server to compare. Never sent to the page. */
+  openedBy: string;
   reader: { name: string; company: string | null };
   /** What a client may read: no internal notes, drafts or hidden messages. */
   messages: PageMessage[];
@@ -217,10 +221,12 @@ type ThreadRow = {
   anchor: CommentAnchor | string;
   kind: CommentKind;
   proposed: string | null;
+  proposed_removed_at: Stamp | null;
   status: ThreadStatus;
   outcome: FlagOutcome | null;
   addressed_in: string | null;
   opened_at: Stamp;
+  opened_by: string;
   reader_name: string;
   reader_company: string | null;
 };
@@ -260,7 +266,7 @@ export async function listPageThreads(db: Db, publishedBudgetId: string): Promis
 
   const { rows: threadRows } = await db.query<ThreadRow>(
     `select t.id, t.published_budget_id, pb.version, t.element_id, t.anchor, t.kind, t.proposed,
-            t.status, t.outcome, t.addressed_in, t.opened_at,
+            t.proposed_removed_at, t.status, t.outcome, t.addressed_in, t.opened_at, t.opened_by,
             r.name as reader_name, r.company as reader_company
        from budget_threads t
        join published_budgets pb on pb.id = t.published_budget_id
@@ -307,10 +313,12 @@ export async function listPageThreads(db: Db, publishedBudgetId: string): Promis
     anchor: typeof t.anchor === "string" ? (JSON.parse(t.anchor) as CommentAnchor) : t.anchor,
     kind: t.kind,
     proposed: t.proposed,
+    proposedRemoved: t.proposed_removed_at !== null,
     status: t.status,
     outcome: t.outcome,
     addressedIn: t.addressed_in,
     openedAt: toIso(t.opened_at),
+    openedBy: t.opened_by,
     reader: { name: t.reader_name, company: t.reader_company },
     messages: messages.get(t.id) ?? [],
   }));

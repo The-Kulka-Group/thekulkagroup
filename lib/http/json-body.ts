@@ -3,9 +3,10 @@ export const MAX_JSON_BODY_BYTES = 1_000_000;
 export class JsonBodyTooLarge extends Error {}
 export class InvalidJsonBody extends Error {}
 
-export async function readJsonBody(request: Request): Promise<unknown> {
+/** Reads a JSON body of at most `maxBytes`, 1 MB unless the caller sets a smaller cap. */
+export async function readJsonBody(request: Request, maxBytes = MAX_JSON_BODY_BYTES): Promise<unknown> {
   const declaredLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BODY_BYTES) {
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     throw new JsonBodyTooLarge();
   }
 
@@ -20,7 +21,7 @@ export async function readJsonBody(request: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_JSON_BODY_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new JsonBodyTooLarge();
       }

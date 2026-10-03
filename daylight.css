@@ -1986,3 +1986,19 @@ textarea.input { border-radius: var(--r-lg); }
 @media (max-width: 700px) {
   .estimating-summary-band { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* --- LA-1490: Home's list of client comments that need Kulka ---------------
+   One sentence and one action each, newest first. A row wraps on a phone. */
+.hc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.hc-item { padding: var(--s3) 0; border-top: 1px solid var(--border-light); min-width: 0; }
+.hc-item:last-child { border-bottom: 1px solid var(--border-light); }
+.hc-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); }
+.hc-sentence { margin: 0; flex: 1 1 280px; min-width: 0; font-size: var(--ui-size); line-height: var(--ui-line); color: var(--ink); overflow-wrap: anywhere; }
+.hc-meta { margin: var(--s1) 0 0; }
+.hc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--working); margin-right: var(--s2); vertical-align: 1px; }
+.hc-reply { display: grid; gap: var(--s3); margin-top: var(--s3); min-width: 0; }
+.hc-reply label { display: block; min-width: 0; }
+.hc-said { margin: 0; padding-left: var(--s3); border-left: 2px solid var(--border); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.hc-reply textarea.input { min-height: 72px; resize: vertical; font: inherit; }
+.hc-acts { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.hc-error { margin: 0; color: var(--stuck); font-size: var(--meta-size); }

@@ -235,7 +235,8 @@ const chip = (c: { tone: string; text: string }) => src(c.tone as Tone, c.text);
 const pill = `<span class="pill"><span class="pill-open">Open</span><span class="pill-close">Close</span></span>`;
 const items = (n: number) => `${n} ${n === 1 ? "Item" : "Items"}`;
 /** The VE control in its empty state (LA-1481): present, quiet, nothing to open until Kulka supplies options. */
-const ve = `<span class="ve" title="Value Engineering, empty until Kulka supplies options">VE <b>None Yet</b></span>`;
+// LA-1532: no VE control shows until a division has VE options (LA-1481).
+// "VE None Yet" on every division read as if Kulka had not tried.
 
 function tabs(list: { key: string; label: string; n?: number }[], end = ""): string {
   return `
@@ -350,7 +351,7 @@ function divisionRow(d: DivisionRow): string {
           <span class="lg-more dv-more">${longMark}<span class="lg-count">${items(count)}</span>${pill}</span>
           <span class="dv-meta">${longMark}<span>${items(count)}</span></span>
         </button>
-        <div class="lg-lines dv-open" id="${esc(id)}-open">${tabs(list, ve)}${panel(
+        <div class="lg-lines dv-open" id="${esc(id)}-open">${tabs(list)}${panel(
           "items",
           true,
           "Items",
@@ -375,7 +376,6 @@ function divisionRow(d: DivisionRow): string {
               )
             : ""
         }${hasDecisions ? panel("decisions", false, "Scope Decisions", decisionsPanel(d)) : ""}
-          <p class="only-phone ctl ctl--foot">${ve}</p>
         </div>
       </div>`;
 }
@@ -546,24 +546,7 @@ function sectionGates(page: BudgetPage): string {
     <li class="note" data-el="${esc(n.el)}" value="${n.number}"><span class="note-n num">${n.number}</span><span class="note-text">${esc(n.text)}</span></li>`,
     )
     .join("")}
-  </ol>${
-    page.parameters.length > 0
-      ? `
-  <div class="parameters">
-    <h2 class="gates-h">Pricing Parameters This Budget Ran With</h2>
-    <table class="params">
-      <thead><tr><th scope="col">Parameter</th><th scope="col" class="right">Value</th><th scope="col">Set By</th><th scope="col">Date</th></tr></thead>
-      <tbody>${page.parameters
-        .map(
-          (p) => `
-        <tr data-el="${esc(p.el)}"><td>${esc(p.label)}</td><td class="right num">${esc(p.value)}</td><td>${esc(p.recordedBy)}</td><td>${esc(p.recordedAt)}</td></tr>`,
-        )
-        .join("")}
-      </tbody>
-    </table>${page.markupWords ? `\n    <p class="sub">${esc(page.markupWords)}</p>` : ""}
-  </div>`
-      : ""
-  }
+  </ol>${page.markupWords ? `\n  <p class="sub">${esc(page.markupWords)}</p>` : ""}
 </section>`;
 }
 

@@ -13,7 +13,7 @@ describe("presentBudget", () => {
   it("puts the Kulka contract, its range and the two derived figures up front", () => {
     const page = presentBudget(referencePublication());
 
-    expect(page.headline.kulkaContract).toEqual({ low: 13_842_806, high: 26_750_419, likely: 20_296_612.5 });
+    expect(page.headline.kulkaContract).toEqual({ low: 13_842_806, high: 26_750_419, likely: 20_296_613 });
     expect(page.headline.totalProjectCost).toEqual({ low: 13_995_835, high: 27_068_249, likely: 20_532_042 });
     expect(page.headline.perSquareFoot?.value).toBe(317);
     expect(page.headline.perSquareFoot?.arithmetic).toBe("Kulka contract over gross area, garage included: $20,296,613 over 64,000 SF");
@@ -33,15 +33,45 @@ describe("the ledger", () => {
     // Reference run: subtotal 11,888,024 to 22,972,917; owner-direct 153,029 to 317,830.
     expect(sum(page.money.scopes)).toEqual({ low: 11_888_024, high: 22_972_917 });
     expect(sum(page.money.ownerScopes)).toEqual({ low: 153_029, high: 317_830 });
-    expect(page.money.trades).toEqual({ low: 11_888_024, high: 22_972_917, likely: 17_430_470.5 });
+    expect(page.money.trades).toEqual({ low: 11_888_024, high: 22_972_917, likely: 17_430_470 });
+  });
+
+  it("prints whole dollars that add to every total under them, and never moves an issued total (LA-1532)", () => {
+    const page = presentBudget(referencePublication());
+    const whole = (n: number) => Number.isInteger(n);
+    const midpointOf = (r: { low: number; high: number }) => (r.low + r.high) / 2;
+    const sum = (ns: number[]) => ns.reduce((s, n) => s + n, 0);
+
+    // The issued totals stand, rounded once. The largest line, Drywall, takes
+    // the few dollars of rounding; every other line keeps its own rounding.
+    expect(page.money.scopes[0].likely).toBe(3_244_162);
+    const siteDemolition = page.money.scopes.flatMap((s) => s.lines).find((l) => l.costCode === "1")!;
+    expect(siteDemolition.likely).toBe(Math.round(midpointOf(siteDemolition)));
+    expect(page.headline.kulkaContract.likely).toBe(20_296_613);
+    expect(page.headline.totalProjectCost.likely).toBe(20_532_042);
+
+    // Every line, scope and division is whole dollars, and each adds to the row it sits under.
+    const scopes = [...page.money.scopes, ...page.money.ownerScopes];
+    expect(scopes.flatMap((s) => s.lines).every((l) => whole(l.likely))).toBe(true);
+    for (const scope of scopes) expect(scope.likely).toBe(sum(scope.lines.map((l) => l.likely)));
+    expect(sum(page.money.scopes.map((s) => s.likely))).toBe(page.money.trades.likely);
+    expect(sum(page.divisions.map((d) => d.likely))).toBe(page.headline.tradeCost.likely);
+
+    // The waterfall builds from Trade Cost to the contract as issued, and on to Total Project Cost.
+    const wf = new Map(page.waterfall.map((w) => [w.key, w]));
+    expect(wf.get("subtotal")!.likely).toBe(page.money.trades.likely);
+    const markups = page.waterfall.filter((w) => ["gr", "gc", "fee", "insurance"].includes(w.key) && !w.tbd);
+    expect(wf.get("subtotal")!.likely + sum(markups.map((m) => m.likely))).toBe(page.headline.kulkaContract.likely);
+    expect(markups.at(-1)!.running).toBe(page.headline.kulkaContract.likely);
+    expect(page.headline.kulkaContract.likely + wf.get("owner-direct")!.likely).toBe(page.headline.totalProjectCost.likely);
   });
 
   it("orders scopes largest first, folds an element's lines under it, and shows eight at Summary", () => {
     const page = presentBudget(referencePublication());
 
     expect(page.money.scopes.slice(0, 3).map((s) => [s.el, s.likely])).toEqual([
-      ["line:17", 3_244_169.5],
-      ["line:28", 1_812_021.5],
+      ["line:17", 3_244_162],
+      ["line:28", 1_812_022],
       ["line:31", 1_237_763],
     ]);
     const elevator = page.money.scopes.find((s) => s.el === "element:elevator")!;
@@ -156,9 +186,9 @@ describe("the client ledger", () => {
     const running = page.waterfall.map((w) => [w.key, w.running]);
 
     expect(running).toEqual([
-      ["subtotal", 17_430_471],
-      ["gc", 18_650_604],
-      ["fee", 19_256_749],
+      ["subtotal", 17_430_470],
+      ["gc", 18_650_603],
+      ["fee", 19_256_748],
       ["insurance", 20_296_613],
       ["kulka-contract", null],
       ["owner-direct", null],
@@ -424,7 +454,7 @@ describe("the letter", () => {
       "You asked Kulka to price a 70-unit multifamily building: 5 stories of wood framing, 64,000 gross square feet, with surface parking. First, one structure of 15,000 square feet comes down. This budget prices that program as you described it, before any drawings exist, from the rates Kulka has stated.",
     );
     expect(paragraphs[1]).toBe(
-      "We expect Kulka's contract to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between $13,842,806 and $26,750,419 as the design settles. With what you buy direct, the total project cost is $20,532,042, or $317 per square foot and $289,952 per unit.",
+      "We expect Kulka's contract to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between $13,842,806 and $26,750,419 as the design settles. The contract is $317 per square foot and $289,952 per unit. With what you buy direct, the total project cost is $20,532,042.",
     );
     expect(paragraphs[2]).toBe(
       "Every priced line rests on a rate Kulka has stated. No line here is a bid.",
@@ -450,9 +480,9 @@ describe("the letter", () => {
       ["$20,296,613", null, "total:kulka-contract"],
       ["$13,842,806", null, "total:kulka-contract:low"],
       ["$26,750,419", null, "total:kulka-contract:high"],
-      ["$20,532,042", null, "total:total-project-cost"],
       ["$317", "record:per-sf", null],
       ["$289,952", "record:per-unit", null],
+      ["$20,532,042", null, "total:total-project-cost"],
     ]);
   });
 
@@ -472,5 +502,16 @@ describe("the letter", () => {
     const publication = referencePublication();
     publication.snapshot.copy.preparedFor = "Harbor Point Partners";
     expect(presentBudget(publication).letter.greeting).toBe("To Harbor Point Partners,");
+  });
+});
+
+describe("Settled criteria (LA-1532)", () => {
+  it("marks a criterion Settled only when nothing under it is assumed", () => {
+    const { criteria } = presentBudget(referencePublication());
+    const byCode = new Map(criteria.map((c) => [c.code, c]));
+    // A-1 is high and every input is stated. M-1 is high but rests on an assumed glazing band and unit mix.
+    expect(byCode.get("A-1")?.settled).toBe(true);
+    expect(byCode.get("M-1")?.settled).toBe(false);
+    for (const c of criteria) if (c.settled) expect(c.inputs.every((i) => i.basis === "stated")).toBe(true);
   });
 });

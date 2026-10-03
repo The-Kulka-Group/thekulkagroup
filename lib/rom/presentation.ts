@@ -306,7 +306,33 @@ export function slug(text: string): string {
 }
 
 function figure(range: { low: number; high: number }): Figure {
-  return { low: range.low, high: range.high, likely: midpoint(range) };
+  return { low: range.low, high: range.high, likely: whole(range) };
+}
+
+/**
+ * A range's likely figure, rounded once to whole dollars. LA-1532: every total
+ * the page shows is the sum of the rounded figures beneath it (see tieOut), so
+ * a reader who adds a column gets the figure printed under it.
+ */
+function whole(range: { low: number; high: number }): number {
+  return Math.round(midpoint(range));
+}
+
+/**
+ * Whole-dollar figures for `values` that add up to `target`. Each value is
+ * rounded on its own, and the few dollars of rounding left over go to the
+ * largest value, so a small line prints the same figure in every version
+ * and a comment on it never reads as changed (LA-1532). When the values and
+ * the target disagree by more than a dollar a value, the target is not theirs
+ * to meet, so each value is simply rounded.
+ */
+export function apportion(values: readonly number[], target: number): number[] {
+  const rounded = values.map(Math.round);
+  const left = target - rounded.reduce((sum, v) => sum + v, 0);
+  if (values.length === 0 || Math.abs(left) > values.length) return rounded;
+  const largest = values.reduce((best, v, i) => (v > values[best] ? i : best), 0);
+  rounded[largest] += left;
+  return rounded;
 }
 
 // --- Sections and stages -------------------------------------------------------
@@ -723,7 +749,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
     return {
       low,
       high,
-      likely: midpoint({ low, high }),
+      likely: lines.reduce((sum, line) => sum + line.likely, 0),
       el: kind === "element" ? `element:${slug(row.label)}` : kind === "line" ? `line:${items[0].costCode}` : `unpriced:${items[0].costCode}`,
       domId: `scope-${slug(label)}`,
       kind,
@@ -788,7 +814,7 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
   const plan = planLines(snapshot).map((line) => ({ el: `plan-line:${line.id}`, label: titleCase(line.label), amount: line.amount }));
   const row = (over: Omit<WaterfallRow, "likely" | "plan" | "tbd" | "running"> & { tbd?: boolean; plan?: WaterfallRow["plan"] }): WaterfallRow => ({
     ...over,
-    likely: midpoint(over),
+    likely: whole(over),
     tbd: over.tbd ?? false,
     plan: over.plan ?? [],
     running: null,
@@ -847,13 +873,30 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
   // The figure as it is built: trade cost, then each markup's rounded figure
   // added on, and the contract figure itself when the last one has joined.
   const markups = rows.filter((r) => r.key === "gr" || r.key === "gc" || r.key === "fee" || r.key === "insurance");
-  let running = Math.round(rows[0].likely);
+  tieOut(rows, markups);
+  let running = rows[0].likely;
   rows[0].running = running;
-  markups.forEach((r, i) => {
-    if (!r.tbd) running += Math.round(r.likely);
-    r.running = i === markups.length - 1 ? Math.round(midpoint(contract)) : running;
+  markups.forEach((r) => {
+    if (!r.tbd) running += r.likely;
+    r.running = running;
   });
   return rows;
+}
+
+/**
+ * LA-1532. A published total never moves, so the rows above it carry the
+ * rounding instead: Trade Cost and each markup are rounded so they add to the
+ * contract as issued, the largest of them taking the few dollars left over,
+ * and the owner's lines take what is left of Total Project Cost.
+ */
+function tieOut(rows: WaterfallRow[], markups: WaterfallRow[]): void {
+  const byKey = (key: WaterfallRow["key"]) => rows.find((r) => r.key === key)!;
+  const contract = byKey("kulka-contract");
+  const parts = [byKey("subtotal"), ...markups.filter((r) => !r.tbd)];
+  apportion(parts.map(midpoint), contract.likely).forEach((value, i) => {
+    parts[i].likely = value;
+  });
+  byKey("owner-direct").likely = byKey("total-project-cost").likely - contract.likely;
 }
 
 // --- The client ledger, in MasterFormat order, and the section's facts (LA-1459) ------
@@ -1115,12 +1158,12 @@ function letterOf(input: {
     if (headline.perSquareFoot) rates.push([fig(usd(headline.perSquareFoot.value), { el: "record:per-sf", title: headline.perSquareFoot.arithmetic }), t(" per square foot")]);
     if (headline.perUnit) rates.push([fig(usd(headline.perUnit.value), { el: "record:per-unit", title: headline.perUnit.arithmetic }), t(" per unit")]);
     const rateRuns = rates.flatMap((rate, i) => (i === 0 ? rate : [t(" and "), ...rate]));
+    // The rates are the contract's (headlineFigures), so they follow the
+    // contract and never the total project cost. Cold read 2026-10-03 (LA-1532):
+    // "$20,532,042, or $317 per square foot" read as wrong arithmetic.
+    if (rateRuns.length > 0) runs.push(t(` The contract is `), ...rateRuns, t("."));
     if (input.ownerDirect > 0) {
-      runs.push(t(" With what you buy direct, the total project cost is "), fig(usd(headline.totalProjectCost.likely), { elRef: "total:total-project-cost" }));
-      if (rateRuns.length > 0) runs.push(t(", or "), ...rateRuns);
-      runs.push(t("."));
-    } else if (rateRuns.length > 0) {
-      runs.push(t(" That is "), ...rateRuns, t("."));
+      runs.push(t(" With what you buy direct, the total project cost is "), fig(usd(headline.totalProjectCost.likely), { elRef: "total:total-project-cost" }), t("."));
     }
     paragraphs.push(runs);
   }
@@ -1189,6 +1232,15 @@ function letterOf(input: {
 
 // --- The page ---------------------------------------------------------------------------------
 
+/** Rounds a ledger's lines so they add to `target`, and each scope to its lines (LA-1532). */
+function tieLines(scopes: Scope[], target: number): void {
+  const lines = scopes.flatMap((scope) => scope.lines);
+  apportion(lines.map(midpoint), target).forEach((value, i) => {
+    lines[i].likely = value;
+  });
+  for (const scope of scopes) scope.likely = scope.lines.reduce((sum, line) => sum + line.likely, 0);
+}
+
 export function presentBudget(publication: Publication): BudgetPage {
   const { snapshot } = publication;
   const { rom, answers, copy } = snapshot;
@@ -1204,7 +1256,13 @@ export function presentBudget(publication: Publication): BudgetPage {
 
   // Scopes, largest first, from the saved budget's own ledger.
   const { trade, owner, classifications } = scopesOf(snapshot);
-  const trades = figure(rom.kulkaContractTotal);
+  // LA-1532: the waterfall ties to the contract as issued, and the ledger's
+  // lines tie to the waterfall's Trade Cost and owner figure.
+  const waterfall = waterfallOf(snapshot);
+  const shownFigure = (key: WaterfallRow["key"]) => waterfall.find((r) => r.key === key)!.likely;
+  tieLines(trade, shownFigure("subtotal"));
+  tieLines(owner, shownFigure("owner-direct"));
+  const trades = { ...figure(rom.kulkaContractTotal), likely: shownFigure("subtotal") };
   trade.forEach((scope) => {
     scope.share = trades.likely > 0 ? scope.likely / trades.likely : 0;
   });
@@ -1212,7 +1270,7 @@ export function presentBudget(publication: Publication): BudgetPage {
   // What This Rests On: over the lines that add to the total.
   const placeholder = priced.filter(isPlaceholder);
   const fromRates = priced.filter((line) => !isPlaceholder(line));
-  const tradeCost = figure(rom.total);
+  const tradeCost = { ...figure(rom.total), likely: trades.likely + shownFigure("owner-direct") };
 
   // Notes: the run's own assumptions, numbered in the order the run wrote them.
   // The id comes from the note's words, never its number (LA-1488).
@@ -1265,7 +1323,9 @@ export function presentBudget(publication: Publication): BudgetPage {
         .filter((label): label is string => label !== null)
         .map(titleCase),
       confidenceReason: criterionWords(a.confidenceReason),
-      settled: a.confidence === "high",
+      // LA-1532: Settled only when nothing under it is assumed. M-1 read
+      // "Settled" while resting on an assumed glazing band and unit mix.
+      settled: a.confidence === "high" && a.inputs.every((input) => input.basis === "stated"),
       inputs: a.inputs.map((input) => ({ name: criterionWords(input.name), value: String(input.value), basis: input.basis === "stated" ? "stated" : "assumed" })),
       steps: a.steps.map((step) => ({ label: criterionWords(step.label), result: criterionWords(step.result) })),
       corrected: a.correction ? { on: a.correction.correctedAt.slice(0, 10), reason: criterionWords(a.correction.reason) } : null,
@@ -1366,7 +1426,7 @@ export function presentBudget(publication: Publication): BudgetPage {
     drawing,
     restsOn,
     criteria,
-    waterfall: waterfallOf(snapshot),
+    waterfall,
     gates,
     notes,
     parameters: parametersOf(rom),

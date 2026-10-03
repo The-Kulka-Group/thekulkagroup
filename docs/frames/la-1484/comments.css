@@ -1,0 +1,185 @@
+/* LA-1484. The client comment layer (LA-1480 spec, Decisions 1, 4 and 5), drawn on
+   top of the approved LA-1479 frames. page.css and drill.css are unchanged; every
+   rule for the layer is here. Colour stays inside the page's dot-plus-ink status
+   style: the working orange the page already uses, the one blue, and Daylight's
+   Done green, which the spec names for a closed thread. Labels stay in ink. */
+
+:root {
+  --done-bright: #00C875;
+  --primary-tint: #EAF3FE;
+}
+
+/* --- The header control ------------------------------------------------------- */
+
+.hd-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 1px; padding: 0 5px; border-radius: var(--r-pill); background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
+.hd-cmt.is-on { background: var(--rb-ink-on-black); border-color: var(--rb-ink-on-black); color: var(--rb-black); padding: 0 18px; }
+
+/* Comment mode: one line under the header says what to do. */
+.cmode-bar { display: flex; align-items: center; justify-content: center; height: 32px; margin: 0 -24px; background: var(--primary); color: #fff; font-size: var(--meta-size); font-weight: 600; }
+
+/* --- Markers: a dot with a count, at the element's right edge -------------------
+   At 1440 they sit just past the ledger's right border, so every marker lines up
+   in one rail and none moves or covers a figure. */
+
+.lg { overflow-clip-margin: 30px; }
+.lg-btn, .si-head, .as li[data-el] { position: relative; }
+/* A dot and a count in ink. The dot sits on the ledger's right border, the count just past it. */
+.cm { position: absolute; top: 50%; left: calc(100% - 4px); transform: translateY(-50%); z-index: 2; display: inline-flex; align-items: center; gap: 4px; font-size: var(--chip-size); font-weight: 700; line-height: 1; color: var(--rb-blk-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cm .dot { width: 8px; height: 8px; box-shadow: 0 0 0 2.5px var(--surface); }
+.si-head .cm { left: calc(100% + 14px - 4px); }
+.as li .cm { left: calc(100% + 27px - 4px); }
+
+/* The three thread states, here and in every state label. */
+.cm--open .dot, .st--open .dot { background: var(--working); }
+.cm--answered .dot, .st--answered .dot { background: var(--primary); }
+.cm--done .dot, .st--done .dot { background: var(--done-bright); }
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink); white-space: nowrap; }
+
+/* --- Comment mode: thin outlines on everything a reader can comment on ---------- */
+
+.cmode .lg-item > .lg-btn,
+.cmode .si[data-open="false"],
+.cmode .si[data-open="true"] > .si-head,
+.cmode .as li[data-el],
+.cmode .sup li,
+.cmode .lg-foot { outline: 1px dashed rgba(0, 115, 234, 0.4); outline-offset: -2px; border-radius: 6px; }
+.cmode .si[data-open="false"] { outline-offset: -1px; padding-left: 8px; padding-right: 8px; margin: 0 -8px; }
+.cmode .si[data-open="true"] > .si-head { outline-offset: 3px; }
+.cmode .as li[data-el] { padding-left: 8px; padding-right: 8px; margin: 0 -8px; }
+.cmode .as li[data-el] .cm { left: calc(100% + 27px - 4px - 8px); }
+.cmode { --hd-h: 128px; }
+.cmode .lens-in .pill, .cmode .dv-open .si .pill { opacity: 0.35; }
+
+/* The element under the pointer, and the element whose card is open. */
+.lg-item[data-cm] > .lg-btn,
+.si[data-cm][data-open="false"],
+.si[data-cm][data-open="true"] > .si-head,
+li[data-cm] { outline: 1.5px solid var(--primary) !important; outline-offset: 3px; border-radius: 6px; background: var(--primary-tint); box-shadow: 0 0 0 3px var(--primary-tint); }
+.as li[data-cm], .si[data-cm][data-open="false"] { outline-offset: -1px !important; box-shadow: none; padding-left: 8px; padding-right: 8px; margin: 0 -8px; }
+.as li[data-cm] .cm { left: calc(100% + 27px - 4px - 8px); }
+.si[data-cm="hover"] .si-head::after { content: "+"; position: absolute; top: 50%; left: calc(100% + 14px - 11px); transform: translateY(-50%); width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 16px; font-weight: 600; line-height: 21px; text-align: center; }
+
+/* --- The card: composer and thread ------------------------------------------------ */
+
+.cc { position: absolute; z-index: 40; width: 400px; display: grid; gap: 12px; padding: 14px 16px 16px; background: var(--surface); border: 1px solid var(--rb-blk-line); border-radius: var(--r-lg); box-shadow: 0 2px 4px rgba(29, 29, 31, 0.06), 0 18px 40px rgba(29, 29, 31, 0.14); font-size: var(--ui-size); color: var(--rb-blk-ink); }
+.cc--wide { width: 452px; }
+.cc-lead { position: absolute; z-index: 39; height: 1px; background: var(--primary); }
+.cc-lead::after { content: ""; position: absolute; right: -1px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+.cc-grab { display: none; }
+.has-sheet .dwg-tag, .has-sheet .dwg-lead { visibility: hidden; }
+
+.cc-hd { display: flex; align-items: flex-start; gap: 12px; }
+.cc-on { min-width: 0; flex: 1; display: grid; gap: 1px; }
+.cc-ctx { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.cc-l { font-size: var(--t3-size); font-weight: 600; line-height: 22px; }
+.cc-v { font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink2); }
+.cc-x { flex: none; width: 26px; height: 26px; margin: -2px -4px 0 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--rb-blk-mute); font-size: 20px; line-height: 1; }
+.cc-state { flex: none; display: inline-flex; align-items: center; gap: 10px; padding-top: 2px; }
+.cc-kind { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+
+.cc-kinds { margin-left: 0; justify-self: start; }
+.cc-lab { font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); margin-bottom: 5px; }
+.cc-lab span { font-weight: 400; color: var(--rb-blk-mute); margin-left: 4px; }
+.cc-field { min-height: 72px; padding: 10px 12px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-md); font-size: var(--ui-size); line-height: 20px; color: var(--rb-blk-ink); background: var(--surface); }
+.cc-field--one { min-height: 0; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); font-weight: 600; }
+.cc-field--short { min-height: 0; }
+.cc-field .ph { color: var(--rb-blk-mute); }
+.caret { display: inline-block; width: 1.5px; height: 17px; margin-left: 1px; vertical-align: -3px; background: var(--primary); }
+.cc-field--one .caret { display: none; }
+
+.cc-ft { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cc-as { margin-right: auto; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.cc-as b { font-weight: 600; color: var(--rb-blk-ink); }
+.cc-as a { margin-left: 6px; color: var(--rb-blk-ink2); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--rb-blk-line); }
+/* With two actions, the Commenting As line takes its own row and the actions sit right. */
+.cc-ft:has(.btn + .btn) .cc-as { flex-basis: 100%; margin-bottom: 2px; }
+.cc-ft:has(.btn + .btn) .btn:first-of-type { margin-left: auto; }
+.msgs + .cc-field { min-height: 44px; }
+.btn { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: 1px solid var(--rb-blk-line); border-radius: var(--r-pill); background: var(--surface); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); white-space: nowrap; }
+.btn--ink { background: var(--rb-blk-ink); border-color: var(--rb-blk-ink); color: var(--surface); padding: 0 18px; }
+
+/* Budget Says beside Owner Says. */
+.says { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.says-c { min-width: 0; }
+.says-c--budget .says-v { padding: 10px 12px; border-radius: var(--r-md); background: var(--rb-blk-hover); color: var(--rb-blk-ink2); }
+.says-v { font-size: var(--meta-size); line-height: 18px; font-weight: 600; }
+.says-c:not(.says-c--budget) > .says-v { padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--rb-blk-line); border-left: 2px solid var(--working); }
+.says .cc-field--one { padding: 10px 12px; font-size: var(--meta-size); line-height: 18px; }
+
+/* The messages, oldest first. */
+.msgs { display: grid; }
+.msg { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--rb-blk-line); }
+.msg:first-child { border-top: 0; padding-top: 0; }
+.msg-who { font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.msg-who b { margin-right: 6px; font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
+.msg-b { font-size: var(--ui-size); line-height: 20px; }
+.msg--kulka { margin-top: 2px; padding: 10px 12px; border-top: 0; border-radius: var(--r-md); background: var(--rb-blk-hover); }
+
+/* A closed thread, folded to its first line and its state. */
+.folds { display: grid; }
+.fold { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--rb-blk-line); }
+.fold:first-child { border-top: 0; padding-top: 2px; }
+.fold-top { display: flex; align-items: center; gap: 10px; }
+.fold-k { margin-left: auto; font-size: var(--chip-size); color: var(--rb-blk-mute); white-space: nowrap; }
+.fold-1 { padding-left: 13px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fold-1--gone { font-style: italic; color: var(--rb-blk-mute); }
+.fold-r { margin: 4px 0 0 13px; padding: 7px 10px; border-radius: var(--r-md); background: var(--rb-blk-hover); font-size: var(--chip-size); line-height: 17px; color: var(--rb-blk-ink2); }
+.fold-r b { font-weight: 600; color: var(--rb-blk-ink); margin-right: 4px; }
+
+/* --- From Earlier Versions ------------------------------------------------------- */
+
+.earlier { margin-top: 36px; padding-top: 22px; border-top: 1px solid var(--rb-blk-line); max-width: 720px; }
+.earlier-sub { margin: 4px 0 10px; font-size: var(--meta-size); color: var(--rb-blk-mute); }
+.orphs { border: 1px solid var(--rb-blk-line); border-radius: var(--r-md); background: var(--surface); }
+.orph { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 4px 16px; padding: 12px 14px; border-top: 1px solid var(--rb-blk-line); }
+.orph:first-child { border-top: 0; }
+.orph-a { min-width: 0; }
+.orph-q { font-size: var(--ui-size); line-height: 20px; font-weight: 600; color: var(--rb-blk-ink); }
+.orph-q::before { content: "\201C"; }
+.orph-q::after { content: "\201D"; }
+.orph-m { margin-top: 2px; font-size: var(--chip-size); color: var(--rb-blk-mute); }
+.orph .pill { height: 26px; padding: 0 12px; font-size: var(--chip-size); }
+
+/* --- Frame notes: never part of the built page ------------------------------------ */
+
+.fnote { margin-top: 14px; padding: 10px 12px; border: 1px dashed #A6A59D; border-radius: var(--r-md); font-size: var(--chip-size); line-height: 17px; color: var(--rb-blk-mute); }
+.fnote b { display: block; margin-bottom: 2px; font-weight: 600; color: var(--rb-blk-ink2); }
+.next > .fnote { margin: 0 0 20px; max-width: 720px; }
+
+/* --- Phone ------------------------------------------------------------------------ */
+
+@media (max-width: 860px) {
+  .cmode-bar { margin: 0 -16px; height: 30px; font-size: var(--chip-size); }
+  .cmode { --hd-h: 122px; }
+  .hd-cmt.is-on { padding: 0 14px; }
+  /* A phone has no gutter to spare: the marker sits inside the row, on its second line, under the figure. */
+  .lg-btn .cm { left: auto; right: 12px; top: auto; bottom: 10px; transform: none; }
+  .si-head .cm { left: auto; right: 0; top: calc(100% + 6px); transform: none; }
+  .as li .cm { left: auto; right: 0; }
+  .si[data-cm="hover"] .si-head::after { display: none; }
+  /* No hover on a phone: the element under the desk pointer reads like every other outline. */
+  .si[data-cm="hover"] { outline: 1px dashed rgba(0, 115, 234, 0.4) !important; background: none; }
+  .si[data-cm] > .si-head { outline-offset: 2px; }
+
+  /* The card is a bottom sheet. */
+  .cc, .cc--wide { position: fixed; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 74vh; overflow: auto; gap: 12px; padding: 8px 16px 18px; border-radius: 16px 16px 0 0; border-bottom: 0; box-shadow: 0 -2px 6px rgba(29, 29, 31, 0.06), 0 -18px 40px rgba(29, 29, 31, 0.16); }
+  .cc-grab { display: block; justify-self: center; width: 36px; height: 4px; border-radius: 2px; background: var(--rb-blk-line); margin-bottom: 2px; }
+  .cc-lead { display: none; }
+  .has-sheet main::after { content: ""; position: fixed; inset: 0; z-index: 30; background: rgba(11, 11, 10, 0.18); pointer-events: none; }
+  .has-sheet .hd { z-index: 35; }
+  .says { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .cc-ft { gap: 8px; }
+  .cc-as { flex-basis: 100%; margin-bottom: 2px; }
+  .cc-ft .btn { flex: 1; justify-content: center; }
+  .cc-kinds { justify-self: stretch; display: flex; }
+  .cc-kinds .view { flex: 1; justify-content: center; padding: 0 6px; }
+  .orph { grid-template-columns: minmax(0, 1fr) auto; }
+  .orph .st { grid-column: 1; grid-row: 2; }
+  .orph .pill { grid-column: 2; grid-row: 1 / span 2; }
+  .next > .fnote { margin: 0 0 16px; }
+}
+
+@media print { .cm, .cc, .cc-lead, .cmode-bar, .hd-cmt { display: none !important; } }
+
+/* Frame only: room below short frames, so the first-screen shot can scroll the open division under the lens as the approved frames do. */
+body.cmode main, body.has-sheet main { padding-bottom: 45vh; }

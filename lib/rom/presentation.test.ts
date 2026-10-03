@@ -101,21 +101,19 @@ describe("the client ledger", () => {
 
     expect(drywall.perSquareFoot).toBe("$50.69");
     expect(drywall.shareOfContract).toBe("16%");
-    expect(drywall.sourceText).toBe("2 Kulka Jobs");
+    expect(drywall.sourceText).toBe("Kulka Rate");
     expect(appliances.shareOfContract).toBeNull();
     expect(page.ledger.find((r) => r.key === "element:elevator")!.sourceText).toBe("Elevators: Kulka Rate · Elevator Bulkhead: Kulka Rate");
   });
 
-  it("inks a layer light when a stated rate prices it, and names the mixed rows", () => {
+  it("inks a layer light only when a placeholder rate prices it, and says nothing of past jobs (LA-1483)", () => {
     const page = presentBudget(referencePublication());
     const { drawing } = page;
 
-    expect(drawing.ink["element:elevator"]).toBe("light");
-    expect(drawing.ink["element:demolition"]).toBe("full");
-    expect(drawing.ink["line:1a"]).toBe("light");
-    expect(drawing.ink["line:1"]).toBe("full");
-    expect(drawing.ink["line:17"]).toBe("full");
-    expect(drawing.lightRows).toEqual(["Demolition", "Elevator"]);
+    // The reference run has no placeholder line, so every layer draws in full ink and the drawing carries no ink note.
+    expect(Object.values(drawing.ink).every((ink) => ink === "full")).toBe(true);
+    expect(drawing.lightRows).toEqual([]);
+    expect(drawing.inkNote).toBe("");
     expect(drawing.noLayer.map((r) => r.label)).toEqual([
       "Wood Stairs",
       "Finish Carpentry",
@@ -128,8 +126,6 @@ describe("the client ledger", () => {
       "Window Treatments",
       "Furnishings & Fireplace",
     ]);
-    // The job behind more lines first, without Kulka's job codes.
-    expect(drawing.jobs).toEqual(["Fieldstone North Broadway", "Jefferson's Ferry NW ILU Building 1"]);
   });
 
   it("reads the section's facts off the snapshot and the criteria", () => {
@@ -177,8 +173,9 @@ describe("client wording", () => {
     expect(clientSource("AI, This Budget Only")).toBe("Placeholder Rate");
     expect(clientSource("This Budget Only")).toBe("Kulka Rate");
     expect(clientSource("Stated Rate")).toBe("Kulka Rate");
-    expect(clientSource("1 Kulka Job")).toBe("1 Kulka Job");
-    expect(clientSource("4 Kulka Jobs, Judgment")).toBe("4 Kulka Jobs");
+    // LA-1483: a figure built from past jobs reads Kulka Rate, with no job count.
+    expect(clientSource("1 Kulka Job")).toBe("Kulka Rate");
+    expect(clientSource("4 Kulka Jobs, Judgment")).toBe("Kulka Rate");
     expect(clientSource("No Rate Yet")).toBe("No Rate Yet");
   });
 
@@ -192,7 +189,9 @@ describe("client wording", () => {
     const scope = page.money.scopes.find((s) => s.el === "line:19")!;
 
     expect(scope.chip.text).toBe("Placeholder Rate");
-    expect(scope.lines[0].comparables[0].kindWords).toBe("Placeholder Rate");
+    expect(scope.lines[0].basis).toMatch(/^A Placeholder Rate, applied to this project's quantity/);
+    expect(page.drawing.ink["line:19"]).toBe("light");
+    expect(page.drawing.inkNote).toBe("Light ink is a placeholder rate until Kulka states one.");
     expect(page.restsOn.placeholder).toBe(1);
     expect(JSON.stringify(page)).not.toMatch(/AI Figure|\bAI\b/);
   });
@@ -202,16 +201,14 @@ describe("client wording", () => {
       clientBasis(
         "7.00% of subtotal, user override (history: 11.49% from 2 jobs: Fieldstone North Broadway (C00449), Jefferson's Ferry NW ILU Building 1 (C00456))",
       ),
-    ).toBe("7.00% of subtotal, set by Kulka's estimator. Kulka's completed jobs average 11.49% across 2 jobs.");
+    ).toBe("7.00% of subtotal, set by Kulka's estimator.");
     expect(clientBasis("3.25% of subtotal plus General Requirements & General Conditions, parameter fee.rate, someone@example.com 2026-09-23")).toBe(
       "3.25% of subtotal plus General Requirements and General Conditions, Kulka's stated rate, set 2026-09-23",
     );
     expect(clientBasis("5.40% of subtotal plus GRs/GCs and fee, recorded 2026-09-23")).toBe(
       "5.40% of subtotal plus General Requirements and General Conditions and fee, Kulka's stated rate, set 2026-09-23",
     );
-    expect(clientBasis("9.50% of subtotal, from 1 job: Fieldstone North Broadway (C00449)")).toBe(
-      "9.50% of subtotal, the average of Kulka's completed job: Fieldstone North Broadway (C00449)",
-    );
+    expect(clientBasis("9.50% of subtotal, from 1 job: Fieldstone North Broadway (C00449)")).toBe("9.50% of subtotal");
     expect(clientBasis("No imported budget records General Conditions for this setup, and no override was given")).toBe(
       "Kulka has no recorded rate for General Conditions on this setup yet, and none was set",
     );
@@ -226,7 +223,7 @@ describe("client wording", () => {
 
     expect(text).not.toMatch(/user override|history:|parameter (fee|insurance)\.rate|@|\bROM\b|engine parameters|GRs\/GCs|ADR|\bmodel\b|\bAI\b|\bJev\b|\bLLM\b/);
     expect(page.notes[3].text).toBe(
-      "Blend weights, flag thresholds, and range widths are recorded pricing parameters, each with its own provenance, listed with this budget.",
+      "Range widths and markup rates are recorded pricing parameters, each with its own provenance, listed with this budget.",
     );
     expect(page.waterfall.find((w) => w.key === "subtotal")!.basis).toBe("Every scope above, added up. Owner-direct scope is kept out and added back below.");
   });
@@ -238,8 +235,10 @@ describe("notes", () => {
     const again = presentBudget(referencePublication()).notes;
 
     expect(again).toEqual(first);
-    expect(first.map((n) => n.el)).toEqual(Array.from({ length: 15 }, (_, i) => `note:${i + 1}`));
-    expect(first[8].text).toMatch(/^Not in this job, so removed from the total: Overhead Doors \(parking type\)/);
+    expect(first.map((n) => n.el)).toEqual(Array.from({ length: 14 }, (_, i) => `note:${i + 1}`));
+    // LA-1483: the run's "rest on estimator judgment with no measured Kulka figure" note is left out, and the rest renumber.
+    expect(first.map((n) => n.text).join("\n")).not.toMatch(/estimator judgment|measured Kulka figure/);
+    expect(first[7].text).toMatch(/^Not in this job, so removed from the total: Overhead Doors \(parking type\)/);
   });
 });
 
@@ -383,58 +382,13 @@ describe("a source label with no client word", () => {
   });
 });
 
-describe("a comparable's rate, in the unit the snapshot knows", () => {
-  it("prints a per-unit line's comparables per unit", () => {
-    // Line 10 priced per unit: its rate is per GSF of this project, times 914.29 SF per unit.
-    const line = lineOf(presentBudget(referencePublication()), "10");
-    expect(line.comparables[0].rate).toBe("$231 per unit");
-  });
-
-  it("prints a comparable the import recorded per GSF per SF", () => {
-    const line = lineOf(presentBudget(referencePublication()), "13");
-    expect(line.comparables.map((c) => c.rate)).toEqual(["$4.42 per SF", "$5.72 per SF"]);
-  });
-
-  it("prints a per-SF or per-unit rate under $100 to the cent, and whole dollars above", () => {
+describe("a rate per SF or per unit", () => {
+  it("prints a rate under $100 to the cent, and whole dollars above", () => {
     expect(rateUsd(0.14)).toBe("$0.14");
     expect(rateUsd(3.7077)).toBe("$3.71");
     expect(rateUsd(99.994)).toBe("$99.99");
     expect(rateUsd(231.4)).toBe("$231");
     expect(rateUsd(25_000)).toBe("$25,000");
-
-    // Line 8a's figure is $0.14 per GSF, which printed "$0 per SF" before.
-    expect(lineOf(presentBudget(referencePublication()), "8a").comparables[0].rate).toBe("$0.14 per SF");
-  });
-
-  it("prints a figure whose unit the snapshot does not know as a rate, with no unit", () => {
-    const page = presentBudget(referencePublication());
-    // Line 1's first figure is one job's $25,000 demolition line, a lump sum, not a rate per SF.
-    expect(lineOf(page, "1").comparables[0].rate).toBe("$25,000 rate");
-
-    const publication = referencePublication();
-    const line = publication.snapshot.rom.lines.find((l) => l.costCode === "13")!;
-    line.comparables = line.comparables.map((c) => ({ ...c, kind: "llm_proposal" as const, exportLabel: null, rate: 50 }));
-    expect(lineOf(presentBudget(publication), "13").comparables[0].rate).toBe("$50 rate");
-  });
-});
-
-describe("the markup method, in words", () => {
-  function wordsFor(method: string) {
-    const publication = referencePublication();
-    const markups = publication.snapshot.rom.markups!;
-    markups.choices = { ...markups.choices, method } as typeof markups.choices;
-    return presentBudget(publication).markupWords;
-  }
-
-  it("says line by line for an Allocated Resources plan", () => {
-    const words = wordsFor("allocated_resources");
-    expect(words).toContain("line by line, from an allocated resources plan");
-    expect(words).not.toContain("staffing");
-  });
-
-  it("keeps the staffing words for staffing and duration only", () => {
-    expect(wordsFor("staffing_duration")).toContain("from staffing and job duration");
-    expect(wordsFor("pct_of_subtotal")).not.toContain("staffing");
   });
 });
 
@@ -451,13 +405,13 @@ describe("the letter", () => {
     const paragraphs = letter.paragraphs.map(text);
     expect(paragraphs).toHaveLength(6);
     expect(paragraphs[0]).toBe(
-      "You asked Kulka to price a 70-unit multifamily building: 5 stories of wood framing, 64,000 gross square feet, with surface parking. First, one structure of 15,000 square feet comes down. This budget prices that program as you described it, before any drawings exist, from the jobs Kulka has already built.",
+      "You asked Kulka to price a 70-unit multifamily building: 5 stories of wood framing, 64,000 gross square feet, with surface parking. First, one structure of 15,000 square feet comes down. This budget prices that program as you described it, before any drawings exist, from the rates Kulka has stated.",
     );
     expect(paragraphs[1]).toBe(
       "We expect Kulka's contract to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between $13,842,806 and $26,750,419 as the design settles. With what you buy direct, the total project cost is $20,532,042, or $317 per square foot and $289,952 per unit.",
     );
     expect(paragraphs[2]).toBe(
-      "35 of the 38 priced lines stand on two buildings Kulka has completed, Fieldstone North Broadway and Jefferson's Ferry NW ILU Building 1. The other 3 rest on rates Kulka has stated. No line here is a bid.",
+      "Every priced line rests on a rate Kulka has stated. No line here is a bid.",
     );
     expect(paragraphs[3]).toBe(
       "Where a decision has not been made, we have assumed one and marked it. 9 design criteria set the construction type (Type IIIA), the foundation (spread footings), the electrical service (1,600 A), the elevators (2 hydraulic cars, 1 machine room) and the cooling load (91 tons). Each is called out on the section drawing inside, and each is yours to change.",
@@ -484,6 +438,18 @@ describe("the letter", () => {
       ["$317", "record:per-sf", null],
       ["$289,952", "record:per-unit", null],
     ]);
+  });
+
+  it("says what the lines rest on without naming a past job, a job count or a split from jobs (LA-1483)", () => {
+    const publication = referencePublication();
+    const line = publication.snapshot.rom.lines.find((l) => l.costCode === "19")!;
+    line.comparables = line.comparables.map((c) => ({ ...c, kind: "llm_proposal" as const }));
+    line.comparableCount = 0;
+
+    const paragraph = text(presentBudget(publication).letter.paragraphs[2]);
+
+    expect(paragraph).toBe("37 of the 38 priced lines rest on rates Kulka has stated. The other one carries a placeholder rate until Kulka states one. No line here is a bid.");
+    expect(paragraph).not.toMatch(/job|building|completed|built/i);
   });
 
   it("greets the reader the publication names", () => {

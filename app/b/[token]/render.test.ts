@@ -2,10 +2,12 @@ import { PARAMETER_NAMES } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
 import { presentBudget, rateUsd, usd } from "@/lib/rom/presentation";
+import { buildPrintJob } from "@/lib/rom/published-pdf";
 import { DIAGRAM_LINE, LAYERS } from "@/lib/rom/section";
 import { referencePage, referencePublication } from "@/test/fixtures/published-budget";
 
-import { renderBudgetPage, sourcingLine } from "./render";
+import * as renderModule from "./render";
+import { renderBudgetPage } from "./render";
 
 // LA-1418, LA-1459. The app's page against the LA-1416 reference page, from
 // the same run: the same sections in the same order, Version 1's data-el ids
@@ -55,17 +57,22 @@ describe("the rendered page against the reference", () => {
     // fold (scopes:rest) is gone, because the ledger shows every row so the
     // section can be drawn row by row; the foot names the
     // project (record:project), as the approved close does. LA-1478: Proven
-    // and its counts are cut, and one sourcing line (note:sourcing) under the
-    // ledger keeps its share of trade cost.
+    // and its counts are cut. LA-1483: the ledger's comparable rows, the
+    // sourcing line, the parameters that name past jobs, and the note that
+    // splits lines off from past jobs are cut, so their ids are not expected.
     const renamed = (id: string) =>
       id === "record:recorded" ? "record:issued" : id.startsWith("parameter:") ? `parameter:${id.slice(10).replace(/[._]/g, "-")}` : id;
     const proven = (id: string) => id === "section:what-this-rests-on" || id.startsWith("count:");
-    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest" && !proven(id);
+    const pastJobParameters = new Set(["weight-actuals", "weight-proest-budget", "weight-reviewed-judgment", "flag-high-min-comparables", "flag-medium-min-comparables"]);
+    const noteCount = presentBudget(referencePublication()).notes.length;
+    const cutNote = (id: string) => id.startsWith("note:") && /^\d+$/.test(id.slice(5)) && Number(id.slice(5)) > noteCount;
+    const cutParameter = (id: string) => id.startsWith("parameter:") && pastJobParameters.has(renamed(id).slice(10));
+    const clientFacing = (id: string) => notComparable(id) && id !== "record:snapshot" && id !== "scopes:rest" && !proven(id) && !cutNote(id) && !cutParameter(id);
     // LA-1467: the page opens on a letter, which has its own section id.
-    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter", "note:sourcing"]);
+    const expected = new Set([...referencePage.dataEl.filter(clientFacing).map(renamed), "record:gross-area", "record:units", "record:project", "section:letter"]);
 
     expect(new Set(ids.filter(notComparable))).toEqual(expected);
-    expect(ids.filter((id) => id.includes(":comparable:"))).toHaveLength(referencePage.dataEl.filter((id) => id.includes(":comparable:")).length);
+    expect(ids.filter((id) => id.includes(":comparable:"))).toEqual([]);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -89,7 +96,6 @@ describe("the rendered page against the reference", () => {
       for (const line of sc.lines) {
         figure(line);
         moneyOf(line.basis).forEach((m) => held.add(m));
-        for (const c of line.comparables) moneyOf(c.rate).forEach((m) => held.add(m));
       }
     }
     for (const row of model.ledger) if (row.perSquareFoot) held.add(row.perSquareFoot);
@@ -206,7 +212,7 @@ describe("client-facing text", () => {
     const SHORT = new Set(["a", "an", "and", "as", "at", "by", "for", "in", "is", "of", "on", "or", "per", "the", "to", "with"]);
     const labels = [
       ...html.matchAll(
-        /<(h1|h2|h3|dt|th)[^>]*>([\s\S]*?)<\/\1>|<button type="button" class="sw-t"[^>]*>([^<]*)<\/button>|class="(?:lg-name|fig-l|wf-lab|crit-l|crit-tag num|pill|stg-name|hd-fig-l|cmp-k|ln-l|lg-tag|sheet-h|hd-mark)"[^>]*>([\s\S]*?)<\/(?:a|p|span|h1|h2)>|<a href="#[^"]*" data-index="[^"]*">([^<]*)<\/a>|<span class="src[^"]*"><i[^>]*><\/i>([^<]*)<\/span>/g,
+        /<(h1|h2|h3|dt|th)[^>]*>([\s\S]*?)<\/\1>|<button type="button" class="sw-t"[^>]*>([^<]*)<\/button>|class="(?:lg-name|fig-l|wf-lab|crit-l|crit-tag num|pill|stg-name|hd-fig-l|ln-l|lg-tag|sheet-h|hd-mark)"[^>]*>([\s\S]*?)<\/(?:a|p|span|h1|h2)>|<a href="#[^"]*" data-index="[^"]*">([^<]*)<\/a>|<span class="src[^"]*"><i[^>]*><\/i>([^<]*)<\/span>/g,
       ),
     ]
       .map((m) => (m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? "").replace(/<span class="(?:lg-count|lg-tag)[^"]*">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, " "))
@@ -251,38 +257,70 @@ describe("client-facing text", () => {
   });
 });
 
-// LA-1478. Proven is cut; the share of trade cost behind each source is one
-// sentence under the ledger, every figure the model's own.
-describe("the sourcing line", () => {
-  const withShares = (shares: { fromKulkaJobs: number; fromKulkaRates: number; placeholder: number }) => {
-    const model = presentBudget(referencePublication());
-    return { ...model, restsOn: { ...model.restsOn, shares } };
-  };
+// LA-1483. Matt decided on 2026-10-02 that a client sees nothing about the
+// projects behind a number: no past job, no job count, no job name. The
+// snapshot and the internal app keep their comparables.
+describe("past jobs are off the client page", () => {
+  const model = () => presentBudget(referencePublication());
+  const documents = (): [string, string][] => [
+    ["the page", page()],
+    ["the print render", renderBudgetPage(model(), { print: true })],
+    ["the stored PDF's source", buildPrintJob(model()).html],
+  ];
+  // Every job name the fixture froze, with and without its Kulka job code.
+  const jobNames = Object.values(referencePublication().snapshot.sourceJobNames ?? {}).flatMap((name) => [name, name.replace(/ \(C\d+\)$/, ""), name.match(/\(C\d+\)$/)?.[0] ?? ""]).filter(Boolean);
 
-  it("prints the reference's own split under the ledger, and no Proven section", () => {
-    const model = presentBudget(referencePublication());
-    const html = renderBudgetPage(model);
-    const line = sourcingLine(model);
-
-    expect(line).toMatch(/^\d+(\.\d)?% of the trade cost is priced from Kulka's completed jobs/);
-    expect(html).toContain(`data-el="note:sourcing">${line}</p>`);
-    expect(html.indexOf('data-el="note:sourcing"')).toBeLessThan(html.indexOf('id="design-and-engineering"'));
-    expect(html).not.toMatch(/Proven|what-this-rests-on/);
+  it("has job names in the fixture to look for", () => {
+    expect(jobNames.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("names every source with lines behind it, and leaves out one with none", () => {
-    expect(sourcingLine(withShares({ fromKulkaJobs: 0.8, fromKulkaRates: 0.2, placeholder: 0 }))).toBe(
-      "80% of the trade cost is priced from Kulka's completed jobs, and 20% from rates Kulka has stated.",
-    );
-    expect(sourcingLine(withShares({ fromKulkaJobs: 0.7, fromKulkaRates: 0.2, placeholder: 0.1 }))).toBe(
-      "70% of the trade cost is priced from Kulka's completed jobs, 20% from rates Kulka has stated, and 10% from placeholder rates until Kulka states them.",
-    );
-    expect(sourcingLine(withShares({ fromKulkaJobs: 0, fromKulkaRates: 1, placeholder: 0 }))).toBe(
-      "All of the trade cost is priced from rates Kulka has stated.",
-    );
+  it.each(documents())("carries no comparable id, job name or job code in %s", (_name, html) => {
+    expect(idsOf(html).filter((id) => id.includes("comparable"))).toEqual([]);
+    expect(html).not.toMatch(/class="cmps?"|class="cmp-/);
+    for (const name of jobNames) expect(html, name).not.toContain(name);
+    expect(html).not.toMatch(/Fieldstone|Jefferson|\bC00\d{3}\b/);
   });
 
-  it("never claims a public source, because no line uses one", () => {
-    expect(clientText(page())).not.toMatch(/public source/i);
+  it.each(documents())("says nothing of past jobs, job counts or a completed-jobs share in %s", (_name, html) => {
+    const text = clientText(html);
+    expect(text).not.toMatch(/\bKulka jobs?\b/i);
+    expect(text).not.toMatch(/completed jobs?|jobs? Kulka has (?:built|completed)|past jobs?|job actuals|jobs? stands? behind|jobs? behind|buildings Kulka has completed/i);
+    expect(text).not.toMatch(/\bcomparables?\b|\bactuals\b|\bmeasured Kulka\b|\bhistory\b|\bweights?\b/i);
+    // The share of trade cost by source, in any wording.
+    expect(text).not.toMatch(/of the trade cost is priced from/i);
+    expect(text).not.toMatch(/\d+(\.\d)?% (?:of the trade cost )?(?:is priced )?from/i);
+  });
+
+  it("opens a ledger line to its figures, its confidence and how it was built, and no more", () => {
+    const html = page();
+    const detail = html.slice(html.indexOf('class="ln"'), html.indexOf("</div>", html.indexOf('class="ln-basis"')));
+    expect(detail).toContain('class="ln-range"');
+    expect(detail).toContain('class="ln-basis"');
+    expect(detail).toContain("A Kulka rate, applied to this project's quantity.");
+  });
+
+  it("calls every figure a Kulka rate and never counts the jobs behind it", () => {
+    const html = page();
+    expect(html).toMatch(/<i class="dot dot--\w+" aria-hidden="true"><\/i>Kulka Rate<\/span>/);
+    expect(html).not.toMatch(/\d+ Kulka Jobs?/);
+  });
+
+  it("leaves the sourcing sentence out whole, and no longer exports a builder for it", () => {
+    for (const [name, html] of documents()) {
+      expect(html, name).not.toContain("note:sourcing");
+      expect(html, name).not.toContain("lg-source");
+      expect(clientText(html), name).not.toMatch(/of the trade cost|placeholder rates until Kulka states them/i);
+    }
+    expect("sourcingLine" in renderModule).toBe(false);
+  });
+
+  it("leaves the pricing parameters that name past jobs off the client table", () => {
+    const labels = model().parameters.map((p) => p.label).sort();
+    expect(labels).toEqual(["High-Confidence Range, Each Side", "Medium-Confidence Range, Each Side", "Low-Confidence Range, Each Side", "Fee Rate", "Insurance Rate"].sort());
+  });
+
+  it("keeps the comparables in the snapshot", () => {
+    const { rom } = referencePublication().snapshot;
+    expect(rom.lines.some((line) => line.comparables.length > 0)).toBe(true);
   });
 });

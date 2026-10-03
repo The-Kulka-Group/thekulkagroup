@@ -1,4 +1,4 @@
-import type { BlockClassification, Comparable, ConfidenceFlag, MarkupLine, Rom, RomLine } from "@kulka/engine";
+import type { BlockClassification, ConfidenceFlag, MarkupLine, Rom, RomLine } from "@kulka/engine";
 
 import { buildLedger, divisionTitle, sourceOf, type LedgerItem, type LedgerRow as SavedLedgerRow } from "@/app/(app)/rom/ledger";
 import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
@@ -52,8 +52,6 @@ export type Fact = {
   assumedBy: string | null;
 };
 
-export type ComparableRow = { el: string; kindWords: string; jobs: string; rate: string; weight: number; recordedAt: string };
-
 export type PricedLine = Figure & {
   /** Null inside a one-line scope, whose row already holds the line's id. */
   el: string | null;
@@ -61,7 +59,6 @@ export type PricedLine = Figure & {
   label: string;
   confidence: ConfidenceFlag;
   source: Chip;
-  comparables: ComparableRow[];
   /** How the figure was built, in one or two sentences. */
   basis: string;
 };
@@ -119,9 +116,8 @@ export type Drawing = {
   lightRows: string[];
   /** Rows with no layer to draw, in ledger order, the owner's marked. */
   noLayer: { key: string; label: string }[];
+  /** Empty when no row draws in light ink. */
   inkNote: string;
-  /** The jobs behind the figures, by name, without Kulka's job codes. */
-  jobs: string[];
   criteria: { code: string; value: string }[];
 };
 
@@ -225,12 +221,9 @@ export type BudgetPage = {
   drawing: Drawing;
   restsOn: {
     priced: number;
-    fromKulkaJobs: number;
+    /** Lines priced from a Kulka rate, whatever stands behind it. The client is not told what does. */
     fromKulkaRates: number;
     placeholder: number;
-    /** Each group's share of trade cost, 0 to 1. */
-    shares: { fromKulkaJobs: number; fromKulkaRates: number; placeholder: number };
-    jobs: { name: string | null; lines: number }[];
     confidence: Record<ConfidenceFlag, number>;
   };
   criteria: Criterion[];
@@ -261,9 +254,8 @@ export type Publication = {
 };
 
 /**
- * A published snapshot. Its `sourceJobNames`, when publishing froze them,
- * name the jobs the comparables cite; an older snapshot without them counts
- * the jobs and does not name them.
+ * A published snapshot. It keeps its comparables and `sourceJobNames`, but
+ * the client page shows no past job, job count or job name (LA-1483).
  */
 export type PresentableSnapshot = PublishedBudgetSnapshot;
 
@@ -322,7 +314,7 @@ export const SECTIONS: readonly SectionHead[] = (
 ).map((section) => ({ ...section, el: `section:${section.id}` }));
 
 const STAGES: readonly { stage: PublishedStage; label: string; words: string }[] = [
-  { stage: "conceptual", label: "Conceptual Budget", words: "Priced from your program and Kulka's completed jobs." },
+  { stage: "conceptual", label: "Conceptual Budget", words: "Priced from your program and Kulka's rates." },
   { stage: "design_development", label: "Design Development", words: "Kulka's estimators price the design development drawings, and the range narrows." },
   { stage: "pre_construction", label: "Pre-Construction", words: "Subcontractor bids replace the ranges." },
   // LA-1309 decision 5 names the last stage Contract.
@@ -342,8 +334,9 @@ function stagesFor(current: PublishedStage): StageStep[] {
 
 /**
  * ledger.ts's source labels are written for the estimator. The client reads
- * Kulka Jobs with the count, Kulka Rate, or Placeholder Rate for a figure the
- * model proposed (LA-1309 decision 2). "No Rate Yet" reads the same to both.
+ * Kulka Rate, or Placeholder Rate for a figure the model proposed. A figure
+ * built from past jobs reads Kulka Rate too: the client sees no job or job
+ * count (LA-1483). "No Rate Yet" reads the same to both.
  * A label with no mapping reads "Kulka Figure" rather than failing, because a
  * frozen page must keep opening; presentation.test.ts checks every label
  * ledger.ts gives today is mapped.
@@ -351,18 +344,10 @@ function stagesFor(current: PublishedStage): StageStep[] {
 export function clientSource(internal: string): string {
   if (internal === "AI Figure" || internal.startsWith("AI,")) return "Placeholder Rate";
   if (internal === "This Budget Only" || internal === "Stated Rate") return "Kulka Rate";
-  const jobs = /^(\d+ Kulka Jobs?)(, Judgment)?$/.exec(internal);
-  if (jobs) return jobs[1];
+  if (/^\d+ Kulka Jobs?(, Judgment)?$/.test(internal)) return "Kulka Rate";
   if (internal === "No Rate Yet") return internal;
   return "Kulka Figure";
 }
-
-const COMPARABLE_WORDS: Record<string, string> = {
-  actuals: "Kulka Job Actuals",
-  proest_budget: "Kulka Budget",
-  reviewed_judgment: "Kulka Stated Rate",
-  llm_proposal: "Placeholder Rate",
-};
 
 /**
  * The run's markup basis sentences, in client words. Ported from the
@@ -372,12 +357,10 @@ const COMPARABLE_WORDS: Record<string, string> = {
 export function clientBasis(basis: string): string {
   return basis
     .replace(/Kulka's contract trade cost, owner-direct lines excluded/, "Every scope above, added up. Owner-direct scope is kept out and added back below.")
-    // The approved frames' wording (LA-1456): the average, with no job codes.
-    .replace(/user override \(history: ([^ ]+) from (\d+) jobs?: .*\)/, (_, rate: string, n: string) =>
-      `set by Kulka's estimator. Kulka's completed jobs average ${rate} across ${n} ${n === "1" ? "job" : "jobs"}.`)
+    // LA-1483: the history behind a rate, its average, job count and job names, stays off the client page.
+    .replace(/user override \(history: [^()]*(?:\([^()]*\)[^()]*)*\)/, "set by Kulka's estimator.")
     .replace(/user override/g, "set by Kulka's estimator")
-    .replace(/, from (\d+) jobs?: (.*)$/, (_, n: string, names: string) =>
-      `, the average of Kulka's completed ${n === "1" ? "job" : "jobs"}: ${names}`)
+    .replace(/, from \d+ jobs?: .*$/, "")
     .replace(/, parameter (?:fee|insurance)\.rate, \S+ (\d{4}-\d{2}-\d{2})/g, ", Kulka's stated rate, set $1")
     .replace(/, recorded (\d{4}-\d{2}-\d{2})/g, ", Kulka's stated rate, set $1")
     .replace(/No imported budget records (.+?) for this setup, and no override was given/, "Kulka has no recorded rate for $1 on this setup yet, and none was set")
@@ -389,9 +372,17 @@ export function clientBasis(basis: string): string {
     .replace(/ & /g, " and ");
 }
 
+/**
+ * The one run assumption a client cannot read without learning that other lines
+ * rest on past jobs ("no measured Kulka figure behind them yet"). It is left out
+ * of the notes, and the rest are numbered without it (LA-1483).
+ */
+const SPLITS_OFF_PAST_JOBS = /^\d+ of \d+ lines rest on estimator judgment with no measured Kulka figure behind them yet\.$/;
+
 /** The run's assumptions, in client words: they become the numbered notes. */
 export function clientNote(text: string): string {
   return text
+    .replace(/Blend weights, flag thresholds, and range widths are recorded engine parameters/, "Range widths and markup rates are recorded engine parameters")
     .replace(/parkingType/g, "parking type")
     .replace(/existing building tie in/g, "a tie-in to an existing building")
     .replace(/before this ROM goes anywhere/g, "before this budget is relied on")
@@ -402,7 +393,10 @@ export function clientNote(text: string): string {
       (_, who: string) => (who === "it" ? "so it is shown without one rather than at a guessed level" : "so they are shown without one rather than at a guessed level"),
     )
     .replace(/: a model proposed the figure, and each is flagged low/g, ": each carries a Placeholder Rate, flagged low")
-    .replace(/No benchmark in the database matches this project type and construction kind, so this ROM has no lines\./, "No Kulka job matches this project type and construction kind yet, so this budget has no lines.")
+    .replace(/No benchmark in the database matches this project type and construction kind, so this ROM has no lines\./, "Kulka has no rate for this project type and construction kind yet, so this budget has no lines.")
+    .replace(/No past job framed like this project stands behind (.+?), so (that line has|those lines have) no figure/, "Kulka has no rate for $1 framed like this project, so $2 no figure")
+    .replace(/blend wood and metal jobs and (is|are) held/, "price wood and metal framing together and $1 held")
+    .replace(/ Measured Kulka figures on the same line outweigh the rule\./, "")
     .replace(/carved out of a level 1 lump whose rate already covers them, so each is priced on the board and left out of both totals/g, "carved out of a larger line whose rate already covers them, so each is shown and left out of both totals")
     .replace(/in the ADR 0004 waterfall order/g, "in that order")
     .replace(/GRs\/GCs/g, "General Requirements and General Conditions")
@@ -601,24 +595,6 @@ function confidenceOf(lines: readonly RomLine[]): ConfidenceFlag {
   return "medium";
 }
 
-/**
- * True when the figure's own record says it is per gross square foot, as the
- * budget import writes it ("Forecast Final Cost per GSF"). A comparable does
- * not carry its benchmark's unit, and a lump sum or a per-stop rate rides in
- * the same field, so nothing else is read as per SF.
- */
-function recordedPerSf(c: Comparable): boolean {
-  return /\bper GSF\b/i.test(c.exportLabel ?? "");
-}
-
-/** A comparable's rate in the unit the snapshot knows, or with no unit when it does not know one. */
-function comparableRate(c: Comparable, line: RomLine): string {
-  // A per-unit line's comparables are per GSF of this project, rescaled (rom-per-unit.ts).
-  if (line.perUnit) return `${rateUsd(c.rate * line.perUnit.projectGsfPerUnit)} per unit`;
-  if (recordedPerSf(c)) return `${rateUsd(c.rate)} per SF`;
-  return `${usd(c.rate)} rate`;
-}
-
 const SPREAD_WORDS: Record<ConfidenceFlag, string> = { high: "High", medium: "Medium", low: "Low" };
 
 function percent(v: number): string {
@@ -632,25 +608,27 @@ function spreadWords(line: RomLine, rom: Rom): string {
   return typeof spread === "number" ? `${words} confidence: the range is ${percent(spread)} each side of the blend.` : `${words} confidence: the range is as shown.`;
 }
 
-function lineBasis(line: RomLine, rom: Rom, grossSquareFeet: number): string {
-  const n = line.comparableCount;
-  const jobs = `${n} Kulka ${n === 1 ? "job stands" : "jobs stand"} behind this line`;
-  const perSf = line.comparables.every(recordedPerSf);
-  const how =
-    n > 0
-      ? perSf
-        ? `${jobs}, each weighted as listed, blended to one rate per square foot and multiplied by ${wholeNumber(grossSquareFeet)} SF.`
-        : `${jobs}, weighted as listed and priced to this project's quantity.`
-      : line.comparables.length > 0 && line.comparables.every((c) => c.kind === "llm_proposal")
-        ? "A Placeholder Rate, applied to this project's quantity, until Kulka states a rate."
-        : "A rate Kulka stated, applied to this project's quantity.";
+/** A line is a placeholder when only a model proposed its figure. Every other priced line reads as a Kulka rate (LA-1483). */
+function isPlaceholder(line: RomLine): boolean {
+  return line.comparables.length === 0 || line.comparables.every((c) => c.kind === "llm_proposal");
+}
+
+/**
+ * How a line's figure was built, in client words. A line built from past jobs
+ * and a line built from a stated rate read the same, and none says how many
+ * jobs stand behind it (LA-1483).
+ */
+function lineBasis(line: RomLine, rom: Rom): string {
+  const how = isPlaceholder(line)
+    ? "A Placeholder Rate, applied to this project's quantity, until Kulka states a rate."
+    : "A Kulka rate, applied to this project's quantity.";
   const perUnit = line.perUnit ? ` Priced per unit: ${usd(line.perUnit.usdPerUnit)} across ${wholeNumber(line.perUnit.unitCount)} units.` : "";
   const rules = line.judgmentAdjustments.length;
   const adjusted = rules ? ` ${rules} stated ${rules === 1 ? "rule" : "rules"} moved it.` : "";
   return `${how}${perUnit}${adjusted} ${spreadWords(line, rom)}`;
 }
 
-function pricedLine(line: RomLine, rom: Rom, jobNames: Readonly<Record<string, string>>, grossSquareFeet: number): PricedLine {
+function pricedLine(line: RomLine, rom: Rom): PricedLine {
   return {
     ...figure(line),
     el: `line:${line.costCode}`,
@@ -658,27 +636,16 @@ function pricedLine(line: RomLine, rom: Rom, jobNames: Readonly<Record<string, s
     label: titleCase(line.label),
     confidence: line.confidence,
     source: { tone: line.confidence, text: clientSource(sourceOf(line).text) },
-    comparables: line.comparables.map((c, i) => ({
-      // The comparable's position in the frozen blend, heaviest first: a snapshot key, not DOM order.
-      el: `line:${line.costCode}:comparable:${i + 1}`,
-      kindWords: COMPARABLE_WORDS[c.kind] ?? "Kulka Figure",
-      jobs: c.sourceProjectIds.map((id) => jobNames[id]).filter(Boolean).join(", ") || "Kulka",
-      rate: c.kind === "reviewed_judgment" ? "Rate on File" : comparableRate(c, line),
-      weight: c.weight,
-      recordedAt: c.recordedAt,
-    })),
-    basis: lineBasis(line, rom, grossSquareFeet),
+    basis: lineBasis(line, rom),
   };
 }
 
 function scopesOf(snapshot: PresentableSnapshot) {
   const { rom } = snapshot;
-  const jobNames = snapshot.sourceJobNames ?? {};
   const classifications = driversOf(rom);
   const entries = orderField(buildField("scope", rom, classifications), "largest");
   const ledger = buildLedger(rom, entries, "element", "largest", classifications, new Map());
   const lineByCode = new Map(rom.lines.map((line) => [line.costCode, line]));
-  const gsf = snapshot.answers.grossSquareFeet;
 
   const toScope = (row: SavedLedgerRow, ownerDirect: boolean): Scope => {
     const items: LedgerItem[] = row.kind === "group" ? row.items : [row];
@@ -686,7 +653,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
     const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: `unpriced:${item.costCode}`, costCode: item.costCode, label: titleCase(item.label) }));
     const low = romLines.reduce((sum, line) => sum + line.low, 0);
     const high = romLines.reduce((sum, line) => sum + line.high, 0);
-    const lines = romLines.map((line) => pricedLine(line, rom, jobNames, gsf));
+    const lines = romLines.map((line) => pricedLine(line, rom));
     const label = titleCase(row.label);
     const kind = row.kind === "group" ? "element" : romLines.length > 0 ? "line" : "unpriced";
     const confidence: Tone = romLines.length > 0 ? confidenceOf(romLines) : "none";
@@ -835,10 +802,6 @@ function count(value: unknown, fallback = 0): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
-/** A line is measured when a Kulka job's record stands behind it, rather than a stated rate or a placeholder. */
-function isMeasured(line: RomLine): boolean {
-  return line.comparables.some((c) => c.kind === "actuals" || c.kind === "proest_budget");
-}
 
 function ledgerOf(
   snapshot: PresentableSnapshot,
@@ -853,10 +816,9 @@ function ledgerOf(
   const inkMap: Record<string, SectionInk> = {};
   const rows = [...scopes.trade, ...scopes.owner].map((scope): LedgerRow => {
     const romLines = scope.lines.map((l) => lineByCode.get(l.costCode)).filter((l): l is RomLine => l !== undefined);
-    const measured = romLines.filter(isMeasured);
-    const ink: SectionInk = romLines.length > 0 && measured.length === 0 ? "light" : "full";
+    const ink: SectionInk = romLines.length > 0 && romLines.every(isPlaceholder) ? "light" : "full";
     inkMap[scope.el] = ink;
-    for (const line of romLines) inkMap[`line:${line.costCode}`] = isMeasured(line) ? "full" : "light";
+    for (const line of romLines) inkMap[`line:${line.costCode}`] = isPlaceholder(line) ? "light" : "full";
     const sourceText = scope.kind === "line" ? scope.lines[0].source.text : scope.kind === "unpriced" ? "No Rate Yet" : scope.lines.map((l) => `${l.label}: ${l.source.text}`).join(" · ");
     return {
       key: scope.el,
@@ -956,12 +918,8 @@ function gatesOf(snapshot: PublishedBudgetSnapshot) {
 
 // --- Parameters -----------------------------------------------------------------------------
 
+// LA-1483: the blend weights and the job counts behind a confidence flag name past jobs, so the client table leaves them out.
 const PARAMETER_LABELS: Record<string, string> = {
-  "weight.actuals": "Weight, Kulka Job Actuals",
-  "weight.proest_budget": "Weight, Kulka Budgets",
-  "weight.reviewed_judgment": "Weight, Kulka Stated Rates",
-  "flag.high_min_comparables": "Jobs Behind a High-Confidence Line",
-  "flag.medium_min_comparables": "Jobs Behind a Medium-Confidence Line",
   "spread.high": "High-Confidence Range, Each Side",
   "spread.medium": "Medium-Confidence Range, Each Side",
   "spread.low": "Low-Confidence Range, Each Side",
@@ -1031,13 +989,12 @@ function letterOf(input: {
   ownerDirect: number;
   record: BudgetPage["record"];
   restsOn: BudgetPage["restsOn"];
-  jobNames: string[];
   criteria: Criterion[];
   openQuestions: string[];
   nextStage: StageStep | null;
   conceptual: boolean;
 }): Letter {
-  const { facts, headline, record, restsOn, jobNames, criteria, openQuestions, nextStage, conceptual } = input;
+  const { facts, headline, record, restsOn, criteria, openQuestions, nextStage, conceptual } = input;
   const fact = (key: string) => facts.find((f) => f.key === key)?.value ?? null;
   const crit = (code: string) => criteria.find((c) => c.code === code)?.value ?? null;
   const t = (text: string): LetterRun => ({ text });
@@ -1073,7 +1030,7 @@ function letterOf(input: {
     }
     runs.push(
       t(
-        ` This budget prices that program as you described it, ${conceptual ? "before any drawings exist, " : ""}${restsOn.fromKulkaJobs > 0 ? "from the jobs Kulka has already built." : "from the rates Kulka has stated."}`,
+        ` This budget prices that program as you described it, ${conceptual ? "before any drawings exist, " : ""}from the rates Kulka has stated.`,
       ),
     );
     paragraphs.push(runs);
@@ -1105,19 +1062,15 @@ function letterOf(input: {
     paragraphs.push(runs);
   }
 
-  // What it stands on.
+  // What it stands on. No past job, job count or job name appears here (LA-1483).
   if (restsOn.priced > 0) {
     const runs: LetterRun[] = [];
-    if (restsOn.fromKulkaJobs > 0) {
-      const where =
-        jobNames.length === 0 ? "jobs Kulka has completed" : `${jobNames.length === 1 ? "a building" : `${few(jobNames.length)} buildings`} Kulka has completed, ${joinAnd(jobNames)}`;
-      runs.push(t(`${restsOn.fromKulkaJobs} of the ${restsOn.priced} priced lines stand on ${where}.`));
-      if (restsOn.fromKulkaRates > 0) runs.push(t(` ${restsOn.placeholder > 0 ? "Another" : "The other"} ${restsOn.fromKulkaRates} rest on rates Kulka has stated.`));
-    } else if (restsOn.fromKulkaRates > 0) {
+    if (restsOn.placeholder === 0) runs.push(t("Every priced line rests on a rate Kulka has stated."));
+    else if (restsOn.fromKulkaRates > 0) {
       runs.push(t(`${restsOn.fromKulkaRates} of the ${restsOn.priced} priced lines rest on rates Kulka has stated.`));
-    }
-    if (restsOn.placeholder > 0) runs.push(t(` ${restsOn.placeholder} ${restsOn.placeholder === 1 ? "carries" : "carry"} a placeholder rate until Kulka states one.`));
-    runs.push(t(`${runs.length > 0 ? " " : ""}No line here is a bid.`));
+      runs.push(t(` The other ${few(restsOn.placeholder)} ${restsOn.placeholder === 1 ? "carries" : "carry"} a placeholder rate until Kulka states one.`));
+    } else runs.push(t(`${restsOn.placeholder === 1 ? "The one priced line carries" : `All ${restsOn.placeholder} priced lines carry`} a placeholder rate until Kulka states one.`));
+    runs.push(t(" No line here is a bid."));
     paragraphs.push(runs);
   }
 
@@ -1194,22 +1147,12 @@ export function presentBudget(publication: Publication): BudgetPage {
   });
 
   // What This Rests On: over the lines that add to the total.
-  const isPlaceholder = (line: RomLine) => line.comparables.length === 0 || line.comparables.every((c) => c.kind === "llm_proposal");
-  const isMeasured = (line: RomLine) => line.comparables.some((c) => c.kind === "actuals" || c.kind === "proest_budget");
-  const fromJobs = priced.filter(isMeasured);
-  const placeholder = priced.filter((line) => !isMeasured(line) && isPlaceholder(line));
-  const fromRates = priced.filter((line) => !isMeasured(line) && !isPlaceholder(line));
+  const placeholder = priced.filter(isPlaceholder);
+  const fromRates = priced.filter((line) => !isPlaceholder(line));
   const tradeCost = figure(rom.total);
-  const shareOf = (lines: RomLine[]) => (tradeCost.likely > 0 ? lines.reduce((sum, line) => sum + midpoint(line), 0) / tradeCost.likely : 0);
-  const jobLines = new Map<string, number>();
-  for (const line of priced) {
-    const ids = new Set(line.comparables.filter((c) => c.kind !== "llm_proposal").flatMap((c) => c.sourceProjectIds));
-    for (const id of ids) jobLines.set(id, (jobLines.get(id) ?? 0) + 1);
-  }
-  const names = snapshot.sourceJobNames ?? {};
 
   // Notes: the run's own assumptions, numbered in the order the run wrote them.
-  const notes = rom.assumptions.map((text, i) => ({ el: `note:${i + 1}`, number: i + 1, text: clientNote(text) }));
+  const notes = rom.assumptions.filter((text) => !SPLITS_OFF_PAST_JOBS.test(text)).map((text, i) => ({ el: `note:${i + 1}`, number: i + 1, text: clientNote(text) }));
 
   const facts = factsOf(snapshot);
   const factValue = (key: string) => facts.find((f) => f.key === key)?.value ?? null;
@@ -1259,23 +1202,15 @@ export function presentBudget(publication: Publication): BudgetPage {
     ink: built.ink,
     lightRows: built.lightRows,
     noLayer: built.noLayer,
-    inkNote: "Full ink is priced from Kulka's completed jobs. Light ink is priced from Kulka's stated rates.",
-    jobs: [...jobLines.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([id]) => names[id])
-      .filter((name): name is string => Boolean(name))
-      .map((name) => name.replace(/ \(C\d+\)$/, "")),
+    inkNote: built.lightRows.length > 0 ? "Light ink is a placeholder rate until Kulka states one." : "",
     criteria: criteria.map((c) => ({ code: c.code, value: c.value })),
   };
 
   const ownerDirect = figure({ low: rom.total.low - rom.kulkaContractTotal.low, high: rom.total.high - rom.kulkaContractTotal.high });
   const restsOn: BudgetPage["restsOn"] = {
     priced: priced.length,
-    fromKulkaJobs: fromJobs.length,
     fromKulkaRates: fromRates.length,
     placeholder: placeholder.length,
-    shares: { fromKulkaJobs: shareOf(fromJobs), fromKulkaRates: shareOf(fromRates), placeholder: shareOf(placeholder) },
-    jobs: [...jobLines.entries()].map(([id, lines]) => ({ name: names[id] ?? null, lines })).sort((a, b) => b.lines - a.lines),
     confidence: {
       high: priced.filter((l) => l.confidence === "high").length,
       medium: priced.filter((l) => l.confidence === "medium").length,
@@ -1338,7 +1273,6 @@ export function presentBudget(publication: Publication): BudgetPage {
       ownerDirect: ownerDirect.likely,
       record,
       restsOn,
-      jobNames: drawing.jobs,
       criteria,
       openQuestions,
       nextStage: stages[currentIndex + 1] ?? null,

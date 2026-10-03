@@ -514,7 +514,7 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
         <div class="wf-fig">
           <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
           <p class="fig fig--beside num" data-el="total:kulka-contract" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
-          <p class="wf-landed">Likely, between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. ${esc(land.basis)} Total Project Cost, with what the owner buys direct, between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
+          <p class="wf-landed">Kulka's contract could land anywhere between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. With what the owner buys direct, Total Project Cost runs between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
           <p class="wf-after" data-after>${after
             .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
             .join('<i aria-hidden="true">·</i>')}</p>

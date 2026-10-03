@@ -1,12 +1,10 @@
 import type { Db } from "@/lib/db";
 import { isUuid } from "@/lib/uuid";
 
-import { addressableElements } from "./addressable-elements";
 import type { CommentAnchor, CommentKind, FlagOutcome, MessageAuthor, MessageVisibility, ThreadStatus } from "./budget-comments";
 import { toIso } from "./date";
-import { presentBudget } from "./presentation";
 import { versionState, type VersionState } from "./published-budgets";
-import type { PublishedBudgetSnapshot, PublishedStage } from "./published-snapshot";
+import { holdsElement, newestOpenElements } from "./thread-carry";
 
 // LA-1490, ticket 7 of LA-1480 (spec docs/precon/client-comments-spec.md,
 // Decisions 3 and 4). The reads behind Kulka's side of client comments: the
@@ -336,7 +334,7 @@ export async function listProjectComments(db: Db, projectId: string): Promise<Pr
         (t) => t.status !== "closed" && t.published_budget_id !== newestOpen.id && t.element_id !== "page:general",
       )
     : false;
-  const newestElements = needsElements && newestOpen ? await elementIdsOf(db, newestOpen.id) : null;
+  const newestElements = needsElements ? ((await newestOpenElements(db, projectId))?.elements ?? null) : null;
 
   const threadsByVersion = new Map<string, PanelThread[]>();
   for (const row of threadRows) {
@@ -348,9 +346,8 @@ export async function listProjectComments(db: Db, projectId: string): Promise<Pr
       row.status !== "closed" &&
       newestOpen !== null &&
       row.published_budget_id !== newestOpen.id &&
-      row.element_id !== "page:general" &&
       newestElements !== null &&
-      !newestElements.has(row.element_id);
+      !holdsElement(newestElements, row.element_id, anchor);
     const thread: PanelThread = {
       id: row.id,
       kind: row.kind,
@@ -400,24 +397,4 @@ export async function listProjectComments(db: Db, projectId: string): Promise<Pr
     needsKulka: panelVersions.reduce((n, v) => n + v.threads.filter((t) => t.needsKulka).length, 0),
     versions: panelVersions,
   };
-}
-
-/** The `data-el` ids one published version's page holds. */
-async function elementIdsOf(db: Db, publishedBudgetId: string): Promise<Set<string>> {
-  const { rows } = await db.query<{
-    version: number | string;
-    stage: PublishedStage;
-    issued_at: Stamp;
-    snapshot: PublishedBudgetSnapshot;
-  }>(`select version, stage, issued_at, snapshot from published_budgets where id = $1`, [publishedBudgetId]);
-  const row = rows[0];
-  if (!row) return new Set();
-  const page = presentBudget({
-    snapshot: row.snapshot,
-    version: Number(row.version),
-    stage: row.stage,
-    issuedAt: toIso(row.issued_at),
-    newer: null,
-  });
-  return new Set(addressableElements(page).keys());
 }

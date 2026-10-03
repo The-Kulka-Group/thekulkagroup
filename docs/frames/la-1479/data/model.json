@@ -1,0 +1,5924 @@
+{
+ "documentTitle": "MN Test #4 · Conceptual Budget · Kulka",
+ "description": "Kulka's conceptual budget for MN Test #4: the number, its range, where the money is, and what it rests on.",
+ "projectName": "MN Test #4",
+ "record": {
+  "version": 1,
+  "stageLabel": "Conceptual Budget",
+  "issuedAt": "2026-09-29T03:42:27.267Z",
+  "preparedFor": null,
+  "preparedBy": "The Kulka Group",
+  "validityDays": null,
+  "coverSentence": null
+ },
+ "newer": null,
+ "sections": [
+  {
+   "id": "letter",
+   "title": "Letter",
+   "indexLabel": "Letter",
+   "el": "section:letter"
+  },
+  {
+   "id": "the-project",
+   "title": "What You Told Us",
+   "indexLabel": "What You Told Us",
+   "el": "section:the-project"
+  },
+  {
+   "id": "where-the-money-is",
+   "title": "The Ledger",
+   "indexLabel": "The Ledger",
+   "el": "section:where-the-money-is"
+  },
+  {
+   "id": "design-and-engineering",
+   "title": "Design and Engineering",
+   "indexLabel": "Design and Engineering",
+   "el": "section:design-and-engineering"
+  },
+  {
+   "id": "from-trades-to-total",
+   "title": "From Trades to Total",
+   "indexLabel": "From Trades to Total",
+   "el": "section:from-trades-to-total"
+  },
+  {
+   "id": "what-is-in",
+   "title": "What Is In, and What Is Not",
+   "indexLabel": "What Is In",
+   "el": "section:what-is-in"
+  },
+  {
+   "id": "what-happens-next",
+   "title": "What Happens Next",
+   "indexLabel": "What Happens Next",
+   "el": "section:what-happens-next"
+  }
+ ],
+ "stages": [
+  {
+   "key": "conceptual",
+   "label": "Conceptual Budget",
+   "words": "Priced from your program and Kulka's completed jobs. This budget.",
+   "current": true
+  },
+  {
+   "key": "design-development",
+   "label": "Design Development",
+   "words": "Kulka's estimators price the design development drawings, and the range narrows.",
+   "current": false
+  },
+  {
+   "key": "pre-construction",
+   "label": "Pre-Construction",
+   "words": "Subcontractor bids replace the ranges.",
+   "current": false
+  },
+  {
+   "key": "final",
+   "label": "Contract",
+   "words": "The contract figure.",
+   "current": false
+  }
+ ],
+ "headline": {
+  "kulkaContract": {
+   "low": 13842806,
+   "high": 26750419,
+   "likely": 20296612.5
+  },
+  "totalProjectCost": {
+   "low": 13995835,
+   "high": 27068249,
+   "likely": 20532042
+  },
+  "tradeCost": {
+   "low": 12041053,
+   "high": 23290747,
+   "likely": 17665900
+  },
+  "grossSquareFeet": 64000,
+  "unitCount": 70,
+  "perSquareFoot": {
+   "value": 317,
+   "arithmetic": "Kulka contract over gross area, garage included: $20,296,613 over 64,000 SF"
+  },
+  "perUnit": {
+   "value": 289952,
+   "arithmetic": "Kulka contract over the unit count: $20,296,613 over 70 units"
+  }
+ },
+ "project": {
+  "facts": [
+   {
+    "el": "fact:projectType",
+    "key": "projectType",
+    "label": "Project Type",
+    "value": "Multifamily",
+    "basis": "stated",
+    "basisWords": "What kind of project is this?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:constructionKind",
+    "key": "constructionKind",
+    "label": "Construction",
+    "value": "New Construction",
+    "basis": "stated",
+    "basisWords": "Is this new construction or a renovation?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:grossSquareFeet",
+    "key": "grossSquareFeet",
+    "label": "Gross Area",
+    "value": "64,000 SF",
+    "basis": "stated",
+    "basisWords": "How many gross square feet is the building?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:framingSystem",
+    "key": "framingSystem",
+    "label": "Framing",
+    "value": "Wood",
+    "basis": "stated",
+    "basisWords": "Framing system, set on the project",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:storiesAboveGrade",
+    "key": "storiesAboveGrade",
+    "label": "Stories Above Grade",
+    "value": "5",
+    "basis": "stated",
+    "basisWords": "How many stories does the building have above grade?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:unitCount",
+    "key": "unitCount",
+    "label": "Units",
+    "value": "70",
+    "basis": "stated",
+    "basisWords": "How many units does the building have?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:buildingCount",
+    "key": "buildingCount",
+    "label": "Buildings",
+    "value": "1",
+    "basis": "stated",
+    "basisWords": "How many buildings are there?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:zip",
+    "key": "zip",
+    "label": "ZIP",
+    "value": "10965",
+    "basis": "stated",
+    "basisWords": "What is the project's ZIP code?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:laborType",
+    "key": "laborType",
+    "label": "Labor",
+    "value": "Open Shop",
+    "basis": "stated",
+    "basisWords": "Is the job open shop or union?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:parkingType",
+    "key": "parkingType",
+    "label": "Parking",
+    "value": "Surface",
+    "basis": "stated",
+    "basisWords": "What kind of parking does the project have?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:demolition",
+    "key": "demolition",
+    "label": "Demolition",
+    "value": "Yes",
+    "basis": "stated",
+    "basisWords": "Is there anything on the site to demolish?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:demolitionStructureCount",
+    "key": "demolitionStructureCount",
+    "label": "Structures Coming Down",
+    "value": "1",
+    "basis": "stated",
+    "basisWords": "How many structures come down?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:demolitionStructureSquareFeet",
+    "key": "demolitionStructureSquareFeet",
+    "label": "Area Coming Down",
+    "value": "15,000 SF",
+    "basis": "stated",
+    "basisWords": "How many square feet of structure come down?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:demolitionStructureType",
+    "key": "demolitionStructureType",
+    "label": "Structure Coming Down",
+    "value": "Steel Frame with Concrete on Metal Deck (Type II)",
+    "basis": "stated",
+    "basisWords": "What kind of structure comes down?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:levels_below_grade",
+    "key": "levels_below_grade",
+    "label": "Below Grade",
+    "value": "No",
+    "basis": "stated",
+    "basisWords": "Does the new building go below grade?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:existing_building_tie_in",
+    "key": "existing_building_tie_in",
+    "label": "Tie-in to an Existing Building",
+    "value": "No",
+    "basis": "stated",
+    "basisWords": "Does the work tie in to an existing building?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:site_conditions",
+    "key": "site_conditions",
+    "label": "Groundwater or Poor Soil",
+    "value": "Don't Know",
+    "basis": "stated",
+    "basisWords": "Are there known groundwater or poor soil conditions?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:amenity_scope",
+    "key": "amenity_scope",
+    "label": "Amenity Scope",
+    "value": "Yes",
+    "basis": "stated",
+    "basisWords": "Does the project include amenity scope such as a pool or an activity room?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:elevator",
+    "key": "elevator",
+    "label": "Elevator",
+    "value": "Yes",
+    "basis": "stated",
+    "basisWords": "Does the new building have an elevator?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:elevatorCount",
+    "key": "elevatorCount",
+    "label": "Elevators",
+    "value": "2",
+    "basis": "stated",
+    "basisWords": "How many elevators does the building have?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:retail_storefronts",
+    "key": "retail_storefronts",
+    "label": "Retail Storefronts",
+    "value": "No",
+    "basis": "stated",
+    "basisWords": "Is there ground-floor retail with storefronts?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:balconies",
+    "key": "balconies",
+    "label": "Balconies",
+    "value": "Yes",
+    "basis": "stated",
+    "basisWords": "Do the units have balconies?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:radio_amplifier",
+    "key": "radio_amplifier",
+    "label": "Emergency Radio Amplifier",
+    "value": "No",
+    "basis": "stated",
+    "basisWords": "Does the new building need an emergency radio amplifier (BDA)?",
+    "assumedBy": null
+   },
+   {
+    "el": "fact:elevatorType",
+    "key": "elevatorType",
+    "label": "Elevator Type",
+    "value": "Hydraulic",
+    "basis": "assumed",
+    "basisWords": "Set by criterion V-1",
+    "assumedBy": "V-1"
+   },
+   {
+    "el": "fact:hydraulicJackType",
+    "key": "hydraulicJackType",
+    "label": "Hydraulic Jack",
+    "value": "In-Ground",
+    "basis": "assumed",
+    "basisWords": "Set by criterion V-2",
+    "assumedBy": "V-2"
+   },
+   {
+    "el": "fact:elevatorMachineRooms",
+    "key": "elevatorMachineRooms",
+    "label": "Machine Rooms",
+    "value": "1",
+    "basis": "assumed",
+    "basisWords": "Set by criterion V-3",
+    "assumedBy": "V-3"
+   },
+   {
+    "el": "fact:elevatorMachineRoomHvac",
+    "key": "elevatorMachineRoomHvac",
+    "label": "Machine Room HVAC",
+    "value": "Yes",
+    "basis": "assumed",
+    "basisWords": "Set by criterion V-3",
+    "assumedBy": "V-3"
+   }
+  ],
+  "assumedCount": 4,
+  "line": "70 Units · 5 Stories · Wood Framing · Surface Parking"
+ },
+ "money": {
+  "scopes": [
+   {
+    "low": 2108710,
+    "high": 4379629,
+    "likely": 3244169.5,
+    "el": "line:17",
+    "domId": "scope-drywall-act-metal-framing",
+    "kind": "line",
+    "label": "Drywall & ACT + Metal Framing",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.18612059267132233,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 2108710,
+      "high": 4379629,
+      "likely": 3244169.5,
+      "el": null,
+      "costCode": "17",
+      "label": "Drywall & ACT + Metal Framing",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:17:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$8.37 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:17:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$93.01 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 1449617,
+    "high": 2174426,
+    "likely": 1812021.5,
+    "el": "line:28",
+    "domId": "scope-plumbing",
+    "kind": "line",
+    "label": "Plumbing",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.10395711922979933,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 1449617,
+      "high": 2174426,
+      "likely": 1812021.5,
+      "el": null,
+      "costCode": "28",
+      "label": "Plumbing",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:28:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$25,866 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:28:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25,906 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $25,886 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 804546,
+    "high": 1670980,
+    "likely": 1237763,
+    "el": "line:31",
+    "domId": "scope-electrical",
+    "kind": "line",
+    "label": "Electrical",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.07101145089571737,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 804546,
+      "high": 1670980,
+      "likely": 1237763,
+      "el": null,
+      "costCode": "31",
+      "label": "Electrical",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:31:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$13.00 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:31:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25.68 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 735800,
+    "high": 1528200,
+    "likely": 1132000,
+    "el": "line:2",
+    "domId": "scope-concrete-site-concrete",
+    "kind": "line",
+    "label": "Concrete & Site Concrete",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.06494374319958833,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 735800,
+      "high": 1528200,
+      "likely": 1132000,
+      "el": null,
+      "costCode": "2",
+      "label": "Concrete & Site Concrete",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:2:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$17.69 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 656269,
+    "high": 1363020,
+    "likely": 1009644.5,
+    "el": "line:34",
+    "domId": "scope-site-work",
+    "kind": "line",
+    "label": "Site Work",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.05792411053964378,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 656269,
+      "high": 1363020,
+      "likely": 1009644.5,
+      "el": null,
+      "costCode": "34",
+      "label": "Site Work",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:34:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5.81 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:34:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25.74 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 622631,
+    "high": 1293157,
+    "likely": 957894,
+    "el": "line:30",
+    "domId": "scope-mechanical",
+    "kind": "line",
+    "label": "Mechanical",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.05495514306398098,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 622631,
+      "high": 1293157,
+      "likely": 957894,
+      "el": null,
+      "costCode": "30",
+      "label": "Mechanical",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:30:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$10.78 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:30:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$19.16 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 617802,
+    "high": 1283126,
+    "likely": 950464,
+    "el": "line:8",
+    "domId": "scope-wood-framing-install-wood-framing-supply",
+    "kind": "line",
+    "label": "Wood Framing - Install + Wood Framing - Supply",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.054528878035736326,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 617802,
+      "high": 1283126,
+      "likely": 950464,
+      "el": null,
+      "costCode": "8",
+      "label": "Wood Framing - Install + Wood Framing - Supply",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:8:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$14.85 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 524137,
+    "high": 1088592,
+    "likely": 806364.5,
+    "el": "line:14",
+    "domId": "scope-siding-exterior-trim-decks-rails-stucco",
+    "kind": "line",
+    "label": "Siding Exterior Trim Decks Rails + Stucco",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.04626177474670004,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 524137,
+      "high": 1088592,
+      "likely": 806364.5,
+      "el": null,
+      "costCode": "14",
+      "label": "Siding Exterior Trim Decks Rails + Stucco",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:14:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5.51 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:14:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$19.69 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 412858,
+    "high": 857474,
+    "likely": 635166,
+    "el": "line:19",
+    "domId": "scope-flooring",
+    "kind": "line",
+    "label": "Flooring",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.036439980205927314,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 412858,
+      "high": 857474,
+      "likely": 635166,
+      "el": null,
+      "costCode": "19",
+      "label": "Flooring",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:19:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$4,182 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:19:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$13,966 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $9,074 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 328301,
+    "high": 681855,
+    "likely": 505078,
+    "el": "line:24",
+    "domId": "scope-cabinets",
+    "kind": "line",
+    "label": "Cabinets",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.028976727851379572,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 328301,
+      "high": 681855,
+      "likely": 505078,
+      "el": null,
+      "costCode": "24",
+      "label": "Cabinets",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:24:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1,732 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:24:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$12,699 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $7,215 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 256339,
+    "high": 532397,
+    "likely": 394368,
+    "el": "line:31a",
+    "domId": "scope-low-voltage",
+    "kind": "line",
+    "label": "Low Voltage",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.022625206818140682,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 256339,
+      "high": 532397,
+      "likely": 394368,
+      "el": null,
+      "costCode": "31a",
+      "label": "Low Voltage",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:31a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$6.16 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 256200,
+    "high": 501200,
+    "likely": 378700,
+    "el": "element:elevator",
+    "domId": "scope-elevator",
+    "kind": "element",
+    "label": "Elevator",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Priced"
+    },
+    "share": 0.021726321156964754,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 227500,
+      "high": 472500,
+      "likely": 350000,
+      "el": "line:26",
+      "costCode": "26",
+      "label": "Elevators",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "Kulka Rate"
+      },
+      "comparables": [
+       {
+        "el": "line:26:comparable:1",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       }
+      ],
+      "basis": "A rate Kulka stated, applied to this project's quantity. Low confidence: the range is 35% each side of the blend."
+     },
+     {
+      "low": 28700,
+      "high": 28700,
+      "likely": 28700,
+      "el": "line:26a",
+      "costCode": "26a",
+      "label": "Elevator Bulkhead",
+      "confidence": "high",
+      "source": {
+       "tone": "high",
+       "text": "Kulka Rate"
+      },
+      "comparables": [
+       {
+        "el": "line:26a:comparable:1",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       },
+       {
+        "el": "line:26a:comparable:2",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       },
+       {
+        "el": "line:26a:comparable:3",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       }
+      ],
+      "basis": "A rate Kulka stated, applied to this project's quantity. High confidence: the range is 10% each side of the blend."
+     }
+    ],
+    "unpriced": [
+     {
+      "el": "unpriced:26b",
+      "costCode": "26b",
+      "label": "Cab Interior Finish Package"
+     },
+     {
+      "el": "unpriced:26c",
+      "costCode": "26c",
+      "label": "Elevator Pit Ladder"
+     },
+     {
+      "el": "unpriced:26e",
+      "costCode": "26e",
+      "label": "Pit Light and GFCI Receptacle"
+     },
+     {
+      "el": "unpriced:26f",
+      "costCode": "26f",
+      "label": "Emergency Two-Way Communication Line"
+     },
+     {
+      "el": "unpriced:26g",
+      "costCode": "26g",
+      "label": "Machine Room HVAC"
+     },
+     {
+      "el": "unpriced:26h",
+      "costCode": "26h",
+      "label": "Hoistway Door Frame Grouting"
+     },
+     {
+      "el": "unpriced:26i",
+      "costCode": "26i",
+      "label": "Hydraulic Well Hole and Casing"
+     }
+    ]
+   },
+   {
+    "low": 279758,
+    "high": 419637,
+    "likely": 349697.5,
+    "el": "line:15",
+    "domId": "scope-doors-frames-hardware",
+    "kind": "line",
+    "label": "Doors Frames Hardware",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.0200624245914647,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 279758,
+      "high": 419637,
+      "likely": 349697.5,
+      "el": null,
+      "costCode": "15",
+      "label": "Doors Frames Hardware",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:15:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5,448 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:15:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4,544 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $4,996 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 259615,
+    "high": 389422,
+    "likely": 324518.5,
+    "el": "line:13",
+    "domId": "scope-roofing-rooftop-pavers",
+    "kind": "line",
+    "label": "Roofing + Rooftop Pavers",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.018617885271656896,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 259615,
+      "high": 389422,
+      "likely": 324518.5,
+      "el": null,
+      "costCode": "13",
+      "label": "Roofing + Rooftop Pavers",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:13:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$4.42 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:13:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$5.72 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 195371,
+    "high": 405771,
+    "likely": 300571,
+    "el": "line:21",
+    "domId": "scope-specialties-f-e-signage",
+    "kind": "line",
+    "label": "Specialties & F.E. + Signage",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.01724399808943769,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 195371,
+      "high": 405771,
+      "likely": 300571,
+      "el": null,
+      "costCode": "21",
+      "label": "Specialties & F.E. + Signage",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:21:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2,398 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:21:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$6,190 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $4,294 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 228413,
+    "high": 342620,
+    "likely": 285516.5,
+    "el": "line:27",
+    "domId": "scope-fire-protection",
+    "kind": "line",
+    "label": "Fire Protection",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.01638030941276083,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 228413,
+      "high": 342620,
+      "likely": 285516.5,
+      "el": null,
+      "costCode": "27",
+      "label": "Fire Protection",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:27:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$4.83 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:27:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4.09 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 178443,
+    "high": 370613,
+    "likely": 274528,
+    "el": "line:38",
+    "domId": "scope-asphalt-traffic-signage-striping",
+    "kind": "line",
+    "label": "Asphalt Traffic Signage Striping",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015749890400262,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 178443,
+      "high": 370613,
+      "likely": 274528,
+      "el": null,
+      "costCode": "38",
+      "label": "Asphalt Traffic Signage Striping",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:38:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.73 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:38:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$7.84 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 176754,
+    "high": 367105,
+    "likely": 271929.5,
+    "el": "line:37",
+    "domId": "scope-landscaping-irrigation-pavers",
+    "kind": "line",
+    "label": "Landscaping Irrigation Pavers",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015600812381972133,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 176754,
+      "high": 367105,
+      "likely": 271929.5,
+      "el": null,
+      "costCode": "37",
+      "label": "Landscaping Irrigation Pavers",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:37:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.50 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:37:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$8.00 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 176097,
+    "high": 365740,
+    "likely": 270918.5,
+    "el": "line:12",
+    "domId": "scope-damproofing-waterproofing-insulation",
+    "kind": "line",
+    "label": "Damproofing & Waterproofing + Insulation",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015542810505315963,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 176097,
+      "high": 365740,
+      "likely": 270918.5,
+      "el": null,
+      "costCode": "12",
+      "label": "Damproofing & Waterproofing + Insulation",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:12:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5.61 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:12:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$2.86 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 211809,
+    "high": 317713,
+    "likely": 264761,
+    "el": "line:9",
+    "domId": "scope-finish-carpentry",
+    "kind": "line",
+    "label": "Finish Carpentry",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015189549817372973,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 211809,
+      "high": 317713,
+      "likely": 264761,
+      "el": null,
+      "costCode": "9",
+      "label": "Finish Carpentry",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:9:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3,526 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:9:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4,038 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $3,782 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 166161,
+    "high": 345103,
+    "likely": 255632,
+    "el": "line:24a",
+    "domId": "scope-countertops",
+    "kind": "line",
+    "label": "Countertops",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.014665811803531064,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 166161,
+      "high": 345103,
+      "likely": 255632,
+      "el": null,
+      "costCode": "24a",
+      "label": "Countertops",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:24a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3,652 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $3,652 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 156433,
+    "high": 324899,
+    "likely": 240666,
+    "el": "line:11",
+    "domId": "scope-screened-balconies",
+    "kind": "line",
+    "label": "Screened Balconies",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.013807200442466541,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 156433,
+      "high": 324899,
+      "likely": 240666,
+      "el": null,
+      "costCode": "11",
+      "label": "Screened Balconies",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:11:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.76 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 185953,
+    "high": 278930,
+    "likely": 232441.5,
+    "el": "line:7",
+    "domId": "scope-misc-steel-stairs-mesh-screens-canopy",
+    "kind": "line",
+    "label": "Misc Steel Stairs Mesh Screens + Canopy",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.013335354315306636,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 185953,
+      "high": 278930,
+      "likely": 232441.5,
+      "el": null,
+      "costCode": "7",
+      "label": "Misc Steel Stairs Mesh Screens + Canopy",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:7:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3.78 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:7:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.49 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 140308,
+    "high": 291409,
+    "likely": 215858.5,
+    "el": "element:demolition",
+    "domId": "scope-demolition",
+    "kind": "element",
+    "label": "Demolition",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Priced"
+    },
+    "share": 0.01238397437407097,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 128700,
+      "high": 267300,
+      "likely": 198000,
+      "el": "line:1a",
+      "costCode": "1a",
+      "label": "Structure Demolition",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "Kulka Rate"
+      },
+      "comparables": [
+       {
+        "el": "line:1a:comparable:1",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-26"
+       }
+      ],
+      "basis": "A rate Kulka stated, applied to this project's quantity. Low confidence: the range is 35% each side of the blend."
+     },
+     {
+      "low": 11608,
+      "high": 24109,
+      "likely": 17858.5,
+      "el": "line:1",
+      "costCode": "1",
+      "label": "Site Demolition",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:1:comparable:1",
+        "kindWords": "Kulka Job Actuals",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25,000 rate",
+        "weight": 5,
+        "recordedAt": "2026-09-26"
+       },
+       {
+        "el": "line:1:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3.71 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:1:comparable:3",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.89 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, weighted as listed and priced to this project's quantity. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": [
+     {
+      "el": "unpriced:28a",
+      "costCode": "28a",
+      "label": "Plumbing Disconnect and Cap"
+     },
+     {
+      "el": "unpriced:28b",
+      "costCode": "28b",
+      "label": "Gas Meter and Service Disconnect"
+     },
+     {
+      "el": "unpriced:31f",
+      "costCode": "31f",
+      "label": "Electrical Service Disconnect"
+     },
+     {
+      "el": "unpriced:36a",
+      "costCode": "36a",
+      "label": "Site Utility Cut and Cap at the Main"
+     }
+    ]
+   },
+   {
+    "low": 164621,
+    "high": 246931,
+    "likely": 205776,
+    "el": "line:20",
+    "domId": "scope-painting",
+    "kind": "line",
+    "label": "Painting",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.011805533304450961,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 164621,
+      "high": 246931,
+      "likely": 205776,
+      "el": null,
+      "costCode": "20",
+      "label": "Painting",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:20:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2.71 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:20:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.72 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 99628,
+    "high": 206919,
+    "likely": 153273.5,
+    "el": "line:32",
+    "domId": "scope-fire-alarm",
+    "kind": "line",
+    "label": "Fire Alarm",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.008793422988782775,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 99628,
+      "high": 206919,
+      "likely": 153273.5,
+      "el": null,
+      "costCode": "32",
+      "label": "Fire Alarm",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:32:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1.62 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:32:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.17 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 98080,
+    "high": 203705,
+    "likely": 150892.5,
+    "el": "line:16a",
+    "domId": "scope-windows-furnish-only",
+    "kind": "line",
+    "label": "Windows - Furnish Only",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.008656823119031699,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 98080,
+      "high": 203705,
+      "likely": 150892.5,
+      "el": null,
+      "costCode": "16a",
+      "label": "Windows - Furnish Only",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:16a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.80 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:16a:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.91 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 90941,
+    "high": 188877,
+    "likely": 139909,
+    "el": "line:18",
+    "domId": "scope-ceramic-tile",
+    "kind": "line",
+    "label": "Ceramic Tile",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.008026690960522265,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 90941,
+      "high": 188877,
+      "likely": 139909,
+      "el": null,
+      "costCode": "18",
+      "label": "Ceramic Tile",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:18:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1,999 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $1,999 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 108378,
+    "high": 162566,
+    "likely": 135472,
+    "el": "line:6",
+    "domId": "scope-masonry",
+    "kind": "line",
+    "label": "Masonry",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.007772136730330946,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 108378,
+      "high": 162566,
+      "likely": 135472,
+      "el": null,
+      "costCode": "6",
+      "label": "Masonry",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:6:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2.39 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:6:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$1.85 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 71148,
+    "high": 147770,
+    "likely": 109459,
+    "el": "line:39",
+    "domId": "scope-site-concrete-site-improvements-planters-pergolas-fences-gates",
+    "kind": "line",
+    "label": "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.006279750165091642,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 71148,
+      "high": 147770,
+      "likely": 109459,
+      "el": null,
+      "costCode": "39",
+      "label": "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:39:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1.71 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 63569,
+    "high": 132028,
+    "likely": 97798.5,
+    "el": "line:3a",
+    "domId": "scope-gypcrete",
+    "kind": "line",
+    "label": "Gypcrete",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.005610777976417791,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 63569,
+      "high": 132028,
+      "likely": 97798.5,
+      "el": null,
+      "costCode": "3a",
+      "label": "Gypcrete",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:3a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1.53 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 35425,
+    "high": 53138,
+    "likely": 44281.5,
+    "el": "line:24b",
+    "domId": "scope-window-treatments",
+    "kind": "line",
+    "label": "Window Treatments",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.0025404649863008575,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 35425,
+      "high": 53138,
+      "likely": 44281.5,
+      "el": null,
+      "costCode": "24b",
+      "label": "Window Treatments",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:24b:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$527 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:24b:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$738 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $633 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 11532,
+    "high": 23950,
+    "likely": 17741,
+    "el": "line:25",
+    "domId": "scope-furnishings-fireplace",
+    "kind": "line",
+    "label": "Furnishings & Fireplace",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.0010178153251801207,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 11532,
+      "high": 23950,
+      "likely": 17741,
+      "el": null,
+      "costCode": "25",
+      "label": "Furnishings & Fireplace",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:25:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.28 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 10499,
+    "high": 21807,
+    "likely": 16153,
+    "el": "line:10",
+    "domId": "scope-millwork",
+    "kind": "line",
+    "label": "Millwork",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.0009267104981474825,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 10499,
+      "high": 21807,
+      "likely": 16153,
+      "el": null,
+      "costCode": "10",
+      "label": "Millwork",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:10:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$231 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $231 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   {
+    "low": 5878,
+    "high": 12208,
+    "likely": 9043,
+    "el": "line:8a",
+    "domId": "scope-wood-stairs",
+    "kind": "line",
+    "label": "Wood Stairs",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.0005188041252242732,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 5878,
+      "high": 12208,
+      "likely": 9043,
+      "el": null,
+      "costCode": "8a",
+      "label": "Wood Stairs",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:8a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.14 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   }
+  ],
+  "ownerScopes": [
+   {
+    "low": 153029,
+    "high": 317830,
+    "likely": 235429.5,
+    "el": "line:22",
+    "domId": "scope-appliances",
+    "kind": "line",
+    "label": "Appliances",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": null,
+    "ownerDirect": true,
+    "lines": [
+     {
+      "low": 153029,
+      "high": 317830,
+      "likely": 235429.5,
+      "el": null,
+      "costCode": "22",
+      "label": "Appliances",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:22:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2,470 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:22:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4,257 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $3,363 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   }
+  ],
+  "trades": {
+   "low": 11888024,
+   "high": 22972917,
+   "likely": 17430470.5
+  },
+  "ownerDirect": {
+   "low": 153029,
+   "high": 317830,
+   "likely": 235429.5
+  },
+  "scaleHigh": 4379629,
+  "divisions": null
+ },
+ "ledger": [
+  {
+   "key": "element:demolition",
+   "scope": {
+    "low": 140308,
+    "high": 291409,
+    "likely": 215858.5,
+    "el": "element:demolition",
+    "domId": "scope-demolition",
+    "kind": "element",
+    "label": "Demolition",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Priced"
+    },
+    "share": 0.01238397437407097,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 128700,
+      "high": 267300,
+      "likely": 198000,
+      "el": "line:1a",
+      "costCode": "1a",
+      "label": "Structure Demolition",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "Kulka Rate"
+      },
+      "comparables": [
+       {
+        "el": "line:1a:comparable:1",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-26"
+       }
+      ],
+      "basis": "A rate Kulka stated, applied to this project's quantity. Low confidence: the range is 35% each side of the blend."
+     },
+     {
+      "low": 11608,
+      "high": 24109,
+      "likely": 17858.5,
+      "el": "line:1",
+      "costCode": "1",
+      "label": "Site Demolition",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:1:comparable:1",
+        "kindWords": "Kulka Job Actuals",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25,000 rate",
+        "weight": 5,
+        "recordedAt": "2026-09-26"
+       },
+       {
+        "el": "line:1:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3.71 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:1:comparable:3",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.89 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, weighted as listed and priced to this project's quantity. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": [
+     {
+      "el": "unpriced:28a",
+      "costCode": "28a",
+      "label": "Plumbing Disconnect and Cap"
+     },
+     {
+      "el": "unpriced:28b",
+      "costCode": "28b",
+      "label": "Gas Meter and Service Disconnect"
+     },
+     {
+      "el": "unpriced:31f",
+      "costCode": "31f",
+      "label": "Electrical Service Disconnect"
+     },
+     {
+      "el": "unpriced:36a",
+      "costCode": "36a",
+      "label": "Site Utility Cut and Cap at the Main"
+     }
+    ]
+   },
+   "division": "02",
+   "label": "Demolition",
+   "likely": 215858.5,
+   "perSquareFoot": "$3.37",
+   "shareOfContract": "1%",
+   "sourceText": "Structure Demolition: Kulka Rate · Site Demolition: 2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:2",
+   "scope": {
+    "low": 735800,
+    "high": 1528200,
+    "likely": 1132000,
+    "el": "line:2",
+    "domId": "scope-concrete-site-concrete",
+    "kind": "line",
+    "label": "Concrete & Site Concrete",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.06494374319958833,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 735800,
+      "high": 1528200,
+      "likely": 1132000,
+      "el": null,
+      "costCode": "2",
+      "label": "Concrete & Site Concrete",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:2:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$17.69 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "03",
+   "label": "Concrete & Site Concrete",
+   "likely": 1132000,
+   "perSquareFoot": "$17.69",
+   "shareOfContract": "6%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:3a",
+   "scope": {
+    "low": 63569,
+    "high": 132028,
+    "likely": 97798.5,
+    "el": "line:3a",
+    "domId": "scope-gypcrete",
+    "kind": "line",
+    "label": "Gypcrete",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.005610777976417791,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 63569,
+      "high": 132028,
+      "likely": 97798.5,
+      "el": null,
+      "costCode": "3a",
+      "label": "Gypcrete",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:3a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1.53 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "03",
+   "label": "Gypcrete",
+   "likely": 97798.5,
+   "perSquareFoot": "$1.53",
+   "shareOfContract": "0%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:6",
+   "scope": {
+    "low": 108378,
+    "high": 162566,
+    "likely": 135472,
+    "el": "line:6",
+    "domId": "scope-masonry",
+    "kind": "line",
+    "label": "Masonry",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.007772136730330946,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 108378,
+      "high": 162566,
+      "likely": 135472,
+      "el": null,
+      "costCode": "6",
+      "label": "Masonry",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:6:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2.39 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:6:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$1.85 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "04",
+   "label": "Masonry",
+   "likely": 135472,
+   "perSquareFoot": "$2.12",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:7",
+   "scope": {
+    "low": 185953,
+    "high": 278930,
+    "likely": 232441.5,
+    "el": "line:7",
+    "domId": "scope-misc-steel-stairs-mesh-screens-canopy",
+    "kind": "line",
+    "label": "Misc Steel Stairs Mesh Screens + Canopy",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.013335354315306636,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 185953,
+      "high": 278930,
+      "likely": 232441.5,
+      "el": null,
+      "costCode": "7",
+      "label": "Misc Steel Stairs Mesh Screens + Canopy",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:7:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3.78 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:7:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.49 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "05",
+   "label": "Misc Steel Stairs Mesh Screens + Canopy",
+   "likely": 232441.5,
+   "perSquareFoot": "$3.63",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:8",
+   "scope": {
+    "low": 617802,
+    "high": 1283126,
+    "likely": 950464,
+    "el": "line:8",
+    "domId": "scope-wood-framing-install-wood-framing-supply",
+    "kind": "line",
+    "label": "Wood Framing - Install + Wood Framing - Supply",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.054528878035736326,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 617802,
+      "high": 1283126,
+      "likely": 950464,
+      "el": null,
+      "costCode": "8",
+      "label": "Wood Framing - Install + Wood Framing - Supply",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:8:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$14.85 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "06",
+   "label": "Wood Framing - Install + Wood Framing - Supply",
+   "likely": 950464,
+   "perSquareFoot": "$14.85",
+   "shareOfContract": "5%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:8a",
+   "scope": {
+    "low": 5878,
+    "high": 12208,
+    "likely": 9043,
+    "el": "line:8a",
+    "domId": "scope-wood-stairs",
+    "kind": "line",
+    "label": "Wood Stairs",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.0005188041252242732,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 5878,
+      "high": 12208,
+      "likely": 9043,
+      "el": null,
+      "costCode": "8a",
+      "label": "Wood Stairs",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:8a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.14 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "06",
+   "label": "Wood Stairs",
+   "likely": 9043,
+   "perSquareFoot": "$0.14",
+   "shareOfContract": "0%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:9",
+   "scope": {
+    "low": 211809,
+    "high": 317713,
+    "likely": 264761,
+    "el": "line:9",
+    "domId": "scope-finish-carpentry",
+    "kind": "line",
+    "label": "Finish Carpentry",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015189549817372973,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 211809,
+      "high": 317713,
+      "likely": 264761,
+      "el": null,
+      "costCode": "9",
+      "label": "Finish Carpentry",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:9:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3,526 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:9:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4,038 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $3,782 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "06",
+   "label": "Finish Carpentry",
+   "likely": 264761,
+   "perSquareFoot": "$4.14",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:10",
+   "scope": {
+    "low": 10499,
+    "high": 21807,
+    "likely": 16153,
+    "el": "line:10",
+    "domId": "scope-millwork",
+    "kind": "line",
+    "label": "Millwork",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.0009267104981474825,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 10499,
+      "high": 21807,
+      "likely": 16153,
+      "el": null,
+      "costCode": "10",
+      "label": "Millwork",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:10:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$231 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $231 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "06",
+   "label": "Millwork",
+   "likely": 16153,
+   "perSquareFoot": "$0.25",
+   "shareOfContract": "0%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:11",
+   "scope": {
+    "low": 156433,
+    "high": 324899,
+    "likely": 240666,
+    "el": "line:11",
+    "domId": "scope-screened-balconies",
+    "kind": "line",
+    "label": "Screened Balconies",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.013807200442466541,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 156433,
+      "high": 324899,
+      "likely": 240666,
+      "el": null,
+      "costCode": "11",
+      "label": "Screened Balconies",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:11:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.76 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "06",
+   "label": "Screened Balconies",
+   "likely": 240666,
+   "perSquareFoot": "$3.76",
+   "shareOfContract": "1%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:12",
+   "scope": {
+    "low": 176097,
+    "high": 365740,
+    "likely": 270918.5,
+    "el": "line:12",
+    "domId": "scope-damproofing-waterproofing-insulation",
+    "kind": "line",
+    "label": "Damproofing & Waterproofing + Insulation",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015542810505315963,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 176097,
+      "high": 365740,
+      "likely": 270918.5,
+      "el": null,
+      "costCode": "12",
+      "label": "Damproofing & Waterproofing + Insulation",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:12:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5.61 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:12:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$2.86 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "07",
+   "label": "Damproofing & Waterproofing + Insulation",
+   "likely": 270918.5,
+   "perSquareFoot": "$4.23",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:13",
+   "scope": {
+    "low": 259615,
+    "high": 389422,
+    "likely": 324518.5,
+    "el": "line:13",
+    "domId": "scope-roofing-rooftop-pavers",
+    "kind": "line",
+    "label": "Roofing + Rooftop Pavers",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.018617885271656896,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 259615,
+      "high": 389422,
+      "likely": 324518.5,
+      "el": null,
+      "costCode": "13",
+      "label": "Roofing + Rooftop Pavers",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:13:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$4.42 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:13:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$5.72 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "07",
+   "label": "Roofing + Rooftop Pavers",
+   "likely": 324518.5,
+   "perSquareFoot": "$5.07",
+   "shareOfContract": "2%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:14",
+   "scope": {
+    "low": 524137,
+    "high": 1088592,
+    "likely": 806364.5,
+    "el": "line:14",
+    "domId": "scope-siding-exterior-trim-decks-rails-stucco",
+    "kind": "line",
+    "label": "Siding Exterior Trim Decks Rails + Stucco",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.04626177474670004,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 524137,
+      "high": 1088592,
+      "likely": 806364.5,
+      "el": null,
+      "costCode": "14",
+      "label": "Siding Exterior Trim Decks Rails + Stucco",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:14:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5.51 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:14:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$19.69 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "07",
+   "label": "Siding Exterior Trim Decks Rails + Stucco",
+   "likely": 806364.5,
+   "perSquareFoot": "$12.60",
+   "shareOfContract": "4%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:15",
+   "scope": {
+    "low": 279758,
+    "high": 419637,
+    "likely": 349697.5,
+    "el": "line:15",
+    "domId": "scope-doors-frames-hardware",
+    "kind": "line",
+    "label": "Doors Frames Hardware",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.0200624245914647,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 279758,
+      "high": 419637,
+      "likely": 349697.5,
+      "el": null,
+      "costCode": "15",
+      "label": "Doors Frames Hardware",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:15:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5,448 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:15:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4,544 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $4,996 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "08",
+   "label": "Doors Frames Hardware",
+   "likely": 349697.5,
+   "perSquareFoot": "$5.46",
+   "shareOfContract": "2%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:16a",
+   "scope": {
+    "low": 98080,
+    "high": 203705,
+    "likely": 150892.5,
+    "el": "line:16a",
+    "domId": "scope-windows-furnish-only",
+    "kind": "line",
+    "label": "Windows - Furnish Only",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.008656823119031699,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 98080,
+      "high": 203705,
+      "likely": 150892.5,
+      "el": null,
+      "costCode": "16a",
+      "label": "Windows - Furnish Only",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:16a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.80 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:16a:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.91 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "08",
+   "label": "Windows - Furnish Only",
+   "likely": 150892.5,
+   "perSquareFoot": "$2.36",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:17",
+   "scope": {
+    "low": 2108710,
+    "high": 4379629,
+    "likely": 3244169.5,
+    "el": "line:17",
+    "domId": "scope-drywall-act-metal-framing",
+    "kind": "line",
+    "label": "Drywall & ACT + Metal Framing",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.18612059267132233,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 2108710,
+      "high": 4379629,
+      "likely": 3244169.5,
+      "el": null,
+      "costCode": "17",
+      "label": "Drywall & ACT + Metal Framing",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:17:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$8.37 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:17:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$93.01 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "09",
+   "label": "Drywall & ACT + Metal Framing",
+   "likely": 3244169.5,
+   "perSquareFoot": "$50.69",
+   "shareOfContract": "16%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:18",
+   "scope": {
+    "low": 90941,
+    "high": 188877,
+    "likely": 139909,
+    "el": "line:18",
+    "domId": "scope-ceramic-tile",
+    "kind": "line",
+    "label": "Ceramic Tile",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.008026690960522265,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 90941,
+      "high": 188877,
+      "likely": 139909,
+      "el": null,
+      "costCode": "18",
+      "label": "Ceramic Tile",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:18:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1,999 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $1,999 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "09",
+   "label": "Ceramic Tile",
+   "likely": 139909,
+   "perSquareFoot": "$2.19",
+   "shareOfContract": "1%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:19",
+   "scope": {
+    "low": 412858,
+    "high": 857474,
+    "likely": 635166,
+    "el": "line:19",
+    "domId": "scope-flooring",
+    "kind": "line",
+    "label": "Flooring",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.036439980205927314,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 412858,
+      "high": 857474,
+      "likely": 635166,
+      "el": null,
+      "costCode": "19",
+      "label": "Flooring",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:19:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$4,182 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:19:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$13,966 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $9,074 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "09",
+   "label": "Flooring",
+   "likely": 635166,
+   "perSquareFoot": "$9.92",
+   "shareOfContract": "3%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:20",
+   "scope": {
+    "low": 164621,
+    "high": 246931,
+    "likely": 205776,
+    "el": "line:20",
+    "domId": "scope-painting",
+    "kind": "line",
+    "label": "Painting",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.011805533304450961,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 164621,
+      "high": 246931,
+      "likely": 205776,
+      "el": null,
+      "costCode": "20",
+      "label": "Painting",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:20:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2.71 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:20:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.72 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "09",
+   "label": "Painting",
+   "likely": 205776,
+   "perSquareFoot": "$3.22",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:21",
+   "scope": {
+    "low": 195371,
+    "high": 405771,
+    "likely": 300571,
+    "el": "line:21",
+    "domId": "scope-specialties-f-e-signage",
+    "kind": "line",
+    "label": "Specialties & F.E. + Signage",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.01724399808943769,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 195371,
+      "high": 405771,
+      "likely": 300571,
+      "el": null,
+      "costCode": "21",
+      "label": "Specialties & F.E. + Signage",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:21:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2,398 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:21:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$6,190 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $4,294 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "10",
+   "label": "Specialties & F.E. + Signage",
+   "likely": 300571,
+   "perSquareFoot": "$4.70",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:22",
+   "scope": {
+    "low": 153029,
+    "high": 317830,
+    "likely": 235429.5,
+    "el": "line:22",
+    "domId": "scope-appliances",
+    "kind": "line",
+    "label": "Appliances",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": null,
+    "ownerDirect": true,
+    "lines": [
+     {
+      "low": 153029,
+      "high": 317830,
+      "likely": 235429.5,
+      "el": null,
+      "costCode": "22",
+      "label": "Appliances",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:22:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$2,470 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:22:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4,257 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $3,363 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "11",
+   "label": "Appliances",
+   "likely": 235429.5,
+   "perSquareFoot": "$3.68",
+   "shareOfContract": null,
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:24",
+   "scope": {
+    "low": 328301,
+    "high": 681855,
+    "likely": 505078,
+    "el": "line:24",
+    "domId": "scope-cabinets",
+    "kind": "line",
+    "label": "Cabinets",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.028976727851379572,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 328301,
+      "high": 681855,
+      "likely": 505078,
+      "el": null,
+      "costCode": "24",
+      "label": "Cabinets",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:24:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1,732 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:24:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$12,699 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $7,215 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "12",
+   "label": "Cabinets",
+   "likely": 505078,
+   "perSquareFoot": "$7.89",
+   "shareOfContract": "2%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:24a",
+   "scope": {
+    "low": 166161,
+    "high": 345103,
+    "likely": 255632,
+    "el": "line:24a",
+    "domId": "scope-countertops",
+    "kind": "line",
+    "label": "Countertops",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.014665811803531064,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 166161,
+      "high": 345103,
+      "likely": 255632,
+      "el": null,
+      "costCode": "24a",
+      "label": "Countertops",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:24a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$3,652 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $3,652 across 70 units. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "12",
+   "label": "Countertops",
+   "likely": 255632,
+   "perSquareFoot": "$3.99",
+   "shareOfContract": "1%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:24b",
+   "scope": {
+    "low": 35425,
+    "high": 53138,
+    "likely": 44281.5,
+    "el": "line:24b",
+    "domId": "scope-window-treatments",
+    "kind": "line",
+    "label": "Window Treatments",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.0025404649863008575,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 35425,
+      "high": 53138,
+      "likely": 44281.5,
+      "el": null,
+      "costCode": "24b",
+      "label": "Window Treatments",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:24b:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$527 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:24b:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$738 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $633 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "12",
+   "label": "Window Treatments",
+   "likely": 44281.5,
+   "perSquareFoot": "$0.69",
+   "shareOfContract": "0%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "line:25",
+   "scope": {
+    "low": 11532,
+    "high": 23950,
+    "likely": 17741,
+    "el": "line:25",
+    "domId": "scope-furnishings-fireplace",
+    "kind": "line",
+    "label": "Furnishings & Fireplace",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.0010178153251801207,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 11532,
+      "high": 23950,
+      "likely": 17741,
+      "el": null,
+      "costCode": "25",
+      "label": "Furnishings & Fireplace",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:25:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.28 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "13",
+   "label": "Furnishings & Fireplace",
+   "likely": 17741,
+   "perSquareFoot": "$0.28",
+   "shareOfContract": "0%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": false
+  },
+  {
+   "key": "element:elevator",
+   "scope": {
+    "low": 256200,
+    "high": 501200,
+    "likely": 378700,
+    "el": "element:elevator",
+    "domId": "scope-elevator",
+    "kind": "element",
+    "label": "Elevator",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Priced"
+    },
+    "share": 0.021726321156964754,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 227500,
+      "high": 472500,
+      "likely": 350000,
+      "el": "line:26",
+      "costCode": "26",
+      "label": "Elevators",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "Kulka Rate"
+      },
+      "comparables": [
+       {
+        "el": "line:26:comparable:1",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       }
+      ],
+      "basis": "A rate Kulka stated, applied to this project's quantity. Low confidence: the range is 35% each side of the blend."
+     },
+     {
+      "low": 28700,
+      "high": 28700,
+      "likely": 28700,
+      "el": "line:26a",
+      "costCode": "26a",
+      "label": "Elevator Bulkhead",
+      "confidence": "high",
+      "source": {
+       "tone": "high",
+       "text": "Kulka Rate"
+      },
+      "comparables": [
+       {
+        "el": "line:26a:comparable:1",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       },
+       {
+        "el": "line:26a:comparable:2",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       },
+       {
+        "el": "line:26a:comparable:3",
+        "kindWords": "Kulka Stated Rate",
+        "jobs": "Kulka",
+        "rate": "Rate on File",
+        "weight": 2,
+        "recordedAt": "2026-09-27"
+       }
+      ],
+      "basis": "A rate Kulka stated, applied to this project's quantity. High confidence: the range is 10% each side of the blend."
+     }
+    ],
+    "unpriced": [
+     {
+      "el": "unpriced:26b",
+      "costCode": "26b",
+      "label": "Cab Interior Finish Package"
+     },
+     {
+      "el": "unpriced:26c",
+      "costCode": "26c",
+      "label": "Elevator Pit Ladder"
+     },
+     {
+      "el": "unpriced:26e",
+      "costCode": "26e",
+      "label": "Pit Light and GFCI Receptacle"
+     },
+     {
+      "el": "unpriced:26f",
+      "costCode": "26f",
+      "label": "Emergency Two-Way Communication Line"
+     },
+     {
+      "el": "unpriced:26g",
+      "costCode": "26g",
+      "label": "Machine Room HVAC"
+     },
+     {
+      "el": "unpriced:26h",
+      "costCode": "26h",
+      "label": "Hoistway Door Frame Grouting"
+     },
+     {
+      "el": "unpriced:26i",
+      "costCode": "26i",
+      "label": "Hydraulic Well Hole and Casing"
+     }
+    ]
+   },
+   "division": "14",
+   "label": "Elevator",
+   "likely": 378700,
+   "perSquareFoot": "$5.92",
+   "shareOfContract": "2%",
+   "sourceText": "Elevators: Kulka Rate · Elevator Bulkhead: Kulka Rate",
+   "sourceTone": "low",
+   "ink": "light",
+   "hasLayer": true
+  },
+  {
+   "key": "line:27",
+   "scope": {
+    "low": 228413,
+    "high": 342620,
+    "likely": 285516.5,
+    "el": "line:27",
+    "domId": "scope-fire-protection",
+    "kind": "line",
+    "label": "Fire Protection",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.01638030941276083,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 228413,
+      "high": 342620,
+      "likely": 285516.5,
+      "el": null,
+      "costCode": "27",
+      "label": "Fire Protection",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:27:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$4.83 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:27:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$4.09 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "21",
+   "label": "Fire Protection",
+   "likely": 285516.5,
+   "perSquareFoot": "$4.46",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:28",
+   "scope": {
+    "low": 1449617,
+    "high": 2174426,
+    "likely": 1812021.5,
+    "el": "line:28",
+    "domId": "scope-plumbing",
+    "kind": "line",
+    "label": "Plumbing",
+    "confidence": "medium",
+    "chip": {
+     "tone": "medium",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.10395711922979933,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 1449617,
+      "high": 2174426,
+      "likely": 1812021.5,
+      "el": null,
+      "costCode": "28",
+      "label": "Plumbing",
+      "confidence": "medium",
+      "source": {
+       "tone": "medium",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:28:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$25,866 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:28:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25,906 per unit",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Priced per unit: $25,886 across 70 units. Medium confidence: the range is 20% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "22",
+   "label": "Plumbing",
+   "likely": 1812021.5,
+   "perSquareFoot": "$28.31",
+   "shareOfContract": "9%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "medium",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:30",
+   "scope": {
+    "low": 622631,
+    "high": 1293157,
+    "likely": 957894,
+    "el": "line:30",
+    "domId": "scope-mechanical",
+    "kind": "line",
+    "label": "Mechanical",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.05495514306398098,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 622631,
+      "high": 1293157,
+      "likely": 957894,
+      "el": null,
+      "costCode": "30",
+      "label": "Mechanical",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:30:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$10.78 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:30:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$19.16 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "23",
+   "label": "Mechanical",
+   "likely": 957894,
+   "perSquareFoot": "$14.97",
+   "shareOfContract": "5%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:31",
+   "scope": {
+    "low": 804546,
+    "high": 1670980,
+    "likely": 1237763,
+    "el": "line:31",
+    "domId": "scope-electrical",
+    "kind": "line",
+    "label": "Electrical",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.07101145089571737,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 804546,
+      "high": 1670980,
+      "likely": 1237763,
+      "el": null,
+      "costCode": "31",
+      "label": "Electrical",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:31:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$13.00 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:31:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25.68 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "26",
+   "label": "Electrical",
+   "likely": 1237763,
+   "perSquareFoot": "$19.34",
+   "shareOfContract": "6%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:31a",
+   "scope": {
+    "low": 256339,
+    "high": 532397,
+    "likely": 394368,
+    "el": "line:31a",
+    "domId": "scope-low-voltage",
+    "kind": "line",
+    "label": "Low Voltage",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.022625206818140682,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 256339,
+      "high": 532397,
+      "likely": 394368,
+      "el": null,
+      "costCode": "31a",
+      "label": "Low Voltage",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:31a:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$6.16 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "27",
+   "label": "Low Voltage",
+   "likely": 394368,
+   "perSquareFoot": "$6.16",
+   "shareOfContract": "2%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:32",
+   "scope": {
+    "low": 99628,
+    "high": 206919,
+    "likely": 153273.5,
+    "el": "line:32",
+    "domId": "scope-fire-alarm",
+    "kind": "line",
+    "label": "Fire Alarm",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.008793422988782775,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 99628,
+      "high": 206919,
+      "likely": 153273.5,
+      "el": null,
+      "costCode": "32",
+      "label": "Fire Alarm",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:32:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1.62 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:32:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$3.17 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "28",
+   "label": "Fire Alarm",
+   "likely": 153273.5,
+   "perSquareFoot": "$2.39",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:34",
+   "scope": {
+    "low": 656269,
+    "high": 1363020,
+    "likely": 1009644.5,
+    "el": "line:34",
+    "domId": "scope-site-work",
+    "kind": "line",
+    "label": "Site Work",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.05792411053964378,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 656269,
+      "high": 1363020,
+      "likely": 1009644.5,
+      "el": null,
+      "costCode": "34",
+      "label": "Site Work",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:34:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$5.81 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:34:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$25.74 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "31",
+   "label": "Site Work",
+   "likely": 1009644.5,
+   "perSquareFoot": "$15.78",
+   "shareOfContract": "5%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:37",
+   "scope": {
+    "low": 176754,
+    "high": 367105,
+    "likely": 271929.5,
+    "el": "line:37",
+    "domId": "scope-landscaping-irrigation-pavers",
+    "kind": "line",
+    "label": "Landscaping Irrigation Pavers",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015600812381972133,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 176754,
+      "high": 367105,
+      "likely": 271929.5,
+      "el": null,
+      "costCode": "37",
+      "label": "Landscaping Irrigation Pavers",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:37:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.50 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:37:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$8.00 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "32",
+   "label": "Landscaping Irrigation Pavers",
+   "likely": 271929.5,
+   "perSquareFoot": "$4.25",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:38",
+   "scope": {
+    "low": 178443,
+    "high": 370613,
+    "likely": 274528,
+    "el": "line:38",
+    "domId": "scope-asphalt-traffic-signage-striping",
+    "kind": "line",
+    "label": "Asphalt Traffic Signage Striping",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "2 Kulka Jobs"
+    },
+    "share": 0.015749890400262,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 178443,
+      "high": 370613,
+      "likely": 274528,
+      "el": null,
+      "costCode": "38",
+      "label": "Asphalt Traffic Signage Striping",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "2 Kulka Jobs"
+      },
+      "comparables": [
+       {
+        "el": "line:38:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$0.73 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       },
+       {
+        "el": "line:38:comparable:2",
+        "kindWords": "Kulka Budget",
+        "jobs": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+        "rate": "$7.84 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-23"
+       }
+      ],
+      "basis": "2 Kulka jobs stand behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "32",
+   "label": "Asphalt Traffic Signage Striping",
+   "likely": 274528,
+   "perSquareFoot": "$4.29",
+   "shareOfContract": "1%",
+   "sourceText": "2 Kulka Jobs",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  },
+  {
+   "key": "line:39",
+   "scope": {
+    "low": 71148,
+    "high": 147770,
+    "likely": 109459,
+    "el": "line:39",
+    "domId": "scope-site-concrete-site-improvements-planters-pergolas-fences-gates",
+    "kind": "line",
+    "label": "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates",
+    "confidence": "low",
+    "chip": {
+     "tone": "low",
+     "text": "1 Kulka Job"
+    },
+    "share": 0.006279750165091642,
+    "ownerDirect": false,
+    "lines": [
+     {
+      "low": 71148,
+      "high": 147770,
+      "likely": 109459,
+      "el": null,
+      "costCode": "39",
+      "label": "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates",
+      "confidence": "low",
+      "source": {
+       "tone": "low",
+       "text": "1 Kulka Job"
+      },
+      "comparables": [
+       {
+        "el": "line:39:comparable:1",
+        "kindWords": "Kulka Budget",
+        "jobs": "Fieldstone North Broadway (C00449)",
+        "rate": "$1.71 per SF",
+        "weight": 1,
+        "recordedAt": "2026-09-24"
+       }
+      ],
+      "basis": "1 Kulka job stands behind this line, each weighted as listed, blended to one rate per square foot and multiplied by 64,000 SF. Low confidence: the range is 35% each side of the blend."
+     }
+    ],
+    "unpriced": []
+   },
+   "division": "32",
+   "label": "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates",
+   "likely": 109459,
+   "perSquareFoot": "$1.71",
+   "shareOfContract": "1%",
+   "sourceText": "1 Kulka Job",
+   "sourceTone": "low",
+   "ink": "full",
+   "hasLayer": true
+  }
+ ],
+ "drawing": {
+  "facts": {
+   "project": "MN Test #4",
+   "version": 1,
+   "date": "September 28, 2026",
+   "stories": 5,
+   "belowGrade": false,
+   "units": 70,
+   "grossArea": "64,000 SF",
+   "parking": "Surface",
+   "demolition": true,
+   "elevators": 2,
+   "elevatorType": "Hydraulic",
+   "jack": "In-Ground",
+   "machineRooms": 1,
+   "balconies": true,
+   "storefront": false,
+   "form": "Bar"
+  },
+  "ink": {
+   "line:17": "full",
+   "line:28": "full",
+   "line:31": "full",
+   "line:2": "full",
+   "line:34": "full",
+   "line:30": "full",
+   "line:8": "full",
+   "line:14": "full",
+   "line:19": "full",
+   "line:24": "full",
+   "line:31a": "full",
+   "element:elevator": "light",
+   "line:26": "light",
+   "line:26a": "light",
+   "line:15": "full",
+   "line:13": "full",
+   "line:21": "full",
+   "line:27": "full",
+   "line:38": "full",
+   "line:37": "full",
+   "line:12": "full",
+   "line:9": "full",
+   "line:24a": "full",
+   "line:11": "full",
+   "line:7": "full",
+   "element:demolition": "full",
+   "line:1a": "light",
+   "line:1": "full",
+   "line:20": "full",
+   "line:32": "full",
+   "line:16a": "full",
+   "line:18": "full",
+   "line:6": "full",
+   "line:39": "full",
+   "line:3a": "full",
+   "line:24b": "full",
+   "line:25": "full",
+   "line:10": "full",
+   "line:8a": "full",
+   "line:22": "full"
+  },
+  "lightRows": [
+   "Demolition",
+   "Elevator"
+  ],
+  "noLayer": [
+   {
+    "key": "line:8a",
+    "label": "Wood Stairs"
+   },
+   {
+    "key": "line:9",
+    "label": "Finish Carpentry"
+   },
+   {
+    "key": "line:10",
+    "label": "Millwork"
+   },
+   {
+    "key": "line:18",
+    "label": "Ceramic Tile"
+   },
+   {
+    "key": "line:20",
+    "label": "Painting"
+   },
+   {
+    "key": "line:21",
+    "label": "Specialties & F.E. + Signage"
+   },
+   {
+    "key": "line:22",
+    "label": "Appliances (Bought by the Owner)"
+   },
+   {
+    "key": "line:24a",
+    "label": "Countertops"
+   },
+   {
+    "key": "line:24b",
+    "label": "Window Treatments"
+   },
+   {
+    "key": "line:25",
+    "label": "Furnishings & Fireplace"
+   }
+  ],
+  "inkNote": "Full ink is priced from Kulka's completed jobs. Light ink is priced from Kulka's stated rates.",
+  "jobs": [
+   "Fieldstone North Broadway",
+   "Jefferson's Ferry NW ILU Building 1"
+  ],
+  "criteria": [
+   {
+    "code": "A-1",
+    "value": "Type IIIA"
+   },
+   {
+    "code": "A-2",
+    "value": "Bar"
+   },
+   {
+    "code": "E-1",
+    "value": "1,600 A Service"
+   },
+   {
+    "code": "M-0",
+    "value": "Standard Glazing Band"
+   },
+   {
+    "code": "M-1",
+    "value": "91 Tons"
+   },
+   {
+    "code": "S-1",
+    "value": "Spread Footings"
+   },
+   {
+    "code": "V-1",
+    "value": "Hydraulic"
+   },
+   {
+    "code": "V-2",
+    "value": "In-Ground"
+   },
+   {
+    "code": "V-3",
+    "value": "1 Machine Room"
+   }
+  ]
+ },
+ "restsOn": {
+  "priced": 38,
+  "fromKulkaJobs": 35,
+  "fromKulkaRates": 3,
+  "placeholder": 0,
+  "shares": {
+   "fromKulkaJobs": 0.9673551871118935,
+   "fromKulkaRates": 0.032644812888106466,
+   "placeholder": 0
+  },
+  "jobs": [
+   {
+    "name": "Fieldstone North Broadway (C00449)",
+    "lines": 32
+   },
+   {
+    "name": "Jefferson's Ferry NW ILU Building 1 (C00456)",
+    "lines": 27
+   }
+  ],
+  "confidence": {
+   "high": 1,
+   "medium": 9,
+   "low": 28
+  }
+ },
+ "criteria": [
+  {
+   "el": "criterion:A-1",
+   "code": "A-1",
+   "label": "Construction Type",
+   "value": "Type IIIA",
+   "method": "IBC 2021 and 2025 BCNYS R-2 limits by stories, framing and podium.",
+   "prices": [
+    "Building Concrete",
+    "Wood Framing - Install + Wood Framing - Supply",
+    "Drywall & ACT + Metal Framing",
+    "Fire Protection"
+   ],
+   "confidenceReason": "Wood framing with no podium, clear of the type's height and area limits.",
+   "settled": true,
+   "inputs": [
+    {
+     "name": "Stories Above Grade",
+     "value": "5",
+     "basis": "stated"
+    },
+    {
+     "name": "Framing System",
+     "value": "Wood",
+     "basis": "stated"
+    },
+    {
+     "name": "Parking",
+     "value": "Surface",
+     "basis": "stated"
+    },
+    {
+     "name": "Retail Storefronts",
+     "value": "No",
+     "basis": "stated"
+    },
+    {
+     "name": "Gross Square Feet",
+     "value": "64,000",
+     "basis": "stated"
+    },
+    {
+     "name": "Building Count",
+     "value": "1",
+     "basis": "stated"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Stories",
+     "result": "5"
+    },
+    {
+     "label": "Podium Stories",
+     "result": "0"
+    },
+    {
+     "label": "Framed Stories",
+     "result": "5, wood"
+    },
+    {
+     "label": "Height",
+     "result": "50 ft against 85 ft"
+    },
+    {
+     "label": "Area per Story",
+     "result": "12,800 SF against 72,000 SF"
+    },
+    {
+     "label": "Sprinkler",
+     "result": "NFPA 13"
+    },
+    {
+     "label": "Also Allowed",
+     "result": "Type IIIB"
+    },
+    {
+     "label": "Construction Type",
+     "result": "Type IIIA"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:A-2",
+   "code": "A-2",
+   "label": "Building Form",
+   "value": "Bar",
+   "method": "Double-loaded corridor wings 64 ft deep; past 300 ft of corridor the plate folds into an L, past 480 ft a U, past 720 ft a courtyard.",
+   "prices": [
+    "Wood Framing - Install + Wood Framing - Supply"
+   ],
+   "confidenceReason": "There is no site plan yet, so the shape follows from the floor plate's length alone.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Gross Square Feet",
+     "value": "64,000",
+     "basis": "stated"
+    },
+    {
+     "name": "Stories Above Grade",
+     "value": "5",
+     "basis": "stated"
+    },
+    {
+     "name": "Building Count",
+     "value": "1",
+     "basis": "stated"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Floor Plate",
+     "result": "12,800 SF per building"
+    },
+    {
+     "label": "Corridor Length",
+     "result": "200 ft at 64 ft deep"
+    },
+    {
+     "label": "Shape",
+     "result": "Bar, 300 ft or less"
+    },
+    {
+     "label": "Wings",
+     "result": "1, 200 ft"
+    },
+    {
+     "label": "Stepped Floors",
+     "result": "None"
+    },
+    {
+     "label": "Facade Bays",
+     "result": "19 at 28 ft"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:E-1",
+   "code": "E-1",
+   "label": "Electrical Service Size",
+   "value": "1,600 A Service",
+   "method": "NEC 220.84 optional multifamily calculation, one service per building.",
+   "prices": [
+    "Electrical"
+   ],
+   "confidenceReason": "Amenity space and equipment are not measured, so the common area is priced at the clubs rate and pool or sauna equipment is left out. Elevator motors carry a 40 HP placeholder until the elevator vendor's data replaces it.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Unit Count",
+     "value": "70",
+     "basis": "stated"
+    },
+    {
+     "name": "Building Count",
+     "value": "1",
+     "basis": "stated"
+    },
+    {
+     "name": "Gross Square Feet",
+     "value": "64,000",
+     "basis": "stated"
+    },
+    {
+     "name": "Amenity Scope",
+     "value": "Yes",
+     "basis": "stated"
+    },
+    {
+     "name": "Elevators",
+     "value": "2",
+     "basis": "stated"
+    },
+    {
+     "name": "Dwelling Share of Gross Area",
+     "value": "87% (DOE mid-rise apartment)",
+     "basis": "assumed"
+    },
+    {
+     "name": "Appliances per Unit",
+     "value": "Range, dryer, water heater, 6 kW heat (NEC Annex D4(b))",
+     "basis": "assumed"
+    },
+    {
+     "name": "Parking",
+     "value": "Surface",
+     "basis": "stated"
+    },
+    {
+     "name": "Elevator Motor",
+     "value": "40 HP per car, a placeholder",
+     "basis": "assumed"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Units",
+     "result": "70"
+    },
+    {
+     "label": "Average Unit",
+     "result": "795 SF"
+    },
+    {
+     "label": "Connected Load per Unit",
+     "result": "28,386 VA"
+    },
+    {
+     "label": "Demand Factor",
+     "result": "23% (Table 220.84)"
+    },
+    {
+     "label": "Dwelling Demand",
+     "result": "457,019 VA"
+    },
+    {
+     "label": "House Load",
+     "result": "109,048 VA"
+    },
+    {
+     "label": "Service Load",
+     "result": "1,571 A at 208Y/120 V"
+    },
+    {
+     "label": "Service Size",
+     "result": "1,600 A"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:M-0",
+   "code": "M-0",
+   "label": "Window Area and Orientation",
+   "value": "Standard Glazing Band",
+   "method": "Glazing band from balconies and storefronts, mapped to DOE's apartment prototypes.",
+   "prices": [
+    "Mechanical"
+   ],
+   "confidenceReason": "No code or intake fact measures window area directly; balconies and storefronts point different ways, so the standard band is used.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Balconies",
+     "value": "Yes",
+     "basis": "stated"
+    },
+    {
+     "name": "Retail Storefronts",
+     "value": "No",
+     "basis": "stated"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Balconies",
+     "result": "Yes"
+    },
+    {
+     "label": "Storefronts",
+     "result": "No"
+    },
+    {
+     "label": "Window to Wall",
+     "result": "19.9% (DOE mid-rise apartment)"
+    },
+    {
+     "label": "Glazing Band",
+     "result": "Standard"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:M-1",
+   "code": "M-1",
+   "label": "HVAC Tonnage",
+   "value": "91 Tons",
+   "method": "Gross square feet over DOE's IECC 2021 apartment prototype GSF per ton, by climate zone and glazing band.",
+   "prices": [
+    "Mechanical"
+   ],
+   "confidenceReason": "New construction in a stated climate zone, with no garage in the area and ventilation within the prototype; the ratio is DOE's code-minimum prototype, not a load calculation for this building.",
+   "settled": true,
+   "inputs": [
+    {
+     "name": "Gross Square Feet",
+     "value": "64,000",
+     "basis": "stated"
+    },
+    {
+     "name": "Climate Zone",
+     "value": "Zone 5, Rockland or Orange County",
+     "basis": "stated"
+    },
+    {
+     "name": "Glazing Band",
+     "value": "Standard Glazing Band (M-0)",
+     "basis": "assumed"
+    },
+    {
+     "name": "Unit Count",
+     "value": "70",
+     "basis": "stated"
+    },
+    {
+     "name": "Unit Mix",
+     "value": "1.40 bedrooms per unit (Census 2025, Northeast)",
+     "basis": "assumed"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Climate Zone",
+     "result": "Zone 5, Rockland or Orange County"
+    },
+    {
+     "label": "DOE Prototype",
+     "result": "Mid-Rise Apartment, 19.9% glazing"
+    },
+    {
+     "label": "GSF per Ton",
+     "result": "701"
+    },
+    {
+     "label": "Ventilation Check",
+     "result": "53 cfm per 1,000 SF, within the prototype's 58"
+    },
+    {
+     "label": "HVAC Tonnage",
+     "result": "91 tons"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:S-1",
+   "code": "S-1",
+   "label": "Foundation System",
+   "value": "Spread Footings",
+   "method": "Bearing pressure over IBC Class 4's presumptive value, then ground and basement.",
+   "prices": [
+    "Concrete & Site Concrete",
+    "Site Work",
+    "Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design"
+   ],
+   "confidenceReason": "There is no geotechnical report yet. Ground conditions are not known, so ground improvement or deep foundations may still be needed. Rock is possible in this area, so footings and trenches may need rock excavation.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Stories Above Grade",
+     "value": "5",
+     "basis": "stated"
+    },
+    {
+     "name": "Framing System",
+     "value": "Wood",
+     "basis": "stated"
+    },
+    {
+     "name": "Parking",
+     "value": "Surface",
+     "basis": "stated"
+    },
+    {
+     "name": "Levels Below Grade",
+     "value": "No",
+     "basis": "stated"
+    },
+    {
+     "name": "Groundwater or Poor Soil",
+     "value": "Don't Know",
+     "basis": "assumed"
+    },
+    {
+     "name": "Existing Building Tie-In",
+     "value": "No",
+     "basis": "stated"
+    },
+    {
+     "name": "Allowable Bearing",
+     "value": "2,000 psf, IBC Class 4 (no geotechnical report)",
+     "basis": "assumed"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Floors Carried",
+     "result": "4 and the roof"
+    },
+    {
+     "label": "Concrete Decks",
+     "result": "None"
+    },
+    {
+     "label": "Bearing Pressure",
+     "result": "385 psf"
+    },
+    {
+     "label": "Coverage",
+     "result": "19% of the footprint at 2,000 psf"
+    },
+    {
+     "label": "Ground",
+     "result": "Not known, priced as good ground"
+    },
+    {
+     "label": "Lowest Floor Slab",
+     "result": "Slab on Grade"
+    },
+    {
+     "label": "Foundation System",
+     "result": "Spread Footings"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:V-1",
+   "code": "V-1",
+   "label": "Elevator Type",
+   "value": "Hydraulic",
+   "method": "Travel from Stories Above Grade against the hydraulic-to-traction band.",
+   "prices": [
+    "Elevators"
+   ],
+   "confidenceReason": "Travel of 40.0 ft sits inside the either band (over 35 ft, up to 55 ft), where hydraulic and traction are both common. Nothing is set up to choose between the two, so V-1 proposes Hydraulic, the cheaper type.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Stories Above Grade",
+     "value": "5",
+     "basis": "stated"
+    },
+    {
+     "name": "Framing System",
+     "value": "wood, 10'-0\" floor-to-floor",
+     "basis": "stated"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Stories Above Grade",
+     "result": "5"
+    },
+    {
+     "label": "Floor-to-floor",
+     "result": "10'-0\""
+    },
+    {
+     "label": "Travel",
+     "result": "40'-0\" (40.0 ft)"
+    },
+    {
+     "label": "Band",
+     "result": "Either; nothing set up to choose, so Hydraulic"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:V-2",
+   "code": "V-2",
+   "label": "Hydraulic Jack Type",
+   "value": "In-Ground",
+   "method": "Travel against each jack's reach in the manufacturers' planning guides.",
+   "prices": [
+    "Elevators",
+    "Hydraulic Well Hole and Casing"
+   ],
+   "confidenceReason": "Travel of 40.0 ft works either way, and nobody has said whether the ground is wet, so V-2 prices the well hole to be safe. This ZIP can hit shallow rock, and the intake does not ask about rock, so confidence is low.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Elevator Type",
+     "value": "Hydraulic (V-1)",
+     "basis": "stated"
+    },
+    {
+     "name": "Stories Above Grade",
+     "value": "5",
+     "basis": "stated"
+    },
+    {
+     "name": "Levels Below Grade",
+     "value": "No",
+     "basis": "stated"
+    },
+    {
+     "name": "Floor-to-Floor",
+     "value": "10'-0\"",
+     "basis": "stated"
+    },
+    {
+     "name": "Groundwater or Poor Soil",
+     "value": "Don't Know",
+     "basis": "assumed"
+    },
+    {
+     "name": "ZIP",
+     "value": "10965",
+     "basis": "stated"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Stops",
+     "result": "5"
+    },
+    {
+     "label": "Floor-to-floor",
+     "result": "10'-0\""
+    },
+    {
+     "label": "Travel",
+     "result": "40'-0\" (40.0 ft)"
+    },
+    {
+     "label": "Band",
+     "result": "Over 34 ft, up to 48 ft -> In-Ground"
+    }
+   ],
+   "corrected": null
+  },
+  {
+   "el": "criterion:V-3",
+   "code": "V-3",
+   "label": "Elevator Machine Rooms",
+   "value": "1 Machine Room",
+   "method": "Machine rooms by elevator type, count and building.",
+   "prices": [
+    "Machine Room HVAC"
+   ],
+   "confidenceReason": "Hydraulic cars share one machine room per bank at the lowest landing (Otis, Schindler), conditioned to the maker's range (IBC 3005.2). With 2 cars in a building, separate cores would double the rooms. V-1 could still flip to traction, which has no machine room.",
+   "settled": false,
+   "inputs": [
+    {
+     "name": "Elevator Type",
+     "value": "Hydraulic (V-1)",
+     "basis": "assumed"
+    },
+    {
+     "name": "Elevator Count",
+     "value": "2",
+     "basis": "stated"
+    },
+    {
+     "name": "Building Count",
+     "value": "1",
+     "basis": "stated"
+    },
+    {
+     "name": "Jack Type",
+     "value": "In-Ground (V-2)",
+     "basis": "stated"
+    },
+    {
+     "name": "ZIP",
+     "value": "10965",
+     "basis": "stated"
+    }
+   ],
+   "steps": [
+    {
+     "label": "Elevator Type",
+     "result": "Hydraulic"
+    },
+    {
+     "label": "Elevators",
+     "result": "2"
+    },
+    {
+     "label": "Buildings",
+     "result": "1"
+    },
+    {
+     "label": "Machine Rooms",
+     "result": "1 (one per building, cars in one bank)"
+    },
+    {
+     "label": "HVAC",
+     "result": "Cooling and Ventilation"
+    }
+   ],
+   "corrected": null
+  }
+ ],
+ "waterfall": [
+  {
+   "key": "subtotal",
+   "el": "total:trades",
+   "elRef": null,
+   "label": "Trade Cost",
+   "low": 11888024,
+   "high": 22972917,
+   "basis": "Every scope above, added up. Owner-direct scope is kept out and added back below.",
+   "likely": 17430470.5,
+   "tbd": false,
+   "plan": [],
+   "running": 17430471
+  },
+  {
+   "key": "gc",
+   "el": "markup:90-20-00",
+   "elRef": null,
+   "label": "General Requirements and General Conditions",
+   "low": 832162,
+   "high": 1608104,
+   "basis": "7.00% of subtotal, set by Kulka's estimator. Kulka's completed jobs average 11.49% across 2 jobs.",
+   "tbd": false,
+   "plan": [],
+   "likely": 1220133,
+   "running": 18650604
+  },
+  {
+   "key": "fee",
+   "el": "markup:90-30-00",
+   "elRef": null,
+   "label": "Fee",
+   "low": 413406,
+   "high": 798883,
+   "basis": "3.25% of subtotal plus General Requirements and General Conditions, Kulka's stated rate, set 2026-09-23",
+   "tbd": false,
+   "likely": 606144.5,
+   "plan": [],
+   "running": 19256749
+  },
+  {
+   "key": "insurance",
+   "el": "markup:90-40-00",
+   "elRef": null,
+   "label": "Insurance",
+   "low": 709214,
+   "high": 1370515,
+   "basis": "5.40% of subtotal plus General Requirements and General Conditions and fee, Kulka's stated rate, set 2026-09-23",
+   "tbd": false,
+   "likely": 1039864.5,
+   "plan": [],
+   "running": 20296613
+  },
+  {
+   "key": "kulka-contract",
+   "el": null,
+   "elRef": "total:kulka-contract",
+   "label": "Kulka Contract",
+   "low": 13842806,
+   "high": 26750419,
+   "basis": "Kulka's contract with every markup above",
+   "likely": 20296612.5,
+   "tbd": false,
+   "plan": [],
+   "running": null
+  },
+  {
+   "key": "owner-direct",
+   "el": "total:owner-direct",
+   "elRef": null,
+   "label": "Bought by the Owner",
+   "low": 153029,
+   "high": 317830,
+   "basis": "Scope the owner buys direct, such as appliances. It carries none of Kulka's markups.",
+   "likely": 235429.5,
+   "tbd": false,
+   "plan": [],
+   "running": null
+  },
+  {
+   "key": "total-project-cost",
+   "el": "total:total-project-cost",
+   "elRef": null,
+   "label": "Total Project Cost",
+   "low": 13995835,
+   "high": 27068249,
+   "basis": "Kulka's contract plus what the owner buys direct.",
+   "likely": 20532042,
+   "tbd": false,
+   "plan": [],
+   "running": null
+  }
+ ],
+ "gates": {
+  "answeredYes": [
+   {
+    "el": "gate:elevator",
+    "label": "Elevator",
+    "decidedBy": [
+     {
+      "question": "Does the new building have an elevator?",
+      "gate": "elevator",
+      "answer": "Yes"
+     }
+    ]
+   },
+   {
+    "el": "gate:balconies",
+    "label": "Balconies",
+    "decidedBy": [
+     {
+      "question": "Do the units have balconies?",
+      "gate": "balconies",
+      "answer": "Yes"
+     }
+    ]
+   },
+   {
+    "el": "gate:demolition",
+    "label": "Demolition",
+    "decidedBy": [
+     {
+      "question": "Is there anything on the site to demolish?",
+      "gate": "demolition",
+      "answer": "Yes"
+     }
+    ]
+   },
+   {
+    "el": "gate:amenity_scope",
+    "label": "Amenity Scope",
+    "decidedBy": [
+     {
+      "question": "Does the project include amenity scope such as a pool or an activity room?",
+      "gate": "amenity scope",
+      "answer": "Yes"
+     }
+    ]
+   }
+  ],
+  "notInThisJob": [
+   {
+    "el": "gate:15a",
+    "label": "Overhead Doors",
+    "decidedBy": [
+     {
+      "question": "What kind of parking does the project have?",
+      "gate": "parking type",
+      "answer": "Surface"
+     }
+    ]
+   },
+   {
+    "el": "gate:16",
+    "label": "Storefronts",
+    "decidedBy": [
+     {
+      "question": "Is there ground-floor retail with storefronts?",
+      "gate": "retail storefronts",
+      "answer": "No"
+     }
+    ]
+   },
+   {
+    "el": "gate:3",
+    "label": "Building Concrete",
+    "decidedBy": [
+     {
+      "question": "What kind of parking does the project have?",
+      "gate": "parking type",
+      "answer": "Surface"
+     }
+    ]
+   },
+   {
+    "el": "gate:32a",
+    "label": "BDA System",
+    "decidedBy": [
+     {
+      "question": "Does the new building need an emergency radio amplifier (BDA)?",
+      "gate": "emergency radio amplifier",
+      "answer": "No"
+     }
+    ]
+   },
+   {
+    "el": "gate:levels_below_grade",
+    "label": "Below Grade",
+    "decidedBy": [
+     {
+      "question": "Does the new building go below grade?",
+      "gate": "below grade",
+      "answer": "No"
+     }
+    ]
+   },
+   {
+    "el": "gate:existing_building_tie_in",
+    "label": "Tie-in to an Existing Building",
+    "decidedBy": [
+     {
+      "question": "Does the work tie in to an existing building?",
+      "gate": "existing building tie in",
+      "answer": "No"
+     }
+    ]
+   }
+  ],
+  "waiting": [
+   {
+    "el": "gate:34a",
+    "label": "Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design",
+    "decidedBy": [
+     {
+      "question": "Does the new building go below grade?",
+      "gate": "below grade",
+      "answer": "No"
+     },
+     {
+      "question": "Are there known groundwater or poor soil conditions?",
+      "gate": "site conditions",
+      "answer": "Don't Know"
+     }
+    ]
+   }
+  ],
+  "assumedPresent": [],
+  "unpriced": [
+   {
+    "label": "Cab Interior Finish Package",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Elevator Pit Ladder",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Pit Light and GFCI Receptacle",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Emergency Two-Way Communication Line",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Machine Room HVAC",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Hoistway Door Frame Grouting",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Hydraulic Well Hole and Casing",
+    "broughtInBy": "Elevators"
+   },
+   {
+    "label": "Plumbing Disconnect and Cap",
+    "broughtInBy": "Structure Demolition"
+   },
+   {
+    "label": "Gas Meter and Service Disconnect",
+    "broughtInBy": "Structure Demolition"
+   },
+   {
+    "label": "Electrical Service Disconnect",
+    "broughtInBy": "Structure Demolition"
+   },
+   {
+    "label": "Site Utility Cut and Cap at the Main",
+    "broughtInBy": "Structure Demolition"
+   }
+  ]
+ },
+ "notes": [
+  {
+   "el": "note:1",
+   "number": 1,
+   "text": "The project is multifamily new construction."
+  },
+  {
+   "el": "note:2",
+   "number": 2,
+   "text": "Gross floor area is 64,000 square feet."
+  },
+  {
+   "el": "note:3",
+   "number": 3,
+   "text": "Every line is a range rather than a point, and no line here is a bid."
+  },
+  {
+   "el": "note:4",
+   "number": 4,
+   "text": "Blend weights, flag thresholds, and range widths are recorded pricing parameters, each with its own provenance, listed with this budget."
+  },
+  {
+   "el": "note:5",
+   "number": 5,
+   "text": "11 items are in scope with no rate yet: Cab Interior Finish Package, Elevator Pit Ladder, Pit Light and GFCI Receptacle, Emergency Two-Way Communication Line, Machine Room HVAC, Hoistway Door Frame Grouting, Hydraulic Well Hole and Casing, Plumbing Disconnect and Cap, Gas Meter and Service Disconnect, Electrical Service Disconnect, Site Utility Cut and Cap at the Main."
+  },
+  {
+   "el": "note:6",
+   "number": 6,
+   "text": "33 of 43 lines are low confidence and are held for review before this budget is relied on."
+  },
+  {
+   "el": "note:7",
+   "number": 7,
+   "text": "3 of 43 lines rest on estimator judgment with no measured Kulka figure behind them yet."
+  },
+  {
+   "el": "note:8",
+   "number": 8,
+   "text": "Answered no, so this budget carries nothing for: a tie-in to an existing building."
+  },
+  {
+   "el": "note:9",
+   "number": 9,
+   "text": "Not in this job, so removed from the total: Overhead Doors (parking type), Storefronts (retail storefronts), Building Concrete (parking type), BDA System (radio amplifier)."
+  },
+  {
+   "el": "note:10",
+   "number": 10,
+   "text": "1 item sits outside this total as TBD, because nobody knows the answer yet: Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design (levels below grade and site conditions)."
+  },
+  {
+   "el": "note:11",
+   "number": 11,
+   "text": "39 of 43 lines have no stated level of detail yet, so they are shown without one rather than at a guessed level."
+  },
+  {
+   "el": "note:12",
+   "number": 12,
+   "text": "1 of 43 lines are owner-direct scope, included in total project cost and excluded from Kulka's contract total."
+  },
+  {
+   "el": "note:13",
+   "number": 13,
+   "text": "Structure Demolition brings in Plumbing Disconnect and Cap, Gas Meter and Service Disconnect, Electrical Service Disconnect, Site Utility Cut and Cap at the Main. Each adds to the total on its own once it has a rate."
+  },
+  {
+   "el": "note:14",
+   "number": 14,
+   "text": "Elevators brings in Cab Interior Finish Package, Elevator Pit Ladder, Pit Light and GFCI Receptacle, Emergency Two-Way Communication Line, Machine Room HVAC, Hoistway Door Frame Grouting, Hydraulic Well Hole and Casing. Each adds to the total on its own once it has a rate."
+  },
+  {
+   "el": "note:15",
+   "number": 15,
+   "text": "Fee computes on the subtotal plus the General Requirements and General Conditions line, and insurance on the subtotal, General Requirements and General Conditions, and fee, in that order. Markups apply to Kulka's contract only; owner-direct scope carries none."
+  }
+ ],
+ "parameters": [
+  {
+   "el": "parameter:fee-rate",
+   "label": "Fee Rate",
+   "value": "3.25%",
+   "recordedBy": "Kulka",
+   "recordedAt": "2026-09-23"
+  },
+  {
+   "el": "parameter:spread-low",
+   "label": "Low-Confidence Range, Each Side",
+   "value": "35%",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:spread-high",
+   "label": "High-Confidence Range, Each Side",
+   "value": "10%",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:spread-medium",
+   "label": "Medium-Confidence Range, Each Side",
+   "value": "20%",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:insurance-rate",
+   "label": "Insurance Rate",
+   "value": "5.4%",
+   "recordedBy": "Kulka",
+   "recordedAt": "2026-09-23"
+  },
+  {
+   "el": "parameter:weight-actuals",
+   "label": "Weight, Kulka Job Actuals",
+   "value": "5",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:weight-proest-budget",
+   "label": "Weight, Kulka Budgets",
+   "value": "1",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:weight-reviewed-judgment",
+   "label": "Weight, Kulka Stated Rates",
+   "value": "2",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:flag-high-min-comparables",
+   "label": "Jobs Behind a High-Confidence Line",
+   "value": "5",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  },
+  {
+   "el": "parameter:flag-medium-min-comparables",
+   "label": "Jobs Behind a Medium-Confidence Line",
+   "value": "2",
+   "recordedBy": "Matt Nicosia",
+   "recordedAt": "2026-09-21"
+  }
+ ],
+ "markupWords": "Markups priced as a percent of the subtotal, General Requirements and General Conditions as one line.",
+ "next": {
+  "openQuestions": [
+   "Are there known groundwater or poor soil conditions?"
+  ],
+  "nextStage": {
+   "key": "design-development",
+   "label": "Design Development",
+   "words": "Kulka's estimators price the design development drawings, and the range narrows.",
+   "current": false
+  }
+ },
+ "pricedLineCount": 38,
+ "letter": {
+  "date": "September 28, 2026",
+  "greeting": null,
+  "title": "Your budget, and what it rests on.",
+  "paragraphs": [
+   [
+    {
+     "text": "You asked Kulka to price a "
+    },
+    {
+     "text": "70",
+     "figure": true,
+     "el": null,
+     "elRef": null,
+     "title": null
+    },
+    {
+     "text": "-unit "
+    },
+    {
+     "text": "multifamily building"
+    },
+    {
+     "text": ": "
+    },
+    {
+     "text": "5 stories of wood framing"
+    },
+    {
+     "text": ", "
+    },
+    {
+     "text": "64,000",
+     "figure": true,
+     "el": null,
+     "elRef": null,
+     "title": null
+    },
+    {
+     "text": " gross square feet"
+    },
+    {
+     "text": ", with surface parking"
+    },
+    {
+     "text": "."
+    },
+    {
+     "text": " First, one structure of "
+    },
+    {
+     "text": "15,000",
+     "figure": true,
+     "el": null,
+     "elRef": null,
+     "title": null
+    },
+    {
+     "text": " square feet comes down."
+    },
+    {
+     "text": " This budget prices that program as you described it, before any drawings exist, from the jobs Kulka has already built."
+    }
+   ],
+   [
+    {
+     "text": "We expect Kulka's contract to come to "
+    },
+    {
+     "text": "$20,296,613",
+     "figure": true,
+     "el": null,
+     "elRef": "total:kulka-contract",
+     "title": null
+    },
+    {
+     "text": ". Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between "
+    },
+    {
+     "text": "$13,842,806",
+     "figure": true,
+     "el": null,
+     "elRef": "total:kulka-contract:low",
+     "title": null
+    },
+    {
+     "text": " and "
+    },
+    {
+     "text": "$26,750,419",
+     "figure": true,
+     "el": null,
+     "elRef": "total:kulka-contract:high",
+     "title": null
+    },
+    {
+     "text": " as the design settles."
+    },
+    {
+     "text": " With what you buy direct, the total project cost is "
+    },
+    {
+     "text": "$20,532,042",
+     "figure": true,
+     "el": null,
+     "elRef": "total:total-project-cost",
+     "title": null
+    },
+    {
+     "text": ", or "
+    },
+    {
+     "text": "$317",
+     "figure": true,
+     "el": "record:per-sf",
+     "elRef": null,
+     "title": "Kulka contract over gross area, garage included: $20,296,613 over 64,000 SF"
+    },
+    {
+     "text": " per square foot"
+    },
+    {
+     "text": " and "
+    },
+    {
+     "text": "$289,952",
+     "figure": true,
+     "el": "record:per-unit",
+     "elRef": null,
+     "title": "Kulka contract over the unit count: $20,296,613 over 70 units"
+    },
+    {
+     "text": " per unit"
+    },
+    {
+     "text": "."
+    }
+   ],
+   [
+    {
+     "text": "35 of the 38 priced lines stand on two buildings Kulka has completed, Fieldstone North Broadway and Jefferson's Ferry NW ILU Building 1."
+    },
+    {
+     "text": " The other 3 rest on rates Kulka has stated."
+    },
+    {
+     "text": " No line here is a bid."
+    }
+   ],
+   [
+    {
+     "text": "Where a decision has not been made, we have assumed one and marked it. 9 design criteria set the construction type (Type IIIA), the foundation (spread footings), the electrical service (1,600 A), the elevators (2 hydraulic cars, 1 machine room) and the cooling load (91 tons). Each is called out on the section drawing inside, and each is yours to change."
+    }
+   ],
+   [
+    {
+     "text": "One question is still open: “Are there known groundwater or poor soil conditions?” Until it is answered, what waits on it sits outside the total rather than inside it as a guess."
+    }
+   ],
+   [
+    {
+     "text": "Read the facts on the next page. If one is wrong, tell us and we reprice from the corrected fact. Then comes Design Development. Kulka's estimators price the design development drawings, and the range narrows."
+    }
+   ]
+  ],
+  "signature": {
+   "name": "The Kulka Group",
+   "role": "Estimating"
+  }
+ }
+}

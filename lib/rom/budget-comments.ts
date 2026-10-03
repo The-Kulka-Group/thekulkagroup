@@ -333,6 +333,31 @@ export async function findActiveReader(db: Db, readerKey: string): Promise<Budge
   return rows.length === 0 ? null : readerFromRow(rows[0]);
 }
 
+/** Every reader of a project, newest first, a revoked one included, for the Publish panel. */
+export async function listReaders(db: Db, projectId: string): Promise<BudgetReader[]> {
+  if (!isUuid(projectId)) return [];
+  const { rows } = await db.query<ReaderRow>(
+    `select ${READER_COLUMNS} from budget_readers where project_id = $1 order by created_at desc, id`,
+    [projectId],
+  );
+  return rows.map(readerFromRow);
+}
+
+/**
+ * The token of the project's newest version that is not withdrawn, or null
+ * when every version is withdrawn or none exists. A reader link opens it.
+ */
+export async function newestOpenToken(db: Db, projectId: string): Promise<string | null> {
+  const { rows } = await db.query<{ token: string }>(
+    `select token from published_budgets
+     where project_id = $1 and revoked_at is null
+     order by version desc
+     limit 1`,
+    [projectId],
+  );
+  return rows[0]?.token ?? null;
+}
+
 async function activeReaderOf(tx: Db, readerId: string, projectId: string): Promise<BudgetReader> {
   if (!isUuid(readerId)) fail("forbidden", "No such reader.");
   const { rows } = await tx.query<ReaderRow>(`select ${READER_COLUMNS} from budget_readers where id = $1`, [readerId]);

@@ -12,14 +12,18 @@ const routes = [
   "underwriting/cases/[id]/runs/route.ts",
   "underwriting/cases/[id]/scenarios/route.ts",
   "underwriting/cases/[id]/schedule/route.ts",
+  // LA-1486: reader links. The two that need the signed-in email use authorizeRequest, which requireApiUser wraps.
+  "rom/projects/[id]/readers/route.ts",
+  "rom/readers/[id]/revoke/route.ts",
 ];
 
 describe("API authentication gate", () => {
   for (const route of routes) {
     it(`protects ${route} before database access`, async () => {
       const source = await readFile(join(process.cwd(), "app/api", route), "utf8");
-      expect(source).toContain("requireApiUser");
-      expect(source.indexOf("await requireApiUser")).toBeLessThan(source.indexOf("getDb()"));
+      const gate = source.match(/await (requireApiUser|authorizeRequest)\(/);
+      expect(gate).not.toBeNull();
+      expect(source.indexOf(gate![0])).toBeLessThan(source.indexOf("getDb()"));
     });
   }
 });

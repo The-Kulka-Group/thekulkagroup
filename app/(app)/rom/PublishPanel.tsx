@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DEFAULT_VALIDITY_DAYS, MAX_COVER_SENTENCE } from "@/lib/rom/publish-request";
 
+import { ReadersSection } from "./ReaderLinks";
 import { versionList, type ListedVersion, type VersionRow, type VersionState } from "./publish-model";
 import "./publish.css";
 
@@ -355,6 +356,7 @@ export function PublishPanel({ projectId, runId }: { projectId: string; runId: s
         onCancel={() => setConfirmingId(null)}
         onRevoke={(row) => void revoke(row)}
       />
+      <ReadersSection projectId={projectId} />
     </div>
   );
 }

@@ -12,7 +12,9 @@ import {
   hideMessage,
   isAssumptionElement,
   isElementId,
+  listReaders,
   loadThread,
+  newestOpenToken,
   openThread,
   releaseMessage,
   removeMessage,
@@ -190,6 +192,40 @@ describe("addReader, revokeReader and findActiveReader", () => {
     const second = await revokeReader(db as Db, reader.id);
     expect(second.revokedAt).toBe(first.revokedAt);
     expect(await codeOf(revokeReader(db as Db, "00000000-0000-4000-8000-0000000000ff"))).toBe("not_found");
+  });
+});
+
+describe("listReaders and newestOpenToken (LA-1486)", () => {
+  it("lists a project's readers newest first, a revoked one included, and no other project's", async () => {
+    const second = await addReader(db as Db, {
+      projectId: TEST_PROJECT_ID,
+      name: "Sam",
+      email: "sam@example.com",
+      createdBy: "devin@example.com",
+    });
+    await revokeReader(db as Db, reader.id);
+
+    const listed = await listReaders(db as Db, TEST_PROJECT_ID);
+    expect(listed.map((one) => one.id)).toEqual([second.id, reader.id]);
+    expect(listed[1].revokedAt).not.toBeNull();
+    expect(await listReaders(db as Db, OTHER_PROJECT_ID)).toEqual([]);
+    expect(await listReaders(db as Db, "nope")).toEqual([]);
+  });
+
+  it("names the newest version that is not withdrawn", async () => {
+    const tokenOf = async (id: string) =>
+      (await db.query<{ token: string }>(`select token from published_budgets where id = $1`, [id])).rows[0].token;
+    expect(await newestOpenToken(db as Db, TEST_PROJECT_ID)).toBe(await tokenOf(version1));
+
+    const version2 = await publish();
+    expect(await newestOpenToken(db as Db, TEST_PROJECT_ID)).toBe(await tokenOf(version2));
+
+    await revokePublishedBudget(db as Db, version2);
+    expect(await newestOpenToken(db as Db, TEST_PROJECT_ID)).toBe(await tokenOf(version1));
+
+    await revokePublishedBudget(db as Db, version1);
+    expect(await newestOpenToken(db as Db, TEST_PROJECT_ID)).toBeNull();
+    expect(await newestOpenToken(db as Db, OTHER_PROJECT_ID)).toBeNull();
   });
 });
 

@@ -35,6 +35,17 @@ describe("proxy and /b/ links", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
+  it("opens a reader link and the Not You? route without sign-in, with the same headers", async () => {
+    vi.stubEnv("KULKA_AUTH_OPEN", "");
+
+    for (const path of [`/b/r/${TOKEN}`, "/b/r/clear"]) {
+      const response = await proxy(request(path));
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+  });
+
   it("handles a published budget the same way when access is open", async () => {
     vi.stubEnv("KULKA_AUTH_OPEN", "1");
 

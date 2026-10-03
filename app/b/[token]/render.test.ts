@@ -288,6 +288,7 @@ describe("past jobs are off the client page", () => {
     expect(text).not.toMatch(/\bcomparables?\b|\bactuals\b|\bmeasured Kulka\b|\bhistory\b|\bweights?\b/i);
     // The share of trade cost by source, in any wording.
     expect(text).not.toMatch(/of the trade cost is priced from/i);
+    expect(text).not.toMatch(/\bblend/i);
     expect(text).not.toMatch(/\d+(\.\d)?% (?:of the trade cost )?(?:is priced )?from/i);
   });
 

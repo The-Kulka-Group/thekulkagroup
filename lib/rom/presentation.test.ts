@@ -342,8 +342,8 @@ describe("a line's range, from the frozen parameters", () => {
     const page = presentBudget(publication);
 
     // Line 10 is low confidence and line 13 medium in the reference run.
-    expect(lineOf(page, "10").basis).toContain("Low confidence: the range is 30% each side of the blend.");
-    expect(lineOf(page, "13").basis).toContain("Medium confidence: the range is 15% each side of the blend.");
+    expect(lineOf(page, "10").basis).toContain("Low confidence: the range is 30% each side of the figure.");
+    expect(lineOf(page, "13").basis).toContain("Medium confidence: the range is 15% each side of the figure.");
   });
 
   it("says the range is as shown, with no percentage, when the parameter is absent", () => {

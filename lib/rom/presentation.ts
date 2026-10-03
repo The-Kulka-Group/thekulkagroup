@@ -605,7 +605,7 @@ function percent(v: number): string {
 function spreadWords(line: RomLine, rom: Rom): string {
   const spread = rom.parameters?.[`spread.${line.confidence}`]?.value;
   const words = SPREAD_WORDS[line.confidence];
-  return typeof spread === "number" ? `${words} confidence: the range is ${percent(spread)} each side of the blend.` : `${words} confidence: the range is as shown.`;
+  return typeof spread === "number" ? `${words} confidence: the range is ${percent(spread)} each side of the figure.` : `${words} confidence: the range is as shown.`;
 }
 
 /** A line is a placeholder when only a model proposed its figure. Every other priced line reads as a Kulka rate (LA-1483). */

@@ -112,11 +112,11 @@ describe("the client ledger", () => {
 
     expect(rows.slice(0, 6)).toEqual([
       ["02", "Demolition"],
-      ["03", "Concrete & Site Concrete"],
+      ["03", "Concrete and Site Concrete"],
       ["03", "Gypcrete"],
       ["04", "Masonry"],
-      ["05", "Misc Steel Stairs Mesh Screens + Canopy"],
-      ["06", "Wood Framing - Install + Wood Framing - Supply"],
+      ["05", "Miscellaneous Steel, Stairs, Screens and Canopy"],
+      ["06", "Wood Framing, Supply and Install"],
     ]);
     expect(rows.find(([, label]) => label === "Appliances")).toEqual(["11", "Appliances"]);
     expect(rows[rows.length - 1][0]).toBe("32");
@@ -150,11 +150,11 @@ describe("the client ledger", () => {
       "Millwork",
       "Ceramic Tile",
       "Painting",
-      "Specialties & F.E. + Signage",
+      "Specialties, Fire Extinguishers and Signage",
       "Appliances (Bought by the Owner)",
       "Countertops",
       "Window Treatments",
-      "Furnishings & Fireplace",
+      "Furnishings and Fireplace",
     ]);
   });
 
@@ -252,9 +252,20 @@ describe("client wording", () => {
     const text = [...page.notes.map((n) => n.text), ...page.waterfall.map((w) => w.basis), ...page.criteria.flatMap((c) => [c.method, c.confidenceReason])].join("\n");
 
     expect(text).not.toMatch(/user override|history:|parameter (fee|insurance)\.rate|@|\bROM\b|engine parameters|GRs\/GCs|ADR|\bmodel\b|\bAI\b|\bJev\b|\bLLM\b/);
-    expect(page.notes[3].text).toBe(
-      "Range widths and markup rates are recorded pricing parameters, each with its own provenance, listed with this budget.",
-    );
+    // LA-1534: each clarification reads as Kulka would write it.
+    expect(page.notes.map((n) => n.text)).toEqual([
+      "The project is multifamily new construction.",
+      "Gross floor area is 64,000 square feet.",
+      "Every line is a range rather than a point, and no line here is a bid.",
+      "11 items are in scope with no rate yet. Each sits under its division.",
+      "33 of 43 lines are low confidence, so their ranges are wide. The ranges narrow as the design is drawn and Kulka's estimators price it.",
+      "This budget carries nothing for a tie-in to an existing building, because the answer was no.",
+      "1 item sits outside the total until an open question is answered. It sits under its division.",
+      "1 of 43 lines is bought by the owner. It counts in total project cost but not in Kulka's contract.",
+      "The fee is figured on trade cost plus General Requirements and General Conditions, and insurance on all of those plus the fee. Markups apply to Kulka's contract only, and what the owner buys direct carries none.",
+    ]);
+    // Nothing tells the client not to rely on the budget, and nothing names Kulka's internal sorting.
+    expect(text).not.toMatch(/held for review|relied on|provenance|level of detail|pricing parameters/);
     expect(page.waterfall.find((w) => w.key === "subtotal")!.basis).toBe("Every scope above, added up. Owner-direct scope is kept out and added back below.");
   });
 });
@@ -265,11 +276,12 @@ describe("notes", () => {
     const again = presentBudget(referencePublication()).notes;
 
     expect(again).toEqual(first);
-    // LA-1488: the id comes from the note's words, so the numbers 1 to 11 are only what the page prints.
-    expect(first.map((n) => n.number)).toEqual(Array.from({ length: 11 }, (_, i) => i + 1));
+    // LA-1488: the id comes from the note's words, so the numbers 1 to 9 are only what the page prints.
+    // LA-1534 cut the parameters and level-of-detail notes.
+    expect(first.map((n) => n.number)).toEqual(Array.from({ length: 9 }, (_, i) => i + 1));
     expect(first.map((n) => n.el)).toEqual(first.map((n) => `note:${n.key}`));
     for (const n of first) expect(n.key).toMatch(/^[0-9a-f]{10}(-\d+)?$/);
-    expect(new Set(first.map((n) => n.el)).size).toBe(11);
+    expect(new Set(first.map((n) => n.el)).size).toBe(9);
     // LA-1483: the run's "rest on estimator judgment with no measured Kulka figure" note is left out, and the rest renumber.
     expect(first.map((n) => n.text).join("\n")).not.toMatch(/estimator judgment|measured Kulka figure/);
     // LA-1504 (Matt, 2026-10-02): the notes each division now shows are cut, and two become one line.
@@ -282,8 +294,8 @@ describe("notes", () => {
 
   it("keeps a cut note's neighbours on the ids their own words give them", () => {
     const notes = presentBudget(referencePublication()).notes;
-    const fee = notes.find((n) => n.text.startsWith("Fee computes"))!;
-    expect(fee.number).toBe(11);
+    const fee = notes.find((n) => n.text.startsWith("The fee is figured"))!;
+    expect(fee.number).toBe(9);
     expect(fee.key).toBe(noteKey(referencePublication().snapshot.rom.assumptions.find((t) => t.startsWith("Fee computes"))!));
   });
 });
@@ -502,6 +514,18 @@ describe("the letter", () => {
     const publication = referencePublication();
     publication.snapshot.copy.preparedFor = "Harbor Point Partners";
     expect(presentBudget(publication).letter.greeting).toBe("To Harbor Point Partners,");
+  });
+});
+
+describe("line names (LA-1534)", () => {
+  it("gives each joined export label a plain name and writes out every ampersand", () => {
+    const page = presentBudget(referencePublication());
+    const names = [...page.money.scopes, ...page.money.ownerScopes].flatMap((s) => s.lines).map((l) => l.label);
+    expect(names).toContain("Wood Framing, Supply and Install");
+    expect(names).toContain("Metal Framing, Drywall and Acoustic Ceilings");
+    for (const name of names) expect(name).not.toMatch(/ \+ | - |&/);
+    // A line the export already names plainly keeps its words.
+    expect(names).toContain("Site Demolition");
   });
 });
 

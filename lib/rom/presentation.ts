@@ -361,19 +361,50 @@ const STAGES: readonly { stage: PublishedStage; label: string; words: string }[]
   { stage: "design_development", label: "Design Development", words: "Kulka's estimators price the design development drawings, and the range narrows." },
   { stage: "pre_construction", label: "Pre-Construction", words: "Subcontractor bids replace the ranges." },
   // LA-1309 decision 5 names the last stage Contract.
-  { stage: "final", label: "Contract", words: "The contract figure." },
+  { stage: "final", label: "Contract", words: "Kulka signs a contract for a fixed figure." },
 ];
 
 function stagesFor(current: PublishedStage): StageStep[] {
   return STAGES.map((step) => ({
     key: slug(step.stage),
     label: step.label,
-    words: step.stage === current ? `${step.words} This budget.` : step.words,
+    words: step.stage === current ? `${step.words} This budget is at this stage.` : step.words,
     current: step.stage === current,
   }));
 }
 
 // --- Client wording ---------------------------------------------------------------
+
+/**
+ * LA-1534. A line's name on the client page. The run's labels are the cost
+ * export's own descriptions, several of them two lines joined with "+" or
+ * " - " ("Wood Framing - Install + Wood Framing - Supply"). These read as a
+ * cost code to a reader like Dan from Fieldstone, so each such line gets a
+ * plain name here, built only from the words its label already holds.
+ * Every other label keeps its words, with "&" written out. The internal app
+ * keeps the export's labels.
+ */
+const CLIENT_NAMES: Readonly<Record<string, string>> = {
+  "2": "Concrete and Site Concrete",
+  "7": "Miscellaneous Steel, Stairs, Screens and Canopy",
+  "8": "Wood Framing, Supply and Install",
+  "12": "Damproofing, Waterproofing and Insulation",
+  "13": "Roofing and Rooftop Pavers",
+  "14": "Siding, Exterior Trim, Decks, Rails and Stucco",
+  "15": "Doors, Frames and Hardware",
+  "16a": "Windows, Supply Only",
+  "17": "Metal Framing, Drywall and Acoustic Ceilings",
+  "21": "Specialties, Fire Extinguishers and Signage",
+  "32a": "Emergency Responder Radio System",
+  "34a": "Excavation Support, Underpinning and Shoring",
+  "37": "Landscaping, Irrigation and Pavers",
+  "38": "Asphalt Paving, Traffic Signage and Striping",
+  "39": "Site Concrete, Planters, Pergolas, Fences and Gates",
+};
+
+export function lineName(costCode: string, label: string): string {
+  return CLIENT_NAMES[costCode] ?? titleCase(label.replace(/\s*&\s*/g, " and "));
+}
 
 /**
  * ledger.ts's source labels are written for the estimator. The client reads
@@ -464,6 +495,7 @@ export function clientNote(text: string): string {
     .replace(/ Measured Kulka figures on the same line outweigh the rule\./, "")
     .replace(/carved out of a level 1 lump whose rate already covers them, so each is priced on the board and left out of both totals/g, "carved out of a larger line whose rate already covers them, so each is shown and left out of both totals")
     .replace(/in the ADR 0004 waterfall order/g, "in that order")
+    .replace(/Fee and insurance compute without it\./, "Fee and insurance are figured without it.")
     .replace(/GRs\/GCs/g, "General Requirements and General Conditions")
     .replace(/ & /g, " and ")
     .replace(/\bROM\b/g, "budget");
@@ -477,6 +509,28 @@ export function clientNote(text: string): string {
  */
 export function clarification(text: string): string | null {
   if (/^Not in this job, so removed from the total: /.test(text)) return null;
+  // LA-1534: the pricing parameters are off the client page (LA-1532), and a
+  // line's level of detail is an internal sorting the client never sees.
+  if (/recorded engine parameters/.test(text)) return null;
+  if (/ no stated level of detail yet, /.test(text)) return null;
+  const held = /^(\d+) of (\d+) lines are low confidence and are held for review/.exec(text);
+  if (held) {
+    return `${held[1]} of ${held[2]} lines are low confidence, so their ranges are wide. The ranges narrow as the design is drawn and Kulka's estimators price it.`;
+  }
+  const answeredNo = /^Answered no, so this budget carries nothing for: (.+)\.$/.exec(text);
+  if (answeredNo) return `This budget carries nothing for ${clientNote(answeredNo[1])}, because the answer was no.`;
+  const owner = /^(\d+) of (\d+) lines are owner-direct scope, /.exec(text);
+  if (owner) {
+    return Number(owner[1]) === 1
+      ? `1 of ${owner[2]} lines is bought by the owner. It counts in total project cost but not in Kulka's contract.`
+      : `${owner[1]} of ${owner[2]} lines are bought by the owner. They count in total project cost but not in Kulka's contract.`;
+  }
+  if (/^Fee computes on the subtotal plus the GRs\/GCs line/.test(text)) {
+    return "The fee is figured on trade cost plus General Requirements and General Conditions, and insurance on all of those plus the fee. Markups apply to Kulka's contract only, and what the owner buys direct carries none.";
+  }
+  if (/^General Requirements sits inside trade cost, General Conditions computes on/.test(text)) {
+    return "General Requirements sits inside trade cost. General Conditions is figured on trade cost plus General Requirements, the fee on both, and insurance on both plus the fee. Markups apply to Kulka's contract only, and what the owner buys direct carries none.";
+  }
   if (/ brings in .+\. Each adds to the total on its own once it has a rate\.$/.test(text)) return null;
   const unrated = /^(\d+) items? (?:is|are) in scope with no rate yet: /.exec(text);
   if (unrated) {
@@ -722,7 +776,7 @@ function pricedLine(line: RomLine, rom: Rom): PricedLine {
     ...figure(line),
     el: `line:${line.costCode}`,
     costCode: line.costCode,
-    label: titleCase(line.label),
+    label: lineName(line.costCode, line.label),
     confidence: line.confidence,
     source: { tone: line.confidence, text: clientSource(sourceOf(line).text) },
     basis: lineBasis(line, rom),
@@ -739,12 +793,13 @@ function scopesOf(snapshot: PresentableSnapshot) {
   const toScope = (row: SavedLedgerRow, ownerDirect: boolean): Scope => {
     const items: LedgerItem[] = row.kind === "group" ? row.items : [row];
     const romLines = items.flatMap((item) => (item.amount === null ? [] : [lineByCode.get(item.costCode)!]));
-    const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: `unpriced:${item.costCode}`, costCode: item.costCode, label: titleCase(item.label) }));
+    const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: `unpriced:${item.costCode}`, costCode: item.costCode, label: lineName(item.costCode, item.label) }));
     const low = romLines.reduce((sum, line) => sum + line.low, 0);
     const high = romLines.reduce((sum, line) => sum + line.high, 0);
     const lines = romLines.map((line) => pricedLine(line, rom));
-    const label = titleCase(row.label);
     const kind = row.kind === "group" ? "element" : romLines.length > 0 ? "line" : "unpriced";
+    // LA-1534: a single line's row reads the line's client name.
+    const label = kind === "element" ? titleCase(row.label) : lineName(items[0].costCode, row.label);
     const confidence: Tone = romLines.length > 0 ? confidenceOf(romLines) : "none";
     return {
       low,
@@ -1005,13 +1060,13 @@ function gatesOf(snapshot: PublishedBudgetSnapshot) {
   const gates = Object.entries(snapshot.answers.branchGates ?? {});
   const label = (section: string) => FACT_LABELS[section] ?? titleCase(section.replace(/_/g, " "));
   const prompt = (section: string) => QUESTION_BY_ID.get(section)?.prompt ?? null;
-  const notInThisJob = rom.notInThisJob.map((g) => ({ el: `gate:${g.costCode}`, label: titleCase(g.label), decidedBy: decidedBy(g.question, snapshot) }));
-  const waiting = rom.tbdGateItems.map((g) => ({ el: `gate:${g.costCode}`, label: titleCase(g.label), decidedBy: decidedBy(g.question, snapshot) }));
+  const notInThisJob = rom.notInThisJob.map((g) => ({ el: `gate:${g.costCode}`, label: lineName(g.costCode, g.label), decidedBy: decidedBy(g.question, snapshot) }));
+  const waiting = rom.tbdGateItems.map((g) => ({ el: `gate:${g.costCode}`, label: lineName(g.costCode, g.label), decidedBy: decidedBy(g.question, snapshot) }));
   const covered = (rows: GateRow[], section: string) => rows.some((row) => row.decidedBy.some((d) => d.gate === gateWords(section.replace(/_/g, " "))));
   const sectionRow = (section: string, answer: string): GateRow => ({ el: `gate:${section}`, label: label(section), decidedBy: [{ question: prompt(section), gate: gateWords(section.replace(/_/g, " ")), answer }] });
   const lineLabel = (code: string | undefined) => {
     const line = rom.lines.find((l) => l.costCode === code);
-    return line ? titleCase(line.label) : null;
+    return line ? lineName(line.costCode, line.label) : null;
   };
   return {
     answeredYes: gates.filter(([, v]) => v === "yes").map(([section]) => sectionRow(section, "Yes")),
@@ -1319,9 +1374,11 @@ export function presentBudget(publication: Publication): BudgetPage {
       value: value.kind === "spec" ? value.text : `${value.amount.toLocaleString("en-US")} ${value.unit}`,
       method: criterionWords(a.method),
       prices: a.costCodes
-        .map((code) => rom.lines.find((l) => l.costCode === code)?.label ?? rom.unpricedItems.find((u) => u.costCode === code)?.label ?? null)
-        .filter((label): label is string => label !== null)
-        .map(titleCase),
+        .map((code) => {
+          const label = rom.lines.find((l) => l.costCode === code)?.label ?? rom.unpricedItems.find((u) => u.costCode === code)?.label;
+          return label === undefined ? null : lineName(code, label);
+        })
+        .filter((label): label is string => label !== null),
       confidenceReason: criterionWords(a.confidenceReason),
       // LA-1532: Settled only when nothing under it is assumed. M-1 read
       // "Settled" while resting on an assumed glazing band and unit mix.

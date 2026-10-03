@@ -1,7 +1,7 @@
 import { replyToThread } from "@/lib/rom/budget-comments";
 import { MAX_MESSAGES_PER_DAY, postsInLastDay, threadShowsOnVersion } from "@/lib/rom/reader-posts";
 
-import { answerError, guard, json, messageView, notFound, optionalText, threadView, tooManyPosts } from "../../guard";
+import { alertKulka, answerError, guard, json, messageView, notFound, optionalText, threadView, tooManyPosts } from "../../guard";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,7 @@ export async function POST(
 
   try {
     const { thread, message } = await replyToThread(db, { threadId: id, author: "reader", readerId: reader.id, deviceId, body: text });
+    await alertKulka(db, thread.id, request);
     return json(201, { thread: threadView(thread), message: messageView(message) }, cookies);
   } catch (cause) {
     return answerError(cause);

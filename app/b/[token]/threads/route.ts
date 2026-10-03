@@ -9,7 +9,7 @@ import {
   postsInLastDay,
 } from "@/lib/rom/reader-posts";
 
-import { answerError, forbidden, guard, json, messageView, notFound, optionalText, threadView, tooManyPosts } from "./guard";
+import { alertKulka, answerError, forbidden, guard, json, messageView, notFound, optionalText, threadView, tooManyPosts } from "./guard";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       body: text,
       proposed,
     });
+    await alertKulka(db, opened.thread.id, request);
     return json(201, { thread: threadView(opened.thread), message: opened.message ? messageView(opened.message) : null }, cookies);
   } catch (cause) {
     return answerError(cause);

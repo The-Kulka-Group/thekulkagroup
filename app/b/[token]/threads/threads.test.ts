@@ -630,3 +630,93 @@ describe("the order of the checks", () => {
     await expect403(await open({ body: { kind: "flag", element_id: line, proposed: "x" } }));
   });
 });
+
+// LA-1492. The webhook push after a post that needs Kulka.
+describe("the comment webhook", () => {
+  const HOOK = "https://hooks.example.com/services/secret-path";
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.stubEnv("KULKA_COMMENT_WEBHOOK_URL", HOOK);
+    fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("sends once when a reader opens a thread, with the link built from the request", async () => {
+    const { line } = await ids();
+    const response = await open({ body: note(line) });
+    expect(response.status).toBe(201);
+    const thread = (await response.json()).thread;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(HOOK);
+    expect(JSON.parse(String(init.body)).link).toBe(`http://localhost/rom?project=${TEST_PROJECT_ID}&thread=${thread.id}`);
+  });
+
+  it("sends once more when a reader replies, since the thread needs Kulka again", async () => {
+    const { thread } = await startThread();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const replied = await reply(thread.id, { body: { body: "One more thing." } });
+    expect(replied.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    expect((await reply(thread.id, { body: { body: "And another." } })).status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends nothing when a reader closes a thread", async () => {
+    const { line } = await ids();
+    const opened = await (await open({ body: note(line) })).json();
+    fetchMock.mockClear();
+
+    const closed = await close(opened.thread.id);
+    expect(closed.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing when a post is refused", async () => {
+    expect((await open({ body: { kind: "comment", element_id: "line:missing", body: "x" } })).status).toBe(404);
+    expect((await open({ reader: null, body: note("page:general") })).status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing when the variable is unset", async () => {
+    vi.stubEnv("KULKA_COMMENT_WEBHOOK_URL", "");
+    expect((await open({ body: note("page:general") })).status).toBe(201);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("still saves and answers 201 when the send is rejected, throws, or gets an error status", async () => {
+    const failures: Array<() => Promise<Response>> = [
+      () => Promise.reject(new Error(`connect failed to ${HOOK}`)),
+      () => {
+        throw new Error("fetch blew up");
+      },
+      () => Promise.reject(new DOMException("The operation timed out.", "TimeoutError")),
+      async () => new Response("no", { status: 500 }),
+    ];
+    const { thread } = await startThread();
+    for (const failure of failures) {
+      fetchMock.mockImplementationOnce(failure);
+      const opened = await open({ body: note("page:general") });
+      expect(opened.status).toBe(201);
+      expect((await opened.json()).message.body).toBe("Is the garage in this?");
+
+      fetchMock.mockImplementationOnce(failure);
+      const replied = await reply(thread.id, { body: { body: "A reply during an outage." } });
+      expect(replied.status).toBe(201);
+    }
+    const counts = await rowCounts();
+    expect(counts.threads).toBe(1 + failures.length);
+    expect(counts.messages).toBe(1 + failures.length * 2);
+    for (const call of vi.mocked(console.error).mock.calls) expect(String(call[0])).not.toContain("secret-path");
+  });
+});

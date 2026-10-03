@@ -8,6 +8,7 @@ import {
   type BudgetReader,
   type BudgetThread,
 } from "@/lib/rom/budget-comments";
+import { notifyNewThread } from "@/lib/rom/comment-webhook";
 import { linkOrigin } from "@/lib/rom/published-budgets";
 import { esc } from "../render";
 import { MAX_READER_POST_BYTES, findVersion, type VersionRef } from "@/lib/rom/reader-posts";
@@ -129,6 +130,20 @@ export async function guard(
 }
 
 /** What a reader gets back about a thread. It leaves out the other readers' ids and every staff field. */
+/**
+ * LA-1492. Tells Kulka's channel that a thread needs them, after a post has
+ * saved. `notifyNewThread` caps its send at 3 seconds and catches its own
+ * errors. This catch is for anything outside it, so the reader's post never
+ * fails here.
+ */
+export async function alertKulka(db: Db, threadId: string, request: Request): Promise<void> {
+  try {
+    await notifyNewThread(db, threadId, linkOrigin(request.url));
+  } catch (cause) {
+    console.error(`Client comment alert for thread ${threadId} failed: ${cause instanceof Error ? cause.name : "unknown error"}.`);
+  }
+}
+
 export function threadView(thread: BudgetThread) {
   return {
     id: thread.id,

@@ -83,9 +83,11 @@ describe("the rendered page against the reference", () => {
       ...Object.values(d.decisions).flatMap((rows) => rows.map((r) => r.el)),
     ]);
     const regrouped = (id: string) => id.startsWith("element:") || (id.startsWith("gate:") && !divisionIds.includes(id));
+    // LA-1532: the pricing parameters are internal and left the client page.
+    const dropped = (id: string) => id.startsWith("parameter:");
     // LA-1467: the page opens on a letter, which has its own section id.
     const expected = new Set([
-      ...referencePage.dataEl.filter(clientFacing).filter((id) => !regrouped(id)).map(renamed),
+      ...referencePage.dataEl.filter(clientFacing).filter((id) => !regrouped(id) && !dropped(id)).map(renamed),
       "record:gross-area",
       "record:units",
       "record:project",
@@ -153,14 +155,22 @@ describe("the rendered page against the reference", () => {
     // LA-1504: an element's range ("together, between") went with the element's row.
     const elementRanges = model.money.scopes.filter((s) => s.kind === "element").flatMap((s) => [usd(s.low), usd(s.high)]);
     const gone = new Set(["$0", usd(6_280_149.5), ...elementRanges]);
-    const missing = [...new Set(referencePage.money)].filter((m) => !onPage.has(m) && !referenceRates.has(m) && !gone.has(m));
+    // LA-1532: a line or total may print a dollar off the reference, because
+    // the rows now carry the rounding so every column adds to its total.
+    const dollars = (m: string) => Number(m.replace(/[$,]/g, ""));
+    const onPageDollars = [...onPage].map(dollars);
+    const withinADollar = (m: string) => onPageDollars.some((n) => Math.abs(n - dollars(m)) <= 1);
+    // The largest line, Drywall, takes the few dollars of rounding left over.
+    const largest = model.money.scopes[0].lines[0];
+    gone.add(usd((largest.low + largest.high) / 2));
+    const missing = [...new Set(referencePage.money)].filter((m) => !onPage.has(m) && !referenceRates.has(m) && !gone.has(m) && !withinADollar(m));
     expect(missing).toEqual([]);
 
     // The figure first appears at display size in From Trades to Total (LA-1467); the letter only names it.
     expect(html).toMatch(/class="fig fig--beside num" data-el="total:kulka-contract"[^>]*>\$20,296,613</);
     expect(html).not.toMatch(/class="fig num"/);
-    expect(html).toContain('data-running="$18,650,604"');
-    expect(html).toContain('data-running="$19,256,749"');
+    expect(html).toContain('data-running="$18,650,603"');
+    expect(html).toContain('data-running="$19,256,748"');
     expect(html).toContain('data-landed="$20,296,613"');
     for (const d of model.divisions) expect(html, d.title).toContain(`data-layer="${d.el}"`);
     // LA-1504: 09 Finishes, the largest division, as the frames print it.

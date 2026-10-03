@@ -113,9 +113,9 @@ export function addressableElements(page: BudgetPage): ReadonlyMap<string, Addre
     w.plan.forEach((p) => add(p.el, "from-trades-to-total", p.label, "", usd(p.amount)));
   }
 
-  // Clarifications: the notes and the parameters.
+  // Clarifications: the notes.
   page.notes.forEach((n) => add(n.el, "what-is-in", `Note ${n.number}`, n.text));
-  page.parameters.forEach((p) => add(p.el, "what-is-in", p.label, `Set by ${p.recordedBy}, ${p.recordedAt}`, p.value));
+  // LA-1532: the pricing parameters are internal and no longer on the client page.
 
   // What Happens Next: the record and the footer.
   const next = "what-happens-next";

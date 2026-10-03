@@ -37,7 +37,7 @@ describe("the ledger by division on MN Test #4", () => {
     expect(divisions.map((d) => d.division)).toEqual(["02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "21", "22", "23", "26", "27", "28", "31", "32", "33"]);
     const d02 = divisions[0];
     expect(d02).toMatchObject({ el: "division:02", title: "Existing Conditions", confidence: "low", perSquareFoot: "$3.37", shareOfContract: "1%" });
-    expect(Math.round(d02.likely)).toBe(215_859);
+    expect(d02.likely).toBe(215_859);
     expect(d02.items.map((i) => i.costCode)).toEqual(["1a", "1"]);
     expect(d02.layers).toEqual(["element:demolition"]);
   });

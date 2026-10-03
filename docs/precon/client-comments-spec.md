@@ -533,21 +533,22 @@ flag.
 
 ## Build tickets
 
-Each is one job. Matt approved this spec on 2026-10-02. None starts until Matt moves
+Each is one job, published as a child of LA-1480 in Planning. Matt approved this spec on
+2026-10-02. None starts until Matt moves
 it to Ready and sets its Agent field. Ticket 2 carries a migration, so its merge waits for Matt to run
 `supabase db push`.
 
 | # | Ticket | Blocked by | Model and effort |
 | -- | -- | -- | -- |
-| 1 | Still frames for comment mode, the composer, a thread, the closed states and the From Earlier Versions list, at 1440 and 390, on MN Test #4. Draw on top of LA-1479's approved drill-down frames. Matt scores them, and the bar is 90. | LA-1479 frames approved | [Opus 5.5 - High] |
-| 2 | Migration for `budget_readers`, `budget_threads` and `budget_messages` with their triggers, plus a `lib/rom/budget-comments.ts` module for create, reply, close, release, hide and remove, with database tests for every check and trigger. | None | [Sonnet 5 - Medium] |
-| 3 | Reader links. "Add a Reader", "Copy Reader Link" and "Revoke Link" on the Publish panel, the `/b/r/<readerKey>` route, the reader and device cookies, and the "Not You?" clear. | 2 | [Sonnet 5 - High] |
-| 4 | Post routes under `/b/<token>/threads` with the seven checks, element validation against `presentBudget`, the server-side anchor, and the daily limits. | 2, 3 | [Sonnet 5 - High] |
-| 5 | The id scheme. Make `division:<d>:<code>` a `data-el-ref` to `line:<code>`, add a pure `addressableElements(page)` that returns each id's section, label and text for anchors, and add the LA-1479 kinds as the drill-down build adds their data. | LA-1479 build ticket | [Sonnet 5 - Medium] |
-| 6 | The comment layer on `/b/<token>`: the Comment control, comment mode, markers, the composer and threads, built from the ticket 1 frames, hidden in print, checked at 1440 and 390 with no sideways scroll. | 1, 4, 5 | [Opus 5.5 - Medium] |
-| 7 | Client Comments inside the app: the Home list, the saved budget's panel, the Rail count, Reply, Internal Note, Close, Remove, Accept for Next Version and Decline. | 2 | [Sonnet 5 - Medium] |
-| 8 | Carry and orphan at publish: `addressed_in` set inside `publishBudget`'s transaction, carried threads and "Changed Since" on the newest version, and the From Earlier Versions list. | 4, 7 | [Sonnet 5 - Medium] |
-| 9 | Webhook push for new threads behind `KULKA_COMMENT_WEBHOOK_URL`, off by default, to a Kulka-owned channel. | 7, Rob naming the person, and Matt turning it on | [Sonnet 5 - Low] |
+| 1 (LA-1484) | Still frames for comment mode, the composer, a thread, the closed states and the From Earlier Versions list, at 1440 and 390, on MN Test #4. Draw on top of LA-1479's approved drill-down frames. Matt scores them, and the bar is 90. | LA-1479 frames approved | [Opus 5.5 - High] |
+| 2 (LA-1485) | Migration for `budget_readers`, `budget_threads` and `budget_messages` with their triggers, plus a `lib/rom/budget-comments.ts` module for create, reply, close, release, hide and remove, with database tests for every check and trigger. | None | [Sonnet 5 - Medium] |
+| 3 (LA-1486) | Reader links. "Add a Reader", "Copy Reader Link" and "Revoke Link" on the Publish panel, the `/b/r/<readerKey>` route, the reader and device cookies, and the "Not You?" clear. | 2 | [Sonnet 5 - High] |
+| 4 (LA-1487) | Post routes under `/b/<token>/threads` with the seven checks, element validation against `presentBudget`, the server-side anchor, and the daily limits. | 2, 3 | [Sonnet 5 - High] |
+| 5 (LA-1488) | The id scheme. Make `division:<d>:<code>` a `data-el-ref` to `line:<code>`, add a pure `addressableElements(page)` that returns each id's section, label and text for anchors, and add the LA-1479 kinds as the drill-down build adds their data. | LA-1479 build ticket | [Sonnet 5 - Medium] |
+| 6 (LA-1489) | The comment layer on `/b/<token>`: the Comment control, comment mode, markers, the composer and threads, built from the ticket 1 frames, hidden in print, checked at 1440 and 390 with no sideways scroll. | 1, 4, 5 | [Opus 5.5 - Medium] |
+| 7 (LA-1490) | Client Comments inside the app: the Home list, the saved budget's panel, the Rail count, Reply, Internal Note, Close, Remove, Accept for Next Version and Decline. | 2 | [Sonnet 5 - Medium] |
+| 8 (LA-1491) | Carry and orphan at publish: `addressed_in` set inside `publishBudget`'s transaction, carried threads and "Changed Since" on the newest version, and the From Earlier Versions list. | 4, 7 | [Sonnet 5 - Medium] |
+| 9 (LA-1492) | Webhook push for new threads behind `KULKA_COMMENT_WEBHOOK_URL`, off by default, to a Kulka-owned channel. | 7, Rob naming the person, and Matt turning it on | [Sonnet 5 - Low] |
 
 AI drafts get their own spec later. This one only leaves the columns for them.
 

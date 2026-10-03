@@ -26,6 +26,9 @@ const nextConfig: NextConfig = {
       "./node_modules/@sparticuz/chromium/bin/al2023.tar.br",
       "./node_modules/@sparticuz/chromium/bin/swiftshader.tar.br",
     ],
+    // LA-1503. A draft of an item's Inclusions and Exclusions reads Kulka's
+    // definition of the item from the work item list at run time.
+    "/api/rom/projects/*/scope-entries/draft": ["./docs/precon/canonical-work-items.md"],
     "/api/vision/discovery/cron": [
       "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
     ],

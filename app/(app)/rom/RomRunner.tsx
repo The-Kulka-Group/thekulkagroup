@@ -59,6 +59,7 @@ import { PackageCard, PackagePanel } from "./PackageCard";
 import { CommentsPanel } from "./CommentsPanel";
 import { PublishPanel } from "./PublishPanel";
 import { AllBudgetsPanel } from "./AllBudgetsPanel";
+import { ScopeEntries } from "./ScopeEntries";
 import { BlockPanel, type Drilldown, NOTES_TBD_ID, NotesPanel, PanelHead, TotalPanel } from "./RomPanels";
 import { type LoadedRun, loadedRunFrom, runName, savedRunsFor } from "./saved-runs";
 import { FramingControl, gateAnswersFrom, initialScopeForm, ScopeControls, type ScopeForm } from "./Scope";
@@ -1259,6 +1260,9 @@ export function RomRunner({
                 </div>
               ) : null}
               <BlockPanel block={openBlock} drilldown={drilldown} grossSquareFeet={run.grossSquareFeet} />
+              {projectId ? (
+                <ScopeEntries key={openBlock.costCode} projectId={projectId} runId={run.runId} costCode={openBlock.costCode} />
+              ) : null}
             </>
           ) : null}
 

@@ -1,0 +1,39 @@
+/* LA-1503. A line's Inclusions and Exclusions in its block panel. */
+
+.se { margin-top: 20px; }
+.se-side { margin-top: 14px; }
+.se-h {
+  margin: 0 0 6px;
+  font-size: var(--meta-size);
+  font-weight: 600;
+  color: var(--rb-ink-on-black);
+}
+.se-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.se-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rb-pnl-line);
+  font-size: var(--meta-size);
+  color: var(--rb-sel-ink2);
+}
+.se-entry--ok { color: var(--rb-ink-on-black); }
+.se-text { line-height: 1.4; }
+.se-state { justify-self: end; white-space: nowrap; color: var(--rb-pnl-mute); }
+.se-state .rb-dot { margin-right: 6px; vertical-align: 1px; }
+.se-acts { grid-column: 1 / -1; display: flex; gap: 14px; }
+.se-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--rb-pnl-mute);
+  cursor: pointer;
+}
+.se-btn:hover:not(:disabled) { color: var(--rb-ink-on-black); text-decoration: underline; }
+.se-btn--x:hover:not(:disabled) { color: #FF8A9B; }
+.se-btn:disabled { cursor: default; opacity: 0.5; }
+.se-edit { display: flex; gap: 8px; align-items: center; }
+.se-edit .input { flex: 1; min-width: 0; }
+.se-entry .se-edit { grid-column: 1 / -1; }

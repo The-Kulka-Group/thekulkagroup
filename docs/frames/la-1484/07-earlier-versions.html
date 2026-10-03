@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 From Earlier Versions · MN Test #4 · Kulka</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="page.css">
+<link rel="stylesheet" href="drill.css">
+<link rel="stylesheet" href="comments.css">
+<style>
+  #ds .s { fill: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+  #ds .w3 { stroke-width: 1.6px; } #ds .w2 { stroke-width: 1px; } #ds .w1 { stroke-width: 0.55px; }
+  #ds .t { font-family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif; font-weight: 400; paint-order: stroke; stroke: #FFFFFF; stroke-width: 3; stroke-linejoin: round; }
+  #ds .tb { font-weight: 600; } #ds .tn { font-variant-numeric: tabular-nums; }
+
+  #dk .s { fill: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+  #dk .w3 { stroke-width: 1.6px; } #dk .w2 { stroke-width: 1px; } #dk .w1 { stroke-width: 0.55px; }
+  #dk .t { font-family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif; font-weight: 400; paint-order: stroke; stroke: #0B0B0A; stroke-width: 3; stroke-linejoin: round; }
+  #dk .tb { font-weight: 600; } #dk .tn { font-variant-numeric: tabular-nums; }
+
+  #dq .s { fill: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+  #dq .w3 { stroke-width: 1.6px; } #dq .w2 { stroke-width: 1px; } #dq .w1 { stroke-width: 0.55px; }
+  #dq .t { font-family: "Open Sans", -apple-system, "Segoe UI", Arial, sans-serif; font-weight: 400; paint-order: stroke; stroke: #FFFFFF; stroke-width: 3; stroke-linejoin: round; }
+  #dq .tb { font-weight: 600; } #dq .tn { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="frame">
+<!-- Frame 07. The end of What Happens Next on Version 2. From Earlier Versions lists the threads whose element Version 2 no longer has, each quoting what the reader was looking at. They never move to a guessed element. -->
+
+<header class="hd" id="bar" data-state="bar">
+  <div class="hd-t1">
+    <a class="hd-mark" href="#top">Kulka</a>
+    <span class="hd-proj">MN Test #4</span>
+    <button class="hd-cmt" type="button" aria-pressed="false"><i aria-hidden="true"></i>Comment</button>
+  </div>
+  <nav class="hd-t2" aria-label="Sections">
+    <ul class="hd-ix"><li><a href="#letter">Letter</a></li><li><a href="#project-basis">Project Basis</a></li><li><a href="#where-the-money-is">The Ledger</a></li><li><a href="#design-and-engineering">Design and Engineering</a></li><li><a href="#from-trades-to-total">From Trades to Total</a></li><li><a href="#clarifications">Clarifications</a></li><li><a href="#what-happens-next" aria-current="true">What Happens Next</a></li></ul>
+    <span class="hd-here">What Happens Next</span>
+  </nav>
+</header>
+<main id="top">
+<section class="sheet next" id="what-happens-next" data-el="section:what-happens-next">
+  <p class="fnote"><b>Frame Note</b>Drawn as Version 2's page. Version 2 does not exist yet. The two quotes are Version 1's own words from the model; the threads on them are sample content.</p>
+  <div class="sheet-hd">
+    <h1 class="sheet-h">What Happens Next</h1>
+  </div>
+  <ol class="steps">
+    <li><b>Check the Basis.</b> Open each division in The Ledger and read the Basis under its items. If anything is wrong, flag it there and Kulka reprices from the corrected fact.</li>
+    <li><b>Answer the open item.</b> Are there known groundwater or poor soil conditions? An answer moves what waits on it into, or out of, the number.</li>
+    <li><b>Reprice at Design Development.</b> Kulka's estimators price the design development drawings, and the range narrows.</li>
+  </ol>
+  <p class="reach">To reach Kulka, reply to the estimator who sent you this link.</p>
+  <div class="earlier" data-focus>
+    <h2 class="gates-h">From Earlier Versions</h2>
+    <p class="earlier-sub">These threads were on parts of Version 1 that Version 2 does not have.</p>
+    <ul class="orphs">
+      <li class="orph"><div class="orph-a"><p class="orph-q">33 of 43 lines are low confidence and are held for review before this budget is relied on.</p><p class="orph-m">Version 1 · Clarification 6 · Question · Dan Reyes, Fieldstone</p></div><span class="st st--open"><i class="dot" aria-hidden="true"></i>Open</span><span class="pill">Show</span></li>
+      <li class="orph"><div class="orph-a"><p class="orph-q">Gas Meter and Service Disconnect, No Rate Yet</p><p class="orph-m">Version 1 · 33 Utilities · Comment · Dan Reyes, Fieldstone</p></div><span class="st st--done"><i class="dot" aria-hidden="true"></i>Closed</span><span class="pill">Show</span></li>
+    </ul>
+  </div>
+</section>
+</main>
+<script>
+  const phone = innerWidth <= 860;
+  if (phone) document.querySelectorAll("svg[data-vb-phone]").forEach((s) => s.setAttribute("viewBox", s.getAttribute("data-vb-phone")));
+  const aside = document.querySelector(".sheet--dwg"), lens = document.querySelector("[data-lens]");
+  if (phone && aside && lens) lens.style.setProperty("--lens-top", document.querySelector(".hd").offsetHeight + aside.offsetHeight + "px");
+  // The open group's layers light in place; every other layer stays drawn, in light ink.
+  const box = document.querySelector("[data-dwg][data-now]");
+  if (box) {
+    const now = box.dataset.now.split(" ");
+    box.classList.add("dwg--focus");
+    const lit = [];
+    box.querySelectorAll("[data-layer]").forEach((g) => {
+      const on = now.includes(g.dataset.layer);
+      g.classList.add("is-drawn");
+      g.classList.toggle("is-now", on);
+      if (on && g.querySelector(".s")) lit.push(g);
+    });
+    box.querySelectorAll("[data-story], [data-roof]").forEach((e) => e.classList.add("is-up"));
+    // The tag sits beside the lit strokes, with a short lead to them.
+    const c = box.getBoundingClientRect();
+    const rs = lit.map((g) => g.getBoundingClientRect()).filter((r) => r.width + r.height > 0);
+    const tag = box.querySelector(".dwg-tag"), lead = box.querySelector(".dwg-lead");
+    if (rs.length && tag) {
+      const r = { left: Math.min(...rs.map((x) => x.left)) - c.left, right: Math.max(...rs.map((x) => x.right)) - c.left, top: Math.min(...rs.map((x) => x.top)) - c.top, bottom: Math.max(...rs.map((x) => x.bottom)) - c.top };
+      const w = tag.offsetWidth, h = tag.offsetHeight, gap = phone ? 10 : 26;
+      // Above the lit strokes when there is room (a low layer); beside them when the layer is tall.
+      const above = r.top - gap - h >= 8 && r.bottom - r.top < c.height * 0.45;
+      if (above) {
+        const x = Math.min(Math.max(8, r.left), c.width - w - 8), y = r.top - gap - h;
+        tag.style.left = x + "px"; tag.style.top = y + "px";
+        const lx = Math.min(Math.max(x + 12, (r.left + r.right) / 2), x + w - 12);
+        Object.assign(lead.style, { left: lx + "px", top: y + h + "px", width: "1px", height: gap - 2 + "px" });
+      } else {
+        const right = r.right + gap + w <= c.width - 8;
+        const x = right ? r.right + gap : Math.max(8, r.left - gap - w);
+        const y = Math.min(Math.max(8, r.top + (phone ? 4 : 24)), c.height - h - 8);
+        tag.style.left = x + "px"; tag.style.top = y + "px";
+        Object.assign(lead.style, { top: y + h / 2 + "px", left: (right ? r.right + 2 : x + w) + "px", width: Math.max(0, right ? x - r.right - 2 : r.left - 2 - (x + w)) + "px", height: "1px" });
+      }
+      tag.hidden = false; lead.hidden = false;
+    }
+  }
+</script>
+<script>
+  (() => {
+    const card = document.querySelector("[data-card]");
+    const el = document.querySelector('[data-cm="anchor"]');
+    if (!card || !el || innerWidth <= 860) return;
+    const row = el.matches(".si, .lg-item") ? el.firstElementChild : el;
+    const t = row.getBoundingClientRect(), lg = document.querySelector(".lg").getBoundingClientRect();
+    const sheet = document.querySelector(".sheet--ledger").getBoundingClientRect();
+    const trio = document.querySelector(".trio").getBoundingClientRect();
+    const h = card.offsetHeight, mid = t.top + t.height / 2;
+    // The element sits a little above the middle of the card, so a tall card rises above it.
+    const left = sheet.right + 32, top = Math.max(trio.top, mid - h * 0.4 - 10) + scrollY;
+    Object.assign(card.style, { left: left + "px", top: top + "px" });
+    const mk = el.querySelector(".cm"), from = (mk ? mk.getBoundingClientRect().right : lg.right) + 6;
+    const lead = document.querySelector(".cc-lead");
+    Object.assign(lead.style, { left: from + "px", width: left - from + "px", top: mid + scrollY + "px" });
+  })();
+</script>
+</body>
+</html>

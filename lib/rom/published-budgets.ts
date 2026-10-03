@@ -6,6 +6,7 @@ import { siteUrlFrom } from "@/lib/auth/policy";
 import type { Db } from "@/lib/db";
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
 import { issueRom } from "@/lib/rom/issue";
+import { readScopeEntries } from "@/lib/rom/line-details";
 import { getRun } from "@/lib/rom/run-records";
 
 import { toIso } from "./date";
@@ -146,7 +147,9 @@ export async function publishBudget(db: Db, request: PublishRequest): Promise<Pu
     if (!run.rom) throw new Error(`Run ${run.id} has no ROM to publish.`);
     const criteria = await listDerivedAssumptions(tx, run.projectId);
     const sourceJobNames = await jobNamesFor(tx, run.rom);
-    const snapshot = assembleSnapshot({ run: { ...run, rom: run.rom }, issuedAt, criteria, copy, sourceJobNames });
+    // LA-1502: the snapshot freezes only the entries approved by now.
+    const scopeEntries = await readScopeEntries(tx, run.projectId);
+    const snapshot = assembleSnapshot({ run: { ...run, rom: run.rom }, issuedAt, criteria, copy, sourceJobNames, scopeEntries });
 
     // One publish per project at a time, so two cannot claim one version.
     await tx.query(`select id from projects where id = $1 for update`, [run.projectId]);

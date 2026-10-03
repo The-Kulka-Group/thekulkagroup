@@ -280,5 +280,7 @@ export function priceElevatorBulkhead(
   const cost = bulkheadCost(rows, elevatorCount);
   if (cost === null) return null;
   const shell = blend([...rows]);
-  return { ...shell, low: cost, high: cost, confidence: "high", heldForReview: false };
+  // LA-1502: the figure pairs shafts off rather than multiplying one rate by
+  // one quantity, so the line names no quantity.
+  return { ...shell, low: cost, high: cost, confidence: "high", heldForReview: false, quantity: null };
 }

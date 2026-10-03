@@ -1,0 +1,355 @@
+[
+ {
+  "division": "02 Existing Conditions",
+  "likely": "$215,859",
+  "mark": "Low",
+  "priced": [
+   "Structure Demolition (Low)",
+   "Site Demolition (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [
+   "Demolition",
+   "Structures Coming Down",
+   "Area Coming Down",
+   "Structure Coming Down"
+  ],
+  "gates": [
+   "Demolition"
+  ]
+ },
+ {
+  "division": "03 Concrete",
+  "likely": "$1,229,799",
+  "mark": "Low",
+  "priced": [
+   "Concrete & Site Concrete (Low)",
+   "Gypcrete (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "S-1 Planning Assumption"
+  ],
+  "answers": [],
+  "gates": [
+   "Building Concrete"
+  ]
+ },
+ {
+  "division": "04 Masonry",
+  "likely": "$135,472",
+  "mark": "Medium",
+  "priced": [
+   "Masonry (Medium)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "05 Metals",
+  "likely": "$232,442",
+  "mark": "Medium",
+  "priced": [
+   "Misc Steel Stairs Mesh Screens + Canopy (Medium)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "06 Wood, Plastics and Composites",
+  "likely": "$1,481,087",
+  "mark": "Low",
+  "priced": [
+   "Wood Framing - Install + Wood Framing - Supply (Low)",
+   "Wood Stairs (Low)",
+   "Finish Carpentry (Medium)",
+   "Millwork (Low)",
+   "Screened Balconies (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "A-1 Settled",
+   "A-2 Planning Assumption"
+  ],
+  "answers": [
+   "Balconies"
+  ],
+  "gates": [
+   "Balconies"
+  ]
+ },
+ {
+  "division": "07 Thermal and Moisture Protection",
+  "likely": "$1,401,802",
+  "mark": "Low",
+  "priced": [
+   "Damproofing & Waterproofing + Insulation (Low)",
+   "Roofing + Rooftop Pavers (Medium)",
+   "Siding Exterior Trim Decks Rails + Stucco (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "08 Openings",
+  "likely": "$500,590",
+  "mark": "Low",
+  "priced": [
+   "Doors Frames Hardware (Medium)",
+   "Windows - Furnish Only (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [
+   "Retail Storefronts"
+  ],
+  "gates": [
+   "Overhead Doors",
+   "Storefronts"
+  ]
+ },
+ {
+  "division": "09 Finishes",
+  "likely": "$4,225,021",
+  "mark": "Low",
+  "priced": [
+   "Drywall & ACT + Metal Framing (Low)",
+   "Ceramic Tile (Low)",
+   "Flooring (Low)",
+   "Painting (Medium)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "A-1 Settled"
+  ],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "10 Specialties",
+  "likely": "$300,571",
+  "mark": "Low",
+  "priced": [
+   "Specialties & F.E. + Signage (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "11 Equipment",
+  "likely": "$235,430",
+  "mark": "Low",
+  "priced": [
+   "Appliances (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "12 Furnishings",
+  "likely": "$804,992",
+  "mark": "Low",
+  "priced": [
+   "Cabinets (Low)",
+   "Countertops (Low)",
+   "Window Treatments (Medium)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "13 Special Construction",
+  "likely": "$17,741",
+  "mark": "Low",
+  "priced": [
+   "Furnishings & Fireplace (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [
+   "Amenity Scope"
+  ],
+  "gates": [
+   "Amenity Scope"
+  ]
+ },
+ {
+  "division": "14 Conveying Equipment",
+  "likely": "$378,700",
+  "mark": "Low",
+  "priced": [
+   "Elevators (Low)",
+   "Elevator Bulkhead (High)"
+  ],
+  "unpriced": [
+   "Cab Interior Finish Package",
+   "Elevator Pit Ladder",
+   "Pit Light and GFCI Receptacle",
+   "Emergency Two-Way Communication Line",
+   "Machine Room HVAC",
+   "Hoistway Door Frame Grouting",
+   "Hydraulic Well Hole and Casing"
+  ],
+  "criteria": [
+   "V-1 Planning Assumption",
+   "V-2 Planning Assumption",
+   "V-3 Planning Assumption"
+  ],
+  "answers": [
+   "Elevator",
+   "Elevators",
+   "Elevator Type",
+   "Hydraulic Jack",
+   "Machine Rooms",
+   "Machine Room HVAC"
+  ],
+  "gates": [
+   "Elevator"
+  ]
+ },
+ {
+  "division": "21 Fire Suppression",
+  "likely": "$285,517",
+  "mark": "Medium",
+  "priced": [
+   "Fire Protection (Medium)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "A-1 Settled"
+  ],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "22 Plumbing",
+  "likely": "$1,812,022",
+  "mark": "Medium",
+  "priced": [
+   "Plumbing (Medium)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "23 HVAC",
+  "likely": "$957,894",
+  "mark": "Low",
+  "priced": [
+   "Mechanical (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "M-0 Planning Assumption",
+   "M-1 Settled"
+  ],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "26 Electrical",
+  "likely": "$1,237,763",
+  "mark": "Low",
+  "priced": [
+   "Electrical (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "E-1 Planning Assumption"
+  ],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "27 Communications",
+  "likely": "$394,368",
+  "mark": "Low",
+  "priced": [
+   "Low Voltage (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "28 Electronic Safety and Security",
+  "likely": "$153,274",
+  "mark": "Low",
+  "priced": [
+   "Fire Alarm (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [
+   "Emergency Radio Amplifier"
+  ],
+  "gates": [
+   "BDA System"
+  ]
+ },
+ {
+  "division": "31 Earthwork",
+  "likely": "$1,009,645",
+  "mark": "Low",
+  "priced": [
+   "Site Work (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [
+   "S-1 Planning Assumption"
+  ],
+  "answers": [
+   "Below Grade",
+   "Groundwater or Poor Soil"
+  ],
+  "gates": [
+   "Below Grade",
+   "Support of Excavation + Underpinning and Lagging + Existing Building Shoring Design"
+  ]
+ },
+ {
+  "division": "32 Exterior Improvements",
+  "likely": "$655,917",
+  "mark": "Low",
+  "priced": [
+   "Landscaping Irrigation Pavers (Low)",
+   "Asphalt Traffic Signage Striping (Low)",
+   "Site Concrete + Site Improvements Planters Pergolas + Fences & Gates (Low)"
+  ],
+  "unpriced": [],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ },
+ {
+  "division": "33 Utilities",
+  "likely": "No Rate Yet",
+  "mark": "None",
+  "priced": [],
+  "unpriced": [
+   "Plumbing Disconnect and Cap",
+   "Gas Meter and Service Disconnect",
+   "Electrical Service Disconnect",
+   "Site Utility Cut and Cap at the Main"
+  ],
+  "criteria": [],
+  "answers": [],
+  "gates": []
+ }
+]

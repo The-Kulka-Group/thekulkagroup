@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { presentBudget, rateUsd, usd } from "@/lib/rom/presentation";
 import { buildPrintJob } from "@/lib/rom/published-pdf";
 import { DIAGRAM_LINE, LAYERS } from "@/lib/rom/section";
-import { referencePage, referencePublication } from "@/test/fixtures/published-budget";
+import { estimatedPublication, referencePage, referencePublication } from "@/test/fixtures/published-budget";
 
 import * as renderModule from "./render";
 import { renderBudgetPage } from "./render";
@@ -16,6 +16,7 @@ import { renderBudgetPage } from "./render";
 // never whitespace.
 
 const page = () => renderBudgetPage(presentBudget(referencePublication()));
+const estimated = () => renderBudgetPage(presentBudget(estimatedPublication()));
 
 const idsOf = (html: string) => [...html.matchAll(/data-el="([^"]*)"/g)].map((m) => m[1]);
 const moneyOf = (html: string) => [...html.matchAll(/\$[0-9](?:[0-9,]*[0-9])?(?:\.[0-9]{2})?/g)].map((m) => m[0]);
@@ -244,13 +245,13 @@ describe("client-facing text", () => {
   ];
 
   it("passes the LA-1333 copy guard, over the whole document", () => {
-    const html = page();
-
-    expect(LEAKS.filter(([pattern]) => pattern.test(html)).map(([pattern, why]) => `${why}: ${html.match(pattern)![0]}`)).toEqual([]);
+    for (const html of [page(), estimated()]) {
+      expect(LEAKS.filter(([pattern]) => pattern.test(html)).map(([pattern, why]) => `${why}: ${html.match(pattern)![0]}`)).toEqual([]);
+    }
   });
 
   it("never names AI, an LLM, Jev, a model, Claude or a ROM where a client reads", () => {
-    const text = clientText(page());
+    const text = [clientText(page()), clientText(estimated())].join("\n");
 
     expect(text.match(/\bAI\b|\bLLM\b|\bJev\b|\bmodels?\b|\bClaude\b|\bROM\b|user override|history:|engine parameters?/gi)).toBeNull();
   });
@@ -331,6 +332,14 @@ describe("client-facing text", () => {
     const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('<div class="trio"'));
     expect(band).toContain('data-count="3"');
     expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num">14<small>Months</small></p>');
+    expect(band).not.toContain("+/-");
+  });
+
+  it("marks an estimated duration +/- when the budget has no schedule (LA-1566)", () => {
+    const html = renderBudgetPage(presentBudget(estimatedPublication()));
+    const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('<div class="trio"'));
+    expect(band).toContain('data-count="3"');
+    expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num">16<small>Months +/-</small></p>');
   });
 });
 

@@ -110,8 +110,8 @@ function sectionNumber(page: BudgetPage): string {
   const numbers = [
     `<div><p class="op-n-l">Total Budget</p><p class="op-n-v num" data-op-move="fig" data-el-ref="total:kulka-contract">${usd(h.kulkaContract.likely)}</p></div>`,
     h.perSquareFoot ? `<div><p class="op-n-l">Per Square Foot</p><p class="op-n-v num" data-el-ref="record:per-sf">${usd(h.perSquareFoot.value)}</p></div>` : null,
-    h.durationMonths !== null
-      ? `<div><p class="op-n-l">Duration</p><p class="op-n-v num">${h.durationMonths}<small>${h.durationMonths === 1 ? "Month" : "Months"}</small></p></div>`
+    h.duration !== null
+      ? `<div><p class="op-n-l">Duration</p><p class="op-n-v num">${h.duration.months}<small>${h.duration.months === 1 ? "Month" : "Months"}${h.duration.estimated ? " +/-" : ""}</small></p></div>`
       : null,
   ].filter((n): n is string => n !== null);
   return `

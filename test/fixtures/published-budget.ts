@@ -25,5 +25,16 @@ export function referencePublication(over: Partial<Publication> = {}): Publicati
   };
 }
 
+/**
+ * LA-1566. The reference run as publishing freezes it today: it has no
+ * schedule, so publishing estimated the construction duration. 16 months is
+ * a fixture value, not a model's answer, so no test or render calls a model.
+ */
+export function estimatedPublication(over: Partial<Publication> = {}): Publication {
+  const publication = referencePublication(over);
+  publication.snapshot.durationEstimate = { months: 16 };
+  return publication;
+}
+
 /** Every data-el, every dollar figure and the section ids, in page order, as the reference page printed them. */
 export const referencePage = reference as { sections: string[]; dataEl: string[]; money: string[] };

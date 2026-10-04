@@ -2,7 +2,7 @@ import type { RomLine } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
 import { sourceOf } from "@/app/(app)/rom/ledger";
-import { referencePublication } from "@/test/fixtures/published-budget";
+import { estimatedPublication, referencePublication } from "@/test/fixtures/published-budget";
 
 import { clientBasis, clientSource, noteKey, presentBudget, rateUsd } from "./presentation";
 
@@ -22,9 +22,9 @@ describe("presentBudget", () => {
   });
 });
 
-describe("the duration (LA-1558)", () => {
-  it("is null when the budget has no Allocated Resources schedule, so the page never invents a month count", () => {
-    expect(presentBudget(referencePublication()).headline.durationMonths).toBeNull();
+describe("the duration (LA-1558, LA-1566)", () => {
+  it("is null when the budget has no schedule and no estimate, so the page never invents a month count", () => {
+    expect(presentBudget(referencePublication()).headline.duration).toBeNull();
   });
 
   it("counts construction in whole months from the plan's schedule", () => {
@@ -34,8 +34,8 @@ describe("the duration (LA-1558)", () => {
     planned.snapshot.allocatedResources = { schedule: { precon: { value: 8 }, construction: { value: 61 }, closeout: { value: 0 } } };
 
     // 61 weeks is 427 days, 14.04 months at 30.42 days a month.
-    expect(presentBudget(priced).headline.durationMonths).toBe(14);
-    expect(presentBudget(planned).headline.durationMonths).toBe(14);
+    expect(presentBudget(priced).headline.duration).toEqual({ months: 14, estimated: false });
+    expect(presentBudget(planned).headline.duration).toEqual({ months: 14, estimated: false });
   });
 
   it("reads a schedule with no construction weeks, or a shape it does not know, as no schedule", () => {
@@ -44,8 +44,18 @@ describe("the duration (LA-1558)", () => {
     const odd = referencePublication();
     odd.snapshot.allocatedResources = { schedule: { construction: "61 weeks" } };
 
-    expect(presentBudget(empty).headline.durationMonths).toBeNull();
-    expect(presentBudget(odd).headline.durationMonths).toBeNull();
+    expect(presentBudget(empty).headline.duration).toBeNull();
+    expect(presentBudget(odd).headline.duration).toBeNull();
+  });
+
+  it("shows the estimate frozen at publishing when there is no schedule", () => {
+    expect(presentBudget(estimatedPublication()).headline.duration).toEqual({ months: 16, estimated: true });
+  });
+
+  it("prefers a schedule over an estimate", () => {
+    const both = estimatedPublication();
+    both.snapshot.allocatedResources = { weeks: { construction: 61 } };
+    expect(presentBudget(both).headline.duration).toEqual({ months: 14, estimated: false });
   });
 });
 

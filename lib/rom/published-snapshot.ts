@@ -1,4 +1,5 @@
 import type { DerivedAssumption, Rom, RomLine, ScopeEntry, UnpricedItem } from "@kulka/engine";
+import { DAYS_PER_MONTH } from "@kulka/engine";
 
 import { entriesFor, isApproved, raisedByFor, type StoredScopeEntry } from "@/lib/rom/line-details";
 import type { RecordedAnswers, RunRecord } from "@/lib/rom/run-records";
@@ -27,6 +28,13 @@ export type PresentationCopy = {
  * `answers.allocatedResources`. LA-1394 narrows the type once it lands.
  */
 export type AllocatedResourcesPlan = { readonly [key: string]: unknown };
+
+/**
+ * LA-1566. The construction duration estimated once, at publishing, for a
+ * budget with no schedule. Whole months, 1 to 120. A schedule always wins
+ * over it, so a snapshot never carries both.
+ */
+export type DurationEstimate = { months: number };
 
 /** A criterion as frozen: the engine's record without the database ids it was stored under. */
 export type PublishedCriterion = DerivedAssumption;
@@ -57,6 +65,8 @@ export type PublishedBudgetSnapshot = {
   criteria: PublishedCriterion[];
   /** Present only when the run recorded an Allocated Resources plan. */
   allocatedResources?: AllocatedResourcesPlan;
+  /** Present only when the budget had no schedule and the estimate came back. */
+  durationEstimate?: DurationEstimate;
   copy: PresentationCopy;
   /** The engine data snapshot hash the run was computed against, or null for a run recorded before runs kept one. */
   engineSnapshotHash: string | null;
@@ -83,13 +93,15 @@ export type SnapshotSource = {
    * the snapshot keeps the run's own entries, approved ones only.
    */
   scopeEntries?: readonly StoredScopeEntry[];
+  /** The estimate publishing made, dropped when the run's plan has a schedule. */
+  durationEstimate?: DurationEstimate;
 };
 
 /** Everything a published page needs, copied out of the run so the page never reads the run again. */
 export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapshot {
   const { run } = source;
   const answers = (run.answers ?? {}) as RecordedAnswers;
-  const plan = (answers as { allocatedResources?: unknown }).allocatedResources;
+  const plan = allocatedResourcesOf(answers);
   const snapshot: PublishedBudgetSnapshot = {
     format: 1,
     run: {
@@ -106,11 +118,31 @@ export function assembleSnapshot(source: SnapshotSource): PublishedBudgetSnapsho
     copy: source.copy,
     engineSnapshotHash: run.snapshotHash,
   };
-  if (plan && typeof plan === "object" && !Array.isArray(plan)) {
-    snapshot.allocatedResources = plan as AllocatedResourcesPlan;
-  }
+  if (plan) snapshot.allocatedResources = plan;
+  if (source.durationEstimate && scheduledMonths(plan) === null) snapshot.durationEstimate = { months: source.durationEstimate.months };
   if (source.sourceJobNames) snapshot.sourceJobNames = source.sourceJobNames;
   return snapshot;
+}
+
+/** The run's Allocated Resources plan, when it recorded one as an object. */
+export function allocatedResourcesOf(answers: RecordedAnswers | null): AllocatedResourcesPlan | undefined {
+  const plan = (answers as { allocatedResources?: unknown } | null)?.allocatedResources;
+  return plan && typeof plan === "object" && !Array.isArray(plan) ? (plan as AllocatedResourcesPlan) : undefined;
+}
+
+/**
+ * The construction phase in whole months, when the Allocated Resources plan
+ * has a schedule: its priced weeks (`weeks.construction`) or its plan figure
+ * (`schedule.construction.value`), converted the way the plan prices by the
+ * month (resource-plan.ts monthsIn). The plan is typed loosely until LA-1394,
+ * so anything else reads as no schedule.
+ */
+export function scheduledMonths(plan: AllocatedResourcesPlan | undefined): number | null {
+  const read = plan as { weeks?: { construction?: unknown }; schedule?: { construction?: { value?: unknown } } } | undefined;
+  const weeks = read?.weeks?.construction ?? read?.schedule?.construction?.value;
+  if (typeof weeks !== "number" || !Number.isFinite(weeks) || weeks <= 0) return null;
+  const months = Math.round((weeks * 7) / DAYS_PER_MONTH);
+  return months > 0 ? months : null;
 }
 
 /**

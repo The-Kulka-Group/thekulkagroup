@@ -1,8 +1,10 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
 import { pdfSeams } from "@/lib/rom/pdf-seams";
 import type { PrintJob, PublishedPdfStore } from "@/lib/rom/published-pdf";
+import { setRateClientForTests } from "@/lib/rom/rate-suggestion";
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
@@ -64,8 +66,26 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  setRateClientForTests(null);
   await db.close();
 });
+
+/** LA-1566. A stand-in for Claude that answers every ask with `text`. */
+function modelAnswering(text: string) {
+  setRateClientForTests({
+    beta: {
+      messages: {
+        create: async () =>
+          ({ model: "claude-opus-5", stop_reason: "end_turn", content: [{ type: "text", text }] }) as unknown as Anthropic.Beta.Messages.BetaMessage,
+      },
+    },
+  });
+}
+
+async function storedEstimate(id: string): Promise<unknown> {
+  const { rows } = await db.query<{ estimate: unknown }>(`select snapshot->'durationEstimate' as estimate from published_budgets where id = $1`, [id]);
+  return rows[0].estimate;
+}
 
 describe("POST /api/rom/runs/[runId]/publish", () => {
   it("refuses a signed-out request and publishes nothing", async () => {
@@ -95,6 +115,22 @@ describe("POST /api/rom/runs/[runId]/publish", () => {
       coverSentence: BODY.coverSentence,
       validityDays: 60,
     });
+  });
+
+  it("freezes the model's duration estimate for a budget with no schedule (LA-1566)", async () => {
+    modelAnswering(JSON.stringify({ months: 18 }));
+    const runId = await succeededRunId();
+    const response = await post(runId, BODY);
+    expect(response.status).toBe(200);
+    expect(await storedEstimate((await response.json()).published.id)).toEqual({ months: 18 });
+  });
+
+  it("publishes without a duration when the model's answer does not hold up (LA-1566)", async () => {
+    modelAnswering(JSON.stringify({ months: 600 }));
+    const runId = await succeededRunId();
+    const response = await post(runId, BODY);
+    expect(response.status).toBe(200);
+    expect(await storedEstimate((await response.json()).published.id)).toBeNull();
   });
 
   it("returns the new version's full link, built from the site's address", async () => {

@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db";
 import { runRom } from "@/lib/rom/run";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
 
+import type { DurationFacts } from "./duration-estimate";
 import { RunNotSucceeded } from "./issue";
 import {
   isToken,
@@ -109,6 +110,7 @@ describe("the snapshot", () => {
     expect(snapshot.copy).toEqual(COPY);
     expect(snapshot.engineSnapshotHash).toMatch(/^[0-9a-f]{64}$/);
     expect(snapshot).not.toHaveProperty("allocatedResources");
+    expect(snapshot).not.toHaveProperty("durationEstimate");
   });
 
   it("freezes the name of every job its comparables cite", async () => {
@@ -287,5 +289,64 @@ describe("listPublishedBudgets", () => {
       const view = await loadPublishedBudget(db as Db, version.token);
       expect(listed.find((v) => v.id === version.id)!.state).toBe(view!.state);
     }
+  });
+});
+
+// LA-1566. The estimator is a fake: these never reach the network.
+describe("the duration estimate", () => {
+  async function storedEstimate(id: string): Promise<unknown> {
+    const { rows } = await db.query<{ estimate: unknown }>(`select snapshot->'durationEstimate' as estimate from published_budgets where id = $1`, [id]);
+    return rows[0].estimate;
+  }
+
+  it("is made once at publishing and frozen, when the budget has no schedule", async () => {
+    const runId = await succeededRunId();
+    const asked: DurationFacts[] = [];
+
+    const published = await publishBudget(
+      db as Db,
+      { runId, issuedBy: "devin@example.com", copy: COPY },
+      { estimateDuration: async (facts) => (asked.push(facts), 16) },
+    );
+
+    expect(asked).toHaveLength(1);
+    expect(asked[0].grossSquareFeet).toBe(1000);
+    expect(asked[0].scope.length).toBeGreaterThan(0);
+    expect(published.snapshot.durationEstimate).toEqual({ months: 16 });
+    expect(await storedEstimate(published.id)).toEqual({ months: 16 });
+  });
+
+  it("is never asked for when the budget has a schedule", async () => {
+    const runId = await succeededRunId();
+    await db.query(`update runs set answers = answers || '{"allocatedResources": {"weeks": {"construction": 61}}}'::jsonb where id = $1`, [runId]);
+    let asked = 0;
+
+    const published = await publishBudget(
+      db as Db,
+      { runId, issuedBy: "devin@example.com", copy: COPY },
+      { estimateDuration: async () => (asked++, 16) },
+    );
+
+    expect(asked).toBe(0);
+    expect(published.snapshot.allocatedResources).toEqual({ weeks: { construction: 61 } });
+    expect(published.snapshot).not.toHaveProperty("durationEstimate");
+  });
+
+  it("leaves publishing to succeed without one when the model fails", async () => {
+    const runId = await succeededRunId();
+
+    const published = await publishBudget(
+      db as Db,
+      { runId, issuedBy: "devin@example.com", copy: COPY },
+      {
+        estimateDuration: async () => {
+          throw new Error("The model's duration was not whole months from 1 to 120.");
+        },
+      },
+    );
+
+    expect(published.version).toBe(1);
+    expect(published.snapshot).not.toHaveProperty("durationEstimate");
+    expect(await storedEstimate(published.id)).toBeNull();
   });
 });

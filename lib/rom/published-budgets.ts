@@ -5,13 +5,17 @@ import type { Rom } from "@kulka/engine";
 import { siteUrlFrom } from "@/lib/auth/policy";
 import type { Db } from "@/lib/db";
 import { listDerivedAssumptions } from "@/lib/rom/derived-assumptions";
+import { durationFactsOf, type DurationEstimator } from "@/lib/rom/duration-estimate";
 import { issueRom } from "@/lib/rom/issue";
 import { readScopeEntries } from "@/lib/rom/line-details";
 import { getRun } from "@/lib/rom/run-records";
 
 import { toIso } from "./date";
 import {
+  allocatedResourcesOf,
   assembleSnapshot,
+  scheduledMonths,
+  type DurationEstimate,
   type PresentationCopy,
   type PublishedBudgetSnapshot,
   type PublishedStage,
@@ -125,6 +129,9 @@ export type PublishRequest = {
   stage?: PublishedStage;
 };
 
+/** What publishing calls out to. Without an estimator, a budget with no schedule publishes with no duration. */
+export type PublishDeps = { estimateDuration?: DurationEstimator };
+
 /** A new version and the snapshot it froze, so the caller can print it without reading the row back. */
 export type PublishedBudget = PublishedBudgetRecord & { snapshot: PublishedBudgetSnapshot };
 
@@ -134,11 +141,15 @@ export type PublishedBudget = PublishedBudgetRecord & { snapshot: PublishedBudge
  * of the project that is not yet superseded as superseded by this one.
  * Throws issue.ts's RunNotFound or RunNotSucceeded for a run that cannot be
  * issued.
+ *
+ * LA-1566: a budget with no schedule gets its duration estimated first,
+ * outside the transaction so no lock waits on the model.
  */
-export async function publishBudget(db: Db, request: PublishRequest): Promise<PublishedBudget> {
+export async function publishBudget(db: Db, request: PublishRequest, deps: PublishDeps = {}): Promise<PublishedBudget> {
   const issuedBy = request.issuedBy.trim();
   if (!issuedBy) throw new Error("A published budget needs the name of whoever published it.");
   const copy = cleanCopy(request.copy);
+  const durationEstimate = deps.estimateDuration ? await estimatedDuration(db, request.runId, deps.estimateDuration) : undefined;
 
   return db.withTransaction(async (tx) => {
     const { issuedAt } = await issueRom(tx, request.runId);
@@ -149,7 +160,15 @@ export async function publishBudget(db: Db, request: PublishRequest): Promise<Pu
     const sourceJobNames = await jobNamesFor(tx, run.rom);
     // LA-1502: the snapshot freezes only the entries approved by now.
     const scopeEntries = await readScopeEntries(tx, run.projectId);
-    const snapshot = assembleSnapshot({ run: { ...run, rom: run.rom }, issuedAt, criteria, copy, sourceJobNames, scopeEntries });
+    const snapshot = assembleSnapshot({
+      run: { ...run, rom: run.rom },
+      issuedAt,
+      criteria,
+      copy,
+      sourceJobNames,
+      scopeEntries,
+      durationEstimate,
+    });
 
     // One publish per project at a time, so two cannot claim one version.
     await tx.query(`select id from projects where id = $1 for update`, [run.projectId]);
@@ -180,6 +199,22 @@ export async function publishBudget(db: Db, request: PublishRequest): Promise<Pu
     );
     return { ...fromRow(published), snapshot };
   });
+}
+
+/**
+ * The estimate for a succeeded run whose plan has no schedule. Any failure,
+ * the model's or the read's, publishes without one; the transaction then
+ * raises the run's own errors.
+ */
+async function estimatedDuration(db: Db, runId: string, estimate: DurationEstimator): Promise<DurationEstimate | undefined> {
+  try {
+    const run = await getRun(db, runId);
+    if (run.status !== "succeeded" || !run.rom || scheduledMonths(allocatedResourcesOf(run.answers)) !== null) return undefined;
+    return { months: await estimate(durationFactsOf(run.answers, run.rom)) };
+  } catch (cause) {
+    console.warn(`Run ${runId} published without a duration estimate:`, cause instanceof Error ? cause.message : cause);
+    return undefined;
+  }
 }
 
 /** The name of every job the run's comparables cite, as the projects table holds it now. */

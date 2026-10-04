@@ -22,6 +22,33 @@ describe("presentBudget", () => {
   });
 });
 
+describe("the duration (LA-1558)", () => {
+  it("is null when the budget has no Allocated Resources schedule, so the page never invents a month count", () => {
+    expect(presentBudget(referencePublication()).headline.durationMonths).toBeNull();
+  });
+
+  it("counts construction in whole months from the plan's schedule", () => {
+    const priced = referencePublication();
+    priced.snapshot.allocatedResources = { weeks: { precon: 8, construction: 61, closeout: 4 } };
+    const planned = referencePublication();
+    planned.snapshot.allocatedResources = { schedule: { precon: { value: 8 }, construction: { value: 61 }, closeout: { value: 0 } } };
+
+    // 61 weeks is 427 days, 14.04 months at 30.42 days a month.
+    expect(presentBudget(priced).headline.durationMonths).toBe(14);
+    expect(presentBudget(planned).headline.durationMonths).toBe(14);
+  });
+
+  it("reads a schedule with no construction weeks, or a shape it does not know, as no schedule", () => {
+    const empty = referencePublication();
+    empty.snapshot.allocatedResources = { weeks: { construction: 0 } };
+    const odd = referencePublication();
+    odd.snapshot.allocatedResources = { schedule: { construction: "61 weeks" } };
+
+    expect(presentBudget(empty).headline.durationMonths).toBeNull();
+    expect(presentBudget(odd).headline.durationMonths).toBeNull();
+  });
+});
+
 describe("the ledger", () => {
   it("adds up to the run's own totals to the cent, Kulka's trades and owner-direct apart", () => {
     const page = presentBudget(referencePublication());

@@ -89,16 +89,16 @@
 
   // --- Where each element is on the page ------------------------------------------
 
-  /** The element that carries an id: the first outside the drawings, the lens and the PDF links. */
+  /** The element that carries an id: the first outside the drawings and the PDF links. */
   function hostOf(id) {
     var all = doc.querySelectorAll('[data-el="' + esc(id) + '"]');
     for (var i = 0; i < all.length; i++) {
-      if (!all[i].closest('svg, .lens, .dests')) return all[i];
+      if (!all[i].closest('svg, .dests')) return all[i];
     }
     return null;
   }
-  /** Where a marker and an outline go: a ledger row's own button, or the element itself. */
-  function targetOf(host) { return host.classList.contains('lg-item') ? host.querySelector('.lg-btn') || host : host; }
+  /** Where a marker and an outline go: a schedule line's own button, or the element itself. */
+  function targetOf(host) { return host.classList.contains('sov-line') ? host.querySelector('.sov-h') || host : host; }
   var inline = function (el) { return getComputedStyle(el).display === 'inline'; };
   var commentable = function (id) { return id.indexOf('section:') !== 0; };
 
@@ -130,13 +130,13 @@
     watchers.forEach(function (w) { w.disconnect(); });
     watchers = [];
 
-    // A closed ledger row carries the count of every thread on it and inside it
+    // A closed schedule line carries the count of every thread on it and inside it
     // (Matt, 2026-10-02), so a reply on a line shows while its row is closed.
     var inside = new Map();
     Object.keys(byEl).forEach(function (id) {
       var host = hostOf(id);
       if (!host) return;
-      var item = host.closest('.lg-item');
+      var item = host.closest('.sov-line[data-el]');
       if (item === host) return;
       if (item) inside.set(item, (inside.get(item) || []).concat(byEl[id]));
       var target = targetOf(host);
@@ -147,12 +147,12 @@
       target.appendChild(m);
     });
 
-    Array.prototype.forEach.call(doc.querySelectorAll('.lg > .lg-item'), function (item) {
+    Array.prototype.forEach.call(doc.querySelectorAll('.sov > .sov-line[data-el]'), function (item) {
       var id = item.getAttribute('data-el');
       var own = byEl[id] || [];
       var all = own.concat(inside.get(item) || []);
       if (all.length === 0) return;
-      var btn = item.querySelector('.lg-btn');
+      var btn = item.querySelector('.sov-h');
       var label = (els[id] && els[id].label) || 'This Row';
       btn.classList.add('cm-host');
       var current = null;
@@ -228,7 +228,7 @@
   }
 
   // In comment mode a tap opens the composer and nothing else, so it never
-  // fights the ledger's tap-to-open rows.
+  // fights the schedule's tap-to-open lines.
   doc.addEventListener('click', function (e) {
     if (!modeOn()) return;
     var t = e.target;
@@ -238,7 +238,7 @@
     e.preventDefault();
     e.stopPropagation();
     var sel = '[data-el="' + esc(id) + '"], [data-el-ref="' + esc(id) + '"]';
-    composer(id, t.closest('.lens') ? hostOf(id) : t.closest(sel) || hostOf(id));
+    composer(id, t.closest(sel) || hostOf(id));
   }, true);
 
   // --- The card -----------------------------------------------------------------

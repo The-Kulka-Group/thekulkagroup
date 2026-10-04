@@ -44,9 +44,18 @@ export type ItemSource = {
   sourceText: string;
 };
 
+/**
+ * How an item is priced, as a count at a rate: "64,000 GSF at $50.69 per GSF".
+ * `el` is the Basis row the statement reads back, or null for one worked out
+ * here (an elevator's figure over its cars).
+ */
+export type PricedAs = { el: string | null; quantity: string; rate: string };
+
 export type DivisionItem = ItemSource & {
   el: string;
   basis: BasisRow[];
+  /** Lead first, then the same figure another way. Empty when no quantity is known. */
+  pricedAs: PricedAs[];
   includes: ScopeText[];
   excludes: ScopeText[];
 };
@@ -97,6 +106,8 @@ export type DrillDownInput = {
   /** The Kulka contract's likely figure, for each division's share. */
   contractLikely: number;
   grossSquareFeet: number | null;
+  /** The elevator cars the answers give, 0 for none. */
+  elevatorCount: number;
   classifications: readonly BlockClassification[];
   keyOf: (text: string) => string;
   usd: (n: number) => string;
@@ -158,6 +169,34 @@ function rateWords(likely: number, quantity: RomLine["quantity"], input: DrillDo
   }
   const gsf = input.grossSquareFeet;
   return gsf ? `${input.rateUsd(likely / gsf)} per SF of This Building` : null;
+}
+
+/**
+ * The elevators line. A snapshot published before LA-1502 prices it per SF
+ * with no quantity; the approved card (LA-1558) leads with it by the car.
+ */
+const ELEVATORS_CODE = "26";
+
+function pricedAsOf(code: string, likely: number, line: RomLine | undefined, input: DrillDownInput): PricedAs[] {
+  const out: PricedAs[] = [];
+  const quantity = line?.quantity ?? null;
+  const cars = input.elevatorCount;
+  if (!quantity && code === ELEVATORS_CODE && cars > 0) {
+    out.push({ el: null, quantity: `${cars} ${cars === 1 ? "Car" : "Cars"}`, rate: `${input.usd(likely / cars)} per Car` });
+  }
+  if (line?.perUnit) {
+    out.push({ el: `assumption:${code}:per-unit`, quantity: `${input.wholeNumber(line.perUnit.unitCount)} Units`, rate: `${input.usd(line.perUnit.usdPerUnit)} per Unit` });
+  }
+  if (quantity) {
+    const unit = UNIT_WORDS[quantity.unit];
+    const per = PER_UNIT_WORDS[quantity.unit];
+    if (unit && per && quantity.amount > 0) {
+      out.push({ el: `assumption:${code}:rate`, quantity: `${input.wholeNumber(quantity.amount)} ${unit}`, rate: `${input.rateUsd(likely / quantity.amount)} per ${per}` });
+    }
+  } else if (input.grossSquareFeet) {
+    out.push({ el: `assumption:${code}:rate`, quantity: `${input.wholeNumber(input.grossSquareFeet)} GSF`, rate: `${input.rateUsd(likely / input.grossSquareFeet)} per GSF` });
+  }
+  return out;
 }
 
 const isApproved = (entry: ScopeEntry) => entry.approvedBy !== null && entry.approvedAt !== null;
@@ -365,7 +404,7 @@ function itemOf(source: ItemSource, line: RomLine | undefined, input: DrillDownI
       return { el: `${kind}:${code}:${nth === 1 ? base : `${base}-${nth}`}`, text: entry.text };
     });
   };
-  return { ...source, el: `line:${code}`, basis, includes: scope(line?.includes, "inclusion"), excludes: scope(line?.excludes, "exclusion") };
+  return { ...source, el: `line:${code}`, basis, pricedAs: pricedAsOf(code, source.likely, line, input), includes: scope(line?.includes, "inclusion"), excludes: scope(line?.excludes, "exclusion") };
 }
 
 function raiseOf(

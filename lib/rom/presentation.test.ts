@@ -49,6 +49,37 @@ describe("the duration (LA-1558)", () => {
   });
 });
 
+describe("the schedule of values (LA-1558)", () => {
+  const item = (code: string) => presentBudget(referencePublication()).divisions.flatMap((d) => d.items).find((i) => i.costCode === code)!;
+
+  it("says how each item is priced, reading back its Basis rows", () => {
+    expect(item("17").pricedAs).toEqual([{ el: "assumption:17:rate", quantity: "64,000 GSF", rate: "$50.69 per GSF" }]);
+    expect(item("18").pricedAs).toEqual([
+      { el: "assumption:18:per-unit", quantity: "70 Units", rate: "$1,999 per Unit" },
+      { el: "assumption:18:rate", quantity: "64,000 GSF", rate: "$2.19 per GSF" },
+    ]);
+  });
+
+  it("leads the elevators with the cars the answers give, when the run priced them by area", () => {
+    expect(item("26").pricedAs).toEqual([
+      { el: null, quantity: "2 Cars", rate: "$175,000 per Car" },
+      { el: "assumption:26:rate", quantity: "64,000 GSF", rate: "$5.47 per GSF" },
+    ]);
+  });
+
+  it("lists the markups under the divisions, each pointing at its waterfall row", () => {
+    const page = presentBudget(referencePublication());
+
+    expect(page.scheduleMarkups.map((m) => [m.label, m.perSquareFoot, m.share])).toEqual([
+      ["General Requirements and General Conditions", "$19.06", "6%"],
+      ["Fee", "$9.47", "3%"],
+      ["Insurance", "$16.25", "5%"],
+    ]);
+    const held = new Set(page.waterfall.map((w) => w.el));
+    for (const m of page.scheduleMarkups) expect(held.has(m.elRef), m.elRef).toBe(true);
+  });
+});
+
 describe("the ledger", () => {
   it("adds up to the run's own totals to the cent, Kulka's trades and owner-direct apart", () => {
     const page = presentBudget(referencePublication());

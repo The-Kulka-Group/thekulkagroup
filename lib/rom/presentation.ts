@@ -236,6 +236,11 @@ export type BudgetPage = {
   divisions: DivisionRow[];
   /** LA-1504: the answers about the whole project, and where the others went. */
   projectBasis: ProjectBasis;
+  /**
+   * LA-1558: the schedule of values' lines under the divisions, the markups,
+   * each pointing at the waterfall row that holds its id.
+   */
+  scheduleMarkups: ScheduleMarkup[];
   drawing: Drawing;
   restsOn: {
     priced: number;
@@ -261,6 +266,8 @@ export type BudgetPage = {
   /** The letter the page opens on, after the wordmark (LA-1467). */
   letter: Letter;
 };
+
+export type ScheduleMarkup = { elRef: string; label: string; likely: number; tbd: boolean; perSquareFoot: string | null; share: string };
 
 /** What `/b/<token>` hands the model: the frozen snapshot and the row it was published under. */
 export type Publication = {
@@ -1438,6 +1445,7 @@ export function presentBudget(publication: Publication): BudgetPage {
     gates,
     contractLikely: contract.likely,
     grossSquareFeet: gsf,
+    elevatorCount: drawing.facts.elevators,
     classifications,
     keyOf: noteKey,
     usd,
@@ -1500,6 +1508,16 @@ export function presentBudget(publication: Publication): BudgetPage {
     ledger: built.ledger,
     divisions,
     projectBasis,
+    scheduleMarkups: waterfall
+      .filter((w) => w.key === "gr" || w.key === "gc" || w.key === "fee" || w.key === "insurance")
+      .flatMap((w) => (w.el === null ? [] : [{
+        elRef: w.el,
+        label: w.label,
+        likely: w.likely,
+        tbd: w.tbd,
+        perSquareFoot: gsf && !w.tbd ? rateUsd(w.likely / gsf) : null,
+        share: `${Math.round((contract.likely > 0 ? w.likely / contract.likely : 0) * 100)}%`,
+      }])),
     drawing,
     restsOn,
     criteria,

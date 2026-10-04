@@ -16,9 +16,67 @@ describe("presentBudget", () => {
     expect(page.headline.kulkaContract).toEqual({ low: 13_842_806, high: 26_750_419, likely: 20_296_613 });
     expect(page.headline.totalProjectCost).toEqual({ low: 13_995_835, high: 27_068_249, likely: 20_532_042 });
     expect(page.headline.perSquareFoot?.value).toBe(317);
-    expect(page.headline.perSquareFoot?.arithmetic).toBe("Kulka contract over gross area, garage included: $20,296,613 over 64,000 SF");
+    expect(page.headline.perSquareFoot?.arithmetic).toBe("Total Budget over gross area, garage included: $20,296,613 over 64,000 SF");
     expect(page.headline.perUnit?.value).toBe(289_952);
-    expect(page.headline.perUnit?.arithmetic).toBe("Kulka contract over the unit count: $20,296,613 over 70 units");
+    expect(page.headline.perUnit?.arithmetic).toBe("Total Budget over the unit count: $20,296,613 over 70 units");
+  });
+});
+
+describe("the duration (LA-1558)", () => {
+  it("is null when the budget has no Allocated Resources schedule, so the page never invents a month count", () => {
+    expect(presentBudget(referencePublication()).headline.durationMonths).toBeNull();
+  });
+
+  it("counts construction in whole months from the plan's schedule", () => {
+    const priced = referencePublication();
+    priced.snapshot.allocatedResources = { weeks: { precon: 8, construction: 61, closeout: 4 } };
+    const planned = referencePublication();
+    planned.snapshot.allocatedResources = { schedule: { precon: { value: 8 }, construction: { value: 61 }, closeout: { value: 0 } } };
+
+    // 61 weeks is 427 days, 14.04 months at 30.42 days a month.
+    expect(presentBudget(priced).headline.durationMonths).toBe(14);
+    expect(presentBudget(planned).headline.durationMonths).toBe(14);
+  });
+
+  it("reads a schedule with no construction weeks, or a shape it does not know, as no schedule", () => {
+    const empty = referencePublication();
+    empty.snapshot.allocatedResources = { weeks: { construction: 0 } };
+    const odd = referencePublication();
+    odd.snapshot.allocatedResources = { schedule: { construction: "61 weeks" } };
+
+    expect(presentBudget(empty).headline.durationMonths).toBeNull();
+    expect(presentBudget(odd).headline.durationMonths).toBeNull();
+  });
+});
+
+describe("the schedule of values (LA-1558)", () => {
+  const item = (code: string) => presentBudget(referencePublication()).divisions.flatMap((d) => d.items).find((i) => i.costCode === code)!;
+
+  it("says how each item is priced, reading back its Basis rows", () => {
+    expect(item("17").pricedAs).toEqual([{ el: "assumption:17:rate", quantity: "64,000 GSF", rate: "$50.69 per GSF" }]);
+    expect(item("18").pricedAs).toEqual([
+      { el: "assumption:18:per-unit", quantity: "70 Units", rate: "$1,999 per Unit" },
+      { el: "assumption:18:rate", quantity: "64,000 GSF", rate: "$2.19 per GSF" },
+    ]);
+  });
+
+  it("leads the elevators with the cars the answers give, when the run priced them by area", () => {
+    expect(item("26").pricedAs).toEqual([
+      { el: null, quantity: "2 Cars", rate: "$175,000 per Car" },
+      { el: "assumption:26:rate", quantity: "64,000 GSF", rate: "$5.47 per GSF" },
+    ]);
+  });
+
+  it("lists the markups under the divisions, each pointing at its waterfall row", () => {
+    const page = presentBudget(referencePublication());
+
+    expect(page.scheduleMarkups.map((m) => [m.label, m.perSquareFoot, m.share])).toEqual([
+      ["General Requirements and General Conditions", "$19.06", "6%"],
+      ["Fee", "$9.47", "3%"],
+      ["Insurance", "$16.25", "5%"],
+    ]);
+    const held = new Set(page.waterfall.map((w) => w.el));
+    for (const m of page.scheduleMarkups) expect(held.has(m.elRef), m.elRef).toBe(true);
   });
 });
 
@@ -306,11 +364,12 @@ describe("sections", () => {
 
     // LA-1309, "Sections". LA-1462 drops the Summary, Detail and Full depths:
     // the client page shows everything, so no section or fact carries a tier.
+    // LA-1558: the opening hands off to the Schedule of Values, then the letter.
     expect(page.sections.map((s) => s.id)).toEqual([
-      "letter",
-      "the-project",
       "where-the-money-is",
       "design-and-engineering",
+      "letter",
+      "the-project",
       "from-trades-to-total",
       "what-is-in",
       "what-happens-next",
@@ -466,7 +525,7 @@ describe("the letter", () => {
       "You asked Kulka to price a 70-unit multifamily building: 5 stories of wood framing, 64,000 gross square feet, with surface parking. First, one structure of 15,000 square feet comes down. This budget prices that program as you described it, before any drawings exist, from the rates Kulka has stated.",
     );
     expect(paragraphs[1]).toBe(
-      "We expect Kulka's contract to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between $13,842,806 and $26,750,419 as the design settles. The contract is $317 per square foot and $289,952 per unit. With what you buy direct, the total project cost is $20,532,042.",
+      "We expect the Total Budget to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and it could land anywhere between $13,842,806 and $26,750,419 as the design settles. The Total Budget is $317 per square foot and $289,952 per unit. With what you buy direct, the total project cost is $20,532,042.",
     );
     expect(paragraphs[2]).toBe(
       "Every priced line rests on a rate Kulka has stated. No line here is a bid.",

@@ -22,11 +22,11 @@
 .hd-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 1px; padding: 0 5px; border-radius: var(--r-pill); background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; }
 
 /* Comment mode: one line under the header says what to do. */
-.cmode-bar { display: flex; align-items: center; justify-content: center; height: var(--cm-bar-h); margin: 0 -24px; background: var(--primary); color: #fff; font-size: var(--meta-size); font-weight: 600; }
+.cmode-bar { display: flex; align-items: center; justify-content: center; height: var(--cm-bar-h); margin: 0 -64px; background: var(--primary); color: #fff; font-size: var(--meta-size); font-weight: 600; }
 html.cmode { --hd-h: calc(96px + var(--cm-bar-h)); }
 
 /* --- Markers: a dot with a count at the element's right edge -------------------
-   They sit on the element's right border, so every marker in the ledger lines up
+   They sit on the element's right border, so every marker in the schedule lines up
    in one rail and none moves or covers a figure. */
 
 .lg { overflow-clip-margin: 30px; }
@@ -36,7 +36,6 @@ html.cmode { --hd-h: calc(96px + var(--cm-bar-h)); }
 .cm:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
 /* An inline element (a figure in the letter) carries its marker in the line, after the figure. */
 .cm--inline { position: static; transform: none; margin-left: 4px; vertical-align: 1px; }
-.lens .cm { display: none; }
 
 /* The three thread states, here and in every state label. */
 .cm--open .dot, .st--open .dot { background: var(--working); }
@@ -48,15 +47,14 @@ html.cmode { --hd-h: calc(96px + var(--cm-bar-h)); }
 /* --- Comment mode: thin outlines on everything a reader can comment on ---------- */
 
 html.cmode [data-cm-able] { outline: 1px dashed rgba(0, 115, 234, 0.4); outline-offset: -2px; border-radius: 6px; cursor: pointer; }
-html.cmode .lg-item[data-cm-able] { outline: 0; }
-html.cmode .lg-item[data-cm-able] > .lg-btn { outline: 1px dashed rgba(0, 115, 234, 0.4); outline-offset: -2px; border-radius: 6px; }
-html.cmode .lg .pill { opacity: 0.35; }
+html.cmode .sov-line[data-cm-able] { outline: 0; }
+html.cmode .sov-line[data-cm-able] > .sov-h { outline: 1px dashed rgba(0, 115, 234, 0.4); outline-offset: -2px; border-radius: 6px; }
 html.cmode [data-cm-able]:hover:not(:has([data-cm-able]:hover)),
-html.cmode .lg-item[data-cm-able] > .lg-btn:hover,
+html.cmode .sov-line[data-cm-able] > .sov-h:hover,
 [data-cm-on] { outline: 1.5px solid var(--primary) !important; outline-offset: 2px; background: var(--primary-tint); }
-html.cmode .lg-item[data-cm-able]:hover:not(:has([data-cm-able]:hover)) { background: none; outline: 0 !important; }
-.lg-item[data-cm-on] { outline: 0 !important; background: none; }
-.lg-item[data-cm-on] > .lg-btn { outline: 1.5px solid var(--primary); outline-offset: -2px; border-radius: 6px; background: var(--primary-tint); }
+html.cmode .sov-line[data-cm-able]:hover:not(:has([data-cm-able]:hover)) { background: none; outline: 0 !important; }
+.sov-line[data-cm-on] { outline: 0 !important; background: none; }
+.sov-line[data-cm-on] > .sov-h { outline: 1.5px solid var(--primary); outline-offset: -2px; border-radius: 6px; background: var(--primary-tint); }
 
 /* --- The card: composer and thread ------------------------------------------------ */
 
@@ -162,12 +160,13 @@ html.cmode .lg-item[data-cm-able]:hover:not(:has([data-cm-able]:hover)) { backgr
 @media (max-width: 860px) {
   :root { --cm-bar-h: 30px; }
   html.cmode { --hd-h: calc(92px + var(--cm-bar-h)); }
+  html.cmode { --hd-h: calc(52px + var(--cm-bar-h)); }
   .cmode-bar { margin: 0 -16px; font-size: var(--chip-size); }
   .hd-cmt { margin-left: auto; height: 28px; padding: 0 11px; font-size: var(--chip-size); }
   .hd-cmt.is-on { padding: 0 14px; }
   /* A phone has no gutter to spare: the marker sits inside the element, at its top right. */
   .cm { left: auto; right: 6px; top: 6px; transform: none; padding: 3px 5px; border-radius: var(--r-pill); background: var(--surface); }
-  .lg-btn .cm { top: auto; bottom: 8px; right: 12px; }
+  .sov-h .cm { top: auto; bottom: 8px; right: 12px; }
   .cm--inline { position: static; padding: 0; background: none; }
 
   /* The card is a bottom sheet. */

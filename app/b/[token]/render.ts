@@ -10,7 +10,7 @@ import {
   type WaterfallRow,
 } from "@/lib/rom/presentation";
 import { layerJson, type CommentLayer } from "@/lib/rom/comment-layer";
-import { NO_DIVISION, type BasisRow, type DecisionRow, type DivisionItem, type DivisionRow, type RaiseRow, type ScopeText, type SupportingItem } from "@/lib/rom/drill-down";
+import { NO_DIVISION, type BasisRow, type DecisionRow, type DivisionItem, type DivisionRow, type PricedAs, type ScopeText } from "@/lib/rom/drill-down";
 import { drawSection, sectionStyle } from "@/lib/rom/section";
 
 // LA-1459. The client budget page, "The Ledger, Opened with the Section",
@@ -71,7 +71,7 @@ const commentControl = `
     <button class="hd-cmt" type="button" aria-pressed="false" data-cm-toggle hidden><i aria-hidden="true"></i><span data-cm-label>Comment</span></button>`;
 
 function header(page: BudgetPage, comments: boolean): string {
-  const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Kulka Contract</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
+  const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Total Budget</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
   return `
 <header class="hd" id="bar" data-state="band">
   <div class="hd-t1">
@@ -90,29 +90,44 @@ function header(page: BudgetPage, comments: boolean): string {
 </header>`;
 }
 
-// --- 1. The band grown to the viewport: the wordmark, the project, the record ---------------
+// --- 1. The opening (LA-1558): Kulka, the project, the numbers ------------------------------
+//
+// One stage pinned for several screens (~/scrollcraft/frames/kulka-first-screen,
+// r2/opening.html). The wordmark shrinks into the header's mark as the project
+// rises in; the project's name travels into the header as the numbers rise in;
+// the total travels into the header's figure slot as the Schedule of Values
+// slides up over the black. budget-page.js drives it; at rest and in print
+// every layer reads in order.
 
 function sectionNumber(page: BudgetPage): string {
-  const r = page.record;
+  const { headline: h, record: r, drawing } = page;
+  const stories = drawing.facts.stories;
+  const facts = [
+    h.unitCount !== null ? `${wholeNumber(h.unitCount)} Units` : null,
+    h.grossSquareFeet !== null ? `${wholeNumber(h.grossSquareFeet)} GSF` : null,
+    `${stories} ${stories === 1 ? "Story" : "Stories"}`,
+  ].filter((f): f is string => f !== null);
+  const numbers = [
+    `<div><p class="op-n-l">Total Budget</p><p class="op-n-v num" data-op-move="fig" data-el-ref="total:kulka-contract">${usd(h.kulkaContract.likely)}</p></div>`,
+    h.perSquareFoot ? `<div><p class="op-n-l">Per Square Foot</p><p class="op-n-v num" data-el-ref="record:per-sf">${usd(h.perSquareFoot.value)}</p></div>` : null,
+    h.durationMonths !== null
+      ? `<div><p class="op-n-l">Duration</p><p class="op-n-v num">${h.durationMonths}<small>${h.durationMonths === 1 ? "Month" : "Months"}</small></p></div>`
+      : null,
+  ].filter((n): n is string => n !== null);
   return `
-<section class="band band--first" id="your-number" data-el="section:your-number" data-sc-act="flow" data-sc-verify-state="travel:0">
-  <div class="band-stage">
-    <div class="band-main">
-      <div class="fig-wrap big">
-        <p class="big-mark" data-travel>Kulka</p>
-        <p class="big-proj" data-fade>${esc(page.projectName)}</p>
-        <p class="band-meta big-meta" data-fade><span>${esc(r.stageLabel)}</span><i aria-hidden="true">·</i><span>Version ${r.version}</span><i aria-hidden="true">·</i><span>Issued ${time(r.issuedAt)}</span></p>
+<section class="band band--first" id="your-number" data-el="section:your-number" data-sc-act="flow">
+  <div class="op-stage" data-op-stage>
+    <div class="op-layer op-layer--project" data-op-layer="project">
+      <p class="op-lbl">${esc(r.stageLabel)}</p>
+      <p class="op-proj" data-op-move="proj">${esc(page.projectName)}</p>
+      <p class="op-facts num">${facts.map((f) => `<span>${esc(f)}</span>`).join('<i aria-hidden="true">·</i>')}</p>
+    </div>
+    <div class="op-layer op-layer--numbers" data-op-layer="numbers">
+      <div class="op-three" data-op-three data-count="${numbers.length}">
+        ${numbers.join("\n        ")}
       </div>
     </div>
-    <footer class="band-foot" data-fade>
-      <ol class="stg" aria-label="Where this budget stands">${page.stages
-        .map(
-          (st) => `
-        <li${st.current ? ' aria-current="step"' : ""}><span class="stg-name">${esc(st.label)}</span><span class="stg-words">${esc(st.words)}</span></li>`,
-        )
-        .join("")}
-      </ol>
-    </footer>
+    <div class="op-travel" data-op-travel><p class="op-mark">Kulka</p></div>
   </div>
 </section>`;
 }
@@ -192,7 +207,7 @@ function sectionProject(page: BudgetPage): string {
   }
   <p class="lede">${
     moved.length > 0
-      ? "Your answers about the whole project. Answers about one trade sit in that division&rsquo;s Basis in The Ledger."
+      ? "Your answers about the whole project. Answers about one trade sit with that line in the Schedule of Values."
       : "What you told Kulka, read back."
   }${n > 0 ? ` ${n} ${n === 1 ? "answer below was" : "answers below were"} set by Kulka's design criteria rather than stated, and each is marked.` : ""}</p>
   <dl class="facts lg">${facts.map(factRow).join("")}
@@ -224,190 +239,196 @@ function sectionProject(page: BudgetPage): string {
 </section>`;
 }
 
-// --- 3. The Ledger, with the Section beside it ---------------------------------------------------
-
-const CONFIDENCE_WORD: Record<string, string> = { high: "High", medium: "Medium", low: "Low", none: "None" };
-
-/** A confidence mark, dot plus ink (LA-1479: a full dot, a half dot, a ring). */
-const mark = (tone: string, text = CONFIDENCE_WORD[tone] ?? tone) =>
-  `<span class="dv-cf"><i class="dot dot--${esc(tone)}" aria-hidden="true"></i>${esc(text)}</span>`;
-const chip = (c: { tone: string; text: string }) => src(c.tone as Tone, c.text);
-const pill = `<span class="pill"><span class="pill-open">Open</span><span class="pill-close">Close</span></span>`;
-const items = (n: number) => `${n} ${n === 1 ? "Item" : "Items"}`;
-/** The VE control in its empty state (LA-1481): present, quiet, nothing to open until Kulka supplies options. */
-// LA-1532: no VE control shows until a division has VE options (LA-1481).
-// "VE None Yet" on every division read as if Kulka had not tried.
-
-function tabs(list: { key: string; label: string; n?: number }[], end = ""): string {
-  return `
-            <div class="tabs" role="tablist">${list
-              .map(
-                (t, i) =>
-                  `<button class="tab${i === 0 ? " is-on" : ""}" type="button" role="tab" aria-selected="${i === 0}" data-tab="${t.key}">${esc(t.label)}${
-                    t.n !== undefined ? ` <span class="tab-n">${t.n}</span>` : ""
-                  }</button>`,
-              )
-              .join("")}${end ? `<span class="tabs-end">${end}</span>` : ""}</div>`;
-}
-
-const panel = (key: string, first: boolean, title: string, body: string) =>
-  `
-            <div class="dv-panel" data-panel="${key}"${first ? "" : " hidden"}><p class="dv-h print-h">${esc(title)}</p>${body}
-            </div>`;
-
-function basisRow(row: BasisRow): string {
-  const tag = row.tag ? `<span class="crit-tag num">${esc(row.tag)}</span> ` : "";
-  return `
-                <li data-el="${esc(row.el)}"><span class="as-l">${tag}${esc(row.label)}</span><span class="as-v">${esc(row.value)}</span>${chip(row.chip)}</li>`;
-}
-
-function divisionItem(item: DivisionItem): string {
-  const scope = item.includes.length + item.excludes.length > 0;
-  const side = (title: string, cls: string, list: ScopeText[]) =>
-    list.length === 0 ? "" : `<div><p class="io-h ${cls}"><i></i>${title}</p><ul>${list.map((x) => `<li data-el="${esc(x.el)}">${esc(x.text)}</li>`).join("")}</ul></div>`;
-  return `
-          <div class="si" data-el="${esc(item.el)}" data-open="false">
-            <button class="si-head" type="button" aria-expanded="false"><span class="ln-l">${esc(item.label)}</span><span class="ln-v num">${usd(item.likely)}</span>${pill}</button>
-            <p class="si-meta"><span class="num si-range">${usd(item.low)} to ${usd(item.high)}</span><i class="si-range">·</i>${mark(item.confidence)}${
-              item.sourceText === "Kulka Rate" ? `<i>·</i><span>Kulka Rate</span>` : item.sourceText === "Placeholder Rate" ? `<i>·</i><span>Placeholder Rate</span>` : ""
-            }</p>
-            <div class="si-body">${tabs([{ key: "basis", label: "Basis", n: item.basis.length }, ...(scope ? [{ key: "scope", label: "Inclusions and Exclusions" }] : [])])}${panel(
-              "basis",
-              true,
-              "Basis",
-              `
-              <ul class="as">${item.basis.map(basisRow).join("")}
-              </ul>`,
-            )}${
-              scope
-                ? panel("scope", false, "Inclusions and Exclusions", `
-              <div class="io">${side("Inclusions", "io-h--in", item.includes)}${side("Exclusions", "io-h--out", item.excludes)}</div>`)
-                : ""
-            }
-            </div>
-          </div>`;
-}
-
-function supportingRow(list: SupportingItem[], open: boolean): string {
-  if (list.length === 0) return "";
-  return `
-          <div class="si si--group" data-open="${open}">
-            <button class="si-head" type="button" aria-expanded="${open}"><span class="ln-l">In Scope, No Rate Yet</span><span class="ln-v">${items(list.length)}</span>${pill}</button>
-            <p class="si-meta">${mark("none", "No Rate Yet")}<i>·</i><span>Outside the Total</span></p>
-            <ul class="sup si-body">${list.map((u) => `<li data-el="${esc(u.el)}">${esc(u.label)}</li>`).join("")}</ul>
-          </div>`;
-}
-
 function decisionRow(row: DecisionRow): string {
   return `<li${elAttr(row.el || null)}><span class="dec-l">${esc(row.label)}</span><span class="dec-a">${row.answers
     .map((a) => `${esc(a.label)}: <strong>${esc(a.answer)}</strong>`)
     .join(" · ")}</span></li>`;
 }
 
-function decisionsPanel(d: DivisionRow): string {
-  const groups: [string, DecisionRow[]][] = [
-    ["In This Job", d.decisions.inThisJob],
-    ["Assumed Present", d.decisions.assumedPresent],
-    ["Not in This Job", d.decisions.notInThisJob],
-    ["Waiting on an Answer", d.decisions.waiting],
-  ];
-  return groups
-    .filter(([, rows]) => rows.length > 0)
-    .map(([title, rows]) => `
-              <p class="dv-h">${title}</p>
-              <ul class="dec">${rows.map(decisionRow).join("")}</ul>`)
-    .join("");
+// --- 3. The Schedule of Values, with the Section beside it (LA-1558) -----------------------------
+//
+// Drop-down B, Lift the Layer (~/scrollcraft/frames/kulka-first-screen,
+// r2/sov-b-lift.html). Every line, its numbered items and each item's card are
+// written here, closed; budget-page.js only opens them and places the pins.
+
+const CONFIDENCE_WORD: Record<string, string> = { high: "High", medium: "Medium", low: "Low", none: "None" };
+
+/** A confidence mark, dot plus ink (LA-1479: a full dot, a half dot, a ring). */
+const mark = (tone: string, text = `${CONFIDENCE_WORD[tone] ?? tone} Confidence`, el: string | null = null) =>
+  `<span class="dv-cf"${elAttr(el)}><i class="dot dot--${esc(tone)}" aria-hidden="true"></i>${esc(text)}</span>`;
+/** A range to the nearest $1,000, the way the card prints it. */
+const thousands = (n: number) => usd(Math.round(n / 1000) * 1000);
+const range = (f: { low: number; high: number }) => (f.high > f.low ? `Range ${thousands(f.low)} to ${thousands(f.high)}` : "No Range");
+const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+const pct = (s: string | null) => (s === "0%" ? "<1%" : (s ?? ""));
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const waitDot = `<i class="qdot" title="Waiting on Your Answer"></i>`;
+
+/** The drawing's layers a line lights, and the one each item's pin sits on. */
+type Anchors = { layers: string[]; of: (item: DivisionItem) => string | null };
+function anchorsOf(d: DivisionRow, drawn: ReadonlySet<string>): Anchors {
+  const layers = [...new Set([...d.layers, ...d.items.map((i) => i.el)])].filter((l) => drawn.has(l));
+  // An item's own piece, or, when its line is drawn as one piece (the elevator), that piece.
+  return { layers, of: (item) => (drawn.has(item.el) ? item.el : layers.length === 1 ? layers[0] : null) };
 }
 
-function raiseRow(r: RaiseRow): string {
-  const tag = r.tag === "Open" ? `<span class="q-tag">Open</span>` : `<span class="crit-tag num">${esc(r.tag)}</span>`;
+/** An open question: what is unknown, and what moves on the answer. One row per scope decision. */
+function waitBlock(rows: DecisionRow[], own: boolean): string {
+  const head = (r: DecisionRow) => {
+    const open = r.answers.filter((a) => a.answer === "Don't Know" || a.answer === "").map((a) => a.label);
+    return open.length > 0 ? `${esc(open.join(" and "))}? <small>You answered Don't Know.</small>` : esc(r.label);
+  };
   return `
-                <li data-el="${esc(r.el)}">${tag}<span class="raise-t">${esc(r.label)}</span><span class="raise-v">${esc(r.value)}</span>${chip(r.chip)}</li>`;
+            <div class="card-wait"><b>Waiting on Your Answer</b>${rows
+              .map((r) => `<p${own ? elAttr(r.el || null) : elAttr(null, r.el || null)}><strong>${head(r)}</strong><span class="t">It moves ${esc(r.label)} into or out of this line.</span></p>`)
+              .join("")}<button type="button" class="more" data-more>More</button></div>`;
 }
 
-function divisionRow(d: DivisionRow): string {
+function chipOf(b: BasisRow): string {
+  const assumed = b.chip.tone === "working";
+  return `<span class="chip${assumed ? " chip--assume" : ""}" data-el="${esc(b.el)}"${b.tag ? ` data-tag="${esc(b.tag)}"` : ""}${
+    assumed ? ` title="${esc(b.chip.text)}, which holds until your design team decides it"` : ""
+  }><i></i>${b.tag ? `<b>${esc(b.tag)}</b>` : ""}${esc(b.label)}: ${esc(b.value)}</span>`;
+}
+
+function itemCard(d: DivisionRow, item: DivisionItem, i: number, drawn: boolean): string {
+  const [lead, same] = item.pricedAs;
+  const shown = new Set([lead?.el, same?.el].filter((el): el is string => !!el));
+  const chips = item.basis.filter((b) => !shown.has(b.el));
+  const statement = (p: PricedAs) => `<span${elAttr(p.el)}><b>${esc(p.quantity)}</b> at <b>${esc(p.rate)}</b></span>`;
+  const scope = (title: string, list: ScopeText[]) =>
+    list.length === 0 ? "" : `<p><b>${title}</b>${list.map((x) => `<span data-el="${esc(x.el)}">${esc(x.text)}</span>`).join('<i aria-hidden="true">·</i>')}</p>`;
+  const io = scope("Includes", item.includes) + scope("Excludes", item.excludes);
+  const n = d.items.length;
+  return `
+            <div class="card card--item" data-card="${i}" hidden>
+              <div class="card-t"><span class="no${drawn ? "" : " no--nd"}">${i + 1}</span><p class="card-n">${esc(item.label)}<small>${share(item.likely, d.likely)}% of <span class="only-desk">${esc(`${d.division} ${d.title}`)}</span><span class="only-phone">Line ${esc(d.division)}</span>${drawn ? "" : " · Not Drawn"}</small></p><p class="card-v num">${usd(item.likely)}</p></div>${
+                lead ? `\n              <p class="card-eq num">${statement(lead)}${same ? `, the same as ${statement(same)}` : ""}</p>` : ""
+              }
+              <div class="card-r">${mark(item.confidence)}<span class="card-src">${esc(item.sourceText)}</span><span class="card-rng num">${range(item)}</span></div>${
+                chips.length > 0 ? `\n              <div class="card-r">${chips.map(chipOf).join("")}</div>` : ""
+              }${chips.some((b) => b.chip.tone === "working") ? `\n              <p class="legend"><i></i>Orange marks a Planning Assumption.</p>` : ""}${
+                io ? `\n              <div class="card-io">${io}</div>` : ""
+              }${d.decisions.waiting.length > 0 ? waitBlock(d.decisions.waiting, false) : ""}${
+                n > 1
+                  ? `\n              <div class="card-f"><span>${i + 1} of ${n} in ${esc(d.title)}</span><span class="step"><button type="button" data-step="-1" aria-label="Previous Item"></button><button type="button" data-step="1" aria-label="Next Item"></button></span></div>`
+                  : ""
+              }
+            </div>`;
+}
+
+function lineCard(d: DivisionRow, anchors: Anchors): string {
+  const drawnN = d.items.filter((x) => anchors.of(x)).length;
+  const facts = [
+    `${count(d.items.length, "Item")}${drawnN < d.items.length ? `, ${drawnN} Drawn` : ""}`,
+    d.supporting.length ? `${d.supporting.length} In Scope, No Rate Yet` : "",
+    d.decisions.notInThisJob.length ? `${d.decisions.notInThisJob.length} Not in This Job` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const sub = [d.ownerDirect ? "Bought by the Owner" : d.shareOfContract ? `${pct(d.shareOfContract)} of the Total Budget` : null, d.perSquareFoot ? `${d.perSquareFoot} per GSF` : null]
+    .filter(Boolean)
+    .join(" · ");
+  return `
+            <div class="card card--line" data-card="line" hidden>
+              <div class="card-t"><span class="no no--line">${esc(d.division === NO_DIVISION ? "" : d.division)}</span><p class="card-n">${esc(d.title)}<small>${esc(sub)}</small></p><p class="card-v num">${usd(d.likely)}</p></div>
+              <div class="card-r">${mark(d.confidence, undefined, `confidence:${d.division}`)}<span class="card-rng num">${range(d)}</span></div>${
+                d.items.length > 1
+                  ? `\n              <div class="mix">${d.items
+                      .map((x, j) => `<span data-mix="${j}" style="flex:${Math.max(x.likely, d.likely * 0.04)}" title="${esc(x.label)}"><small><b>${j + 1}</b> ${share(x.likely, d.likely)}%</small><i></i></span>`)
+                      .join("")}</div>`
+                  : ""
+              }${
+                d.raise.length > 0
+                  ? `\n              <div class="card-raise"><p class="card-h">What Would Raise It</p>${d.raise
+                      .map((r) => `<p data-el="${esc(r.el)}"><b>${esc(r.tag)}</b>${esc(r.label)}: ${esc(r.value)}</p>`)
+                      .join("")}</div>`
+                  : ""
+              }${d.decisions.waiting.length > 0 ? waitBlock(d.decisions.waiting, true) : ""}
+              <div class="card-f"><span>${esc(facts)}</span><span class="hint">Choose an item, or press →</span></div>
+            </div>`;
+}
+
+function sovLine(d: DivisionRow, drawn: ReadonlySet<string>): string {
+  const anchors = anchorsOf(d, drawn);
   const priced = d.items.length > 0;
-  const count = d.items.length + d.supporting.length;
-  const word = CONFIDENCE_WORD[d.confidence];
-  const rate = [d.perSquareFoot ? `${d.perSquareFoot} per SF` : null, d.shareOfContract].filter(Boolean).join(" · ");
-  const longMark = priced ? mark(d.confidence, `${word} Confidence`) : mark("none", "Outside the Total");
-  const hasDecisions = Object.values(d.decisions).some((rows) => rows.length > 0);
-  const list = [
-    { key: "items", label: "Items", n: count },
-    ...(priced ? [{ key: "confidence", label: "Confidence" }] : []),
-    ...(hasDecisions ? [{ key: "decisions", label: "Scope Decisions" }] : []),
-  ];
+  const waiting = d.decisions.waiting.length > 0;
   const id = `division-${d.division}`;
+  const items = d.items
+    .map((item, i) => {
+      const on = anchors.of(item) !== null;
+      return `
+            <button class="pin-row" type="button" data-i="${i}" data-el="${esc(item.el)}" data-anchor="${esc(anchors.of(item) ?? "")}"><span class="no${on ? "" : " no--nd"}">${i + 1}</span><span class="name">${esc(item.label)}${
+              on ? "" : `<span class="nd">Not Drawn</span>`
+            }</span><span class="amt num">${waiting && d.items.length === 1 ? waitDot : ""}${usd(item.likely)}</span><span></span></button>${itemCard(d, item, i, on)}`;
+    })
+    .join("");
+  const n = d.supporting.length;
+  const noRate =
+    n > 0
+      ? `
+            <details class="extra" open data-fold-phone><summary><b><span class="only-desk">In Scope, No Rate Yet, Outside the Total</span><span class="only-phone">${n} More in Scope, No Rate Yet</span></b></summary><p class="nr-note only-phone">Outside the total until each has a rate.</p><ul class="nr">${d.supporting
+              .map((u) => `<li data-el="${esc(u.el)}">${esc(u.label)}</li>`)
+              .join("")}</ul></details>`
+      : "";
+  const decided = (title: string, rows: DecisionRow[]) =>
+    rows.length === 0
+      ? ""
+      : `
+            <p class="extra"><b>${title}</b>${rows.map((r) => `<span${elAttr(r.el || null)}>${esc(r.label)}</span>`).join('<i aria-hidden="true">·</i>')}</p>`;
   return `
-      <div class="lg-item${d.ownerDirect ? " lg-item--owner" : ""}" id="${esc(id)}" data-el="${esc(d.el)}" data-layer="${esc(d.el)}" data-layers="${esc(d.layers.join(" "))}" data-open="false" role="row">
-        <button class="lg-row lg-btn dv-row" type="button" aria-expanded="false" aria-controls="${esc(id)}-open">
-          <span class="lg-div num">${d.division === NO_DIVISION ? "" : esc(d.division)}</span>
-          <span class="lg-name">${esc(d.title)}${d.ownerDirect ? ` <span class="lg-tag">Bought by the Owner</span>` : ""}</span>
-          ${priced ? mark(d.confidence) : '<span class="dv-cf"></span>'}
-          <span class="lg-amt num">${priced ? usd(d.likely) : '<span class="missing">No Rate Yet</span>'}</span>
-          <span class="lg-psf num">${esc(d.perSquareFoot ?? "")}</span>
-          <span class="lg-pct num">${esc(d.shareOfContract ?? "")}</span>
-          <span class="lg-rate num">${esc(rate)}</span>
-          <span class="lg-more dv-more">${longMark}<span class="lg-count">${items(count)}</span>${pill}</span>
-          <span class="dv-meta">${longMark}<span>${items(count)}</span></span>
-        </button>
-        <div class="lg-lines dv-open" id="${esc(id)}-open">${tabs(list)}${panel(
-          "items",
-          true,
-          "Items",
-          `${d.items.map(divisionItem).join("")}${supportingRow(d.supporting, !priced)}`,
-        )}${
-          priced
-            ? panel(
-                "confidence",
-                false,
-                "Confidence",
-                `
-              <div class="cf-panel">
-                <div class="cf-big" data-el="confidence:${esc(d.division)}">${longMark}</div>${
-                  d.raise.length > 0
-                    ? `
-                <p class="dv-h">What Would Raise It</p>
-                <ul class="raise">${d.raise.map(raiseRow).join("")}
-                </ul>`
-                    : ""
-                }
-              </div>`,
-              )
-            : ""
-        }${hasDecisions ? panel("decisions", false, "Scope Decisions", decisionsPanel(d)) : ""}
-        </div>
-      </div>`;
+      <li class="sov-line${d.ownerDirect ? " sov-line--owner" : ""}" id="${esc(id)}" data-el="${esc(d.el)}" data-layers="${esc(anchors.layers.join(" "))}" data-open="false">
+        <button class="sov-h" type="button" aria-expanded="false" aria-controls="${esc(id)}-open"><span class="sov-div num">${d.division === NO_DIVISION ? "" : esc(d.division)}</span><span class="sov-name">${esc(d.title)}${
+          d.ownerDirect ? ` <span class="lg-tag">Bought by the Owner</span>` : ""
+        }</span><span class="sov-psf num">${esc(d.perSquareFoot ?? "")}</span><span class="sov-pct num">${esc(pct(d.shareOfContract))}</span>${
+          priced ? `<span class="sov-amt num">${waiting ? waitDot : ""}${usd(d.likely)}</span>` : `<span class="sov-amt sov-none">No Rate Yet</span>`
+        }<span class="chev" aria-hidden="true"></span></button>
+        <div class="fold" id="${esc(id)}-open"><div class="fold-in"><div class="lv2">${items}${noRate}${decided("Not in This Job", d.decisions.notInThisJob)}${decided("In This Job", d.decisions.inThisJob)}${decided(
+          "Assumed Present",
+          d.decisions.assumedPresent,
+        )}${priced ? lineCard(d, anchors) : d.decisions.waiting.length > 0 ? waitBlock(d.decisions.waiting, true) : ""}
+        </div></div></div>
+      </li>`;
 }
 
-function sectionLedger(page: BudgetPage): string {
-  const { money, headline } = page;
+function sectionSchedule(page: BudgetPage, drawn: ReadonlySet<string>): string {
+  const { headline: h } = page;
+  const trade = page.divisions.filter((d) => !d.ownerDirect);
+  const owner = page.divisions.filter((d) => d.ownerDirect);
+  const ownerWords =
+    owner.length === 1
+      ? `The owner buys ${owner[0].title} directly, ${usd(owner[0].likely)}, outside the Total Budget.`
+      : `The owner buys these directly, outside the Total Budget: ${owner.map((d) => `${d.title}, ${usd(d.likely)}`).join("; ")}.`;
   return `
-<section class="sheet sheet--ledger" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow" data-sc-verify-state="ledger:-1:0">
+<section class="sheet sheet--sov" id="where-the-money-is" data-el="section:where-the-money-is" data-sc-act="flow">
   <div class="sheet-hd">
-    <h1 class="sheet-h">The Ledger</h1>
-    <p class="sheet-sub">By division, in the order the trades build it. Open one to see what is in it.</p>
+    <h1 class="sheet-h">Schedule of Values</h1>
+    <p class="sheet-sub">By division, in the order the trades build it. Open a line to see what it pays for.</p>
   </div>
-  <div class="lg" role="table" aria-label="The Ledger">
-    <div class="lg-row lg-cols dv-row" role="row">
-      <span class="lg-div">Div</span>
-      <span class="lg-name">Division</span>
-      <span class="dv-cf">Confidence</span>
-      <span class="lg-amt">Amount</span>
-      <span class="lg-psf">$/SF</span>
-      <span class="lg-pct">%</span>
-    </div>
-    <div class="lens" data-lens data-open="false" aria-live="polite" aria-label="The current row"></div>${page.divisions.map(divisionRow).join("")}
-    ${
-      money.ownerScopes.length > 0
-        ? `
-    <div class="lg-foot lg-foot--quiet" data-el="total:trade-cost">
-      <span>All Trades, Owner-Direct Included <span class="lg-foot-range num">${usd(headline.tradeCost.low)} to ${usd(headline.tradeCost.high)}</span></span>
-      <span class="num">${usd(headline.tradeCost.likely)}</span>
-    </div>`
-        : ""
-    }
-  </div>
+  <div class="sov-cols" aria-hidden="true"><span>Div</span><span>Description</span><span>$/GSF</span><span>%</span><span>Amount</span><span></span></div>
+  <ol class="sov" data-sov>${trade.map((d) => sovLine(d, drawn)).join("")}${page.scheduleMarkups
+    .map(
+      (m) => `
+      <li class="sov-line sov-line--mk"><div class="sov-h" data-el-ref="${esc(m.elRef)}"><span class="sov-div"></span><span class="sov-name">${esc(m.label)}</span><span class="sov-psf num">${esc(m.perSquareFoot ?? "")}</span><span class="sov-pct num">${
+        m.tbd ? "" : esc(pct(m.share))
+      }</span><span class="sov-amt num">${m.tbd ? '<span class="missing">TBD</span>' : usd(m.likely)}</span><span></span></div></li>`,
+    )
+    .join("")}
+  </ol>
+  <div class="sov-total" data-el-ref="total:kulka-contract"><span></span><span>Total Budget</span><span class="sov-psf num">${h.perSquareFoot ? usd(h.perSquareFoot.value) : ""}</span><span class="sov-pct num">100%</span><span class="sov-amt num">${usd(h.kulkaContract.likely)}</span><span></span></div>${
+    owner.length > 0
+      ? `
+  <p class="sov-owner">${esc(ownerWords)} Lines with no rate yet are outside it too.</p>
+  <ol class="sov sov--owner">${owner.map((d) => sovLine(d, drawn)).join("")}
+  </ol>`
+      : `
+  <p class="sov-owner">Lines with no rate yet are outside the Total Budget.</p>`
+  }${
+    page.money.ownerScopes.length > 0
+      ? `
+  <p class="sov-foot" data-el="total:trade-cost">All Trades, Owner-Direct Included <span class="num">${usd(h.tradeCost.likely)}</span> <span class="num sov-foot-range">${usd(h.tradeCost.low)} to ${usd(h.tradeCost.high)}</span></p>`
+      : ""
+  }
 </section>`;
 }
 
@@ -455,24 +476,25 @@ function sectionDesign(page: BudgetPage): string {
 }
 
 /**
- * The Ledger and Design and Engineering share one drawing, pinned
- * beside them (above them on a phone), which changes state in place: layers
- * drawing in row by row, then the criteria called out on it with the inks
- * settled.
+ * The Schedule of Values and Design and Engineering share one drawing, pinned
+ * beside them (above them on a phone). An open line lifts its pieces off it;
+ * at Design and Engineering the inks settle and the criteria are called out.
+ * The trio is the white sheet that slides up over the opening.
  */
 function trio(page: BudgetPage, svg: string): string {
-  const facts = page.drawing.facts;
-  const caption = [`${facts.stories} Stories`, facts.units !== null ? `${wholeNumber(facts.units)} Units` : null, facts.grossArea].filter(Boolean).join(" · ");
+  const drawn = new Set([...svg.matchAll(/<g data-layer="([^"]*)"/g)].map((m) => m[1]));
   return `
-<div class="trio" data-trio data-state="ledger">
-  <div class="trio-main">${sectionLedger(page)}
+<div class="trio" data-trio data-state="sov">
+  <div class="trio-in">
+  <div class="trio-main">${sectionSchedule(page, drawn)}
 ${sectionDesign(page)}
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
-    <div class="dwg dwg--crop" data-dwg="section">${svg}<p class="dwg-tag" data-dwg-tag hidden></p><i class="dwg-lead" data-dwg-lead hidden></i></div>
-    <p class="dwg-cap only-phone"><b>Building Section</b> · ${esc(caption)}</p>
-    <p class="dwg-fold" data-dwg-fold><b>Building Section</b><span><i class="dot" aria-hidden="true"></i><span data-fold-name></span></span><button class="pill" type="button" data-fold-show>Show</button></p>
+    <p class="crumb" data-crumb><b>Building Section</b></p>
+    <div class="dwg dwg--crop" data-dwg="section">${svg}</div>
+    <div class="card-slot" data-card-slot></div>
   </aside>
+  </div>
 </div>`;
 }
 
@@ -512,9 +534,9 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
       <div class="wf-in">
         <h1 class="wf-h">From Trades to Total</h1>
         <div class="wf-fig">
-          <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
+          <p class="fig-l" data-fig-label data-label-building="Total Budget So Far" data-label-landed="Total Budget">Total Budget</p>
           <p class="fig fig--beside num" data-el="total:kulka-contract" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
-          <p class="wf-landed">Kulka's contract could land anywhere between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. With what the owner buys direct, Total Project Cost runs between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
+          <p class="wf-landed">The Total Budget could land anywhere between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. With what the owner buys direct, Total Project Cost runs between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
           <p class="wf-after" data-after>${after
             .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
             .join('<i aria-hidden="true">·</i>')}</p>
@@ -539,7 +561,7 @@ function sectionGates(page: BudgetPage): string {
   <div class="sheet-hd">
     <h1 class="sheet-h">Clarifications</h1>
   </div>
-  <p class="lede">Scope decisions now sit with each division in The Ledger.</p>
+  <p class="lede">Scope decisions sit with each line in the Schedule of Values.</p>
   <ol class="notes" data-sc-in data-sc-stagger="15">${page.notes
     .map(
       (n) => `
@@ -575,7 +597,7 @@ function sectionNext(page: BudgetPage): string {
     <h1 class="sheet-h">What Happens Next</h1>
   </div>
   <ol class="steps">
-    <li><b>Check the Basis.</b> Open each division in The Ledger and read the Basis under its items. If anything is wrong, flag it there and Kulka reprices from the corrected fact.</li>${
+    <li><b>Check the Basis.</b> Open each line in the Schedule of Values and read how its items are priced. If anything is wrong, flag it there and Kulka reprices from the corrected fact.</li>${
       open.length > 0
         ? `
     <li><b>Answer the open ${open.length === 1 ? "item" : "items"}.</b> ${open.map(esc).join(" ")} ${open.length === 1 ? "An answer moves" : "Answers move"} what waits on it into, or out of, the number.</li>`
@@ -654,9 +676,9 @@ ${svg.style}
 <body>${print ? "" : "\n<span data-sc-progress></span>"}${print ? "" : header(page, comments !== null)}
 <main id="top">${newerBand(page)}
 ${sectionNumber(page)}
+${trio(page, svg.section)}
 ${sectionLetter(page)}
 ${sectionProject(page)}
-${trio(page, svg.section)}
 ${sectionWaterfall(page, svg)}
 ${sectionGates(page)}
 ${sectionNext(page)}

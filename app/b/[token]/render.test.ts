@@ -297,7 +297,7 @@ describe("client-facing text", () => {
     expect(html).toContain('<section class="sheet sheet--letter" id="letter" data-el="section:letter"');
     expect(html).toContain("You asked Kulka to price a <span class=\"num\">70</span>-unit multifamily building");
     expect(html).toContain('<span class="num" data-el-ref="total:kulka-contract">$20,296,613</span>');
-    expect(html).toMatch(/<span class="num" data-el="record:per-sf" title="Kulka contract over gross area[^"]*">\$317<\/span> per square foot/);
+    expect(html).toMatch(/<span class="num" data-el="record:per-sf" title="Total Budget over gross area[^"]*">\$317<\/span> per square foot/);
     expect(html).toContain('<li><span class="num">1</span><a href="#the-project">Project Basis</a></li>');
     expect(html).toContain('<a href="#letter" data-index="letter">Letter</a>');
     expect(html).not.toContain("Your Number");

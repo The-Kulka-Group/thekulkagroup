@@ -16,9 +16,9 @@ describe("presentBudget", () => {
     expect(page.headline.kulkaContract).toEqual({ low: 13_842_806, high: 26_750_419, likely: 20_296_613 });
     expect(page.headline.totalProjectCost).toEqual({ low: 13_995_835, high: 27_068_249, likely: 20_532_042 });
     expect(page.headline.perSquareFoot?.value).toBe(317);
-    expect(page.headline.perSquareFoot?.arithmetic).toBe("Kulka contract over gross area, garage included: $20,296,613 over 64,000 SF");
+    expect(page.headline.perSquareFoot?.arithmetic).toBe("Total Budget over gross area, garage included: $20,296,613 over 64,000 SF");
     expect(page.headline.perUnit?.value).toBe(289_952);
-    expect(page.headline.perUnit?.arithmetic).toBe("Kulka contract over the unit count: $20,296,613 over 70 units");
+    expect(page.headline.perUnit?.arithmetic).toBe("Total Budget over the unit count: $20,296,613 over 70 units");
   });
 });
 
@@ -466,7 +466,7 @@ describe("the letter", () => {
       "You asked Kulka to price a 70-unit multifamily building: 5 stories of wood framing, 64,000 gross square feet, with surface parking. First, one structure of 15,000 square feet comes down. This budget prices that program as you described it, before any drawings exist, from the rates Kulka has stated.",
     );
     expect(paragraphs[1]).toBe(
-      "We expect Kulka's contract to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and the contract could land anywhere between $13,842,806 and $26,750,419 as the design settles. The contract is $317 per square foot and $289,952 per unit. With what you buy direct, the total project cost is $20,532,042.",
+      "We expect the Total Budget to come to $20,296,613. Nothing is drawn yet, so every line is a range rather than a point, and it could land anywhere between $13,842,806 and $26,750,419 as the design settles. The Total Budget is $317 per square foot and $289,952 per unit. With what you buy direct, the total project cost is $20,532,042.",
     );
     expect(paragraphs[2]).toBe(
       "Every priced line rests on a rate Kulka has stated. No line here is a bid.",

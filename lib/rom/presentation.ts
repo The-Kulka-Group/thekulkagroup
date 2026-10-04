@@ -431,6 +431,7 @@ export function clientSource(internal: string): string {
 export function clientBasis(basis: string): string {
   return basis
     .replace(/Kulka's contract trade cost, owner-direct lines excluded/, "Every scope above, added up. Owner-direct scope is kept out and added back below.")
+    .replace(/^Kulka's contract with /, "Trade cost with ")
     // LA-1483: the history behind a rate, its average, job count and job names, stays off the client page.
     .replace(/user override \(history: [^()]*(?:\([^()]*\)[^()]*)*\)/, "set by Kulka's estimator.")
     .replace(/user override/g, "set by Kulka's estimator")
@@ -905,10 +906,10 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
       key: "kulka-contract",
       el: null,
       elRef: "total:kulka-contract",
-      label: "Kulka Contract",
+      label: "Total Budget",
       low: contract.low,
       high: contract.high,
-      basis: m ? clientBasis(m.total.basis) : "Kulka's contract. This budget prices no General Requirements, General Conditions, fee or insurance yet.",
+      basis: m ? clientBasis(m.total.basis) : "Trade cost alone. This budget prices no General Requirements, General Conditions, fee or insurance yet.",
     }),
   );
   rows.push(
@@ -923,7 +924,7 @@ function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
     }),
   );
   const tpc = m ? m.totalProjectCost : rom.total;
-  rows.push(row({ key: "total-project-cost", el: "total:total-project-cost", elRef: null, label: "Total Project Cost", low: tpc.low, high: tpc.high, basis: "Kulka's contract plus what the owner buys direct." }));
+  rows.push(row({ key: "total-project-cost", el: "total:total-project-cost", elRef: null, label: "Total Project Cost", low: tpc.low, high: tpc.high, basis: "The Total Budget plus what the owner buys direct." }));
 
   // The figure as it is built: trade cost, then each markup's rounded figure
   // added on, and the contract figure itself when the last one has joined.
@@ -1201,9 +1202,9 @@ function letterOf(input: {
   {
     const c = headline.kulkaContract;
     const runs: LetterRun[] = [
-      t("We expect Kulka's contract to come to "),
+      t("We expect the Total Budget to come to "),
       fig(usd(c.likely), { elRef: "total:kulka-contract" }),
-      t(`. ${conceptual ? "Nothing is drawn yet, so every" : "Every"} line is a range rather than a point, and the contract could land anywhere between `),
+      t(`. ${conceptual ? "Nothing is drawn yet, so every" : "Every"} line is a range rather than a point, and it could land anywhere between `),
       fig(usd(c.low), { elRef: "total:kulka-contract:low" }),
       t(" and "),
       fig(usd(c.high), { elRef: "total:kulka-contract:high" }),
@@ -1216,7 +1217,7 @@ function letterOf(input: {
     // The rates are the contract's (headlineFigures), so they follow the
     // contract and never the total project cost. Cold read 2026-10-03 (LA-1532):
     // "$20,532,042, or $317 per square foot" read as wrong arithmetic.
-    if (rateRuns.length > 0) runs.push(t(` The contract is `), ...rateRuns, t("."));
+    if (rateRuns.length > 0) runs.push(t(` The Total Budget is `), ...rateRuns, t("."));
     if (input.ownerDirect > 0) {
       runs.push(t(" With what you buy direct, the total project cost is "), fig(usd(headline.totalProjectCost.likely), { elRef: "total:total-project-cost" }), t("."));
     }
@@ -1454,9 +1455,9 @@ export function presentBudget(publication: Publication): BudgetPage {
     grossSquareFeet: gsf,
     unitCount: units,
     perSquareFoot: gsf
-      ? { value: Math.round(contract.likely / gsf), arithmetic: `Kulka contract over gross area, garage included: ${usd(contract.likely)} over ${wholeNumber(gsf)} SF` }
+      ? { value: Math.round(contract.likely / gsf), arithmetic: `Total Budget over gross area, garage included: ${usd(contract.likely)} over ${wholeNumber(gsf)} SF` }
       : null,
-    perUnit: units ? { value: Math.round(contract.likely / units), arithmetic: `Kulka contract over the unit count: ${usd(contract.likely)} over ${wholeNumber(units)} units` } : null,
+    perUnit: units ? { value: Math.round(contract.likely / units), arithmetic: `Total Budget over the unit count: ${usd(contract.likely)} over ${wholeNumber(units)} units` } : null,
   };
 
   return {

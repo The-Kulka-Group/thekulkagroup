@@ -71,7 +71,7 @@ const commentControl = `
     <button class="hd-cmt" type="button" aria-pressed="false" data-cm-toggle hidden><i aria-hidden="true"></i><span data-cm-label>Comment</span></button>`;
 
 function header(page: BudgetPage, comments: boolean): string {
-  const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Kulka Contract</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
+  const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Total Budget</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
   return `
 <header class="hd" id="bar" data-state="band">
   <div class="hd-t1">
@@ -512,9 +512,9 @@ function sectionWaterfall(page: BudgetPage, svg: { peak: string; peakLight: stri
       <div class="wf-in">
         <h1 class="wf-h">From Trades to Total</h1>
         <div class="wf-fig">
-          <p class="fig-l" data-fig-label data-label-building="Kulka Contract So Far" data-label-landed="Kulka Contract">Kulka Contract</p>
+          <p class="fig-l" data-fig-label data-label-building="Total Budget So Far" data-label-landed="Total Budget">Total Budget</p>
           <p class="fig fig--beside num" data-el="total:kulka-contract" data-fig-running data-trades="${usd(trades.running ?? trades.likely)}" data-landed="${usd(land.likely)}">${usd(land.likely)}</p>
-          <p class="wf-landed">Kulka's contract could land anywhere between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. With what the owner buys direct, Total Project Cost runs between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
+          <p class="wf-landed">The Total Budget could land anywhere between <span class="num" data-el="total:kulka-contract:low">${usd(land.low)}</span> and <span class="num" data-el="total:kulka-contract:high">${usd(land.high)}</span>. With what the owner buys direct, Total Project Cost runs between <span class="num">${usd(page.headline.totalProjectCost.low)}</span> and <span class="num">${usd(page.headline.totalProjectCost.high)}</span>.</p>
           <p class="wf-after" data-after>${after
             .map((w) => `<span${elAttr(w.el, w.elRef)} data-wf="${esc(w.key)}">${esc(w.label)} <b class="num">${usd(w.likely)}</b></span>`)
             .join('<i aria-hidden="true">·</i>')}</p>

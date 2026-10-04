@@ -105,8 +105,8 @@ export function addressableElements(page: BudgetPage): ReadonlyMap<string, Addre
   for (const w of page.waterfall) {
     if (w.key === "kulka-contract") {
       add("total:kulka-contract", "from-trades-to-total", w.label, w.basis, usd(w.likely));
-      add("total:kulka-contract:low", "from-trades-to-total", "Kulka Contract, Low", "", usd(w.low));
-      add("total:kulka-contract:high", "from-trades-to-total", "Kulka Contract, High", "", usd(w.high));
+      add("total:kulka-contract:low", "from-trades-to-total", "Total Budget, Low", "", usd(w.low));
+      add("total:kulka-contract:high", "from-trades-to-total", "Total Budget, High", "", usd(w.high));
     } else {
       add(w.el, "from-trades-to-total", w.label, w.basis, w.tbd ? "TBD" : usd(w.likely));
     }

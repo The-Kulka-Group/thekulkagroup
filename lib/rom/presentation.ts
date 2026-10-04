@@ -1,5 +1,4 @@
 import type { BlockClassification, ConfidenceFlag, MarkupLine, Rom, RomLine } from "@kulka/engine";
-import { DAYS_PER_MONTH } from "@kulka/engine";
 
 import { buildLedger, divisionTitle, sourceOf, type LedgerItem, type LedgerRow as SavedLedgerRow } from "@/app/(app)/rom/ledger";
 import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
@@ -8,7 +7,7 @@ import flow from "@/config/rom/tier1-flow.json";
 import { titleCase } from "@/lib/format/title-case";
 import { publicWording } from "@/lib/rom/derived-assumptions";
 import { ITEM_DIVISION_MAP, compareItemCodes } from "@/lib/rom/masterformat-item-divisions";
-import type { PublishedBudgetSnapshot, PublishedStage } from "@/lib/rom/published-snapshot";
+import { scheduledMonths, type PublishedBudgetSnapshot, type PublishedStage } from "@/lib/rom/published-snapshot";
 import { drillDown, type DivisionRow, type ProjectBasis } from "@/lib/rom/drill-down";
 import { LAYERS, type SectionFacts, type SectionInk } from "@/lib/rom/section";
 
@@ -208,8 +207,12 @@ export type BudgetPage = {
     unitCount: number | null;
     perSquareFoot: DerivedFigure | null;
     perUnit: DerivedFigure | null;
-    /** Construction in whole months, from the Allocated Resources plan's schedule; null when the budget has no schedule. */
-    durationMonths: number | null;
+    /**
+     * Construction in whole months. From the Allocated Resources plan's
+     * schedule when it has one, else the estimate frozen at publishing
+     * (`estimated`), else null.
+     */
+    duration: { months: number; estimated: boolean } | null;
   };
   project: { facts: Fact[]; assumedCount: number; line: string };
   money: {
@@ -873,19 +876,10 @@ function planLines(snapshot: PublishedBudgetSnapshot): PlanLine[] {
   );
 }
 
-/**
- * The construction phase in whole months, when the snapshot froze an
- * Allocated Resources plan with a schedule: its priced weeks
- * (`weeks.construction`) or its plan figure (`schedule.construction.value`),
- * converted the way the plan prices by the month (resource-plan.ts monthsIn).
- * The plan is typed loosely until LA-1394, so anything else reads as no schedule.
- */
-function durationMonthsOf(snapshot: PublishedBudgetSnapshot): number | null {
-  const plan = snapshot.allocatedResources as { weeks?: { construction?: unknown }; schedule?: { construction?: { value?: unknown } } } | undefined;
-  const weeks = plan?.weeks?.construction ?? plan?.schedule?.construction?.value;
-  if (typeof weeks !== "number" || !Number.isFinite(weeks) || weeks <= 0) return null;
-  const months = Math.round((weeks * 7) / DAYS_PER_MONTH);
-  return months > 0 ? months : null;
+function durationOf(snapshot: PublishedBudgetSnapshot): BudgetPage["headline"]["duration"] {
+  const scheduled = scheduledMonths(snapshot.allocatedResources);
+  if (scheduled !== null) return { months: scheduled, estimated: false };
+  return snapshot.durationEstimate ? { months: snapshot.durationEstimate.months, estimated: true } : null;
 }
 
 function waterfallOf(snapshot: PublishedBudgetSnapshot): WaterfallRow[] {
@@ -1484,7 +1478,7 @@ export function presentBudget(publication: Publication): BudgetPage {
       ? { value: Math.round(contract.likely / gsf), arithmetic: `Total Budget over gross area, garage included: ${usd(contract.likely)} over ${wholeNumber(gsf)} SF` }
       : null,
     perUnit: units ? { value: Math.round(contract.likely / units), arithmetic: `Total Budget over the unit count: ${usd(contract.likely)} over ${wholeNumber(units)} units` } : null,
-    durationMonths: durationMonthsOf(snapshot),
+    duration: durationOf(snapshot),
   };
 
   return {

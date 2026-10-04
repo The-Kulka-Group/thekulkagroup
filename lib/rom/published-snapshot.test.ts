@@ -65,6 +65,15 @@ describe("assembleSnapshot", () => {
     expect(assembleSnapshot(source({}))).not.toHaveProperty("allocatedResources");
   });
 
+  it("freezes the duration estimate publishing made, and drops it when the plan has a schedule (LA-1566)", () => {
+    const withEstimate = (answers: Record<string, unknown>) => assembleSnapshot({ ...source(answers), durationEstimate: { months: 16 } });
+
+    expect(withEstimate({}).durationEstimate).toEqual({ months: 16 });
+    expect(withEstimate({ allocatedResources: { weeks: { construction: 61 } } })).not.toHaveProperty("durationEstimate");
+    expect(withEstimate({ allocatedResources: { lines: [] } }).durationEstimate).toEqual({ months: 16 });
+    expect(assembleSnapshot(source({}))).not.toHaveProperty("durationEstimate");
+  });
+
   it("freezes the names of the jobs its comparables cite, when publishing looked them up", () => {
     const names = { "job-1": "Fieldstone North Broadway" };
 

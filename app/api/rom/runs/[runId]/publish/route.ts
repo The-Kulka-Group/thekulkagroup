@@ -3,11 +3,13 @@ import { NextResponse } from "next/server";
 import { linkFor } from "@/app/(app)/rom/publish-model";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { durationEstimator } from "@/lib/rom/duration-estimate";
 import { RunNotFound, RunNotSucceeded } from "@/lib/rom/issue";
 import { parsePublishBody } from "@/lib/rom/publish-request";
 import { pdfSeams } from "@/lib/rom/pdf-seams";
 import { linkOrigin, publishBudget } from "@/lib/rom/published-budgets";
 import { renderPublishedPdf } from "@/lib/rom/published-pdf";
+import { rateClient } from "@/lib/rom/rate-suggestion";
 import { isUuid } from "@/lib/uuid";
 
 // LA-1419. Publish a saved run as the project's next version (LA-1309). The
@@ -20,6 +22,10 @@ import { isUuid } from "@/lib/uuid";
 // LA-1420. After the row is committed the PDF is printed once and stored
 // (lib/rom/published-pdf.ts). A failure to print never fails the publish: the
 // link works, pdf_path stays null, and the response says so under `pdf`.
+//
+// LA-1566. A budget with no schedule has its duration estimated before the
+// row is written. Without an Anthropic key, or when the estimate fails, it
+// publishes with no duration.
 
 // Headless Chromium needs the time. Vercel's default would cut a cold start short.
 export const maxDuration = 60;
@@ -39,7 +45,11 @@ export async function POST(request: Request, context: Context) {
 
   try {
     const db = getDb();
-    const { snapshot, ...published } = await publishBudget(db, { runId, issuedBy: auth.user.email, copy: parsed.copy });
+    const { snapshot, ...published } = await publishBudget(
+      db,
+      { runId, issuedBy: auth.user.email, copy: parsed.copy },
+      { estimateDuration: durationEstimator(rateClient()) },
+    );
     // The snapshot is in hand, so the PDF prints from it rather than reading the row back.
     const outcome = await renderPublishedPdf(db, published, pdfSeams, {
       snapshot,

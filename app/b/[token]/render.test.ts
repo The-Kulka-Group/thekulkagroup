@@ -38,9 +38,11 @@ describe("the rendered page against the reference", () => {
   it("prints the reference's sections in the reference's order", () => {
     const sections = [...page().matchAll(/<section[^>]*id="([^"]*)"/g)].map((m) => m[1]);
 
-    // LA-1467: the letter follows the band, before everything the reference ordered.
-    // LA-1478: Proven is cut, and its one fact moves to a line under the ledger.
-    expect(sections).toEqual([referencePage.sections[0], "letter", ...referencePage.sections.slice(1).filter((id) => id !== "what-this-rests-on")]);
+    // LA-1478: Proven is cut. LA-1558: the opening hands off to the Schedule
+    // of Values and Design and Engineering, then the letter and Project Basis.
+    const rest = referencePage.sections.slice(1).filter((id) => id !== "what-this-rests-on");
+    const sheets = ["where-the-money-is", "design-and-engineering"];
+    expect(sections).toEqual([referencePage.sections[0], ...sheets, "letter", ...rest.filter((id) => !sheets.includes(id))]);
   });
 
   it("carries Version 1's element ids, each once", () => {
@@ -132,8 +134,14 @@ describe("the rendered page against the reference", () => {
         figure(item);
         // LA-1535: each item's rate in its Basis.
         for (const b of item.basis) moneyOf(b.value).forEach((m) => held.add(m));
+        // LA-1558: how the item is priced, and its range on the card, to the nearest $1,000.
+        for (const pr of item.pricedAs) moneyOf(pr.rate).forEach((m) => held.add(m));
+        [item.low, item.high].forEach((n) => held.add(usd(Math.round(n / 1000) * 1000)));
       }
+      [d.low, d.high].forEach((n) => held.add(usd(Math.round(n / 1000) * 1000)));
     }
+    // LA-1558: the schedule's markup lines, at their rate per GSF.
+    for (const m of model.scheduleMarkups) if (m.perSquareFoot) held.add(m.perSquareFoot);
     for (const w of model.waterfall) {
       figure(w);
       moneyOf(w.basis).forEach((m) => held.add(m));
@@ -158,7 +166,9 @@ describe("the rendered page against the reference", () => {
     // "$0" went with the receipt.
     // LA-1504: an element's range ("together, between") went with the element's row.
     const elementRanges = model.money.scopes.filter((s) => s.kind === "element").flatMap((s) => [usd(s.low), usd(s.high)]);
-    const gone = new Set(["$0", usd(6_280_149.5), ...elementRanges]);
+    // LA-1558: an item's and a line's range prints on its card to the nearest $1,000.
+    const cardRanges = model.divisions.flatMap((d) => [d, ...d.items]).flatMap((f) => [usd(f.low), usd(f.high)]);
+    const gone = new Set(["$0", usd(6_280_149.5), ...elementRanges, ...cardRanges]);
     // LA-1532: a line or total may print a dollar off the reference, because
     // the rows now carry the rounding so every column adds to its total.
     const dollars = (m: string) => Number(m.replace(/[$,]/g, ""));
@@ -176,7 +186,7 @@ describe("the rendered page against the reference", () => {
     expect(html).toContain('data-running="$18,650,603"');
     expect(html).toContain('data-running="$19,256,748"');
     expect(html).toContain('data-landed="$20,296,613"');
-    for (const d of model.divisions) expect(html, d.title).toContain(`data-layer="${d.el}"`);
+    for (const d of model.divisions) expect(html, d.title).toContain(`<li class="sov-line${d.ownerDirect ? " sov-line--owner" : ""}" id="division-${d.division}" data-el="${d.el}"`);
     // LA-1504: 09 Finishes, the largest division, as the frames print it.
     expect(html).toContain(">$66.02<");
     expect(html).toContain(">21%<");
@@ -194,14 +204,17 @@ describe("the section on the page", () => {
     expect(new Set(ids).size).toBe(ids.length);
     const layerKeys = new Set([...html.matchAll(/<g data-layer="([^"]*)"/g)].map((m) => m[1]));
     // LA-1504: a division row draws every layer its lines own.
-    const rowKeys = new Set([...html.matchAll(/<div class="lg-item[^"]*" id="[^"]*" data-el="[^"]*" data-layer="[^"]*" data-layers="([^"]*)"/g)].flatMap((m) => m[1].split(" ").filter(Boolean)));
+    const rowKeys = new Set([...html.matchAll(/<li class="sov-line[^"]*" id="[^"]*" data-el="[^"]*" data-layers="([^"]*)"/g)].flatMap((m) => m[1].split(" ").filter(Boolean)));
     for (const key of layerKeys) expect(rowKeys.has(key), key).toBe(true);
     for (const key of rowKeys) if (key in LAYERS) expect(layerKeys.has(key), key).toBe(true);
     expect(html.split(DIAGRAM_LINE).length - 1).toBeGreaterThanOrEqual(3);
   });
 
-  it("orders the ledger by MasterFormat division", () => {
-    const divs = [...page().matchAll(/<span class="lg-div num">(\d*)<\/span>/g)].map((m) => m[1]).filter(Boolean);
+  it("orders the schedule of values by MasterFormat division", () => {
+    const html = page();
+    // The owner's own lines follow the total, outside it.
+    const trade = html.slice(html.indexOf("<ol class=\"sov\" data-sov>"), html.indexOf('<div class="sov-total"'));
+    const divs = [...trade.matchAll(/<span class="sov-div num">(\d*)<\/span>/g)].map((m) => m[1]).filter(Boolean);
     expect(divs[0]).toBe("02");
     expect(divs).toEqual([...divs].sort());
     expect(divs).toContain("09");
@@ -259,7 +272,7 @@ describe("client-facing text", () => {
     const SHORT = new Set(["a", "an", "and", "as", "at", "by", "for", "in", "is", "of", "on", "or", "per", "the", "to", "with"]);
     const labels = [
       ...html.matchAll(
-        /<(h1|h2|h3|dt|th)[^>]*>([\s\S]*?)<\/\1>|<button type="button" class="sw-t"[^>]*>([^<]*)<\/button>|class="(?:lg-name|fig-l|wf-lab|crit-l|crit-tag num|pill|stg-name|hd-fig-l|ln-l|lg-tag|sheet-h|hd-mark)"[^>]*>([\s\S]*?)<\/(?:a|p|span|h1|h2)>|<a href="#[^"]*" data-index="[^"]*">([^<]*)<\/a>|<span class="src[^"]*"><i[^>]*><\/i>([^<]*)<\/span>/g,
+        /<(h1|h2|h3|dt|th)[^>]*>([\s\S]*?)<\/\1>|<button type="button" class="sw-t"[^>]*>([^<]*)<\/button>|class="(?:sov-name|op-lbl|op-n-l|fig-l|wf-lab|crit-l|crit-tag num|pill|stg-name|hd-fig-l|ln-l|lg-tag|sheet-h|hd-mark)"[^>]*>([\s\S]*?)<\/(?:a|p|span|h1|h2)>|<a href="#[^"]*" data-index="[^"]*">([^<]*)<\/a>|<span class="src[^"]*"><i[^>]*><\/i>([^<]*)<\/span>/g,
       ),
     ]
       .map((m) => (m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? "").replace(/<span class="(?:lg-count|lg-tag)[^"]*">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, " "))
@@ -284,23 +297,40 @@ describe("client-facing text", () => {
     const model = presentBudget(referencePublication());
     for (const d of model.divisions) {
       if (d.items.length === 0) continue;
-      expect(html, d.title).toContain(`<span class="lg-psf num">${rateUsd(d.likely / 64_000)}</span>`);
+      expect(html, d.title).toContain(`<span class="sov-psf num">${rateUsd(d.likely / 64_000)}</span>`);
     }
   });
 
-  it("opens on the wordmark alone, then the letter, and keeps the figure for the waterfall (LA-1467)", () => {
+  it("opens on the wordmark, then the project, then the numbers, and hands off to the schedule (LA-1558)", () => {
     const html = page();
-    const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('id="letter"'));
-    expect(band).toContain('<p class="big-mark" data-travel>Kulka</p>');
-    expect(band).toContain('class="big-proj" data-fade>MN Test #4<');
-    expect(band).not.toContain("$");
-    expect(html).toContain('<section class="sheet sheet--letter" id="letter" data-el="section:letter"');
+    const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('<div class="trio"'));
+    expect(band).toContain('<p class="op-mark">Kulka</p>');
+    expect(band).toContain('<p class="op-lbl">Conceptual Budget</p>');
+    expect(band).toContain('<p class="op-proj" data-op-move="proj">MN Test #4</p>');
+    expect(band).toContain("<span>70 Units</span>");
+    expect(band).toContain("<span>64,000 GSF</span>");
+    expect(band).toContain("<span>5 Stories</span>");
+    expect(band).toMatch(/<p class="op-n-l">Total Budget<\/p><p class="op-n-v num" data-op-move="fig" data-el-ref="total:kulka-contract">\$20,296,613<\/p>/);
+    expect(band).toMatch(/<p class="op-n-l">Per Square Foot<\/p><p class="op-n-v num" data-el-ref="record:per-sf">\$317<\/p>/);
+    // The reference run has no schedule, so the opening shows two numbers and never a month count.
+    expect(band).toContain('data-count="2"');
+    expect(band).not.toContain("Duration");
+    expect(html.indexOf('id="where-the-money-is"')).toBeLessThan(html.indexOf('id="letter"'));
+    expect(html).toContain('<h1 class="sheet-h">Schedule of Values</h1>');
     expect(html).toContain("You asked Kulka to price a <span class=\"num\">70</span>-unit multifamily building");
     expect(html).toContain('<span class="num" data-el-ref="total:kulka-contract">$20,296,613</span>');
     expect(html).toMatch(/<span class="num" data-el="record:per-sf" title="Total Budget over gross area[^"]*">\$317<\/span> per square foot/);
-    expect(html).toContain('<li><span class="num">1</span><a href="#the-project">Project Basis</a></li>');
-    expect(html).toContain('<a href="#letter" data-index="letter">Letter</a>');
-    expect(html).not.toContain("Your Number");
+    expect(html).toContain('<a href="#where-the-money-is" data-index="where-the-money-is">Schedule of Values</a>');
+    expect(html).not.toMatch(/Kulka Contract|The Ledger|Your Number/);
+  });
+
+  it("shows the duration in months when the budget has a schedule", () => {
+    const publication = referencePublication();
+    publication.snapshot.allocatedResources = { weeks: { construction: 61 } };
+    const html = renderBudgetPage(presentBudget(publication));
+    const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('<div class="trio"'));
+    expect(band).toContain('data-count="3"');
+    expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num">14<small>Months</small></p>');
   });
 });
 
@@ -339,19 +369,20 @@ describe("past jobs are off the client page", () => {
     expect(text).not.toMatch(/\d+(\.\d)?% (?:of the trade cost )?(?:is priced )?from/i);
   });
 
-  it("opens an item to its range, its confidence and its Basis, and no more", () => {
+  it("opens an item to how it is priced, its range, its confidence and its criteria, and no more", () => {
     const html = page();
-    const start = html.indexOf('<div class="si" data-el="line:1a"');
-    const detail = html.slice(start, html.indexOf('<div class="si"', start + 1));
-    expect(detail).toContain('class="num si-range">$128,700 to $267,300</span>');
-    expect(detail).toContain("Low</span>");
-    expect(detail).toContain('<li data-el="assumption:1a:rate"><span class="as-l">Rate</span><span class="as-v">$3.09 per SF of This Building</span>');
-    expect(detail).not.toMatch(/\d+ (?:Kulka )?jobs?/i);
+    const start = html.indexOf('<button class="pin-row" type="button" data-i="0" data-el="line:26"');
+    const card = html.slice(html.indexOf('<div class="card card--item"', start), html.indexOf('<button class="pin-row"', start + 1));
+    expect(card).toContain("<b>2 Cars</b> at <b>$175,000 per Car</b></span>, the same as <span data-el=\"assumption:26:rate\"><b>64,000 GSF</b> at <b>$5.47 per GSF</b>");
+    expect(card).toContain("Range $228,000 to $473,000");
+    expect(card).toContain("Low Confidence");
+    expect(card).toMatch(/data-el="assumption:26:V-2" data-tag="V-2"[^>]*><i><\/i><b>V-2<\/b>Hydraulic Jack Type: In-Ground<\/span>/);
+    expect(card).not.toMatch(/\d+ (?:Kulka )?jobs?/i);
   });
 
   it("calls every figure a Kulka rate and never counts the jobs behind it", () => {
     const html = page();
-    expect(html).toMatch(/<i class="dot dot--\w+" aria-hidden="true"><\/i>Kulka Rate<\/span>/);
+    expect(html).toMatch(/<span class="card-src">Kulka Rate<\/span>/);
     expect(html).not.toMatch(/\d+ Kulka Jobs?/);
   });
 

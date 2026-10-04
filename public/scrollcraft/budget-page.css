@@ -1,4 +1,4 @@
-/* The Ledger, Opened with the Section: the Kulka client budget page (LA-1459).
+/* The Kulka client budget page (LA-1459; the opening and the Schedule of Values, LA-1558).
    Every token below is the internal saved-budget screen's own: Daylight
    (daylight.css) for the canvas, type scale and radii; the black band and the
    ledger (rom-blocks.css, ledger-rail.css) for everything on the band and on
@@ -75,12 +75,10 @@ b, strong { font-weight: 600; }
 /* The engine's progress hairline, in the accent. */
 [data-sc-progress] { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--primary); z-index: 61; pointer-events: none; }
 
-/* --- The two-tier header: the band compressed ------------------------------
-   Tier one is the band's first row (wordmark, project, the figure's slot).
-   Tier two is the hairline meta row with the section links. In the band state
-   (the first screen) tier two is folded and the mark's place is empty; as the
-   band compresses, tier two unfolds and the big wordmark arrives as the mark
-   (LA-1467). The figure's slot stays empty until the waterfall has landed. */
+/* --- The two-tier header -------------------------------------------------------
+   Tier one holds the wordmark, the project and the figure's slot; each is
+   empty until the opening's own copy travels into it (LA-1558). Tier two is
+   the hairline row with the section links, folded until the opening ends. */
 
 .hd {
   position: fixed;
@@ -97,8 +95,9 @@ b, strong { font-weight: 600; }
   height: var(--hd-t1);
   white-space: nowrap;
 }
-.hd-mark { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
-.hd-proj { font-size: var(--ui-size); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Each slot is set in the travelling copy's own weight and spacing, so the hand-off lands without a jump. */
+.hd-mark { font-size: 17px; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+.hd-proj { font-size: var(--ui-size); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--rb-ink2-on-black); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hd-fig {
   margin-left: auto;
   display: inline-flex;
@@ -106,11 +105,10 @@ b, strong { font-weight: 600; }
   gap: 10px;
 }
 .hd-fig-l { font-size: var(--meta-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
-.hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
-.hd[data-state="band"] .hd-fig, .hd[data-fig-hidden] .hd-fig, .hd[data-fig-wait] .hd-fig { opacity: 0; }
-/* On the band the mark's place is empty: the big wordmark is on its way there. */
-.hd[data-state="band"] .hd-mark, .hd[data-state="band"] .hd-proj { opacity: 0; }
-/* While the band is still behind it the header is clear, so the travelling figure never passes under it. */
+.hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.045em; line-height: 1; }
+/* The waterfall's own figure is on screen, so the header's copy steps aside. */
+.hd[data-fig-hidden] .hd-fig { visibility: hidden; }
+/* While the opening is still behind it the header is clear, so a travelling copy never passes under it. */
 .hd[data-state="band"] { background: transparent; }
 
 .hd-t2 {
@@ -144,22 +142,6 @@ b, strong { font-weight: 600; }
   background: var(--rb-black);
   color: var(--rb-ink-on-black);
 }
-.band--first .band-stage { padding-top: var(--hd-t1); }
-.band-main {
-  flex: 1;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  padding: 24px 24px;
-  min-height: 0;
-}
-.band-foot { padding: 0 24px 28px; }
-/* What leaves as the band compresses: everything but the figure. */
-.band--first [data-fade] { opacity: clamp(0, 1 - var(--travel, 0) * 3, 1); }
-.band--first[data-parked="true"] [data-travel] { visibility: hidden; }
-/* In flight the figure's block paints above the header, so the bar never clips it. */
-.band--first[data-fly="true"]:not([data-parked="true"]) .fig-wrap { position: relative; z-index: 61; will-change: transform; }
-
 .fig-l { font-size: var(--body-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
 .fig-wrap { display: inline-grid; justify-items: stretch; gap: 16px; }
 .fig {
@@ -170,32 +152,28 @@ b, strong { font-weight: 600; }
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.band--first .fig { will-change: transform; }
-.band-meta { font-size: var(--meta-size); color: var(--rb-ink2-on-black); margin-top: 8px; text-align: center; }
+/* --- The opening (LA-1558): Kulka, the project, the numbers ------------------
+   One stage pinned for 4.3 screens; its last screen is the one the Schedule of
+   Values slides up over. budget-page.js drives every move from the scroll. */
 
-/* The first screen (LA-1467): the wordmark big and bold where the figure was, the project and the record under it. */
-.big { gap: 22px; justify-items: start; }
-.big-mark {
-  font-size: 23vw;
-  font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: -0.045em;
-  margin-left: -0.04em;
-  white-space: nowrap;
-  will-change: transform;
-  transform-origin: left top;
-}
-.big-proj { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
-.big-meta { margin-top: 0; text-align: left; font-size: var(--body-size); }
-.big-meta i { font-style: normal; color: var(--rb-pnl-line2); margin: 0 10px; }
-
-/* The four stages in words, along the foot. */
-.stg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.stg li { display: grid; gap: 10px; font-size: var(--meta-size); font-weight: 600; color: var(--rb-ink2-on-black); }
-.stg li::before { content: ""; display: block; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--rb-ink-on-black) 14%, transparent); }
-.stg li[aria-current="step"] { color: var(--rb-ink-on-black); }
-.stg li[aria-current="step"]::before { background: var(--primary); }
-.stg-words { font-size: var(--chip-size); font-weight: 400; line-height: 16px; color: var(--rb-pnl-mute); }
+.band--first { position: relative; height: 530vh; height: 530svh; --op-gutter: 96px; }
+.op-stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; background: var(--rb-black); color: var(--rb-ink-on-black); }
+.op-layer { position: absolute; inset: 0; display: grid; align-content: center; padding: var(--hd-t1) var(--op-gutter) 0; }
+.op-layer > * { opacity: 0; will-change: transform, opacity; }
+.op-travel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); transform-origin: 0 0; will-change: transform, opacity; z-index: 2; }
+[data-op-move] { transform-origin: 0 0; }
+.op-mark { font-size: clamp(64px, 10vw, 160px); font-weight: 800; letter-spacing: -0.045em; line-height: 1; white-space: nowrap; }
+.op-lbl { font-size: 17px; font-weight: 600; color: var(--rb-ink2-on-black); margin-bottom: 16px; }
+.op-proj { font-size: clamp(44px, 8vw, 128px); line-height: 1; font-weight: 800; letter-spacing: -0.04em; }
+.op-facts { display: flex; flex-wrap: wrap; align-items: baseline; margin-top: 0.7em; font-size: clamp(22px, 3vw, 46px); line-height: 1.15; font-weight: 600; letter-spacing: -0.025em; color: var(--rb-ink2-on-black); }
+.op-facts i { font-style: normal; color: var(--rb-pnl-mute); opacity: 0.5; margin: 0 0.45em; }
+/* The numbers, one size, in a row; with no schedule there are two, set from the left. */
+.op-three { display: grid; grid-auto-flow: column; justify-content: space-between; align-items: end; gap: 32px; opacity: 1 !important; }
+.op-three[data-count="2"] { justify-content: start; column-gap: 12vw; }
+.op-three > div { display: grid; gap: 18px; opacity: 0; will-change: transform, opacity; }
+.op-n-l { font-size: 17px; font-weight: 600; color: var(--rb-ink2-on-black); }
+.op-n-v { font-size: clamp(56px, 7vw, 112px); line-height: 1; font-weight: 600; letter-spacing: -0.045em; white-space: nowrap; }
+.op-n-v small { font-size: 0.36em; font-weight: 600; letter-spacing: -0.02em; color: var(--rb-ink2-on-black); margin-left: 0.2em; }
 
 /* --- The letter on a sheet (LA-1467) --------------------------------------- */
 
@@ -251,21 +229,6 @@ body { overflow-anchor: none; }
 .dot--none, .dot--working { background: var(--working); }
 .dot--quiet { background: var(--rb-blk-line); }
 
-/* A pill on the white field (ledger-rail.css .ptb .rb-hbtn). */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 14px;
-  border: 1px solid var(--rb-blk-line);
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  font-size: var(--meta-size);
-  font-weight: 600;
-  color: var(--rb-blk-ink);
-}
-.lg-item[data-open="true"] .pill { background: var(--rb-blk-ink); color: var(--surface); border-color: var(--rb-blk-ink); }
-
 /* --- What You Told Us: the facts as rows ----------------------------------- */
 
 .facts .fact { grid-template-columns: 240px minmax(0, 1fr); align-items: baseline; }
@@ -275,7 +238,7 @@ body { overflow-anchor: none; }
 .fact-basis { font-size: var(--meta-size); color: var(--rb-blk-mute); }
 .cover { margin-bottom: 8px; color: var(--rb-blk-ink); }
 
-/* --- The ledger (rom-blocks.css .lg): one grid for every row --------------- */
+/* --- Rows on a sheet (rom-blocks.css .lg): the facts and the criteria -------- */
 
 .lg {
   border: 1px solid var(--rb-blk-line);
@@ -293,143 +256,33 @@ body { overflow-anchor: none; }
   font-size: var(--ui-size);
 }
 .lg > * + * { border-top: 1px solid var(--rb-blk-line); }
-.lg-cols { font-size: var(--meta-size); color: var(--rb-blk-ink2); padding-top: 10px; padding-bottom: 10px; }
-.lg-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lg-item .lg-name { font-weight: 600; }
-.lg-div, .lg-psf, .lg-pct { color: var(--rb-blk-ink2); }
-.lg-amt, .lg-psf, .lg-pct { text-align: right; }
-.lg-btn { width: 100%; display: grid; transition: background 120ms var(--ease); }
-.lg-btn:hover { background: var(--rb-blk-hover); }
-.lg-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
-.lg-rate, .lg-more { display: none; }
 .lg-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 3px; background: var(--working-tint); color: var(--rb-blk-ink); font-size: var(--label-size); font-weight: 600; line-height: 16px; vertical-align: 1px; }
-.lg-count { margin-left: 6px; font-size: var(--chip-size); font-weight: 400; color: var(--rb-blk-mute); }
-.lg-foot { display: flex; justify-content: space-between; gap: 16px; padding: 11px 16px; font-weight: 600; border-top: 2px solid var(--rb-blk-ink) !important; }
-.lg-foot--quiet { border-top-width: 1px !important; border-top-color: var(--rb-blk-line) !important; color: var(--rb-blk-ink2); font-weight: 600; }
 
-/* The current row in the list carries only the accent bar, its text dimmed: the lens shows it, so the figure reads once. */
-.lg-item.is-cur > .lg-btn { box-shadow: inset 3px 0 0 var(--primary); }
-.lg-btn > * { transition: opacity 160ms var(--ease); }
-.lg-item.is-cur > .lg-btn > * { opacity: 0.35; transition: none; }
+/* --- The white sheet over the opening: the Schedule of Values and Design and
+   Engineering, with the one section pinned beside them (LA-1558) ------------ */
 
-/* The lens: a reserved band of display-scale height at the top of the list.
-   It holds under the header once the list reaches it, the rows begin below
-   it, and the row directly under its bottom edge is current, shown here at
-   display scale. The list never changes length; a row opens in the list. */
-.lens {
-  position: sticky;
-  top: var(--lens-top, 96px);
-  z-index: 4;
-  box-sizing: border-box;
-  padding-top: var(--lens-pad, 24px);
-  height: calc(var(--lens-h, 152px) + var(--lens-pad, 24px));
-  background: var(--surface);
-  box-shadow: 0 1px 0 var(--rb-blk-line), 0 8px 16px rgba(29, 29, 31, 0.06);
-  overflow: hidden;
-}
-.lens-in {
-  position: absolute;
-  inset: var(--lens-pad, 24px) 0 0 0;
-  background: var(--surface);
-  transition: opacity 160ms var(--ease);
-}
-.lens-in.is-arriving { opacity: 0; }
-.lens-in > .lg-btn {
-  grid-template-rows: auto auto auto;
-  align-items: baseline;
-  row-gap: 8px;
-  padding: 16px 14px 14px;
-  box-shadow: inset 3px 0 0 var(--primary);
-  min-height: var(--lens-h, 152px);
-  align-content: start;
-}
-.lens-in .lg-div { align-self: baseline; }
-.lens-in .lg-name { grid-column: 2 / -1; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.lens-in .lg-amt { grid-column: 2; grid-row: 2; font-size: 32px; line-height: 1; font-weight: 600; letter-spacing: -0.035em; text-align: left; color: var(--rb-blk-ink); }
-.lens-in .lg-psf, .lens-in .lg-pct { display: none; }
-.lens-in .lg-rate { display: block; grid-column: 3 / -1; grid-row: 2; align-self: baseline; text-align: right; font-size: var(--body-size); font-weight: 600; color: var(--rb-blk-ink2); }
-.lens-in .lg-more { grid-column: 2 / -1; grid-row: 3; display: flex; align-items: center; gap: 16px; min-width: 0; }
-.lens-in .lg-more .src { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lens-in .lg-more .src > .dot { margin-right: 7px; vertical-align: 1px; }
-.lens-in .lg-more .pill { flex: none; }
-.lens-in .lg-tag { vertical-align: middle; }
-.pill-close { display: none; }
-.lg-item[data-open="true"] .pill-open, .lens-in[data-open="true"] .pill-open { display: none; }
-.lg-item[data-open="true"] .pill-close, .lens-in[data-open="true"] .pill-close { display: inline; }
-.ln-sub { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rb-blk-line); font-size: var(--label-size); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rb-blk-mute); }
-
-/* The drill-down: a row's lines, with their sources, open at every depth. */
-.lg-lines { display: none; padding: 4px 16px 14px 72px; background: var(--rb-blk-hover); }
-.lg-item[data-open="true"] .lg-lines { display: block; }
-/* In the list the lines open under the lens; the lens shows them. */
-.ln { padding: 10px 0; border-top: 1px solid var(--rb-blk-line); }
-.ln:first-child { border-top: 0; }
-.ln-head { display: flex; align-items: baseline; gap: 14px; }
-.ln-l { font-weight: 600; min-width: 0; }
-.ln-v { margin-left: auto; font-weight: 600; white-space: nowrap; }
-.ln-range { font-size: var(--meta-size); color: var(--rb-blk-ink2); margin-top: 2px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.ln-basis { margin-top: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-mute); }
-
-/* --- One Section beside three sheets --------------------------------------
-   A drawing sheet beside The Ledger and Design and Engineering:
-   inline SVG, ink on white, reversed on the band. It is one instance,
-   pinned through both, changing state in place. */
-
-.trio {
-  display: grid;
-  grid-template-columns: minmax(400px, 584px) minmax(0, 1fr);
-  gap: 24px;
-  max-width: 1392px;
-  margin: 32px auto 32px;
-  padding: 0 24px;
-  align-items: start;
-}
-.trio-main { display: grid; gap: 24px; min-width: 0; }
-.trio .sheet { margin: 0; max-width: none; min-width: 0; }
-.sheet--dwg { padding: 16px; display: grid; align-content: start; position: sticky; top: calc(var(--hd-h) + 24px); }
+.trio { position: relative; z-index: 2; margin-top: -100vh; margin-top: -100svh; background: var(--surface); padding: calc(var(--hd-h) + 40px) 0 72px; }
+.trio-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 640px); gap: 48px; max-width: 1440px; margin: 0 auto; padding: 0 64px; align-items: start; }
+.trio-main { display: grid; gap: 72px; min-width: 0; }
+.trio .sheet { margin: 0; max-width: none; min-width: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: none; }
+.trio .sheet-h { font-size: 44px; line-height: 1.05; letter-spacing: -0.035em; }
+.trio .sheet-sub { font-size: var(--t3-size); margin-top: 10px; }
+.trio .sheet-hd { display: block; margin-bottom: 0; }
+.sheet--dwg { display: grid; align-content: start; position: sticky; top: calc(var(--hd-h) + 24px); }
 .dwg { display: block; }
 .dwg svg { display: block; width: 100%; height: auto; }
-.dwg-cap { font-size: var(--chip-size); line-height: 16px; color: var(--rb-blk-ink2); margin-top: 8px; }
-.dwg-cap b { color: var(--rb-blk-ink); font-weight: 600; }
 
-/* Layers: undrawn until their row is current, then drawn; the current one lit in the accent. */
-.dwg--live [data-layer], .dwg--live [data-note] { opacity: 0; transition: opacity 260ms var(--ease); }
-.dwg--live [data-layer].is-drawn, .dwg--live [data-note].is-drawn { opacity: 1; }
-.dwg--live [data-story], .dwg--live [data-roof] { opacity: 0; transition: opacity 200ms var(--ease); }
-.dwg--live [data-story].is-up, .dwg--live [data-roof].is-up { opacity: 1; }
-.dwg--live [data-layer].is-now { filter: drop-shadow(0 0 2px rgba(0, 115, 234, 0.45)); }
-.dwg--live [data-layer].is-now .s { stroke: var(--primary); }
-.dwg--live [data-layer].is-now .w1 { stroke-width: 1.5px; }
-.dwg--live [data-layer].is-now .w2 { stroke-width: 2.2px; }
-.dwg--live [data-layer].is-now .w3 { stroke-width: 3px; }
-.dwg--live [data-layer].is-now text { fill: var(--primary); }
-.dwg--live [data-layer], .dwg--live [data-callout] { cursor: pointer; }
-/* Hover is the nearest stroke to the pointer (the script sets it), not the topmost paint. */
-.dwg--live [data-layer].is-hover .s, .dwg--live [data-callout].is-hover .s, .dwg--live [data-callout].is-now .s { stroke: var(--primary); }
-.dwg--live [data-callout].is-hover text, .dwg--live [data-callout].is-now text { fill: var(--primary); }
-.dwg--live .hit { fill: none; stroke: transparent; stroke-width: 8px; pointer-events: stroke; vector-effect: non-scaling-stroke; filter: none; }
-.dwg--live .hit--box { fill: transparent; stroke: none; pointer-events: fill; }
-.dwg--live [data-part="criteria"], .dwg--live [data-part="criteria"] .hit--box { pointer-events: none; }
-[data-trio][data-state="design"] .dwg--live [data-part="criteria"] { pointer-events: auto; }
-[data-trio][data-state="design"] .dwg--live [data-part="criteria"] .hit--box { pointer-events: fill; }
-/* The inks settle at Design and Engineering: through the ledger every layer draws in full ink; a placeholder-rate layer dims to its light ink over 400ms. */
-.dwg--live [data-layer][data-ink="light"] .s { stroke: #121211; transition: stroke 400ms var(--ease); }
-.dwg--live [data-layer][data-ink="light"] text { fill: #121211; transition: fill 400ms var(--ease); }
-[data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
-[data-trio][data-state="design"] .dwg--live [data-layer][data-ink="light"] text { fill: #6B6A64; }
-.dwg--live [data-layer].is-now[data-ink="light"] .s { stroke: var(--primary); }
-/* The ink note shows once the section is complete; the callouts at Design and Engineering. */
-.dwg--live [data-ink-note], .dwg--live [data-part="criteria"] { opacity: 0; transition: opacity 420ms var(--ease); }
-[data-trio][data-state="design"] .dwg--live [data-ink-note], [data-trio][data-state="design"] .dwg--live [data-part="criteria"] { opacity: 1; }
-
-/* The ledger narrowed beside the drawing. */
-.sheet--ledger .lg-row { grid-template-columns: 32px minmax(0, 1fr) 92px 58px 40px; gap: 10px; padding: 7px 14px; }
-.sheet--ledger .lg-cols { padding-top: 8px; padding-bottom: 8px; }
-.sheet--ledger .lg-foot { padding: 9px 14px; }
-.sheet--ledger .sheet-hd { margin-bottom: 12px; }
-.sheet--ledger .sheet-h { font-size: 22px; line-height: 30px; }
-.sheet--ledger .sheet-sub { font-size: var(--ui-size); }
-.sheet--ledger .lg-lines { padding-left: 56px; }
+/* The criteria's callouts and the ink note show at Design and Engineering, or when a card's criterion is pointed at. */
+[data-dwg="section"] [data-ink-note], [data-dwg="section"] [data-part="criteria"] { opacity: 0; transition: opacity 420ms var(--ease); }
+[data-trio][data-state="design"] [data-dwg="section"] [data-ink-note], [data-trio][data-state="design"] [data-dwg="section"] [data-part="criteria"], [data-dwg="section"] [data-part="criteria"]:has(.is-on) { opacity: 1; }
+[data-dwg="section"] [data-callout].is-now .s { stroke: var(--primary); }
+[data-dwg="section"] [data-callout].is-now text { fill: var(--primary); }
+[data-trio][data-state="design"] [data-dwg="section"] [data-callout] { cursor: pointer; }
+/* The inks settle at Design and Engineering: a placeholder-rate layer dims to its light ink. */
+[data-dwg="section"] [data-layer][data-ink="light"] .s { stroke: #121211; transition: stroke 400ms var(--ease); }
+[data-dwg="section"] [data-layer][data-ink="light"] text { fill: #121211; transition: fill 400ms var(--ease); }
+[data-trio][data-state="design"] [data-dwg="section"] [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
+[data-trio][data-state="design"] [data-dwg="section"] [data-layer][data-ink="light"] text { fill: #6B6A64; }
 
 .crit { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
 .rail-h { padding-top: 12px; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
@@ -636,11 +489,8 @@ body { overflow-anchor: none; }
 body.withdrawn .sheet { max-width: 720px; margin: 48px auto; }
 body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); margin-bottom: 8px; }
 
-/* --- Narrow desktops ------------------------------------------------------- */
+/* --- Short windows --------------------------------------------------------- */
 
-@media (max-width: 1180px) {
-  .split { grid-template-columns: minmax(380px, 1fr) minmax(0, 1fr); }
-}
 @media (max-height: 640px) {
   .wf-in { gap: 12px 32px; }
   .wf-row { padding: 8px 0; }
@@ -654,29 +504,27 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
 /* --- Phone ----------------------------------------------------------------- */
 
 @media (max-width: 860px) {
-  :root { --hd-t1: 52px; --hd-h: 92px; }
+  /* A phone keeps one tier: the section links are a desktop's, and the figure sits in tier one. */
+  :root { --hd-t1: 52px; --hd-h: 52px; }
   .only-desk { display: none !important; }
   .only-phone { display: revert !important; }
 
   .hd { padding: 0 16px; }
   .hd-t1 { gap: 10px; }
   .hd-proj { font-size: var(--meta-size); }
-  .hd-t1 .hd-fig { display: none; }
-  .hd-t2 { gap: 12px; }
-  .hd-ix { display: none; }
-  .hd-t2 .hd-fig { display: inline-flex; margin-left: 0; align-self: center; }
-  .hd-t2 .hd-fig-v { font-size: 18px; }
-  .hd-t2 .hd-here { display: inline-flex; align-items: center; margin-left: auto; color: var(--rb-ink-on-black); border-bottom: 2px solid var(--primary); padding-top: 2px; }
+  .hd-t1 .hd-fig-l { display: none; }
+  .hd-t1 .hd-fig-v { font-size: 15px; }
+  .hd-t2 { display: none; }
 
-  .band-main { padding: 16px; justify-items: stretch; }
-  .fig-wrap { display: grid; }
-  .band-meta { text-align: left; }
-  .big { gap: 14px; }
-  .big-mark { font-size: 30vw; }
-  .big-proj { font-size: 20px; line-height: 26px; }
-  .big-meta { display: grid; gap: 2px; font-size: var(--meta-size); }
-  .big-meta i { display: none; }
-  .big-meta span { display: block; }
+  .band--first { --op-gutter: 16px; }
+  .op-lbl { font-size: var(--ui-size); margin-bottom: 10px; }
+  .op-proj { font-size: 14vw; }
+  .op-facts { flex-direction: column; align-items: flex-start; font-size: 6.6vw; line-height: 1.25; margin-top: 0.6em; }
+  .op-facts i { display: none; }
+  .op-three, .op-three[data-count="2"] { grid-auto-flow: row; justify-content: start; gap: 30px; }
+  .op-three > div { gap: 8px; }
+  .op-n-l { font-size: var(--ui-size); }
+  .op-n-v { font-size: 15vw; }
 
   .sheet--letter { padding: 20px 16px 24px; }
   .letter { grid-template-columns: minmax(0, 1fr); row-gap: 24px; }
@@ -684,10 +532,6 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .letter-h { font-size: 24px; line-height: 31px; margin-bottom: 14px; }
   .letter-main { font-size: var(--body-size); line-height: 24px; }
   .inside { margin-top: 22px; }
-  .band-foot { padding: 0 16px 20px; }
-  .stg { gap: 8px; }
-  .stg li { font-size: var(--chip-size); line-height: 16px; gap: 8px; }
-  .stg-words { display: none !important; }
 
   .sheet { margin: 16px 16px 32px; padding: 16px; }
   .sheet-hd { margin-bottom: 12px; }
@@ -698,27 +542,18 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .facts .fact { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 9px 12px; }
 
   .lg-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 9px 12px; }
-  .lg-div, .lg-psf, .lg-pct { display: none; }
-  .lg-foot { padding: 9px 12px; }
-  .sheet--ledger .lg-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 8px 12px; }
-  .sheet--ledger .sheet-h { font-size: 20px; line-height: 26px; }
-  .sheet--ledger .sheet-sub { font-size: var(--meta-size); line-height: 18px; }
-  .lg-lines, .sheet--ledger .lg-lines { padding: 4px 12px 12px; }
-  .ln-head { flex-wrap: wrap; gap: 6px 12px; }
 
-  .trio { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 12px 16px 32px; padding: 0; }
-  .trio-main { gap: 12px; }
-  .trio .sheet { margin: 0; }
-  .trio .sheet--dwg { order: -1; padding: 10px 10px 8px; top: var(--hd-h); z-index: 5; }
-  .trio .dwg-cap { margin-top: 4px; }
-  .sheet--design { min-height: 0; }
-  .lens { --lens-h: 168px; }
-  .trio .dwg-cap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .lens-in > .lg-btn { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto; padding: 14px 12px 12px; row-gap: 8px; }
-  .lens-in .lg-name { grid-column: 1; font-size: 20px; }
-  .lens-in .lg-amt { grid-column: 1; grid-row: 2; font-size: 30px; }
-  .lens-in .lg-rate { grid-column: 1; grid-row: 3; text-align: left; }
-  .lens-in .lg-more { grid-column: 1; grid-row: 4; justify-content: flex-start; }
+  /* The drawing pins above the list; the cards open under the chosen item. */
+  .trio { padding: calc(var(--hd-h) + 20px) 0 40px; }
+  .trio-in { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 0 16px; }
+  /* The heading reads first, then the drawing pins above the list, as the frame draws it. */
+  .trio-main, .trio .sheet--sov { display: contents; }
+  .trio .sheet--sov > .sheet-hd { order: -2; }
+  .trio .sheet--design { margin-top: 40px; }
+  .trio .sheet-h { font-size: 30px; }
+  .trio .sheet-sub { font-size: var(--ui-size); }
+  .trio .sheet--dwg { order: -1; top: var(--hd-h); z-index: 5; margin: 0 -16px; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--rb-blk-line); }
+  .sheet--dwg .card-slot { display: none; }
   /* The phone crops to the building: the sheet's words are carried in HTML beneath. */
   .dwg--crop [data-part]:not([data-part="grade"]) { display: none; }
 
@@ -751,15 +586,11 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .foot { margin-top: 28px; display: grid; gap: 6px; }
 }
 
-/* A nav jump renders its destination at once: the drawing's layers and the lens take no transition for that frame. */
-html.is-jump .dwg--live *, html.is-jump .lens-in, html.is-jump .lg-btn > * { transition: none !important; }
+/* A nav jump renders its destination at once: the drawing takes no transition for that frame. */
+html.is-jump [data-dwg="section"] * { transition: none !important; }
 
-/* --- Reduced motion: every layer drawn, both bands resolved ---------------- */
+/* --- Reduced motion: the opening swaps its layers, the peak resolves -------- */
 
-html.is-reduce .band--first [data-fade] { opacity: 1; }
-html.is-reduce .band--first .fig, html.is-reduce .band--first .big-mark { transform: none !important; }
-html.is-reduce .dwg--live [data-layer], html.is-reduce .dwg--live [data-note], html.is-reduce .dwg--live [data-story], html.is-reduce .dwg--live [data-roof] { transition: none; }
-html.is-reduce .lg-name, html.is-reduce .lg-amt, html.is-reduce .lg-btn, html.is-reduce .hd-fig, html.is-reduce .lens-in { transition: none; }
 html.is-reduce .band--peak *, html.is-reduce .band--peak { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0ms !important; }
@@ -768,6 +599,14 @@ html.is-reduce .band--peak *, html.is-reduce .band--peak { animation: none !impo
 /* --- Print: the same page with the engine at rest (LA-1420) ---------------- */
 
 html[data-print] body { padding-top: 0; }
+/* The opening at rest: the wordmark, the project and the numbers in order, nothing pinned. */
+html[data-print] .band--first { height: auto; }
+html[data-print] .op-stage { position: static; height: auto; overflow: visible; padding: 32px 24px; background: var(--surface); color: var(--rb-blk-ink); display: flex; flex-direction: column; }
+html[data-print] .op-travel { order: -1; margin-top: 0; }
+html[data-print] .op-layer, html[data-print] .op-travel { position: static; inset: auto; transform: none; padding: 0; margin-top: 24px; }
+html[data-print] .op-layer > *, html[data-print] .op-three > div { opacity: 1; transform: none; }
+html[data-print] .trio { margin-top: 0; }
+html[data-print] .op-lbl, html[data-print] .op-n-l, html[data-print] .op-facts, html[data-print] .op-n-v small { color: var(--rb-blk-ink2); }
 .dests { display: none; }
 .dest { position: absolute; width: 0; height: 0; }
 
@@ -777,34 +616,31 @@ html[data-print] body { padding-top: 0; }
   body { padding: 0; background: #FFFFFF; color: var(--rb-blk-ink); font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .hd, [data-sc-progress], .sc-grain { display: none !important; }
   .sheet { margin: 0 0 10mm; padding: 0; border: 0; border-radius: 0; box-shadow: none; max-width: none; }
-  .trio { display: block; margin: 0; padding: 0; max-width: none; }
+  .trio, .trio-in { display: block; margin: 0; padding: 0; max-width: none; }
   .trio-main { display: block; }
   .trio .sheet { margin: 0 0 10mm; }
   .sheet--design { min-height: 0; }
   /* The one section at rest, as a sheet, complete with its title block and callouts. */
-  .band--peak .dwg-swap, .lens { display: none !important; }
+  .band--peak .dwg-swap { display: none !important; }
   .band--peak[data-landed="still"] .wf-in { display: block; }
   .band--peak[data-landed="still"] .band-stage { animation: none; }
   .sheet--dwg { position: static; break-before: page; }
   .sheet--dwg .dwg { max-width: 760px; border: 1px solid var(--rb-blk-line); }
-  .dwg--live [data-layer], .dwg--live [data-note], .dwg--live [data-story], .dwg--live [data-roof], .dwg--live [data-ink-note], .dwg--live [data-part="criteria"] { opacity: 1 !important; }
+  [data-dwg="section"] [data-layer], [data-dwg="section"] [data-note], [data-dwg="section"] [data-ink-note], [data-dwg="section"] [data-part="criteria"] { opacity: 1 !important; }
   /* The bands print on white, the figure in ink. */
   .band, .band-stage { background: #FFFFFF; color: var(--rb-blk-ink); height: auto; padding: 0; margin: 0 0 10mm; }
-  .band--first .band-stage, .band--peak .band-stage { padding: 0; }
-  .band-main { padding: 0; justify-items: start; }
-  .band-foot { padding: 12mm 0 0; }
-  .fig, .big-mark { transform: none !important; visibility: visible !important; }
+  .band--peak .band-stage { padding: 0; }
+  .fig { transform: none !important; visibility: visible !important; }
   .fig { font-size: 56pt; }
-  .big-mark { font-size: 72pt; }
-  .big-proj { font-size: 16pt; }
-  .big-meta i { color: var(--rb-blk-line); }
-  .band--first [data-fade] { opacity: 1 !important; }
-  .fig-l, .band-meta, .stg li, .wf-why, .wf-landed, .wf-after { color: var(--rb-blk-ink2); }
-  .stg li[aria-current="step"], .wf-after b { color: var(--rb-blk-ink); }
+  .op-mark { font-size: 72pt; }
+  .op-proj { font-size: 40pt; }
+  .op-facts { font-size: 18pt; }
+  .op-n-v { font-size: 36pt; }
+  .op-lbl, .op-n-l, .op-facts, .op-n-v small { color: var(--rb-blk-ink2); }
+  .fig-l, .wf-why, .wf-landed, .wf-after { color: var(--rb-blk-ink2); }
+  .wf-after b { color: var(--rb-blk-ink); }
   .sheet--letter { padding: 0; }
   .letter { grid-template-columns: 180px minmax(0, 1fr); column-gap: 32px; }
-  .stg li::before { background: var(--rb-blk-line); }
-  .stg li[aria-current="step"]::before { background: var(--primary); }
   .wf-main { padding: 0; }
   .wf-in { display: block; width: auto; max-width: 720px; margin: 0; }
   .wf-in > * + * { margin-top: 16px; }
@@ -814,12 +650,15 @@ html[data-print] body { padding-top: 0; }
   .wf-range { color: var(--rb-blk-mute); }
   .fig--beside { font-size: 40pt; }
   [data-sc-act] { height: auto !important; }
+  .band--first { height: auto !important; }
+  .op-stage { position: static !important; height: auto !important; overflow: visible !important; padding: 0 0 10mm; background: #FFFFFF !important; color: var(--rb-blk-ink); display: flex; flex-direction: column; }
+  .op-travel { order: -1; margin-top: 0 !important; }
+  .op-layer, .op-travel { position: static !important; inset: auto !important; transform: none !important; padding: 0 !important; margin-top: 8mm; }
+  .op-layer > *, .op-three > div, [data-op-move], .op-travel { opacity: 1 !important; transform: none !important; color: inherit; }
+  .trio { margin-top: 0 !important; }
   .sc-stage, [data-sc-stage] { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
   [data-sc-cue], [data-sc-in], [data-sc-stagger] > *, .sc-split__i { opacity: 1 !important; transform: none !important; visibility: visible !important; pointer-events: auto !important; transition: none !important; animation: none !important; }
-  .lg-lines { display: block !important; background: none; }
-  .lg-item.is-cur > .lg-btn { box-shadow: none; }
-  .lg-btn:hover { background: none; }
-  .lg-row, .ln, .note, .criterion, .fact, .plain li, .wf-row, .stg li, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .crit li { break-inside: avoid; }
+  .lg-row, .note, .criterion, .fact, .plain li, .wf-row, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .crit li { break-inside: avoid; }
   /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
      and What Is Not, follows From Trades to Total on the page it ends on. */
   #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes { break-before: page; }

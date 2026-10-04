@@ -1,11 +1,11 @@
-/* The page's own code (LA-1459, "The Ledger, Opened with the Section"). The
-   engine (scrollcraft.js) is untouched: it pins the second black band,
-   publishes each act's progress as --sc-p, and drives the waterfall's cues.
-   Everything here is page-local: the drill-downs, the
-   section index, the header's two states and the wordmark's flight into the
-   header's mark (LA-1467), the ledger's lens band and the layer it draws on the one section,
-   that section's three states and its hit areas, the waterfall's figure
-   advancing line by line and landing in light, and the print rest. */
+/* The page's own code (LA-1459; the opening and the Schedule of Values,
+   LA-1558). The engine (scrollcraft.js) is untouched: it pins the second
+   black band, publishes each act's progress as --sc-p, and drives the
+   waterfall's cues. Everything here is page-local: the opening and its
+   hand-offs into the header, the section index, the Schedule of Values'
+   drop-downs and the section they lift, the waterfall's figure advancing
+   line by line and landing in light, and the print rest. The server writes
+   every figure and word; this file only moves and shows them. */
 (function () {
   'use strict';
   var doc = document, root = doc.documentElement;
@@ -14,7 +14,7 @@
   var phone = function () { return phoneMQ.matches; };
   var printing = root.hasAttribute('data-print');
   var clamp = function (v) { return v < 0 ? 0 : v > 1 ? 1 : v; };
-  var ease = function (t) { t = clamp(t); return t * t * (3 - 2 * t); };
+  var ease3 = function (t) { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
   var lerp = function (a, b, t) { return a + (b - a) * t; };
   var each = function (sel, fn, from) { Array.prototype.forEach.call((from || doc).querySelectorAll(sel), fn); };
   var hdH = function () { return parseFloat(getComputedStyle(root).getPropertyValue('--hd-h')) || 96; };
@@ -52,12 +52,8 @@
   var sc = printing ? { layout: function () {}, read: function () {} } : ScrollCraft.mount(doc.body);
   var p = function (act) { return parseFloat(act.style.getPropertyValue('--sc-p')) || 0; };
 
-  /* ---- drill-down ---- */
-  function setOpen(item, open) {
-    item.setAttribute('data-open', String(open));
-    var btn = item.querySelector('.lg-btn[aria-expanded]');
-    if (btn) btn.setAttribute('aria-expanded', String(open));
-  }
+  var slice = function (list) { return Array.prototype.slice.call(list); };
+  var cssEsc = window.CSS && CSS.escape ? CSS.escape : function (x) { return x; };
 
   /* ---- section index: the current section is marked as it passes ---- */
   var links = doc.querySelectorAll('[data-index]');
@@ -76,487 +72,583 @@
     });
   }
 
-  /* ---- the header's two states, and the figure's flight into its slot ---- */
+  /* ---- the opening (LA-1558) ----
+     One stage pinned over the band, driven by how far the reader has scrolled
+     into it, in screens. The approved frame's timings: from 0 to 0.7 the
+     wordmark travels into the header's mark as the project rises in; from 1.6
+     to 2.3 the project's name travels into the header as the numbers rise in;
+     from 3.1 to 3.6 the total travels into the header's figure slot, just
+     before the white sheet slides up over the black from 3.3. Each traveller
+     lands on its slot, and the header's own copy takes over on arrival. */
   var hd = doc.getElementById('bar');
-  // The header's figure slot stays empty until the waterfall has landed once (LA-1467).
-  if (hd) hd.setAttribute('data-fig-wait', '');
-  var band = doc.getElementById('your-number');
-  var wrap = band && band.querySelector('.fig-wrap');
-  var fig = band && band.querySelector('[data-travel]');
-  var flight = { top: 0, left: 0, right: 0, font: 1, slotTop: 0, slotLeft: 0, slotRight: 0, slotFont: 22 };
-  // The travelling object is the big wordmark; it lands on the header's own mark at both widths.
-  function slot() { return hd.querySelector('.hd-mark'); }
-  function measureFlight() {
-    if (!hd || !fig || !wrap) return;
-    var was = hd.style.getPropertyValue('--hd-t2');
-    hd.style.setProperty('--hd-t2', '1');
-    wrap.style.transform = 'none';
-    fig.style.transform = 'none';
-    var a = fig.getBoundingClientRect(), b = slot().getBoundingClientRect();
-    hd.style.setProperty('--hd-t2', was);
-    flight.top = a.top + scrollY;
-    flight.left = a.left;
-    flight.right = a.right;
-    flight.font = parseFloat(getComputedStyle(fig).fontSize) || 200;
-    flight.slotTop = b.top;
-    flight.slotLeft = b.left;
-    flight.slotRight = b.right;
-    flight.slotFont = parseFloat(getComputedStyle(slot()).fontSize) || 17;
-    band.setAttribute('data-fly', 'true');
-  }
-  function driveHeader() {
-    if (!hd || !band) return;
-    var span = Math.max(band.offsetHeight - hdH(), 1);
-    var q = clamp(scrollY / span);
-    if (reduce) q = q >= 0.999 ? 1 : 0;
-    var e = ease(q);
-    if (!reduce && fig && wrap) {
-      var top = lerp(flight.top, flight.slotTop, e);
-      var natural = flight.top - scrollY;
-      wrap.style.transform = 'translate3d(0, ' + (top - natural).toFixed(1) + 'px, 0)';
-      var s = lerp(flight.font, flight.slotFont, e) / flight.font;
-      var dx = (flight.slotLeft - flight.left) * e;
-      fig.style.transformOrigin = 'left top';
-      fig.style.transform = 'translate3d(' + dx.toFixed(1) + 'px, 0, 0) scale(' + s.toFixed(4) + ')';
+  var opening = (function () {
+    var band = doc.getElementById('your-number');
+    var stage = band && band.querySelector('[data-op-stage]');
+    var still = { frame: function () {}, measure: function () {} };
+    if (!band || !stage || !hd || printing) return still;
+    var travel = stage.querySelector('[data-op-travel]');
+    var slot = { mark: hd.querySelector('.hd-t1 .hd-mark'), proj: hd.querySelector('.hd-t1 .hd-proj'), fig: hd.querySelector('.hd-t1 .hd-fig-v') };
+    var figSlot = hd.querySelector('.hd-t1 .hd-fig');
+    var move = { proj: stage.querySelector('[data-op-move="proj"]'), fig: stage.querySelector('[data-op-move="fig"]') };
+    var project = slice(stage.querySelector('[data-op-layer="project"]').children);
+    var three = stage.querySelector('[data-op-three]');
+    var numbers = three ? slice(three.children) : [];
+    var span = function (t, a, b) { return clamp((t - a) / (b - a)); };
+    var step = function (t, a, b) { return reduce ? (t > a + 0.02 ? 1 : 0) : ease3(span(t, a, b)); };
+    var INK = [244, 243, 238], INK2 = [189, 188, 179];
+    var tone = function (k) { return 'rgb(' + INK.map(function (v, i) { return Math.round(v + (INK2[i] - v) * k); }).join(',') + ')'; };
+    var wm = null, trips = {};
+
+    // The stage sits at the top of the viewport while the reader is in the band, so every path is measured in its frame.
+    function measure() {
+      travel.style.transform = 'none';
+      [move.proj, move.fig].concat(project, numbers).forEach(function (el) { if (el) el.style.transform = 'none'; });
+      var sr = stage.getBoundingClientRect();
+      var big = parseFloat(getComputedStyle(travel.firstElementChild).fontSize) || 144;
+      var r = slot.mark.getBoundingClientRect();
+      wm = {
+        x0: -travel.offsetWidth / 2, y0: -travel.offsetHeight / 2,
+        x1: r.left - sr.left - sr.width / 2, y1: r.top - sr.height / 2,
+        s: (parseFloat(getComputedStyle(slot.mark).fontSize) || 17) / big,
+      };
+      ['proj', 'fig'].forEach(function (k) {
+        if (!move[k] || !slot[k]) return;
+        var a = move[k].getBoundingClientRect(), b = slot[k].getBoundingClientRect();
+        trips[k] = {
+          dx: b.left - a.left, dy: b.top - (a.top - sr.top),
+          s: (parseFloat(getComputedStyle(slot[k]).fontSize) || 14) / (parseFloat(getComputedStyle(move[k]).fontSize) || 14),
+        };
+      });
     }
-    band.style.setProperty('--travel', q.toFixed(3));
-    hd.style.setProperty('--hd-t2', reduce ? String(q) : (phone() ? clamp((q - 0.25) / 0.35) : clamp((q - 0.88) / 0.12)).toFixed(3));
-    var parked = q >= 0.995;
-    hd.setAttribute('data-state', parked ? 'page' : 'band');
-    band.setAttribute('data-parked', String(parked));
-    band.setAttribute('data-sc-verify-state', 'travel:' + q.toFixed(2));
-    if (parked) band.setAttribute('data-sc-verify-hold', 'true'); else band.removeAttribute('data-sc-verify-hold');
+    function rise(el, q, out) {
+      out = out || 0;
+      el.style.opacity = String(q * (1 - out));
+      el.style.transform = 'translateY(' + ((1 - q) * 48 - out * 32).toFixed(1) + 'px)';
+    }
+    function fly(trip, m) {
+      return 'translate(' + (trip.dx * m).toFixed(1) + 'px, ' + (trip.dy * m).toFixed(1) + 'px) scale(' + (1 + (trip.s - 1) * m).toFixed(4) + ')';
+    }
+    function frame() {
+      if (!wm) return;
+      var t = -band.getBoundingClientRect().top / (stage.offsetHeight || innerHeight);
+
+      var m1 = step(t, 0, 0.7);
+      travel.style.transform = 'translate(' + lerp(wm.x0, wm.x1, m1).toFixed(1) + 'px, ' + lerp(wm.y0, wm.y1, m1).toFixed(1) + 'px) scale(' + lerp(1, wm.s, m1).toFixed(4) + ')';
+      travel.style.opacity = m1 > 0.999 ? '0' : '1';
+      slot.mark.style.opacity = m1 > 0.999 ? '1' : '0';
+
+      var m2 = step(t, 1.6, 2.3), out2 = step(t, 1.6, 1.9);
+      project.forEach(function (el, i) {
+        var q = reduce ? (t > 0.02 ? 1 : 0) : ease3(span(t, 0.3 + i * 0.1, 0.75 + i * 0.1));
+        if (el === move.proj && trips.proj) {
+          el.style.opacity = m2 > 0.999 ? '0' : String(q);
+          el.style.color = tone(m2);
+          el.style.transform = m2 > 0 ? fly(trips.proj, m2) : 'translateY(' + ((1 - q) * 48).toFixed(1) + 'px)';
+        } else rise(el, q, out2);
+      });
+      slot.proj.style.opacity = m2 > 0.999 ? '1' : '0';
+
+      var m3 = step(t, 3.1, 3.6);
+      numbers.forEach(function (el, i) {
+        rise(el, step(t, 2.0 + i * 0.12, 2.45 + i * 0.12));
+        if (i === 0 && move.fig && trips.fig) {
+          move.fig.style.opacity = m3 > 0.999 ? '0' : '1';
+          move.fig.style.transform = fly(trips.fig, m3);
+          // Its label leaves with it, so no heading is left over an empty slot.
+          el.firstElementChild.style.opacity = String(1 - step(t, 3.1, 3.3));
+        }
+      });
+      figSlot.style.opacity = m3 > 0.999 ? '1' : '0';
+
+      // The header turns black once the last traveller has landed, before the white sheet reaches it.
+      var parked = m3 > 0.999;
+      hd.setAttribute('data-state', parked ? 'page' : 'band');
+      hd.style.setProperty('--hd-t2', (reduce ? (parked ? 1 : 0) : clamp((t - 3.6) / 0.5)).toFixed(3));
+    }
+    return { frame: frame, measure: measure };
+  })();
+
+  // The header's figure steps aside while the waterfall's own is well on screen.
+  function peakNear() {
+    if (!hd) return;
     var peakFig = peakAct && peakAct.querySelector('.wf-fig');
     var near = false;
     if (peakFig) {
       var r = peakFig.getBoundingClientRect();
-      // Well on screen: its top inside the upper three fifths, so a short
-      // in-page scroll that brings the band's edge into view leaves the
-      // header figure where it is.
       near = r.bottom > hdH() && r.top < innerHeight * 0.6;
     }
     if (near) hd.setAttribute('data-fig-hidden', ''); else hd.removeAttribute('data-fig-hidden');
   }
 
-  /* ---- the phone crop: the section drawn once, cropped to the building on a phone ---- */
+  /* ---- the phone crop: the drawings drawn once, cropped to the building on a phone ---- */
   function cropDrawings() {
     each('.dwg--crop svg[data-vb-phone]', function (svg) {
       svg.setAttribute('viewBox', svg.getAttribute(phone() ? 'data-vb-phone' : 'data-vb-desk'));
     });
   }
 
-  /* ---- the ledger: a reserved band for the lens, and the one section ----
-     The rows keep their reading size and the list never changes length. The
-     lens is a band of display-scale height at the top of the list: it holds
-     under the header (on a phone, under the pinned section) once the list
-     reaches it, and the rows begin below it. The row directly under the
-     band's bottom edge is current: marked in the list with the accent at
-     reading size, shown in the lens at display scale. Opening a row opens
-     its lines in the list, under the band. The framing row raises the frame
-     story by story across its own passage.
+  /* ---- the Schedule of Values: drop-down B, Lift the Layer (LA-1558) ----
+     Opening a line lifts its pieces off the section, leaving a dashed outline
+     where each sat, and pins them with the numbers of the line's items. The
+     line's card shows under the drawing. Pointing at an item previews it;
+     choosing one turns the rest of the line grey, draws a lead from the
+     table to its pin, and shows the item's card. On a phone the drawing is
+     pinned above the list and each card opens under its own item.
 
-     The section is one drawing for two sheets. Through The Ledger its
-     layers draw in; at Design and Engineering every layer settles to its own
-     ink, the ink note and the callouts show, and each callout lights
-     as its criterion passes in the list. Every layer and callout is a hit
-     area: a layer click brings its row into the band and opens it, a callout
-     click brings its criterion to the reading line. */
-  var ledger = (function () {
+     The state is one open line, one chosen item and one pointed-at item.
+     Everything else is geometry: where the pins sit and where the lead runs. */
+  var sov = (function () {
     var trio = doc.querySelector('[data-trio]');
     var section = doc.getElementById('where-the-money-is');
-    var empty = { read: function () {}, all: function () {}, scrollToRow: function () {}, place: function () {} };
-    if (!section || !trio) return empty;
+    var none = { read: function () {}, place: function () {}, rest: function () {} };
+    if (!trio || !section) return none;
     var aside = trio.querySelector('.sheet--dwg');
-    var lens = section.querySelector('[data-lens]');
-    var items = Array.prototype.slice.call(section.querySelectorAll('.lg-item'));
-    var keys = items.map(function (i) { return i.getAttribute('data-layer'); });
-    // LA-1504: a division row draws every layer its lines own (data-layers),
-    // so a layer is found by the row that holds it, not by the row's own key.
-    var layerAt = {};
-    items.forEach(function (it, i) {
-      (it.getAttribute('data-layers') || it.getAttribute('data-layer') || '').split(' ').forEach(function (k) {
-        if (k && !(k in layerAt)) layerAt[k] = i;
-      });
-    });
-    function rowOfLayer(k) { return k && k in layerAt ? layerAt[k] : -1; }
-    var framingAt = rowOfLayer('line:8');
+    var frame = trio.querySelector('[data-dwg="section"]');
+    var svg = frame && frame.querySelector('svg');
+    var cardSlot = trio.querySelector('[data-card-slot]');
+    var crumbEl = trio.querySelector('[data-crumb]');
     var design = doc.getElementById('design-and-engineering');
-    var crits = design ? Array.prototype.slice.call(design.querySelectorAll('.crit--keyed [data-crit]')) : [];
-    var dwg = trio.querySelector('[data-dwg="section"] svg');
-    var stories = dwg ? parseInt(dwg.getAttribute('data-stories'), 10) || 1 : 1;
-    var floorTops = dwg ? (dwg.getAttribute('data-floor-tops') || '').split(' ').map(parseFloat) : [];
-    var floorT = dwg ? parseFloat(dwg.getAttribute('data-floor-t')) || 10 : 10;
-    var grade = dwg ? parseFloat(dwg.getAttribute('data-grade')) || 430 : 430;
-    var layers = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-layer]')) : [];
-    var callouts = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-callout]')) : [];
-    var notes = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-note]')) : [];
-    var storyEls = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-story]')) : [];
-    var roofEls = dwg ? Array.prototype.slice.call(dwg.querySelectorAll('[data-roof]')) : [];
-    var bracket = dwg && dwg.querySelector('[data-bracket]');
-    var bracketLine = dwg && dwg.querySelector('[data-bracket-line]');
-    var bracketCap = dwg && dwg.querySelector('[data-bracket-cap]');
-    var current = -2, drawnStories = -1, state = '', crit = '', lensIdx = -1;
-    if (dwg) dwg.parentNode.classList.add('dwg--live');
+    var crits = design ? slice(design.querySelectorAll('.crit--keyed [data-crit]')) : [];
 
-    // Hit areas: an invisible wide stroke beside every stroke in a layer, and
-    // a box behind every callout, so the pointer finds them.
-    function hitAreas() {
-      if (!dwg || printing) return;
-      var ns = 'http://www.w3.org/2000/svg';
-      layers.forEach(function (g) {
-        Array.prototype.forEach.call(g.querySelectorAll('.s'), function (el) {
-          var h = el.cloneNode(false);
-          h.setAttribute('class', 'hit');
-          h.removeAttribute('stroke'); h.removeAttribute('fill'); h.removeAttribute('stroke-dasharray');
-          g.appendChild(h);
-        });
+    // Each line as the server wrote it: its pieces in the drawing, its items, and their cards.
+    var lines = slice(section.querySelectorAll('.sov-line[data-el]')).map(function (li) {
+      var lv2 = li.querySelector('.lv2');
+      var line = { li: li, layers: (li.getAttribute('data-layers') || '').split(' ').filter(Boolean), card: li.querySelector('[data-card="line"]'), lv2: lv2, items: [] };
+      if (line.card) line.card._home = { into: lv2 };
+      line.items = slice(li.querySelectorAll('.pin-row')).map(function (row) {
+        var card = li.querySelector('[data-card="' + row.getAttribute('data-i') + '"]');
+        if (card) card._home = { after: row };
+        var name = row.querySelector('.name');
+        return { row: row, label: name && name.firstChild ? name.firstChild.textContent : '', anchor: row.getAttribute('data-anchor') || null, card: card };
       });
-      callouts.forEach(function (g) {
-        var b = g.getBBox();
-        var r = doc.createElementNS(ns, 'rect');
-        r.setAttribute('class', 'hit hit--box');
-        r.setAttribute('x', b.x - 4); r.setAttribute('y', b.y - 4); r.setAttribute('width', b.width + 8); r.setAttribute('height', b.height + 8);
-        g.appendChild(r);
-      });
+      return line;
+    });
+    var lineOf = function (li) { return lines.filter(function (l) { return l.li === li; })[0] || null; };
+    var open = null, pick = null, hover = null, drawFor = null, shown = null, state = 'sov';
+
+    var pins = null, wire = null;
+    if (frame && !printing) {
+      pins = doc.createElement('div'); pins.className = 'pins'; frame.appendChild(pins);
+      wire = doc.createElementNS('http://www.w3.org/2000/svg', 'svg'); wire.setAttribute('class', 'wire'); wire.setAttribute('aria-hidden', 'true'); doc.body.appendChild(wire);
     }
 
-    // The pointer picks the stroke nearest to it among the hit areas under
-    // it, whatever the paint order, so a layer under another's strokes
-    // (masonry under the steel, plumbing under the risers) is still reached.
-    function segDist(px, py, x1, y1, x2, y2) {
-      var dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
-      var t = l2 ? clamp(((px - x1) * dx + (py - y1) * dy) / l2) : 0;
-      return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-    }
-    function hitDist(el, cx, cy) {
-      var m = el.getScreenCTM();
-      if (!m) return Infinity;
-      var pt = dwg.createSVGPoint(); pt.x = cx; pt.y = cy;
-      var p = pt.matrixTransform(m.inverse());
-      var k = Math.hypot(m.a, m.b) || 1;
-      var tag = el.tagName.toLowerCase(), a = function (n) { return parseFloat(el.getAttribute(n)) || 0; };
-      var d = Infinity;
-      if (tag === 'line') d = segDist(p.x, p.y, a('x1'), a('y1'), a('x2'), a('y2'));
-      else if (tag === 'rect') {
-        var x = a('x'), y = a('y'), w = a('width'), h = a('height');
-        if (el.classList.contains('hit--box')) d = p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h ? 0 : Infinity;
-        else d = Math.min(segDist(p.x, p.y, x, y, x + w, y), segDist(p.x, p.y, x + w, y, x + w, y + h), segDist(p.x, p.y, x, y + h, x + w, y + h), segDist(p.x, p.y, x, y, x, y + h));
-      } else if (tag === 'circle') d = Math.abs(Math.hypot(p.x - a('cx'), p.y - a('cy')) - a('r'));
-      else if (el.getTotalLength) {
-        var L = el.getTotalLength(), n = Math.max(8, Math.min(64, Math.round(L / 6)));
-        for (var i = 0; i <= n; i++) { var q = el.getPointAtLength((L * i) / n); d = Math.min(d, Math.hypot(p.x - q.x, p.y - q.y)); }
+    // The camera: on a desktop the frame is taller than the drawing's own sheet, which gives tall pieces room to zoom.
+    var vbOf = function (name) { var v = svg && svg.getAttribute(name); return v ? v.split(' ').map(Number) : null; };
+    var BASE = vbOf('data-vb-desk') || vbOf('viewBox') || [0, 0, 1000, 640];
+    var PHONE = vbOf('data-vb-phone');
+    var TALL = [BASE[0], BASE[1] - 50, BASE[2], BASE[3] + 100];
+    var home = function () { return phone() && PHONE ? PHONE : TALL; };
+    var vb = home().slice(), cam = 0;
+    function setVb(b) { vb = b; if (svg) svg.setAttribute('viewBox', b.join(' ')); }
+    function zoomTo(target, ms, onFrame) {
+      var from = vb.slice(), t0 = performance.now(), id = ++cam;
+      if (reduce) { setVb(target.slice()); if (onFrame) onFrame(); return; }
+      function tick(now) {
+        if (id !== cam) return;
+        var k = ease3((now - t0) / ms);
+        setVb(from.map(function (v, i) { return v + (target[i] - v) * k; }));
+        if (onFrame) onFrame();
+        if (k < 1) requestAnimationFrame(tick);
       }
-      return d * k;
+      requestAnimationFrame(tick);
     }
-    function pick(cx, cy) {
-      if (!dwg || !doc.elementsFromPoint) return null;
-      var under = doc.elementsFromPoint(cx, cy), best = null, bestD = Infinity;
-      for (var i = 0; i < under.length; i++) {
-        var el = under[i];
-        if (!el.classList || !el.classList.contains('hit') || !dwg.contains(el)) continue;
-        // A layer not yet drawn is invisible, and an invisible stroke takes
-        // no click; the callouts show only at Design and Engineering.
-        var owner = el.closest('[data-layer]');
-        if (owner && !owner.classList.contains('is-drawn')) continue;
-        if (!owner && el.closest('[data-callout]') && state !== 'design') continue;
-        var d = hitDist(el, cx, cy);
-        if (d < bestD - 0.5) { bestD = d; best = el; }
-      }
-      return best;
-    }
-    function rowHeight() { return (items[0] && items[0].offsetHeight) || 40; }
-    function topOfRows() {
-      var top = hdH();
-      if (phone() && aside) top += aside.offsetHeight + 12;
-      return top;
-    }
-    // Where the lens band holds: against the header's bottom (on a phone,
-    // against the pinned section's bottom), with the gap to the rows as its
-    // own opaque ground, so nothing shows above it.
-    function lensTop() { return hdH() + (phone() && aside ? aside.offsetHeight : 0); }
-    function place() {
-      section.style.setProperty('--lens-top', lensTop() + 'px');
-      section.style.setProperty('--lens-pad', (phone() ? 12 : 24) + 'px');
-    }
-    // The reading line for the sheets' states and the criteria: a third of the way down what is left.
-    function readingLine() { var top = topOfRows(); return top + (innerHeight - top) * 0.3; }
-    function lensBottom() {
-      if (!lens) return topOfRows();
-      var r = lens.getBoundingClientRect();
-      return r.bottom;
-    }
-    function bracketTo(n) {
-      if (!bracket || !floorTops.length) return;
-      var top = n >= stories ? floorTops[stories] : floorTops[n] + floorT;
-      var label = n >= stories ? stories + ' Stories Above Grade' : 'Story ' + n + ' of ' + stories;
-      if (bracket.textContent !== label) bracket.textContent = label;
-      var ty = (grade + top) / 2, tx = parseFloat(bracket.getAttribute('x'));
-      bracket.setAttribute('y', ty.toFixed(2));
-      bracket.setAttribute('transform', 'rotate(-90 ' + tx + ' ' + ty.toFixed(2) + ')');
-      if (bracketLine) bracketLine.setAttribute('y2', top.toFixed(2));
-      if (bracketCap) { bracketCap.setAttribute('y1', top.toFixed(2)); bracketCap.setAttribute('y2', top.toFixed(2)); }
-    }
-    // The lens shows the current row: its own markup, copied, with the ids left behind. 160ms cross-fade.
-    function fill(idx) {
-      if (!lens) return;
-      var item = items[idx];
-      var copy = item.cloneNode(true);
-      Array.prototype.forEach.call(copy.querySelectorAll('[id],[data-el],[aria-controls],[data-layer]'), function (el) {
-        el.removeAttribute('id'); el.removeAttribute('data-el'); el.removeAttribute('aria-controls'); el.removeAttribute('data-layer');
+    function q(sel, el) { return svg ? slice((el || svg).querySelectorAll(sel)) : []; }
+    function layerEls(l) { return q('[data-layer="' + cssEsc(l) + '"]'); }
+    function boxOf(layers) {
+      var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      layers.forEach(function (l) {
+        layerEls(l).forEach(function (g) {
+          var b = g.getBBox();
+          if (!b.width && !b.height) return;
+          x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+        });
       });
-      copy.removeAttribute('id'); copy.removeAttribute('data-el'); copy.removeAttribute('data-layer'); copy.removeAttribute('role');
-      copy.className = 'lens-in';
-      var lines = copy.querySelector('.lg-lines');
-      if (lines) lines.parentNode.removeChild(lines);
-      copy.setAttribute('data-open', item.getAttribute('data-open') || 'false');
-      var olds = Array.prototype.slice.call(lens.querySelectorAll('.lens-in'));
-      lens.appendChild(copy);
-      lens.setAttribute('data-row', keys[idx]);
-      lens.setAttribute('data-open', item.getAttribute('data-open') || 'false');
-      if (!olds.length) return;
-      if (reduce) { olds.forEach(function (o) { o.parentNode.removeChild(o); }); return; }
-      // The old content stays painted beneath until the new has faded in
-      // over it (160ms); no frame callback is waited on, so a throttled tab
-      // never shows the band empty.
-      copy.classList.add('is-arriving');
-      void copy.offsetWidth;
-      copy.classList.remove('is-arriving');
-      setTimeout(function () { olds.forEach(function (o) { if (o.parentNode) o.parentNode.removeChild(o); }); }, 200);
+      var H = home();
+      if (!isFinite(x0)) return H;
+      var ar = H[2] / H[3], pad = 22;
+      var w = Math.max(x1 - x0 + pad * 2, H[2] * 0.34), h = Math.max(y1 - y0 + pad * 2, H[3] * 0.34);
+      if (w / h > ar) h = w / ar; else w = h * ar;
+      w = Math.min(w, H[2]); h = Math.min(h, H[3]);
+      var x = Math.max(H[0], Math.min((x0 + x1) / 2 - w / 2, H[0] + H[2] - w));
+      var y = Math.max(H[1], Math.min((y0 + y1) / 2 - h / 2, H[1] + H[3] - h));
+      return [x, y, w, h];
     }
-    function apply(idx, nStories) {
-      if (idx === current && nStories === drawnStories) return;
-      if (idx !== current) {
-        items.forEach(function (it, i) { it.classList.toggle('is-cur', i === idx); });
-        if (idx >= 0 && (idx !== lensIdx || !lens || !lens.querySelector('.lens-in'))) { fill(idx); lensIdx = idx; }
-        layers.forEach(function (g) {
-          var i = rowOfLayer(g.getAttribute('data-layer'));
-          g.classList.toggle('is-drawn', i > -1 && i <= idx);
-          g.classList.toggle('is-now', i === idx && state === 'ledger');
+
+    // Light what is in focus and dim the rest. The criteria's callouts stay under their own rule, shown only at Design and Engineering or when lit.
+    function focus(layers, callouts) {
+      if (!svg) return;
+      var on = [];
+      layers.forEach(function (l) { layerEls(l).forEach(function (g) { on.push(g); }); });
+      (callouts || []).forEach(function (c) { q('[data-callout="' + cssEsc(c) + '"]').forEach(function (g) { on.push(g); }); });
+      q('.is-on').forEach(function (g) { g.classList.remove('is-on'); });
+      on.forEach(function (g) { g.classList.add('is-on'); });
+      (function dim(el) {
+        Array.prototype.forEach.call(el.children, function (c) {
+          if (c.tagName.toLowerCase() === 'defs') return;
+          if (on.length === 0 || on.indexOf(c) > -1) {
+            c.style.opacity = ''; c.classList.remove('is-dim');
+            q('.is-dim', c).forEach(function (x) { x.classList.remove('is-dim'); x.style.opacity = ''; });
+            return;
+          }
+          var holds = c.getAttribute('data-part') === 'criteria' || on.some(function (g) { return c.contains(g); });
+          if (holds) { c.style.opacity = ''; c.classList.remove('is-dim'); dim(c); }
+          else { c.style.opacity = '0.13'; c.classList.add('is-dim'); }
         });
-        notes.forEach(function (n) {
-          var i = rowOfLayer(n.getAttribute('data-note'));
-          n.classList.toggle('is-drawn', i > -1 && i <= idx);
+      })(svg);
+    }
+
+    function crumb(parts) {
+      if (!crumbEl) return;
+      crumbEl.textContent = '';
+      parts.forEach(function (p, i) {
+        if (i > 0) { var sep = doc.createElement('i'); sep.textContent = '›'; crumbEl.appendChild(sep); }
+        var el = doc.createElement(i === parts.length - 1 ? 'b' : 'span'); el.textContent = p; crumbEl.appendChild(el);
+      });
+    }
+    function titleOf(line) {
+      var h = line.li.querySelector('.sov-h');
+      return ((h.querySelector('.sov-div').textContent + ' ' + h.querySelector('.sov-name').firstChild.textContent).trim());
+    }
+
+    // A pin sits on the drawn line nearest the middle of its piece. When the drawing labels a
+    // piece by the item's own name (Elevator Bulkhead), it aims at the part nearest that label.
+    function labelPoint(name) {
+      var lower = name.toLowerCase();
+      var t = q('text').filter(function (x) { return x.textContent.trim().toLowerCase() === lower; })[0];
+      if (!t) return null;
+      var b = t.getBBox();
+      return [b.x + b.width / 2, b.y + b.height / 2];
+    }
+    // The piece's lines that can carry its pin, nearest the aim point first.
+    function candidates(layer, name) {
+      var g = layerEls(layer)[0];
+      if (!g) return [];
+      var gb = g.getBBox(), lp = name ? labelPoint(name) : null;
+      var cx = lp ? lp[0] : gb.x + gb.width / 2, cy = lp ? lp[1] : gb.y + gb.height / 2;
+      var box = function (k) { return k.getBBox(); };
+      var kids = q('path, line, rect, polyline, polygon', g).filter(function (k) { var b = box(k); return b.width || b.height; });
+      var len = function (k) { var b = box(k); return Math.max(b.width, b.height); };
+      var cut = Math.max.apply(null, [0].concat(kids.map(len))) * 0.5;
+      var dist = function (k) { var b = box(k); return Math.hypot(b.x + b.width / 2 - cx, b.y + b.height / 2 - cy); };
+      // Among the piece's longer lines (its walls and slabs, not its ticks), the one nearest the aim point.
+      var out = kids.filter(function (k) { return lp || len(k) >= cut; }).sort(function (a, b) { return dist(a) - dist(b); });
+      return out.length ? out : [g];
+    }
+    function anchorEl(layer, name) { return candidates(layer, name)[0] || null; }
+    function screenOf(el) {
+      var b = el.getBBox(), m = el.getScreenCTM();
+      return new DOMPoint(b.x + b.width / 2, b.y + b.height / 2).matrixTransform(m);
+    }
+
+    // Each pin takes the nearest of its piece's lines that keeps it 48px clear of the pins already placed.
+    function placePins() {
+      if (!open || !pins || !frame) return;
+      var fr = frame.getBoundingClientRect(), placed = [];
+      slice(pins.querySelectorAll('.pin')).forEach(function (p) {
+        var item = open.items[+p.getAttribute('data-i')];
+        var cs = candidates(item.anchor, item.label);
+        if (!cs.length) return;
+        var x = null, y = null;
+        for (var k = 0; k < cs.length; k++) {
+          var pt = screenOf(cs[k]), cx = pt.x - fr.left, cy = pt.y - fr.top;
+          if (cx < 4 || cy < 4 || cx > fr.width - 4 || cy > fr.height - 4) continue;
+          if (placed.every(function (a) { return Math.hypot(a[0] - cx, a[1] - cy) >= 48; })) { x = cx; y = cy; break; }
+        }
+        if (x === null) {
+          var p0 = screenOf(cs[0]);
+          x = p0.x - fr.left; y = p0.y - fr.top;
+          while (placed.some(function (a) { return Math.hypot(a[0] - x, a[1] - y) < 32; })) y -= 34;
+        }
+        placed.push([x, y]);
+        p.style.left = x + 'px'; p.style.top = y + 'px';
+      });
+      drawWire();
+    }
+
+    // The connector: solid across the gutter from the chosen (or pointed-at) item, then a fine
+    // dashed lead with an arrowhead inside the drawing, so it never passes for part of the building.
+    function drawWire() {
+      if (!wire) return;
+      wire.innerHTML = '';
+      if (!open || phone()) return;
+      var i = pick !== null ? pick : hover;
+      if (i === null) return;
+      var row = open.items[i] && open.items[i].row, pin = pins.querySelector('.pin[data-i="' + i + '"]');
+      if (!row || !pin) return;
+      var a = row.getBoundingClientRect(), b = pin.getBoundingClientRect();
+      var x1 = a.right + 6, y1 = a.top + a.height / 2, x2 = b.left + b.width / 2 - 13, y2 = b.top + b.height / 2;
+      if (y2 < hdH() || y2 > innerHeight || y1 < hdH() || y1 > innerHeight) return;
+      var fr = frame.getBoundingClientRect(), fl = fr.left, g = (x1 + fl) / 2;
+      var cx = x2 + 13, cy = y2;
+      // Test the lead against the drawing first: runs rising in 8px steps, with the turn left of,
+      // above or right of the pin; keep the one whose run and final drop cross the least.
+      var drawnAt = function (x, y) { var el = doc.elementFromPoint(x, y); return el && el !== svg && svg.contains(el) && el.tagName.toLowerCase() !== 'rect' ? 1 : 0; };
+      var along = function (ax, ay, bx2, by, stepPx) {
+        var L = Math.hypot(bx2 - ax, by - ay), n = Math.max(1, Math.floor(L / stepPx)), h = 0;
+        for (var k = 0; k <= n; k++) { var x = ax + ((bx2 - ax) * k) / n, y = ay + ((by - ay) * k) / n; h += drawnAt(x, y) + drawnAt(x, y - 2) + drawnAt(x, y + 2); }
+        return h;
+      };
+      var best = { h: Infinity };
+      for (var y = cy - 26; y > Math.max(fr.top + 10, cy - 280); y -= 8) {
+        [-40, -24, 0, 24, 40].forEach(function (dx) {
+          var bx = cx + dx, ang = Math.atan2(cy - y, cx - bx), ex = cx - Math.cos(ang) * 21, ey = cy - Math.sin(ang) * 21;
+          // A long final drop reads as part of the drawing, so its length costs too.
+          var h = along(fl + 4, y, bx, y, 4) * 2 + along(bx, y, ex, ey, 4) * 2 + Math.hypot(ex - bx, ey - y) / 22;
+          if (h < best.h) best = { h: h, y: y, bx: bx, a: ang, ex: ex, ey: ey };
         });
+        if (best.h < 1) break;
       }
-      if (nStories !== drawnStories) {
-        storyEls.forEach(function (el) { el.classList.toggle('is-up', parseInt(el.getAttribute('data-story'), 10) <= nStories); });
-        roofEls.forEach(function (el) { el.classList.toggle('is-up', nStories >= stories); });
-        bracketTo(nStories);
+      if (!isFinite(best.h)) return;
+      var t1 = best.a + Math.PI * 0.82, t2 = best.a - Math.PI * 0.82, f = function (n) { return n.toFixed(1); };
+      wire.innerHTML = '<circle cx="' + f(x1) + '" cy="' + f(y1) + '" r="3"></circle>' +
+        '<path d="M' + f(x1) + ',' + f(y1) + ' C' + f(g) + ',' + f(y1) + ' ' + f(g) + ',' + f(best.y) + ' ' + f(fl) + ',' + f(best.y) + '"></path>' +
+        '<path class="lead" d="M' + f(fl) + ',' + f(best.y) + ' L' + f(best.bx) + ',' + f(best.y) + ' L' + f(best.ex) + ',' + f(best.ey) + '"></path>' +
+        '<path class="tip" d="M' + f(best.ex + Math.cos(t1) * 8) + ',' + f(best.ey + Math.sin(t1) * 8) + ' L' + f(best.ex) + ',' + f(best.ey) + ' L' + f(best.ex + Math.cos(t2) * 8) + ',' + f(best.ey + Math.sin(t2) * 8) + '"></path>';
+      var path = wire.querySelector('path:not(.lead):not(.tip)');
+      if (pick === null) path.classList.add('is-faint');
+      else if (!reduce && drawFor !== open.li.id + ':' + pick) {
+        // The first time a chosen item's connector appears, it draws itself from the line to the pin.
+        drawFor = open.li.id + ':' + pick;
+        path.style.setProperty('--len', path.getTotalLength());
+        path.classList.add('is-draw');
       }
-      current = idx; drawnStories = nStories;
-      if (openItem) focus();
-      section.setAttribute('data-sc-verify-state', 'ledger:' + idx + ':' + nStories + ':' + state + (crit ? ':' + crit : ''));
     }
-    function setState(s) {
-      if (s === state) return;
-      state = s;
-      trio.setAttribute('data-state', s);
-      if (s !== 'ledger') layers.forEach(function (g) { g.classList.remove('is-now'); });
-      if (s !== 'design') { pinnedCrit = ''; lightCrit(''); }
+
+    // The open line's pieces lift, each leaving its outline behind in dashed grey.
+    function lift(layers) {
+      q('.ghost').forEach(function (g) { g.parentNode.removeChild(g); });
+      q('.is-lift').forEach(function (g) { g.classList.remove('is-lift'); });
+      layers.forEach(function (l) {
+        layerEls(l).forEach(function (g) {
+          var ghost = g.cloneNode(true);
+          ghost.removeAttribute('data-layer'); ghost.removeAttribute('aria-label'); ghost.classList.remove('is-on');
+          ghost.classList.add('ghost'); ghost.style.opacity = '';
+          g.parentNode.insertBefore(ghost, g);
+          requestAnimationFrame(function () { ghost.classList.add('is-in'); g.classList.add('is-lift'); });
+        });
+      });
     }
-    // A criterion and its callout light together, on hover or on a click;
-    // nothing lights by scroll.
+
+    function marks() {
+      if (!open) return;
+      open.items.forEach(function (x, i) { x.row.classList.toggle('is-on', i === pick); x.row.classList.toggle('is-hover', i === hover && pick === null); });
+      if (pins) slice(pins.querySelectorAll('.pin')).forEach(function (p) { var i = +p.getAttribute('data-i'); p.classList.toggle('is-on', i === pick); p.classList.toggle('is-hover', i === hover && pick === null); });
+      if (open.card) slice(open.card.querySelectorAll('[data-mix]')).forEach(function (m) { m.classList.toggle('is-hot', +m.getAttribute('data-mix') === hover); });
+      q('.is-pick, .is-sib').forEach(function (g) { g.classList.remove('is-pick', 'is-sib'); });
+      var i = pick !== null ? pick : hover;
+      var item = i !== null ? open.items[i] : null, a = item ? item.anchor : null;
+      var mates = a ? open.items.filter(function (x) { return x.anchor === a; }) : [];
+      // Once an item is chosen, the rest of its line steps back to grey, so only its own piece is blue.
+      if (pick !== null) open.layers.forEach(function (l) { if (l !== a || mates.length > 1) layerEls(l).forEach(function (g) { g.classList.add('is-sib'); }); });
+      if (a) {
+        // An item that shares its piece marks only its own labelled part; one with its own piece marks the whole piece.
+        if (mates.length > 1 && labelPoint(item.label)) { var el = anchorEl(a, item.label); if (el) el.classList.add('is-pick'); }
+        else {
+          layerEls(a).forEach(function (g) { g.classList.add('is-pick'); });
+          // The whole piece, less the parts the drawing labels for its sibling items (the elevator without its bulkhead).
+          mates.forEach(function (x) { if (x !== item && labelPoint(x.label)) { var s = anchorEl(a, x.label); if (s) s.classList.add('is-sib'); } });
+        }
+      }
+      drawWire();
+    }
+
+    function setOpen(li, on) {
+      li.setAttribute('data-open', String(on));
+      var btn = li.querySelector('.sov-h');
+      if (btn) btn.setAttribute('aria-expanded', String(on));
+    }
+    function goHome(card) {
+      if (!card || !card._home) return;
+      if (card._home.after) card._home.after.parentNode.insertBefore(card, card._home.after.nextSibling);
+      else card._home.into.appendChild(card);
+    }
+    // On a phone the drawing is pinned above the list; bring the open line (or its card) up under it.
+    function underDrawing(el) {
+      var d = aside.getBoundingClientRect();
+      scrollTo({ top: el.getBoundingClientRect().top + scrollY - d.bottom - 6, behavior: reduce ? 'auto' : 'smooth' });
+    }
+
+    function show(lineChanged) {
+      if (shown) { shown.classList.remove('is-in'); shown.hidden = true; goHome(shown); shown = null; }
+      if (!open) {
+        if (pins) pins.innerHTML = '';
+        if (wire) wire.innerHTML = '';
+        focus([]); lift([]); zoomTo(home(), 640); crumb(['Building Section']);
+        return;
+      }
+      var line = open, item = pick !== null ? line.items[pick] : null;
+      // The criteria sit on the card, so the drawing lights only the pieces.
+      focus(line.layers);
+      if (lineChanged) {
+        if (pins) {
+          pins.innerHTML = '';
+          line.items.forEach(function (x, i) {
+            if (!x.anchor) return;
+            var p = doc.createElement('button');
+            p.className = 'pin'; p.type = 'button'; p.setAttribute('data-i', i); p.textContent = String(i + 1); p.setAttribute('aria-label', x.label);
+            pins.appendChild(p);
+          });
+        }
+        lift(line.layers);
+        zoomTo(line.layers.length ? boxOf(line.layers) : home(), 640, placePins);
+        if (phone()) setTimeout(function () { underDrawing(line.li); }, reduce ? 0 : 380);
+        setTimeout(function () {
+          placePins();
+          if (pins) slice(pins.querySelectorAll('.pin')).forEach(function (p, k) { setTimeout(function () { p.classList.add('is-in'); }, reduce ? 0 : k * 80); });
+        }, reduce ? 0 : 420);
+      } else if (phone() && item && item.anchor) {
+        // On a phone the zoom frames every pin in the line, so no pin is pushed off the drawing.
+        var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        line.items.forEach(function (x) {
+          var e = x.anchor ? anchorEl(x.anchor, x.label) : null;
+          if (!e) return;
+          var b = e.getBBox();
+          x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+        });
+        // Clamped to the whole drawing, not the phone's crop of it, so a piece at the top (the bulkhead) stays inside.
+        var H = home(), ar = H[2] / H[3];
+        var w = Math.max(x1 - x0 + 120, H[2] * 0.6), h = Math.max(y1 - y0 + 150, H[3] * 0.6);
+        if (w / h > ar) h = w / ar; else w = h * ar;
+        w = Math.min(w, BASE[2]); h = Math.min(h, BASE[3]);
+        var x = Math.max(BASE[0], Math.min((x0 + x1) / 2 - w / 2, BASE[0] + BASE[2] - w));
+        var y = Math.max(BASE[1], Math.min((y0 + y1) / 2 - h / 2, BASE[1] + BASE[3] - h));
+        zoomTo([x, y, w, h], 520, placePins);
+      } else placePins();
+      marks();
+      crumb(item ? [titleOf(line), item.label] : ['Building Section', titleOf(line)]);
+      var card = item ? item.card : line.card;
+      if (card) {
+        if (!phone() && cardSlot) cardSlot.appendChild(card);
+        card.hidden = false;
+        shown = card;
+        requestAnimationFrame(function () { card.classList.add('is-in'); });
+        if (item && phone()) setTimeout(function () { underDrawing(line.li); }, reduce ? 0 : 320);
+      }
+      sc.layout();
+    }
+    function choose(i) { pick = pick === i ? null : i; hover = null; show(false); }
+    function toggle(line) {
+      if (open && open !== line) setOpen(open.li, false);
+      open = open === line ? null : line;
+      setOpen(line.li, !!open);
+      pick = null; hover = null;
+      show(true);
+    }
+
+    section.addEventListener('click', function (e) {
+      var pr = e.target.closest('.pin-row');
+      if (pr && open && open.li.contains(pr)) { choose(+pr.getAttribute('data-i')); return; }
+      var h = e.target.closest('.sov-line[data-el] > .sov-h');
+      if (h) toggle(lineOf(h.parentNode));
+    });
+    if (pins) pins.addEventListener('click', function (e) { var p = e.target.closest('.pin'); if (p) choose(+p.getAttribute('data-i')); });
+    trio.addEventListener('click', function (e) {
+      var more = e.target.closest('[data-more]');
+      if (more) { more.parentNode.classList.add('is-full'); return; }
+      var b = e.target.closest('.card [data-step]');
+      if (!b || !open) return;
+      var n = open.items.length;
+      choose(((pick === null ? 0 : pick) + +b.getAttribute('data-step') + n) % n);
+    });
+    // Pointing at a criterion on the card lights its callout, which points at the piece it decides (V-2 at the jack).
+    trio.addEventListener('mouseover', function (e) {
+      var c = e.target.closest('.card [data-tag]');
+      if (c && open) focus(open.layers, [c.getAttribute('data-tag')]);
+    });
+    trio.addEventListener('mouseout', function (e) {
+      var c = e.target.closest('.card [data-tag]');
+      if (c && open && !c.contains(e.relatedTarget)) focus(open.layers);
+    });
+    addEventListener('keydown', function (e) {
+      if (!open || e.defaultPrevented || e.target.closest('input, textarea, select, [contenteditable]')) return;
+      if (e.key === 'Escape') { toggle(open); return; }
+      var n = open.items.length;
+      if (!n) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); choose(pick === null ? 0 : (pick + 1) % n); }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); choose(pick === null ? n - 1 : (pick - 1 + n) % n); }
+    });
+    // Pointing previews: before a line is open, pointing at one lights its pieces;
+    // inside an open line, pointing at an item pulses its pin and draws the connector faintly.
+    section.addEventListener('mouseover', function (e) {
+      var pr = e.target.closest('.pin-row');
+      if (open && pr && open.li.contains(pr)) { var i = +pr.getAttribute('data-i'); if (pick === null && hover !== i) { hover = i; marks(); } return; }
+      if (open && hover !== null) { hover = null; marks(); }
+      if (open) return;
+      var li = e.target.closest('.sov-line[data-el]');
+      each('.sov-line.is-hot', function (x) { x.classList.remove('is-hot'); }, section);
+      if (!li) { focus([]); return; }
+      li.classList.add('is-hot');
+      focus(lineOf(li).layers);
+    });
+    section.addEventListener('mouseleave', function () {
+      if (!open) { focus([]); each('.sov-line.is-hot', function (x) { x.classList.remove('is-hot'); }, section); }
+      else if (hover !== null) { hover = null; marks(); }
+    });
+    if (pins) {
+      pins.addEventListener('mouseover', function (e) { var p = e.target.closest('.pin'); if (p && pick === null) { hover = +p.getAttribute('data-i'); marks(); } });
+      pins.addEventListener('mouseout', function () { if (pick === null && hover !== null) { hover = null; marks(); } });
+    }
+    // The card changes the panel's height, which can move the drawing; the pins and the connector follow it.
+    if (aside && window.ResizeObserver && !printing) new ResizeObserver(function () { requestAnimationFrame(placePins); }).observe(aside);
+    // On a phone the no-rate items fold into one line the reader can tap open.
+    if (phone() && !printing) each('details[data-fold-phone]', function (d) { d.open = false; }, section);
+
+    /* Design and Engineering: the inks settle, the callouts show, and a criterion and its callout light together. */
+    var crit = '', pinnedCrit = '', critHover = false;
+    var callouts = q('[data-callout]');
     function lightCrit(code) {
       if (code === crit) return;
       crit = code;
       crits.forEach(function (li) { li.classList.toggle('is-now', li.getAttribute('data-crit') === code); });
       callouts.forEach(function (g) { g.classList.toggle('is-now', g.getAttribute('data-callout') === code); });
     }
+    function readingLine() { var top = hdH() + (phone() && aside ? aside.offsetHeight : 0); return top + (innerHeight - top) * 0.3; }
     function read() {
-      if (!items.length) return;
-      var line = readingLine();
-      var s = 'ledger';
-      if (design && design.getBoundingClientRect().top <= line) s = 'design';
-      setState(s);
-      if (s !== 'ledger') {
-        apply(items.length - 1, stories);
-        return;
+      var s = design && design.getBoundingClientRect().top <= readingLine() ? 'design' : 'sov';
+      if (s !== state) {
+        state = s;
+        trio.setAttribute('data-state', s);
+        if (s !== 'design') { pinnedCrit = ''; lightCrit(''); }
       }
-      // The current row is the first one at or below the band's bottom edge:
-      // a row goes under the band only after its turn. Its progress runs from
-      // the moment the row before it goes under to the moment it does.
-      var bottom = lensBottom(), idx = items.length - 1, rowP = 1, rh = rowHeight();
-      for (var i = 0; i < items.length; i++) {
-        var r = items[i].getBoundingClientRect();
-        if (r.top >= bottom - 2) { idx = i; rowP = clamp((bottom + rh - r.top) / rh); break; }
-      }
-      var nStories = framingAt < 0 || idx > framingAt ? stories : idx < framingAt ? 0 : Math.max(1, Math.ceil(rowP * stories));
-      if (reduce) nStories = stories;
-      apply(idx, nStories);
-    }
-    function all() { setState('design'); apply(items.length - 1, stories); }
-    // Scrolls so a row sits under the band's bottom edge, keeping the pinned section where it is.
-    function scrollToRow(item, rowP) {
-      var r = item.getBoundingClientRect();
-      var bottom = lensTop() + (lens ? lens.offsetHeight : 0);
-      var target = scrollY + r.top - bottom + rowHeight() * (rowP || 0.5) - rowHeight();
-      var t = trio.getBoundingClientRect();
-      var lo = scrollY + t.top - hdH() - 24, hi = scrollY + t.bottom - innerHeight;
-      target = Math.max(lo, Math.min(hi, target));
-      scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
-    }
-    function scrollToCrit(code) {
-      var li = crits.filter(function (c) { return c.getAttribute('data-crit') === code; })[0];
-      if (!li) return;
-      var target = scrollY + li.getBoundingClientRect().top - readingLine();
-      scrollTo({ top: target, behavior: reduce ? 'auto' : 'smooth' });
-    }
-    // Open or close a row, in the list and in the lens.
-    function toggle(item, open) {
-      setOpen(item, open);
-      if (open) openItem = item;
-      else if (openItem === item) openItem = items.filter(function (it) { return it.getAttribute('data-open') === 'true'; }).pop() || null;
-      focus();
-      if (lens && lens.getAttribute('data-row') === item.getAttribute('data-layer')) {
-        lens.setAttribute('data-open', String(open));
-        each('.lens-in', function (inner) { inner.setAttribute('data-open', String(open)); var b = inner.querySelector('.lg-btn'); if (b) b.setAttribute('aria-expanded', String(open)); }, lens);
-      }
-      sc.layout();
-    }
-    each('.lg-item .lg-btn[aria-expanded]', function (btn) {
-      btn.addEventListener('click', function () {
-        var item = btn.closest('.lg-item');
-        toggle(item, item.getAttribute('data-open') !== 'true');
-      });
-    }, section);
-    if (lens) lens.addEventListener('click', function (e) {
-      if (!e.target.closest('.lg-btn')) return;
-      var item = items[keys.indexOf(lens.getAttribute('data-row'))];
-      if (item) toggle(item, item.getAttribute('data-open') !== 'true');
-    });
-    var hovered = null;
-    function hover(g) {
-      if (g === hovered) return;
-      if (hovered) hovered.classList.remove('is-hover');
-      hovered = g;
-      if (g) g.classList.add('is-hover');
-      var code = g && g.hasAttribute('data-callout') ? g.getAttribute('data-callout') : '';
-      if (code || !critHover) lightCrit(code || pinnedCrit);
-    }
-    // A clicked criterion stays lit after the pointer leaves it (the scroll
-    // it starts moves the drawing under a still pointer) until another is
-    // hovered or clicked, or the sheet is left.
-    var critHover = false, pinnedCrit = '';
-    if (dwg && !printing) {
-      dwg.addEventListener('mousemove', function (e) {
-        var hit = pick(e.clientX, e.clientY);
-        hover(hit ? (hit.closest('[data-callout]') || hit.closest('[data-layer]')) : null);
-      });
-      dwg.addEventListener('mouseleave', function () { hover(null); });
+      if (open) requestAnimationFrame(placePins);
     }
     crits.forEach(function (li) {
       li.addEventListener('mouseenter', function () { critHover = true; lightCrit(li.getAttribute('data-crit')); });
       li.addEventListener('mouseleave', function () { critHover = false; lightCrit(pinnedCrit); });
       li.addEventListener('click', function () { pinnedCrit = li.getAttribute('data-crit'); lightCrit(pinnedCrit); });
     });
-    if (dwg) dwg.addEventListener('click', function (e) {
-      var hit = pick(e.clientX, e.clientY) || e.target;
-      var c = hit.closest('[data-callout]');
-      if (c) { pinnedCrit = c.getAttribute('data-callout'); scrollToCrit(pinnedCrit); lightCrit(pinnedCrit); return; }
-      var g = hit.closest('[data-layer]');
-      if (!g) return;
-      var item = items[rowOfLayer(g.getAttribute('data-layer'))];
-      if (!item) return;
-      setOpen(item, true);
-      scrollToRow(item, 0.5);
-      setTimeout(function () { read(); toggle(item, true); }, reduce ? 50 : 450);
+    if (svg && !printing) svg.addEventListener('click', function (e) {
+      var c = state === 'design' && e.target.closest('[data-callout]');
+      if (!c) return;
+      pinnedCrit = c.getAttribute('data-callout');
+      lightCrit(pinnedCrit);
+      var li = crits.filter(function (x) { return x.getAttribute('data-crit') === pinnedCrit; })[0];
+      if (li) scrollTo({ top: scrollY + li.getBoundingClientRect().top - readingLine(), behavior: reduce ? 'auto' : 'smooth' });
     });
-    /* LA-1504: with a division open, the section draws every layer, lights the
-       open division's (or its open item's) in place, and tags it. On a phone the
-       pinned section folds to one bar; one tap shows the drawing again. */
-    var openItem = null;
-    var dwgBox = dwg ? dwg.parentNode : null;
-    var tag = dwgBox && dwgBox.querySelector('[data-dwg-tag]');
-    var lead = dwgBox && dwgBox.querySelector('[data-dwg-lead]');
-    var foldName = trio.querySelector('[data-fold-name]');
-    function textOf(el) { return el ? el.textContent.replace(/\s+/g, ' ').trim() : ''; }
-    function focus() {
-      var on = !!openItem && openItem.getAttribute('data-open') === 'true';
-      trio.classList.toggle('trio--open', on);
-      if (!on) trio.classList.remove('trio--show');
-      if (dwgBox) dwgBox.classList.toggle('dwg--focus', on);
-      if (!on) { if (tag) tag.hidden = true; if (lead) lead.hidden = true; return; }
-      var idx = items.indexOf(openItem);
-      layers.forEach(function (g) {
-        var i = rowOfLayer(g.getAttribute('data-layer'));
-        g.classList.toggle('is-drawn', i > -1);
-        g.classList.toggle('is-now', i === idx);
+
+    // The camera follows the width: a phone's crop or a desktop's tall frame.
+    function place() {
+      if (!svg) return;
+      if (open && open.layers.length) setVb(boxOf(open.layers));
+      else setVb(home());
+      placePins();
+    }
+    // Print: every line open with its cards in place, the drawing whole and at rest.
+    function rest() {
+      if (open) { open = null; pick = null; hover = null; show(true); }
+      cam++;
+      setVb(BASE.slice());
+      focus([]);
+      lines.forEach(function (l) {
+        setOpen(l.li, true);
+        [l.card].concat(l.items.map(function (x) { return x.card; })).forEach(function (c) { if (c) { goHome(c); c.hidden = false; c.classList.add('is-in'); } });
       });
-      var si = openItem.querySelector('.si[data-open="true"]:not(.si--group)');
-      var btn = openItem.querySelector('.lg-btn');
-      var name = si ? textOf(si.querySelector('.ln-l')) : (textOf(btn.querySelector('.lg-div')) + ' ' + textOf(btn.querySelector('.lg-name').firstChild)).trim();
-      var figure = si ? textOf(si.querySelector('.ln-v')) : textOf(btn.querySelector('.lg-amt'));
-      var markEl = si ? si.querySelector('.si-meta .dv-cf') : btn.querySelector('.dv-cf');
-      if (foldName) foldName.textContent = name;
-      if (!tag) return;
-      tag.textContent = '';
-      var b = doc.createElement('b'); b.textContent = name; tag.appendChild(b);
-      var f = doc.createElement('span'); f.className = 'num'; f.textContent = figure; tag.appendChild(f);
-      if (markEl && markEl.textContent.trim()) tag.appendChild(markEl.cloneNode(true));
-      placeTag();
+      each('details[data-fold-phone]', function (d) { d.open = true; }, section);
+      state = 'design';
+      trio.setAttribute('data-state', 'design');
     }
-    // The tag sits beside the lit strokes, with a short lead to them: above a low layer, beside a tall one.
-    function placeTag() {
-      if (!tag || !dwgBox) return;
-      var lit = layers.filter(function (g) { return g.classList.contains('is-now') && g.querySelector('.s'); });
-      var c = dwgBox.getBoundingClientRect();
-      var rs = lit.map(function (g) { return g.getBoundingClientRect(); }).filter(function (r) { return r.width + r.height > 0; });
-      if (!rs.length || !c.width) { tag.hidden = true; if (lead) lead.hidden = true; return; }
-      tag.hidden = false;
-      var r = {
-        left: Math.min.apply(null, rs.map(function (x) { return x.left; })) - c.left,
-        right: Math.max.apply(null, rs.map(function (x) { return x.right; })) - c.left,
-        top: Math.min.apply(null, rs.map(function (x) { return x.top; })) - c.top,
-        bottom: Math.max.apply(null, rs.map(function (x) { return x.bottom; })) - c.top,
-      };
-      var w = tag.offsetWidth, h = tag.offsetHeight, gap = phone() ? 10 : 26;
-      var above = r.top - gap - h >= 8 && r.bottom - r.top < c.height * 0.45;
-      if (above) {
-        var x = Math.min(Math.max(8, r.left), c.width - w - 8), y = r.top - gap - h;
-        tag.style.left = x + 'px'; tag.style.top = y + 'px';
-        var lx = Math.min(Math.max(x + 12, (r.left + r.right) / 2), x + w - 12);
-        if (lead) { lead.hidden = false; lead.style.left = lx + 'px'; lead.style.top = y + h + 'px'; lead.style.width = '1px'; lead.style.height = gap - 2 + 'px'; }
-      } else {
-        var right = r.right + gap + w <= c.width - 8;
-        var x2 = right ? r.right + gap : Math.max(8, r.left - gap - w);
-        var y2 = Math.min(Math.max(8, r.top + (phone() ? 4 : 24)), c.height - h - 8);
-        tag.style.left = x2 + 'px'; tag.style.top = y2 + 'px';
-        if (lead) { lead.hidden = false; lead.style.top = y2 + h / 2 + 'px'; lead.style.left = (right ? r.right + 2 : x2 + w) + 'px'; lead.style.width = Math.max(0, right ? x2 - r.right - 2 : r.left - 2 - (x2 + w)) + 'px'; lead.style.height = '1px'; }
-      }
-    }
-    var show = trio.querySelector('[data-fold-show]');
-    if (show) show.addEventListener('click', function () { trio.classList.add('trio--show'); placeTag(); sc.layout(); });
-
-    // Tabs show one panel at a time, and an item opens to its own tabs.
-    function ownScope(el, scope) { return el.closest('.si-body, .dv-open') === scope; }
-    section.addEventListener('click', function (e) {
-      var tab = e.target.closest('.tab[data-tab]');
-      if (tab) {
-        var scope = tab.closest('.si-body, .dv-open');
-        each('.tab[data-tab]', function (t) {
-          if (!ownScope(t, scope)) return;
-          var on = t === tab;
-          t.classList.toggle('is-on', on);
-          t.setAttribute('aria-selected', String(on));
-        }, scope);
-        each('.dv-panel', function (p) { if (ownScope(p, scope)) p.hidden = p.getAttribute('data-panel') !== tab.getAttribute('data-tab'); }, scope);
-        sc.layout();
-        return;
-      }
-      var head = e.target.closest('.si-head');
-      if (head) {
-        var si = head.closest('.si');
-        var open = si.getAttribute('data-open') !== 'true';
-        si.setAttribute('data-open', String(open));
-        head.setAttribute('aria-expanded', String(open));
-        if (openItem && openItem.contains(si)) focus();
-        sc.layout();
-      }
-    });
-    window.addEventListener('resize', function () { if (openItem) placeTag(); });
-
-    hitAreas();
-    return { read: read, all: all, items: items, scrollToRow: scrollToRow, scrollToCrit: scrollToCrit, place: place };
+    crumb(['Building Section']);
+    return { read: read, place: place, rest: rest };
   })();
 
   /* ---- the waterfall: the figure advances as each line joins, and lands in light ----
@@ -609,7 +701,6 @@
     function land(on) {
       if (on === landed) return;
       landed = on;
-      if (on && hd) hd.removeAttribute('data-fig-wait');
       if (reduce || printing) { section.setAttribute('data-landed', on ? 'still' : 'none'); sizeSheet(on); return; }
       // Lay out the destination without animating, measure each mover's path, then play.
       flipVars(function () { section.setAttribute('data-landed', on ? 'measure' : 'measure-dark'); sizeSheet(on); });
@@ -648,7 +739,7 @@
     // 'instant', not 'auto': the stylesheet's smooth scroll-behavior would
     // otherwise glide the jump and replay every state on the way.
     scrollTo({ top: top, behavior: 'instant' });
-    driveHeader(); ledger.read(); wf.read(); spy();
+    opening.frame(); peakNear(); sov.read(); wf.read(); spy();
     if (sc.read) sc.read();
     try { history.pushState(null, '', '#' + id); } catch (e) {}
     setTimeout(function () { root.classList.remove('is-jump'); }, 80);
@@ -665,23 +756,21 @@
   var ticking = false;
   function onScroll() {
     if (ticking) return; ticking = true;
-    requestAnimationFrame(function () { ticking = false; driveHeader(); ledger.read(); wf.read(); spy(); });
+    requestAnimationFrame(function () { ticking = false; opening.frame(); peakNear(); sov.read(); wf.read(); spy(); });
   }
-  function relayout() { cropDrawings(); ledger.place(); sc.layout(); measureFlight(); driveHeader(); ledger.read(); wf.read(); spy(); }
+  function relayout() { cropDrawings(); sov.place(); sc.layout(); opening.measure(); opening.frame(); peakNear(); sov.read(); wf.read(); spy(); }
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('resize', relayout, { passive: true });
   if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(relayout);
 
-  /* ---- print: the engine at rest, every drill-down open, every layer drawn ---- */
+  /* ---- print: the engine at rest, every line open, the drawing whole ---- */
   function rest() {
-    each('.lg-item[data-open]', function (s) { setOpen(s, true); });
     each('[data-sc-act]', function (a) { a.style.setProperty('--sc-p', '1'); });
-    ledger.all();
+    sov.rest();
     wf.all();
-    if (band) { band.setAttribute('data-parked', 'false'); band.removeAttribute('data-fly'); if (fig) fig.style.transform = 'none'; if (wrap) wrap.style.transform = 'none'; }
   }
   addEventListener('beforeprint', rest);
-  window.KulkaBudget = { rest: rest, engine: sc, ledger: ledger, waterfall: wf };
+  window.KulkaBudget = { rest: rest, engine: sc, schedule: sov, waterfall: wf };
 
   /* ---- start ---- */
   relayout();

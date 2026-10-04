@@ -352,13 +352,13 @@ export const SECTIONS: readonly SectionHead[] = (
   // The ids are Version 1's, so every section keeps its element id; the titles
   // are the approved frames' (LA-1456, brief-v3).
   [
-  // LA-1467: the page opens on the wordmark, then a letter; the index starts at the letter.
+  // LA-1558: the opening hands off to the Schedule of Values (was The Ledger; the id stays), then the letter.
+  { id: "where-the-money-is", title: "Schedule of Values", indexLabel: "Schedule of Values" },
+  // LA-1459: the criteria are called out on the drawing, with no money.
+  { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering" },
   { id: "letter", title: "Letter", indexLabel: "Letter" },
   // LA-1504: Matt's estimate-standard terms (2026-10-02). The ids stay Version 1's.
   { id: "the-project", title: "Project Basis", indexLabel: "Project Basis" },
-  { id: "where-the-money-is", title: "The Ledger", indexLabel: "The Ledger" },
-  // LA-1459: the criteria are called out on the drawing, with no money.
-  { id: "design-and-engineering", title: "Design and Engineering", indexLabel: "Design and Engineering" },
   { id: "from-trades-to-total", title: "From Trades to Total", indexLabel: "From Trades to Total" },
   // LA-1504: What Is In moved into each division's Scope Decisions; the notes and parameters stay here.
   { id: "what-is-in", title: "Clarifications", indexLabel: "Clarifications" },

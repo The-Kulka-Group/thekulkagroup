@@ -364,11 +364,12 @@ describe("sections", () => {
 
     // LA-1309, "Sections". LA-1462 drops the Summary, Detail and Full depths:
     // the client page shows everything, so no section or fact carries a tier.
+    // LA-1558: the opening hands off to the Schedule of Values, then the letter.
     expect(page.sections.map((s) => s.id)).toEqual([
-      "letter",
-      "the-project",
       "where-the-money-is",
       "design-and-engineering",
+      "letter",
+      "the-project",
       "from-trades-to-total",
       "what-is-in",
       "what-happens-next",

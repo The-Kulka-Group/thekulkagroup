@@ -59,10 +59,12 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         ].filter(Boolean);
         if (problems.length) bad.push(`${el.tagName.toLowerCase()}.${el.className || ""}[${el.getAttribute("data-el") ?? ""}] ${problems.join(", ")}`);
       }
-      const scopes = [...document.querySelectorAll(".lg-item[data-open]")].filter(shown);
+      // LA-1558: every line of the Schedule of Values open, with its cards shown.
+      const scopes = [...document.querySelectorAll(".sov-line[data-open]")].filter(shown);
       const closed = scopes.filter(
-        (s) => s.getAttribute("data-open") !== "true" || getComputedStyle(s.querySelector(".lg-lines")!).display === "none",
+        (s) => s.getAttribute("data-open") !== "true" || getComputedStyle(s.querySelector(".fold")!).visibility !== "visible",
       );
+      const hiddenCards = [...document.querySelectorAll(".sov-line .card")].filter((c) => !shown(c)).length;
       // LA-1459: every layer of the section is drawn, and the drawing at rest is the one sheet.
       const undrawn = [...document.querySelectorAll('[data-dwg="section"] [data-layer], [data-dwg="section"] [data-story]')].filter(
         (g) => getComputedStyle(g).opacity !== "1",
@@ -73,6 +75,7 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         bad,
         scopes: scopes.length,
         closed: closed.length,
+        hiddenCards,
         actsNotAtEnd: acts.filter((a) => (a as HTMLElement).style.getPropertyValue("--sc-p") !== "1").length,
         acts: acts.length,
         pinnedStage: getComputedStyle(document.querySelector("#from-trades-to-total [data-sc-stage]")!).position,
@@ -86,6 +89,7 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
     expect(state.bad).toEqual([]);
     expect(state.scopes).toBeGreaterThan(5);
     expect(state.closed).toBe(0);
+    expect(state.hiddenCards).toBe(0);
     expect(state.acts).toBeGreaterThan(0);
     expect(state.actsNotAtEnd).toBe(0);
     expect(state.pinnedStage).toBe("static");
@@ -110,7 +114,7 @@ test("the PDF has a stable page count, clean page breaks and named destinations"
   expect(b.pages.length).toBe(a.pages.length);
 
   // LA-1504: Notes and Clarifications became the Clarifications sheet.
-  const titles = ["The Ledger", "Design and Engineering", "From Trades to Total", "Clarifications"];
+  const titles = ["Schedule of Values", "Design and Engineering", "From Trades to Total", "Clarifications"];
   // A title starts a page when nothing sits above it in the body area, below the running header.
   const bodyTop = PAGE_HEIGHT - TOP_MARGIN;
   const startsPage = (title: string) =>
@@ -143,11 +147,11 @@ async function headingTexts(): Promise<Set<string>> {
   const browser = await launchChromium();
   try {
     const { page } = await openPrintPage(browser, job);
-    // LA-1504: a criterion's name is also a Basis label in the ledger, so a
+    // LA-1504: a criterion's name also reads on an item's card, so a
     // text that also reads outside a heading is not counted as one.
     const texts = await page.evaluate(() => {
       const headings = [...document.querySelectorAll("h1, h2, h3")].filter((h) => h.getClientRects().length > 0).map((h) => (h as HTMLElement).innerText.trim());
-      const elsewhere = new Set([...document.querySelectorAll(".as-l, .raise-t, .dec-l")].map((el) => (el as HTMLElement).innerText.replace(/^[A-Z]-\d+\s*/, "").trim()));
+      const elsewhere = new Set([...document.querySelectorAll(".chip, .card-raise p, .dec-l")].map((el) => (el as HTMLElement).innerText.replace(/^[A-Z]-\d+\s*/, "").replace(/:.*$/, "").trim()));
       return headings.filter((t) => !elsewhere.has(t));
     });
     return new Set(texts);

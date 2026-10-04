@@ -203,6 +203,10 @@ details.extra summary::-webkit-details-marker { display: none; }
   .chev, .card-f .step, .card-f .hint, .card-wait .more, .pins, .wire, .crumb, .card-slot { display: none !important; }
   .card-wait .t { display: block !important; }
   .sov-h, .pin-row, .sov-total, .dec li { break-inside: avoid; }
+  /* Paper is narrower than a phone's breakpoint; it reads the desktop's words and keeps the schedule's own section. */
+  .only-phone { display: none !important; }
+  .only-desk { display: revert !important; }
+  .trio-main, .trio .sheet--sov { display: block !important; }
   /* On paper each item's card stands for its row. */
   .lv2 > .pin-row, .card--item .card-f { display: none !important; }
 }

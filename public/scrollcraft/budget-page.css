@@ -86,7 +86,8 @@ b, strong { font-weight: 600; }
   z-index: 60;
   background: var(--rb-black);
   color: var(--rb-ink-on-black);
-  padding: 0 24px;
+  /* The header's edge lines up with the Schedule of Values beneath it. */
+  padding: 0 64px;
 }
 .hd-t1 {
   display: flex;
@@ -659,9 +660,9 @@ html[data-print] .op-lbl, html[data-print] .op-n-l, html[data-print] .op-facts, 
   .sc-stage, [data-sc-stage] { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
   [data-sc-cue], [data-sc-in], [data-sc-stagger] > *, .sc-split__i { opacity: 1 !important; transform: none !important; visibility: visible !important; pointer-events: auto !important; transition: none !important; animation: none !important; }
   .lg-row, .note, .criterion, .fact, .plain li, .wf-row, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .crit li { break-inside: avoid; }
-  /* LA-1420: the stored PDF starts these four on a fresh page. What Is In,
-     and What Is Not, follows From Trades to Total on the page it ends on. */
-  #where-the-money-is, #design-and-engineering, #from-trades-to-total, #notes { break-before: page; }
+  /* LA-1420: the stored PDF starts each of these on a fresh page. LA-1558: the
+     letter follows Design and Engineering now, so it starts one too. */
+  #where-the-money-is, #design-and-engineering, #letter, #from-trades-to-total, #notes, #what-is-in { break-before: page; }
   h1, h2, h3, h4 { break-after: avoid; }
   /* The three columns stack on paper, each kept whole, so no heading strands at a page foot. */
   .gates-grid { display: block; }

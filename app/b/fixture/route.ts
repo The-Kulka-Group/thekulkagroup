@@ -10,12 +10,14 @@ export const dynamic = "force-dynamic";
 // /b/<token>, so the page can be served locally with no database and shot by
 // the scrollcraft harness. In production it is a plain 404 and the fixture is
 // never loaded: the import below runs only outside production.
+// LA-1566: it shows the run as publishing freezes it now, with the duration
+// estimate, so the opening reads three numbers.
 export async function GET(request: Request): Promise<Response> {
   if (process.env.NODE_ENV === "production") {
     return new Response("Not Found", { status: 404, headers: { ...PUBLISHED_BUDGET_HEADERS, "Content-Type": "text/plain; charset=utf-8" } });
   }
-  const { referencePublication } = await import("@/test/fixtures/published-budget");
+  const { estimatedPublication } = await import("@/test/fixtures/published-budget");
   const print = new URL(request.url).searchParams.get("print") === "1";
-  const html = renderBudgetPage(presentBudget(referencePublication()), { print });
+  const html = renderBudgetPage(presentBudget(estimatedPublication()), { print });
   return new Response(html, { status: 200, headers: { ...PUBLISHED_BUDGET_HEADERS, "Content-Type": "text/html; charset=utf-8" } });
 }

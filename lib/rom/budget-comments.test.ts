@@ -689,8 +689,13 @@ describe("removeMessage and removeProposed", () => {
 
 describe("loadThread", () => {
   it("returns a thread with every message oldest first, and null for an unknown or malformed id", async () => {
+    // Writes in the same millisecond tie on time, and the thread cannot order
+    // them. Real replies never land that close, so the test waits (LA-1565).
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
     const { thread } = await comment("question");
+    await tick();
     await replyToThread(db as Db, { threadId: thread.id, author: "staff", staff: STAFF, body: "Yes.", internal: true });
+    await tick();
     await replyToThread(db as Db, { threadId: thread.id, author: "staff", staff: STAFF, body: "Yes, it is." });
     const loaded = await loadThread(db as Db, thread.id);
     expect(loaded?.messages.map((m) => m.body)).toEqual(["Is this the figure with the garage?", "Yes.", "Yes, it is."]);

@@ -1060,7 +1060,7 @@ describe("demolition benchmark units (LA-1156, ADR 0006)", () => {
 
     // Documents existing, pre-LA-1156 behavior rather than fixing it: a
     // branch gate left unanswered prices as "assumed present"
-    // (packages/engine/src/rom-gates.ts, CONTEXT.md's Branch gate entry).
+    // (packages/engine/src/rom-gates.ts, GLOSSARY.md's Branch gate entry).
     // Item 1 already carries a branch_gate_items row keyed to "demolition";
     // this is not a new rule LA-1156 adds, and changing the silence default
     // is out of this ticket's file lane. Item 1a has no such row and is

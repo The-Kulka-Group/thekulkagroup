@@ -191,7 +191,7 @@ describe("judgment rules in the blend", () => {
   });
 
   // A gate the intake asks has to change what the ROM says, or the question
-  // was for nothing (CONTEXT.md: Branch gate).
+  // was for nothing (GLOSSARY.md: Branch gate).
   it("states what a closed gate carries nothing for", () => {
     const answers: Answers = { ...ANSWERS, branchGates: { demolition: "no" } };
     const rom = computeRom(answers, snapshot([benchmark()]));

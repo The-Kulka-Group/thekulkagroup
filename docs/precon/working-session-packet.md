@@ -1,7 +1,7 @@
 # Working-session packet: fields, schema, and two decisions
 
 Written 2026-08-27 for LA-17. Background is `docs/precon/rom-spec.md` and
-`docs/precon/direction.md`. Vocabulary is law in the repo root `CONTEXT.md`.
+`docs/precon/direction.md`. Vocabulary is law in the repo root `GLOSSARY.md`.
 
 For the working session with Jesse and Liam. Rob, Devin, and Matthew join. The meeting
 notes say Monday 1 September 2026, but that date is a Tuesday, so the day or the date

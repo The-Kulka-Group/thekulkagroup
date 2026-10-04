@@ -50,7 +50,7 @@ would be invented precision.
 ## The run is unchanged
 
 The live budget in New Budget leaves an unanswered scope question's items off the screen
-and out of its total. A run still prices silence as assumed present, as CONTEXT.md's
+and out of its total. A run still prices silence as assumed present, as GLOSSARY.md's
 Branch gate says. The two never disagree in practice, because New Budget asks every
 question before Review, so no run it starts carries silence.
 

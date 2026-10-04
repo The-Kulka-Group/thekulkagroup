@@ -473,7 +473,7 @@ browser. It is the name the client reads, because sign-in is off and the account
 would read `open-access`.
 
 **Who at Kulka may resolve.** Anyone using the internal app, for now. The app has no
-roles in v1 (CONTEXT.md, Admin permission), and with sign-in off there is no person to
+roles in v1 (GLOSSARY.md, Admin permission), and with sign-in off there is no person to
 check. When sign-in returns, a flag's Accept and Decline could move behind a permission.
 
 ## Decision 5: what the client sees afterward

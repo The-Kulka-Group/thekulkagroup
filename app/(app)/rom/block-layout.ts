@@ -120,7 +120,7 @@ export type HeadlineFacts = {
 /**
  * The one place that decides what the header says, for New Budget and a saved
  * budget alike. With markups, the total is Kulka's contract with GRs/GCs, fee
- * and insurance, plus any owner-direct scope (CONTEXT.md: Total project cost).
+ * and insurance, plus any owner-direct scope (GLOSSARY.md: Total project cost).
  * The line under the label names only the markups that are in it (LA-1369).
  * Without them, which is New Budget before its markup questions or a run
  * recorded before LA-1016, the figure is trade cost, and the line under the

@@ -226,7 +226,7 @@ export function RomRunner({
   const opener = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  // LA-1159, ADR 0006, CONTEXT.md: View. New budget always opens on By Scope.
+  // LA-1159, ADR 0006, GLOSSARY.md: View. New budget always opens on By Scope.
   // A saved ROM opens on By Scope when most of its trade cost has no stated
   // buyout package, and on By Package once most of it does (LA-1210,
   // defaultRomView, view-groups.ts) -- production has almost none stated

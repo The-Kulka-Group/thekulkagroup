@@ -21,7 +21,7 @@ import { readFlowAnswers, visibleQuestions, type FlowDefinition, type Responses 
  *
  * A required question left blank is read as not answered rather than refused,
  * which is what the run does with a blank on the project record: an
- * unanswered scope gate prices as "assumed present" (CONTEXT.md: Branch gate).
+ * unanswered scope gate prices as "assumed present" (GLOSSARY.md: Branch gate).
  * So the preview shows each gated item as assumed until its question is
  * answered, the same state the run would name.
  *

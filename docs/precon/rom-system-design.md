@@ -2,7 +2,7 @@
 
 Written 2026-09-15 after reading six ProEst unit-cost exports and four Autodesk Cost
 reports. Background is `docs/precon/rom-spec.md` and `docs/precon/direction.md`.
-Vocabulary is law in the repo root `CONTEXT.md`.
+Vocabulary is law in the repo root `GLOSSARY.md`.
 
 This answers the question Matt asked: retrieval-augmented generation, a vector database,
 or something else. The answer is something else, and the data is the reason.

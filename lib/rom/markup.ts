@@ -158,7 +158,7 @@ function toRecord(row: HistoryRow): MarkupHistoryRecord {
  *
  * pct_of_subtotal is the line's value over the sum of the import's other
  * trade lines: 'approved' lines once the import is approved, 'staged' lines
- * before. Owner-direct lines stay out of that sum, because CONTEXT.md keeps
+ * before. Owner-direct lines stay out of that sum, because GLOSSARY.md keeps
  * owner-direct scope out of Kulka's General Conditions benchmarks.
  *
  * A split budget records one gr_only and one gc_only line for the same

@@ -12,7 +12,7 @@
 // Matt's rates -- $35,000 hydraulic and $45,300 traction per stop; $16,600 a
 // single-car bulkhead, $28,700 for two cars sharing one, stated 2026-09-27 --
 // are never hardcoded here. They arrive as benchmark rows with their own
-// provenance, the same as every other rate in this engine (CONTEXT.md:
+// provenance, the same as every other rate in this engine (GLOSSARY.md:
 // Benchmark, Provenance). This file only says which row a project's facts
 // pick and what quantity the picked rate multiplies by.
 

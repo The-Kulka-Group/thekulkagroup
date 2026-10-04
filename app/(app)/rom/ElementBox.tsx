@@ -11,7 +11,7 @@ import { SpringMoney } from "./SpringMoney";
 
 // LA-1158, ADR 0006. "On the ROM screen an element is the parent box: it
 // shows the sum of its items, with the driver as a full-width tile and each
-// supporting item as its own tile inside it" (CONTEXT.md: Element).
+// supporting item as its own tile inside it" (GLOSSARY.md: Element).
 //
 // Two renderings share this file:
 //   - ElementBoxBlock, the saved ROM (RomRunner.tsx): a static box, every

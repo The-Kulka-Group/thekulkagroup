@@ -11,7 +11,7 @@ import { toDateOnly, toIso } from "./date";
 // import gate next door in lib/rom/ingest.ts: validation is pure, every
 // database side effect lives here, and the engine stays pure.
 //
-// Who may approve is Devin and Rob's open decision (CONTEXT.md ties it to the
+// Who may approve is Devin and Rob's open decision (GLOSSARY.md ties it to the
 // admin permission, which is not built). Until it lands, approval works like
 // any other gate approval: any signed-in, allowlisted user, recorded by email
 // and time.

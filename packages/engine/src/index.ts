@@ -1,5 +1,5 @@
 // Public API of the ROM engine: the deterministic layer described in
-// `docs/precon/rom-spec.md` and defined under Engine in `CONTEXT.md`.
+// `docs/precon/rom-spec.md` and defined under Engine in `GLOSSARY.md`.
 
 export {
   blendExample,

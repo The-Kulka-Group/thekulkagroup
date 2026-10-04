@@ -15,7 +15,7 @@ Research only. No code was written or changed for this ticket.
 LA-775's own ticket body could not be fetched: the Linear MCP connector requires
 authorization that was not available during this research session, on top of the API
 outage noted in the ticket brief. Everything below works from the title, the LA-771
-sibling pattern, and the repo's own definitions in `CONTEXT.md` and
+sibling pattern, and the repo's own definitions in `GLOSSARY.md` and
 `docs/precon/rom-spec.md`. See "Scope may not match the ticket" below: the research
 turned up a reason to doubt the inferred scope, not just a gap in fetching it.
 
@@ -40,7 +40,7 @@ computation (exact math, calculations)," "database lookups (retrieving specific
 records)," "text generation," "free-form reasoning." (System One overview page,
 above.) That line is the crux of this ticket.
 
-This matches how the repo already defines Jev's job. `CONTEXT.md`'s "Code lookup"
+This matches how the repo already defines Jev's job. `GLOSSARY.md`'s "Code lookup"
 entry: Jev is for the case where "the answer turns on a code requirement specific to
 the project's municipality and authority having jurisdiction... rather than on a fact
 the estimator can state from memory or one the tool can derive from another captured
@@ -85,10 +85,10 @@ none of which require semantic judgment:
 
 None of that is a judgment call. It is arithmetic (sum fixture units) plus two table
 lookups (fixture units → flow, flow/pressure/length → diameter). The ROM engine should
-implement it directly as a deterministic function, the same way `CONTEXT.md` defines
+implement it directly as a deterministic function, the same way `GLOSSARY.md` defines
 **Engine**: "The deterministic code that turns answers and database values into a ROM.
 Math lives here, never in a prompt." Routing this through an AI/jurisdiction tool would
-put math in a place `rom-spec.md` and `CONTEXT.md` both say math does not belong.
+put math in a place `rom-spec.md` and `GLOSSARY.md` both say math does not belong.
 
 ### Where Jev could still matter: which code edition/variant applies
 
@@ -107,7 +107,7 @@ So the honest split, in the repo's own vocabulary:
   and the final table lookup for diameter.
 - **Code lookup (Jev, if built):** which code family and edition governs the project
   (IPC vs. UPC, and any local amendment to the fixture-unit table or minimum sizes),
-  keyed off the project's address/jurisdiction — the same mechanism `CONTEXT.md`
+  keyed off the project's address/jurisdiction — the same mechanism `GLOSSARY.md`
   already names for other AHJ-specific gates.
 
 This is a narrow, low-frequency lookup (which code edition, not which pipe size), and
@@ -167,7 +167,7 @@ buildable as scoped, or may not be needed at all right now:
    (bath fixtures) and **unit count** (kitchen fixtures), decided by Matt on
    2026-09-19 during LA-720: "same driver split as item 29... Bath connections price
    on fixture points; kitchen and appliance connections price on unit count." Nothing
-   in the canonical work items list, the ROM spec, or CONTEXT.md ties pipe diameter,
+   in the canonical work items list, the ROM spec, or GLOSSARY.md ties pipe diameter,
    pipe length, or a Hunter's-Curve flow figure to any benchmark. If pipe sizing
    doesn't feed a cost line, it's not clear what a ROM conceptual budgeting tool needs
    it for — Kulka's own five priced files apparently didn't need it either (per the

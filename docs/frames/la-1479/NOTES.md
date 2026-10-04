@@ -20,7 +20,7 @@ This is round three.
 
 1. **Two views of the ledger.** By Division is the default, with the MasterFormat titles
    (Existing Conditions, Conveying Equipment). The second view is Matt's "Module view",
-   which means Elements as CONTEXT.md defines them (a driver plus its supporting items). A
+   which means Elements as GLOSSARY.md defines them (a driver plus its supporting items). A
    two-way switch in the ledger header reads "By Division" and "By Element".
 2. **Three confidence marks**, High, Medium and Low, with the half dot for Medium.
 3. **No past jobs on the client page.** Clients see nothing about how many projects support
@@ -207,7 +207,7 @@ These are the seven rows of the What the Model Needs panel on frame 05.
 
 ## Decisions and why
 
-- **By Element keeps every line once.** CONTEXT.md says every view shows every line exactly
+- **By Element keeps every line once.** GLOSSARY.md says every view shows every line exactly
   once and the same total. The two real elements lead, and the 34 lines with no element sit
   in one row, Not in an Element. I added no element the model does not have.
 - **The seven Elevator supporting items stay under 14 in the division view.** Matt's call

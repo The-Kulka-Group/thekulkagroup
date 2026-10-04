@@ -155,7 +155,7 @@ from stories), never something extracted from a document.
 ## `src/utils/__tests__/romToEstimate.test.js` (5 cases)
 
 All five seed a hard-bid estimate from a ROM. **Rejected**: "estimate" belongs to
-hard-bid work (CONTEXT.md), and the ROM tool stops at a ROM.
+hard-bid work (GLOSSARY.md), and the ROM tool stops at a ROM.
 
 ## `api/discovery/lib/__tests__/romFromCore.test.js` (6 cases)
 

@@ -46,7 +46,7 @@ function range(value: { low: number; high: number }): string {
   return `${DOLLARS.format(value.low)} to ${DOLLARS.format(value.high)}`;
 }
 
-// The kinds in the words CONTEXT.md uses for them.
+// The kinds in the words GLOSSARY.md uses for them.
 const KIND_LABEL: Record<ProvenanceKind, string> = {
   actuals: "Actuals",
   proest_budget: "ProEst budget",
@@ -294,7 +294,7 @@ export function BlockPanel({
   );
 }
 
-// What stands behind the flag, in the words CONTEXT.md uses. A model's figure
+// What stands behind the flag, in the words GLOSSARY.md uses. A model's figure
 // is not a comparable, so a line resting on one alone says so outright.
 function behind(line: RomLine): string {
   if (line.comparables.every((c) => c.kind === "llm_proposal")) return "no Kulka data behind it";

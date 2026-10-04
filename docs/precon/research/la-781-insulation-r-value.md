@@ -18,7 +18,7 @@ LA-781's own ticket body could not be fetched: the Linear MCP connection in this
 session was unauthenticated, and the earlier outage noted in the ticket brief was
 still not resolved when this research ran. Everything below is built from the
 ticket title, the sibling-ticket pattern (LA-771/774/775/776/777/784, all created
-2026-09-20 under parent LA-675), and this repo's own definitions in `CONTEXT.md`
+2026-09-20 under parent LA-675), and this repo's own definitions in `GLOSSARY.md`
 and `docs/precon/rom-spec.md`. If the real ticket asks for something narrower or
 broader than "does climate zone determine required R-value/type, and does Jev need
 to be involved," that should be checked against the actual ticket text before this
@@ -109,7 +109,7 @@ external call:
 
 1. **County to climate zone**, keyed by state + county, sourced from IECC
    C301.1/R301.1 (itself sourced from ASHRAE 169). Re-derived only when the ROM
-   engine adopts a new IECC edition, which per the CONTEXT.md/rom-spec pattern
+   engine adopts a new IECC edition, which per the GLOSSARY.md/rom-spec pattern
    for other code-driven gates would be a deliberate, reviewed update, not a
    live lookup.
 2. **Climate zone + edition to R-value/type**, sourced from Table R402.1.2 /
@@ -153,7 +153,7 @@ This is lower stakes than the fire/life-safety gates in the same list
 (emergency responder radio coverage, fire alarm notification type), which stay
 `asked outright` today specifically because Jev's lookup for them does not exist
 yet and getting them wrong has life-safety and licensing consequences per
-`CONTEXT.md`'s "Code lookup" definition. Insulation R-value being off by one
+`GLOSSARY.md`'s "Code lookup" definition. Insulation R-value being off by one
 zone is a budget-accuracy problem, not a life-safety problem, so it does not
 need the same asked-outright fallback or the same AI-sourcing caution; a cited
 table lookup with a visible source citation is enough.

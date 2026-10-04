@@ -5,7 +5,7 @@ import { SCOPE_QUESTIONS, type GateAnswers } from "@/lib/rom/gates";
 import "./scope.css";
 
 // LA-1028. The Scope module in Run settings (LA-1101), above the GRs/GCs module: one
-// row per yes/no scope question (CONTEXT.md: Branch gate), prefilled from
+// row per yes/no scope question (GLOSSARY.md: Branch gate), prefilled from
 // the project record, sent with the run request, and recorded with it. This
 // is what makes the intake's scope questions actually switch a canonical
 // item on or off, instead of only showing up as a line in the assumptions.

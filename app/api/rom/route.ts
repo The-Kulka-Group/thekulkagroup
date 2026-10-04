@@ -24,7 +24,7 @@ function isResponses(value: unknown): value is Responses {
 
 // The one API the surfaces call. The site is the first; the Claude wrapper and
 // ChatGPT reach the same route later, which is what keeps the math out of a
-// prompt and the outputs the same for everyone (CONTEXT.md, controlled goalposts).
+// prompt and the outputs the same for everyone (GLOSSARY.md, controlled goalposts).
 //
 export async function POST(request: Request) {
   const denied = await requireApiUser(request);

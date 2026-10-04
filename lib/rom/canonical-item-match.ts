@@ -21,7 +21,7 @@
 // that reads the full line (description, division, amount, neighboring
 // rows) and proposes a canonical item with its own stated confidence and
 // reasoning -- still landing in staging behind the same human approval gate
-// this ticket builds, per CONTEXT.md's "controlled goalposts" principle (AI
+// this ticket builds, per GLOSSARY.md's "controlled goalposts" principle (AI
 // output enters the database only through review, never by writing
 // directly). Swapping that in means replacing the body of
 // `bestCanonicalMatch` below; nothing else in the ingestion pipeline

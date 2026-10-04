@@ -1,5 +1,5 @@
 // Branch gate items (LA-1028): the map from an intake answer to the one
-// canonical work item it switches on or off. CONTEXT.md's Branch gate entry
+// canonical work item it switches on or off. GLOSSARY.md's Branch gate entry
 // promises "a 'no' prices that section at zero" and "a 'don't know' shows
 // TBD"; this file is the map that makes those promises real at the line
 // level instead of only in words on the assumptions list.
@@ -37,7 +37,7 @@ export type BranchGateItemRule = {
 };
 
 /**
- * What one gated item resolves to (CONTEXT.md: Branch gate, plus Matt's
+ * What one gated item resolves to (GLOSSARY.md: Branch gate, plus Matt's
  * 2026-09-24 semantics for silence): `priced` reads exactly as it would with
  * no gate at all. `not_in_job` is a "no": removed from the total. `tbd` is a
  * "don't know": outside the total, shown as TBD. `assumed_present` is

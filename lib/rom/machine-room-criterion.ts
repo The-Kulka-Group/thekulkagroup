@@ -9,6 +9,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
+import { V3_TRACTION, v3SeparateCores, v3SharedRoom } from "./criterion-wording";
 import { deleteDerivedAssumption, listDerivedAssumptions, saveDerivedAssumption } from "./derived-assumptions";
 
 // LA-1269. V-3, Elevator Machine Rooms: how many elevator machine rooms or
@@ -108,9 +109,11 @@ export function deriveMachineRooms(facts: MachineRoomFacts): DerivedAssumption {
     reason = confident
       ? `One hydraulic car per building, each with its own machine room at the lowest landing, conditioned to the maker's 55 to 90°F (IBC 3005.2).`
       : [
-          "Hydraulic cars share one machine room per bank at the lowest landing (Otis, Schindler), conditioned to the maker's range (IBC 3005.2).",
-          perBuilding > 1 ? `With ${perBuilding} cars in a building, separate cores would double the rooms.` : "",
-          !facts.typeSettled ? "V-1 could still flip to traction, which has no machine room." : "",
+          perBuilding > 1
+            ? v3SharedRoom(perBuilding)
+            : "Hydraulic cars share one machine room per bank at the lowest landing (Otis, Schindler), conditioned to the maker's range (IBC 3005.2).",
+          perBuilding > 1 ? v3SeparateCores(perBuilding) : "",
+          !facts.typeSettled ? V3_TRACTION : "",
           !roomCertain ? "A holeless jack under 34 ft can go roomless outside NYC." : "",
           buildings === null ? "Building count is not answered, so one is assumed." : "",
         ]

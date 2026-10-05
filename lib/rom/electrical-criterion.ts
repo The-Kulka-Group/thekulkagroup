@@ -8,6 +8,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
+import { E1_AMENITY, E1_ELEVATOR } from "./criterion-wording";
 import { deleteDerivedAssumption, saveDerivedAssumption } from "./derived-assumptions";
 import { SERVICE_RATINGS } from "./engineering-tables";
 
@@ -231,10 +232,8 @@ export function deriveElectricalService(facts: ElectricalFacts): DerivedAssumpti
     facts.constructionKind === "renovation"
       ? "A renovation may keep its existing service, and NEC 220.87 lets the engineer size from measured demand."
       : "",
-    amenity
-      ? "Amenity space and equipment are not measured, so the common area is priced at the clubs rate and pool or sauna equipment is left out."
-      : "",
-    result.elevatorVa > 0 ? "Elevator motors carry a 40 HP placeholder until the elevator vendor's data replaces it." : "",
+    amenity ? E1_AMENITY : "",
+    result.elevatorVa > 0 ? E1_ELEVATOR : "",
     garage ? "Gross square feet may include a garage, which inflates the unit area, and garage exhaust is not sized." : "",
     overLimit
       ? "One service at 208Y/120 V tops out at 4,000 A with PSEG Long Island; the engineer would split the service or go to 480Y/277 V."

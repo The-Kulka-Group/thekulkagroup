@@ -72,7 +72,7 @@ describe("deriveElevatorType", () => {
     expect(result!.assumption.confidence).toBe("low");
   });
 
-  it("with no Jev client configured, the either band proposes Hydraulic at low confidence and says Jev was not called", async () => {
+  it("with no Jev client configured, the either band proposes Hydraulic, the less expensive type, at low confidence", async () => {
     const result = await deriveElevatorType(null, {
       storiesAboveGrade: 6,
       framingSystem: "wood",
@@ -80,7 +80,7 @@ describe("deriveElevatorType", () => {
     });
     expect(result!.assumption.value).toEqual({ kind: "spec", text: "Hydraulic" });
     expect(result!.assumption.confidence).toBe("low");
-    expect(result!.assumption.confidenceReason).toMatch(/nothing is set up to choose/i);
+    expect(result!.assumption.confidenceReason).toMatch(/the budget assumes hydraulic, the less expensive option/i);
     expect(result!.jev).toBeNull();
   });
 

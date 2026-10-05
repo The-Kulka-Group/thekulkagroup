@@ -5,6 +5,7 @@ import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
 import { buildField, divisionFor, divisionRank, orderField, statedDivisions } from "@/app/(app)/rom/field-order";
 import flow from "@/config/rom/tier1-flow.json";
 import { titleCase } from "@/lib/format/title-case";
+import { currentWording } from "@/lib/rom/criterion-wording";
 import { publicWording } from "@/lib/rom/derived-assumptions";
 import { ITEM_DIVISION_MAP, compareItemCodes } from "@/lib/rom/masterformat-item-divisions";
 import { scheduledMonths, type PublishedBudgetSnapshot, type PublishedStage } from "@/lib/rom/published-snapshot";
@@ -1385,7 +1386,8 @@ export function presentBudget(publication: Publication): BudgetPage {
     ]),
   ];
 
-  const criteria: Criterion[] = snapshot.criteria.map((a) => {
+  const criteria: Criterion[] = snapshot.criteria.map((stored) => {
+    const a = currentWording(stored);
     const value = a.correction?.value ?? a.value;
     return {
       el: `criterion:${a.code}`,

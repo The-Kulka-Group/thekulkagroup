@@ -18,6 +18,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
+import { v1EitherBand } from "./criterion-wording";
 import { saveDerivedAssumption } from "./derived-assumptions";
 import { createJevClient, deriveAssumption, type DerivationCandidate, type JevClient } from "./jev";
 
@@ -198,7 +199,7 @@ export async function deriveElevatorType(
     assumption: direct(
       "Hydraulic",
       "low",
-      `${reasons.low} Nothing is set up to choose between the two, so V-1 proposes Hydraulic, the cheaper type.`,
+      v1EitherBand(travel, HYDRAULIC_MAX_FEET, TRACTION_MIN_FEET),
       inputs,
       [...steps, { label: "Band", result: "Either; nothing set up to choose, so Hydraulic" }],
     ),

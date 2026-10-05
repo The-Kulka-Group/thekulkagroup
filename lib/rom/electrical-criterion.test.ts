@@ -90,8 +90,8 @@ describe("deriveElectricalService", () => {
     expect(card.costCodes).toEqual(["31"]);
     expect(card.steps.at(-1)).toEqual({ label: "Service Size", result: "2,500 A" });
     expect(card.confidence).toBe("low");
-    expect(card.confidenceReason).toContain("clubs rate");
-    expect(card.confidenceReason).toContain("40 HP placeholder");
+    expect(card.confidenceReason).toContain("club rates");
+    expect(card.confidenceReason).toContain("Elevator motors use 40 HP");
     expect(card.inputs.find((one) => one.name === "Elevator Motor")?.basis).toBe("assumed");
   });
 

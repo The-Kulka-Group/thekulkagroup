@@ -41,9 +41,9 @@
   --rb-blk-hover: #F6F5F1;
 
   /* The two-tier header */
-  --hd-t1: 56px;
+  --hd-t1: 72px;
   --hd-t2-h: 40px;
-  --hd-h: 96px;
+  --hd-h: 112px;
   --ease: cubic-bezier(0.2, 0, 0.2, 1);
 
   /* The engine's floor, in the page's own colours. */
@@ -76,8 +76,9 @@ b, strong { font-weight: 600; }
 [data-sc-progress] { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--primary); z-index: 61; pointer-events: none; }
 
 /* --- The two-tier header -------------------------------------------------------
-   Tier one holds the wordmark, the project and the figure's slot; each is
-   empty until the opening's own copy travels into it (LA-1558). Tier two is
+   Tier one holds the wordmark, the project and a slot for each of the
+   opening's numbers; each is empty until the opening's own copy travels into
+   it (LA-1558, LA-1575). Tier two is
    the hairline row with the section links, folded until the opening ends. */
 
 .hd {
@@ -97,18 +98,16 @@ b, strong { font-weight: 600; }
   white-space: nowrap;
 }
 /* Each slot is set in the travelling copy's own weight and spacing, so the hand-off lands without a jump. */
-.hd-mark { font-size: 17px; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
-.hd-proj { font-size: var(--ui-size); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--rb-ink2-on-black); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.hd-fig {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.hd-fig-l { font-size: var(--meta-size); font-weight: 500; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
-.hd-fig-v { font-size: var(--t1-size); font-weight: 600; letter-spacing: -0.045em; line-height: 1; }
-/* The waterfall's own figure is on screen, so the header's copy steps aside. */
-.hd[data-fig-hidden] .hd-fig { visibility: hidden; }
+.hd-mark { font-size: 26px; font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+.hd-proj { font-size: 20px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--rb-ink2-on-black); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Each number sits as the opening sets it, its label over its figure. */
+.hd-figs { margin-left: auto; display: flex; align-items: flex-end; gap: 40px; }
+.hd-fig { display: grid; justify-items: start; gap: 5px; }
+.hd-fig-l { font-size: var(--ui-size); font-weight: 500; line-height: 1; letter-spacing: 0.01em; color: var(--rb-ink2-on-black); }
+.hd-fig-v { font-size: 28px; font-weight: 600; letter-spacing: -0.045em; line-height: 1; }
+.hd-fig-v small { font-size: 0.5em; font-weight: 600; letter-spacing: -0.02em; color: var(--rb-ink2-on-black); margin-left: 0.3em; }
+/* The waterfall's own figure is on screen, so the header's numbers step aside. */
+.hd[data-fig-hidden] .hd-figs { visibility: hidden; }
 /* While the opening is still behind it the header is clear, so a travelling copy never passes under it. */
 .hd[data-state="band"] { background: transparent; }
 
@@ -130,7 +129,6 @@ b, strong { font-weight: 600; }
 .hd-ix a:hover { color: var(--rb-ink-on-black); }
 .hd-ix a[aria-current="true"] { color: var(--rb-ink-on-black); border-bottom-color: var(--primary); }
 .hd-t2 .hd-here { display: none; }
-.hd-t2 .hd-fig { display: none; }
 
 /* --- The band grown to the viewport (the first screen) -------------------- */
 
@@ -505,16 +503,22 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
 /* --- Phone ----------------------------------------------------------------- */
 
 @media (max-width: 860px) {
-  /* A phone keeps one tier: the section links are a desktop's, and the figure sits in tier one. */
-  :root { --hd-t1: 52px; --hd-h: 52px; }
+  /* A phone keeps one tier: the section links are a desktop's. The project sits under the
+     wordmark, so all three numbers fit beside them without scrolling sideways. */
+  :root { --hd-t1: 56px; --hd-h: 56px; }
   .only-desk { display: none !important; }
   .only-phone { display: revert !important; }
 
   .hd { padding: 0 16px; }
-  .hd-t1 { gap: 10px; }
-  .hd-proj { font-size: var(--meta-size); }
-  .hd-t1 .hd-fig-l { display: none; }
-  .hd-t1 .hd-fig-v { font-size: 15px; }
+  .hd-t1 { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-content: center; column-gap: 12px; row-gap: 4px; }
+  .hd-mark { grid-area: 1 / 1; justify-self: start; font-size: 20px; }
+  .hd-proj { grid-area: 2 / 1; font-size: var(--meta-size); }
+  .hd-figs { grid-area: 1 / 2 / 3; gap: 12px; }
+  .hd-t1 .hd-cmt { grid-area: 1 / 3 / 3; align-self: center; }
+  .hd-fig { gap: 4px; }
+  .hd-fig-l { font-size: var(--label-size); }
+  .hd-fig-v { font-size: 16px; }
+  .hd-fig-v small { font-size: 0.6875em; margin-left: 0.25em; }
   .hd-t2 { display: none; }
 
   .band--first { --op-gutter: 16px; }
@@ -656,6 +660,8 @@ html[data-print] .op-lbl, html[data-print] .op-n-l, html[data-print] .op-facts, 
   .op-travel { order: -1; margin-top: 0 !important; }
   .op-layer, .op-travel { position: static !important; inset: auto !important; transform: none !important; padding: 0 !important; margin-top: 8mm; }
   .op-layer > *, .op-three > div, [data-op-move], .op-travel { opacity: 1 !important; transform: none !important; color: inherit; }
+  /* The duration's unit may be mid-flight to its header size; paper keeps the opening's. */
+  .op-n-v small { font-size: 0.36em !important; margin-left: 0.2em !important; }
   .trio { margin-top: 0 !important; }
   .sc-stage, [data-sc-stage] { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
   [data-sc-cue], [data-sc-in], [data-sc-stagger] > *, .sc-split__i { opacity: 1 !important; transform: none !important; visibility: visible !important; pointer-events: auto !important; transition: none !important; animation: none !important; }

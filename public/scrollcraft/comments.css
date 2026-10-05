@@ -23,7 +23,7 @@
 
 /* Comment mode: one line under the header says what to do. */
 .cmode-bar { display: flex; align-items: center; justify-content: center; height: var(--cm-bar-h); margin: 0 -64px; background: var(--primary); color: #fff; font-size: var(--meta-size); font-weight: 600; }
-html.cmode { --hd-h: calc(96px + var(--cm-bar-h)); }
+html.cmode { --hd-h: calc(var(--hd-t1) + var(--hd-t2-h) + var(--cm-bar-h)); }
 
 /* --- Markers: a dot with a count at the element's right edge -------------------
    They sit on the element's right border, so every marker in the schedule lines up
@@ -159,8 +159,7 @@ html.cmode .sov-line[data-cm-able]:hover:not(:has([data-cm-able]:hover)) { backg
 
 @media (max-width: 860px) {
   :root { --cm-bar-h: 30px; }
-  html.cmode { --hd-h: calc(92px + var(--cm-bar-h)); }
-  html.cmode { --hd-h: calc(52px + var(--cm-bar-h)); }
+  html.cmode { --hd-h: calc(var(--hd-t1) + var(--cm-bar-h)); }
   .cmode-bar { margin: 0 -16px; font-size: var(--chip-size); }
   .hd-cmt { margin-left: auto; height: 28px; padding: 0 11px; font-size: var(--chip-size); }
   .hd-cmt.is-on { padding: 0 14px; }

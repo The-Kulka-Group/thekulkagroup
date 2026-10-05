@@ -10,6 +10,7 @@ import {
 import type { Db } from "@/lib/db";
 
 import { type ClimateZone, climateZoneFor } from "./climate-zone";
+import { M0_MIXED, m1Prototype } from "./criterion-wording";
 import { deleteDerivedAssumption, saveDerivedAssumption } from "./derived-assumptions";
 import { GLAZING, type GlazingBand, GSF_PER_TON } from "./engineering-tables";
 
@@ -87,7 +88,7 @@ export function deriveGlazing(facts: { balconies: Gate; storefronts: Gate }): De
     confidence: agree ? "high" : "low",
     confidenceReason: agree
       ? "Balconies and storefronts agree, both present or both absent."
-      : "No code or intake fact measures window area directly; balconies and storefronts point different ways, so the standard band is used.",
+      : M0_MIXED,
     costCodes: HVAC_COST_CODES,
     correction: null,
   };
@@ -184,10 +185,7 @@ export function deriveTonnage(facts: TonnageFacts): DerivedAssumption {
     inputs,
     steps,
     confidence: triggers.length === 0 ? "high" : "low",
-    confidenceReason:
-      triggers.length === 0
-        ? "New construction in a stated climate zone, with no garage in the area and ventilation within the model; the ratio is DOE's code-minimum model, not a load calculation for this building."
-        : triggers.join(" "),
+    confidenceReason: triggers.length === 0 ? m1Prototype(result.zone.zone) : triggers.join(" "),
     costCodes: HVAC_COST_CODES,
     correction: null,
   };

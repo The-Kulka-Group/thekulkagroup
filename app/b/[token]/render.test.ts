@@ -273,10 +273,10 @@ describe("client-facing text", () => {
     const SHORT = new Set(["a", "an", "and", "as", "at", "by", "for", "in", "is", "of", "on", "or", "per", "the", "to", "with"]);
     const labels = [
       ...html.matchAll(
-        /<(h1|h2|h3|dt|th)[^>]*>([\s\S]*?)<\/\1>|<button type="button" class="sw-t"[^>]*>([^<]*)<\/button>|class="(?:sov-name|op-lbl|op-n-l|fig-l|wf-lab|crit-l|crit-tag num|pill|stg-name|hd-fig-l|ln-l|lg-tag|sheet-h|hd-mark)"[^>]*>([\s\S]*?)<\/(?:a|p|span|h1|h2)>|<a href="#[^"]*" data-index="[^"]*">([^<]*)<\/a>|<span class="src[^"]*"><i[^>]*><\/i>([^<]*)<\/span>/g,
+        /<(h1|h2|h3|dt|th)[^>]*>([\s\S]*?)<\/\1>|<button type="button" class="sw-t"[^>]*>([^<]*)<\/button>|class="(?:sov-name|op-lbl|op-n-l|fig-l|wf-lab|de-name|de-tag num|de-l|pill|stg-name|hd-fig-l|ln-l|lg-tag|sheet-h|hd-mark)"[^>]*>([\s\S]*?)<\/(?:a|p|span|h1|h2)>|<a href="#[^"]*" data-index="[^"]*">([^<]*)<\/a>|<span class="src[^"]*"><i[^>]*><\/i>([^<]*)<\/span>|<summary>([^<]*)/g,
       ),
     ]
-      .map((m) => (m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? "").replace(/<span class="(?:lg-count|lg-tag)[^"]*">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, " "))
+      .map((m) => (m[2] ?? m[3] ?? m[4] ?? m[5] ?? m[6] ?? m[7] ?? "").replace(/<span class="(?:lg-count|lg-tag)[^"]*">[\s\S]*?<\/span>/g, "").replace(/<[^>]+>/g, " "))
       .map((label) => label.replace(/&amp;/g, "&").replace(/\s+/g, " ").trim())
       .filter((label) => label.length > 0 && !/^\$|^\d+$/.test(label))
       // A heading that is a sentence, with its full stop, stays sentence case: the letter's title (LA-1467).

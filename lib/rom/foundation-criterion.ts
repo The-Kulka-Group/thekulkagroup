@@ -9,6 +9,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
+import { S1_GROUND_STEP, S1_NO_REPORT, S1_ROCK_ON_GRADE } from "./criterion-wording";
 import { deleteDerivedAssumption, saveDerivedAssumption } from "./derived-assumptions";
 import { rockPossible } from "./jack-criterion";
 
@@ -103,7 +104,7 @@ export function computeFoundation(facts: FoundationFacts): FoundationResult {
   const flags: string[] = [];
   const zip = facts.zip ?? "";
   if (rockPossible(facts.zip)) {
-    flags.push(belowGrade ? "Rock excavation is likely for the basement in this area." : "Rock is possible in this area, so footings and trenches may need rock excavation.");
+    flags.push(belowGrade ? "Rock excavation is likely for the basement in this area." : S1_ROCK_ON_GRADE);
   }
   if (LONG_ISLAND_ZIP3.has(zip.slice(0, 3)) && belowGrade && facts.siteConditions !== "no") {
     flags.push("A Long Island basement may meet shallow groundwater.");
@@ -175,7 +176,7 @@ export function deriveFoundation(facts: FoundationFacts): DerivedAssumption {
               ? "Poor soil or groundwater"
               : facts.siteConditions === "no"
                 ? "No known poor soil"
-                : "Not known, priced as good ground",
+                : S1_GROUND_STEP,
         },
         { label: "Lowest Floor Slab", result: result.slab },
         { label: "Foundation System", result: result.system },
@@ -190,6 +191,7 @@ export function deriveFoundation(facts: FoundationFacts): DerivedAssumption {
     (facts.parkingType === "none" || facts.parkingType === "surface") &&
     result.coverage <= LIGHT_COVERAGE;
 
+  const groundUnknown = facts.siteConditions !== "yes" && facts.siteConditions !== "no";
   const reasons = existing
     ? ["A renovation with no tie-in keeps its foundations; new loads such as a floor or rooftop equipment would need a check."]
     : high
@@ -197,11 +199,8 @@ export function deriveFoundation(facts: FoundationFacts): DerivedAssumption {
           `Light building on grade with no basement, and no poor soil or groundwater; footings need about ${pct(result.coverage)} of the footprint at the code's presumptive sand value.`,
         ]
       : [
-          "There is no geotechnical report yet.",
+          groundUnknown ? S1_NO_REPORT : "There is no geotechnical report yet.",
           facts.siteConditions === "yes" ? "Poor soil or groundwater is reported, and the answer does not say which." : "",
-          facts.siteConditions !== "yes" && facts.siteConditions !== "no"
-            ? "Ground conditions are not known, so ground improvement or deep foundations may still be needed."
-            : "",
           result.belowGrade ? "The building goes below grade." : "",
           result.concreteDecks > 0 ? "A concrete podium or deck carries the load." : "",
           result.coverage > LIGHT_COVERAGE && result.system === "Spread Footings"
@@ -209,7 +208,8 @@ export function deriveFoundation(facts: FoundationFacts): DerivedAssumption {
             : "",
           facts.constructionKind === "renovation" ? "The work ties into an existing building, so it is treated as an addition." : "",
         ];
-  const reason = [...reasons, ...result.flags].filter(Boolean).join(" ");
+  const flags = groundUnknown && !existing ? result.flags.filter((f) => f !== S1_ROCK_ON_GRADE) : result.flags;
+  const reason = [...reasons, ...flags].filter(Boolean).join(" ");
 
   const assumption: DerivedAssumption = {
     kind: "derived_assumption",

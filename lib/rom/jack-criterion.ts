@@ -13,6 +13,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
+import { V2_ROCK, v2WellHole } from "./criterion-wording";
 import { deleteDerivedAssumption, saveDerivedAssumption } from "./derived-assumptions";
 
 // LA-1265. V-2, Hydraulic Jack Type: in-ground (a drilled well hole with the
@@ -147,7 +148,7 @@ export function deriveJackType(facts: JackCriterionFacts): DerivedAssumption | n
       reason = `Travel of ${travel.toFixed(1)} ft needs a deeper pit for holeless, and wet ground makes drilling a well hole the dearer of the two.`;
     } else if (siteUnknown) {
       value = "In-Ground";
-      reason = `Travel of ${travel.toFixed(1)} ft works either way, and nobody has said whether the ground is wet, so V-2 prices the well hole to be safe.`;
+      reason = v2WellHole(travel);
     } else {
       value = "In-Ground";
       reason = `Travel of ${travel.toFixed(1)} ft works either way; on dry ground in-ground is the usual choice, but it turns on the owner and the quotes.`;
@@ -168,7 +169,7 @@ export function deriveJackType(facts: JackCriterionFacts): DerivedAssumption | n
 
   if (rock) {
     confident = false;
-    reason = `${reason} This ZIP can hit shallow rock, and the intake does not ask about rock, so confidence is low.`;
+    reason = `${reason} ${V2_ROCK}`;
   }
   steps.push({ label: "Band", result: `${band} -> ${value}` });
 

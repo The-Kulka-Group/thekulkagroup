@@ -1,3 +1,4 @@
+import { titleCase } from "@/lib/format/title-case";
 import {
   longDate,
   usd,
@@ -449,46 +450,102 @@ function sectionSchedule(page: BudgetPage, drawn: ReadonlySet<string>): string {
 </section>`;
 }
 
-// --- 5. Design and Engineering: the criteria called out on the drawing, no money ----------------------
+// --- 5. Design and Engineering in layers (LA-1662) ----------------------------------------------------
+//
+// Rob's pick from LA-1627, frame A, Open in Place (~/scrollcraft/frames/kulka-de-layers/de-a-open.html):
+// a wide line with the count, one row per criterion, and the row opening in place to its detail. The
+// server writes every detail, folded; budget-page.js only opens it and lights the drawing.
 
-/** The depth under the callouts, from Detail on. The ids sit on the callouts themselves. */
-function criterionRow(k: Criterion): string {
-  return `
-      <article class="criterion lg-row">
-        <span class="crit-tag num">${esc(k.code)}</span>
-        <div class="crit-body">
-          <h2 class="crit-h">${esc(k.label)}</h2>
-          <p class="crit-method">${esc(k.method)}</p>${k.prices.length ? `\n          <p class="crit-prices">Prices ${k.prices.map(esc).join("; ")}.</p>` : ""}
-          <p class="crit-why">${esc(k.confidenceReason)}</p>
-          <dl class="crit-inputs">${k.inputs.map((i) => `<div><dt>${esc(i.name)}</dt><dd>${esc(i.value)} <span class="basis basis--${i.basis}">${i.basis}</span></dd></div>`).join("")}</dl>
-          <ol class="crit-steps">${k.steps.map((st) => `<li><span>${esc(st.label)}</span><span>${esc(st.result)}</span></li>`).join("")}</ol>${
-            k.corrected ? `\n          <p class="crit-corrected">Corrected by Kulka, ${esc(k.corrected.on)}: ${esc(k.corrected.reason)}</p>` : ""
-          }
-        </div>
-        <span class="crit-v num">${esc(k.value)}</span>
-        ${k.settled ? src("high", "Settled") : src("working", "Planning Assumption")}
-      </article>`;
+const CONFIDENCE = { high: "High Confidence", low: "Low Confidence" } as const;
+/** A step held to a code maximum ("50 ft against 85 ft") draws as a bar. */
+const LIMIT = /^([\d,.]+) \w+ against ([\d,.]+) \w+$/;
+const figure = (n: string) => Number(n.replace(/,/g, ""));
+
+/**
+ * The piece of the drawing a priced line lights, the way the Schedule of Values pins it, or null
+ * when it is not drawn. A line with no rate yet lights its division's piece when the division is
+ * drawn as one (the elevator's jacks and machine room are part of the elevator).
+ */
+function pieceOf(el: string, page: BudgetPage, drawn: ReadonlySet<string>): string | null {
+  if (drawn.has(el)) return el;
+  for (const d of page.divisions) {
+    const anchors = anchorsOf(d, drawn);
+    const item = d.items.find((i) => i.el === el);
+    if (item) return anchors.of(item);
+    if (d.supporting.some((u) => u.el === el)) return anchors.layers.length === 1 ? anchors.layers[0] : null;
+  }
+  return null;
 }
 
-function sectionDesign(page: BudgetPage): string {
+function criterionDetail(k: Criterion, page: BudgetPage, drawn: ReadonlySet<string>): string {
+  // The last step usually restates the choice the row already shows.
+  const worked = k.steps.length > 0 && k.steps[k.steps.length - 1].result.toLowerCase() === k.value.toLowerCase() ? k.steps.slice(0, -1) : k.steps;
+  const limits = worked.flatMap((st) => {
+    const m = st.result.match(LIMIT);
+    return m ? [{ ...st, share: figure(m[1]) / figure(m[2]) }] : [];
+  });
+  const steps = worked.filter((st) => !LIMIT.test(st.result));
+  const assumed = k.inputs.filter((i) => i.basis === "assumed").length;
+  const prices = k.prices.map((pr) => {
+    const piece = pieceOf(pr.el, page, drawn);
+    return piece
+      ? `<li class="de-pr" data-layer="${esc(piece)}"><i aria-hidden="true"></i>${esc(pr.name)}</li>`
+      : `<li class="de-pr de-pr--nd"><i aria-hidden="true"></i>${esc(pr.name)} <small>Not Drawn</small></li>`;
+  });
+  return `
+          <div class="de-dt">
+            <p class="de-marks">${k.settled ? src("high", "Settled") : src("working", "Planning Assumption")}${src(k.confidence, CONFIDENCE[k.confidence], " src--ring")}</p>
+            <p class="de-why">${esc(k.confidenceReason)}</p>${
+              prices.length > 0 ? `\n            <div><p class="de-l">Prices</p><ul class="de-prices">${prices.join("")}</ul></div>` : ""
+            }${
+              limits.length > 0
+                ? `\n            <div><p class="de-l">Limits</p><div class="de-lim">${limits
+                    .map(
+                      (l) =>
+                        `<div><p><span>${esc(titleCase(l.label))}</span><b class="num">${esc(l.result)}</b></p><span class="de-bar" aria-hidden="true"><i style="width:${(Math.min(l.share, 1) * 100).toFixed(1)}%"></i></span></div>`,
+                    )
+                    .join("")}</div></div>`
+                : ""
+            }
+            <details class="de-in"><summary>Steps and Inputs <small>${assumed > 0 ? `<i class="dot dot--working" aria-hidden="true"></i>${assumed} Assumed` : "All Stated"}</small></summary>
+              <p class="de-method">${esc(k.method)}</p>${
+                steps.length > 0
+                  ? `\n              <div class="de-steps">${steps.map((st) => `<div><span>${esc(titleCase(st.label))}</span><span class="num">${esc(st.result.replace(/ -> /g, " → "))}</span></div>`).join("")}</div>`
+                  : ""
+              }
+              <dl class="de-inputs">${k.inputs
+                .map(
+                  (i) =>
+                    `<div><dt>${esc(titleCase(i.name))}</dt><dd class="num">${esc(i.value)}<small><i class="dot dot--${i.basis === "assumed" ? "working" : "high"}" aria-hidden="true"></i>${i.basis === "assumed" ? "Assumed" : "Stated"}</small></dd></div>`,
+                )
+                .join("")}</dl>${k.corrected ? `\n              <p class="de-method">Corrected by Kulka, ${esc(k.corrected.on)}: ${esc(k.corrected.reason)}</p>` : ""}
+            </details>
+          </div>`;
+}
+
+function criterionRow(k: Criterion, page: BudgetPage, drawn: ReadonlySet<string>): string {
+  const id = `crit-${k.code}`;
+  return `
+    <li class="de-row" data-crit="${esc(k.code)}" data-el-ref="${esc(k.el)}" data-open="false">
+      <button class="de-h" type="button" aria-expanded="false" aria-controls="${esc(id)}"><span class="de-tag num">${esc(k.code)}</span><span class="de-name">${esc(k.label)}<small>${esc(k.value)}</small></span><span class="de-v">${esc(k.value)}</span><i class="dot dot--${k.settled ? "high" : "working"}" title="${k.settled ? "Settled" : "Planning Assumption"}"></i><span class="chev" aria-hidden="true"></span></button>
+      <div class="fold" id="${esc(id)}"><div class="fold-in">${criterionDetail(k, page, drawn)}
+      </div></div>
+    </li>`;
+}
+
+function sectionDesign(page: BudgetPage, drawn: ReadonlySet<string>): string {
   if (page.criteria.length === 0) return "";
-  const settled = page.criteria.filter((x) => x.settled).length;
+  const settled = page.criteria.filter((k) => k.settled).length;
+  const open = page.criteria.length - settled;
   return `
 <section class="sheet sheet--design" id="design-and-engineering" data-el="section:design-and-engineering" data-sc-act="flow">
   <div class="sheet-hd">
     <h1 class="sheet-h">Design and Engineering</h1>
-    <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building, called out on the section. ${settled} ${settled === 1 ? "is" : "are"} settled by code; the rest are planning assumptions until your design team decides them.</p>
+    <p class="sheet-sub">${page.criteria.length} criteria set what this budget assumes about the building.</p>
+    <p class="de-tally" title="A Planning Assumption holds until your design team decides it."><span><i class="dot dot--high" aria-hidden="true"></i><b class="num">${settled}</b> Settled</span><span><i class="dot dot--working" aria-hidden="true"></i><b class="num">${open}</b> ${open === 1 ? "Planning Assumption" : "Planning Assumptions"}</span></p>
   </div>
-  <ol class="crit crit--keyed" aria-label="Design and Engineering criteria">${page.criteria
-    .map(
-      (k) => `\n    <li data-crit="${esc(k.code)}"><span class="crit-tag num">${esc(k.code)}</span><span class="crit-l">${esc(k.label)}</span><span class="crit-v">${esc(k.value)}</span>${
-        k.settled ? src("high", "Settled") : src("working", "Planning Assumption")
-      }</li>`,
-    )
-    .join("")}
+  <ol class="de" data-de aria-label="Design and Engineering criteria">${page.criteria.map((k) => criterionRow(k, page, drawn)).join("")}
   </ol>
-  <div class="crits lg">${page.criteria.map(criterionRow).join("")}
-  </div>
 </section>`;
 }
 
@@ -504,7 +561,7 @@ function trio(page: BudgetPage, svg: string): string {
 <div class="trio" data-trio data-state="sov">
   <div class="trio-in">
   <div class="trio-main">${sectionSchedule(page, drawn)}
-${sectionDesign(page)}
+${sectionDesign(page, drawn)}
   </div>
   <aside class="sheet sheet--dwg" aria-label="The Section">
     <p class="crumb" data-crumb><b>Building Section</b></p>

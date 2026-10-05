@@ -11,6 +11,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
+import { currentWording } from "./criterion-wording";
 import { toIso } from "./date";
 
 // LA-860. Storage for derived assumptions and their corrections
@@ -89,7 +90,7 @@ function fromRow(row: Row): StoredDerivedAssumption {
           correctedAt: toIso(row.corrected_at),
         }
       : null;
-  return {
+  return currentWording({
     kind: "derived_assumption",
     id: row.id,
     code: row.code,
@@ -103,7 +104,7 @@ function fromRow(row: Row): StoredDerivedAssumption {
     costCodes: row.cost_codes,
     correction,
     correctionId: correction ? row.correction_id : null,
-  };
+  });
 }
 
 /** Every derived assumption on a project, in code order. An empty list means the ROM screen shows no section. */

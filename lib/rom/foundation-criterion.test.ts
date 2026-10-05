@@ -53,10 +53,10 @@ describe("computeFoundation", () => {
     expect(mat.slab).toBe("Mat Slab");
   });
 
-  it("prices unknown ground as good ground and says deep work may still be needed", () => {
+  it("prices unknown ground as adequate ground with no rock removal, and says so", () => {
     const card = deriveFoundation({ ...base, siteConditions: "dont_know" });
     expect(card.value).toEqual({ kind: "spec", text: "Spread Footings" });
-    expect(card.confidenceReason).toContain("may still be needed");
+    expect(card.confidenceReason).toContain("assumes adequate ground conditions and no rock removal");
   });
 
   it("keeps a renovation's foundations unless it ties in", () => {

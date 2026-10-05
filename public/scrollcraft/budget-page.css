@@ -660,6 +660,8 @@ html[data-print] .op-lbl, html[data-print] .op-n-l, html[data-print] .op-facts, 
   .op-travel { order: -1; margin-top: 0 !important; }
   .op-layer, .op-travel { position: static !important; inset: auto !important; transform: none !important; padding: 0 !important; margin-top: 8mm; }
   .op-layer > *, .op-three > div, [data-op-move], .op-travel { opacity: 1 !important; transform: none !important; color: inherit; }
+  /* The duration's unit may be mid-flight to its header size; paper keeps the opening's. */
+  .op-n-v small { font-size: 0.36em !important; margin-left: 0.2em !important; }
   .trio { margin-top: 0 !important; }
   .sc-stage, [data-sc-stage] { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
   [data-sc-cue], [data-sc-in], [data-sc-stagger] > *, .sc-split__i { opacity: 1 !important; transform: none !important; visibility: visible !important; pointer-events: auto !important; transition: none !important; animation: none !important; }

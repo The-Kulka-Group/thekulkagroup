@@ -77,9 +77,10 @@
      into it, in screens. The approved frame's timings: from 0 to 0.7 the
      wordmark travels into the header's mark as the project rises in; from 1.6
      to 2.3 the project's name travels into the header as the numbers rise in;
-     from 3.1 to 3.6 the total travels into the header's figure slot, just
-     before the white sheet slides up over the black from 3.3. Each traveller
-     lands on its slot, and the header's own copy takes over on arrival. */
+     from 3.1 to 3.6 each number travels into its own header slot (LA-1575),
+     just before the white sheet slides up over the black from 3.3. Each
+     traveller lands on its slot, and the header's own copy takes over on
+     arrival. */
   var hd = doc.getElementById('bar');
   var opening = (function () {
     var band = doc.getElementById('your-number');
@@ -87,9 +88,15 @@
     var still = { frame: function () {}, measure: function () {} };
     if (!band || !stage || !hd || printing) return still;
     var travel = stage.querySelector('[data-op-travel]');
-    var slot = { mark: hd.querySelector('.hd-t1 .hd-mark'), proj: hd.querySelector('.hd-t1 .hd-proj'), fig: hd.querySelector('.hd-t1 .hd-fig-v') };
-    var figSlot = hd.querySelector('.hd-t1 .hd-fig');
-    var move = { proj: stage.querySelector('[data-op-move="proj"]'), fig: stage.querySelector('[data-op-move="fig"]') };
+    var markSlot = hd.querySelector('.hd-t1 .hd-mark');
+    var slotLabels = slice(hd.querySelectorAll('.hd-t1 .hd-fig-l'));
+    // Each traveller and the header slot it lands in share a key: proj, fig, dur, psf.
+    var movers = slice(stage.querySelectorAll('[data-op-move]')).map(function (el) {
+      var key = el.getAttribute('data-op-move');
+      return { key: key, el: el, slot: hd.querySelector('.hd-t1 [data-hd-slot="' + key + '"]'), small: el.querySelector('small'), trip: null };
+    }).filter(function (m) { return m.slot; });
+    var proj = movers.filter(function (m) { return m.key === 'proj'; })[0];
+    var flyers = movers.filter(function (m) { return m !== proj; });
     var project = slice(stage.querySelector('[data-op-layer="project"]').children);
     var three = stage.querySelector('[data-op-three]');
     var numbers = three ? slice(three.children) : [];
@@ -97,27 +104,36 @@
     var step = function (t, a, b) { return reduce ? (t > a + 0.02 ? 1 : 0) : ease3(span(t, a, b)); };
     var INK = [244, 243, 238], INK2 = [189, 188, 179];
     var tone = function (k) { return 'rgb(' + INK.map(function (v, i) { return Math.round(v + (INK2[i] - v) * k); }).join(',') + ')'; };
-    var wm = null, trips = {};
+    var wm = null;
+    var fontPx = function (el) { return parseFloat(getComputedStyle(el).fontSize) || 14; };
 
     // The stage sits at the top of the viewport while the reader is in the band, so every path is measured in its frame.
     function measure() {
       travel.style.transform = 'none';
-      [move.proj, move.fig].concat(project, numbers).forEach(function (el) { if (el) el.style.transform = 'none'; });
+      project.concat(numbers).forEach(function (el) { el.style.transform = 'none'; });
+      movers.forEach(function (m) { m.el.style.transform = 'none'; clip(m, 0); if (m.small) m.small.style.fontSize = m.small.style.marginLeft = ''; });
       var sr = stage.getBoundingClientRect();
-      var big = parseFloat(getComputedStyle(travel.firstElementChild).fontSize) || 144;
-      var r = slot.mark.getBoundingClientRect();
+      var r = markSlot.getBoundingClientRect();
       wm = {
         x0: -travel.offsetWidth / 2, y0: -travel.offsetHeight / 2,
         x1: r.left - sr.left - sr.width / 2, y1: r.top - sr.height / 2,
-        s: (parseFloat(getComputedStyle(slot.mark).fontSize) || 17) / big,
+        s: fontPx(markSlot) / fontPx(travel.firstElementChild),
       };
-      ['proj', 'fig'].forEach(function (k) {
-        if (!move[k] || !slot[k]) return;
-        var a = move[k].getBoundingClientRect(), b = slot[k].getBoundingClientRect();
-        trips[k] = {
-          dx: b.left - a.left, dy: b.top - (a.top - sr.top),
-          s: (parseFloat(getComputedStyle(slot[k]).fontSize) || 14) / (parseFloat(getComputedStyle(move[k]).fontSize) || 14),
-        };
+      movers.forEach(function (m) {
+        var a = m.el.getBoundingClientRect(), b = m.slot.getBoundingClientRect();
+        var f0 = fontPx(m.el), f1 = fontPx(m.slot), slotSmall = m.slot.querySelector('small');
+        m.trip = { dx: b.left - a.left, dy: b.top - (a.top - sr.top), s: f1 / f0, col: m.el.parentNode.getBoundingClientRect().left };
+        // A slot too narrow for its text shows an ellipsis; the traveller narrows to the same cut on the way in.
+        if (m.slot.scrollWidth > m.slot.clientWidth) {
+          var text = doc.createRange();
+          text.selectNodeContents(m.el);
+          m.trip.cut = [text.getBoundingClientRect().width, m.slot.clientWidth / m.trip.s];
+        }
+        // The header sets the duration's unit larger than a uniform scale would, so its size and gap travel too, in the mover's own em.
+        if (m.small && slotSmall) {
+          m.trip.unit = [fontPx(m.small) / f0, fontPx(slotSmall) / f1];
+          m.trip.gap = [parseFloat(getComputedStyle(m.small).marginLeft) / f0, parseFloat(getComputedStyle(slotSmall).marginLeft) / f1];
+        }
       });
     }
     function rise(el, q, out) {
@@ -125,8 +141,25 @@
       el.style.opacity = String(q * (1 - out));
       el.style.transform = 'translateY(' + ((1 - q) * 48 - out * 32).toFixed(1) + 'px)';
     }
-    function fly(trip, m) {
-      return 'translate(' + (trip.dx * m).toFixed(1) + 'px, ' + (trip.dy * m).toFixed(1) + 'px) scale(' + (1 + (trip.s - 1) * m).toFixed(4) + ')';
+    // Only in flight: the traveller is hidden once landed, and at rest or on paper the name reads whole.
+    function clip(mover, m) {
+      var on = mover.trip && mover.trip.cut && m > 0 && m <= 0.999, st = mover.el.style;
+      st.maxWidth = on ? lerp(mover.trip.cut[0], mover.trip.cut[1], m).toFixed(2) + 'px' : '';
+      st.overflow = on ? 'hidden' : '';
+      st.textOverflow = on ? 'ellipsis' : '';
+      st.whiteSpace = on ? 'nowrap' : '';
+    }
+    function unit(mover, m) {
+      var trip = mover.trip;
+      if (!trip.unit) return;
+      mover.small.style.fontSize = m > 0 ? lerp(trip.unit[0], trip.unit[1], m).toFixed(4) + 'em' : '';
+      mover.small.style.marginLeft = m > 0 ? (lerp(trip.gap[0], trip.gap[1], m) * fontPx(mover.el)).toFixed(2) + 'px' : '';
+    }
+    function fly(mover, m) {
+      var trip = mover.trip;
+      // A growing unit widens its column and moves the others in the row, so each traveller takes back its column's drift.
+      var drift = mover.el.parentNode.getBoundingClientRect().left - trip.col;
+      mover.el.style.transform = 'translate(' + (trip.dx * m - drift).toFixed(2) + 'px, ' + (trip.dy * m).toFixed(2) + 'px) scale(' + (1 + (trip.s - 1) * m).toFixed(4) + ')';
     }
     function frame() {
       if (!wm) return;
@@ -135,30 +168,32 @@
       var m1 = step(t, 0, 0.7);
       travel.style.transform = 'translate(' + lerp(wm.x0, wm.x1, m1).toFixed(1) + 'px, ' + lerp(wm.y0, wm.y1, m1).toFixed(1) + 'px) scale(' + lerp(1, wm.s, m1).toFixed(4) + ')';
       travel.style.opacity = m1 > 0.999 ? '0' : '1';
-      slot.mark.style.opacity = m1 > 0.999 ? '1' : '0';
+      markSlot.style.opacity = m1 > 0.999 ? '1' : '0';
 
       var m2 = step(t, 1.6, 2.3), out2 = step(t, 1.6, 1.9);
       project.forEach(function (el, i) {
         var q = reduce ? (t > 0.02 ? 1 : 0) : ease3(span(t, 0.3 + i * 0.1, 0.75 + i * 0.1));
-        if (el === move.proj && trips.proj) {
+        if (proj && el === proj.el) {
           el.style.opacity = m2 > 0.999 ? '0' : String(q);
           el.style.color = tone(m2);
-          el.style.transform = m2 > 0 ? fly(trips.proj, m2) : 'translateY(' + ((1 - q) * 48).toFixed(1) + 'px)';
+          clip(proj, m2);
+          if (m2 > 0) fly(proj, m2); else el.style.transform = 'translateY(' + ((1 - q) * 48).toFixed(1) + 'px)';
         } else rise(el, q, out2);
       });
-      slot.proj.style.opacity = m2 > 0.999 ? '1' : '0';
+      if (proj) proj.slot.style.opacity = m2 > 0.999 ? '1' : '0';
 
       var m3 = step(t, 3.1, 3.6);
-      numbers.forEach(function (el, i) {
-        rise(el, step(t, 2.0 + i * 0.12, 2.45 + i * 0.12));
-        if (i === 0 && move.fig && trips.fig) {
-          move.fig.style.opacity = m3 > 0.999 ? '0' : '1';
-          move.fig.style.transform = fly(trips.fig, m3);
-          // Its label leaves with it, so no heading is left over an empty slot.
-          el.firstElementChild.style.opacity = String(1 - step(t, 3.1, 3.3));
-        }
+      numbers.forEach(function (el, i) { rise(el, step(t, 2.0 + i * 0.12, 2.45 + i * 0.12)); });
+      flyers.forEach(function (f) { unit(f, m3); });
+      flyers.forEach(function (f) {
+        f.el.style.opacity = m3 > 0.999 ? '0' : '1';
+        fly(f, m3);
+        // Its label leaves with it, so no heading is left over an empty slot.
+        f.el.previousElementSibling.style.opacity = String(1 - step(t, 3.1, 3.3));
       });
-      figSlot.style.opacity = m3 > 0.999 ? '1' : '0';
+      flyers.forEach(function (f) { f.slot.style.opacity = m3 > 0.999 ? '1' : '0'; });
+      // The header's labels come in as the opening's leave, so none appears all at once.
+      slotLabels.forEach(function (l) { l.style.opacity = String(step(t, 3.3, 3.6)); });
 
       // The header turns black once the last traveller has landed, before the white sheet reaches it.
       var parked = m3 > 0.999;
@@ -168,7 +203,7 @@
     return { frame: frame, measure: measure };
   })();
 
-  // The header's figure steps aside while the waterfall's own is well on screen.
+  // The header's numbers step aside while the waterfall's own figure is well on screen.
   function peakNear() {
     if (!hd) return;
     var peakFig = peakAct && peakAct.querySelector('.wf-fig');

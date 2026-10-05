@@ -151,7 +151,9 @@ export type Criterion = {
   label: string;
   value: string;
   method: string;
-  prices: string[];
+  /** What the criterion prices: each line's client name and its id on the page, `line:<cost code>` or, with no rate yet, `unpriced:<cost code>`. */
+  prices: { name: string; el: string }[];
+  confidence: "high" | "low";
   confidenceReason: string;
   settled: boolean;
   inputs: { name: string; value: string; basis: "stated" | "assumed" }[];
@@ -1397,10 +1399,12 @@ export function presentBudget(publication: Publication): BudgetPage {
       method: criterionWords(a.method),
       prices: a.costCodes
         .map((code) => {
-          const label = rom.lines.find((l) => l.costCode === code)?.label ?? rom.unpricedItems.find((u) => u.costCode === code)?.label;
-          return label === undefined ? null : lineName(code, label);
+          const line = rom.lines.find((l) => l.costCode === code);
+          const label = line?.label ?? rom.unpricedItems.find((u) => u.costCode === code)?.label;
+          return label === undefined ? null : { name: lineName(code, label), el: line ? `line:${code}` : `unpriced:${code}` };
         })
-        .filter((label): label is string => label !== null),
+        .filter((price): price is { name: string; el: string } => price !== null),
+      confidence: a.confidence,
       confidenceReason: criterionWords(a.confidenceReason),
       // LA-1532: Settled only when nothing under it is assumed. M-1 read
       // "Settled" while resting on an assumed glazing band and unit mix.

@@ -274,8 +274,6 @@ body { overflow-anchor: none; }
 /* The criteria's callouts and the ink note show at Design and Engineering, or when a card's criterion is pointed at. */
 [data-dwg="section"] [data-ink-note], [data-dwg="section"] [data-part="criteria"] { opacity: 0; transition: opacity 420ms var(--ease); }
 [data-trio][data-state="design"] [data-dwg="section"] [data-ink-note], [data-trio][data-state="design"] [data-dwg="section"] [data-part="criteria"], [data-dwg="section"] [data-part="criteria"]:has(.is-on) { opacity: 1; }
-[data-dwg="section"] [data-callout].is-now .s { stroke: var(--primary); }
-[data-dwg="section"] [data-callout].is-now text { fill: var(--primary); }
 [data-trio][data-state="design"] [data-dwg="section"] [data-callout] { cursor: pointer; }
 /* The inks settle at Design and Engineering: a placeholder-rate layer dims to its light ink. */
 [data-dwg="section"] [data-layer][data-ink="light"] .s { stroke: #121211; transition: stroke 400ms var(--ease); }
@@ -283,35 +281,75 @@ body { overflow-anchor: none; }
 [data-trio][data-state="design"] [data-dwg="section"] [data-layer][data-ink="light"] .s { stroke: #A6A59D; }
 [data-trio][data-state="design"] [data-dwg="section"] [data-layer][data-ink="light"] text { fill: #6B6A64; }
 
-.crit { display: grid; gap: 6px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
 .rail-h { padding-top: 12px; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); }
-.crit li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
-/* Two columns of keyed criteria; each lights in turn as the reader passes through the list. */
-.crit--keyed { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; }
-.crit--keyed li { grid-template-columns: 34px minmax(0, 1fr) auto; grid-template-rows: auto auto; padding: 10px 0; border-top: 1px solid var(--rb-blk-line); cursor: default; }
-.crit--keyed li:nth-child(-n + 2) { border-top: 0; }
-.crit--keyed li .src { grid-column: 2 / -1; font-size: var(--chip-size); }
-.crit--keyed li .crit-tag, .crit--keyed li .crit-l { transition: color 160ms var(--ease), border-color 160ms var(--ease); }
-.crit--keyed li.is-now .crit-tag { border-color: var(--primary); color: var(--primary); }
-.crit--keyed li.is-now .crit-l { color: var(--primary); }
-.crit-tag { display: inline-flex; justify-content: center; align-items: center; height: 16px; min-width: 34px; border: 1px solid var(--rb-blk-ink); border-radius: 2px; font-size: 10px; font-weight: 600; color: var(--rb-blk-ink); }
-.crit-v { color: var(--rb-blk-ink); font-weight: 600; text-align: right; white-space: nowrap; }
 
-/* --- Design and Engineering: the depth under the callouts ----------------- */
+/* --- Design and Engineering in layers (LA-1662): the count, a row per criterion, the detail opened in place --- */
 
-.crits { margin-top: 24px; }
+.de-tally { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 14px; font-size: var(--ui-size); color: var(--rb-blk-ink2); }
+.de-tally span { display: inline-flex; align-items: center; gap: 8px; }
+.de-tally b { color: var(--rb-blk-ink); font-weight: 700; }
+.de-tally .dot, .de-h .dot { width: 8px; height: 8px; }
+.de { margin-top: 28px; border-top: 2px solid var(--rb-blk-ink); }
+.de-row { border-bottom: 1px solid var(--rb-blk-line); }
+.de-h { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto 14px 20px; gap: 14px; align-items: center; width: 100%; padding: 12px 0; font-size: var(--t3-size); line-height: 22px; transition: background 150ms var(--ease); }
+.de-h:hover, .de-row.is-hot > .de-h, .de-row[data-open="true"] > .de-h { background: var(--rb-blk-hover); }
+.de-h:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.de-row[data-open="true"] > .de-h .de-name { font-weight: 700; }
+.de-row[data-open="true"] > .de-h .chev { transform: rotate(180deg); }
+/* The code wears the drawing's own boxed tag, and lights with it. */
+.de-tag { justify-self: start; margin-left: 4px; display: inline-grid; place-items: center; min-width: 34px; height: 20px; padding: 0 4px; border: 1px solid var(--rb-blk-ink); border-radius: 2px; background: var(--surface); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: 0.01em; transition: background 150ms var(--ease), color 150ms var(--ease), border-color 150ms var(--ease); }
+.de-h:hover .de-tag, .de-row.is-hot > .de-h .de-tag, .de-row[data-open="true"] > .de-h .de-tag { border-color: var(--primary); background: var(--primary); color: #fff; }
+.de-name { min-width: 0; }
+.de-name small { display: none; }
+.de-v { text-align: right; font-weight: 600; white-space: nowrap; }
+.de-h .dot { justify-self: center; }
+.de-row[data-open="true"] > .fold { grid-template-rows: 1fr; }
+.de-row:not([data-open="true"]) > .fold { visibility: hidden; }
+/* Room under the list, so the pinned drawing stays whole while the last rows are open. */
+@media (min-width: 861px) { .trio .sheet--design { padding-bottom: 200px; } }
 
-.crits .criterion { grid-template-columns: 44px minmax(0, 1fr) auto auto; align-items: baseline; padding: 12px 16px; }
-.crit-body { display: grid; gap: 4px; min-width: 0; }
-.crit-h { font-size: var(--ui-size); font-weight: 600; line-height: 20px; }
-.crit-method, .crit-prices, .crit-why { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
-.crit-inputs { display: grid; gap: 2px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); margin-top: 4px; }
-.crit-inputs div { display: flex; gap: 8px; }
-.crit-inputs dt { color: var(--rb-blk-ink); }
-.crit-steps { display: grid; gap: 2px; font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); margin-top: 4px; list-style: decimal; padding-left: 18px; }
-.crit-steps li { display: flex; justify-content: space-between; gap: 12px; }
-.crit-corrected { font-size: var(--meta-size); color: var(--rb-blk-ink); }
-.basis { font-size: var(--label-size); color: var(--rb-blk-mute); }
+/* The detail: the marks, why, what it prices, the limits it was held to, and the steps and inputs folded. */
+.de-dt { display: grid; gap: 14px; margin: 0 0 16px 56px; padding: 18px 20px 20px; border-radius: 10px; background: var(--rb-blk-hover); }
+.de-marks { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.src--ring .dot { width: 10px; height: 10px; }
+.src--ring .dot--high { background: radial-gradient(circle, var(--rb-blk-ink) 0 1.8px, transparent 2.2px); box-shadow: inset 0 0 0 1.5px var(--rb-blk-ink); }
+.de-why { font-size: var(--body-size); line-height: 23px; color: var(--rb-blk-ink); max-width: 62ch; }
+.de-l { font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); margin-bottom: 6px; }
+.de-prices { display: flex; flex-wrap: wrap; gap: 6px; }
+.de-pr { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--rb-blk-line); font-size: var(--chip-size); font-weight: 600; white-space: nowrap; }
+.de-pr i { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); flex: none; }
+.de-pr--nd i { background: transparent; box-shadow: inset 0 0 0 1.5px #B9B8B0; }
+.de-pr small { font-size: var(--label-size); font-weight: 600; color: var(--rb-blk-mute); }
+.de-lim { display: grid; gap: 10px; max-width: 520px; }
+.de-lim > div { display: grid; gap: 5px; }
+.de-lim p { display: flex; justify-content: space-between; gap: 12px; font-size: var(--meta-size); color: var(--rb-blk-ink2); }
+.de-lim b { color: var(--rb-blk-ink); font-weight: 600; white-space: nowrap; }
+.de-bar { position: relative; height: 4px; border-radius: 2px; background: #E2E1DB; overflow: hidden; }
+.de-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--rb-blk-ink2); }
+.de-in summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: var(--r-md); background: var(--surface); font-size: var(--meta-size); font-weight: 600; color: var(--rb-blk-ink); cursor: pointer; }
+.de-in summary::-webkit-details-marker { display: none; }
+.de-in summary::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--rb-blk-ink2); border-bottom: 1.5px solid var(--rb-blk-ink2); transform: translateY(-2px) rotate(45deg); }
+.de-in[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+.de-in summary:hover { background: #EEF5FE; color: var(--primary); }
+.de-in summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.de-in summary small { display: inline-flex; align-items: center; gap: 6px; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); }
+.de-method { font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); margin: 12px 0 10px; max-width: 62ch; }
+.de-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+.de-steps div, .de-inputs div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid var(--rb-blk-line); font-size: var(--meta-size); line-height: 18px; color: var(--rb-blk-ink2); }
+.de-steps span:last-child { color: var(--rb-blk-ink); font-weight: 600; text-align: right; }
+.de-inputs { margin-top: 12px; }
+.de-inputs div { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.de-inputs dd { display: inline-flex; align-items: center; justify-content: flex-end; gap: 7px; color: var(--rb-blk-ink); font-weight: 600; text-align: right; }
+.de-inputs dd small { display: inline-flex; align-items: center; gap: 5px; font-size: var(--chip-size); font-weight: 600; color: var(--rb-blk-ink2); }
+
+/* The open criterion's note in the drawing: its tag filled, its point marked by a pulsing halo. */
+#ds [data-callout].is-on rect { fill: var(--primary) !important; }
+#ds [data-callout].is-on rect + text { fill: #fff !important; stroke: none !important; }
+#ds [data-callout].is-on circle { fill: var(--primary) !important; }
+#ds .is-dim[data-callout] text, #ds .is-dim [data-callout] text { visibility: visible; }
+.halo { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px #fff, 0 0 0 14px rgba(0, 115, 234, 0.14); pointer-events: none; opacity: 0; transition: opacity 240ms var(--ease); }
+.halo.is-in { opacity: 1; }
+.halo::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--primary); animation: ring 1.4s var(--ease) infinite; }
 
 /* --- The second band: from trades to total --------------------------------- */
 
@@ -563,10 +601,22 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .dwg--crop [data-part]:not([data-part="grade"]) { display: none; }
 
   .count b { font-size: 36px; }
-  .crit-v { white-space: normal; }
-  .crits .criterion { grid-template-columns: 40px minmax(0, 1fr); padding: 12px; }
-  .crits .crit-v { grid-column: 2; text-align: left; }
-  .crits .src { grid-column: 2; }
+  .de-tally { font-size: var(--meta-size); margin-top: 10px; }
+  .de { margin-top: 16px; }
+  .de-h { grid-template-columns: 38px minmax(0, 1fr) 12px 20px; gap: 8px; padding: 10px 0; font-size: var(--body-size); }
+  .de-name { display: grid; gap: 1px; }
+  .de-name small { display: block; font-size: var(--meta-size); font-weight: 400; color: var(--rb-blk-ink2); }
+  .de-v { display: none; }
+  .de-dt { margin: 0 0 14px; padding: 14px; }
+  .de-why { font-size: var(--ui-size); line-height: 21px; }
+  .de-pr { white-space: normal; height: auto; min-height: 26px; padding: 4px 10px; line-height: 16px; }
+  .de-steps { grid-template-columns: minmax(0, 1fr); }
+  .de-inputs div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .de-inputs dd { justify-content: space-between; text-align: left; }
+  .halo { width: 12px; height: 12px; margin: -6px 0 0 -6px; box-shadow: 0 0 0 2px #fff, 0 0 0 9px rgba(0, 115, 234, 0.16); }
+  /* The crop hides the sheet's notes; the open criterion's own note shows, and the camera goes to it. */
+  .dwg--crop [data-part="criteria"]:has(.is-on), .dwg--crop [data-part="keyplan"]:has(.is-on) { display: inline; }
+  .dwg--crop [data-part="criteria"] [data-callout]:not(.is-on) { display: none; }
 
   .band--peak .band-stage { padding-top: var(--hd-h); }
   .wf-main { padding: 8px 16px 4px; }
@@ -576,8 +626,6 @@ body.withdrawn .meta { font-size: var(--meta-size); color: var(--rb-blk-ink2); m
   .wf-h { font-size: 22px; line-height: 30px; }
   .fig--beside { font-size: 15vw; }
   .band--peak[data-landed="true"] .wf-in, .band--peak[data-landed="still"] .wf-in, .band--peak[data-landed="measure"] .wf-in { grid-template-areas: "h" "fig" "dwg" "wf"; }
-  .crit--keyed { grid-template-columns: minmax(0, 1fr); }
-  .crit--keyed li:nth-child(2) { border-top: 1px solid var(--rb-blk-line); }
   .wf-row { padding: 7px 0; gap: 2px 12px; }
   .wf-lab { font-size: var(--body-size); }
   .wf-lab .dot { display: inline-block; }
@@ -596,7 +644,7 @@ html.is-jump [data-dwg="section"] * { transition: none !important; }
 
 /* --- Reduced motion: the opening swaps its layers, the peak resolves -------- */
 
-html.is-reduce .band--peak *, html.is-reduce .band--peak { animation: none !important; }
+html.is-reduce .band--peak *, html.is-reduce .band--peak, html.is-reduce .halo::after { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0ms !important; }
 }
@@ -665,7 +713,8 @@ html[data-print] .op-lbl, html[data-print] .op-n-l, html[data-print] .op-facts, 
   .trio { margin-top: 0 !important; }
   .sc-stage, [data-sc-stage] { position: static !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
   [data-sc-cue], [data-sc-in], [data-sc-stagger] > *, .sc-split__i { opacity: 1 !important; transform: none !important; visibility: visible !important; pointer-events: auto !important; transition: none !important; animation: none !important; }
-  .lg-row, .note, .criterion, .fact, .plain li, .wf-row, .record > div, .wf-plan li, .crit-steps li, .crit-inputs > div, .crit li { break-inside: avoid; }
+  .lg-row, .note, .fact, .plain li, .wf-row, .record > div, .wf-plan li, .de-h, .de-lim > div, .de-steps div, .de-inputs div { break-inside: avoid; }
+  .de-in summary::after, .halo { display: none; }
   /* LA-1420: the stored PDF starts each of these on a fresh page. LA-1558: the
      letter follows Design and Engineering now, so it starts one too. */
   #where-the-money-is, #design-and-engineering, #letter, #from-trades-to-total, #notes, #what-is-in { break-before: page; }

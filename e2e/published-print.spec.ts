@@ -65,6 +65,11 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         (s) => s.getAttribute("data-open") !== "true" || getComputedStyle(s.querySelector(".fold")!).visibility !== "visible",
       );
       const hiddenCards = [...document.querySelectorAll(".sov-line .card")].filter((c) => !shown(c)).length;
+      // LA-1662: every Design and Engineering criterion open, with its steps and inputs.
+      const criteria = [...document.querySelectorAll(".de-row")];
+      const closedCriteria = criteria.filter(
+        (r) => r.getAttribute("data-open") !== "true" || getComputedStyle(r.querySelector(".fold")!).visibility !== "visible" || !r.querySelector("details")!.open,
+      ).length;
       // LA-1459: every layer of the section is drawn, and the drawing at rest is the one sheet.
       const undrawn = [...document.querySelectorAll('[data-dwg="section"] [data-layer], [data-dwg="section"] [data-story]')].filter(
         (g) => getComputedStyle(g).opacity !== "1",
@@ -76,6 +81,8 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
         scopes: scopes.length,
         closed: closed.length,
         hiddenCards,
+        criteria: criteria.length,
+        closedCriteria,
         actsNotAtEnd: acts.filter((a) => (a as HTMLElement).style.getPropertyValue("--sc-p") !== "1").length,
         acts: acts.length,
         pinnedStage: getComputedStyle(document.querySelector("#from-trades-to-total [data-sc-stage]")!).position,
@@ -90,6 +97,8 @@ test("the print page is at rest: every drill-down open, nothing driven by scroll
     expect(state.scopes).toBeGreaterThan(5);
     expect(state.closed).toBe(0);
     expect(state.hiddenCards).toBe(0);
+    expect(state.criteria).toBe(model.criteria.length);
+    expect(state.closedCriteria).toBe(0);
     expect(state.acts).toBeGreaterThan(0);
     expect(state.actsNotAtEnd).toBe(0);
     expect(state.pinnedStage).toBe("static");

@@ -3,7 +3,8 @@
    black band, publishes each act's progress as --sc-p, and drives the
    waterfall's cues. Everything here is page-local: the opening and its
    hand-offs into the header, the section index, the Schedule of Values'
-   drop-downs and the section they lift, the waterfall's figure advancing
+   drop-downs and the section they lift, Design and Engineering's rows
+   opening in place, the waterfall's figure advancing
    line by line and landing in light, and the print rest. The server writes
    every figure and word; this file only moves and shows them. */
 (function () {
@@ -243,7 +244,8 @@
     var cardSlot = trio.querySelector('[data-card-slot]');
     var crumbEl = trio.querySelector('[data-crumb]');
     var design = doc.getElementById('design-and-engineering');
-    var crits = design ? slice(design.querySelectorAll('.crit--keyed [data-crit]')) : [];
+    var deList = design && design.querySelector('[data-de]');
+    var rows = deList ? slice(deList.querySelectorAll('.de-row')) : [];
 
     // Each line as the server wrote it: its pieces in the drawing, its items, and their cards.
     var lines = slice(section.querySelectorAll('.sov-line[data-el]')).map(function (li) {
@@ -310,14 +312,15 @@
     }
 
     // Light what is in focus and dim the rest. The criteria's callouts stay under their own rule, shown only at Design and Engineering or when lit.
-    function focus(layers, callouts) {
+    function focus(layers, callouts, dim) {
       if (!svg) return;
       var on = [];
       layers.forEach(function (l) { layerEls(l).forEach(function (g) { on.push(g); }); });
       (callouts || []).forEach(function (c) { q('[data-callout="' + cssEsc(c) + '"]').forEach(function (g) { on.push(g); }); });
       q('.is-on').forEach(function (g) { g.classList.remove('is-on'); });
       on.forEach(function (g) { g.classList.add('is-on'); });
-      (function dim(el) {
+      var faint = String(dim || 0.13);
+      (function walk(el) {
         Array.prototype.forEach.call(el.children, function (c) {
           if (c.tagName.toLowerCase() === 'defs') return;
           if (on.length === 0 || on.indexOf(c) > -1) {
@@ -326,8 +329,8 @@
             return;
           }
           var holds = c.getAttribute('data-part') === 'criteria' || on.some(function (g) { return c.contains(g); });
-          if (holds) { c.style.opacity = ''; c.classList.remove('is-dim'); dim(c); }
-          else { c.style.opacity = '0.13'; c.classList.add('is-dim'); }
+          if (holds) { c.style.opacity = ''; c.classList.remove('is-dim'); walk(c); }
+          else { c.style.opacity = faint; c.classList.add('is-dim'); }
         });
       })(svg);
     }
@@ -563,6 +566,7 @@
     }
     function choose(i) { pick = pick === i ? null : i; hover = null; show(false); }
     function toggle(line) {
+      closeCrit();
       if (open && open !== line) setOpen(open.li, false);
       open = open === line ? null : line;
       setOpen(line.li, !!open);
@@ -608,7 +612,7 @@
       var pr = e.target.closest('.pin-row');
       if (open && pr && open.li.contains(pr)) { var i = +pr.getAttribute('data-i'); if (pick === null && hover !== i) { hover = i; marks(); } return; }
       if (open && hover !== null) { hover = null; marks(); }
-      if (open) return;
+      if (open || crit) return;
       var li = e.target.closest('.sov-line[data-el]');
       each('.sov-line.is-hot', function (x) { x.classList.remove('is-hot'); }, section);
       if (!li) { focus([]); return; }
@@ -616,7 +620,7 @@
       focus(lineOf(li).layers);
     });
     section.addEventListener('mouseleave', function () {
-      if (!open) { focus([]); each('.sov-line.is-hot', function (x) { x.classList.remove('is-hot'); }, section); }
+      if (!open && !crit) { focus([]); each('.sov-line.is-hot', function (x) { x.classList.remove('is-hot'); }, section); }
       else if (hover !== null) { hover = null; marks(); }
     });
     if (pins) {
@@ -628,49 +632,201 @@
     // On a phone the no-rate items fold into one line the reader can tap open.
     if (phone() && !printing) each('details[data-fold-phone]', function (d) { d.open = false; }, section);
 
-    /* Design and Engineering: the inks settle, the callouts show, and a criterion and its callout light together. */
-    var crit = '', pinnedCrit = '', critHover = false;
-    var callouts = q('[data-callout]');
-    function lightCrit(code) {
-      if (code === crit) return;
-      crit = code;
-      crits.forEach(function (li) { li.classList.toggle('is-now', li.getAttribute('data-crit') === code); });
-      callouts.forEach(function (g) { g.classList.toggle('is-now', g.getAttribute('data-callout') === code); });
+    /* Design and Engineering in layers (LA-1662): a criterion's row opens in place to its detail.
+       The open criterion lights its callout and what it prices, a halo marks the point it decides,
+       and a lead runs from the row to its note in the drawing's margin, the way a drawing keys its
+       notes. On a phone the drawing zooms to the note instead. */
+    var crit = null;
+    var halo = null;
+    if (frame && !printing) { halo = doc.createElement('span'); halo.className = 'halo'; halo.setAttribute('aria-hidden', 'true'); frame.appendChild(halo); }
+    var STEP = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+    var codeOf = function (row) { return row.getAttribute('data-crit'); };
+    var rowOf = function (code) { return rows.filter(function (r) { return codeOf(r) === code; })[0] || null; };
+    var calloutOf = function (code) { return q('[data-callout="' + cssEsc(code) + '"]')[0] || null; };
+    function pricedOf(row) {
+      var out = [];
+      slice(row.querySelectorAll('.de-pr[data-layer]')).forEach(function (p) { var l = p.getAttribute('data-layer'); if (out.indexOf(l) < 0) out.push(l); });
+      return out;
     }
+
+    function placeHalo() {
+      if (!halo) return;
+      var c = crit && calloutOf(codeOf(crit));
+      // A note with no leader point (A-2, under the key plan) keeps its lit tag as the mark.
+      var dot = c && c.querySelector('circle');
+      if (!dot) { halo.classList.remove('is-in'); return; }
+      var pt = screenOf(dot), fr = frame.getBoundingClientRect();
+      halo.style.left = (pt.x - fr.left) + 'px'; halo.style.top = (pt.y - fr.top) + 'px';
+      halo.classList.add('is-in');
+    }
+
+    // A note left of the building takes the lead straight in at its own height. A note right of it
+    // takes the lead round the sheet, over its top or under its foot, whichever is nearer, so the
+    // lead never crosses the building.
+    function drawLead() {
+      if (!wire || open) return;
+      wire.innerHTML = '';
+      var c = crit && calloutOf(codeOf(crit));
+      if (!c || phone()) return;
+      var head = crit.querySelector('.de-h').getBoundingClientRect();
+      var tag = c.querySelector('rect').getBoundingClientRect(), dot = c.querySelector('circle');
+      var words = slice(c.querySelectorAll('text')).map(function (t) { return t.getBoundingClientRect(); }).concat([tag]);
+      var y = tag.top + tag.height / 2;
+      var fr = frame.getBoundingClientRect();
+      var sheet = q('rect').map(function (r) { return r.getBoundingClientRect(); }).sort(function (a, b) { return b.width - a.width; })[0];
+      var x1 = head.right + 6, y1 = head.top + head.height / 2, fl = fr.left;
+      if (y1 < hdH() || y1 > innerHeight || y < hdH() || y > innerHeight) return;
+      var leftNote = !dot || screenOf(dot).x > tag.left;
+      var runY, lead, f = function (n) { return n.toFixed(1); };
+      if (leftNote) {
+        var xl = Math.min.apply(null, words.map(function (r) { return r.left; })) - 6;
+        runY = y;
+        lead = 'M' + f(fl) + ',' + f(y) + ' L' + f(xl) + ',' + f(y);
+      } else {
+        var xr = Math.max.apply(null, words.map(function (r) { return r.right; })) + 6;
+        var over = y - sheet.top < sheet.bottom - y;
+        runY = over ? (fr.top + sheet.top) / 2 : (fr.bottom + sheet.bottom) / 2;
+        var lane = (sheet.right + fr.right) / 2;
+        lead = 'M' + f(fl) + ',' + f(runY) + ' L' + f(lane) + ',' + f(runY) + ' L' + f(lane) + ',' + f(y) + ' L' + f(xr) + ',' + f(y);
+      }
+      var g = (x1 + fl) / 2;
+      wire.innerHTML = '<circle cx="' + f(x1) + '" cy="' + f(y1) + '" r="3"></circle>' +
+        '<path d="M' + f(x1) + ',' + f(y1) + ' C' + f(g) + ',' + f(y1) + ' ' + f(g) + ',' + f(runY) + ' ' + f(fl) + ',' + f(runY) + '"></path>' +
+        '<path class="lead" d="' + lead + '"></path>';
+      var path = wire.querySelector('path:not(.lead)');
+      if (!reduce && drawFor !== 'crit:' + codeOf(crit)) {
+        drawFor = 'crit:' + codeOf(crit);
+        path.style.setProperty('--len', path.getTotalLength());
+        path.classList.add('is-draw');
+      }
+    }
+    function follow() { placeHalo(); drawLead(); }
+
+    function noteBox(code) {
+      var c = calloutOf(code), H = home();
+      if (!c) return H;
+      var b = c.getBBox(), ar = H[2] / H[3], pad = 24;
+      if (!b.width && !b.height) return H;
+      var w = Math.max(b.width + pad * 2, H[2] * 0.5), h = Math.max(b.height + pad * 2, H[3] * 0.5);
+      if (w / h > ar) h = w / ar; else w = h * ar;
+      w = Math.min(w, BASE[2]); h = Math.min(h, BASE[3]);
+      var x = Math.max(BASE[0], Math.min(b.x + b.width / 2 - w / 2, BASE[0] + BASE[2] - w));
+      var y = Math.max(BASE[1], Math.min(b.y + b.height / 2 - h / 2, BASE[1] + BASE[3] - h));
+      return [x, y, w, h];
+    }
+
+    function setRow(row, on) {
+      row.setAttribute('data-open', String(on));
+      row.querySelector('.de-h').setAttribute('aria-expanded', String(on));
+      if (!on) each('details[open]', function (d) { d.open = false; }, row);
+    }
+    function closeCrit() {
+      if (!crit) return;
+      setRow(crit, false);
+      crit = null;
+      drawFor = null;
+      placeHalo();
+      if (wire && !open) wire.innerHTML = '';
+    }
+    function bringIn(row) {
+      setTimeout(function () {
+        if (crit !== row) return;
+        if (phone()) { underDrawing(row); return; }
+        var r = row.getBoundingClientRect(), over = r.bottom - (innerHeight - 24);
+        if (over > 0) scrollBy({ top: Math.min(over, r.top - hdH() - 16), behavior: reduce ? 'auto' : 'smooth' });
+      }, reduce ? 0 : 400);
+    }
+    function chooseCrit(row) {
+      if (open) toggle(open);
+      if (crit === row) { closeCrit(); row = null; }
+      else { closeCrit(); crit = row; setRow(row, true); }
+      rows.forEach(function (r) { r.classList.remove('is-hot'); });
+      if (!crit) { focus([]); zoomTo(home(), 600); crumb(['Building Section']); sc.layout(); return; }
+      var code = codeOf(crit);
+      focus(pricedOf(crit), [code]);
+      crumb(['Building Section', code + ' ' + crit.querySelector('.de-name').firstChild.textContent]);
+      zoomTo(phone() ? noteBox(code) : home(), 600, follow);
+      setTimeout(function () { follow(); sc.layout(); }, reduce ? 0 : 420);
+      bringIn(crit);
+    }
+
+    function preview(code) {
+      if (crit || open) return;
+      rows.forEach(function (r) { r.classList.toggle('is-hot', codeOf(r) === code); });
+      if (code) focus([], [code], 0.3); else focus([]);
+    }
+    if (deList) {
+      deList.addEventListener('click', function (e) { var h = e.target.closest('.de-h'); if (h) chooseCrit(h.parentNode); });
+      deList.addEventListener('mouseover', function (e) { var r = e.target.closest('.de-row'); preview(r ? codeOf(r) : null); });
+      deList.addEventListener('mouseleave', function () { preview(null); });
+      deList.addEventListener('mouseover', function (e) {
+        var p = e.target.closest('.de-pr[data-layer]');
+        if (p && crit && crit.contains(p)) focus([p.getAttribute('data-layer')], [codeOf(crit)]);
+      });
+      deList.addEventListener('mouseout', function (e) {
+        var p = e.target.closest('.de-pr[data-layer]');
+        if (p && crit && !p.contains(e.relatedTarget)) focus(pricedOf(crit), [codeOf(crit)]);
+      });
+    }
+    if (svg && !printing && rows.length) {
+      svg.addEventListener('mouseover', function (e) {
+        if (state !== 'design') return;
+        var c = e.target.closest('[data-callout]');
+        preview(c ? c.getAttribute('data-callout') : null);
+      });
+      svg.addEventListener('click', function (e) {
+        var c = state === 'design' && e.target.closest('[data-callout]');
+        var row = c && rowOf(c.getAttribute('data-callout'));
+        if (row) chooseCrit(row);
+      });
+    }
+    if (rows.length) addEventListener('keydown', function (e) {
+      if (e.defaultPrevented || e.target.closest('input, textarea, select, [contenteditable]')) return;
+      if (e.key === 'Escape' && crit) { var was = crit; chooseCrit(crit); was.querySelector('.de-h').focus({ preventScroll: true }); return; }
+      var d = STEP[e.key];
+      if (!d || !design.contains(doc.activeElement) || e.target.closest('summary')) return;
+      if (!crit && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
+      var at = crit || doc.activeElement.closest('.de-row');
+      var i = rows.indexOf(at), j = i + d;
+      if (crit) j = (j + rows.length) % rows.length;
+      else if (i < 0) j = d > 0 ? 0 : rows.length - 1;
+      var next = rows[j];
+      if (!next) return;
+      e.preventDefault();
+      if (crit) chooseCrit(next);
+      var h = next.querySelector('.de-h');
+      h.focus({ preventScroll: true });
+      if (!crit) {
+        var top = hdH() + (phone() && aside ? aside.offsetHeight : 0) + 8, r = h.getBoundingClientRect();
+        if (r.top < top || r.bottom > innerHeight - 8) scrollBy({ top: r.top - top, behavior: 'auto' });
+      }
+    });
+
     function readingLine() { var top = hdH() + (phone() && aside ? aside.offsetHeight : 0); return top + (innerHeight - top) * 0.3; }
     function read() {
       var s = design && design.getBoundingClientRect().top <= readingLine() ? 'design' : 'sov';
       if (s !== state) {
         state = s;
         trio.setAttribute('data-state', s);
-        if (s !== 'design') { pinnedCrit = ''; lightCrit(''); }
       }
       if (open) requestAnimationFrame(placePins);
+      if (crit) requestAnimationFrame(follow);
     }
-    crits.forEach(function (li) {
-      li.addEventListener('mouseenter', function () { critHover = true; lightCrit(li.getAttribute('data-crit')); });
-      li.addEventListener('mouseleave', function () { critHover = false; lightCrit(pinnedCrit); });
-      li.addEventListener('click', function () { pinnedCrit = li.getAttribute('data-crit'); lightCrit(pinnedCrit); });
-    });
-    if (svg && !printing) svg.addEventListener('click', function (e) {
-      var c = state === 'design' && e.target.closest('[data-callout]');
-      if (!c) return;
-      pinnedCrit = c.getAttribute('data-callout');
-      lightCrit(pinnedCrit);
-      var li = crits.filter(function (x) { return x.getAttribute('data-crit') === pinnedCrit; })[0];
-      if (li) scrollTo({ top: scrollY + li.getBoundingClientRect().top - readingLine(), behavior: reduce ? 'auto' : 'smooth' });
-    });
 
     // The camera follows the width: a phone's crop or a desktop's tall frame.
     function place() {
       if (!svg) return;
       if (open && open.layers.length) setVb(boxOf(open.layers));
+      else if (crit && phone()) setVb(noteBox(codeOf(crit)));
       else setVb(home());
       placePins();
+      follow();
     }
-    // Print: every line open with its cards in place, the drawing whole and at rest.
+    // Print: every line and every criterion open with its cards and steps in place, the drawing whole and at rest.
     function rest() {
       if (open) { open = null; pick = null; hover = null; show(true); }
+      closeCrit();
+      rows.forEach(function (r) { setRow(r, true); each('details', function (d) { d.open = true; }, r); });
       cam++;
       setVb(BASE.slice());
       focus([]);

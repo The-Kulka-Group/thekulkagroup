@@ -312,7 +312,7 @@ describe("client-facing text", () => {
     expect(band).toContain("<span>64,000 GSF</span>");
     expect(band).toContain("<span>5 Stories</span>");
     expect(band).toMatch(/<p class="op-n-l">Total Budget<\/p><p class="op-n-v num" data-op-move="fig" data-el-ref="total:kulka-contract">\$20,296,613<\/p>/);
-    expect(band).toMatch(/<p class="op-n-l">Per Square Foot<\/p><p class="op-n-v num" data-el-ref="record:per-sf">\$317<\/p>/);
+    expect(band).toMatch(/<p class="op-n-l">Per Square Foot<\/p><p class="op-n-v num" data-op-move="psf" data-el-ref="record:per-sf">\$317<\/p>/);
     // The reference run has no schedule, so the opening shows two numbers and never a month count.
     expect(band).toContain('data-count="2"');
     expect(band).not.toContain("Duration");
@@ -331,7 +331,7 @@ describe("client-facing text", () => {
     const html = renderBudgetPage(presentBudget(publication));
     const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('<div class="trio"'));
     expect(band).toContain('data-count="3"');
-    expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num">14<small>Months</small></p>');
+    expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num" data-op-move="dur">14<small>Months</small></p>');
     expect(band).not.toContain("+/-");
   });
 
@@ -339,7 +339,24 @@ describe("client-facing text", () => {
     const html = renderBudgetPage(presentBudget(estimatedPublication()));
     const band = html.slice(html.indexOf('class="band band--first"'), html.indexOf('<div class="trio"'));
     expect(band).toContain('data-count="3"');
-    expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num">16<small>Months +/-</small></p>');
+    expect(band).toContain('<p class="op-n-l">Duration</p><p class="op-n-v num" data-op-move="dur">16<small>Months +/-</small></p>');
+  });
+
+  it("gives each opening number a header slot, Per Square Foot rightmost (LA-1575)", () => {
+    const slotsOf = (html: string) => [...html.slice(html.indexOf('<div class="hd-t1">'), html.indexOf("</div>", html.indexOf('<div class="hd-t1">'))).matchAll(/data-hd-slot="([^"]+)"/g)].map((m) => m[1]);
+    const movesOf = (html: string) => [...html.matchAll(/data-op-move="([^"]+)"/g)].map((m) => m[1]);
+
+    const three = renderBudgetPage(presentBudget(estimatedPublication()));
+    expect(slotsOf(three)).toEqual(["proj", "fig", "dur", "psf"]);
+    expect(new Set(movesOf(three))).toEqual(new Set(slotsOf(three)));
+    expect(three).toContain('<span class="hd-fig"><span class="hd-fig-l">Duration</span><span class="hd-fig-v num" data-hd-slot="dur">16<small>Months +/-</small></span></span>');
+    expect(three).toContain('<span class="hd-fig" data-el-ref="record:per-sf"><span class="hd-fig-l">Per Square Foot</span><span class="hd-fig-v num" data-hd-slot="psf">$317</span></span>');
+
+    // With no duration, its slot is left out.
+    const two = page();
+    expect(slotsOf(two)).toEqual(["proj", "fig", "psf"]);
+    expect(new Set(movesOf(two))).toEqual(new Set(slotsOf(two)));
+    expect(renderBudgetPage(presentBudget(referencePublication()), { print: true })).not.toContain("data-hd-slot");
   });
 });
 

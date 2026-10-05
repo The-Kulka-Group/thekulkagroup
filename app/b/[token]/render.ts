@@ -70,17 +70,38 @@ function drawings(page: BudgetPage) {
 const commentControl = `
     <button class="hd-cmt" type="button" aria-pressed="false" data-cm-toggle hidden><i aria-hidden="true"></i><span data-cm-label>Comment</span></button>`;
 
+/**
+ * The opening's numbers, each travelling into its own header slot (LA-1575).
+ * Listed in the opening's order; the header reads them in `SLOT_ORDER`.
+ */
+type Headline = { key: "fig" | "psf" | "dur"; label: string; html: string; ref: string | null };
+const SLOT_ORDER: Headline["key"][] = ["fig", "dur", "psf"];
+
+function headlineNumbers(page: BudgetPage): Headline[] {
+  const { kulkaContract, perSquareFoot, duration } = page.headline;
+  const numbers: (Headline | null)[] = [
+    { key: "fig", label: "Total Budget", html: usd(kulkaContract.likely), ref: "total:kulka-contract" },
+    perSquareFoot ? { key: "psf", label: "Per Square Foot", html: usd(perSquareFoot.value), ref: "record:per-sf" } : null,
+    duration
+      ? { key: "dur", label: "Duration", html: `${duration.months}<small>${duration.months === 1 ? "Month" : "Months"}${duration.estimated ? " +/-" : ""}</small>`, ref: null }
+      : null,
+  ];
+  return numbers.filter((n): n is Headline => n !== null);
+}
+
 function header(page: BudgetPage, comments: boolean): string {
-  const figure = `<span class="hd-fig" data-el-ref="total:kulka-contract"><span class="hd-fig-l">Total Budget</span><span class="hd-fig-v num">${usd(page.headline.kulkaContract.likely)}</span></span>`;
+  const slots = headlineNumbers(page)
+    .sort((a, b) => SLOT_ORDER.indexOf(a.key) - SLOT_ORDER.indexOf(b.key))
+    .map((n) => `<span class="hd-fig"${elAttr(null, n.ref)}><span class="hd-fig-l">${n.label}</span><span class="hd-fig-v num" data-hd-slot="${n.key}">${n.html}</span></span>`)
+    .join("");
   return `
 <header class="hd" id="bar" data-state="band">
   <div class="hd-t1">
     <a class="hd-mark" href="#your-number">Kulka</a>
-    <span class="hd-proj">${esc(page.projectName)}</span>
-    ${figure}${comments ? commentControl : ""}
+    <span class="hd-proj" data-hd-slot="proj">${esc(page.projectName)}</span>
+    <span class="hd-figs">${slots}</span>${comments ? commentControl : ""}
   </div>
   <nav class="hd-t2" aria-label="Sections">
-    ${figure}
     <ul class="hd-ix">${page.sections
       .filter((s) => s.id !== "design-and-engineering" || page.criteria.length > 0)
       .map((s) => `<li><a href="#${s.id}" data-index="${s.id}">${esc(s.indexLabel)}</a></li>`)
@@ -95,7 +116,7 @@ function header(page: BudgetPage, comments: boolean): string {
 // One stage pinned for several screens (~/scrollcraft/frames/kulka-first-screen,
 // r2/opening.html). The wordmark shrinks into the header's mark as the project
 // rises in; the project's name travels into the header as the numbers rise in;
-// the total travels into the header's figure slot as the Schedule of Values
+// each number travels into its own header slot as the Schedule of Values
 // slides up over the black. budget-page.js drives it; at rest and in print
 // every layer reads in order.
 
@@ -107,13 +128,9 @@ function sectionNumber(page: BudgetPage): string {
     h.grossSquareFeet !== null ? `${wholeNumber(h.grossSquareFeet)} GSF` : null,
     `${stories} ${stories === 1 ? "Story" : "Stories"}`,
   ].filter((f): f is string => f !== null);
-  const numbers = [
-    `<div><p class="op-n-l">Total Budget</p><p class="op-n-v num" data-op-move="fig" data-el-ref="total:kulka-contract">${usd(h.kulkaContract.likely)}</p></div>`,
-    h.perSquareFoot ? `<div><p class="op-n-l">Per Square Foot</p><p class="op-n-v num" data-el-ref="record:per-sf">${usd(h.perSquareFoot.value)}</p></div>` : null,
-    h.duration !== null
-      ? `<div><p class="op-n-l">Duration</p><p class="op-n-v num">${h.duration.months}<small>${h.duration.months === 1 ? "Month" : "Months"}${h.duration.estimated ? " +/-" : ""}</small></p></div>`
-      : null,
-  ].filter((n): n is string => n !== null);
+  const numbers = headlineNumbers(page).map(
+    (n) => `<div><p class="op-n-l">${n.label}</p><p class="op-n-v num" data-op-move="${n.key}"${elAttr(null, n.ref)}>${n.html}</p></div>`,
+  );
   return `
 <section class="band band--first" id="your-number" data-el="section:your-number" data-sc-act="flow">
   <div class="op-stage" data-op-stage>

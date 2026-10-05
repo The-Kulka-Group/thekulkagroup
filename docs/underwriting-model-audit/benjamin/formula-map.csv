@@ -1,0 +1,81 @@
+area,calculation,source_sheet,source_cells,workbook_rule,saved_value,kulka_target,priority
+Timeline,Analysis start month,Input,A14,First day of the month of the entered start date in M14,,monthly spine start (analysisStartMonth),P0
+Timeline,Construction start period,Input,P17,Land close period plus months entered in R17,,cost line anchor month,P0
+Timeline,First units delivered period,Input,P18,Earliest phase first-delivery period from O42:X42,,operationStartMonth,P0
+Timeline,Last units delivered period,Input,P20,Latest phase last-delivery period from O45:X45,,unit delivery schedule,P1
+Timeline,Stabilization period,CF-Resi Ops,C21,"Count of periods before cumulative move-ins reach their peak, plus one, plus hold months in Input!AA90",,firstStabilizedMonth,P0
+Timeline,Disposition period,Input,P22,Stabilization period plus months in R22,,saleMonth,P0
+Uses,Land cost,Input,AC780,Subtotal of land cost lines,,land cost lines,P0
+Uses,Direct hard cost,Input,AC784,"Metric in T784 times GSF, where GSF includes structured parking area",,hard cost line with a quantity basis,P0
+Uses,Hard cost subtotal,Input,AC830,"G.C. contract plus other hard costs (construction management, tenant improvements)",,hard cost lines,P0
+Uses,Architectural fees,Input,AC839,Typed constant; the percent metric shown in T839 does not feed the amount,,soft cost line with explicit basis,P1
+Uses,Building permits,Input,AC949,Total hard cost times a percent typed inside the formula,,permit fee rule as reviewed input,P2
+Uses,"Construction interest (net, in budget)",Input,AC915,Pulls CF-Dev Budget!I155: gross interest less NOI applied to interest,,capitalizedInterest,P0
+Uses,Senior loan origination fee,Input,AC921,Fee percent O634 times Plug_TDC-based max loan (Plug_4) unless overridden in O635,,loanFees,P0
+Uses,Development fee,Input,AC1023,"Percent T1023 times Plug_TDC, a pasted total that includes the fee itself",,development fee rule without self reference,P1
+Uses,Hard cost contingency,Input,AC1062,Percent T1062 times Plug_TDC; labeled hard cost but based on total cost,,contingency line with stated basis,P1
+Uses,Builder's risk insurance,Input,AC1048,Monthly rate lookup times construction months plus a constant typed in the formula,,soft cost line,P2
+Uses,Residential operating deficit,Input,AC1034,"Negative of CF-Resi Ops!I77, the lease-up operating shortfall",,operatingShortfall,P0
+Uses,Total soft costs,Input,AC1065,"Sum of soft cost subtotals including interest, fees, deficits and contingency",,soft cost lines,P0
+Uses,Total project cost,Input,AC1066,Land plus hard plus soft,,totalUses,P0
+Circularity,Plug check on total project cost,Input,Z1071,Pasted value T1071 must match calculated TPC W1071 within 0.4,,no plug; solve inside the engine,P0
+Cost timing,Dollars on the general construction curve,Cost Curves,N9,Sum of budget lines coded to this curve,,cost line schedule,P0
+Cost timing,Curve slope term,Cost Curves,D19,"Slope G19, negated for U-curve, zero for straight line",,versioned curve shapes,P1
+Residential income,Annual market rent at current rents,Input,AL152,Sum of unit type units times rent times 12,,residentialGrossRent,P0
+Residential income,Other income annual,Input,U200,"Sum of other income lines (fees, parking, RUBS, amenity)",,otherIncomeLines,P0
+Residential income,Reserved parking income,Input,U187,Stalls as a share of residential parking times rate times 12,,otherIncomeLines,P1
+Residential income,RUBS utility reimbursement,Input,U188,Negative of reimbursed utilities in Z296,,otherIncomeLines tied to utilities,P2
+Lease-up,Seasonal absorption in January,Input,L97,Base absorption O88 times monthly factor L94,,seasonal lease-up module,P1
+Lease-up,Pre-leased units,Input,K91,Round of pre-lease percent N91 times units,,preleasedUnits,P0
+Residential income,Vacancy at current rents,Proforma,O115,Vacancy percent times gross potential revenue,,vacancyLoss,P0
+Residential income,Non-revenue units at current rents,Proforma,O116,Non-revenue units divided by units times gross potential revenue,,nonRevenueRentAdjustment,P0
+Residential income,Credit loss at current rents,Proforma,O118,Credit loss percent Input!AL213 times revenue after vacancy and non-revenue,,creditLoss,P0
+Residential expenses,Management fee at current rents,Proforma,O140,Fee percent Input!O223 times net effective residential revenue,,percent_effective_gross_revenue expense line,P0
+Residential expenses,"Property tax, income basis",Input,S419,NOI S413 divided by assessment cap rate S414 times millage M365 (entered millage divided by 100),,property tax module,P1
+Residential expenses,Payroll,Input,S205,Staffing plan in rows 239 to 251 rolled into a cost per unit,,operatingExpenseLines,P1
+Residential expenses,Total operating expenses at current rents,CF-Resi Ops,G74,Controllable plus uncontrollable expenses,,operatingExpenses,P0
+Residential NOI,Residential NOI at current rents,CF-Resi Ops,G76,Effective gross revenue less total operating expenses,,netOperatingIncome,P0
+Residential NOI,Residential NOI first stabilized year,CF-Resi Ops,H76,Sum of months after stabilization through stabilization plus 12,,netOperatingIncome by period,P0
+Residential NOI,Residential operating deficit through stabilization,CF-Resi Ops,I77,Sum of negative monthly operating cash flow through stabilization,,operatingShortfall,P0
+Commercial,Commercial NOI at current rents,Proforma,O176,NNN rent plus CAM reimbursement less CAM and other commercial costs,,commercial module,P2
+Commercial,CAM reimbursement,Proforma,O163,Reimbursement percent times CAM expense,,commercial module,P2
+Commercial,Tenant improvement allowance total,Input,S585,Sum of TI per NSF times tenant NSF,,commercial module,P2
+Debt,Construction loan maximum,Input,O626,LTC O623 times Plug_TDC unless overridden in O625,,targetDebtSharePercent,P0
+Debt,Construction loan draws,CF-Sources,I104,"Equity first, then draws up to the loan maximum",,totalDebtDraw,P0
+Debt,Gross construction interest,CF-Sources,I110,Monthly rate H110 divided by 12 times opening balance,,grossInterest,P0
+Debt,NOI applied to interest,CF-Sources,I111,Lease-up NOI used to pay interest before capitalization,,operatingCashAppliedToInterest,P0
+Debt,Net capitalized interest,CF-Sources,I113,Gross interest plus NOI and escrow applied,,capitalizedInterest,P0
+Debt,Construction loan repayment,CF-Sources,I106,Full balance repaid in the payoff month B106,,repayment,P0
+Debt,Permanent loan size by DSCR (module disabled),Input,T670,"Annualized trailing NOI divided by DSCR, converted to loan at the debt constant",,permanent debt module,P2
+Debt,Permanent loan size by LTV (module disabled),Input,T671,Capitalized NOI times maximum LTV,,permanent debt module,P2
+Equity,Total equity requirement,Input,P598,Plug_TDC less senior and mezz loan plugs less other sources,,equity,P0
+Equity,LP contributions,CF-Equity,G25,Pari-passu funding with catch-up at LP entry period,,partnership module,P2
+Equity,GP contributions,CF-Equity,G43,Gross GP funding less catch-up returned at LP entry,,partnership module,P2
+Waterfall,LP preferred return accrued,CF-Equity,G62,"Monthly accrual at NOMINAL(rate,12)/12 on unreturned capital plus unpaid pref",,partnership module,P2
+Waterfall,GP preferred return accrued,CF-Equity,G68,"Same rule as LP, accrual starts at period in Input!A602",,partnership module,P2
+Waterfall,LP final split distributions,CF-Equity,G33,LP share after the fourth IRR hurdle,,partnership module,P2
+Waterfall,GP promote total,Input,AE615,Sum of promote dollars across tiers,,partnership module,P2
+Returns,LP IRR,CF-Equity,F34,(1+IRR(monthly LP net cash flow))^12-1,,partnership module,P2
+Returns,GP IRR,CF-Equity,F52,(1+IRR(monthly GP net cash flow))^12-1,,partnership module,P2
+Returns,LP equity multiple,CF-Equity,G20,LP distributions divided by LP contributions,,partnership module,P2
+Returns,GP equity multiple,CF-Equity,G40,GP distributions divided by GP net contributions,,partnership module,P2
+Disposition,Residential forward NOI used for sale,Dispo Value,P156,"Forward 12 months after sale, annualized",,forwardNetOperatingIncome,P0
+Disposition,Non-revenue line in sale NOI,Dispo Value,O117,"Forward non-revenue loss minus the vacancy line O116, which adds vacancy back",,nonRevenueRentAdjustment in forward NOI,P0
+Disposition,Residential gross sale value,Dispo Value,P187,Forward NOI divided by residential exit cap unless overridden,,grossSaleValue,P0
+Disposition,Commercial gross sale value,Dispo Value,P188,Forward commercial NOI divided by commercial exit cap,,commercial module,P2
+Disposition,Selling cost in Other Selling Expense #4,Input,T749,Gross sale value times a percent typed inside the formula; Q752 and Q753 selling percents stay blank,,sellingCostPercent,P0
+Disposition,Net sale proceeds,CF-Dispo,I33,Gross proceeds less all selling items,,netSaleProceeds,P0
+Disposition,Commercial share used to allocate general selling costs,CF-Dispo,B34,Commercial gross over gross; residential share in A34 points at the hotel row I19,,reporting only,P3
+Returns,"Project levered IRR (monthly, annualized)",CF-Sources,I61,(1+IRR(monthly net equity cash flow))^12-1,,levered xirr,P0
+Returns,Project levered XIRR,CF-Equity,E14,XIRR of monthly net equity cash flow on first-of-month dates,,levered xirr,P0
+Returns,Project equity multiple,CF-Sources,I62,Equity disbursements divided by contributions,,levered equityMultiple,P0
+Returns,Project net profit (negative is profit),CF-Sources,I55,"Contributions plus disbursements, sign reversed by display cells",,levered netProfit,P0
+Returns,Peak equity,CF-Sources,I63,Maximum cumulative contributions,,peak equity metric,P1
+Returns,Unlevered IRR (approximate),CF-Data Tables,I332,"Budget less financing fees, interest and finance-related contingency and fee, plus NOI and sale, IRR annualized",,unlevered xirr,P0
+Returns,Unlevered equity multiple,CF-Data Tables,I333,Positive unlevered flows divided by negative,,unlevered equityMultiple,P0
+Returns,Current yield on cost,Proforma,O192,Untrended total NOI divided by investment basis,,untrended yield on cost,P1
+Returns,Stabilized yield on cost,Proforma,P192,First stabilized year NOI divided by investment basis,,yieldOnCost,P0
+Returns,Stabilized yield less going-in market cap,Input,AQ11,Stabilized yield minus a typed market cap rate in AQ10,,developmentSpreadBasisPoints,P1
+Checks,Sources minus uses,CF-Sources,I47,Sum of monthly uses less sources,,sources and uses reconciliation,P0
+Sensitivity,Sensitivity table status,Sensitivities,A2,Flags NOT CURRENT when table base net profit differs from Input!AF9 by more than 100,,scenario comparison,P1
+Ten-year,Year 1 total NOI in 10-Year CF,10-Year CF,K76,"Stabilized-year buckets of monthly NOI, grown by prior-year ratio after the monthly grid ends",,annual report view,P2

@@ -1,0 +1,61 @@
+area,calculation,source_sheet,source_cells,workbook_rule,saved_value,kulka_target,priority
+Project facts,Total units,Development Overview,F11;Input!AH23,Sum of unit types by bedroom count,,residential unit types,P1
+Project facts,Market rate units,Development Overview,E36,SUMIFS of unit rows labeled market rate,,affordability flag on unit type,P0
+Project facts,Affordable units,Development Overview,E37;Input!AC186,SUMIFS of unit rows labeled affordable,,affordability flag on unit type,P0
+Project facts,Residential net square feet,Development Overview,F10;Input!AG34,Sum of unit count times unit NSF,,project facts,P2
+Project facts,Gross square feet excluding parking,Input,AM38;AF35,Residential NSF divided by a typed efficiency factor,,project facts,P2
+Project facts,Structured parking square feet,Input,AG46;AG45;AL31,Typed stall count times typed SF per stall,,project facts,P2
+Project facts,Average untrended rent per NSF,Development Overview,J35,Unit-weighted monthly rent divided by NSF,,residential unit types,P2
+Uses,Land costs,Detailed Dev Budget,I15;Development Budget!E7,Sum of land cost lines,,cost lines,P0
+Uses,Hard costs,Development Budget,E13;Input!AC872;Bdgt_HCOther,Contract hard cost plus other hard cost lines; hard cost contingency input is zero,,cost lines,P0
+Uses,Developer fee,Detailed Dev Budget,I258;Input!AC1093;Plug_7,Fee percent of total project cost through a macro plug,,development fee rule,P1
+Uses,General contingency shown as soft cost contingency,Detailed Dev Budget,I298;Input!AC1132;Plug_14,Percent of total cost less land less lines flagged ND,,contingency rule,P1
+Uses,Construction interest carried in budget,Detailed Dev Budget,I152;CF-Dev Budget!I155;CF-Sources!I104,Gross monthly interest less lease-up NOI applied to interest,,capitalized interest,P0
+Uses,Financing fees,Detailed Dev Budget,I170;Input!AC1006,Sum of financing fee lines,,loan fees and financing cost lines,P0
+Uses,Construction loan fee,Input,AC991;O696;Plug_4,Fee percent times plugged loan amount,,loan fee percent,P0
+Uses,Equity raise fee,Input,AC1002;T1002;P668,Fee percent times LP equity,,fee rule on equity,P1
+Uses,Operating deficit,Detailed Dev Budget,I272,Budgeted operating deficit lines,,operating shortfall reserve,P1
+Uses,Total project cost,Development Budget,E27;CF-Dev Budget!I306 (TPC),Land plus hard plus soft plus carry,,total development cost,P0
+Uses,Sponsor affiliate fee rollup,Input,AP14;OpCo!I306,FILTER of budget lines flagged ND summed,,affiliate fee report,P2
+Sources,Senior construction loan,CF-Sources,I29;I95,Monthly draws after equity up to LTC times plugged total cost,,construction debt,P0
+Sources,Loan to cost used,Input,O684,Loan used divided by plugged total cost,,debt share percent,P0
+Sources,Common equity,Input,P670,Plugged total cost less loan plug less flagged other sources,,equity contributions,P0
+Sources,LP equity,Input,P668;M668,Total equity times LP share,,partnership module,P2
+Sources,Other source loan treated as grant,Input,Q774;Y774,Typed principal flagged as unreimbursed source,,other sources module,P1
+Sources,Grant funded in cash flow but absent from Sources & Uses,CF-Sources,I38;Input!Q775,Typed amount inside an IF formula funded on a curve,,other sources module,P0
+Sources,Total sources on lender tab,Sources & Uses,E11,"Sum of rounded equity, other loan and senior loan",,sources and uses report,P0
+Debt,Effective rate first curve month,Forward_Curve,I5;G5;H5,1-month Term SOFR plus spread,,floating rate schedule,P0
+Debt,Effective rate last curve month,Forward_Curve,I124,1-month Term SOFR plus spread,,floating rate schedule,P0
+Debt,Monthly loan rate lookup,CF-Sources,K106:JE106,"IFS by month: before curve use first rate, after curve use last rate, else match",,floating rate schedule,P0
+Debt,Gross construction interest,CF-Sources,I101,"Negative of rate times opening balance divided by 12, summed",,gross interest,P0
+Debt,Lease-up NOI applied to interest,CF-Sources,I102;CF-Data Tables!K82,Positive operating cash applied to interest,,operating cash applied to interest,P0
+Debt,Effective interest rate,Input,O693,Gross interest divided by summed opening balances times 12,,floating rate schedule,P1
+Debt,Loan payoff date,Input,O705;CF-Sources!B97,Disposition date unless overridden,,payoff month,P1
+NOI,Residential rental revenue untrended,Stabilized NOI,F9;Proforma!O128,Annual rent at untrended rents,,apartment operations,P0
+NOI,Effective gross income untrended,Stabilized NOI,F25,Rent plus other income less vacancy and bad debt,,apartment operations,P0
+NOI,Operating expenses untrended with abated taxes,Stabilized NOI,F46,Sum of expense lines with PILOT taxes,,apartment operations,P0
+NOI,PILOT taxes untrended,Stabilized NOI,F35;Proforma!O155;Input!Q517,Typed flat PILOT payment with zero growth,,tax abatement module,P0
+NOI,Market rate taxes untrended,Stabilized NOI,F43;Proforma!O211,Unabated tax liability,,tax abatement module,P1
+NOI,Stabilized NOI untrended,Stabilized NOI,F48;Proforma!O197,EGI less operating expenses,,apartment operations,P0
+NOI,Stabilized NOI trended,Stabilized NOI,J48;NOI_Resi_Stab,EGI less expenses at stabilization date,,apartment operations,P0
+NOI,NOI with market taxes untrended,Stabilized NOI,F50,EGI less expenses with market taxes,,tax abatement module,P0
+NOI,NPV of tax abatement,Stabilized NOI,F53;Input!AR517;AR515,NPV at typed discount rate of yearly tax saved,,tax abatement module,P1
+Lender,Loan request,Loan Request,F7,Senior loan rounded to thousands,,lender summary,P0
+Lender,Debt yield untrended,Loan Request,F12,Untrended stabilized NOI divided by loan request,,debt yield,P0
+Lender,Debt yield trended,Loan Request,F14,Trended stabilized NOI divided by loan request,,debt yield,P0
+Lender,Loan to cost on lender tab,Loan Request,F16,Rounded loan divided by rounded total cost,,loan to cost,P0
+Lender,Stabilized value,Loan Request,F17;Input!Q807,Rounded sale price plus PV of post-sale abated taxes,,value for LTV,P0
+Lender,Loan to value,Loan Request,F18,Rounded loan divided by rounded stabilized value,,loan to value,P0
+Lender,Permanent loan DSCR,Input,T747;AL797,NOI over annual payment; NOI table broken by #REF! so result is zero,,DSCR,P1
+Lender,Permanent loan size used,Input,T734,"Lowest of DSCR, LTV and debt-yield sizes; all zero",,permanent debt module,P2
+Exit,Disposition NOI forward twelve months,Input,Q801;Dispo Value!P195,Forward twelve-month NOI with market taxes,,forward sale NOI,P0
+Exit,Residential exit cap rate,Input,Q804,Typed rate,,terminal cap rate,P0
+Exit,Sale price before abatement value,Input,Q805;Dispo Value!P202,Disposition NOI divided by exit cap,,gross sale value,P0
+Exit,PV of abated taxes after sale,Input,Q806;AR518,NPV at typed rate of tax saved after sale,,tax abatement module,P1
+Exit,Total gross sale proceeds,Input,Q807;CF-Dispo!I20,Sale price plus abatement PV,,gross sale value,P0
+Exit,Selling costs,Input,T822,Typed percent times gross proceeds,,selling costs,P0
+Returns,Unlevered IRR,CF-Data Tables,I332,Monthly IRR annualized by compounding,,unlevered XIRR,P0
+Returns,Unlevered equity multiple,CF-Data Tables,I333,Positive flows over negative flows,,unlevered equity multiple,P0
+Returns,Levered net equity cash flow,CF-Sources,I53,Contributions plus disbursements; negative means profit in this sign,,levered net profit,P0
+Returns,Levered multiple stored by macro,Input,C1143 (Last_EMultiple),Typed value pasted by ReCalc; live formula deleted,,levered equity multiple,P1
+Returns,Levered IRR stored by macro,Input,C1142 (Last_IRR),Typed value pasted by ReCalc; live IRR_Project name is #REF!,,levered XIRR,P1

@@ -1,0 +1,41 @@
+capability,jll_214_w_main,current_kulka,fit,gap,priority
+Loan request summary,Yes: amount with per unit per GSF and per RSF,No,Missing,Add a lender summary built from engine totals with no typed terms,P0
+Loan sizing as share of total cost,Yes: LTC times macro-plugged total cost,Yes: target debt share of total uses solved in engine,Kulka advantage,Keep the in-engine solve; add a report label that names the base,P0
+Rounded lender figures,Yes: ROUND to thousands on lender tabs,No,Missing,Round only in presentation and show the unrounded trace,P2
+Debt yield on stabilized NOI,Yes: untrended and trended,No,Missing,Add debt yield from stabilized NOI and loan amount with both NOI bases,P0
+Debt yield on market-tax NOI,No,No,Missing,Show debt yield on NOI with unabated taxes beside the abated figure,P0
+Loan to value,Yes: loan over sale price plus abatement PV,No,Missing,Add LTV and state whether the value includes abatement PV,P0
+Construction loan DSCR,No: summary shows n/a,No,Missing,Add interest-only coverage on stabilized NOI at the modeled rate,P0
+Permanent loan sizing by DSCR LTV and debt yield,Present but broken: NOI table reads a #REF! date so all sizes are zero,No: permanent debt is a later module,Both missing in practice,Build permanent debt as its own module with its own checks,P1
+Floating rate from forward curve,Yes: 1-month Term SOFR table plus spread by month,No: one fixed annual rate,Missing,Add a dated rate schedule input with source and curve date,P0
+Rate cap floor or hedge,No,No,Missing,Add cap strike and floor when a lender term sheet needs them,P2
+Stale curve check,No: curve date is never compared with model date,No,Missing,Store curve as-of date and flag old curves,P1
+Loan term and extensions,Text only on Loan Request,No,Missing,Model initial term extension options and extension fees as dated terms,P1
+Prepayment terms,Mezzanine only,No,Missing,Add when a term sheet requires it,P3
+Interest carried net of lease-up NOI,Yes,Yes: capitalized net operating cash convention,Match,Check against the 214 W Main golden values with an adapter,P0
+Separate interest reserve sizing,No: interest is a budget line,Yes: interest reserve draws after equity,Kulka advantage,Report the reserve as a lender line,P1
+Opening-balance monthly interest,Yes,Yes,Match,None,P0
+Equity first funding,Yes,Yes,Match,None,P0
+Loan fee as percent of loan,Yes,Yes: percent of project cost times debt share,Partial,Confirm the fee base matches the lender definition,P1
+Fee as percent of LP equity,Yes,No,Missing,Add fee rules that reference equity amounts,P2
+Developer fee as percent of total cost,Yes: through macro plug,No: flat development_fee line,Partial,Add a fee rule solved in engine with no macro,P1
+General contingency on cost base,Yes: percent of total less land less flagged lines,No: flat line only,Partial,Add a contingency rule that names its base,P1
+Affiliate fee rollup,Yes: OpCo sheet and Input FILTER of flagged lines,No,Missing,Tag cost lines paid to the sponsor and report them for the lender,P2
+Fee schedule build-up,Yes: Fees sheet with per-fee contingency feeding Input,No,Missing,Allow a cost line to carry its own build-up and source,P2
+Affordable and market unit split,Yes: separate unit tables and AMI level per unit type,No: unit types have no affordability field,Missing,Add affordability tier and AMI level to unit types,P0
+Affordable rent rule,Typed AMI rent less typed utility allowance,No,Missing,Store AMI rent source year and utility allowance per tier,P1
+Lender unit mix tables,Yes: Sum-Units(Mkt) and Sum-Units(ADU) spill tables,Partial: unit types only,Partial,Add a unit mix report by tier,P1
+PILOT or abated property tax schedule,Yes: typed yearly PILOT with growth input,No: flat expense line,Missing,Add a dated tax schedule with abated and unabated liability,P0
+Market-tax NOI beside abated NOI,Yes,No,Missing,Report both NOI bases,P0
+Abatement PV added to sale value,Yes,No,Missing,Add an optional sale adjustment that states its discount rate,P1
+Two discount rates for abatement value,Yes: one rate on lender tab another in Input PV block,No,Risk,Use one stated rate per run,P1
+Other sources such as grants and soft loans,Yes: six dated other-source rows,No,Missing,Add other sources with timing and repayment flags,P0
+Other sources reconcile to sources and uses,No: one funded grant is missing from the lender tab and the equity formula,Not applicable,Workbook defect,Reconcile every source to the summary in engine checks,P0
+LP and GP equity split,Yes: pari passu,No: waterfall is a later module,Missing,Keep for the partnership module,P2
+Levered IRR,Removed: live formula deleted and named range is #REF!,Yes: levered XIRR,Kulka advantage,Use the engine figure,P0
+Unlevered IRR,Yes: monthly IRR compounded,Yes: actual-day XIRR,Different,State the convention in the golden comparison,P0
+Circular cost items,Macro plugs pasted as values,Solved in engine,Kulka advantage,Keep the solver and its iteration cap,P0
+Recalculation state,Input flag saved as RUN RECALC MACRO,Runs block when inputs change,Kulka advantage,Keep run status on every lender figure,P0
+Change log,Log sheet with one entry,Immutable runs with revisions,Kulka advantage,None,P1
+Staff overhead schedule,CF-Nord: named staff costs multiplied by zero,No,Not needed,Do not import,P3
+Hotel commercial and condo modules,Present but inactive for this deal,No,Not needed now,Leave for later modules,P3

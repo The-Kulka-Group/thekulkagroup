@@ -6,7 +6,7 @@ import type { RomOrder } from "./field-order";
 import type { LedgerGrouping } from "./ledger";
 import type { RomView } from "./view-groups";
 
-// LA-1159, ADR 0006, CONTEXT.md: View. The two-way switch in the header band
+// LA-1159, ADR 0006, GLOSSARY.md: View. The two-way switch in the header band
 // that picks how the field below groups its lines. By Division is LA-1152
 // work still to come and is not built here.
 
@@ -59,7 +59,7 @@ function getServerSnapshot(): null {
 /**
  * The view on screen, remembered per viewer. `defaultView` is what a screen
  * with nothing stored yet opens on -- By Scope for New budget, By Package for
- * a saved ROM (CONTEXT.md: View) -- and it stays reactive to that until the
+ * a saved ROM (GLOSSARY.md: View) -- and it stays reactive to that until the
  * viewer picks a view themselves; from then on their last choice wins
  * everywhere, New budget and a saved ROM alike, the same way a browser
  * remembers a setting rather than a screen.
@@ -108,7 +108,7 @@ export function OrderSwitch({ order, onChange }: { order: RomOrder; onChange: (o
   );
 }
 
-/** Title Case, "By Scope · By Package" (CONTEXT.md / naming-title-case). */
+/** Title Case, "By Scope · By Package" (GLOSSARY.md / naming-title-case). */
 export function ViewSwitch({ view, onChange }: { view: RomView; onChange: (view: RomView) => void }) {
   return (
     <div className="rb-vsw" role="group" aria-label="View">

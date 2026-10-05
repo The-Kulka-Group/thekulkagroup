@@ -54,10 +54,10 @@ cross-referenced against the community index at
 None exists. The documented patterns are confidence-gated routing, composite
 scoring, speculative fan-out, intent routing, reranking, semantic search,
 guardrails, extraction, and classification, none of which match "look up a fact
-about a specific municipality." That is consistent with `CONTEXT.md`'s own
+about a specific municipality." That is consistent with `GLOSSARY.md`'s own
 definition of code lookup as Jev's job when a fact "turns on a code requirement
 specific to the project's municipality and authority having jurisdiction" rather
-than one "the tool can derive from another captured field" (`CONTEXT.md:31-38`).
+than one "the tool can derive from another captured field" (`GLOSSARY.md:31-38`).
 Elevator type is squarely the second kind.
 
 ## The deterministic rule

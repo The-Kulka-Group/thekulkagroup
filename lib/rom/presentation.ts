@@ -1322,7 +1322,7 @@ export function presentBudget(publication: Publication): BudgetPage {
   const projectName = snapshot.project.name;
   const priced = rom.lines.filter(addsToTotal);
 
-  // Headline figures: with markups when the run priced them (LA-679, CONTEXT.md).
+  // Headline figures: with markups when the run priced them (LA-679, GLOSSARY.md).
   const contract = figure(rom.markups ? rom.markups.total : rom.kulkaContractTotal);
   const tpc = figure(rom.markups ? rom.markups.totalProjectCost : rom.total);
   const gsf = answers.grossSquareFeet > 0 ? answers.grossSquareFeet : null;

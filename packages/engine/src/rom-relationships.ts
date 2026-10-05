@@ -1,6 +1,6 @@
 // Scope relationships (LA-1154, ADR 0006): "Answers bring in drivers;
 // relationships bring in supporting items" and "Supporting items add to the
-// total". CONTEXT.md defines Driver, Supporting Item and Relationship.
+// total". GLOSSARY.md defines Driver, Supporting Item and Relationship.
 //
 // An answer brings in a driver. A relationship, stated by Matt and stored as a
 // row in scope_relationships, then makes that driver bring in a supporting
@@ -37,7 +37,7 @@ export type QuantityRule = "one_per_structure" | "one_per_elevator" | "one_per_s
  */
 export type RelationshipCondition = { fact: string; equals: string } | null;
 
-/** One stated rule that a driver brings in a supporting item (CONTEXT.md: Relationship). */
+/** One stated rule that a driver brings in a supporting item (GLOSSARY.md: Relationship). */
 export type ScopeRelationship = {
   driverCostCode: string;
   supportingCostCode: string;

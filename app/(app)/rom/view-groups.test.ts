@@ -4,7 +4,7 @@ import type { BlockClassification, Rom, RomLine, UnpricedItem } from "@kulka/eng
 import { defaultRomView, groupByPackage, groupByView, UNASSIGNED_PACKAGE, type PackageItem } from "./view-groups";
 import { type ElementGroup, groupElements } from "./element-groups";
 
-// LA-1159, ADR 0006. The pilot's own cost codes (CONTEXT.md, the LA-1159
+// LA-1159, ADR 0006. The pilot's own cost codes (GLOSSARY.md, the LA-1159
 // ticket): 1 and 1a are the Demolition package, 28a and 28b are Plumbing, 31f
 // is Electrical, 36a is Site Work. None of the other codes here is a real
 // Kulka cost; they only stand in for "some unrelated line".

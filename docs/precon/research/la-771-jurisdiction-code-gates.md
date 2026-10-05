@@ -13,7 +13,7 @@ review and confirmed by Matt on 2026-09-19:
   usually triggered by building height and occupancy classification, also varies by
   jurisdiction.
 
-Both fall back to asked outright until a jurisdiction lookup exists. `CONTEXT.md` and
+Both fall back to asked outright until a jurisdiction lookup exists. `GLOSSARY.md` and
 `rom-spec.md` both name Jev as the intended tool for that lookup, "given the project's
 address and jurisdiction." This document checks that claim against Jev's own
 documentation.
@@ -209,6 +209,6 @@ All read live from docs.typesafe.ai on 2026-09-20:
 Company background (secondary, for the open question on vendor maturity only):
 [typesafe.ai](https://typesafe.ai/), reported via web search 2026-09-20.
 
-Repo sources: `CONTEXT.md`; `docs/precon/rom-spec.md` (branch gates section, lines
+Repo sources: `GLOSSARY.md`; `docs/precon/rom-spec.md` (branch gates section, lines
 ~100-172); `supabase/migrations/20260827120000_rom_schema.sql` (benchmark provenance
 columns).

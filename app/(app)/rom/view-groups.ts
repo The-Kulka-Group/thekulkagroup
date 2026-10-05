@@ -3,7 +3,7 @@ import type { BlockClassification, Rom, RomLine, UnpricedItem } from "@kulka/eng
 import { addsToTotal, midpoint, type Range } from "./block-layout";
 import { groupElements, type GroupedField } from "./element-groups";
 
-// LA-1159, ADR 0006 ("Three views of the same lines"), CONTEXT.md: View. The
+// LA-1159, ADR 0006 ("Three views of the same lines"), GLOSSARY.md: View. The
 // ROM screen shows the same priced and unpriced lines two ways right now (By
 // Division is LA-1152 work still to come, and this ticket does not build it):
 //

@@ -83,7 +83,7 @@ guidance says to keep in code: "known rules, calculations, exact lookups, and ex
 The ROM engine should implement NEC 220 (in practice, 220.84 for multifamily, falling back to
 the Part II standard method when a unit isn't fully electric) as a deterministic function,
 the same way the rest of the engine's math already lives in code rather than in a prompt
-(`CONTEXT.md`'s own definition of "Engine": "The deterministic code that turns answers and
+(`GLOSSARY.md`'s own definition of "Engine": "The deterministic code that turns answers and
 database values into a ROM. Math lives here, never in a prompt.").
 
 Where jurisdiction actually enters is narrower than the ticket title suggests: which NEC

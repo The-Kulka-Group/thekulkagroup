@@ -187,7 +187,7 @@ export type Markups = {
   total: MarkupLine;
   /** Owner-direct trade cost, which never carries Kulka's markups. */
   ownerDirect: Range;
-  /** Kulka's contract total with markups plus owner-direct scope (CONTEXT.md: Total project cost). */
+  /** Kulka's contract total with markups plus owner-direct scope (GLOSSARY.md: Total project cost). */
   totalProjectCost: Range;
   assumptions: string[];
 };

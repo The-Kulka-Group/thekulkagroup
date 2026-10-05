@@ -59,7 +59,7 @@ Sources read directly for this ticket:
   a jurisdiction/code lookup pattern, and none combines Jev with an external database or
   a geocoder as a built-in capability.
 
-**This last point matters for how this repo currently talks about Jev.** `CONTEXT.md`
+**This last point matters for how this repo currently talks about Jev.** `GLOSSARY.md`
 defines "Code lookup" as: "Jev looks it up from the project's address and jurisdiction."
 `rom-spec.md` (line 161-163) says the same: "Jev is the tool for that lookup, given the
 project's address and jurisdiction." Read against Jev's own docs, that phrasing
@@ -97,7 +97,7 @@ Both a full Manual J/S calculation and a sqft-per-ton rule of thumb are determin
 math over stated inputs, not a judgment among a small set of named options and not a
 code lookup. That places tonnage sizing squarely inside what Kulka's own architecture
 calls the **Engine** layer ("deterministic code that turns answers and database values
-into a ROM. Math lives here, never in a prompt," `CONTEXT.md`), not inside a Jev call.
+into a ROM. Math lives here, never in a prompt," `GLOSSARY.md`), not inside a Jev call.
 Jev's own docs agree from the other direction: System One models are "not [for]
 multi-step derivation or engineering estimation"
 (https://docs.typesafe.ai/concepts/system-one). Jev names exactly the kind of task

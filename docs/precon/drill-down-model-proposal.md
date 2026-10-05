@@ -70,7 +70,7 @@ These come from the frozen fixture's criteria (`lib/rom/line-details.test.ts`).
 
 ### Why this set
 
-CONTEXT.md defines an element as a named group of canonical items that together make one
+GLOSSARY.md defines an element as a named group of canonical items that together make one
 physical thing, across whatever trades build it. Matt kept By Element hidden until every
 line has one (2026-10-02). The Level Board's four count elements (Elevator, Bathroom,
 Kitchen, Balcony) cover only a few lines, so they cannot fill the view alone.

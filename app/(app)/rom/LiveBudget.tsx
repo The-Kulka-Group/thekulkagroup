@@ -111,7 +111,7 @@ const ORDER_AREA = "10000";
 /**
  * LA-1153: the header's count of items in scope with no benchmark behind
  * them yet (ADR 0006, "A block can arrive unpriced"). Title case, since every
- * label in the software is (CONTEXT.md / kulka-rom-naming-title-case).
+ * label in the software is (GLOSSARY.md / kulka-rom-naming-title-case).
  */
 function itemsNotPricedLabel(count: number): string {
   return count === 1 ? "1 Item Not Priced" : `${count} Items Not Priced`;

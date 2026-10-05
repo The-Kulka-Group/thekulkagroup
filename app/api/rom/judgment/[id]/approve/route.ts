@@ -13,7 +13,7 @@ import { isUuid } from "@/lib/uuid";
 // adjusts the ROM lines it applies to, flagged as judgment with the person who
 // stated it and the date.
 //
-// Who may approve is Devin and Rob's open decision, and CONTEXT.md ties it to
+// Who may approve is Devin and Rob's open decision, and GLOSSARY.md ties it to
 // the admin permission, which does not exist in code yet (LA-722). Until it
 // lands, approval works like any other gate approval: any signed-in,
 // allowlisted user, recorded by email and time.

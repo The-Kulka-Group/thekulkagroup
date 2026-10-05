@@ -1,7 +1,7 @@
 # Walking the ROM end to end, before it is built
 
 Written 2026-09-16 after the twenty-four spec decisions, to find the walls before they are
-built rather than after. Decisions are in `docs/adr/`, vocabulary in `CONTEXT.md`.
+built rather than after. Decisions are in `docs/adr/`, vocabulary in `GLOSSARY.md`.
 
 The test case: Devin takes a call on a Tuesday. A developer wants 120 units at 500 Sunrise
 Highway in Patchogue, one and two bedrooms, four stories over a podium with structured

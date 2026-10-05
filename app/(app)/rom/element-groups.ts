@@ -4,7 +4,7 @@ import { addsToTotal, midpoint, type Range } from "./block-layout";
 
 // LA-1158, ADR 0006. "On the ROM screen an element is the parent box: it
 // shows the sum of its items, with the driver as a full-width tile and each
-// supporting item as its own tile inside it" (CONTEXT.md: Element).
+// supporting item as its own tile inside it" (GLOSSARY.md: Element).
 //
 // This module only groups lines the engine has already priced and gated. It
 // prices nothing, and it reads no clock or network -- the same rule as the

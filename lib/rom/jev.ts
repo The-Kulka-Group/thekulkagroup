@@ -20,7 +20,7 @@ import {
 // or assumed) and a short list of candidates. The engine side has already
 // computed each candidate's value and arithmetic; Jev judges which candidate
 // the facts support, and its choice confidence becomes the card's confidence.
-// Math never lives in the prompt (CONTEXT.md, Engine).
+// Math never lives in the prompt (GLOSSARY.md, Engine).
 //
 // The client is injected, so tests pass a fake and never reach the network.
 // No trade is wired to this yet (LA-774, 775, 776, 777, 781 and 784 each do

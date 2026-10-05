@@ -10,7 +10,7 @@ import type { Db } from "@/lib/db";
 
 /**
  * The nine yes/no scope questions the Scope module shows, in the order the
- * module lists them: the five original branch gates (CONTEXT.md), then the
+ * module lists them: the five original branch gates (GLOSSARY.md), then the
  * four LA-720/LA-1028 narrower ones. Parking is not here: it is not a yes/no
  * gate, it already has its own required question on the tier-1 flow, and it
  * is read from the project record the same way it always has been

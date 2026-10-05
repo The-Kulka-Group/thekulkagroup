@@ -2,7 +2,7 @@
 
 Confirmed 2026-08-27 after a grilling session with Matt. This replaces the 2026-08-26
 draft. Background is in `docs/precon/direction.md`; vocabulary is law in the repo root
-`CONTEXT.md`. The canonical build spec lives in Linear; this file is the repo's record
+`GLOSSARY.md`. The canonical build spec lives in Linear; this file is the repo's record
 of the decisions.
 
 ## The product
@@ -101,7 +101,7 @@ takes what it wants later by copy or fork. The tool stays off the public website
   UI do not.
 - One branching question set, with no tier for the user to choose. The project decides
   which questions appear: a site with existing structures asks four more about
-  demolition, a clean site asks none. Tiers stay in `CONTEXT.md` as a later idea and
+  demolition, a clean site asks none. Tiers stay in `GLOSSARY.md` as a later idea and
   return only if backtesting shows a short path and a long path differ enough in
   accuracy to be worth choosing between (LA-676).
 - Every branch gate takes three answers: yes, no, or don't know. A "no" closes the

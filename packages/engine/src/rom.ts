@@ -1,4 +1,4 @@
-// The ROM engine. `CONTEXT.md` defines the terms: a ROM is a ranged budget with
+// The ROM engine. `GLOSSARY.md` defines the terms: a ROM is a ranged budget with
 // a confidence flag on every line and a plain list of what was assumed.
 //
 // Everything here is a pure function of its arguments. Nothing in it reads a
@@ -60,7 +60,7 @@ export type ConstructionKind = "new" | "renovation";
 export type ConfidenceFlag = "high" | "medium" | "low";
 
 /**
- * Building work or site work (CONTEXT.md: Scope side). Every canonical work
+ * Building work or site work (GLOSSARY.md: Scope side). Every canonical work
  * item carries a default (LA-677, LA-679); this is that default or a line's
  * own override, carried onto the priced line.
  */
@@ -68,7 +68,7 @@ export type ScopeSide = "building" | "site";
 
 /**
  * Kulka's own contract or bought by the owner direct, such as appliances or a
- * trash compactor (CONTEXT.md: Contract side). LA-679.
+ * trash compactor (GLOSSARY.md: Contract side). LA-679.
  */
 export type ContractSide = "kulka" | "owner";
 
@@ -370,7 +370,7 @@ export type Answers = {
   grossSquareFeet: number;
   /** The project facts a judgment rule's condition reads, such as whether the job has a basement level. */
   facts?: Record<string, string | number | boolean>;
-  /** Every branch gate the intake asked, by section (CONTEXT.md: Branch gate). */
+  /** Every branch gate the intake asked, by section (GLOSSARY.md: Branch gate). */
   branchGates?: Record<string, BranchGateAnswer>;
   /**
    * The GRs/GCs, fee and insurance choices (LA-1016). When present the ROM
@@ -786,7 +786,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   if (answers.markups) {
     // Markups apply to Kulka's contract only. Owner-direct lines stay out of
     // the base and are added back once, below the waterfall, as part of total
-    // project cost (CONTEXT.md: Contract side, Total project cost).
+    // project cost (GLOSSARY.md: Contract side, Total project cost).
     rom.markups = computeMarkups({
       subtotal: kulkaContractTotal,
       ownerDirect: sumRange(ownerLines),
@@ -1349,7 +1349,7 @@ function assumptionsFor(
   }
 
   // A branch gate's answer has to show on the face of the ROM, or the intake
-  // asks a question that changes nothing (CONTEXT.md: Branch gate).
+  // asks a question that changes nothing (GLOSSARY.md: Branch gate).
   //
   // Where a gate has a stated map onto a canonical item (LA-1028's
   // branch_gate_items, read by computeRom above into notInThisJob,

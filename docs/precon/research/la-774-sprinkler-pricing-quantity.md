@@ -77,7 +77,7 @@ with the caller, not the model
 database, or jurisdiction/code-lookup capability. It also accepts text input only, no
 images or drawings.
 
-This matters against this repo's own definition of Jev in `CONTEXT.md`: "Code lookup...
+This matters against this repo's own definition of Jev in `GLOSSARY.md`: "Code lookup...
 Jev looks it up from the project's address and jurisdiction." Read against the primary
 docs, that description is shorthand for an application Kulka would build on top of Jev,
 not a capability Jev ships with. Some other component (a real code database, or the
@@ -109,7 +109,7 @@ That has a direct consequence: if Kulka's intake already captures each space's u
 clean structured value (garage, residential corridor, mechanical room, storage), hazard
 classification is a fixed lookup table, occupancy type to hazard class, and belongs in
 the engine as deterministic code. That matches this repo's own stated principle: "Math
-lives here, never in a prompt" (`CONTEXT.md`, Engine). No AI call is needed for that
+lives here, never in a prompt" (`GLOSSARY.md`, Engine). No AI call is needed for that
 case.
 
 A Choice call only earns its place if the input is not already a clean category, for
@@ -158,7 +158,7 @@ Mostly no, and the repo's own hazard-classification finding says so once traced 
   occupancy type), not a jurisdiction-specific code question. It belongs in the
   deterministic engine. A Jev Choice call is only worth adding on top of that table if
   Kulka's intake stays free-text for space use rather than structured, and even then it
-  is solving data normalization, not a "Jev problem" in the sense `CONTEXT.md` defines
+  is solving data normalization, not a "Jev problem" in the sense `GLOSSARY.md` defines
   one.
 - Standpipe needs no lookup of any kind; it derives from a field the ROM already
   captures.
@@ -167,7 +167,7 @@ Mostly no, and the repo's own hazard-classification finding says so once traced 
   states or a gate answered "don't know."
 
 None of the three sub-problems is the AHJ-specific, address-and-jurisdiction kind of
-question `CONTEXT.md`'s Jev definition describes (the kind emergency responder radio
+question `GLOSSARY.md`'s Jev definition describes (the kind emergency responder radio
 coverage or fire alarm notification type are). LA-774, read this way, is not really a
 Jev ticket. It is mostly a data-modeling question (does the ROM capture per-space use
 at all, so a lookup table has something to key off) and one honest gap (fire pump) that

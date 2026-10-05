@@ -32,7 +32,7 @@ export type DemolitionStructureType =
 export type ParkingType = "none" | "surface" | "structured" | "underground" | "dont_know";
 
 /**
- * Every permanent branch gate's three answers (CONTEXT.md: Branch gate).
+ * Every permanent branch gate's three answers (GLOSSARY.md: Branch gate).
  * "no" prices its section at zero; "don't know" shows TBD and stays out of
  * the total; silence (asking nothing yet) is a separate, unanswered state
  * that this type does not model, because a gate with no answer never reaches
@@ -46,7 +46,7 @@ export type BranchGateResult =
   | { status: "tbd" };
 
 /**
- * Prices one branch-gated section of the intake (CONTEXT.md: Branch gate. "A
+ * Prices one branch-gated section of the intake (GLOSSARY.md: Branch gate. "A
  * 'no' prices that section at zero. A 'don't know' shows TBD on the schedule
  * of values and is left out of the total.").
  *
@@ -105,7 +105,7 @@ export type ParkingPricing = {
   basePaving: { low: number; high: number; scopeSide: "site" };
   /**
    * Building scope. Zero for `none` and `surface`. Null for `dont_know`,
-   * which is TBD, same as any other branch-gate "don't know" (CONTEXT.md).
+   * which is TBD, same as any other branch-gate "don't know" (GLOSSARY.md).
    */
   structuredOrUndergroundIncrement:
     | { low: number; high: number; scopeSide: "building" }

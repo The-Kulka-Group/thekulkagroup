@@ -118,7 +118,7 @@ export class FlowDefinitionInvalid extends Error {
 }
 
 /**
- * The three answers every branch gate takes (CONTEXT.md: Branch gate). They
+ * The three answers every branch gate takes (GLOSSARY.md: Branch gate). They
  * live in code rather than in the file so no edit can add a fourth.
  */
 export const BRANCH_GATE_ANSWERS: readonly { value: BranchGateAnswer; label: string }[] = [

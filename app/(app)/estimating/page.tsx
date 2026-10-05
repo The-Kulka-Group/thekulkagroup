@@ -1,6 +1,6 @@
 import { Sheet } from "@/components/Sheet";
 
-// No estimating records exist in the database yet. CONTEXT.md keeps
+// No estimating records exist in the database yet. GLOSSARY.md keeps
 // "estimate" for hard-bid work, distinct from the ROM/conceptual-budgeting
 // module. This used to render fabricated sample data (projects, clients,
 // dollar amounts) with no indication to a viewer that none of it was real,

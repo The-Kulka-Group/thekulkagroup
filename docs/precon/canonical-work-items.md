@@ -1,7 +1,7 @@
 # Canonical work items — approved list
 
 **Status: FROZEN, approved by Matt on 2026-09-19.** This is the canonical work item table
-named in ADR 0004, `rom-system-design.md`, and CONTEXT.md's scope-side and contract-side
+named in ADR 0004, `rom-system-design.md`, and GLOSSARY.md's scope-side and contract-side
 defaults. Every ProEst code and Autodesk group maps to exactly one of the 50 items below.
 Renaming, splitting, or merging an item after this point is a change to the spine itself,
 not a review comment, and should reopen a ticket rather than edit this file quietly.
@@ -117,7 +117,7 @@ flag under "Markups, not line items" below.
 ### Markups, not line items
 
 General Conditions, General Requirements, Design/Budget Contingency, Insurance, and Fee
-are not canonical work items under this file's scope — CONTEXT.md and `rom-system-design.md`
+are not canonical work items under this file's scope — GLOSSARY.md and `rom-system-design.md`
 place them in the `markups` table, not the canonical work item list. They are noted here
 only because the task asked this draft to verify the known GC/GR-combination problem
 against the actual files:
@@ -554,7 +554,7 @@ driver splits by construction method rather than staying one blended SF rate.
 **Flag:** VA's paired add/deduct lines (r20–r21) net to zero and exist only to isolate a
 sub-scope for internal takeoff purposes. They should be role-flagged `takeoff_helper`,
 not counted as real scope, or they will double the CMU total if summed naively.
-**Closed:** role `takeoff_helper` per CONTEXT.md's existing line-role taxonomy. No new
+**Closed:** role `takeoff_helper` per GLOSSARY.md's existing line-role taxonomy. No new
 decision needed, the convention already covers this case.
 
 **Steel Lintels Over Masonry Openings, added (Matt, 2026-09-20), checked against NCMA

@@ -634,8 +634,9 @@
 
     /* Design and Engineering in layers (LA-1662): a criterion's row opens in place to its detail.
        The open criterion lights its callout and what it prices, a halo marks the point it decides,
-       and a lead runs from the row to its note in the drawing's margin, the way a drawing keys its
-       notes. On a phone the drawing zooms to the note instead. */
+       and a lead runs from the row to its note in the left margin, the way a drawing keys its notes,
+       or to the halo when the note sits in the right margin. On a phone the drawing zooms to the
+       note instead. */
     var crit = null;
     var halo = null;
     if (frame && !printing) { halo = doc.createElement('span'); halo.className = 'halo'; halo.setAttribute('aria-hidden', 'true'); frame.appendChild(halo); }
@@ -660,9 +661,9 @@
       halo.classList.add('is-in');
     }
 
-    // A note left of the building takes the lead straight in at its own height. A note right of it
-    // takes the lead round the sheet, over its top or under its foot, whichever is nearer, so the
-    // lead never crosses the building.
+    // The lead comes in level from the drawing's left edge. A note left of the building takes it at
+    // its own height and the lead stops at its words. A note right of the building lights in place;
+    // its lead runs in at the halo's height and stops at the halo's ring.
     function drawLead() {
       if (!wire || open) return;
       wire.innerHTML = '';
@@ -670,29 +671,21 @@
       if (!c || phone()) return;
       var head = crit.querySelector('.de-h').getBoundingClientRect();
       var tag = c.querySelector('rect').getBoundingClientRect(), dot = c.querySelector('circle');
-      var words = slice(c.querySelectorAll('text')).map(function (t) { return t.getBoundingClientRect(); }).concat([tag]);
-      var y = tag.top + tag.height / 2;
-      var fr = frame.getBoundingClientRect();
-      var sheet = q('rect').map(function (r) { return r.getBoundingClientRect(); }).sort(function (a, b) { return b.width - a.width; })[0];
-      var x1 = head.right + 6, y1 = head.top + head.height / 2, fl = fr.left;
-      if (y1 < hdH() || y1 > innerHeight || y < hdH() || y > innerHeight) return;
-      var leftNote = !dot || screenOf(dot).x > tag.left;
-      var runY, lead, f = function (n) { return n.toFixed(1); };
-      if (leftNote) {
-        var xl = Math.min.apply(null, words.map(function (r) { return r.left; })) - 6;
-        runY = y;
-        lead = 'M' + f(fl) + ',' + f(y) + ' L' + f(xl) + ',' + f(y);
+      var pt = dot && screenOf(dot), y, end;
+      if (!pt || pt.x > tag.left) {
+        var words = slice(c.querySelectorAll('text')).map(function (t) { return t.getBoundingClientRect(); }).concat([tag]);
+        y = tag.top + tag.height / 2;
+        end = Math.min.apply(null, words.map(function (r) { return r.left; })) - 6;
       } else {
-        var xr = Math.max.apply(null, words.map(function (r) { return r.right; })) + 6;
-        var over = y - sheet.top < sheet.bottom - y;
-        runY = over ? (fr.top + sheet.top) / 2 : (fr.bottom + sheet.bottom) / 2;
-        var lane = (sheet.right + fr.right) / 2;
-        lead = 'M' + f(fl) + ',' + f(runY) + ' L' + f(lane) + ',' + f(runY) + ' L' + f(lane) + ',' + f(y) + ' L' + f(xr) + ',' + f(y);
+        y = pt.y;
+        end = pt.x - 21;
       }
-      var g = (x1 + fl) / 2;
+      var x1 = head.right + 6, y1 = head.top + head.height / 2, fl = frame.getBoundingClientRect().left;
+      if (y1 < hdH() || y1 > innerHeight || y < hdH() || y > innerHeight) return;
+      var g = (x1 + fl) / 2, f = function (n) { return n.toFixed(1); };
       wire.innerHTML = '<circle cx="' + f(x1) + '" cy="' + f(y1) + '" r="3"></circle>' +
-        '<path d="M' + f(x1) + ',' + f(y1) + ' C' + f(g) + ',' + f(y1) + ' ' + f(g) + ',' + f(runY) + ' ' + f(fl) + ',' + f(runY) + '"></path>' +
-        '<path class="lead" d="' + lead + '"></path>';
+        '<path d="M' + f(x1) + ',' + f(y1) + ' C' + f(g) + ',' + f(y1) + ' ' + f(g) + ',' + f(y) + ' ' + f(fl) + ',' + f(y) + '"></path>' +
+        '<path class="lead" d="M' + f(fl) + ',' + f(y) + ' L' + f(end) + ',' + f(y) + '"></path>';
       var path = wire.querySelector('path:not(.lead)');
       if (!reduce && drawFor !== 'crit:' + codeOf(crit)) {
         drawFor = 'crit:' + codeOf(crit);

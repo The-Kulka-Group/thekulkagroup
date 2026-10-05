@@ -9,8 +9,9 @@ import { deriveGlazing, deriveTonnage } from "./hvac-criterion";
 import { deriveJackType } from "./jack-criterion";
 import { deriveMachineRooms } from "./machine-room-criterion";
 
-// LA-1662. The seven reasons Matt approved on 2026-10-05, word for word
-// (~/scrollcraft/frames/kulka-de-layers/data/reasons-rewrite.json).
+// LA-1662. The seven reasons and three steps and inputs Matt approved on
+// 2026-10-05, word for word (~/scrollcraft/frames/kulka-de-layers/data/
+// reasons-rewrite.json and steps-rewrite.json).
 const APPROVED: Record<string, string> = {
   "A-1": "Wood framing with no podium, clear of the type's height and area limits.",
   "A-2": "There is no site plan yet, so the shape follows from the floor plate's length alone.",
@@ -34,6 +35,14 @@ describe("criterion reasons in the approved words", () => {
     expect(reasons).toEqual(APPROVED);
   });
 
+  it("rewrites the steps and inputs Matt approved, as the page reads them", () => {
+    const criteria = presentBudget(referencePublication()).criteria;
+    const of = (code: string) => criteria.find((k) => k.code === code)!;
+    expect(of("E-1").inputs.find((i) => i.name === "Elevator Motor")?.value).toBe("40 HP Per Car [Placeholder]");
+    expect(of("S-1").steps.find((s) => s.label === "Ground")?.result).toBe("Adequate Ground, No Rock Removal [Assumed]");
+    expect(of("V-1").steps.find((s) => s.label === "Band")?.result).toBe("Hydraulic [Either Works, Less Expensive]");
+  });
+
   it("writes the same words on a new run from the reference's facts", async () => {
     const rockZip = "10965";
     const s1 = deriveFoundation({
@@ -53,6 +62,8 @@ describe("criterion reasons in the approved words", () => {
     const m1 = deriveTonnage({ constructionKind: "new", grossSquareFeet: 64_000, unitCount: 70, zip: rockZip, parkingType: "surface", band: "standard", bandSet: false });
 
     expect(s1.confidenceReason).toBe(APPROVED["S-1"]);
+    expect(s1.steps.find((s) => s.label === "Ground")?.result).toBe("Adequate Ground, No Rock Removal [Assumed]");
+    expect(v1!.assumption.steps.find((s) => s.label === "Band")?.result).toBe("Hydraulic [Either Works, Less Expensive]");
     expect(v1!.assumption.confidenceReason).toBe(APPROVED["V-1"]);
     expect(v2!.confidenceReason).toBe(APPROVED["V-2"]);
     expect(v3.confidenceReason).toBe(APPROVED["V-3"]);

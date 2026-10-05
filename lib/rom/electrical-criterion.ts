@@ -8,7 +8,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
-import { E1_AMENITY, E1_ELEVATOR } from "./criterion-wording";
+import { E1_AMENITY, E1_ELEVATOR, E1_MOTOR_INPUT } from "./criterion-wording";
 import { deleteDerivedAssumption, saveDerivedAssumption } from "./derived-assumptions";
 import { SERVICE_RATINGS } from "./engineering-tables";
 
@@ -208,7 +208,7 @@ export function deriveElectricalService(facts: ElectricalFacts): DerivedAssumpti
     { name: "Appliances per Unit", value: "Range, dryer, water heater, 6 kW heat (NEC Annex D4(b))", basis: "assumed" },
   ];
   if (facts.parkingType) inputs.push({ name: "Parking", value: PARKING_WORDS[facts.parkingType] ?? facts.parkingType, basis: "stated" });
-  if (result.elevatorVa > 0) inputs.push({ name: "Elevator Motor", value: "40 HP per car, a placeholder", basis: "assumed" });
+  if (result.elevatorVa > 0) inputs.push({ name: "Elevator Motor", value: E1_MOTOR_INPUT, basis: "assumed" });
 
   const perBuilding = result.buildings > 1 ? " per Building" : "";
   const amount = result.rating ?? Math.ceil(result.amps / 100) * 100;

@@ -9,7 +9,7 @@ import {
 
 import type { Db } from "@/lib/db";
 
-import { S1_NO_REPORT, S1_ROCK_ON_GRADE } from "./criterion-wording";
+import { S1_GROUND_STEP, S1_NO_REPORT, S1_ROCK_ON_GRADE } from "./criterion-wording";
 import { deleteDerivedAssumption, saveDerivedAssumption } from "./derived-assumptions";
 import { rockPossible } from "./jack-criterion";
 
@@ -176,7 +176,7 @@ export function deriveFoundation(facts: FoundationFacts): DerivedAssumption {
               ? "Poor soil or groundwater"
               : facts.siteConditions === "no"
                 ? "No known poor soil"
-                : "Not known, priced as good ground",
+                : S1_GROUND_STEP,
         },
         { label: "Lowest Floor Slab", result: result.slab },
         { label: "Foundation System", result: result.system },

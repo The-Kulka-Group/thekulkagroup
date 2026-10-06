@@ -45,6 +45,7 @@ function knownPropertyTaxFields(value: unknown) {
     ...optional("improvementAssessedValue"),
     ...optional("assessorExpenseRatioPercent"),
     ...optional("assessmentCapRatePercent"),
+    ...optional("leaseUpAssessmentCapRatePercent"),
     ...optional("assessmentRatioPercent"),
     rateUnit: plan.rateUnit,
     fiscalYears: Array.isArray(plan.fiscalYears)

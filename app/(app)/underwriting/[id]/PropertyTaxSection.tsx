@@ -40,11 +40,12 @@ export function PropertyTaxSection({ plan, setPlan, fieldErrors }: {
     taxEvidence: { ...plan.taxEvidence, [key]: { ...plan.taxEvidence[key], ...change } },
   });
   const abatement = plan?.mode === "abatement";
+  const twoCapRates = plan?.leaseUpAssessmentCapRatePercent !== undefined;
 
   return (
     <section className="underwriting-line-section" aria-labelledby="property-tax-heading">
       <h4 id="property-tax-heading">Property Tax Schedule</h4>
-      <p className="t-meta">A dated tax line by tax fiscal year. It replaces a flat tax expense line, so remove that line when you add the schedule. Under an abatement, each run reports NOI, value and lender tests on scheduled tax and on full tax.</p>
+      <p className="t-meta">A dated tax line by tax fiscal year. It replaces a flat tax expense line, so remove that line when you add the schedule. Under an abatement, each run reports NOI, value and lender tests on scheduled tax and on full tax. On the income basis, Two Cap Rates uses a separate cap rate until the first stabilized month, as some assessors do during lease-up. Leave it off to use one cap rate for the whole hold.</p>
       <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(plan)} onChange={(event) => setPlan(event.target.checked ? blankPlan() : undefined)} /> Add Property Tax Schedule</label>
       {plan ? <>
         <div className="underwriting-form-grid underwriting-operations-controls">
@@ -54,7 +55,7 @@ export function PropertyTaxSection({ plan, setPlan, fieldErrors }: {
           })} error={fieldErrors["propertyTax.mode"]} />
           <SelectField path="assessmentBasis" label="Assessment Basis" value={plan.assessmentBasis} options={[["stated_assessed_value", "Stated Assessed Value"], ["income", "Income"]]} onChange={(basis) => update(basis === "income"
             ? { assessmentBasis: "income", landAssessedValue: undefined, improvementAssessedValue: undefined }
-            : { assessmentBasis: basis as PropertyTaxAssessmentBasis, assessorExpenseRatioPercent: undefined, assessmentCapRatePercent: undefined })} error={fieldErrors["propertyTax.assessmentBasis"]} />
+            : { assessmentBasis: basis as PropertyTaxAssessmentBasis, assessorExpenseRatioPercent: undefined, assessmentCapRatePercent: undefined, leaseUpAssessmentCapRatePercent: undefined })} error={fieldErrors["propertyTax.assessmentBasis"]} />
           <InputField path="firstFiscalYearStartMonth" label="First Fiscal Year Starts" type="month" value={plan.firstFiscalYearStartMonth} onChange={(value) => update({ firstFiscalYearStartMonth: value })} error={fieldErrors["propertyTax.firstFiscalYearStartMonth"]} />
           <SelectField path="rateUnit" label="Rate Unit" value={plan.rateUnit} options={RATE_UNITS} onChange={(unit) => update({ rateUnit: unit as PropertyTaxRateUnit })} error={fieldErrors["propertyTax.rateUnit"]} />
           {plan.assessmentBasis === "stated_assessed_value" ? <>
@@ -62,7 +63,9 @@ export function PropertyTaxSection({ plan, setPlan, fieldErrors }: {
             <InputField path="improvementAssessedValue" label="Improvement Assessed Value" value={plan.improvementAssessedValue ?? ""} onChange={(value) => update({ improvementAssessedValue: optionalNumber(value) })} error={fieldErrors["propertyTax.improvementAssessedValue"]} suffix="USD" step="0.01" />
           </> : <>
             <InputField path="assessorExpenseRatioPercent" label="Assessor Expense Ratio" value={plan.assessorExpenseRatioPercent ?? ""} onChange={(value) => update({ assessorExpenseRatioPercent: optionalNumber(value) })} error={fieldErrors["propertyTax.assessorExpenseRatioPercent"]} suffix="%" step="0.01" />
-            <InputField path="assessmentCapRatePercent" label="Assessment Cap Rate" value={plan.assessmentCapRatePercent ?? ""} onChange={(value) => update({ assessmentCapRatePercent: optionalNumber(value) })} error={fieldErrors["propertyTax.assessmentCapRatePercent"]} suffix="%" step="0.01" />
+            <InputField path="assessmentCapRatePercent" label={twoCapRates ? "Assessment Cap Rate After Stabilization" : "Assessment Cap Rate"} value={plan.assessmentCapRatePercent ?? ""} onChange={(value) => update({ assessmentCapRatePercent: optionalNumber(value) })} error={fieldErrors["propertyTax.assessmentCapRatePercent"]} suffix="%" step="0.01" />
+            <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={twoCapRates} onChange={(event) => update({ leaseUpAssessmentCapRatePercent: event.target.checked ? plan.assessmentCapRatePercent ?? 0 : undefined })} /> Two Cap Rates</label>
+            {twoCapRates ? <InputField path="leaseUpAssessmentCapRatePercent" label="Assessment Cap Rate Before Stabilization" value={plan.leaseUpAssessmentCapRatePercent ?? ""} onChange={(value) => update({ leaseUpAssessmentCapRatePercent: optionalNumber(value) ?? 0 })} error={fieldErrors["propertyTax.leaseUpAssessmentCapRatePercent"]} suffix="%" step="0.01" /> : null}
           </>}
           <InputField path="assessmentRatioPercent" label={plan.assessmentBasis === "income" ? "Assessment Ratio" : "Assessment Ratio (Optional)"} value={plan.assessmentRatioPercent ?? ""} onChange={(value) => update({ assessmentRatioPercent: optionalNumber(value) })} error={fieldErrors["propertyTax.assessmentRatioPercent"]} suffix="%" step="0.0001" />
           <InputField path="annualRateGrowthPercent" label="Rate Growth After the Schedule" value={plan.annualRateGrowthPercent} onChange={(value) => update({ annualRateGrowthPercent: Number(value) })} error={fieldErrors["propertyTax.annualRateGrowthPercent"]} suffix="%" step="0.01" />

@@ -69,6 +69,39 @@ describe("parseApartmentOperations with a property tax schedule", () => {
   });
 });
 
+describe("parseApartmentOperations with a lease-up cap rate", () => {
+  const incomeTax = {
+    ...propertyTax,
+    mode: "full_tax",
+    assessmentBasis: "income",
+    landAssessedValue: undefined,
+    improvementAssessedValue: undefined,
+    assessorExpenseRatioPercent: 30,
+    assessmentCapRatePercent: 8.6,
+    assessmentRatioPercent: 100,
+    fiscalYears: [{ rate: 18.8172, exemptionPercent: 0 }],
+  };
+
+  it("keeps the lease-up cap rate beside the stabilized one", () => {
+    const draft = parseApartmentOperations({ ...operations, propertyTax: { ...incomeTax, leaseUpAssessmentCapRatePercent: 7 } }, costSchedule);
+    expect(draft.propertyTax).toMatchObject({ assessmentCapRatePercent: 8.6, leaseUpAssessmentCapRatePercent: 7 });
+  });
+
+  it("leaves it out for one cap rate", () => {
+    expect(parseApartmentOperations({ ...operations, propertyTax: incomeTax }, costSchedule).propertyTax).not.toHaveProperty("leaseUpAssessmentCapRatePercent");
+  });
+
+  it("reports one entered as a decimal against its own field", () => {
+    try {
+      parseApartmentOperations({ ...operations, propertyTax: { ...incomeTax, leaseUpAssessmentCapRatePercent: 0.07 } }, costSchedule);
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidApartmentOperations);
+      expect((error as InvalidApartmentOperations).fieldErrors).toHaveProperty(["propertyTax.leaseUpAssessmentCapRatePercent"]);
+    }
+  });
+});
+
 describe("parseApartmentOperations with affordability tiers", () => {
   const withTier = (extra: Record<string, unknown>) => ({
     ...operations,

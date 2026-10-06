@@ -56,6 +56,12 @@ export type PropertyTaxPlan = {
   improvementAssessedValue?: number;
   assessorExpenseRatioPercent?: number;
   assessmentCapRatePercent?: number;
+  /**
+   * Income basis only. The cap rate for months before the first stabilized month, when an assessor
+   * uses a lower rate during lease-up. Absent means one cap rate for the whole hold. It shares the
+   * assessment source and review state.
+   */
+  leaseUpAssessmentCapRatePercent?: number;
   /** Assessed value as a percent of market value. Required on the income basis. */
   assessmentRatioPercent?: number;
   rateUnit: PropertyTaxRateUnit;
@@ -113,6 +119,12 @@ export type PropertyTaxResult = {
   listedScheduledTaxTotal: number | null;
   effectiveRateOnMarketValue: number | null;
   impliedMarketValue: number | null;
+  /**
+   * Income basis with a lease-up cap rate: the rate for each stage and the month the stabilized
+   * rate starts, null when the property never stabilizes in the run. Null with one cap rate, and
+   * absent on runs saved before the lease-up cap rate.
+   */
+  capRates?: { leaseUpPercent: number; stabilizedPercent: number; stabilizedFromMonth: string | null } | null;
 };
 
 type TaxMonth = { month: string; propertyTax: number; fullPropertyTax: number };
@@ -158,7 +170,7 @@ export function validatePropertyTaxPlan(
     add("assessmentRatioPercent", "invalid_percent", "Assessment ratio must be greater than zero and no more than 100 percent of market value.");
   }
   if (plan.assessmentBasis === "stated_assessed_value") {
-    for (const key of ["assessorExpenseRatioPercent", "assessmentCapRatePercent"] as const) {
+    for (const key of ["assessorExpenseRatioPercent", "assessmentCapRatePercent", "leaseUpAssessmentCapRatePercent"] as const) {
       if (plan[key] !== undefined) add(key, "invalid_assessment", "This input belongs to the income basis. Remove it or switch the basis.");
     }
     if (!validUsd(plan.landAssessedValue)) add("landAssessedValue", "invalid_amount", "Land assessed value must be zero or a positive amount with no more than two decimal places.");
@@ -175,6 +187,10 @@ export function validatePropertyTaxPlan(
     const capRate = plan.assessmentCapRatePercent;
     if (!(isFiniteNumber(capRate) && capRate >= band.min && capRate <= band.max)) {
       add("assessmentCapRatePercent", "implausible_tax_rate", `Assessment cap rate must be from ${band.min} to ${band.max} percent. A rate below that usually means a decimal was entered where a percent belongs.`);
+    }
+    const leaseUpCapRate = plan.leaseUpAssessmentCapRatePercent;
+    if (leaseUpCapRate !== undefined && !(isFiniteNumber(leaseUpCapRate) && leaseUpCapRate >= band.min && leaseUpCapRate <= band.max)) {
+      add("leaseUpAssessmentCapRatePercent", "implausible_tax_rate", `Lease-up assessment cap rate must be from ${band.min} to ${band.max} percent. A rate below that usually means a decimal was entered where a percent belongs.`);
     }
     const expenseBand = PROPERTY_TAX_UNIT_BANDS.assessorExpenseRatioPercent;
     const expenseRatio = plan.assessorExpenseRatioPercent;
@@ -258,8 +274,12 @@ function unitChecks(plan: PropertyTaxPlan, costBeforeFinancing: number): Propert
   return issues;
 }
 
-/** Scheduled and full tax for one model month, in cents. `effectiveGrossRevenueCents` drives the income basis only. */
-export function propertyTaxForMonth(plan: PropertyTaxPlan, month: number, effectiveGrossRevenueCents: number) {
+/**
+ * Scheduled and full tax for one model month, in cents. `effectiveGrossRevenueCents` drives the income
+ * basis only. `stabilized` picks the cap rate on the income basis: before stabilization a plan with a
+ * lease-up cap rate uses it, and every other month uses the plan's cap rate.
+ */
+export function propertyTaxForMonth(plan: PropertyTaxPlan, month: number, effectiveGrossRevenueCents: number, stabilized = true) {
   const start = monthIndex(plan.firstFiscalYearStartMonth)!;
   const fiscalYear = Math.floor((month - start) / 12);
   const position = (month - start) % 12;
@@ -272,14 +292,26 @@ export function propertyTaxForMonth(plan: PropertyTaxPlan, month: number, effect
   }
   const assessedCents = Math.max(effectiveGrossRevenueCents, 0)
     * (1 - plan.assessorExpenseRatioPercent! / 100)
-    / (plan.assessmentCapRatePercent! / 100)
+    / (capRatePercent(plan, stabilized) / 100)
     * (plan.assessmentRatioPercent! / 100);
   const full = Math.round(assessedCents * terms.ratePerDollar);
   if (plan.mode === "full_tax") return { full, scheduled: full };
   return { full, scheduled: payment ?? Math.round(full * (1 - terms.exemptionPercent / 100)) };
 }
 
-export function propertyTaxResult(plan: PropertyTaxPlan, months: TaxMonth[], operationStartMonth: string): PropertyTaxResult {
+/** The assessment cap rate in force for a month, on the income basis. */
+export function capRatePercent(plan: PropertyTaxPlan, stabilized: boolean) {
+  return !stabilized && plan.leaseUpAssessmentCapRatePercent !== undefined
+    ? plan.leaseUpAssessmentCapRatePercent
+    : plan.assessmentCapRatePercent!;
+}
+
+export function propertyTaxResult(
+  plan: PropertyTaxPlan,
+  months: TaxMonth[],
+  operationStartMonth: string,
+  firstStabilizedMonth?: string,
+): PropertyTaxResult {
   const start = monthIndex(plan.firstFiscalYearStartMonth)!;
   const operationStart = monthIndex(operationStartMonth)!;
   const charged = new Map<number, { count: number; full: number; scheduled: number }>();
@@ -327,6 +359,13 @@ export function propertyTaxResult(plan: PropertyTaxPlan, months: TaxMonth[], ope
     impliedMarketValue: ratio === undefined || plan.assessmentBasis !== "stated_assessed_value"
       ? null
       : dollars(Math.round(cents(plan.landAssessedValue! + plan.improvementAssessedValue!) / (ratio / 100))),
+    capRates: plan.assessmentBasis === "income" && plan.leaseUpAssessmentCapRatePercent !== undefined
+      ? {
+        leaseUpPercent: plan.leaseUpAssessmentCapRatePercent,
+        stabilizedPercent: plan.assessmentCapRatePercent!,
+        stabilizedFromMonth: firstStabilizedMonth ?? null,
+      }
+      : null,
   };
 }
 

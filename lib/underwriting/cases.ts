@@ -751,7 +751,7 @@ function reconcileSaleTaxReview(existing: SaleTaxPlan | undefined, draft: SaleTa
 /** The inputs each piece of tax evidence speaks for. Changing any of them resets that evidence to Working on It. */
 const PROPERTY_TAX_EVIDENCE_FIELDS: Record<PropertyTaxAssumptionKey, Array<keyof PropertyTaxPlan>> = {
   firstFiscalYearStartMonth: ["firstFiscalYearStartMonth"],
-  assessment: ["assessmentBasis", "landAssessedValue", "improvementAssessedValue", "assessorExpenseRatioPercent", "assessmentCapRatePercent", "assessmentRatioPercent"],
+  assessment: ["assessmentBasis", "landAssessedValue", "improvementAssessedValue", "assessorExpenseRatioPercent", "assessmentCapRatePercent", "leaseUpAssessmentCapRatePercent", "assessmentRatioPercent"],
   fiscalYears: ["mode", "rateUnit", "fiscalYears"],
   annualRateGrowthPercent: ["annualRateGrowthPercent"],
 };

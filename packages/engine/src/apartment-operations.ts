@@ -54,11 +54,18 @@ type SourcedLine = {
   reviewState: ReviewState;
 };
 
+export const AFFORDABILITY_TIERS = ["market", "workforce", "affordable"] as const;
+export type AffordabilityTier = typeof AFFORDABILITY_TIERS[number];
+
 export type ResidentialUnitType = SourcedLine & {
   units: number;
   nonRevenueUnits: number;
   averageAreaSf: number;
   monthlyMarketRent: number;
+  /** Absent reads as market. The rent entered is the rent the unit charges, whatever its tier. */
+  affordabilityTier?: AffordabilityTier;
+  /** Area median income percent the rent is tied to. Only workforce and affordable units carry one. */
+  amiPercent?: number;
 };
 
 export type OtherIncomeLine = SourcedLine & {
@@ -98,6 +105,7 @@ export type ApartmentOperationsInputs = MonthlyCostScheduleInputs & {
 };
 
 export type ApartmentOperationsIssueCode = MonthlyCostIssueCode
+  | "invalid_affordability_tier"
   | PropertyTaxIssueCode
   | "unsupported_input_version"
   | "outside_timeline"
@@ -330,6 +338,7 @@ function validate(input: ApartmentOperationsInputs) {
         addIssue(issues, `residentialUnitTypes.${index}.nonRevenueUnits`, "invalid_units", "Non-revenue units cannot exceed this unit type's units.");
       }
       validateMoney(issues, `residentialUnitTypes.${index}.monthlyMarketRent`, line.monthlyMarketRent, false);
+      validateAffordability(issues, `residentialUnitTypes.${index}`, line);
     });
     const validLines = input.residentialUnitTypes.filter(isLineObject);
     const totalUnits = validLines.reduce((sum, line) => sum + line.units, 0);
@@ -450,6 +459,21 @@ function validateMoney(issues: ApartmentOperationsIssue[], path: string, value: 
   const cents = Math.round(value * 100);
   if (!Number.isFinite(value) || value < (allowZero ? 0 : 0.01) || !Number.isSafeInteger(cents) || Math.abs(value - cents / 100) > 1e-9) {
     addIssue(issues, path, "invalid_amount", `${labelFor(path)} must be ${allowZero ? "zero or " : ""}a positive amount with no more than two decimal places.`);
+  }
+}
+
+function validateAffordability(issues: ApartmentOperationsIssue[], path: string, line: ResidentialUnitType) {
+  const tier = line.affordabilityTier;
+  if (tier !== undefined && !(AFFORDABILITY_TIERS as readonly string[]).includes(tier)) {
+    addIssue(issues, `${path}.affordabilityTier`, "invalid_affordability_tier", "Affordability tier must be market, workforce, or affordable.");
+    return;
+  }
+  const ami = line.amiPercent;
+  if (ami === undefined) return;
+  if (!(typeof ami === "number" && Number.isFinite(ami) && ami > 0 && ami <= 200)) {
+    addIssue(issues, `${path}.amiPercent`, "invalid_percent", "AMI percent must be above 0 and at most 200.");
+  } else if ((tier ?? "market") === "market") {
+    addIssue(issues, `${path}.amiPercent`, "invalid_affordability_tier", "Only workforce and affordable unit types carry an AMI percent.");
   }
 }
 

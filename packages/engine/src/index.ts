@@ -247,6 +247,7 @@ export {
 } from "./property-tax";
 
 export {
+  AFFORDABILITY_TIERS,
   APARTMENT_OPERATIONS_FORMULA_VERSION,
   APARTMENT_OPERATIONS_V1_FORMULA_VERSION,
   APARTMENT_OPERATIONS_INPUT_VERSION,
@@ -257,6 +258,7 @@ export {
   MAX_OPERATION_LINE_ID_LENGTH,
   MAX_OPERATION_LINE_NAME_LENGTH,
   MAX_OPERATION_SOURCE_LABEL_LENGTH,
+  type AffordabilityTier,
   type ApartmentOperationsInputs,
   type ApartmentOperationsAssumptionEvidence,
   type ApartmentOperationsAssumptionKey,
@@ -272,6 +274,17 @@ export {
   type OtherIncomeLine,
   type ResidentialUnitType,
 } from "./apartment-operations";
+
+export {
+  AFFORDABILITY_ALLOCATION_RULE,
+  AFFORDABILITY_REPORT_VERSION,
+  affordabilityReport,
+  summarizeAffordabilityTiers,
+  tierOf,
+  type AffordabilityReport,
+  type TierNoi,
+  type TierSummary,
+} from "./affordability-tiers";
 
 export {
   CAPITALIZED_NET_OPERATING_CASH_VERSION,

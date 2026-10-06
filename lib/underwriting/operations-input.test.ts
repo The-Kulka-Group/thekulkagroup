@@ -68,3 +68,26 @@ describe("parseApartmentOperations with a property tax schedule", () => {
     }
   });
 });
+
+describe("parseApartmentOperations with affordability tiers", () => {
+  const withTier = (extra: Record<string, unknown>) => ({
+    ...operations,
+    residentialUnitTypes: [operations.residentialUnitTypes[0], { ...operations.residentialUnitTypes[0], id: "aff", ...extra }],
+  });
+
+  it("keeps the tier and AMI percent on a unit type", () => {
+    const draft = parseApartmentOperations(withTier({ affordabilityTier: "affordable", amiPercent: 60 }), costSchedule);
+    expect(draft.residentialUnitTypes[1]).toMatchObject({ affordabilityTier: "affordable", amiPercent: 60 });
+    expect(draft.residentialUnitTypes[0]).not.toHaveProperty("affordabilityTier");
+  });
+
+  it("reports an AMI percent on a market unit type against that field", () => {
+    try {
+      parseApartmentOperations(withTier({ amiPercent: 60 }), costSchedule);
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidApartmentOperations);
+      expect((error as InvalidApartmentOperations).fieldErrors).toHaveProperty(["residentialUnitTypes.1.amiPercent"]);
+    }
+  });
+});

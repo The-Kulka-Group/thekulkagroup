@@ -4,6 +4,8 @@ import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  AFFORDABILITY_TIERS,
+  type AffordabilityTier,
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   APARTMENT_OPERATIONS_INPUT_VERSION,
   MAX_APARTMENT_OPERATION_LINES,
@@ -20,6 +22,7 @@ import {
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
 import { PropertyTaxSection } from "./PropertyTaxSection";
+import { TIER_LABELS } from "./UnitMixByTier";
 
 type MoneyLine = OtherIncomeLine | OperatingExpenseLine | CapitalExpenditureLine;
 
@@ -142,7 +145,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       >
         <div className="underwriting-edit-table-wrap">
           <table className="underwriting-operations-table underwriting-unit-types">
-            <thead><tr><th>Unit Type</th><th className="right">Units</th><th className="right">Average Area</th><th className="right">Non-Revenue Units</th><th className="right">Monthly Market Rent</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
+            <thead><tr><th>Unit Type</th><th className="right">Units</th><th className="right">Average Area</th><th className="right">Non-Revenue Units</th><th className="right">Monthly Market Rent</th><th>Affordability Tier</th><th className="right">AMI</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
             <tbody>{residentialUnitTypes.map((line, index) => (
               <tr key={line.id}>
                 <td><TextInput path={`residentialUnitTypes.${index}.name`} label={`Unit type ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setResidentialUnitTypes, index, { name })} error={fieldErrors[`residentialUnitTypes.${index}.name`]} /></td>
@@ -150,6 +153,8 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
                 <td><NumberInput path={`residentialUnitTypes.${index}.averageAreaSf`} label={`${line.name || `Unit type ${index + 1}`} average area`} value={line.averageAreaSf} onChange={(averageAreaSf) => updateAt(setResidentialUnitTypes, index, { averageAreaSf })} error={fieldErrors[`residentialUnitTypes.${index}.averageAreaSf`]} min="1" step="0.01" suffix="SF" /></td>
                 <td><NumberInput path={`residentialUnitTypes.${index}.nonRevenueUnits`} label={`${line.name || `Unit type ${index + 1}`} non-revenue units`} value={line.nonRevenueUnits} onChange={(nonRevenueUnits) => updateAt(setResidentialUnitTypes, index, { nonRevenueUnits })} error={fieldErrors[`residentialUnitTypes.${index}.nonRevenueUnits`]} min="0" step="1" /></td>
                 <td><NumberInput path={`residentialUnitTypes.${index}.monthlyMarketRent`} label={`${line.name || `Unit type ${index + 1}`} monthly market rent`} value={line.monthlyMarketRent} onChange={(monthlyMarketRent) => updateAt(setResidentialUnitTypes, index, { monthlyMarketRent })} error={fieldErrors[`residentialUnitTypes.${index}.monthlyMarketRent`]} min="0.01" step="0.01" suffix="USD" /></td>
+                <td><select className="input" aria-label={`${line.name || `Unit type ${index + 1}`} affordability tier`} value={line.affordabilityTier ?? "market"} onChange={(event) => updateAt(setResidentialUnitTypes, index, event.target.value === "market" ? { affordabilityTier: undefined, amiPercent: undefined } : { affordabilityTier: event.target.value as AffordabilityTier })}>{AFFORDABILITY_TIERS.map((tier) => <option key={tier} value={tier}>{TIER_LABELS[tier]}</option>)}</select></td>
+                <td>{(line.affordabilityTier ?? "market") === "market" ? <span className="t-meta">None</span> : <><input className="input num right" type="number" min="1" max="200" step="1" aria-label={`${line.name || `Unit type ${index + 1}`} AMI percent`} value={line.amiPercent ?? ""} onChange={(event) => updateAt(setResidentialUnitTypes, index, { amiPercent: event.target.value === "" ? undefined : Number(event.target.value) })} aria-invalid={Boolean(fieldErrors[`residentialUnitTypes.${index}.amiPercent`])} /><FieldError id={`residentialUnitTypes-${index}-amiPercent-error`} error={fieldErrors[`residentialUnitTypes.${index}.amiPercent`]} /></>}</td>
                 <EvidenceCells path={`residentialUnitTypes.${index}`} line={line} fieldErrors={fieldErrors} onChange={(update) => updateAt(setResidentialUnitTypes, index, update)} />
                 <td><RemoveButton onClick={() => removeAt(setResidentialUnitTypes, index)} /></td>
               </tr>

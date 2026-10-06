@@ -3,6 +3,8 @@ import {
   projectApartmentOperationsThrough,
   type MonthlyApartmentOperations,
 } from "./apartment-operations";
+import { AFFORDABILITY_TIERS } from "./apartment-operations";
+import { summarizeAffordabilityTiers } from "./affordability-tiers";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
 import { MAX_PROPERTY_TAX_FISCAL_YEARS } from "./property-tax";
 
@@ -48,6 +50,14 @@ const FISCAL_YEAR_OUTPUT_KEYS: FiscalYearOutputKey[] = Array.from({ length: MAX_
   `propertyTaxFiscalYear${index + 1}` as const,
   `fullPropertyTaxFiscalYear${index + 1}` as const,
 ]).flat();
+
+/** Units, rentable SF and rent per revenue unit for each affordability tier (LA-1692). */
+export const TIER_OUTPUT_KEYS = AFFORDABILITY_TIERS.flatMap((tier) => [
+  `${tier}Units` as const,
+  `${tier}RevenueUnits` as const,
+  `${tier}RentableSf` as const,
+  `${tier}AverageMonthlyRent` as const,
+]);
 
 const CATALOG_KEYS = [
   "landCost",
@@ -104,6 +114,7 @@ const CATALOG_KEYS = [
   "developmentSpreadBasisPoints",
   ...LENDER_OUTPUT_KEYS,
   ...PROPERTY_TAX_OUTPUT_KEYS,
+  ...TIER_OUTPUT_KEYS,
 ] as const;
 
 export type EngineOutputKey = typeof CATALOG_KEYS[number] | FiscalYearOutputKey;
@@ -212,6 +223,7 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     revenueUnits: units.revenueUnits,
     nonRevenueUnits: units.nonRevenueUnits,
     totalAreaSf: units.totalAreaSf,
+    ...tierOutputs(input),
     forwardEffectiveGrossRevenue: sale.forwardEffectiveGrossRevenue,
     forwardOperatingExpenses: sale.forwardOperatingExpenses,
     forwardNetOperatingIncome: sale.forwardNetOperatingIncome,
@@ -421,4 +433,15 @@ function addMonths(month: string, offset: number) {
   const [year, monthNumber] = month.split("-").map(Number);
   const index = year * 12 + monthNumber - 1 + offset;
   return `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
+}
+
+function tierOutputs(input: PropertyReturnsInputs): EngineOutputs {
+  const outputs: EngineOutputs = {};
+  for (const row of summarizeAffordabilityTiers(input.residentialUnitTypes).tiers) {
+    outputs[`${row.tier}Units`] = row.units;
+    outputs[`${row.tier}RevenueUnits`] = row.revenueUnits;
+    outputs[`${row.tier}RentableSf`] = row.rentableSf;
+    if (row.averageMonthlyRent !== null) outputs[`${row.tier}AverageMonthlyRent`] = row.averageMonthlyRent;
+  }
+  return outputs;
 }

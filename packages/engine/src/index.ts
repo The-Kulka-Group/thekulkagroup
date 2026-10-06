@@ -225,7 +225,30 @@ export {
 } from "./monthly-cost-schedule";
 
 export {
+  MAX_PROPERTY_TAX_FISCAL_YEARS,
+  MAX_PROPERTY_TAX_SOURCE_LABEL_LENGTH,
+  PROPERTY_TAX_ASSUMPTION_KEYS,
+  PROPERTY_TAX_INPUT_VERSION,
+  PROPERTY_TAX_UNIT_BANDS,
+  abatementValueAtSale,
+  propertyTaxScheduleEndMonth,
+  validatePropertyTaxPlan,
+  type PropertyTaxAssessmentBasis,
+  type PropertyTaxAssumptionKey,
+  type PropertyTaxEvidence,
+  type PropertyTaxFiscalYear,
+  type PropertyTaxFiscalYearRow,
+  type PropertyTaxIssue,
+  type PropertyTaxIssueCode,
+  type PropertyTaxMode,
+  type PropertyTaxPlan,
+  type PropertyTaxRateUnit,
+  type PropertyTaxResult,
+} from "./property-tax";
+
+export {
   APARTMENT_OPERATIONS_FORMULA_VERSION,
+  APARTMENT_OPERATIONS_V1_FORMULA_VERSION,
   APARTMENT_OPERATIONS_INPUT_VERSION,
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   computeApartmentOperations,
@@ -280,6 +303,7 @@ export {
   LENDER_TEST_ASSUMPTION_KEYS,
   MAX_LENDER_TEST_SOURCE_LABEL_LENGTH,
   validateLenderTestPlan,
+  type LenderFullTaxTests,
   type LenderTestAssumptionKey,
   type LenderTestEvidence,
   type LenderTestIssue,
@@ -297,11 +321,15 @@ export {
   PROPERTY_RETURNS_FORMULA_VERSION,
   PROPERTY_RETURNS_INPUT_VERSION,
   PROPERTY_RETURNS_V1_FORMULA_VERSION,
+  PROPERTY_RETURNS_V2_FORMULA_VERSION,
+  SALE_TAX_ASSUMPTION_KEYS,
+  SALE_TAX_INPUT_VERSION,
   MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH,
   XIRR_ACTUAL_365_VERSION,
   calculatePropertyReturns,
   computePropertyReturns,
   validatePropertyReturnsPlan,
+  validateSaleTaxPlan,
   type DatedPropertyCashFlow,
   type ForwardSalePeriod,
   type MonthlyPropertyReturnsInput,
@@ -317,6 +345,10 @@ export {
   type PropertyReturnsPlan,
   type PropertyReturnsResult,
   type PropertyReturnsRun,
+  type SaleTaxAssumptionKey,
+  type SaleTaxPlan,
+  type SaleTaxResult,
+  type SaleTaxValueBasis,
 } from "./property-returns";
 
 export {

@@ -11,10 +11,15 @@ import {
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  PROPERTY_TAX_ASSUMPTION_KEYS,
+  SALE_TAX_ASSUMPTION_KEYS,
   type ApartmentScenarioDefinition,
   type ApartmentScenarioEvidence,
   type PropertyReturnsAssumptionKey,
   type PropertyReturnsPlan,
+  type PropertyTaxAssumptionKey,
+  type PropertyTaxPlan,
+  type SaleTaxPlan,
 } from "@kulka/engine";
 
 import type { ApartmentOperationsDraft } from "@/lib/underwriting/operations-input";
@@ -722,6 +727,48 @@ function reconcilePropertyReturnsReview(
       return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
     })) as Record<PropertyReturnsAssumptionKey, PropertyReturnsPlan["saleAssumptionEvidence"][PropertyReturnsAssumptionKey]>,
     ...(draft.lenderTests ? { lenderTests: reconcileLenderTestReview(existing?.lenderTests, draft.lenderTests) } : {}),
+    ...(draft.saleTax ? { saleTax: reconcileSaleTaxReview(existing?.saleTax, draft.saleTax) } : {}),
+  };
+}
+
+function reconcileSaleTaxReview(existing: SaleTaxPlan | undefined, draft: SaleTaxPlan): SaleTaxPlan {
+  return {
+    ...draft,
+    saleTaxEvidence: Object.fromEntries(SALE_TAX_ASSUMPTION_KEYS.flatMap((key) => {
+      const nextEvidence = draft.saleTaxEvidence[key];
+      if (!nextEvidence) return [];
+      const priorEvidence = existing?.saleTaxEvidence[key];
+      const changed = existing && (
+        existing[key] !== draft[key]
+        || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
+        || priorEvidence?.sourceDate !== nextEvidence.sourceDate
+      );
+      return [[key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence]];
+    })),
+  };
+}
+
+/** The inputs each piece of tax evidence speaks for. Changing any of them resets that evidence to Working on It. */
+const PROPERTY_TAX_EVIDENCE_FIELDS: Record<PropertyTaxAssumptionKey, Array<keyof PropertyTaxPlan>> = {
+  firstFiscalYearStartMonth: ["firstFiscalYearStartMonth"],
+  assessment: ["assessmentBasis", "landAssessedValue", "improvementAssessedValue", "assessorExpenseRatioPercent", "assessmentCapRatePercent", "assessmentRatioPercent"],
+  fiscalYears: ["mode", "rateUnit", "fiscalYears"],
+  annualRateGrowthPercent: ["annualRateGrowthPercent"],
+};
+
+function reconcilePropertyTaxReview(existing: PropertyTaxPlan | undefined, draft: PropertyTaxPlan): PropertyTaxPlan {
+  return {
+    ...draft,
+    taxEvidence: Object.fromEntries(PROPERTY_TAX_ASSUMPTION_KEYS.map((key) => {
+      const priorEvidence = existing?.taxEvidence[key];
+      const nextEvidence = draft.taxEvidence[key];
+      const changed = existing && (
+        PROPERTY_TAX_EVIDENCE_FIELDS[key].some((field) => JSON.stringify(existing[field]) !== JSON.stringify(draft[field]))
+        || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
+        || priorEvidence?.sourceDate !== nextEvidence.sourceDate
+      );
+      return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
+    })) as PropertyTaxPlan["taxEvidence"],
   };
 }
 
@@ -785,6 +832,7 @@ function reconcileOperationsReview(
     otherIncomeLines: reconcileLineReview(existing?.otherIncomeLines, draft.otherIncomeLines),
     operatingExpenseLines: reconcileLineReview(existing?.operatingExpenseLines, draft.operatingExpenseLines),
     capitalExpenditureLines: reconcileLineReview(existing?.capitalExpenditureLines, draft.capitalExpenditureLines),
+    ...(draft.propertyTax ? { propertyTax: reconcilePropertyTaxReview(existing?.propertyTax, draft.propertyTax) } : {}),
   };
 }
 

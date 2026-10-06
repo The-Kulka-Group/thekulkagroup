@@ -316,7 +316,7 @@ export default async function UnderwritingCasePage({
             <ul>
               {(savedCase.propertyReturns ? [
                 "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
-                "It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.",
+                "It does not model permanent debt, investor waterfalls, income taxes, or sensitivity cases.",
                 "These results do not record a finance or sale approval.",
               ] : savedCase.developmentCapital ? [
                 "This formula version funds monthly project costs, operating shortfalls, and capitalized interest with equity and construction debt.",

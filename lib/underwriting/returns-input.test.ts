@@ -17,6 +17,17 @@ describe("parsePropertyReturns", () => {
     expect(parsePropertyReturns(plan)).toEqual(plan);
   });
 
+  it("keeps a sale tax basis and drops evidence and fields it does not use", () => {
+    const saleTax = {
+      saleTaxInputVersion: "sale_tax_inputs.v1",
+      valueBasis: "full_tax_plus_abatement_value",
+      abatementDiscountRatePercent: 6.5,
+      saleTaxEvidence: { valueBasis: { reviewState: "working" }, abatementDiscountRatePercent: { reviewState: "working" } },
+    };
+    expect(parsePropertyReturns({ ...plan, saleTax: { ...saleTax, extra: "value" } }).saleTax).toEqual(saleTax);
+    expect(() => parsePropertyReturns({ ...plan, saleTax: { ...saleTax, valueBasis: "scheduled_tax" } })).toThrow(InvalidPropertyReturns);
+  });
+
   it("returns a typed field error for an invalid terminal cap rate", () => {
     try {
       parsePropertyReturns({ ...plan, terminalCapRatePercent: 0 });

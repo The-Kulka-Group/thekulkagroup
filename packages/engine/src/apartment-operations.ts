@@ -5,9 +5,19 @@ import {
   type MonthlyCostScheduleResult,
   type ReconciliationCheck,
 } from "./monthly-cost-schedule";
+import {
+  propertyTaxForMonth,
+  propertyTaxResult,
+  validatePropertyTaxPlan,
+  type PropertyTaxIssueCode,
+  type PropertyTaxPlan,
+  type PropertyTaxResult,
+} from "./property-tax";
 
 export const APARTMENT_OPERATIONS_INPUT_VERSION = "apartment_operations_inputs.v1" as const;
-export const APARTMENT_OPERATIONS_FORMULA_VERSION = "underwriting.apartment_operations.v1" as const;
+/** v2 adds the dated property tax schedule (LA-1690). Runs saved under v1 stay readable and carry no tax line. */
+export const APARTMENT_OPERATIONS_FORMULA_VERSION = "underwriting.apartment_operations.v2" as const;
+export const APARTMENT_OPERATIONS_V1_FORMULA_VERSION = "underwriting.apartment_operations.v1" as const;
 export const MAX_APARTMENT_OPERATION_LINES = 250;
 export const MAX_OPERATION_LINE_ID_LENGTH = 100;
 export const MAX_OPERATION_LINE_NAME_LENGTH = 200;
@@ -83,9 +93,12 @@ export type ApartmentOperationsInputs = MonthlyCostScheduleInputs & {
   otherIncomeLines: OtherIncomeLine[];
   operatingExpenseLines: OperatingExpenseLine[];
   capitalExpenditureLines: CapitalExpenditureLine[];
+  /** Replaces a flat tax expense line. Its scheduled tax joins operating expenses. */
+  propertyTax?: PropertyTaxPlan;
 };
 
 export type ApartmentOperationsIssueCode = MonthlyCostIssueCode
+  | PropertyTaxIssueCode
   | "unsupported_input_version"
   | "outside_timeline"
   | "invalid_units"
@@ -135,6 +148,10 @@ export type MonthlyApartmentOperations = {
   creditLoss: number;
   effectiveGrossRevenue: number;
   operatingExpenses: number;
+  /** Tax the property pays under its schedule, inside operating expenses. Zero with no tax schedule. */
+  propertyTax: number;
+  /** Tax with no abatement. NOI on full tax is NOI less this and plus property tax. */
+  fullPropertyTax: number;
   netOperatingIncome: number;
   capitalExpenditures: number;
   operatingCashFlow: number;
@@ -162,6 +179,7 @@ export type ApartmentOperationsResult = {
   months: MonthlyApartmentOperations[];
   totals: ApartmentOperationsTotals;
   firstStabilizedMonth?: string;
+  propertyTax: PropertyTaxResult | null;
   formulaTraces: OperationsFormulaTrace[];
 };
 
@@ -182,6 +200,12 @@ export function computeApartmentOperations(input: ApartmentOperationsInputs): Ap
   const inputSnapshot = structuredClone(input);
   const costRun = computeMonthlyCostSchedule(inputSnapshot);
   const issues = validate(inputSnapshot);
+  if (inputSnapshot.propertyTax !== undefined) {
+    issues.push(...validatePropertyTaxPlan(inputSnapshot.propertyTax, {
+      operationStartMonth: inputSnapshot.operationStartMonth,
+      costBeforeFinancing: costRun.result?.totalUses ?? 0,
+    }));
+  }
   if (costRun.status === "failed") {
     issues.unshift(...costRun.issues.map((item) => ({ ...item })));
   }
@@ -503,7 +527,10 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     vacancyLossYearToDate = cumulativeVacancyLoss;
     creditLossYearToDate = cumulativeCreditLoss;
     const effectiveGrossRevenue = totalPotentialIncome + vacancyLoss + creditLoss;
-    const operatingExpenses = input.operatingExpenseLines.reduce((sum, line) => sum + lineAmountCents(
+    const tax = input.propertyTax
+      ? propertyTaxForMonth(input.propertyTax, currentMonth, effectiveGrossRevenue)
+      : { full: 0, scheduled: 0 };
+    const operatingExpenses = tax.scheduled + input.operatingExpenseLines.reduce((sum, line) => sum + lineAmountCents(
       line.amount,
       line.unit,
       operationOffset,
@@ -544,6 +571,8 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
       creditLoss,
       effectiveGrossRevenue,
       operatingExpenses,
+      propertyTax: tax.scheduled,
+      fullPropertyTax: tax.full,
       netOperatingIncome,
       capitalExpenditures,
       operatingCashFlow,
@@ -557,6 +586,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     months,
     totals,
     firstStabilizedMonth: months.find((month) => month.revenueUnits > 0 && month.leasedUnits === month.revenueUnits)?.month,
+    propertyTax: input.propertyTax ? propertyTaxResult(input.propertyTax, months, input.operationStartMonth) : null,
     formulaTraces: formulaTraces(),
   };
 }
@@ -600,7 +630,7 @@ type MoneyMonthInput = Omit<MonthlyApartmentOperations,
   "totalUses" | "residentialGrossRent" | "nonRevenueRentAdjustment" | "leaseUpLoss" |
   "rentAdjustmentLoss" | "freeRentLoss" | "totalResidentialRent" | "otherIncome" |
   "totalPotentialIncome" | "vacancyLoss" | "creditLoss" | "effectiveGrossRevenue" |
-  "operatingExpenses" | "netOperatingIncome" | "capitalExpenditures" | "operatingCashFlow"> & {
+  "operatingExpenses" | "propertyTax" | "fullPropertyTax" | "netOperatingIncome" | "capitalExpenditures" | "operatingCashFlow"> & {
     totalUses: number;
     residentialGrossRent: number;
     nonRevenueRentAdjustment: number;
@@ -614,6 +644,8 @@ type MoneyMonthInput = Omit<MonthlyApartmentOperations,
     creditLoss: number;
     effectiveGrossRevenue: number;
     operatingExpenses: number;
+    propertyTax: number;
+    fullPropertyTax: number;
     netOperatingIncome: number;
     capitalExpenditures: number;
     operatingCashFlow: number;
@@ -634,6 +666,8 @@ function moneyMonth(month: MoneyMonthInput): MonthlyApartmentOperations {
     creditLoss: dollars(month.creditLoss),
     effectiveGrossRevenue: dollars(month.effectiveGrossRevenue),
     operatingExpenses: dollars(month.operatingExpenses),
+    propertyTax: dollars(month.propertyTax),
+    fullPropertyTax: dollars(month.fullPropertyTax),
     netOperatingIncome: dollars(month.netOperatingIncome),
     capitalExpenditures: dollars(month.capitalExpenditures),
     operatingCashFlow: dollars(month.operatingCashFlow),
@@ -660,6 +694,8 @@ function emptyMonth(month: string, totalUses: number): MonthlyApartmentOperation
     creditLoss: 0,
     effectiveGrossRevenue: 0,
     operatingExpenses: 0,
+    propertyTax: 0,
+    fullPropertyTax: 0,
     netOperatingIncome: 0,
     capitalExpenditures: 0,
     operatingCashFlow: 0,
@@ -670,7 +706,7 @@ function totalOperations(months: MonthlyApartmentOperations[]): ApartmentOperati
   const keys: Array<keyof ApartmentOperationsTotals> = [
     "residentialGrossRent", "nonRevenueRentAdjustment", "leaseUpLoss", "rentAdjustmentLoss",
     "freeRentLoss", "totalResidentialRent", "otherIncome", "totalPotentialIncome", "vacancyLoss",
-    "creditLoss", "effectiveGrossRevenue", "operatingExpenses", "netOperatingIncome",
+    "creditLoss", "effectiveGrossRevenue", "operatingExpenses", "propertyTax", "fullPropertyTax", "netOperatingIncome",
     "capitalExpenditures", "operatingCashFlow",
   ];
   return Object.fromEntries(keys.map((key) => [
@@ -764,6 +800,8 @@ function operationReconciliations(result: ApartmentOperationsResult) {
     monthlyTotalCheck(result, "totalResidentialRent", "monthly-residential-rent-total", "Residential rent"),
     monthlyTotalCheck(result, "otherIncome", "monthly-other-income-total", "Other income"),
     monthlyTotalCheck(result, "effectiveGrossRevenue", "monthly-effective-gross-revenue-total", "Effective gross revenue"),
+    monthlyTotalCheck(result, "propertyTax", "monthly-property-tax-total", "Property tax"),
+    monthlyTotalCheck(result, "fullPropertyTax", "monthly-full-property-tax-total", "Full property tax"),
     monthlyTotalCheck(result, "netOperatingIncome", "monthly-net-operating-income-total", "Net operating income"),
     monthlyTotalCheck(result, "capitalExpenditures", "monthly-capital-expenditures-total", "Capital expenditures"),
     monthlyTotalCheck(result, "operatingCashFlow", "monthly-operating-cash-flow-total", "Operating cash flow"),
@@ -804,7 +842,9 @@ function formulaTraces(): OperationsFormulaTrace[] {
     { key: "vacancyLoss", label: "Vacancy Loss", formula: "negative total potential income times vacancy percent", inputPaths: ["vacancyPercent", "residentialUnitTypes", "otherIncomeLines"] },
     { key: "creditLoss", label: "Credit Loss", formula: "negative total potential income times credit-loss percent", inputPaths: ["creditLossPercent", "residentialUnitTypes", "otherIncomeLines"] },
     { key: "effectiveGrossRevenue", label: "Effective Gross Revenue", formula: "total potential income plus vacancy loss and credit loss", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "vacancyPercent", "creditLossPercent"] },
-    { key: "operatingExpenses", label: "Operating Expenses", formula: "sum of grown annual, per-unit, and percent-of-revenue operating expense lines", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
+    { key: "operatingExpenses", label: "Operating Expenses", formula: "sum of grown annual, per-unit, and percent-of-revenue operating expense lines plus scheduled property tax", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent", "propertyTax"] },
+    { key: "propertyTax", label: "Property Tax", formula: "each fiscal year's tax after its exemption step, or its stated PILOT payment, spread evenly over the fiscal year's months; on the income basis, each month's revenue less the assessor's expense ratio, over the assessment cap rate, times the assessment ratio and the rate", inputPaths: ["propertyTax"] },
+    { key: "fullPropertyTax", label: "Full Property Tax", formula: "the same fiscal-year tax with no exemption or PILOT payment; years after the listed schedule grow the last listed rate", inputPaths: ["propertyTax"] },
     { key: "netOperatingIncome", label: "Net Operating Income", formula: "effective gross revenue less grown operating expenses", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "capitalExpenditures", label: "Capital Expenditures", formula: "sum of grown annual and per-unit capital expenditure lines", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "net operating income less grown capital expenditures", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },

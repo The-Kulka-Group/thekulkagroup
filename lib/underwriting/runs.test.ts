@@ -360,7 +360,7 @@ describe("underwriting calculation repository", () => {
     const reopened = await getUnderwritingRun(db, run!.id);
 
     expect(run).toMatchObject({
-      formulaVersion: "underwriting.apartment_operations.v1",
+      formulaVersion: "underwriting.apartment_operations.v2",
       status: "complete",
       caseRevision: 3,
       apartmentOperationsResult: {
@@ -474,7 +474,7 @@ describe("underwriting calculation repository", () => {
     const reopened = await getUnderwritingRun(db, run!.id);
 
     expect(run).toMatchObject({
-      formulaVersion: "underwriting.property_returns.v2", status: "complete", caseRevision: 5,
+      formulaVersion: "underwriting.property_returns.v3", status: "complete", caseRevision: 5,
       inputSnapshot: { terminalCapRatePercent: 5.75, sellingCostPercent: 1.5 },
       evidenceSnapshot: { propertyReturns: expect.objectContaining({ saleInputVersion: "property_returns_inputs.v1", lastChangedAt: expect.any(String) }) },
       propertyReturnsResult: {
@@ -582,6 +582,104 @@ describe("underwriting calculation repository", () => {
     expect(legacy!.formulaVersion).toBe("underwriting.property_returns.v1");
     expect(legacy!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
     expect(legacy!.propertyReturnsResult!.lenderTests).toBeNull();
+  });
+
+  const taxEvidence = (reviewState: "working" | "done") => ({ sourceLabel: "PILOT agreement", sourceDate: "2026-10-05", reviewState });
+  const taxPlan = (overrides: Record<string, unknown> = {}) => ({
+    taxInputVersion: "property_tax_inputs.v1", mode: "abatement", assessmentBasis: "stated_assessed_value",
+    firstFiscalYearStartMonth: "2026-01", landAssessedValue: 100_000, improvementAssessedValue: 900_000, rateUnit: "mills",
+    fiscalYears: [{ rate: 20, exemptionPercent: 100 }, { rate: 20, exemptionPercent: 0 }], annualRateGrowthPercent: 2,
+    taxEvidence: {
+      firstFiscalYearStartMonth: taxEvidence("done"), assessment: taxEvidence("done"),
+      fiscalYears: taxEvidence("done"), annualRateGrowthPercent: taxEvidence("done"),
+    },
+    ...overrides,
+  });
+
+  async function caseWithTax(propertyTax: Record<string, unknown>) {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01", preleasedUnits: 10, leaseUpUnitsPerMonth: 1,
+      annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0, rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(), residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+      propertyTax,
+    } as unknown as Parameters<typeof saveApartmentOperations>[3]);
+    const capital = await saveDevelopmentCapital(db, savedCase!.id, operating!.caseRevision, {
+      capitalInputVersion: "development_capital_inputs.v1", targetDebtSharePercent: 65, annualInterestRatePercent: 8, loanFeePercent: 1,
+      fundingOrder: "equity_first.v1", interestTreatment: "capitalized_net_operating_cash.v1", interestConvention: "opening_balance_monthly.v1",
+      feeMonth: "2026-01", payoffMonth: "2026-12", capitalAssumptionEvidence: workingCapitalEvidence(),
+    });
+    return savePropertyReturns(db, savedCase!.id, capital!.caseRevision, {
+      saleInputVersion: "property_returns_inputs.v1", terminalCapRatePercent: 5.75, sellingCostPercent: 1.5,
+      forwardNoiConvention: "forward_twelve_month_noi.v1", cashFlowDateConvention: "month_end_dates.v1", xirrConvention: "xirr_actual_365.v1",
+      saleAssumptionEvidence: workingSaleEvidence(),
+      lenderTests: lenderPlan(),
+      saleTax: {
+        saleTaxInputVersion: "sale_tax_inputs.v1", valueBasis: "full_tax_plus_abatement_value", abatementDiscountRatePercent: 6,
+        saleTaxEvidence: { valueBasis: taxEvidence("done"), abatementDiscountRatePercent: taxEvidence("done") },
+      },
+    } as Parameters<typeof savePropertyReturns>[3]);
+  }
+
+  it("stores a PILOT schedule and sale tax basis, then reports NOI, value and lender tests on both tax bases", async () => {
+    const property = await caseWithTax(taxPlan());
+    expect(property!.apartmentOperations!.propertyTax).toMatchObject({ mode: "abatement", firstFiscalYearStartMonth: "2026-01" });
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    expect(run).toMatchObject({ formulaVersion: "underwriting.property_returns.v3", status: "complete" });
+    const result = run!.propertyReturnsResult!;
+    // Fiscal year one exempts the improvements: 100,000 of land at 20 mills, against 1,000,000 in full.
+    expect(result.lenderTests).toMatchObject({ stabilizedNoi: 238_000, fullTax: { stabilizedNoi: 220_000 } });
+    expect(result.saleTax).toMatchObject({ valueBasis: "full_tax_plus_abatement_value", abatementEndMonth: "2027-12" });
+    expect(result.saleTax!.abatementValue).toBeGreaterThan(0);
+    expect(result.propertyReturns.sale.grossSaleValue).toBeCloseTo(result.saleTax!.fullTaxValue + result.saleTax!.abatementValue!, 2);
+    expect(result.propertyTax!.fiscalYears[0]).toMatchObject({ annualScheduledTax: 2_000, annualFullTax: 20_000, chargedMonths: 12 });
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(reopened).toEqual(run);
+  });
+
+  it("returns changed tax evidence to Working on It and leaves the rest", async () => {
+    const property = await caseWithTax(taxPlan());
+    const { lastChangedAt, ...operations } = property!.apartmentOperations!;
+    void lastChangedAt;
+    const changed = await saveApartmentOperations(db, property!.id, property!.caseRevision, {
+      ...operations,
+      propertyTax: taxPlan({ fiscalYears: [{ rate: 21, exemptionPercent: 100 }, { rate: 21, exemptionPercent: 0 }] }),
+    } as Parameters<typeof saveApartmentOperations>[3]);
+    const evidence = changed!.apartmentOperations!.propertyTax!.taxEvidence;
+    expect(evidence.fiscalYears.reviewState).toBe("working");
+    expect(evidence.assessment.reviewState).toBe("done");
+  });
+
+  it("keeps runs saved before the tax schedule readable", async () => {
+    const property = await caseWithPropertyReturns();
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const values = names.map((name) => name === "formula_version"
+      ? "'underwriting.property_returns.v2'"
+      : name === "result_snapshot" ? "result_snapshot - 'saleTax' - 'propertyTax'" : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const legacy = await getUnderwritingRun(db, rows[0].id);
+    expect(legacy!.formulaVersion).toBe("underwriting.property_returns.v2");
+    expect(legacy!.propertyReturnsResult!.saleTax).toBeNull();
+    expect(legacy!.propertyReturnsResult!.propertyTax).toBeNull();
   });
 });
 

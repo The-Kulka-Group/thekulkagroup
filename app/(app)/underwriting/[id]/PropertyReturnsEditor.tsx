@@ -11,12 +11,16 @@ import {
   MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
   PROPERTY_RETURNS_INPUT_VERSION,
+  SALE_TAX_ASSUMPTION_KEYS,
+  SALE_TAX_INPUT_VERSION,
   XIRR_ACTUAL_365_VERSION,
   type LenderTestAssumptionKey,
   type LenderTestEvidence,
   type LenderTestNoiBasis,
   type PropertyReturnsAssumptionKey,
   type PropertyReturnsEvidence,
+  type SaleTaxAssumptionKey,
+  type SaleTaxValueBasis,
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
@@ -34,6 +38,10 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   const [annualDebtService, setAnnualDebtService] = useState<number | "">(savedLender?.annualDebtService ?? "");
   const [noiBasis, setNoiBasis] = useState<LenderTestNoiBasis>(savedLender?.noiBasis ?? "noi_before_reserves");
   const [lenderTestEvidence, setLenderTestEvidence] = useState(savedLender?.lenderTestEvidence ?? blankLenderEvidence());
+  const savedSaleTax = saved?.saleTax;
+  const [saleTaxBasis, setSaleTaxBasis] = useState<SaleTaxValueBasis>(savedSaleTax?.valueBasis ?? "scheduled_tax");
+  const [abatementDiscountRatePercent, setAbatementDiscountRatePercent] = useState<number | "">(savedSaleTax?.abatementDiscountRatePercent ?? "");
+  const [saleTaxEvidence, setSaleTaxEvidence] = useState({ ...blankSaleTaxEvidence(), ...savedSaleTax?.saleTaxEvidence });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -41,6 +49,9 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   if (!savedCase.costSchedule || !savedCase.apartmentOperations || !savedCase.developmentCapital) {
     return <section aria-labelledby="property-returns-heading"><h3 id="property-returns-heading">Property Sale and Returns</h3><div className="empty empty--inline"><p>Save the cost schedule, apartment operations, and capital plan before adding sale terms.</p></div></section>;
   }
+
+  const hasAbatement = savedCase.apartmentOperations.propertyTax?.mode === "abatement";
+  const usesDiscountRate = saleTaxBasis === "full_tax_plus_abatement_value";
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,6 +81,14 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
               lenderTestEvidence,
             },
           } : {}),
+          ...(hasAbatement ? {
+            saleTax: {
+              saleTaxInputVersion: SALE_TAX_INPUT_VERSION,
+              valueBasis: saleTaxBasis,
+              ...(usesDiscountRate ? { abatementDiscountRatePercent } : {}),
+              saleTaxEvidence: usesDiscountRate ? saleTaxEvidence : { valueBasis: saleTaxEvidence.valueBasis },
+            },
+          } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -96,6 +115,9 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     setLenderTestEvidence((current) => ({ ...current, [key]: { ...current[key], ...update } }));
   };
   const lenderError = (key: LenderTestAssumptionKey) => fieldErrors[`lenderTests.${key}`];
+  const updateSaleTaxEvidence = (key: SaleTaxAssumptionKey, update: Partial<PropertyReturnsEvidence>) => {
+    setSaleTaxEvidence((current) => ({ ...current, [key]: { ...current[key], ...update } }));
+  };
 
   return <form className="underwriting-returns-editor" onSubmit={save} noValidate>
     <div className="underwriting-section-head"><div><h3 id="property-returns-heading">Property Sale and Returns</h3><p className="t-meta">The model values the sale from forward twelve-month NOI, pays off construction debt, and calculates dated property returns.</p></div></div>
@@ -122,6 +144,22 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
         })}
       </tbody></table></div>
     </section>
+    {hasAbatement ? <section className="underwriting-line-section" aria-labelledby="sale-tax-heading">
+      <h4 id="sale-tax-heading">Sale Tax Basis</h4>
+      <p className="t-meta">The tax schedule carries an abatement, so the sale states which tax it prices. Full tax plus abatement value caps NOI with no abatement, then adds the present value of the tax the abatement still saves after the sale.</p>
+      <div className="underwriting-form-grid underwriting-capital-controls">
+        <label className="field-label t-label" htmlFor="sale-tax-basis">Sale Prices<select id="sale-tax-basis" className="input" value={saleTaxBasis} onChange={(event) => setSaleTaxBasis(event.target.value as SaleTaxValueBasis)} aria-invalid={Boolean(fieldErrors["saleTax.valueBasis"])} aria-describedby={fieldErrors["saleTax.valueBasis"] ? "sale-tax-basis-error" : undefined}><option value="scheduled_tax">Scheduled Tax</option><option value="full_tax">Full Tax</option><option value="full_tax_plus_abatement_value">Full Tax Plus Abatement Value</option></select><FieldError id="sale-tax-basis-error" error={fieldErrors["saleTax.valueBasis"]} /></label>
+        {usesDiscountRate ? <NumberField id="sale-tax-discount-rate" label="Abatement Discount Rate" value={abatementDiscountRatePercent} onChange={setAbatementDiscountRatePercent} error={fieldErrors["saleTax.abatementDiscountRatePercent"]} /> : null}
+      </div>
+      <div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Sale Tax Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>
+        {SALE_TAX_ASSUMPTION_KEYS.filter((key) => usesDiscountRate || key === "valueBasis").map((key) => {
+          const path = `saleTax.saleTaxEvidence.${key}`;
+          const id = `sale-tax-evidence-${key}`;
+          const evidence = saleTaxEvidence[key];
+          return <tr key={key}><th scope="row">{SALE_TAX_LABELS[key]}</th><td><input className="input" id={`${id}-source-label`} aria-label={`${SALE_TAX_LABELS[key]} source label`} maxLength={MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH} value={evidence.sourceLabel ?? ""} onChange={(event) => updateSaleTaxEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`${path}.sourceLabel`])} /><FieldError error={fieldErrors[`${path}.sourceLabel`]} /></td><td><input className="input" id={`${id}-source-date`} type="date" aria-label={`${SALE_TAX_LABELS[key]} source date`} value={evidence.sourceDate ?? ""} onChange={(event) => updateSaleTaxEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[`${path}.sourceDate`])} /><FieldError error={fieldErrors[`${path}.sourceDate`]} /></td><td><select className="input" id={`${id}-review-state`} aria-label={`${SALE_TAX_LABELS[key]} review state`} value={evidence.reviewState} onChange={(event) => updateSaleTaxEvidence(key, { reviewState: event.target.value as "working" | "done" })}><option value="working">Working on It</option><option value="done">Done</option></select></td></tr>;
+        })}
+      </tbody></table></div>
+    </section> : null}
     <section className="underwriting-line-section" aria-labelledby="lender-tests-heading">
       <h4 id="lender-tests-heading">Lender Tests</h4>
       <p className="t-meta">A lender values the stabilized year and tests the construction loan against value, cost and debt service. These tests report only; they do not size the loan.</p>
@@ -167,6 +205,11 @@ function NumberField({ id, label, value, onChange, error }: { id: string; label:
   return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><input id={id} className="input num" type="number" min="0" max="100" step="0.000001" value={value} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} /><span>%</span></span><FieldError id={errorId} error={error} /></label>;
 }
 
+const SALE_TAX_LABELS: Record<SaleTaxAssumptionKey, string> = {
+  valueBasis: "Sale Prices",
+  abatementDiscountRatePercent: "Abatement Discount Rate",
+};
+
 const LENDER_LABELS: Record<LenderTestAssumptionKey, string> = {
   valuationMonth: "Valuation Year Starts",
   asStabilizedCapRatePercent: "As-Stabilized Cap Rate",
@@ -194,6 +237,10 @@ function FieldError({ id, error }: { id?: string; error?: string }) {
 
 function blankEvidence() {
   return Object.fromEntries(PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>;
+}
+
+function blankSaleTaxEvidence() {
+  return Object.fromEntries(SALE_TAX_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as Record<SaleTaxAssumptionKey, PropertyReturnsEvidence>;
 }
 
 function blankLenderEvidence() {

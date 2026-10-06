@@ -4,6 +4,7 @@ import {
   type MonthlyApartmentOperations,
 } from "./apartment-operations";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
+import { MAX_PROPERTY_TAX_FISCAL_YEARS } from "./property-tax";
 
 /*
  * Scores the engine against values saved in an audited development workbook (LA-1687).
@@ -21,9 +22,34 @@ export const LENDER_OUTPUT_KEYS = [
   "loanToCost",
   "debtServiceCoverage",
   "debtYield",
+  "lenderValuationNoiFullTax",
+  "asStabilizedValueFullTax",
+  "loanToValueFullTax",
+  "debtServiceCoverageFullTax",
+  "debtYieldFullTax",
 ] as const;
 
-export const ENGINE_OUTPUT_KEYS = [
+/** Present only when the input snapshot carries a property tax schedule (LA-1690). */
+export const PROPERTY_TAX_OUTPUT_KEYS = [
+  "stabilizedPropertyTax",
+  "stabilizedFullPropertyTax",
+  "stabilizedFullTaxNetOperatingIncome",
+  "propertyTaxListedTotal",
+  "saleScheduledTaxForwardNoi",
+  "saleFullTaxForwardNoi",
+  "saleFullTaxValue",
+  "saleAbatementValue",
+] as const;
+
+type FiscalYearOutputKey = `propertyTaxFiscalYear${number}` | `fullPropertyTaxFiscalYear${number}`;
+
+/** Whole-year tax for each fiscal year the schedule reports, numbered from one. */
+const FISCAL_YEAR_OUTPUT_KEYS: FiscalYearOutputKey[] = Array.from({ length: MAX_PROPERTY_TAX_FISCAL_YEARS }, (_, index) => [
+  `propertyTaxFiscalYear${index + 1}` as const,
+  `fullPropertyTaxFiscalYear${index + 1}` as const,
+]).flat();
+
+const CATALOG_KEYS = [
   "landCost",
   "hardCost",
   "softCost",
@@ -77,9 +103,11 @@ export const ENGINE_OUTPUT_KEYS = [
   "yieldOnCost",
   "developmentSpreadBasisPoints",
   ...LENDER_OUTPUT_KEYS,
+  ...PROPERTY_TAX_OUTPUT_KEYS,
 ] as const;
 
-export type EngineOutputKey = typeof ENGINE_OUTPUT_KEYS[number];
+export type EngineOutputKey = typeof CATALOG_KEYS[number] | FiscalYearOutputKey;
+export const ENGINE_OUTPUT_KEYS: readonly EngineOutputKey[] = [...CATALOG_KEYS, ...FISCAL_YEAR_OUTPUT_KEYS];
 export type EngineOutputs = Partial<Record<EngineOutputKey, number | string>>;
 
 export type EngineOutputRun = {
@@ -140,6 +168,11 @@ const STABILIZED_FIELDS: Array<[EngineOutputKey, keyof MonthlyApartmentOperation
   ["stabilizedNetOperatingIncome", "netOperatingIncome"],
   ["stabilizedCapitalExpenditures", "capitalExpenditures"],
   ["stabilizedOperatingCashFlow", "operatingCashFlow"],
+];
+
+const STABILIZED_TAX_FIELDS: Array<[EngineOutputKey, keyof MonthlyApartmentOperations]> = [
+  ["stabilizedPropertyTax", "propertyTax"],
+  ["stabilizedFullPropertyTax", "fullPropertyTax"],
 ];
 
 export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun {
@@ -203,6 +236,28 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     for (const metric of lenderTests.metrics) {
       if (metric.value !== null) outputs[metric.key] = metric.value;
     }
+    if (lenderTests.fullTax) {
+      outputs.lenderValuationNoiFullTax = lenderTests.fullTax.stabilizedNoi;
+      for (const metric of lenderTests.fullTax.metrics) {
+        if (metric.value !== null) outputs[`${metric.key}FullTax` as EngineOutputKey] = metric.value;
+      }
+    }
+  }
+
+  const tax = operations.result.propertyTax;
+  if (tax) {
+    if (tax.listedScheduledTaxTotal !== null) outputs.propertyTaxListedTotal = tax.listedScheduledTaxTotal;
+    for (const row of tax.fiscalYears) {
+      if (row.annualScheduledTax !== null) outputs[`propertyTaxFiscalYear${row.fiscalYear}`] = row.annualScheduledTax;
+      if (row.annualFullTax !== null) outputs[`fullPropertyTaxFiscalYear${row.fiscalYear}`] = row.annualFullTax;
+    }
+  }
+  const saleTax = run.result.saleTax;
+  if (saleTax) {
+    outputs.saleScheduledTaxForwardNoi = saleTax.scheduledTaxForwardNoi;
+    outputs.saleFullTaxForwardNoi = saleTax.fullTaxForwardNoi;
+    outputs.saleFullTaxValue = saleTax.fullTaxValue;
+    if (saleTax.abatementValue !== null) outputs.saleAbatementValue = saleTax.abatementValue;
   }
 
   const firstStabilizedMonth = operations.result.firstStabilizedMonth;
@@ -212,8 +267,12 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     const year = projectApartmentOperationsThrough(input, lastMonth)
       .filter(({ month }) => month >= firstStabilizedMonth && month <= lastMonth);
     if (year.length === 12) {
-      for (const [key, field] of STABILIZED_FIELDS) {
+      for (const [key, field] of tax ? [...STABILIZED_FIELDS, ...STABILIZED_TAX_FIELDS] : STABILIZED_FIELDS) {
         outputs[key] = roundCents(year.reduce((total, month) => total + Number(month[field]), 0));
+      }
+      if (tax) {
+        outputs.stabilizedFullTaxNetOperatingIncome = roundCents(year.reduce((total, month) =>
+          total + month.netOperatingIncome - month.fullPropertyTax + month.propertyTax, 0));
       }
     }
   }

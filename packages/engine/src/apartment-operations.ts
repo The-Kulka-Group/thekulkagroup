@@ -18,7 +18,8 @@ export const APARTMENT_OPERATIONS_INPUT_VERSION = "apartment_operations_inputs.v
 /**
  * v3 adds the lease-up expense ramp, lease-up concessions, seasonal absorption and the stabilization
  * rule (LA-1704). v2 added the dated property tax schedule (LA-1690). Earlier runs stay readable:
- * v2 runs carry no concession line, and v1 runs carry no tax line either.
+ * v2 runs carry no concession line, and v1 runs carry no tax line either. Lease turnover (LA-1784)
+ * is optional and leaves a run without it unchanged, so it stays v3; earlier runs read as turning no units.
  */
 export const APARTMENT_OPERATIONS_FORMULA_VERSION = "underwriting.apartment_operations.v3" as const;
 export const APARTMENT_OPERATIONS_V2_FORMULA_VERSION = "underwriting.apartment_operations.v2" as const;
@@ -26,6 +27,7 @@ export const APARTMENT_OPERATIONS_V1_FORMULA_VERSION = "underwriting.apartment_o
 export const MAX_EXPENSE_LEAD_MONTHS = 24;
 export const MAX_CONCESSION_LEASE_TERM_MONTHS = 36;
 export const MAX_STABILIZATION_HOLD_MONTHS = 24;
+export const MAX_TURNOVER_VACANT_MONTHS = 12;
 export const MAX_SEASONAL_ABSORPTION_FACTOR = 10;
 export const MAX_APARTMENT_OPERATION_LINES = 250;
 export const MAX_OPERATION_LINE_ID_LENGTH = 100;
@@ -123,6 +125,22 @@ export type SeasonalAbsorption = Evidence & {
   monthlyFactors: number[];
 };
 
+export const LEASE_TURNOVER_BASES = ["each_new_lease_once", "every_expiring_lease", "net_units_gained"] as const;
+export type LeaseTurnoverBasis = typeof LEASE_TURNOVER_BASES[number];
+
+/**
+ * Leases that end without renewal while the property leases up. Each month the turnover share of the
+ * expiring leases moves out, and those units can be leased again after the vacant months. The basis
+ * says which leases expire: each lease signed during lease-up once at the end of its term; every
+ * lease at the end of every term, renewals included; or the units the building gained one term earlier.
+ */
+export type LeaseTurnover = Evidence & {
+  turnoverPercent: number;
+  leaseTermMonths: number;
+  vacantMonths: number;
+  basis: LeaseTurnoverBasis;
+};
+
 /** The property stabilizes once leased units hold at or above the target for the stated months. */
 export type StabilizationRule = Evidence & {
   targetOccupancyPercent: number;
@@ -154,12 +172,15 @@ export type ApartmentOperationsInputs = MonthlyCostScheduleInputs & {
   seasonalAbsorption?: SeasonalAbsorption;
   /** Absent means the first month every revenue unit is leased. */
   stabilizationRule?: StabilizationRule;
+  /** Absent means no lease ends during lease-up. */
+  leaseTurnover?: LeaseTurnover;
 };
 
 export type ApartmentOperationsIssueCode = MonthlyCostIssueCode
   | "invalid_affordability_tier"
   | "invalid_absorption_factor"
   | "invalid_concession_timing"
+  | "invalid_turnover_basis"
   | PropertyTaxIssueCode
   | "unsupported_input_version"
   | "outside_timeline"
@@ -185,7 +206,7 @@ export type ApartmentOperationsIssue = {
 };
 
 export type OperationsFormulaTrace = {
-  key: keyof ApartmentOperationsTotals | "monthlyLeaseUp" | "firstStabilizedMonth";
+  key: keyof ApartmentOperationsTotals | "monthlyLeaseUp" | "leaseTurnover" | "firstStabilizedMonth";
   label: string;
   formula: string;
   inputPaths: string[];
@@ -196,6 +217,8 @@ export type MonthlyApartmentOperations = {
   totalUses: number;
   revenueUnits: number;
   leasedUnits: number;
+  /** Units whose leases ended without renewal this month. Zero with no lease turnover. */
+  turnedUnits: number;
   occupiedUnits: number;
   leaseUpPercent: number;
   residentialGrossRent: number;
@@ -222,7 +245,7 @@ export type MonthlyApartmentOperations = {
 };
 
 export type ApartmentOperationsTotals = Omit<MonthlyApartmentOperations,
-  "month" | "revenueUnits" | "leasedUnits" | "occupiedUnits" | "leaseUpPercent" | "totalUses">;
+  "month" | "revenueUnits" | "leasedUnits" | "turnedUnits" | "occupiedUnits" | "leaseUpPercent" | "totalUses">;
 
 export type ApartmentOperationsResult = {
   costSchedule: MonthlyCostScheduleResult;
@@ -414,6 +437,7 @@ function validate(input: ApartmentOperationsInputs) {
   validateLeaseUpConcession(issues, input.leaseUpConcession);
   validateSeasonalAbsorption(issues, input.seasonalAbsorption);
   validateStabilizationRule(issues, input.stabilizationRule);
+  validateLeaseTurnover(issues, input.leaseTurnover);
   return issues;
 }
 
@@ -511,6 +535,29 @@ function validateStabilizationRule(issues: ApartmentOperationsIssue[], rule: Sta
     addIssue(issues, `${path}.holdMonths`, "invalid_units", `Hold months must be a whole number from 1 to ${MAX_STABILIZATION_HOLD_MONTHS}.`);
   }
   validateEvidence(issues, path, rule);
+}
+
+function validateLeaseTurnover(issues: ApartmentOperationsIssue[], turnover: LeaseTurnover | undefined) {
+  if (turnover === undefined) return;
+  const path = "leaseTurnover";
+  if (!isEvidenceObject(turnover)) {
+    addIssue(issues, path, "invalid_line", "Lease turnover must be an object.");
+    return;
+  }
+  const { turnoverPercent, leaseTermMonths, vacantMonths, basis } = turnover;
+  if (!(typeof turnoverPercent === "number" && Number.isFinite(turnoverPercent) && turnoverPercent >= 0 && turnoverPercent <= 100 && hasAtMostDecimals(turnoverPercent, 2))) {
+    addIssue(issues, `${path}.turnoverPercent`, "invalid_percent", "Turnover must be from 0 to 100 percent with no more than two decimal places.");
+  }
+  if (!Number.isSafeInteger(leaseTermMonths) || leaseTermMonths < 1 || leaseTermMonths > MAX_CONCESSION_LEASE_TERM_MONTHS) {
+    addIssue(issues, `${path}.leaseTermMonths`, "invalid_units", `Lease term must be a whole number of months from 1 to ${MAX_CONCESSION_LEASE_TERM_MONTHS}.`);
+  }
+  if (!Number.isSafeInteger(vacantMonths) || vacantMonths < 0 || vacantMonths > MAX_TURNOVER_VACANT_MONTHS) {
+    addIssue(issues, `${path}.vacantMonths`, "invalid_units", `Vacant months must be a whole number from 0 to ${MAX_TURNOVER_VACANT_MONTHS}.`);
+  }
+  if (!(LEASE_TURNOVER_BASES as readonly string[]).includes(basis)) {
+    addIssue(issues, `${path}.basis`, "invalid_turnover_basis", "Turnover basis must be each new lease once, every expiring lease, or net units gained.");
+  }
+  validateEvidence(issues, path, turnover);
 }
 
 function isEvidenceObject(value: unknown): value is Evidence {
@@ -678,7 +725,8 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
   let vacancyLossYearToDate = 0;
   let creditLossYearToDate = 0;
   const lastOffset = monthIndex(costSchedule.months.at(-1)?.month ?? input.operationStartMonth)! - operationStart;
-  const leasedByOffset = leasedUnitsByOffset(input, revenueUnits, operationStart, lastOffset);
+  const leasing = leasingPath(input, revenueUnits, operationStart, lastOffset);
+  const leasedByOffset = leasing.leased;
   const stabilizedOffset = firstStabilizedOffset(leasedByOffset, input.stabilizationRule, revenueUnits);
   const leadMonths = Math.max(0, ...input.operatingExpenseLines.map((line) => line.leadMonths ?? 0));
 
@@ -715,7 +763,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     const rentAdjustmentLoss = -percentOf(occupiedResidentialRent, input.rentAdjustmentLossPercent);
     const freeRentLoss = -percentOf(occupiedResidentialRent, input.freeRentPercent);
     const leaseUpConcessionLoss = input.leaseUpConcession
-      ? 0 - Math.round(revenueRentCents * concessionUnits(input.leaseUpConcession, leasedByOffset, operationOffset) / revenueUnits)
+      ? 0 - Math.round(revenueRentCents * concessionUnits(input.leaseUpConcession, leasing.signed, operationOffset) / revenueUnits)
       : 0;
     const totalResidentialRent = occupiedResidentialRent + rentAdjustmentLoss + freeRentLoss + leaseUpConcessionLoss;
     const otherIncome = input.otherIncomeLines.reduce((sum, line) => sum + lineAmountCents(
@@ -772,6 +820,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
       totalUses: costMonth.totalUses,
       revenueUnits,
       leasedUnits,
+      turnedUnits: leasing.turned[operationOffset],
       occupiedUnits: leasedUnits,
       leaseUpPercent: leasedUnits / revenueUnits,
       residentialGrossRent,
@@ -828,30 +877,79 @@ function lineAmountCents(
   return Math.round(monthCents * (1 - variableShare + variableShare * occupancy));
 }
 
+type LeasingPath = {
+  /** Leased units at the end of each month from operation start. */
+  leased: number[];
+  /** New leases signed each month, pre-leased units in the first. */
+  signed: number[];
+  /** Leases that ended without renewal each month. */
+  turned: number[];
+};
+
 /**
- * Leased units at each month from operation start. Without seasonal factors this is pre-leased
- * units plus the pace times the months elapsed. With them, each month adds the pace times that
- * calendar month's factor, and the running total rounds to whole units.
+ * Leased units at each month from operation start. Pre-leased units lease in the first month. Each
+ * later month signs the pace, times that calendar month's factor when seasonal factors are set, with
+ * the running total rounded to whole units, and never more leases than the units free to lease. With
+ * lease turnover, the turnover share of the leases expiring that month moves out first, with the
+ * running total rounded the same way, and those units are free again after the vacant months.
+ * Turnover stops once leased units have reached the stabilization target, or every revenue unit with
+ * no rule; from then the vacancy percent carries it.
  */
-function leasedUnitsByOffset(input: ApartmentOperationsInputs, revenueUnits: number, operationStart: number, lastOffset: number) {
+function leasingPath(input: ApartmentOperationsInputs, revenueUnits: number, operationStart: number, lastOffset: number): LeasingPath {
   const factors = input.seasonalAbsorption?.monthlyFactors;
-  const leased: number[] = [];
+  const turnover = input.leaseTurnover;
+  const targetPercent = input.stabilizationRule?.targetOccupancyPercent ?? 100;
+  const leased = [input.preleasedUnits];
+  const signed = [input.preleasedUnits];
+  const turned = [0];
+  const renewed = [0];
   let absorbedTenThousandths = 0;
-  for (let offset = 0; offset <= lastOffset; offset += 1) {
-    if (offset > 0) {
-      const factor = factors ? factors[(operationStart + offset) % 12] : 1;
-      absorbedTenThousandths += Math.round(input.leaseUpUnitsPerMonth * factor * 10_000);
+  let turnedTenThousandths = 0;
+  let reachedTarget = atTarget(input.preleasedUnits, targetPercent, revenueUnits);
+  for (let offset = 1; offset <= lastOffset; offset += 1) {
+    const factor = factors ? factors[(operationStart + offset) % 12] : 1;
+    const absorbedBefore = Math.round(absorbedTenThousandths / 10_000);
+    absorbedTenThousandths += Math.round(input.leaseUpUnitsPerMonth * factor * 10_000);
+    const pace = Math.round(absorbedTenThousandths / 10_000) - absorbedBefore;
+    const expiring = turnover ? expiringLeases(turnover, offset, leased, signed, renewed) : 0;
+    let turnedNow = 0;
+    if (turnover && !reachedTarget && expiring > 0) {
+      const turnedBefore = Math.round(turnedTenThousandths / 10_000);
+      turnedTenThousandths += Math.round(expiring * turnover.turnoverPercent * 100);
+      turnedNow = Math.round(turnedTenThousandths / 10_000) - turnedBefore;
     }
-    leased.push(Math.min(revenueUnits, input.preleasedUnits + Math.round(absorbedTenThousandths / 10_000)));
+    const stillVacant = turnover && turnover.vacantMonths > 0
+      ? turnedNow + turned.slice(Math.max(1, offset - turnover.vacantMonths + 1)).reduce((sum, units) => sum + units, 0)
+      : 0;
+    const staying = leased[offset - 1] - turnedNow;
+    const newLeases = Math.min(pace, Math.max(0, revenueUnits - staying - stillVacant));
+    leased.push(staying + newLeases);
+    signed.push(newLeases);
+    turned.push(turnedNow);
+    renewed.push(expiring - turnedNow);
+    reachedTarget ||= atTarget(leased[offset], targetPercent, revenueUnits);
   }
-  return leased;
+  return { leased, signed, turned };
+}
+
+/** Leases that reach the end of a term this month under the turnover basis. */
+function expiringLeases(turnover: LeaseTurnover, offset: number, leased: number[], signed: number[], renewed: number[]) {
+  const start = offset - turnover.leaseTermMonths;
+  if (start < 0) return 0;
+  if (turnover.basis === "each_new_lease_once") return signed[start];
+  if (turnover.basis === "every_expiring_lease") return signed[start] + renewed[start];
+  return Math.max(0, leased[start] - (start === 0 ? 0 : leased[start - 1]));
+}
+
+function atTarget(leasedUnits: number, targetPercent: number, revenueUnits: number) {
+  return revenueUnits > 0 && leasedUnits * 100 >= targetPercent * revenueUnits - 1e-9;
 }
 
 /** Leased units whose rent the concession forgoes this month, summed over each month's new leases. */
-function concessionUnits(concession: LeaseUpConcession, leasedByOffset: number[], operationOffset: number) {
+function concessionUnits(concession: LeaseUpConcession, signedByOffset: number[], operationOffset: number) {
   let units = 0;
   for (let signed = 0; signed <= operationOffset; signed += 1) {
-    const newLeases = leasedByOffset[signed] - (signed === 0 ? 0 : leasedByOffset[signed - 1]);
+    const newLeases = signedByOffset[signed];
     if (newLeases === 0) continue;
     const age = operationOffset - signed;
     const share = concession.timing === "at_move_in"
@@ -872,8 +970,7 @@ function firstStabilizedOffset(leasedByOffset: number[], rule: StabilizationRule
   const hold = rule?.holdMonths ?? 1;
   let held = 0;
   for (let offset = 0; offset < leasedByOffset.length; offset += 1) {
-    const atTarget = revenueUnits > 0 && leasedByOffset[offset] * 100 >= target * revenueUnits - 1e-9;
-    held = atTarget ? held + 1 : 0;
+    held = atTarget(leasedByOffset[offset], target, revenueUnits) ? held + 1 : 0;
     if (held >= hold) return offset;
   }
   return null;
@@ -958,6 +1055,7 @@ function emptyMonth(month: string, totalUses: number): MonthlyApartmentOperation
     totalUses,
     revenueUnits: 0,
     leasedUnits: 0,
+    turnedUnits: 0,
     occupiedUnits: 0,
     leaseUpPercent: 0,
     residentialGrossRent: 0,
@@ -1114,8 +1212,9 @@ function check(
 
 function formulaTraces(): OperationsFormulaTrace[] {
   return [
-    { key: "monthlyLeaseUp", label: "Monthly Lease-Up", formula: "the lesser of revenue units or pre-leased units plus the monthly lease pace for each month after operation start, each month's pace times its calendar month's seasonal factor when factors are set, with the running total rounded to whole units", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "residentialUnitTypes"] },
-    { key: "leaseUpConcessionLoss", label: "Lease-Up Concession", formula: "negative average revenue rent times the leases each month's new leases still have free: at move-in, each lease's first months up to the months free; spread over the term, months free over the lease term for each month of the first term", inputPaths: ["leaseUpConcession", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "residentialUnitTypes"] },
+    { key: "monthlyLeaseUp", label: "Monthly Lease-Up", formula: "pre-leased units in the first month; each later month, last month's leased units less units turned over plus new leases, where new leases are the monthly lease pace times its calendar month's seasonal factor when factors are set, with the running total rounded to whole units, and never more than the revenue units not leased or still vacant after turnover", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "leaseTurnover", "stabilizationRule", "residentialUnitTypes"] },
+    { key: "leaseTurnover", label: "Lease Turnover", formula: "units turned over each month: the turnover share of the leases expiring that month, with the running total rounded to whole units; each new lease expires once a lease term after signing, every lease expires at the end of every term with renewals, or the net units leased a term earlier expire, by the basis; no units turn once leased units have reached the stabilization target, and turned units stay vacant for the vacant months before they can be leased again", inputPaths: ["leaseTurnover", "operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "stabilizationRule", "residentialUnitTypes"] },
+    { key: "leaseUpConcessionLoss", label: "Lease-Up Concession", formula: "negative average revenue rent times the leases each month's new leases still have free, counting leases that refill turned-over units: at move-in, each lease's first months up to the months free; spread over the term, months free over the lease term for each month of the first term", inputPaths: ["leaseUpConcession", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "leaseTurnover", "residentialUnitTypes"] },
     { key: "totalResidentialRent", label: "Total Residential Rent", formula: "grown gross residential rent plus non-revenue, lease-up, rent adjustment, free-rent, and lease-up concession losses", inputPaths: ["residentialUnitTypes", "growthStartMonth", "annualIncomeGrowthPercent", "rentAdjustmentLossPercent", "freeRentPercent", "leaseUpConcession"] },
     { key: "otherIncome", label: "Other Income", formula: "sum of separate grown annual and per-occupied-unit other-income lines", inputPaths: ["otherIncomeLines", "growthStartMonth", "annualIncomeGrowthPercent"] },
     { key: "totalPotentialIncome", label: "Total Potential Income", formula: "total residential rent plus other income", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "growthStartMonth", "annualIncomeGrowthPercent"] },
@@ -1128,7 +1227,7 @@ function formulaTraces(): OperationsFormulaTrace[] {
     { key: "netOperatingIncome", label: "Net Operating Income", formula: "effective gross revenue less grown operating expenses", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "capitalExpenditures", label: "Capital Expenditures", formula: "sum of grown annual and per-unit capital expenditure lines, each month's fixed share plus its variable share times leased units over revenue units", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "net operating income less grown capital expenditures", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
-    { key: "firstStabilizedMonth", label: "First Stabilized Month", formula: "the month leased units have held at or above the target share of revenue units for the hold months, counting the first month at target; with no rule, the first month every revenue unit is leased", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "stabilizationRule", "residentialUnitTypes"] },
+    { key: "firstStabilizedMonth", label: "First Stabilized Month", formula: "the month leased units have held at or above the target share of revenue units for the hold months, counting the first month at target; with no rule, the first month every revenue unit is leased", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "leaseTurnover", "stabilizationRule", "residentialUnitTypes"] },
   ];
 }
 

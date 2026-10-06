@@ -103,6 +103,9 @@ export function parseApartmentOperations(
     ...(candidate.stabilizationRule === undefined ? {} : {
       stabilizationRule: knownLeaseUpFields(candidate.stabilizationRule, ["targetOccupancyPercent", "holdMonths"]),
     }),
+    ...(candidate.leaseTurnover === undefined ? {} : {
+      leaseTurnover: knownLeaseUpFields(candidate.leaseTurnover, ["turnoverPercent", "leaseTermMonths", "vacantMonths", "basis"]),
+    }),
   } as ApartmentOperationsInputs);
   if (checked.status === "failed") {
     const issues = checked.issues.filter((item) => !item.path.startsWith("costLines")
@@ -134,5 +137,6 @@ export function parseApartmentOperations(
     ...(checked.inputSnapshot.leaseUpConcession ? { leaseUpConcession: checked.inputSnapshot.leaseUpConcession } : {}),
     ...(checked.inputSnapshot.seasonalAbsorption ? { seasonalAbsorption: checked.inputSnapshot.seasonalAbsorption } : {}),
     ...(checked.inputSnapshot.stabilizationRule ? { stabilizationRule: checked.inputSnapshot.stabilizationRule } : {}),
+    ...(checked.inputSnapshot.leaseTurnover ? { leaseTurnover: checked.inputSnapshot.leaseTurnover } : {}),
   };
 }

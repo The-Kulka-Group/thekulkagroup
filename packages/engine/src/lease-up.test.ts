@@ -222,6 +222,89 @@ describe("seasonal absorption and the stabilization rule", () => {
   });
 });
 
+describe("lease turnover", () => {
+  const turnover = (change: Partial<NonNullable<ApartmentOperationsInputs["leaseTurnover"]>> = {}) => ({
+    turnoverPercent: 50,
+    leaseTermMonths: 3,
+    vacantMonths: 0,
+    basis: "each_new_lease_once" as const,
+    ...evidence,
+    ...change,
+  });
+  const leased = (months: MonthlyApartmentOperations[], from: string, to: string) =>
+    months.filter(({ month: label }) => label >= from && label <= to).map(({ leasedUnits }) => leasedUnits);
+
+  it("leaves every month unchanged at zero turnover or a term longer than lease-up", () => {
+    const plain = run(base);
+    expect(run({ ...base, leaseTurnover: turnover({ turnoverPercent: 0 }) }).months).toEqual(plain.months);
+    // Fully leased in 2027-10, before any twelve-month lease ends.
+    expect(run({ ...base, leaseTurnover: turnover({ leaseTermMonths: 12 }) }).months).toEqual(plain.months);
+    expect(plain.months.every(({ turnedUnits }) => turnedUnits === 0)).toBe(true);
+  });
+
+  it("turns half of each month's new leases when they first expire, and they lease again from the pool", () => {
+    const result = run({ ...base, leaseTurnover: turnover() });
+    // Ten new leases a month; from 2027-04 five of the leases signed three months earlier move out.
+    expect(leased(result.months, "2027-01", "2027-07")).toEqual([10, 20, 30, 35, 40, 45, 50]);
+    expect(month(result.months, "2027-04").turnedUnits).toBe(5);
+    expect(month(result.months, "2027-03").turnedUnits).toBe(0);
+    // Five a month net: 100 leased in 2028-05, seven months after the 2027-10 of no turnover.
+    expect(month(result.months, "2028-04").leasedUnits).toBe(95);
+    expect(result.firstStabilizedMonth).toBe("2028-05");
+    expect(month(result.months, "2028-06").turnedUnits).toBe(0);
+    expect(month(result.months, "2027-04").leaseUpLoss).toBe(-130_000);
+  });
+
+  it("counts renewals again under every expiring lease, and only the net gain under net units gained", () => {
+    const every = run({ ...base, leaseTurnover: turnover({ basis: "every_expiring_lease" }) }).months;
+    const net = run({ ...base, leaseTurnover: turnover({ basis: "net_units_gained" }) }).months;
+    // 2027-07: ten new leases plus five renewals from 2027-04 expire, and 7.5 turns, rounded on the running total to 8.
+    expect(month(every, "2027-07")).toMatchObject({ turnedUnits: 8, leasedUnits: 47 });
+    // 2027-07: the building gained five units in 2027-04, so 2.5 turns, rounded on the running total to 3.
+    expect(month(net, "2027-07")).toMatchObject({ turnedUnits: 3, leasedUnits: 52 });
+  });
+
+  it("stops turnover once leased units reach the stabilization target", () => {
+    const result = run({ ...base, leaseTurnover: turnover(), stabilizationRule: { targetOccupancyPercent: 50, holdMonths: 1, ...evidence } });
+    expect(result.firstStabilizedMonth).toBe("2027-07");
+    expect(leased(result.months, "2027-07", "2027-11")).toEqual([50, 60, 70, 80, 90]);
+    expect(result.months.filter(({ month: label }) => label > "2027-07").every(({ turnedUnits }) => turnedUnits === 0)).toBe(true);
+  });
+
+  it("holds turned units vacant for the vacant months, which slows leasing once free units run short", () => {
+    const immediate = run({ ...base, leaseTurnover: turnover() }).months;
+    const held = run({ ...base, leaseTurnover: turnover({ vacantMonths: 1 }) }).months;
+    expect(leased(held, "2027-01", "2028-03")).toEqual(leased(immediate, "2027-01", "2028-03"));
+    // 2028-05: five move out and wait a month, so only five of the ten-lease pace fit.
+    expect(month(immediate, "2028-05").leasedUnits).toBe(100);
+    expect(month(held, "2028-05").leasedUnits).toBe(95);
+  });
+
+  it("gives free rent on leases that refill turned units", () => {
+    const months = run({
+      ...base,
+      leaseTurnover: turnover(),
+      leaseUpConcession: { monthsFree: 1, leaseTermMonths: 12, timing: "at_move_in", ...evidence },
+    }).months;
+    // 2027-04 signs ten leases, five of them refilling turned units: ten months of free rent, not five.
+    expect(month(months, "2027-04").leaseUpConcessionLoss).toBe(-20_000);
+    expect(month(months, "2027-04").totalResidentialRent).toBe(50_000);
+  });
+
+  it("reports no stabilized month when turnover keeps pace with leasing", () => {
+    const result = run({ ...base, leaseTurnover: turnover({ turnoverPercent: 100, leaseTermMonths: 2 }) });
+    expect(leased(result.months, "2027-01", "2028-12").slice(1).every((units) => units === 20)).toBe(true);
+    expect(result.firstStabilizedMonth).toBeUndefined();
+  });
+
+  it("rejects a share above 100, a fractional term, too many vacant months and an unknown basis", () => {
+    expect(issuePaths({ ...base, leaseTurnover: turnover({ turnoverPercent: 101, leaseTermMonths: 1.5 }) }))
+      .toEqual(["leaseTurnover.turnoverPercent:invalid_percent", "leaseTurnover.leaseTermMonths:invalid_units"]);
+    expect(issuePaths({ ...base, leaseTurnover: turnover({ vacantMonths: 13, basis: "renewals" as never }) }))
+      .toEqual(["leaseTurnover.vacantMonths:invalid_units", "leaseTurnover.basis:invalid_turnover_basis"]);
+  });
+});
+
 describe("lease-up through the full property run", () => {
   const sample = APARTMENT_DEVELOPMENT_V2_98_SCORECARD.engineInputs;
 
@@ -241,5 +324,46 @@ describe("lease-up through the full property run", () => {
     expect(after.totalUses).toBeGreaterThan(before.totalUses);
     expect(changed.result!.propertyReturns.returns.levered.netProfit).toBeLessThan(plain.result!.propertyReturns.returns.levered.netProfit);
     expect(changed.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+  });
+
+  describe("lease turnover", () => {
+    const turnover = (change: Partial<NonNullable<PropertyReturnsInputs["leaseTurnover"]>>) => ({
+      turnoverPercent: 50,
+      leaseTermMonths: 12,
+      vacantMonths: 0,
+      basis: "each_new_lease_once" as const,
+      ...evidence,
+      ...change,
+    });
+    const fullRun = (input: PropertyReturnsInputs) => {
+      const returns = computePropertyReturns(input);
+      expect(returns.issues).toEqual([]);
+      expect(returns.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+      return { returns: returns.result!, operations: run(input) };
+    };
+    const plain = fullRun(sample);
+
+    it("reads the same with no turnover or a term longer than lease-up", () => {
+      expect(plain.operations.firstStabilizedMonth).toBe("2028-09");
+      const long = fullRun({ ...sample, leaseTurnover: turnover({ leaseTermMonths: 36 }) });
+      expect(long.operations.months).toEqual(plain.operations.months);
+      expect(long.returns.developmentCapital.totals).toEqual(plain.returns.developmentCapital.totals);
+      expect(long.returns.propertyReturns.returns).toEqual(plain.returns.propertyReturns.returns);
+    });
+
+    it("stabilizes later on a short term, capitalizing more interest and cutting profit", () => {
+      const short = fullRun({ ...sample, leaseTurnover: turnover({ leaseTermMonths: 6 }) });
+      expect(short.operations.firstStabilizedMonth).toBe("2029-06");
+      expect(short.returns.developmentCapital.totals.capitalizedInterest).toBeGreaterThan(plain.returns.developmentCapital.totals.capitalizedInterest);
+      expect(short.returns.propertyReturns.returns.levered.netProfit).toBeLessThan(plain.returns.propertyReturns.returns.levered.netProfit);
+    });
+
+    it("completes a lease-up that never stabilizes, with every unit-month below full", () => {
+      const never = fullRun({ ...sample, leaseTurnover: turnover({ turnoverPercent: 90, basis: "every_expiring_lease" }) });
+      expect(never.operations.firstStabilizedMonth).toBeUndefined();
+      const revenueUnits = never.operations.unitSummary.revenueUnits;
+      expect(never.operations.months.every(({ leasedUnits }) => leasedUnits < revenueUnits)).toBe(true);
+      expect(never.returns.propertyReturns.returns.levered.netProfit).toBeLessThan(plain.returns.propertyReturns.returns.levered.netProfit);
+    });
   });
 });

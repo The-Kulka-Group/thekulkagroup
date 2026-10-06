@@ -444,6 +444,52 @@ describe("underwriting calculation repository", () => {
     expect(changed!.apartmentOperations!.stabilizationRule!.reviewState).toBe("working");
   });
 
+  it("stores lease turnover, runs it under v3, and returns it to Working on It when it changes", async () => {
+    const done = { sourceLabel: "Leasing plan", reviewState: "done" };
+    const operating = await caseWithLeaseUp({
+      leaseTurnover: { turnoverPercent: 50, leaseTermMonths: 2, vacantMonths: 0, basis: "each_new_lease_once", ...done },
+    });
+    const run = await runUnderwritingCase(db, operating!.id, operating!.caseRevision);
+    expect(run!.formulaVersion).toBe("underwriting.apartment_operations.v3");
+    const month = (label: string) => run!.apartmentOperationsResult!.months.find((item) => item.month === label)!;
+    // Two new leases a month from April; one of each pair moves out two months later, so the building gains one a month.
+    expect(month("2026-05")).toMatchObject({ leasedUnits: 4, turnedUnits: 0 });
+    expect(month("2026-06")).toMatchObject({ leasedUnits: 5, turnedUnits: 1 });
+    expect(run!.apartmentOperationsResult!.firstStabilizedMonth).toBe("2026-11");
+    expect(month("2026-12")).toMatchObject({ leasedUnits: 10, turnedUnits: 0 });
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+
+    const changed = await saveApartmentOperations(db, operating!.id, operating!.caseRevision, {
+      ...operating!.apartmentOperations!,
+      leaseTurnover: { ...operating!.apartmentOperations!.leaseTurnover!, basis: "every_expiring_lease" },
+    });
+    expect(changed!.apartmentOperations!.leaseTurnover!.reviewState).toBe("working");
+  });
+
+  it("keeps a v3 run saved before lease turnover readable, turning no units", async () => {
+    const operating = await caseWithLeaseUp({});
+    const run = await runUnderwritingCase(db, operating!.id, operating!.caseRevision);
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const values = names.map((name) => name === "result_snapshot"
+      ? `jsonb_set(result_snapshot, '{months}', (select jsonb_agg(item - 'turnedUnits') from jsonb_array_elements(result_snapshot -> 'months') item))`
+      : name);
+    const { rows } = await db.query<{ id: string; has_turned: boolean }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id, result_snapshot -> 'months' -> 0 ? 'turnedUnits' as has_turned`,
+      [run!.id],
+    );
+    expect(rows[0].has_turned).toBe(false);
+    const legacy = await getUnderwritingRun(db, rows[0].id);
+    expect(legacy!.formulaVersion).toBe("underwriting.apartment_operations.v3");
+    expect(legacy!.apartmentOperationsResult).toEqual(run!.apartmentOperationsResult);
+  });
+
   it("keeps an operations run saved under v2 readable, with no concession line", async () => {
     const operating = await caseWithLeaseUp({});
     const run = await runUnderwritingCase(db, operating!.id, operating!.caseRevision);

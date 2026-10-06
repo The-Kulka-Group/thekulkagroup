@@ -1,4 +1,5 @@
 import {
+  PROPERTY_TAX_ASSUMPTION_KEYS,
   computeApartmentOperations,
   type ApartmentOperationsInputs,
   type ApartmentOperationsIssue,
@@ -16,6 +17,41 @@ export class InvalidApartmentOperations extends Error {
   ) {
     super(message);
   }
+}
+
+function knownPropertyTaxFields(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const plan = value as Record<string, unknown>;
+  const optional = (key: string) => plan[key] === undefined ? {} : { [key]: plan[key] };
+  const evidence = plan.taxEvidence;
+  return {
+    taxInputVersion: plan.taxInputVersion,
+    mode: plan.mode,
+    assessmentBasis: plan.assessmentBasis,
+    firstFiscalYearStartMonth: plan.firstFiscalYearStartMonth,
+    ...optional("landAssessedValue"),
+    ...optional("improvementAssessedValue"),
+    ...optional("assessorExpenseRatioPercent"),
+    ...optional("assessmentCapRatePercent"),
+    ...optional("assessmentRatioPercent"),
+    rateUnit: plan.rateUnit,
+    fiscalYears: Array.isArray(plan.fiscalYears)
+      ? plan.fiscalYears.map((year) => {
+        if (!year || typeof year !== "object" || Array.isArray(year)) return year;
+        const { rate, exemptionPercent, statedPayment } = year as Record<string, unknown>;
+        return { rate, exemptionPercent, ...(statedPayment === undefined ? {} : { statedPayment }) };
+      })
+      : plan.fiscalYears,
+    annualRateGrowthPercent: plan.annualRateGrowthPercent,
+    taxEvidence: evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? Object.fromEntries(PROPERTY_TAX_ASSUMPTION_KEYS.map((key) => {
+        const item = (evidence as Record<string, unknown>)[key];
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [key, item];
+        const { sourceLabel, sourceDate, reviewState } = item as Record<string, unknown>;
+        return [key, { sourceLabel, sourceDate, reviewState }];
+      }))
+      : evidence,
+  };
 }
 
 export function parseApartmentOperations(
@@ -44,6 +80,7 @@ export function parseApartmentOperations(
     otherIncomeLines: candidate.otherIncomeLines,
     operatingExpenseLines: candidate.operatingExpenseLines,
     capitalExpenditureLines: candidate.capitalExpenditureLines,
+    ...(candidate.propertyTax === undefined ? {} : { propertyTax: knownPropertyTaxFields(candidate.propertyTax) }),
   } as ApartmentOperationsInputs);
   if (checked.status === "failed") {
     const issues = checked.issues.filter((item) => !item.path.startsWith("costLines")
@@ -71,5 +108,6 @@ export function parseApartmentOperations(
     otherIncomeLines: checked.inputSnapshot.otherIncomeLines,
     operatingExpenseLines: checked.inputSnapshot.operatingExpenseLines,
     capitalExpenditureLines: checked.inputSnapshot.capitalExpenditureLines,
+    ...(checked.inputSnapshot.propertyTax ? { propertyTax: checked.inputSnapshot.propertyTax } : {}),
   };
 }

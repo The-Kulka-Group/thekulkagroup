@@ -5,6 +5,8 @@ import {
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   LENDER_TEST_ASSUMPTION_KEYS,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  PROPERTY_TAX_ASSUMPTION_KEYS,
+  SALE_TAX_ASSUMPTION_KEYS,
   type ApartmentOperationsInputs,
   type DevelopmentCapitalInputs,
   type MonthlyCostScheduleInputs,
@@ -205,11 +207,11 @@ export default async function UnderwritingRunPage({
             <h4 id="run-limitations-heading">Model Limits</h4>
             <ul>{(run.scenarioComparisonResult ? [
               "This formula version changes only the four named apartment sensitivity inputs.",
-              "It does not model permanent debt, investor waterfalls, or taxes.",
+              "It does not model permanent debt, investor waterfalls, or income taxes.",
               "This run does not record a finance or sale approval.",
             ] : run.propertyReturnsResult ? [
               "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
-              "It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.",
+              "It does not model permanent debt, investor waterfalls, income taxes, or sensitivity cases.",
               "This run does not record a finance or sale approval.",
             ] : run.developmentCapitalResult ? [
               "This formula version funds monthly development costs and operating shortfalls with equity and construction debt.",
@@ -389,6 +391,29 @@ export default async function UnderwritingRunPage({
                 <tbody>{LENDER_TEST_ASSUMPTION_KEYS.map((key) => {
                   const evidence = run.evidenceSnapshot.propertyReturns!.lenderTests!.lenderTestEvidence[key];
                   return <tr key={key}><th scope="row">{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.propertyReturns!.lastChangedAt))}</td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          ) : null}
+          {run.evidenceSnapshot.apartmentOperations?.propertyTax ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Tax Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{PROPERTY_TAX_ASSUMPTION_KEYS.map((key) => {
+                  const evidence = run.evidenceSnapshot.apartmentOperations!.propertyTax!.taxEvidence[key];
+                  return <tr key={key}><th scope="row">{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.apartmentOperations!.lastChangedAt))}</td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          ) : null}
+          {run.evidenceSnapshot.propertyReturns?.saleTax ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Sale Tax Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{SALE_TAX_ASSUMPTION_KEYS.flatMap((key) => {
+                  const evidence = run.evidenceSnapshot.propertyReturns!.saleTax!.saleTaxEvidence[key];
+                  if (!evidence) return [];
+                  return [<tr key={key}><th scope="row">{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.propertyReturns!.lastChangedAt))}</td></tr>];
                 })}</tbody>
               </table>
             </div>

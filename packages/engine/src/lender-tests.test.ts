@@ -49,10 +49,10 @@ function twelveMonthSum(input: PropertyReturnsInputs, startMonth: string, field:
 }
 
 describe("lender tests on the full property run", () => {
-  it("runs under the v2 formula and reports no lender tests when the plan has none", () => {
+  it("runs under the current formula and reports no lender tests when the plan has none", () => {
     const run = computePropertyReturns(base);
-    expect(run.formulaVersion).toBe("underwriting.property_returns.v2");
-    expect(PROPERTY_RETURNS_FORMULA_VERSION).toBe("underwriting.property_returns.v2");
+    expect(run.formulaVersion).toBe("underwriting.property_returns.v3");
+    expect(PROPERTY_RETURNS_FORMULA_VERSION).toBe("underwriting.property_returns.v3");
     expect(run.status).toBe("complete");
     expect(run.result?.lenderTests).toBeNull();
   });

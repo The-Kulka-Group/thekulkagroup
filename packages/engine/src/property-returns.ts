@@ -16,10 +16,16 @@ import {
   type LenderTestsResult,
 } from "./lender-tests";
 import type { ReconciliationCheck } from "./monthly-cost-schedule";
+import { abatementValueAtSale, propertyTaxScheduleEndMonth, type PropertyTaxResult } from "./property-tax";
 
 export const PROPERTY_RETURNS_INPUT_VERSION = "property_returns_inputs.v1" as const;
-/** v2 adds lender tests (LA-1689). Runs saved under v1 stay readable and carry no lender tests. */
-export const PROPERTY_RETURNS_FORMULA_VERSION = "underwriting.property_returns.v2" as const;
+export const SALE_TAX_INPUT_VERSION = "sale_tax_inputs.v1" as const;
+/**
+ * v2 adds lender tests (LA-1689). v3 adds the sale's tax basis, the abatement value at sale and the
+ * full-tax lender tests (LA-1690). Runs saved under v1 and v2 stay readable.
+ */
+export const PROPERTY_RETURNS_FORMULA_VERSION = "underwriting.property_returns.v3" as const;
+export const PROPERTY_RETURNS_V2_FORMULA_VERSION = "underwriting.property_returns.v2" as const;
 export const PROPERTY_RETURNS_V1_FORMULA_VERSION = "underwriting.property_returns.v1" as const;
 export const FORWARD_TWELVE_MONTH_NOI_VERSION = "forward_twelve_month_noi.v1" as const;
 export const MONTH_END_CASH_FLOW_DATES_VERSION = "month_end_dates.v1" as const;
@@ -45,6 +51,35 @@ export type PropertyReturnsEvidence = {
   reviewState: ReviewState;
 };
 
+export const SALE_TAX_ASSUMPTION_KEYS = ["valueBasis", "abatementDiscountRatePercent"] as const;
+export type SaleTaxAssumptionKey = typeof SALE_TAX_ASSUMPTION_KEYS[number];
+
+/**
+ * Which tax the sale prices. Scheduled tax caps the forward year as the property pays it. Full tax caps
+ * it with no abatement, and the third basis adds the present value of the abatement left at sale.
+ */
+export type SaleTaxValueBasis = "scheduled_tax" | "full_tax" | "full_tax_plus_abatement_value";
+
+export type SaleTaxPlan = {
+  saleTaxInputVersion: typeof SALE_TAX_INPUT_VERSION;
+  valueBasis: SaleTaxValueBasis;
+  /** Required for full_tax_plus_abatement_value. One annual rate discounts every month of saved tax. */
+  abatementDiscountRatePercent?: number;
+  /** Discount rate evidence is required only when the basis uses it. */
+  saleTaxEvidence: Partial<Record<SaleTaxAssumptionKey, PropertyReturnsEvidence>>;
+};
+
+export type SaleTaxResult = {
+  valueBasis: SaleTaxValueBasis;
+  scheduledTaxForwardNoi: number;
+  fullTaxForwardNoi: number;
+  scheduledTaxValue: number;
+  fullTaxValue: number;
+  abatementDiscountRatePercent: number | null;
+  abatementValue: number | null;
+  abatementEndMonth: string;
+};
+
 export type PropertyReturnsPlan = {
   saleInputVersion: typeof PROPERTY_RETURNS_INPUT_VERSION;
   terminalCapRatePercent: number;
@@ -54,6 +89,8 @@ export type PropertyReturnsPlan = {
   xirrConvention: typeof XIRR_ACTUAL_365_VERSION;
   saleAssumptionEvidence: Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>;
   lenderTests?: LenderTestPlan;
+  /** Required when the operating tax schedule carries an abatement, and allowed only then. */
+  saleTax?: SaleTaxPlan;
 };
 
 export type PropertyReturnsInputs = DevelopmentCapitalInputs & PropertyReturnsPlan;
@@ -74,6 +111,8 @@ export type ForwardSalePeriod = {
   monthCount: 12;
   effectiveGrossRevenue: number;
   operatingExpenses: number;
+  /** Present value of the tax abatement left at sale, added to the capped value. Zero when absent. */
+  abatementValue?: number;
 };
 
 export type PropertyReturnsIssueCode =
@@ -96,7 +135,9 @@ export type PropertyReturnsIssueCode =
   | "xirr_convergence"
   | "derived_results"
   | "invalid_lender_tests"
-  | "invalid_noi_basis";
+  | "invalid_noi_basis"
+  | "invalid_sale_tax"
+  | "missing_sale_tax_basis";
 
 export type PropertyReturnsIssue = {
   path: string;
@@ -133,6 +174,7 @@ export type PropertyReturnsCalculationResult = {
     forwardEffectiveGrossRevenue: number;
     forwardOperatingExpenses: number;
     forwardNetOperatingIncome: number;
+    abatementValue: number;
     grossSaleValue: number;
     sellingCosts: number;
     netSaleProceeds: number;
@@ -172,6 +214,10 @@ export type PropertyReturnsResult = {
   };
   propertyReturns: PropertyReturnsCalculationResult;
   lenderTests: LenderTestsResult | null;
+  /** Present when the operating tax schedule carries an abatement. */
+  saleTax: SaleTaxResult | null;
+  /** The operating run's tax by fiscal year, when the case has a tax schedule. */
+  propertyTax: PropertyTaxResult | null;
 };
 
 export type PropertyReturnsRun = {
@@ -201,18 +247,31 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     }]);
   }
 
+  const saleTaxIssues = validateSaleTax(inputSnapshot);
+  if (saleTaxIssues.length > 0) return failedFull(inputSnapshot, saleTaxIssues);
+
   const forwardEndMonth = addMonths(inputSnapshot.saleMonth, 11);
-  const projectedMonths = projectApartmentOperationsThrough(inputSnapshot, forwardEndMonth);
-  const forwardMonths = projectedMonths.filter((month) =>
-    monthIndex(month.month)! >= monthIndex(inputSnapshot.saleMonth)!
-      && monthIndex(month.month)! <= monthIndex(forwardEndMonth)!,
-  );
+  const saleTax = inputSnapshot.saleTax;
+  const abatementEndMonth = inputSnapshot.propertyTax ? propertyTaxScheduleEndMonth(inputSnapshot.propertyTax) : null;
+  const projectionEndMonth = abatementEndMonth && monthIndex(abatementEndMonth)! > monthIndex(forwardEndMonth)!
+    ? abatementEndMonth
+    : forwardEndMonth;
+  const allProjectedMonths = projectApartmentOperationsThrough(inputSnapshot, projectionEndMonth);
+  const projectedMonths = allProjectedMonths.filter(({ month }) => monthIndex(month)! <= monthIndex(forwardEndMonth)!);
+  const forwardMonths = projectedMonths.filter((month) => monthIndex(month.month)! >= monthIndex(inputSnapshot.saleMonth)!);
+  const scheduledExpenses = sum(forwardMonths, "operatingExpenses");
+  const fullExpenses = dollars(forwardMonths.reduce((total, month) =>
+    total + cents(month.operatingExpenses) + cents(month.fullPropertyTax) - cents(month.propertyTax), 0));
+  const abatementValue = saleTax?.abatementDiscountRatePercent === undefined
+    ? null
+    : abatementValueAtSale(allProjectedMonths, inputSnapshot.saleMonth, saleTax.abatementDiscountRatePercent);
   const forwardSalePeriod: ForwardSalePeriod = {
     startMonth: inputSnapshot.saleMonth,
     endMonth: forwardEndMonth,
     monthCount: 12,
     effectiveGrossRevenue: sum(forwardMonths, "effectiveGrossRevenue"),
-    operatingExpenses: sum(forwardMonths, "operatingExpenses"),
+    operatingExpenses: saleTax && saleTax.valueBasis !== "scheduled_tax" ? fullExpenses : scheduledExpenses,
+    ...(saleTax?.valueBasis === "full_tax_plus_abatement_value" ? { abatementValue: abatementValue! } : {}),
   };
   const calculation = calculatePropertyReturns(
     capitalRun.result.capital.months.map((month) => ({
@@ -238,8 +297,12 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     result: {
       developmentCapital: capitalRun.result.capital,
       forwardOperations: { startMonth: inputSnapshot.saleMonth, endMonth: forwardEndMonth, months: forwardMonths },
-      propertyReturns: calculation.result,
+      propertyReturns: { ...calculation.result, metrics: withTaxPaths(calculation.result.metrics, inputSnapshot) },
       lenderTests: lenderTestsFor(inputSnapshot, capitalRun.result.capital.totals, projectedMonths),
+      saleTax: saleTax && abatementEndMonth
+        ? saleTaxResult(saleTax, forwardSalePeriod.effectiveGrossRevenue, scheduledExpenses, fullExpenses, abatementValue, abatementEndMonth, inputSnapshot.terminalCapRatePercent)
+        : null,
+      propertyTax: capitalRun.result.apartmentOperations.propertyTax,
     },
     reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations],
   };
@@ -260,7 +323,8 @@ export function calculatePropertyReturns(
   const forwardEffectiveGrossRevenueCents = cents(forwardSalePeriod.effectiveGrossRevenue);
   const forwardOperatingExpensesCents = cents(forwardSalePeriod.operatingExpenses);
   const forwardNetOperatingIncomeCents = forwardEffectiveGrossRevenueCents - forwardOperatingExpensesCents;
-  const grossSaleValueCents = Math.round(forwardNetOperatingIncomeCents / (plan.terminalCapRatePercent / 100));
+  const abatementValueCents = cents(forwardSalePeriod.abatementValue ?? 0);
+  const grossSaleValueCents = Math.round(forwardNetOperatingIncomeCents / (plan.terminalCapRatePercent / 100)) + abatementValueCents;
   const sellingCostsCents = percentOf(grossSaleValueCents, plan.sellingCostPercent);
   const netSaleProceedsCents = grossSaleValueCents - sellingCostsCents;
   const debtPayoffCents = cents(months.at(-1)!.repayment);
@@ -319,6 +383,7 @@ export function calculatePropertyReturns(
     forwardEffectiveGrossRevenue: dollars(forwardEffectiveGrossRevenueCents),
     forwardOperatingExpenses: dollars(forwardOperatingExpensesCents),
     forwardNetOperatingIncome: dollars(forwardNetOperatingIncomeCents),
+    abatementValue: dollars(abatementValueCents),
     grossSaleValue: dollars(grossSaleValueCents),
     sellingCosts: dollars(sellingCostsCents),
     netSaleProceeds: dollars(netSaleProceedsCents),
@@ -345,7 +410,82 @@ export function validatePropertyReturnsPlan(plan: PropertyReturnsPlan): Property
   if (plan.xirrConvention !== XIRR_ACTUAL_365_VERSION) issues.push({ path: "xirrConvention", code: "unsupported_xirr_convention", message: `Use ${XIRR_ACTUAL_365_VERSION}.` });
   validateEvidence(issues, plan.saleAssumptionEvidence);
   if (plan.lenderTests !== undefined) issues.push(...validateLenderTestPlan(plan.lenderTests));
+  if (plan.saleTax !== undefined) issues.push(...validateSaleTaxPlan(plan.saleTax));
   return issues;
+}
+
+export function validateSaleTaxPlan(value: unknown): PropertyReturnsIssue[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [{ path: "saleTax", code: "invalid_sale_tax", message: "Sale tax basis must be an object." }];
+  }
+  const plan = value as SaleTaxPlan;
+  const issues: PropertyReturnsIssue[] = [];
+  if (plan.saleTaxInputVersion !== SALE_TAX_INPUT_VERSION) issues.push({ path: "saleTax.saleTaxInputVersion", code: "unsupported_input_version", message: `Use ${SALE_TAX_INPUT_VERSION}.` });
+  const bases: SaleTaxValueBasis[] = ["scheduled_tax", "full_tax", "full_tax_plus_abatement_value"];
+  if (!bases.includes(plan.valueBasis)) issues.push({ path: "saleTax.valueBasis", code: "invalid_sale_tax", message: "Sale tax basis must be Scheduled Tax, Full Tax, or Full Tax Plus Abatement Value." });
+  const usesRate = plan.valueBasis === "full_tax_plus_abatement_value";
+  const rate = plan.abatementDiscountRatePercent;
+  if (usesRate && !(typeof rate === "number" && Number.isFinite(rate) && rate > 0 && rate <= 100)) {
+    issues.push({ path: "saleTax.abatementDiscountRatePercent", code: "invalid_percent", message: "Abatement discount rate must be greater than zero and no more than 100 percent." });
+  } else if (!usesRate && rate !== undefined) {
+    issues.push({ path: "saleTax.abatementDiscountRatePercent", code: "invalid_sale_tax", message: "Only the Full Tax Plus Abatement Value basis takes a discount rate." });
+  }
+  const evidence = plan.saleTaxEvidence;
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+    issues.push({ path: "saleTax.saleTaxEvidence", code: "missing_evidence", message: "Add source and review details for the sale tax basis." });
+    return issues;
+  }
+  for (const key of SALE_TAX_ASSUMPTION_KEYS) {
+    if (key === "abatementDiscountRatePercent" && !usesRate) continue;
+    const item = evidence[key];
+    const path = `saleTax.saleTaxEvidence.${key}`;
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      issues.push({ path, code: "missing_evidence", message: "Add source and review details." });
+      continue;
+    }
+    if (item.sourceLabel !== undefined && typeof item.sourceLabel !== "string") issues.push({ path: `${path}.sourceLabel`, code: "invalid_source_label", message: "Source label must be text." });
+    else if (typeof item.sourceLabel === "string" && item.sourceLabel.length > MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH) issues.push({ path: `${path}.sourceLabel`, code: "text_too_long", message: `Source label cannot exceed ${MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH} characters.` });
+    if (item.sourceDate !== undefined && (typeof item.sourceDate !== "string" || !validDate(item.sourceDate))) issues.push({ path: `${path}.sourceDate`, code: "invalid_source_date", message: "Source date must be a valid YYYY-MM-DD date." });
+    if (item.reviewState !== "working" && item.reviewState !== "done") issues.push({ path: `${path}.reviewState`, code: "invalid_review_state", message: "Review state must be Working on It or Done." });
+  }
+  return issues;
+}
+
+/** A sale tax basis is required with an abatement and refused without one; its own fields are checked first. */
+function validateSaleTax(input: PropertyReturnsInputs): PropertyReturnsIssue[] {
+  const hasAbatement = input.propertyTax?.mode === "abatement";
+  if (input.saleTax !== undefined) {
+    const issues = validateSaleTaxPlan(input.saleTax);
+    if (issues.length > 0) return issues;
+    if (!hasAbatement) return [{ path: "saleTax", code: "invalid_sale_tax", message: "A sale tax basis applies only when the operating tax schedule carries an abatement." }];
+    return [];
+  }
+  return hasAbatement
+    ? [{ path: "saleTax", code: "missing_sale_tax_basis", message: "The tax schedule carries an abatement, so the sale must state which tax it prices: scheduled tax, full tax, or full tax plus the abatement value." }]
+    : [];
+}
+
+function saleTaxResult(
+  plan: SaleTaxPlan,
+  effectiveGrossRevenue: number,
+  scheduledExpenses: number,
+  fullExpenses: number,
+  abatementValue: number | null,
+  abatementEndMonth: string,
+  capRatePercent: number,
+): SaleTaxResult {
+  const scheduledNoiCents = cents(effectiveGrossRevenue) - cents(scheduledExpenses);
+  const fullNoiCents = cents(effectiveGrossRevenue) - cents(fullExpenses);
+  return {
+    valueBasis: plan.valueBasis,
+    scheduledTaxForwardNoi: dollars(scheduledNoiCents),
+    fullTaxForwardNoi: dollars(fullNoiCents),
+    scheduledTaxValue: dollars(Math.round(scheduledNoiCents / (capRatePercent / 100))),
+    fullTaxValue: dollars(Math.round(fullNoiCents / (capRatePercent / 100))),
+    abatementDiscountRatePercent: plan.abatementDiscountRatePercent ?? null,
+    abatementValue,
+    abatementEndMonth,
+  };
 }
 
 function validate(months: MonthlyPropertyReturnsInput[], period: ForwardSalePeriod, plan: PropertyReturnsPlan) {
@@ -372,6 +512,9 @@ function validate(months: MonthlyPropertyReturnsInput[], period: ForwardSalePeri
   }
   if (!validUsd(period.effectiveGrossRevenue, false) || !validUsd(period.operatingExpenses, false)) {
     issues.push({ path: "forwardSalePeriod", code: "invalid_amount", message: "Forward revenue and operating expenses must be safe, zero or positive USD amounts with no more than two decimal places." });
+  }
+  if (period.abatementValue !== undefined && !validUsd(period.abatementValue, false)) {
+    issues.push({ path: "forwardSalePeriod.abatementValue", code: "invalid_amount", message: "Abatement value at sale must be a safe, zero or positive USD amount with no more than two decimal places." });
   }
   if (months.slice(0, -1).some(({ repayment }) => repayment !== 0)) {
     issues.push({ path: "months.repayment", code: "sale_payoff_mismatch", message: "This formula version repays construction debt in the sale month only." });
@@ -484,7 +627,7 @@ function reconcile(
   const datedLevered = months.map((month) => ({ amountCents: cents(month.leveredCashFlow), years: yearsFrom(months[0].date, month.date) }));
   return [
     checkUsd("forward-noi", "Forward sale NOI equals effective gross revenue less operating expenses", sale.forwardNetOperatingIncome, dollars(cents(sale.forwardEffectiveGrossRevenue) - cents(sale.forwardOperatingExpenses))),
-    checkUsd("gross-sale-value", "Gross sale value equals forward sale NOI divided by terminal cap rate", sale.grossSaleValue, dollars(Math.round(cents(sale.forwardNetOperatingIncome) / (plan.terminalCapRatePercent / 100)))),
+    checkUsd("gross-sale-value", "Gross sale value equals forward sale NOI divided by terminal cap rate, plus any abatement value at sale", sale.grossSaleValue, dollars(Math.round(cents(sale.forwardNetOperatingIncome) / (plan.terminalCapRatePercent / 100)) + cents(sale.abatementValue))),
     checkUsd("selling-costs", "Selling costs equal gross sale value times selling cost percent", sale.sellingCosts, dollars(percentOf(cents(sale.grossSaleValue), plan.sellingCostPercent))),
     checkUsd("net-sale-proceeds", "Net sale proceeds equal gross sale value less selling costs", sale.netSaleProceeds, dollars(cents(sale.grossSaleValue) - cents(sale.sellingCosts))),
     checkUsd("debt-payoff", "Construction debt payoff equals sale-month repayment", sale.debtPayoff, months.at(-1)!.repayment),
@@ -527,7 +670,7 @@ function metricsFor(
   const returnTimingPaths = ["cashFlowDateConvention", "xirrConvention"];
   return [
     { key: "forwardNetOperatingIncome", label: "Forward Sale NOI", value: sale.forwardNetOperatingIncome, unit: "usd", formula: "forward twelve-month effective gross revenue less forward twelve-month operating expenses", inputPaths: rootPaths(operationPaths, ["forwardNoiConvention"]) },
-    { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: "forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths) },
+    { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: sale.abatementValue > 0 ? "forward sale NOI divided by terminal cap rate, plus the present value of the tax abatement left at sale" : "forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths) },
     { key: "sellingCosts", label: "Selling Costs", value: sale.sellingCosts, unit: "usd", formula: "gross sale value times selling cost percent", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
     { key: "netSaleProceeds", label: "Net Sale Proceeds", value: sale.netSaleProceeds, unit: "usd", formula: "gross sale value less selling costs", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
     { key: "debtPayoff", label: "Construction Debt Payoff", value: sale.debtPayoff, unit: "usd", formula: "construction debt repayment in the sale month", inputPaths: rootPaths(costPaths, operationPaths, capitalPaths) },
@@ -541,6 +684,16 @@ function metricsFor(
     { key: "yieldOnCost", label: "Sale Yield on Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: rootPaths(costPaths, operationPaths, ["forwardNoiConvention"], capitalPaths) },
     { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: "sale yield on cost less terminal cap rate, in basis points", inputPaths: rootPaths(costPaths, operationPaths, saleValuePaths, capitalPaths) },
   ];
+}
+
+/** The tax inputs join a metric's trace only when the run carries them, so every path resolves in the snapshot. */
+function withTaxPaths(metrics: PropertyReturnMetric[], input: PropertyReturnsInputs): PropertyReturnMetric[] {
+  return metrics.map((metric) => {
+    const paths = [...metric.inputPaths];
+    if (input.propertyTax && paths.includes("operatingExpenseLines")) paths.push("propertyTax");
+    if (input.saleTax && paths.includes("terminalCapRatePercent")) paths.push("saleTax");
+    return { ...metric, inputPaths: paths };
+  });
 }
 
 function rootPaths(...groups: string[][]) {

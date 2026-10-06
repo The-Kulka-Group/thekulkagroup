@@ -1,9 +1,11 @@
 import {
   APARTMENT_SCENARIO_FORMULA_VERSION,
   APARTMENT_OPERATIONS_FORMULA_VERSION,
+  APARTMENT_OPERATIONS_V1_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   PROPERTY_RETURNS_FORMULA_VERSION,
   PROPERTY_RETURNS_V1_FORMULA_VERSION,
+  PROPERTY_RETURNS_V2_FORMULA_VERSION,
   computeApartmentOperations,
   computeDevelopmentCapital,
   computeMonthlyCostSchedule,
@@ -20,6 +22,7 @@ import {
   type DevelopmentCapitalInputs,
   type DevelopmentCapitalIssue,
   type DevelopmentCapitalRun,
+  type MonthlyApartmentOperations,
   type MonthlyCostIssue,
   type MonthlyCostScheduleInputs,
   type MonthlyCostScheduleResult,
@@ -223,11 +226,12 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     && "months" in row.result_snapshot
     ? row.result_snapshot as MonthlyCostScheduleResult
     : undefined;
-  const apartmentOperations = row.formula_version === APARTMENT_OPERATIONS_FORMULA_VERSION
+  const apartmentOperations = (row.formula_version === APARTMENT_OPERATIONS_FORMULA_VERSION
+      || row.formula_version === APARTMENT_OPERATIONS_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "months" in row.result_snapshot
     && "totals" in row.result_snapshot
-    ? row.result_snapshot as ApartmentOperationsResult
+    ? withTaxLine(row.result_snapshot as ApartmentOperationsResult)
     : undefined;
   const developmentCapital = row.formula_version === DEVELOPMENT_CAPITAL_FORMULA_VERSION
     && !Array.isArray(row.result_snapshot)
@@ -236,6 +240,7 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     ? row.result_snapshot as NonNullable<DevelopmentCapitalRun["result"]>
     : undefined;
   const propertyReturns = (row.formula_version === PROPERTY_RETURNS_FORMULA_VERSION
+      || row.formula_version === PROPERTY_RETURNS_V2_FORMULA_VERSION
       || row.formula_version === PROPERTY_RETURNS_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "developmentCapital" in row.result_snapshot
@@ -314,9 +319,28 @@ function capitalInputsFor(savedCase: UnderwritingCase): DevelopmentCapitalInputs
   };
 }
 
-/** v1 property runs predate lender tests; read them as having none. */
+/**
+ * v1 property runs predate lender tests, and v1 and v2 runs predate the tax schedule (LA-1690).
+ * Read them as having no lender tests, no full-tax tests and no sale tax basis.
+ */
 function withLenderTests(result: PropertyReturnsResult): PropertyReturnsResult {
-  return { ...result, lenderTests: result.lenderTests ?? null };
+  return {
+    ...result,
+    lenderTests: result.lenderTests ? { ...result.lenderTests, fullTax: result.lenderTests.fullTax ?? null } : null,
+    saleTax: result.saleTax ?? null,
+    propertyTax: result.propertyTax ?? null,
+  };
+}
+
+/** v1 operations runs predate the tax schedule; read their months as charging no tax. */
+function withTaxLine(result: ApartmentOperationsResult): ApartmentOperationsResult {
+  const month = (item: MonthlyApartmentOperations) => ({ ...item, propertyTax: item.propertyTax ?? 0, fullPropertyTax: item.fullPropertyTax ?? 0 });
+  return {
+    ...result,
+    months: result.months.map(month),
+    totals: { ...result.totals, propertyTax: result.totals.propertyTax ?? 0, fullPropertyTax: result.totals.fullPropertyTax ?? 0 },
+    propertyTax: result.propertyTax ?? null,
+  };
 }
 
 export function propertyReturnsInputsFor(savedCase: UnderwritingCase): PropertyReturnsInputs {

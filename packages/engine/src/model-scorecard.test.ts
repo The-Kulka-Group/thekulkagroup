@@ -5,6 +5,7 @@ import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartmen
 import {
   ENGINE_OUTPUT_KEYS,
   LENDER_OUTPUT_KEYS,
+  PROPERTY_TAX_OUTPUT_KEYS,
   engineOutputsFor,
   formatScorecard,
   scorecardFor,
@@ -12,7 +13,9 @@ import {
   validateScorecardTargets,
   type ScorecardTarget,
 } from "./model-scorecard";
+import { computeApartmentOperations } from "./apartment-operations";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
+import { PROPERTY_TAX_INPUT_VERSION } from "./property-tax";
 
 const compare = (id: string, output: ScorecardTarget["output"], expected: number | string, tolerance = { absolute: 0.01 }): ScorecardTarget => ({
   id,
@@ -202,7 +205,10 @@ describe("engineOutputsFor", () => {
     const run = engineOutputsFor(input);
     expect(run.status).toBe("complete");
     expect(run.issueCodes).toEqual([]);
-    for (const key of ENGINE_OUTPUT_KEYS.filter((item) => !(LENDER_OUTPUT_KEYS as readonly string[]).includes(item))) expect(run.outputs[key], key).toBeDefined();
+    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS]);
+    const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item));
+    for (const key of always) expect(run.outputs[key], key).toBeDefined();
+    for (const key of PROPERTY_TAX_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
   });
 
   it("reads cost category totals from the run's own cost schedule", () => {
@@ -253,6 +259,43 @@ describe("engineOutputsFor", () => {
       expect(outputs[key], key).toBe(metric.value ?? undefined);
     }
     expect(outputs.lenderValuationNoi).toBe(run.result!.lenderTests!.stabilizedNoi);
+  });
+
+  it("reads tax, sale tax and full-tax lender outputs when the run carries an abatement", () => {
+    const working = { reviewState: "working" as const };
+    const cost = Number(engineOutputsFor(input).outputs.costBeforeFinancing);
+    const withTax: PropertyReturnsInputs = {
+      ...input,
+      propertyTax: {
+        taxInputVersion: PROPERTY_TAX_INPUT_VERSION,
+        mode: "abatement",
+        assessmentBasis: "stated_assessed_value",
+        firstFiscalYearStartMonth: input.operationStartMonth,
+        landAssessedValue: 0,
+        improvementAssessedValue: Math.round(cost),
+        rateUnit: "mills",
+        fiscalYears: [{ rate: 15, exemptionPercent: 100 }, { rate: 15, exemptionPercent: 50 }],
+        annualRateGrowthPercent: 2,
+        taxEvidence: { firstFiscalYearStartMonth: working, assessment: working, fiscalYears: working, annualRateGrowthPercent: working },
+      },
+      saleTax: {
+        saleTaxInputVersion: "sale_tax_inputs.v1",
+        valueBasis: "full_tax_plus_abatement_value",
+        abatementDiscountRatePercent: 6,
+        saleTaxEvidence: { valueBasis: working, abatementDiscountRatePercent: working },
+      },
+    };
+    const run = computePropertyReturns(withTax);
+    expect(run.status, run.issues.map(({ code }) => code).join(", ")).toBe("complete");
+    const { outputs } = engineOutputsFor(withTax);
+    for (const key of PROPERTY_TAX_OUTPUT_KEYS) expect(outputs[key], key).toBeDefined();
+    const tax = computeApartmentOperations(withTax).result!.propertyTax!;
+    expect(outputs.propertyTaxFiscalYear2).toBe(tax.fiscalYears[1].annualScheduledTax);
+    expect(outputs.fullPropertyTaxFiscalYear2).toBe(tax.fiscalYears[1].annualFullTax);
+    expect(outputs.propertyTaxListedTotal).toBe(tax.listedScheduledTaxTotal);
+    expect(outputs.saleAbatementValue).toBe(run.result!.saleTax!.abatementValue);
+    expect(Number(outputs.stabilizedNetOperatingIncome) - Number(outputs.stabilizedFullTaxNetOperatingIncome))
+      .toBeCloseTo(Number(outputs.stabilizedFullPropertyTax) - Number(outputs.stabilizedPropertyTax), 2);
   });
 
   it("returns the failed status and issue codes without outputs when the run fails", () => {

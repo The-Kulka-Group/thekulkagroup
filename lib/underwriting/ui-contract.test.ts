@@ -153,7 +153,28 @@ describe("underwriting form accessibility contract", () => {
     expect(results).toContain("Return Metrics and Formula Traces");
     expect(casePage).toContain("PropertyReturnsEditor");
     expect(runPage).toContain("PROPERTY_RETURNS_ASSUMPTION_KEYS");
-    expect(runPage).toContain("It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.");
+    expect(runPage).toContain("It does not model permanent debt, investor waterfalls, income taxes, or sensitivity cases.");
+  });
+
+  it("takes a dated tax schedule and sale tax basis, and shows NOI, value and lender tests on both tax bases", async () => {
+    const operations = await source("app/(app)/underwriting/[id]/ApartmentOperationsEditor.tsx");
+    const taxSection = await source("app/(app)/underwriting/[id]/PropertyTaxSection.tsx");
+    const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
+    const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(operations).toContain("<PropertyTaxSection");
+    expect(taxSection).toContain("Add Property Tax Schedule");
+    expect(taxSection).toContain("PROPERTY_TAX_INPUT_VERSION");
+    expect(taxSection).toContain("maxLength={MAX_PROPERTY_TAX_SOURCE_LABEL_LENGTH}");
+    expect(taxSection).toContain("PILOT Payment");
+    expect(taxSection).toContain("Assessment Cap Rate");
+    expect(editor).toContain("Full Tax Plus Abatement Value");
+    expect(editor).toContain("SALE_TAX_INPUT_VERSION");
+    expect(results).toContain("Sale on Scheduled Tax and Full Tax");
+    expect(results).toContain("Property Tax by Fiscal Year");
+    expect(results).toContain("Full Tax</th>");
+    expect(runPage).toContain("PROPERTY_TAX_ASSUMPTION_KEYS");
+    expect(runPage).toContain("SALE_TAX_ASSUMPTION_KEYS");
   });
 
   it("takes lender test inputs with their own sources and shows each test with its trace or its issue", async () => {

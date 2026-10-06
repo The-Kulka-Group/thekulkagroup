@@ -1,5 +1,6 @@
 import {
   LENDER_TEST_ASSUMPTION_KEYS,
+  SALE_TAX_ASSUMPTION_KEYS,
   validatePropertyReturnsPlan,
   type PropertyReturnsIssue,
   type PropertyReturnsPlan,
@@ -38,6 +39,26 @@ function knownLenderTestFields(value: unknown) {
   };
 }
 
+function knownSaleTaxFields(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const plan = value as Record<string, unknown>;
+  const evidence = plan.saleTaxEvidence;
+  return {
+    saleTaxInputVersion: plan.saleTaxInputVersion,
+    valueBasis: plan.valueBasis,
+    ...(plan.abatementDiscountRatePercent === undefined ? {} : { abatementDiscountRatePercent: plan.abatementDiscountRatePercent }),
+    saleTaxEvidence: evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? Object.fromEntries(SALE_TAX_ASSUMPTION_KEYS.flatMap((key) => {
+        const item = (evidence as Record<string, unknown>)[key];
+        if (item === undefined) return [];
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [[key, item]];
+        const { sourceLabel, sourceDate, reviewState } = item as Record<string, unknown>;
+        return [[key, { sourceLabel, sourceDate, reviewState }]];
+      }))
+      : evidence,
+  };
+}
+
 export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new InvalidPropertyReturns("Send a property sale and returns object.", [], {});
@@ -52,6 +73,7 @@ export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
     xirrConvention: candidate.xirrConvention,
     saleAssumptionEvidence: candidate.saleAssumptionEvidence,
     ...(candidate.lenderTests === undefined ? {} : { lenderTests: knownLenderTestFields(candidate.lenderTests) }),
+    ...(candidate.saleTax === undefined ? {} : { saleTax: knownSaleTaxFields(candidate.saleTax) }),
   } as PropertyReturnsPlan;
   const issues = validatePropertyReturnsPlan(draft);
   if (issues.length > 0) {

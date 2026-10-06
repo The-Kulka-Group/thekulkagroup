@@ -51,8 +51,14 @@ export type LenderTestMetric = {
 
 export type LenderTestIssue = {
   path: string;
-  code: "valuation_outside_timeline" | "nonpositive_noi" | "zero_debt" | "zero_debt_service";
+  code: "valuation_outside_timeline" | "nonpositive_noi" | "nonpositive_full_tax_noi" | "zero_debt" | "zero_debt_service";
   message: string;
+};
+
+/** The NOI tests again with full tax for the same valuation year, as if the abatement had ended (LA-1690). */
+export type LenderFullTaxTests = {
+  stabilizedNoi: number;
+  metrics: LenderTestMetric[];
 };
 
 export type LenderTestsResult = {
@@ -64,6 +70,8 @@ export type LenderTestsResult = {
   totalCost: number;
   annualDebtService: number;
   metrics: LenderTestMetric[];
+  /** Present when the run's tax schedule carries an abatement. */
+  fullTax: LenderFullTaxTests | null;
   issues: LenderTestIssue[];
 };
 
@@ -116,6 +124,7 @@ export function lenderTestsFor(
   const year = projectedMonths.filter(({ month }) => month >= valuationStartMonth && month <= valuationEndMonth);
   const field = plan.noiBasis === "noi_after_reserves" ? "operatingCashFlow" : "netOperatingIncome";
   const stabilizedNoiCents = year.reduce((total, month) => total + cents(month[field]), 0);
+  const abatementCents = year.reduce((total, month) => total + cents(month.fullPropertyTax) - cents(month.propertyTax), 0);
   const loanCents = cents(capital.totalDebt);
   const totalCostCents = cents(capital.totalUses);
   const debtServiceCents = cents(plan.annualDebtService);
@@ -137,9 +146,63 @@ export function lenderTestsFor(
     issues.push({ path: "lenderTests.annualDebtService", code: "zero_debt_service", message: "Annual debt service is zero, so DSCR is not reported." });
   }
 
-  const valueCents = noiCents === null ? null : Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
-  const noiPaths = [...OPERATION_PATHS, "lenderTests.valuationMonth", "lenderTests.noiBasis"];
+  const tests = { plan, loanCents, debtServiceCents };
+  const operationPaths = input.propertyTax ? [...OPERATION_PATHS, "propertyTax"] : OPERATION_PATHS;
+  const noiPaths = [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis"];
+  const scheduled = noiMetrics(tests, noiCents, basis, noiPaths);
   const metrics: LenderTestMetric[] = [
+    scheduled[0],
+    scheduled[1],
+    {
+      key: "loanToCost",
+      label: "Loan to Cost",
+      value: totalCostCents > 0 ? loanCents / totalCostCents : null,
+      unit: "ratio",
+      formula: "total construction debt divided by total uses including carry",
+      inputPaths: [...CAPITAL_PATHS],
+    },
+    scheduled[2],
+    scheduled[3],
+  ];
+
+  let fullTax: LenderFullTaxTests | null = null;
+  if (input.propertyTax?.mode === "abatement") {
+    const fullTaxNoiCents = stabilizedNoiCents - abatementCents;
+    let fullNoi: number | null = year.length === 12 ? fullTaxNoiCents : null;
+    if (fullNoi !== null && fullNoi <= 0) {
+      fullNoi = null;
+      issues.push({ path: "propertyTax", code: "nonpositive_full_tax_noi", message: `${basis} with full tax for the valuation year is zero or negative, so the full-tax value, LTV, DSCR and debt yield are not reported.` });
+    }
+    fullTax = {
+      stabilizedNoi: dollars(fullTaxNoiCents),
+      metrics: noiMetrics(tests, fullNoi, `${basis} with full tax`, noiPaths),
+    };
+  }
+
+  return {
+    valuationStartMonth,
+    valuationEndMonth,
+    noiBasis: plan.noiBasis,
+    stabilizedNoi: dollars(stabilizedNoiCents),
+    loanAmount: dollars(loanCents),
+    totalCost: dollars(totalCostCents),
+    annualDebtService: dollars(debtServiceCents),
+    metrics,
+    fullTax,
+    issues,
+  };
+}
+
+/** Value, LTV, DSCR and debt yield on one valuation-year NOI. LTC does not read NOI, so it is reported once. */
+function noiMetrics(
+  tests: { plan: LenderTestPlan; loanCents: number; debtServiceCents: number },
+  noiCents: number | null,
+  basis: string,
+  noiPaths: string[],
+): LenderTestMetric[] {
+  const { plan, loanCents, debtServiceCents } = tests;
+  const valueCents = noiCents === null ? null : Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
+  return [
     {
       key: "asStabilizedValue",
       label: "As-Stabilized Value",
@@ -155,14 +218,6 @@ export function lenderTestsFor(
       unit: "ratio",
       formula: `total construction debt divided by as-stabilized value on ${basis}`,
       inputPaths: [...noiPaths, ...CAPITAL_PATHS, "lenderTests.asStabilizedCapRatePercent"],
-    },
-    {
-      key: "loanToCost",
-      label: "Loan to Cost",
-      value: totalCostCents > 0 ? loanCents / totalCostCents : null,
-      unit: "ratio",
-      formula: "total construction debt divided by total uses including carry",
-      inputPaths: [...CAPITAL_PATHS],
     },
     {
       key: "debtServiceCoverage",
@@ -181,18 +236,6 @@ export function lenderTestsFor(
       inputPaths: [...noiPaths, ...CAPITAL_PATHS],
     },
   ];
-
-  return {
-    valuationStartMonth,
-    valuationEndMonth,
-    noiBasis: plan.noiBasis,
-    stabilizedNoi: dollars(stabilizedNoiCents),
-    loanAmount: dollars(loanCents),
-    totalCost: dollars(totalCostCents),
-    annualDebtService: dollars(debtServiceCents),
-    metrics,
-    issues,
-  };
 }
 
 const OPERATION_PATHS = [

@@ -14,9 +14,12 @@ import {
   type CapitalExpenditureLine,
   type OperatingExpenseLine,
   type OtherIncomeLine,
+  type PropertyTaxPlan,
   type ResidentialUnitType,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+
+import { PropertyTaxSection } from "./PropertyTaxSection";
 
 type MoneyLine = OtherIncomeLine | OperatingExpenseLine | CapitalExpenditureLine;
 
@@ -38,6 +41,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [otherIncomeLines, setOtherIncomeLines] = useState<OtherIncomeLine[]>(saved?.otherIncomeLines ?? []);
   const [operatingExpenseLines, setOperatingExpenseLines] = useState<OperatingExpenseLine[]>(saved?.operatingExpenseLines ?? []);
   const [capitalExpenditureLines, setCapitalExpenditureLines] = useState<CapitalExpenditureLine[]>(saved?.capitalExpenditureLines ?? []);
+  const [propertyTax, setPropertyTax] = useState<PropertyTaxPlan | undefined>(saved?.propertyTax);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -82,6 +86,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           otherIncomeLines,
           operatingExpenseLines,
           capitalExpenditureLines,
+          ...(propertyTax ? { propertyTax } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -159,6 +164,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"], ["percent_effective_gross_revenue", "Percent of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
+      <PropertyTaxSection plan={propertyTax} setPlan={setPropertyTax} fieldErrors={fieldErrors} />
       <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"],
       ]} fieldErrors={fieldErrors} />

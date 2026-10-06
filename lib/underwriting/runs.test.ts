@@ -609,7 +609,7 @@ describe("underwriting calculation repository", () => {
       assumptionEvidence: workingAssumptionEvidence(), residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
       otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
       propertyTax,
-    } as Parameters<typeof saveApartmentOperations>[3]);
+    } as unknown as Parameters<typeof saveApartmentOperations>[3]);
     const capital = await saveDevelopmentCapital(db, savedCase!.id, operating!.caseRevision, {
       capitalInputVersion: "development_capital_inputs.v1", targetDebtSharePercent: 65, annualInterestRatePercent: 8, loanFeePercent: 1,
       fundingOrder: "equity_first.v1", interestTreatment: "capitalized_net_operating_cash.v1", interestConvention: "opening_balance_monthly.v1",

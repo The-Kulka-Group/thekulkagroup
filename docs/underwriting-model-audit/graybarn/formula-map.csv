@@ -1,0 +1,51 @@
+area,calculation,source_sheet,source_cells,workbook_rule,saved_value,kulka_target,priority
+Unit mix,Total residential units,Summary Sheet,F59,=SUM(F49:F58),,residentialUnitTypes.units,P0
+Unit mix,Residential net rentable SF,Summary Sheet,H59,=SUM(H49:H58),,residentialUnitTypes.averageAreaSf,P1
+Unit mix,Annual rent for one unit row,Summary Sheet,O49,=+(L49*F49)*12.0,,residentialUnitTypes.monthlyMarketRent,P0
+Unit mix,Residential annual base rent,Summary Sheet,O59,=SUM(O49:O58),,residential gross rent,P0
+Income,Retail base rent,Summary Sheet,K68,=M68*F68,,retail module (not built),P2
+Income,Rent increases in stabilized year 1,Stab NOI Statement,I16,hardcoded; inferred: equals 5 Year NOI H12:H15 total less Stab I15,,income growth start rule,P1
+Income,Other income subtotal,Stab NOI Statement,I28,=SUM(I19:I27),,otherIncomeLines,P0
+Income,Amenity fee income,Stab NOI Statement,I22,"hardcoded; inferred: Summary Sheet F59 units times the per-lease move-in fee that the lease-up sheet charges once, in row 35",,one-time fee per move-in (not built),P1
+Income,Vacancy and bad debt at stabilization,Stab NOI Statement,I31,"hardcoded; inferred: G31 times (I30 less I21), rounded; the label says resi but the base includes retail and other income",,vacancyPercent and creditLossPercent,P0
+Expenses,Real estate taxes at stabilization,Stab NOI Statement,I36,"hardcoded; inferred: equals 5 Year NOI H36 rounded, the first PILOT-period figure",,dated tax or PILOT schedule (not built),P0
+Expenses,Management fee,Stab NOI Statement,I38,=+G38*I32,,operatingExpenseLines percent_effective_gross_revenue,P0
+NOI,Stabilized NOI,Stab NOI Statement,I41,=+I32-I39,,netOperatingIncome,P0
+Valuation,As-stabilized value,Stab NOI Statement,T10,=I41/T11,,as-stabilized value at a stated date (not built),P1
+Valuation,Return on cost before land step-up,Stab NOI Statement,T13,=I41/'Construction Budget'!U48:U48,,yieldOnCost,P0
+Lender,Permanent loan rate,Stab NOI Statement,T29,=+T28+T27; T27 is a typed swap rate and T28 a typed spread,,permanent loan module (not built),P2
+Lender,Annual amortizing debt service,Stab NOI Statement,T38,=+T37*12.0,,debt service (not built),P1
+Lender,DSCR on amortizing debt service,Stab NOI Statement,T40,=+I41/T38,,lender sizing test (not built),P1
+Lender,Debt yield,Stab NOI Statement,T41,=+I41/T22,,lender sizing test (not built),P1
+Lender,Loan to as-stabilized value,Stab NOI Statement,U22,=+T22/T24,,lender sizing test (not built),P1
+Land,Land valuation per residential unit,Summary Sheet,U21,"hardcoded; inferred: sits in column U, outside the print area A1:T131",,contributed land value input (not built),P1
+Land,Land step-up over purchase price,Construction Budget,I11,=V10-I10,,contributed land value (not built),P1
+Land,Land basis used in lender budget,Construction Budget,I12,=+I10+I11,,land cost line,P0
+Costs,Hard cost subtotal with GC contingency,Construction Budget,I18,=SUM(I16:I17),,hard_cost lines,P0
+Costs,Demolition plus project hard cost contingency,Construction Budget,I23,=SUM(I21:I22),,hard_cost lines,P0
+Costs,A&E and permit contingency,Construction Budget,I39,"hardcoded; inferred: the percent in the C39 label times I26 plus I27, rounded",,soft_cost line with stated basis,P2
+Costs,Soft cost subtotal,Construction Budget,I41,=+I40+I38+I39,,soft_cost lines,P0
+Costs,Capitalized construction interest,Construction Budget,I44,=+'Interest Reserve Calc'!G48:G48,,capitalizedInterest,P0
+Costs,Total budget including land step-up,Construction Budget,I48,=+I46+I41+I18+I12+I23,,total uses,P0
+Costs,"Total budget at cost, without step-up",Construction Budget,U48,=+I48-I11,,total uses,P0
+Costs,"Costs invested to date, including step-up",Construction Budget,M48,=+M46+M41+M18+M12+M23,,cost to date (not built),P1
+Costs,Cash invested to date,Construction Budget,U49,=+M48-M11,,cost to date (not built),P1
+Sources,Construction loan sized as cost to complete,Construction Budget,N48,=+N46+N41+N18+N12+N23,,loan sizing mode (not built; Kulka uses target debt share),P1
+Sources,LTC on budget with land step-up,Sources & Uses of Funds,F20,=+G20/G22,,debtSharePercent,P1
+Sources,LTC on cash budget in hidden rows,Sources & Uses of Funds,F57,=+G57/G59; rows 43 to 60 are hidden; G48 leaves out Construction Budget I23,,debtSharePercent,P1
+Interest,First month interest,Interest Reserve Calc,G18,=+P18/12.0*H17,,"grossInterest, opening_balance_monthly",P0
+Interest,First month all-in rate,Interest Reserve Calc,P18,=+O18+N18; O column is a typed SOFR curve; N column is a typed spread,,rate curve (Kulka has one fixed rate),P1
+Interest,Total interest over the loan schedule,Interest Reserve Calc,G48,=SUM(G17:G47),,grossInterest total,P0
+Interest,Ending loan balance in the last schedule month,Interest Reserve Calc,H47,=+E47+F47+G47,,closingDebtBalance,P0
+Interest,Initial funding input,Interest Reserve Calc,G6,hardcoded; inferred: does not match the closing draw in F17,,feeMonth and first draw,P2
+Lease-up,Units leased at the end of absorption,Projected Mthly NOI-lease up,P19,=+P17+P15+P13,,leasedUnits,P1
+Lease-up,Lease-up NOI total,Projected Mthly NOI-lease up,U54,=+U45-U52; not linked to the interest schedule or the returns,,netOperatingIncome by month,P1
+Lease-up,Vacancy in the first month after absorption,Projected Mthly NOI-lease up,Q44,=+$G$44*Q43; absorption months H44:P44 carry zero vacancy,,vacancyPercent,P2
+PILOT,Taxable AV in the first PILOT year with improvement value,IDA PILOT,I12,hardcoded; inferred: G12 times one less H12,,PILOT schedule (not built),P1
+PILOT,PILOT payment in the first year with improvement value,IDA PILOT,K12,"hardcoded; inferred: F12 plus I12, times J12 per 100 dollars of AV, within rounding of J",,PILOT schedule (not built),P1
+PILOT,PILOT payment in the last PILOT year,IDA PILOT,K22,"hardcoded; inferred: F22 plus I22, times J22 per 100 dollars of AV, within rounding of J",,PILOT schedule (not built),P1
+Ten-year NOI,Real estate taxes in pro forma year 2,5 Year NOI Stmt,I36,"hardcoded; inferred: a fixed-weight blend of IDA PILOT K11 and K12, weights in deal-figures.md",,tax fiscal-year to model-month mapping (not built),P1
+Ten-year NOI,Market rent in pro forma year 2,5 Year NOI Stmt,I12,hardcoded; inferred: H12 times a growth factor that does not match the labeled input W12,,annualIncomeGrowthPercent,P1
+Ten-year NOI,"Levered IRR, annual periods",5 Year NOI Stmt,F78,=IRR(F75:Q75),,leveredXirr,P0
+Ten-year NOI,Equity multiple on sponsor equity with step-up,5 Year NOI Stmt,F79,=R75/-F75,,leveredEquityMultiple,P0
+Interest,Sum of typed monthly draws,Interest Reserve Calc,F17:F47,"hardcoded draws; inferred: sum equals G8 less G48 within one dollar, so the draws were set to land on the loan amount",,debtBeforeReservesDraw from the cost schedule,P0

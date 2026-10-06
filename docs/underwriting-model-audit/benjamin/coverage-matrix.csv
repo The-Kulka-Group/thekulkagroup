@@ -1,0 +1,73 @@
+capability,benjamin_template,current_kulka,fit,gap,priority
+Saved case record and revisions,No,Yes,Kulka advantage,Keep case revisions and stale-run blocking,P0
+Source label date and review state per input,No (one Comments sheet of reviewer notes),Yes,Kulka advantage,Extend evidence to every new module,P0
+Immutable run snapshot with formula version,No,Yes,Kulka advantage,Keep; the workbook relies on pasted plugs and macro state instead,P0
+Reconciliation checks that block results,Error flags only (Input rows 1068 to 1123),Yes,Kulka advantage,Keep; add checks for each new module,P0
+Monthly date spine,Yes (fixed grid of monthly periods),Yes (capped at 240 months),Match,None for one sale; long holds past the cap need a decision,P0
+Milestone schedule (due diligence land close construction start delivery stabilization sale),Yes (Input rows 13 to 30),Partial (analysis start operation start growth start sale),Partial,Add named milestones that cost lines can anchor to with offsets,P1
+Phased delivery (up to four phases with sub-phases),Yes,No,Missing,Add phase delivery after single-phase parity,P2
+Cost lines with amount and timing,Yes (about 300 budget rows each with a curve code),Yes (up to 250 lines with start and end month),Partial,Kulka lines take a fixed amount only; add quantity and percent bases,P0
+Cost basis rules (per GSF per unit percent of hard cost percent of land),Yes (metric column T),No,Missing,Add basis types that keep the input and the derived amount separate,P0
+Percent-of-total-cost lines (development fee and contingency on TDC),Yes (through a pasted Plug_TDC value),No,Missing,Solve the fixed point inside the engine with a stated tolerance; never paste a plug,P1
+Straight-line timing,Yes,Yes,Match,None,P0
+Bell or S-curve timing,Yes (bell with slope),Yes (smoothstep S-curve),Different,Workbook bell curve shape differs; test against Cost Curves rows not against Kulka's curve,P1
+Front-loaded back-loaded and U-curve timing,Yes,No,Missing,Add as versioned curve shapes if needed,P2
+Recurring cost every N months,Yes (Occurs Every and 1st Month),No,Missing,Add recurring line option,P3
+Cost curve anchors to milestones with offset and override dates,Yes,No,Missing,Anchor lines to milestones once milestones exist,P1
+Monthly overrides grid for any line,Yes (Overrides sheet),No,Missing,Do not copy; use reviewed line edits with source and review state,P3
+Unit mix by type with rent and SF,Yes (50 market and 10 affordable rows),Yes,Match,None for market units,P0
+Affordable units,Yes,No,Missing,Add a unit flag and separate growth rate,P2
+Non-revenue units,Yes,Yes,Match,None,P0
+Pre-leased units,Yes,Yes,Match,None,P0
+Absorption pace,Yes (units per month),Yes (units per month),Match,None,P0
+Seasonal absorption factors,Yes (12 monthly factors),No,Missing,Add optional monthly factors,P1
+Turnover and retention during lease-up,Yes (lease term and retention),No,Missing,Add after seasonality,P2
+Stabilization test by occupancy and hold months,Yes,Partial (first month leased units reach revenue units),Partial,Add target occupancy and hold months,P1
+Concessions as upfront and amortized months,Yes,Partial (free rent as percent of rent),Different,Add months-of-rent concessions on new leases,P1
+Loss to lease,Yes,Yes (rent adjustment loss),Match,None,P0
+Vacancy and credit loss,Yes,Yes,Match,None,P0
+Other income lines,Yes (25 lines with per unit per lease and per stall bases),Partial (per year or per occupied unit month),Partial,Add per-lease and per-stall bases,P1
+RUBS tied to utility expense,Yes,No,Missing,Model as income linked to an expense line,P2
+Growth by year and by category,Yes (separate rates per year for market rent affordable rent other income expenses and taxes),Partial (one income and one expense rate from one start month),Partial,Add per-category rates and a year-by-year rate table,P1
+Operating expense lines,Yes (controllable and uncontrollable with detail tabs),Yes (per year per unit or percent of EGR),Partial,Add detail roll-ups only if users need them,P1
+Expense lead time and lease-up share,Yes (months before first unit and percent during lease-up),No (full amount from operation start),Missing,Add start offset and lease-up share per line,P1
+Staffing plan to payroll,Yes,No,Missing,Optional module,P3
+Management fee as percent of revenue,Yes,Yes,Match,None,P0
+Property tax by cost basis or income basis with millage and reassessment at sale,Yes,No (entered as an expense line),Missing,Add a reviewed tax method with clear unit checks,P1
+Replacement reserves,Yes,Yes (capital expenditure lines),Match,None,P0
+Commercial tenants with NNN rent vacancy CAM and tax recoveries,Yes (20 tenants),No,Missing,Add commercial module after residential parity,P2
+Commercial TI leasing commissions free rent,Yes,No,Missing,Part of commercial module,P2
+Hotel operations,Yes (hidden; zero rooms in saved file),No,Missing,Leave out until a hotel deal needs it,P3
+For-sale condo,Hidden work in progress and not linked,No,Missing,Leave out,P3
+Construction loan sized by LTC,Yes,Yes (debt share of total uses),Match,Kulka sizes on total uses including carry; workbook sizes on Plug_TDC; adapter must state this,P0
+Equity-first funding,Yes,Yes,Match,None,P0
+Pro-rata funding,Mezz only,No,Missing,Add when a deal needs it,P2
+Interest on opening balance monthly,Yes,Yes,Match,None,P0
+Lease-up NOI applied to interest,Yes,Yes,Match,None,P0
+Monthly interest rate curve or index plus spread,No (one fixed rate; monthly override row),No,Match,Neither has a forward curve; add only with a sourced curve,P2
+Loan origination fee,Yes,Yes,Match,Basis differs (max loan vs debt share of project cost),P0
+Land loan,Yes,No,Missing,Optional tranche,P3
+Mezzanine loan with interest reserve and prepayment penalty,Yes,No,Missing,Optional tranche,P2
+Permanent loan sized by DSCR and LTV,Yes (disabled in saved file),No,Missing,Add refinance module,P2
+Early sale paydown and positive cash flow paydown,Yes,No,Missing,Add with refinance module,P3
+Other sources (interim income preferred equity grants),Yes,No,Missing,Add named sources with reimbursement flag,P2
+Forward 12-month sale NOI,Yes,Yes,Match,Workbook adds vacancy back in Dispo Value!O117; do not match that defect,P0
+Separate exit caps by use,Yes (residential commercial hotel),No (one cap),Missing,Add per-use caps with commercial module,P2
+Selling costs,Yes (but saved file uses a typed percent in Input!T749),Yes (percent),Match,Use the input percent; flag the workbook hardcode,P0
+Excess parcel sales,Yes,No,Missing,Optional,P3
+Debt payoff at sale,Yes,Yes,Match,None,P0
+Levered IRR,Monthly IRR annualized and one XIRR,XIRR actual/365 on month-end dates,Different,Test against CF-Equity!E14 XIRR; expect small date-convention gaps,P0
+Unlevered IRR,Approximate (excludes financing lines),Yes,Different,Kulka unlevered includes all project costs; state the basis in tests,P0
+Equity multiple and net profit,Yes,Yes,Match,None,P0
+Peak equity,Yes,No,Missing,Add from cumulative contributions,P1
+Yield on cost current and stabilized,Yes (two forms),Partial (forward sale NOI only),Partial,Add untrended and stabilized forms,P1
+Development spread,Ratio form only,Yes (basis points),Different,Keep Kulka form,P1
+LP and GP equity split with GP-first or pari-passu funding and catch-up,Yes,No,Missing,Partnership module,P2
+Preferred return accrual,Yes (monthly compounding to the annual rate),No,Missing,Partnership module,P2
+Promote waterfall with four IRR tiers and final split,Yes,No,Missing,Partnership module after property cash flow reconciles,P2
+Sensitivity tables,Yes (macro writes values; saved tables are stale),Partial (scenario deltas on vacancy growth cap and growth start),Partial,Add rent cost and timing deltas; never write into inputs,P1
+Ten-year annual cash flow view,Yes (omits vacancy and credit loss),No,Missing,Add annual roll-up from monthly results with full revenue lines,P2
+Residual land value solve,No,No,Match,None,P3
+Tax estimates (state franchise and excise),Yes (off in saved file),No,Missing,Leave out,P3
+LIHTC estimate,Yes (disabled),No,Missing,Leave out,P3
+Formula trace per result,Opaque formulas,Yes,Kulka advantage,Extend to each new module,P0

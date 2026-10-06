@@ -1,0 +1,47 @@
+capability,graybarn_lender,current_kulka,fit,gap,priority
+Saved case record,No,Yes,Kulka advantage,Keep saved cases and revisions,P0
+Source label and review state by input,No,Yes,Kulka advantage,Extend to tax schedules and lender tests when added,P0
+Immutable run snapshot and formula version,No,Yes,Kulka advantage,Keep,P0
+Formula trace,Opaque cell formulas with typed values mixed in,Yes,Kulka advantage,Keep a trace on every lender metric when added,P0
+Unit mix by unit type,Yes with ten rows across market and two income-restricted tiers,Yes residentialUnitTypes,Fit,None for the rent roll itself,P0
+Income-restricted tier tag,Yes by row label only,No,Missing,Tag each unit type as market or restricted so a tier can carry its own rent rule and growth,P1
+Rent growth by tier,Labeled inputs per tier that do not drive the typed values,One annualIncomeGrowthPercent,Partial,Allow growth per unit type or income line,P1
+Retail income,Yes one in-line space priced per SF,No,Missing,Retail module stays deferred in the spec,P2
+Other income lines,Yes nine annual lines,Yes otherIncomeLines per year or per occupied unit month,Fit,None,P0
+One-time move-in fees,Treated as recurring annual income at stabilization,No unit for it,Missing,Add a per-move-in unit tied to leasing and turnover,P1
+Vacancy and credit loss,One combined rate typed as a value at stabilization,Separate vacancy and credit loss rates,Kulka advantage,None,P0
+Operating expense lines,Three lines with management as percent of EGI,Yes with per year per unit and percent of EGI,Fit,None,P0
+Expense growth,Labeled input does not match typed growth,One annualExpenseGrowthPercent,Fit,None,P0
+Real estate tax line,Typed annual figures taken from the PILOT table,Flat expense line grown at expense growth,Partial,Add a dated tax line that can follow a schedule,P1
+PILOT or tax abatement schedule,Yes as a typed table by tax fiscal year,No,Missing,Add a PILOT schedule: base AV and improvement AV and exemption steps and tax rate path by fiscal year,P1
+Tax fiscal year to model month mapping,Typed fixed-weight blend of two fiscal years,No,Missing,Map tax fiscal years onto model months by rule,P1
+PILOT burn-off and unabated tax check,No,No,Missing,Show NOI and value with the tax in the valuation year and after the PILOT ends,P1
+Lease-up absorption,Typed units per month by tier,Constant leaseUpUnitsPerMonth plus preleasedUnits,Partial,Add an optional month-by-month absorption schedule,P2
+Lease-up NOI,Separate twelve-month sheet not linked to debt or returns,Monthly NOI on the same timeline as costs and debt,Kulka advantage,None,P0
+Lease-up NOI applied to interest,No: the reserve carries full interest through the loan term,Yes operating cash applied to interest,Kulka advantage,Offer a lender view that sizes the reserve without the offset,P2
+Monthly cost timing,No: monthly draws are typed amounts,Straight-line and S-curve by line,Kulka advantage,None,P0
+Contingency lines,Hard and soft contingencies as typed amounts with percent labels,Any cost line but no contingency category or basis,Partial,Add a contingency line type with a stated basis,P2
+Costs invested before loan closing,Yes as a column of costs to date,No,Missing,Add cost to date per line so a loan can fund cost to complete,P1
+Contributed land value,Yes land credited above purchase price and counted as equity,No: land is a cash cost line,Missing,Keep cash cost and credited value apart and report LTC on both,P1
+Construction loan sizing,Loan equals budget less costs invested to date,Target debt share of total uses with equity first,Different,Add sizing modes: share of cost and cost to complete and lesser of lender tests,P1
+Lender sizing tests as constraints,No: tests are reported after the loan is set,No,Missing,Size the loan to the lesser of LTC and LTV and DSCR and debt yield limits,P1
+LTC,Two bases: with land step-up on the printed page and cash basis in hidden rows,debtSharePercent on total uses,Partial,Report LTC on cash cost and on any credited land value,P1
+LTV on as-stabilized value,Yes,No,Missing,Add as-stabilized value and LTV,P1
+DSCR,Yes on a permanent loan quote,No,Missing,Add DSCR on stated debt service,P1
+Debt yield,Yes on stabilized NOI,No,Missing,Add debt yield,P1
+Floating rate curve,Typed SOFR curve plus spread by month,One fixed annual rate,Partial,Allow a dated rate path,P1
+Interest convention,Opening balance times rate divided by twelve,Same: opening_balance_monthly,Fit,None,P0
+Interest reserve,Typed draws set so the ending balance lands on the loan amount,Solved each run from the cost schedule with reconciliation checks,Kulka advantage,None,P0
+Loan closing costs,Typed lump sum,loanFeePercent of debt,Partial,Allow a lump-sum fee line,P2
+Permanent loan and refinance,Yes refinance at stabilization with an interest-only period then amortization,No: payoff in the final month only,Missing,Spec lists permanent debt as a later module,P2
+Amortization schedule,Annual approximation that mixes monthly payment with annual interest,No,Missing,Build monthly with the permanent loan,P2
+As-stabilized valuation,Stabilized NOI divided by a cap rate,Forward NOI at the sale month only,Partial,Add value at a stated stabilization date,P1
+Sale value,Trailing NOI in the final year at a cap rate less sale cost,Forward twelve-month NOI at terminal cap less selling cost,Kulka advantage,None,P0
+Levered return,Excel IRR on annual periods,Dated monthly XIRR,Kulka advantage,None,P0
+Equity basis for returns,Sponsor equity includes credited land value,Cash contributions only,Different,Report returns on cash equity and flag any credited equity,P1
+Return on cost,Two forms: with and without land step-up,yieldOnCost on forward NOI and total cost,Fit,Label which cost basis each form uses,P1
+Annual pro forma display,Ten-year annual statement,Monthly through sale,Partial,Add an annual roll-up view,P2
+Scenarios,No,Downside and upside deltas,Kulka advantage,None,P0
+Sources and uses reconciliation,Static tie on one page; hidden cash table does not tie to the budget,Monthly and total checks,Kulka advantage,None,P0
+Per-unit and per-SF denominators,Inconsistent denominators across sheets,unitSummary from unit types,Partial,Define each denominator once and label it,P2
+Market and demographic data,Yes typed sub-market figures,No,Different,Out of engine scope,P3

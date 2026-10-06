@@ -4,6 +4,7 @@ import { APARTMENT_DEVELOPMENT_V2_98_COST_CHECKS } from "./fixtures/apartment-de
 import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartment-development-model-v2.98-returns";
 import {
   ENGINE_OUTPUT_KEYS,
+  LENDER_OUTPUT_KEYS,
   engineOutputsFor,
   formatScorecard,
   scorecardFor,
@@ -201,7 +202,7 @@ describe("engineOutputsFor", () => {
     const run = engineOutputsFor(input);
     expect(run.status).toBe("complete");
     expect(run.issueCodes).toEqual([]);
-    for (const key of ENGINE_OUTPUT_KEYS) expect(run.outputs[key], key).toBeDefined();
+    for (const key of ENGINE_OUTPUT_KEYS.filter((item) => !(LENDER_OUTPUT_KEYS as readonly string[]).includes(item))) expect(run.outputs[key], key).toBeDefined();
   });
 
   it("reads cost category totals from the run's own cost schedule", () => {
@@ -225,6 +226,33 @@ describe("engineOutputsFor", () => {
     expect(Number(outputs.stabilizedEffectiveGrossRevenue) - Number(outputs.stabilizedOperatingExpenses))
       .toBeCloseTo(Number(outputs.stabilizedNetOperatingIncome), 2);
     expect(typeof outputs.firstStabilizedMonth).toBe("string");
+  });
+
+  it("reads lender tests from the full run when the plan has them, and leaves them out when it does not", () => {
+    expect(engineOutputsFor(input).outputs.debtYield).toBeUndefined();
+    const withTests = {
+      ...input,
+      lenderTests: {
+        lenderTestInputVersion: "lender_tests_inputs.v1" as const,
+        valuationMonth: "2026-01",
+        asStabilizedCapRatePercent: 6,
+        annualDebtService: 100_000,
+        noiBasis: "noi_before_reserves" as const,
+        lenderTestEvidence: {
+          valuationMonth: { reviewState: "working" as const },
+          asStabilizedCapRatePercent: { reviewState: "working" as const },
+          annualDebtService: { reviewState: "working" as const },
+          noiBasis: { reviewState: "working" as const },
+        },
+      },
+    };
+    const run = computePropertyReturns(withTests);
+    const { outputs } = engineOutputsFor(withTests);
+    for (const metric of run.result!.lenderTests!.metrics) {
+      const key = ({ asStabilizedValue: "asStabilizedValue", loanToValue: "loanToValue", loanToCost: "loanToCost", debtServiceCoverage: "debtServiceCoverage", debtYield: "debtYield" } as const)[metric.key];
+      expect(outputs[key], key).toBe(metric.value ?? undefined);
+    }
+    expect(outputs.lenderValuationNoi).toBe(run.result!.lenderTests!.stabilizedNoi);
   });
 
   it("returns the failed status and issue codes without outputs when the run fails", () => {

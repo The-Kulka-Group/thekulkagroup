@@ -13,6 +13,16 @@ import { computePropertyReturns, type PropertyReturnsInputs } from "./property-r
 
 const MONTH_OUTPUT_KEYS = ["firstStabilizedMonth"] as const;
 
+/** Present only when the input snapshot carries a lender test plan, and a test is reported. */
+export const LENDER_OUTPUT_KEYS = [
+  "lenderValuationNoi",
+  "asStabilizedValue",
+  "loanToValue",
+  "loanToCost",
+  "debtServiceCoverage",
+  "debtYield",
+] as const;
+
 export const ENGINE_OUTPUT_KEYS = [
   "landCost",
   "hardCost",
@@ -66,6 +76,7 @@ export const ENGINE_OUTPUT_KEYS = [
   "leveredNetProfit",
   "yieldOnCost",
   "developmentSpreadBasisPoints",
+  ...LENDER_OUTPUT_KEYS,
 ] as const;
 
 export type EngineOutputKey = typeof ENGINE_OUTPUT_KEYS[number];
@@ -185,6 +196,14 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     yieldOnCost: propertyReturns.yieldOnCost,
     developmentSpreadBasisPoints: propertyReturns.developmentSpreadBasisPoints,
   };
+
+  const lenderTests = run.result.lenderTests;
+  if (lenderTests) {
+    outputs.lenderValuationNoi = lenderTests.stabilizedNoi;
+    for (const metric of lenderTests.metrics) {
+      if (metric.value !== null) outputs[metric.key] = metric.value;
+    }
+  }
 
   const firstStabilizedMonth = operations.result.firstStabilizedMonth;
   if (firstStabilizedMonth) {

@@ -278,8 +278,10 @@ export {
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_INPUT_VERSION,
+  DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION,
   EQUITY_FIRST_FUNDING_VERSION,
   MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH,
+  MAX_RATE_CURVE_AGE_MONTHS,
   OPENING_BALANCE_MONTHLY_VERSION,
   computeDevelopmentCapital,
   fundMonthlyDevelopmentCashFlow,
@@ -290,12 +292,16 @@ export {
   type DevelopmentCapitalIssue,
   type DevelopmentCapitalIssueCode,
   type DevelopmentCapitalPlan,
+  type DevelopmentCapitalRatePath,
+  type DevelopmentCapitalRatePoint,
   type DevelopmentCapitalResult,
   type DevelopmentCapitalRun,
   type DevelopmentCapitalTotals,
   type MonthlyCapitalRun,
   type MonthlyDevelopmentCapital,
   type MonthlyDevelopmentCashFlow,
+  type RateScheduleTrace,
+  type RateSource,
 } from "./development-capital";
 
 export {

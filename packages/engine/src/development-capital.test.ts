@@ -8,6 +8,7 @@ import {
   fundMonthlyDevelopmentCashFlow,
   type DevelopmentCapitalInputs,
   type DevelopmentCapitalPlan,
+  type DevelopmentCapitalRatePath,
   type MonthlyDevelopmentCashFlow,
 } from "./development-capital";
 import { APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE } from "./fixtures/apartment-development-model-v2.98-capital";
@@ -280,3 +281,79 @@ function resolvePath(value: unknown, path: string): unknown {
     return (current as Record<string, unknown>)[part];
   }, value);
 }
+
+describe("dated rate path", () => {
+  const curve = (baseRates: Array<[string, number]>, overrides: Partial<DevelopmentCapitalRatePath> = {}): DevelopmentCapitalRatePath => ({
+    baseRates: baseRates.map(([month, baseRatePercent]) => ({ month, baseRatePercent })),
+    spreadPercent: 3,
+    curveSourceLabel: "Forward SOFR, lender quote",
+    asOfDate: "2026-01-15",
+    ...overrides,
+  });
+  const run = (ratePath?: DevelopmentCapitalRatePath) =>
+    fundMonthlyDevelopmentCashFlow(cashFlow, { ...plan, ...(ratePath ? { ratePath } : {}) });
+
+  it("keeps the fixed rate as the default and labels each month fixed", () => {
+    const result = run().result!;
+    expect(result.rateSchedule).toBeNull();
+    expect(result.months.every(({ annualRatePercent, rateSource, baseRatePercent }) =>
+      annualRatePercent === 12 && rateSource === "fixed" && baseRatePercent === null)).toBe(true);
+  });
+
+  it("charges each month the curve base rate plus the spread on the opening balance", () => {
+    const result = run(curve([["2026-01", 4], ["2026-02", 4.5], ["2026-03", 5], ["2026-04", 5.5], ["2026-05", 6]])).result!;
+    expect(result.months.map(({ annualRatePercent }) => annualRatePercent)).toEqual([7, 7.5, 8, 8.5, 9]);
+    expect(result.months.every(({ rateSource }) => rateSource === "curve")).toBe(true);
+    const second = result.months[1];
+    expect(second.grossInterest).toBeCloseTo(second.openingDebtBalance * 0.075 / 12, 2);
+    expect(result.rateSchedule).toMatchObject({ monthsBeforeCurve: 0, monthsAfterCurve: 0, spreadPercent: 3 });
+  });
+
+  it("holds the last rate after a curve shorter than the loan and records it", () => {
+    const result = run(curve([["2026-01", 4], ["2026-02", 5]])).result!;
+    expect(result.months.map(({ rateSource }) => rateSource)).toEqual(["curve", "curve", "after_curve", "after_curve", "after_curve"]);
+    expect(result.months.slice(2).every(({ annualRatePercent, baseRatePercent }) => annualRatePercent === 8 && baseRatePercent === 5)).toBe(true);
+    expect(result.rateSchedule).toMatchObject({ curveFirstMonth: "2026-01", curveLastMonth: "2026-02", lastBaseRatePercent: 5, monthsAfterCurve: 3 });
+  });
+
+  it("uses the first rate for months before a curve that starts after the first draw", () => {
+    const result = run(curve([["2026-03", 4], ["2026-04", 4.5], ["2026-05", 5]])).result!;
+    expect(result.months.map(({ rateSource }) => rateSource)).toEqual(["before_curve", "before_curve", "curve", "curve", "curve"]);
+    expect(result.months.slice(0, 2).every(({ annualRatePercent, baseRatePercent }) => annualRatePercent === 7 && baseRatePercent === 4)).toBe(true);
+    expect(result.rateSchedule).toMatchObject({ firstBaseRatePercent: 4, monthsBeforeCurve: 2, monthsAfterCurve: 0 });
+  });
+
+  it("allows a negative spread while the all-in rate stays at or above zero", () => {
+    const result = run(curve([["2026-01", 4], ["2026-02", 4], ["2026-03", 4], ["2026-04", 4], ["2026-05", 4]], { spreadPercent: -1.5 })).result!;
+    expect(result.months.every(({ annualRatePercent }) => annualRatePercent === 2.5)).toBe(true);
+    const below = run(curve([["2026-01", 1]], { spreadPercent: -1.5 }));
+    expect(below.status).toBe("failed");
+    expect(below.issues.map(({ path, code }) => `${path}:${code}`)).toContain("ratePath.baseRates.0.baseRatePercent:invalid_percent");
+  });
+
+  it("reconciles sources, uses, and interest under a changing rate", () => {
+    const result = run(curve([["2026-01", 4], ["2026-02", 5]])).result!;
+    expect(result.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(result.totals.grossInterest).toBeGreaterThan(run().result!.totals.grossInterest * 0.5);
+  });
+
+  it("fails on a curve as-of date far from the fee month", () => {
+    const stale = run(curve([["2026-01", 4]], { asOfDate: "2025-06-01" }));
+    expect(stale.status).toBe("failed");
+    expect(stale.issues).toEqual([expect.objectContaining({ path: "ratePath.asOfDate", code: "stale_rate_curve" })]);
+    expect(run(curve([["2026-01", 4]], { asOfDate: "2025-07-31" })).status).toBe("complete");
+  });
+
+  it("rejects gaps, a missing source label, and a bad date", () => {
+    const run2 = run(curve([["2026-01", 4], ["2026-03", 4]], { curveSourceLabel: " ", asOfDate: "2026-02-30" }));
+    expect(run2.issues.map(({ path, code }) => `${path}:${code}`)).toEqual(expect.arrayContaining([
+      "ratePath.curveSourceLabel:invalid_source_label",
+      "ratePath.asOfDate:invalid_source_date",
+      "ratePath.baseRates.1.month:non_contiguous_months",
+    ]));
+  });
+
+  it("stamps the v2 formula version", () => {
+    expect(run(curve([["2026-01", 4]])).formulaVersion).toBe("underwriting.development_capital.v2");
+  });
+});

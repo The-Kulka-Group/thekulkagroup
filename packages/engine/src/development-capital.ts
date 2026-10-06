@@ -7,11 +7,13 @@ import {
 import type { ReconciliationCheck } from "./monthly-cost-schedule";
 
 export const DEVELOPMENT_CAPITAL_INPUT_VERSION = "development_capital_inputs.v1" as const;
-export const DEVELOPMENT_CAPITAL_FORMULA_VERSION = "underwriting.development_capital.v1" as const;
+export const DEVELOPMENT_CAPITAL_FORMULA_VERSION = "underwriting.development_capital.v2" as const;
+export const DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION = "underwriting.development_capital.v1" as const;
 export const EQUITY_FIRST_FUNDING_VERSION = "equity_first.v1" as const;
 export const CAPITALIZED_NET_OPERATING_CASH_VERSION = "capitalized_net_operating_cash.v1" as const;
 export const OPENING_BALANCE_MONTHLY_VERSION = "opening_balance_monthly.v1" as const;
 export const MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH = 500;
+export const MAX_RATE_CURVE_AGE_MONTHS = 6;
 
 type ReviewState = "working" | "done";
 
@@ -34,6 +36,22 @@ export type DevelopmentCapitalEvidence = {
   reviewState: ReviewState;
 };
 
+export type DevelopmentCapitalRatePoint = {
+  month: string;
+  baseRatePercent: number;
+};
+
+/**
+ * A monthly base rate curve plus a spread. The spread may be negative. While a path is set it
+ * replaces annualInterestRatePercent for interest; that field stays as the fixed-rate default.
+ */
+export type DevelopmentCapitalRatePath = {
+  baseRates: DevelopmentCapitalRatePoint[];
+  spreadPercent: number;
+  curveSourceLabel: string;
+  asOfDate: string;
+};
+
 export type DevelopmentCapitalPlan = {
   capitalInputVersion: typeof DEVELOPMENT_CAPITAL_INPUT_VERSION;
   targetDebtSharePercent: number;
@@ -44,6 +62,7 @@ export type DevelopmentCapitalPlan = {
   interestConvention: typeof OPENING_BALANCE_MONTHLY_VERSION;
   feeMonth: string;
   payoffMonth: string;
+  ratePath?: DevelopmentCapitalRatePath;
   capitalAssumptionEvidence: Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalEvidence>;
 };
 
@@ -73,7 +92,9 @@ export type DevelopmentCapitalIssueCode =
   | "invalid_review_state"
   | "text_too_long"
   | "derived_results"
-  | "funding_solution";
+  | "funding_solution"
+  | "invalid_rate_path"
+  | "stale_rate_curve";
 
 export type DevelopmentCapitalIssue = {
   path: string;
@@ -81,7 +102,12 @@ export type DevelopmentCapitalIssue = {
   message: string;
 };
 
+export type RateSource = "fixed" | "curve" | "before_curve" | "after_curve";
+
 export type MonthlyDevelopmentCapital = MonthlyDevelopmentCashFlow & {
+  annualRatePercent: number;
+  baseRatePercent: number | null;
+  rateSource: RateSource;
   openingDebtBalance: number;
   operatingShortfall: number;
   loanFee: number;
@@ -123,8 +149,21 @@ export type CapitalFormulaTrace = {
   inputPaths: string[];
 };
 
+export type RateScheduleTrace = {
+  curveSourceLabel: string;
+  asOfDate: string;
+  spreadPercent: number;
+  curveFirstMonth: string;
+  curveLastMonth: string;
+  firstBaseRatePercent: number;
+  lastBaseRatePercent: number;
+  monthsBeforeCurve: number;
+  monthsAfterCurve: number;
+};
+
 export type DevelopmentCapitalResult = {
   months: MonthlyDevelopmentCapital[];
+  rateSchedule: RateScheduleTrace | null;
   totals: DevelopmentCapitalTotals;
   formulaTraces: CapitalFormulaTrace[];
   reconciliations: ReconciliationCheck[];
@@ -224,8 +263,9 @@ export function fundMonthlyDevelopmentCashFlow(
   }
   const result = {
     months: calculated.months,
+    rateSchedule: rateScheduleTrace(plan, calculated.months),
     totals,
-    formulaTraces: formulaTraces(),
+    formulaTraces: formulaTraces(plan),
     reconciliations,
   };
   return {
@@ -264,6 +304,7 @@ function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapital
   validatePercent(issues, "targetDebtSharePercent", plan.targetDebtSharePercent);
   validatePercent(issues, "annualInterestRatePercent", plan.annualInterestRatePercent);
   validatePercent(issues, "loanFeePercent", plan.loanFeePercent);
+  if (plan.ratePath !== undefined) validateRatePath(issues, plan.ratePath, plan.feeMonth);
   if (plan.fundingOrder !== EQUITY_FIRST_FUNDING_VERSION) {
     addIssue(issues, "fundingOrder", "unsupported_funding_order", `Use ${EQUITY_FIRST_FUNDING_VERSION} for this formula version.`);
   }
@@ -297,6 +338,56 @@ function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapital
   }
   validateEvidence(issues, plan.capitalAssumptionEvidence);
   return issues;
+}
+
+function validateRatePath(issues: DevelopmentCapitalIssue[], path: DevelopmentCapitalRatePath, loanCloseMonth: string) {
+  const at = (suffix: string) => `ratePath.${suffix}`;
+  if (!path || typeof path !== "object" || Array.isArray(path)) {
+    addIssue(issues, "ratePath", "invalid_rate_path", "Rate path must be an object with base rates, a spread, a source label, and an as-of date.");
+    return;
+  }
+  const spread = path.spreadPercent;
+  const spreadOk = typeof spread === "number" && Number.isFinite(spread) && spread >= -100 && spread <= 100;
+  if (!spreadOk) addIssue(issues, at("spreadPercent"), "invalid_percent", "Spread must be a number from -100 to 100 percent.");
+  if (typeof path.curveSourceLabel !== "string" || path.curveSourceLabel.trim() === "") {
+    addIssue(issues, at("curveSourceLabel"), "invalid_source_label", "Name the curve source, for example the forward SOFR curve and its provider.");
+  } else if (path.curveSourceLabel.length > MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH) {
+    addIssue(issues, at("curveSourceLabel"), "text_too_long", `Curve source label cannot exceed ${MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH} characters.`);
+  }
+  if (typeof path.asOfDate !== "string" || !validDate(path.asOfDate)) {
+    addIssue(issues, at("asOfDate"), "invalid_source_date", "Curve as-of date must be a valid YYYY-MM-DD date.");
+  } else {
+    const close = monthIndex(loanCloseMonth);
+    const asOf = monthIndex(path.asOfDate.slice(0, 7));
+    if (close !== null && asOf !== null && Math.abs(close - asOf) > MAX_RATE_CURVE_AGE_MONTHS) {
+      addIssue(
+        issues,
+        at("asOfDate"),
+        "stale_rate_curve",
+        `The curve as-of date is more than ${MAX_RATE_CURVE_AGE_MONTHS} months from the fee month, when the loan is priced. Refresh the curve or move the fee month.`,
+      );
+    }
+  }
+  if (!Array.isArray(path.baseRates) || path.baseRates.length === 0) {
+    addIssue(issues, at("baseRates"), "invalid_rate_path", "Add at least one monthly base rate.");
+    return;
+  }
+  let prior: number | null = null;
+  path.baseRates.forEach((point, index) => {
+    const pointPath = at(`baseRates.${index}`);
+    const current = monthIndex(point?.month);
+    if (current === null) addIssue(issues, `${pointPath}.month`, "invalid_month", "Month must use YYYY-MM.");
+    else if (prior !== null && current !== prior + 1) {
+      addIssue(issues, `${pointPath}.month`, "non_contiguous_months", "Base rate months must be unique, in order, and contiguous.");
+    }
+    prior = current;
+    const base = point?.baseRatePercent;
+    if (!(typeof base === "number" && Number.isFinite(base) && base >= 0 && base <= 100)) {
+      addIssue(issues, `${pointPath}.baseRatePercent`, "invalid_percent", "Base rate must be from 0 to 100 percent.");
+    } else if (spreadOk && (base + spread < 0 || base + spread > 100)) {
+      addIssue(issues, `${pointPath}.baseRatePercent`, "invalid_percent", "Base rate plus spread must be from 0 to 100 percent.");
+    }
+  });
 }
 
 function validateEvidence(
@@ -365,7 +456,8 @@ function simulate(
     const operatingCashFlowCents = cents(month.operatingCashFlow);
     const operatingShortfallCents = Math.max(-operatingCashFlowCents, 0);
     const currentLoanFeeCents = month.month === plan.feeMonth ? loanFeeCents : 0;
-    const grossInterestCents = percentOf(openingDebtCents, plan.annualInterestRatePercent / 12);
+    const rate = rateFor(plan, month.month);
+    const grossInterestCents = percentOf(openingDebtCents, rate.annualRatePercent / 12);
     const operatingCashAppliedCents = Math.min(Math.max(operatingCashFlowCents, 0), grossInterestCents);
     const capitalizedInterestCents = grossInterestCents - operatingCashAppliedCents;
 
@@ -391,6 +483,9 @@ function simulate(
       month: month.month,
       projectCosts: dollars(projectCostCents),
       operatingCashFlow: dollars(operatingCashFlowCents),
+      annualRatePercent: rate.annualRatePercent,
+      baseRatePercent: rate.baseRatePercent,
+      rateSource: rate.rateSource,
       openingDebtBalance: dollars(openingDebtCents),
       operatingShortfall: dollars(operatingShortfallCents),
       loanFee: dollars(currentLoanFeeCents),
@@ -454,7 +549,7 @@ function reconciliationsFor(
     check(
       `expected-interest:${month.month}`,
       `${month.month} interest equals opening debt times the monthly interest rate`,
-      dollars(percentOf(cents(month.openingDebtBalance), plan.annualInterestRatePercent / 12)),
+      dollars(percentOf(cents(month.openingDebtBalance), rateFor(plan, month.month).annualRatePercent / 12)),
       month.grossInterest,
     ),
     check(
@@ -483,7 +578,8 @@ function reconciliationsFor(
   ];
 }
 
-function formulaTraces(): CapitalFormulaTrace[] {
+function formulaTraces(plan: DevelopmentCapitalPlan): CapitalFormulaTrace[] {
+  const ratePath = plan.ratePath !== undefined ? ["ratePath"] : [];
   const operatingCashFlowInputs = [
     "analysisStartMonth",
     "saleMonth",
@@ -508,15 +604,15 @@ function formulaTraces(): CapitalFormulaTrace[] {
     { key: "operatingShortfall", label: "Operating Shortfall", formula: "the amount by which monthly operating cash flow is below zero", inputPaths: [...operatingCashFlowInputs] },
     { key: "equity", label: "Equity", formula: "equity funds monthly uses first until the target debt share of total uses is reached", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
     { key: "debtBeforeReserves", label: "Debt Before Reserves", formula: "project costs and loan fees not funded by equity", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth", "fundingOrder"] },
-    { key: "grossInterest", label: "Gross Interest", formula: "opening monthly debt balance times annual interest rate divided by twelve", inputPaths: ["annualInterestRatePercent", "interestConvention"] },
+    { key: "grossInterest", label: "Gross Interest", formula: "opening monthly debt balance times the month's annual rate divided by twelve; the rate is the fixed annual rate, or with a rate path the month's base rate plus the spread, using the first base rate before the curve starts and the last base rate after it ends", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention"] },
     { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", formula: "the lesser of positive monthly operating cash flow or gross interest", inputPaths: ["interestTreatment", ...operatingCashFlowInputs] },
-    { key: "capitalizedInterest", label: "Capitalized Interest", formula: "gross monthly interest less positive operating cash applied to interest", inputPaths: ["annualInterestRatePercent", "interestConvention", "interestTreatment", ...operatingCashFlowInputs] },
-    { key: "interestReserve", label: "Interest Reserve", formula: "gross interest less positive operating cash applied to interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", "interestTreatment", "fundingOrder"] },
+    { key: "capitalizedInterest", label: "Capitalized Interest", formula: "gross monthly interest less positive operating cash applied to interest", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention", "interestTreatment", ...operatingCashFlowInputs] },
+    { key: "interestReserve", label: "Interest Reserve", formula: "gross interest less positive operating cash applied to interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestTreatment", "fundingOrder"] },
     { key: "operatingShortfallReserve", label: "Operating Shortfall Reserve", formula: "negative operating cash flow funded after equity under the equity-first rule and kept separate from project costs", inputPaths: ["fundingOrder", ...operatingCashFlowInputs] },
     { key: "loanFees", label: "Loan Fees", formula: "project costs times target debt share times loan fee percent in the entered fee month", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth"] },
-    { key: "totalDebt", label: "Total Debt", formula: "debt before reserves plus interest reserve and operating shortfall reserve draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", "annualInterestRatePercent", "loanFeePercent", "costLines", ...operatingCashFlowInputs] },
+    { key: "totalDebt", label: "Total Debt", formula: "debt before reserves plus interest reserve and operating shortfall reserve draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", "annualInterestRatePercent", ...ratePath, "loanFeePercent", "costLines", ...operatingCashFlowInputs] },
     { key: "totalSources", label: "Total Sources", formula: "equity contributions plus all debt draws", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
-    { key: "totalUses", label: "Total Uses", formula: "project costs plus loan fees, operating shortfalls, and capitalized interest", inputPaths: ["costLines", "loanFeePercent", "annualInterestRatePercent", ...operatingCashFlowInputs] },
+    { key: "totalUses", label: "Total Uses", formula: "project costs plus loan fees, operating shortfalls, and capitalized interest", inputPaths: ["costLines", "loanFeePercent", "annualInterestRatePercent", ...ratePath, ...operatingCashFlowInputs] },
     { key: "debtSharePercent", label: "Debt Share", formula: "total debt divided by total uses", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
     { key: "repayment", label: "Debt Repayment", formula: "the full opening debt plus current debt draws repaid in the final entered payoff month", inputPaths: ["payoffMonth"] },
     { key: "monthlyDebtRollForward", label: "Monthly Debt Roll-Forward", formula: "opening debt plus debt draws and reserves less payoff equals closing debt", inputPaths: ["payoffMonth", "fundingOrder", "interestTreatment", "interestConvention"] },
@@ -534,7 +630,44 @@ function planFrom(input: DevelopmentCapitalInputs): DevelopmentCapitalPlan {
     interestConvention: input.interestConvention,
     feeMonth: input.feeMonth,
     payoffMonth: input.payoffMonth,
+    ...(input.ratePath !== undefined ? { ratePath: structuredClone(input.ratePath) } : {}),
     capitalAssumptionEvidence: structuredClone(input.capitalAssumptionEvidence),
+  };
+}
+
+function rateFor(plan: DevelopmentCapitalPlan, month: string): { annualRatePercent: number; baseRatePercent: number | null; rateSource: RateSource } {
+  const path = plan.ratePath;
+  if (!path) return { annualRatePercent: plan.annualInterestRatePercent, baseRatePercent: null, rateSource: "fixed" };
+  const first = path.baseRates[0];
+  const last = path.baseRates[path.baseRates.length - 1];
+  const index = monthIndex(month)!;
+  const firstIndex = monthIndex(first.month)!;
+  const lastIndex = monthIndex(last.month)!;
+  const [point, rateSource]: [DevelopmentCapitalRatePoint, RateSource] = index < firstIndex
+    ? [first, "before_curve"]
+    : index > lastIndex
+      ? [last, "after_curve"]
+      : [path.baseRates[index - firstIndex], "curve"];
+  return {
+    annualRatePercent: Math.round((point.baseRatePercent + path.spreadPercent) * 1e8) / 1e8,
+    baseRatePercent: point.baseRatePercent,
+    rateSource,
+  };
+}
+
+function rateScheduleTrace(plan: DevelopmentCapitalPlan, months: MonthlyDevelopmentCapital[]): RateScheduleTrace | null {
+  const path = plan.ratePath;
+  if (!path) return null;
+  return {
+    curveSourceLabel: path.curveSourceLabel,
+    asOfDate: path.asOfDate,
+    spreadPercent: path.spreadPercent,
+    curveFirstMonth: path.baseRates[0].month,
+    curveLastMonth: path.baseRates[path.baseRates.length - 1].month,
+    firstBaseRatePercent: path.baseRates[0].baseRatePercent,
+    lastBaseRatePercent: path.baseRates[path.baseRates.length - 1].baseRatePercent,
+    monthsBeforeCurve: months.filter(({ rateSource }) => rateSource === "before_curve").length,
+    monthsAfterCurve: months.filter(({ rateSource }) => rateSource === "after_curve").length,
   };
 }
 
@@ -565,7 +698,7 @@ function numbersAreSafe(months: MonthlyDevelopmentCapital[], totals: Development
     && Object.values(totals).every((value) => Number.isFinite(value) && Number.isSafeInteger(Math.round(value * 100)));
 }
 
-function monthIndex(value: string) {
+function monthIndex(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return null;
   const [year, month] = value.split("-").map(Number);
   return year * 12 + month - 1;

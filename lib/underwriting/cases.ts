@@ -806,12 +806,14 @@ function reconcileDevelopmentCapitalReview(
   existing: SavedDevelopmentCapital | undefined,
   draft: DevelopmentCapitalDraft,
 ): DevelopmentCapitalDraft {
+  const ratePathChanged = existing !== undefined && JSON.stringify(existing.ratePath) !== JSON.stringify(draft.ratePath);
   return {
     ...draft,
     capitalAssumptionEvidence: Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
       key,
       existing && (
-        existing[key] !== draft[key]
+        (key === "annualInterestRatePercent" && ratePathChanged)
+        || existing[key] !== draft[key]
         || existing.capitalAssumptionEvidence[key].sourceLabel !== draft.capitalAssumptionEvidence[key].sourceLabel
         || existing.capitalAssumptionEvidence[key].sourceDate !== draft.capitalAssumptionEvidence[key].sourceDate
       )

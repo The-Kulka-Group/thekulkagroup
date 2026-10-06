@@ -201,13 +201,30 @@ describe("formatScorecard", () => {
 describe("engineOutputsFor", () => {
   const input = APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput as PropertyReturnsInputs;
 
+  it("reports units, SF and rent by tier, with an empty tier at zero and no rent", () => {
+    const first = input.residentialUnitTypes[0];
+    const tiered = {
+      ...input,
+      residentialUnitTypes: [first, { ...first, id: "affordable-copy", affordabilityTier: "affordable" as const, amiPercent: 60, monthlyMarketRent: first.monthlyMarketRent / 2 }, ...input.residentialUnitTypes.slice(1)],
+    };
+    const run = engineOutputsFor(tiered);
+    expect(run.status).toBe("complete");
+    expect(run.outputs.affordableUnits).toBe(first.units);
+    expect(run.outputs.workforceUnits).toBe(0);
+    expect(run.outputs.workforceAverageMonthlyRent).toBeUndefined();
+    expect((run.outputs.marketUnits as number) + (run.outputs.affordableUnits as number)).toBe(run.outputs.totalUnits);
+    expect((run.outputs.marketRentableSf as number) + (run.outputs.affordableRentableSf as number)).toBe(run.outputs.totalAreaSf);
+    expect(run.outputs.affordableAverageMonthlyRent).toBeCloseTo((first.monthlyMarketRent / 2), 6);
+  });
+
   it("reads every catalog output from one complete run", () => {
     const run = engineOutputsFor(input);
     expect(run.status).toBe("complete");
     expect(run.issueCodes).toEqual([]);
     const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS]);
-    const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item));
+    const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item) && !/AverageMonthlyRent$/.test(item));
     for (const key of always) expect(run.outputs[key], key).toBeDefined();
+    expect(run.outputs.marketAverageMonthlyRent).toBeDefined();
     for (const key of PROPERTY_TAX_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
   });
 

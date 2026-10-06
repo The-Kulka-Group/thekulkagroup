@@ -21,6 +21,7 @@ import { EditUnderwritingCase } from "./EditUnderwritingCase";
 import { ApartmentOperationsEditor } from "./ApartmentOperationsEditor";
 import { CostScheduleEditor } from "./CostScheduleEditor";
 import { DevelopmentCapitalEditor } from "./DevelopmentCapitalEditor";
+import { UnitMixByTier } from "./UnitMixByTier";
 import { PropertyReturnsEditor } from "./PropertyReturnsEditor";
 import { PropertyReturnsResults } from "./PropertyReturnsResults";
 import { ScenarioComparisonEditor } from "./ScenarioComparisonEditor";
@@ -127,6 +128,7 @@ export default async function UnderwritingCasePage({
         <div className="margin" />
         <section className="col-field record-section">
           <ApartmentOperationsEditor savedCase={savedCase} />
+          {savedCase.apartmentOperations ? <UnitMixByTier unitTypes={savedCase.apartmentOperations.residentialUnitTypes} result={currentRun?.apartmentOperationsResult ?? currentRun?.developmentCapitalResult?.apartmentOperations} /> : null}
         </section>
 
         <div className="margin" />

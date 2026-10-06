@@ -168,6 +168,9 @@ describe("underwriting form accessibility contract", () => {
     expect(taxSection).toContain("maxLength={MAX_PROPERTY_TAX_SOURCE_LABEL_LENGTH}");
     expect(taxSection).toContain("PILOT Payment");
     expect(taxSection).toContain("Assessment Cap Rate");
+    expect(taxSection).toContain("Two Cap Rates");
+    expect(taxSection).toContain("Assessment Cap Rate Before Stabilization");
+    expect(results).toContain("capRates");
     expect(editor).toContain("Full Tax Plus Abatement Value");
     expect(editor).toContain("SALE_TAX_INPUT_VERSION");
     expect(results).toContain("Sale on Scheduled Tax and Full Tax");

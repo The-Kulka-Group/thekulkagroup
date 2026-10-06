@@ -679,6 +679,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
   let creditLossYearToDate = 0;
   const lastOffset = monthIndex(costSchedule.months.at(-1)?.month ?? input.operationStartMonth)! - operationStart;
   const leasedByOffset = leasedUnitsByOffset(input, revenueUnits, operationStart, lastOffset);
+  const stabilizedOffset = firstStabilizedOffset(leasedByOffset, input.stabilizationRule, revenueUnits);
   const leadMonths = Math.max(0, ...input.operatingExpenseLines.map((line) => line.leadMonths ?? 0));
 
   const months = costSchedule.months.map((costMonth) => {
@@ -742,7 +743,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     creditLossYearToDate = cumulativeCreditLoss;
     const effectiveGrossRevenue = totalPotentialIncome + vacancyLoss + creditLoss;
     const tax = input.propertyTax
-      ? propertyTaxForMonth(input.propertyTax, currentMonth, effectiveGrossRevenue)
+      ? propertyTaxForMonth(input.propertyTax, currentMonth, effectiveGrossRevenue, stabilizedOffset !== null && operationOffset >= stabilizedOffset)
       : { full: 0, scheduled: 0 };
     const operatingExpenses = tax.scheduled + input.operatingExpenseLines.reduce((sum, line) => sum + lineAmountCents(
       line,
@@ -794,14 +795,15 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     });
   });
   const totals = totalOperations(months);
+  const stabilizedMonth = stabilizedOffset === null ? undefined : monthLabelFor(operationStart + stabilizedOffset);
   return {
     costSchedule,
     unitTypeSummaries,
     unitSummary: { totalUnits, revenueUnits, nonRevenueUnits, totalAreaSf },
     months,
     totals,
-    firstStabilizedMonth: firstStabilizedMonth(months, input.stabilizationRule),
-    propertyTax: input.propertyTax ? propertyTaxResult(input.propertyTax, months, input.operationStartMonth) : null,
+    firstStabilizedMonth: stabilizedMonth,
+    propertyTax: input.propertyTax ? propertyTaxResult(input.propertyTax, months, input.operationStartMonth, stabilizedMonth) : null,
     formulaTraces: formulaTraces(),
   };
 }
@@ -860,17 +862,25 @@ function concessionUnits(concession: LeaseUpConcession, leasedByOffset: number[]
   return units;
 }
 
-/** The month leased units have held at or above the target for the hold months, counting the first. */
-function firstStabilizedMonth(months: MonthlyApartmentOperations[], rule: StabilizationRule | undefined) {
+/**
+ * The offset from operation start of the month leased units have held at or above the target for the
+ * hold months, counting the first. Null when the run never gets there. Tax reads this before the
+ * monthly loop, so it depends on leasing alone.
+ */
+function firstStabilizedOffset(leasedByOffset: number[], rule: StabilizationRule | undefined, revenueUnits: number) {
   const target = rule?.targetOccupancyPercent ?? 100;
   const hold = rule?.holdMonths ?? 1;
   let held = 0;
-  for (const month of months) {
-    const atTarget = month.revenueUnits > 0 && month.leasedUnits * 100 >= target * month.revenueUnits - 1e-9;
+  for (let offset = 0; offset < leasedByOffset.length; offset += 1) {
+    const atTarget = revenueUnits > 0 && leasedByOffset[offset] * 100 >= target * revenueUnits - 1e-9;
     held = atTarget ? held + 1 : 0;
-    if (held >= hold) return month.month;
+    if (held >= hold) return offset;
   }
-  return undefined;
+  return null;
+}
+
+function monthLabelFor(index: number) {
+  return `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
 }
 
 function annualGrowthPeriods(month: number, growthStart: number) {
@@ -1113,7 +1123,7 @@ function formulaTraces(): OperationsFormulaTrace[] {
     { key: "creditLoss", label: "Credit Loss", formula: "negative total potential income times credit-loss percent", inputPaths: ["creditLossPercent", "residentialUnitTypes", "otherIncomeLines"] },
     { key: "effectiveGrossRevenue", label: "Effective Gross Revenue", formula: "total potential income plus vacancy loss and credit loss", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "vacancyPercent", "creditLossPercent"] },
     { key: "operatingExpenses", label: "Operating Expenses", formula: "sum of grown annual, per-unit, and percent-of-revenue operating expense lines plus scheduled property tax; each annual or per-unit line's month is its fixed share plus its variable share times leased units over revenue units, and a line with lead months runs at its fixed share for those months before operation start", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent", "propertyTax"] },
-    { key: "propertyTax", label: "Property Tax", formula: "each fiscal year's tax after its exemption step, or its stated PILOT payment, spread evenly over the fiscal year's months; on the income basis, each month's revenue less the assessor's expense ratio, over the assessment cap rate, times the assessment ratio and the rate", inputPaths: ["propertyTax"] },
+    { key: "propertyTax", label: "Property Tax", formula: "each fiscal year's tax after its exemption step, or its stated PILOT payment, spread evenly over the fiscal year's months; on the income basis, each month's revenue less the assessor's expense ratio, over the assessment cap rate, times the assessment ratio and the rate; with a lease-up cap rate, months before the first stabilized month use it, and months from the first stabilized month on use the plan's cap rate", inputPaths: ["propertyTax"] },
     { key: "fullPropertyTax", label: "Full Property Tax", formula: "the same fiscal-year tax with no exemption or PILOT payment; years after the listed schedule grow the last listed rate", inputPaths: ["propertyTax"] },
     { key: "netOperatingIncome", label: "Net Operating Income", formula: "effective gross revenue less grown operating expenses", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "capitalExpenditures", label: "Capital Expenditures", formula: "sum of grown annual and per-unit capital expenditure lines, each month's fixed share plus its variable share times leased units over revenue units", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },

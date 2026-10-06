@@ -155,6 +155,99 @@ describe("property tax schedule on the operating run", () => {
   });
 });
 
+describe("income basis with a lease-up cap rate", () => {
+  // v2.98 base: operations start 2027-07 and the first stabilized month is 2028-09.
+  const incomePlan = (overrides: Partial<PropertyTaxPlan> = {}) => pilot({
+    mode: "full_tax",
+    assessmentBasis: "income",
+    firstFiscalYearStartMonth: "2027-01",
+    landAssessedValue: undefined,
+    improvementAssessedValue: undefined,
+    assessorExpenseRatioPercent: 30,
+    assessmentCapRatePercent: 8.6,
+    assessmentRatioPercent: 100,
+    rateUnit: "mills",
+    fiscalYears: [{ rate: 18.8172, exemptionPercent: 0 }],
+    annualRateGrowthPercent: 0,
+    ...overrides,
+  });
+  const taxAt = (input: PropertyReturnsInputs, label: string, capRatePercent: number) => {
+    const found = month(input, label);
+    const assessedCents = Math.round(found.effectiveGrossRevenue * 100) * 0.7 / (capRatePercent / 100);
+    return { found, expected: Math.round(assessedCents * 0.0188172) / 100 };
+  };
+
+  it("uses one cap rate for the whole hold when no lease-up rate is set", () => {
+    const input = withTax(incomePlan());
+    for (const label of ["2027-09", "2028-08", "2028-09", "2029-03"]) {
+      const { found, expected } = taxAt(input, label, 8.6);
+      expect(found.propertyTax, label).toBe(expected);
+    }
+    expect(computeApartmentOperations(input).result!.propertyTax!.capRates).toBeNull();
+  });
+
+  it("uses the lease-up cap rate before the first stabilized month and the plan's rate from it on", () => {
+    const input = withTax(incomePlan({ leaseUpAssessmentCapRatePercent: 7 }));
+    expect(computeApartmentOperations(input).result!.firstStabilizedMonth).toBe("2028-09");
+    for (const label of ["2027-09", "2028-08"]) {
+      const { found, expected } = taxAt(input, label, 7);
+      expect(found.propertyTax, label).toBe(expected);
+      expect(found.fullPropertyTax, label).toBe(expected);
+    }
+    for (const label of ["2028-09", "2029-03"]) {
+      const { found, expected } = taxAt(input, label, 8.6);
+      expect(found.propertyTax, label).toBe(expected);
+    }
+    // The lower cap rate taxes the same income more: 8.6 over 7.
+    const lowRate = taxAt(input, "2028-08", 7).found.propertyTax;
+    const oneRate = month(withTax(incomePlan()), "2028-08").propertyTax;
+    expect(lowRate / oneRate).toBeCloseTo(8.6 / 7, 3);
+    expect(computeApartmentOperations(input).result!.propertyTax!.capRates).toEqual({
+      leaseUpPercent: 7, stabilizedPercent: 8.6, stabilizedFromMonth: "2028-09",
+    });
+  });
+
+  it("moves the switch with the stabilization rule", () => {
+    const input = withTax(incomePlan({ leaseUpAssessmentCapRatePercent: 7 }), {
+      stabilizationRule: { targetOccupancyPercent: 100, holdMonths: 3, ...evidence },
+    });
+    const run = computeApartmentOperations(input);
+    expect(run.result!.firstStabilizedMonth).toBe("2028-11");
+    expect(taxAt(input, "2028-10", 7).found.propertyTax).toBe(taxAt(input, "2028-10", 7).expected);
+    expect(taxAt(input, "2028-11", 8.6).found.propertyTax).toBe(taxAt(input, "2028-11", 8.6).expected);
+    expect(run.result!.propertyTax!.capRates!.stabilizedFromMonth).toBe("2028-11");
+  });
+
+  it("keeps the lease-up cap rate in every month when the property never stabilizes", () => {
+    const input = withTax(incomePlan({ leaseUpAssessmentCapRatePercent: 7 }), {
+      stabilizationRule: { targetOccupancyPercent: 100, holdMonths: 24, ...evidence },
+    });
+    const run = computeApartmentOperations(input);
+    expect(run.result!.firstStabilizedMonth).toBeUndefined();
+    for (const label of ["2027-09", "2028-09", "2029-09"]) {
+      const { found, expected } = taxAt(input, label, 7);
+      expect(found.propertyTax, label).toBe(expected);
+    }
+    expect(run.result!.propertyTax!.capRates).toEqual({ leaseUpPercent: 7, stabilizedPercent: 8.6, stabilizedFromMonth: null });
+  });
+
+  it("carries the lease-up cap rate through the full property run, so forward sale tax uses the stabilized rate", () => {
+    const one = computePropertyReturns(withTax(incomePlan()));
+    const two = computePropertyReturns(withTax(incomePlan({ leaseUpAssessmentCapRatePercent: 7 })));
+    expect(two.issues).toEqual([]);
+    const forward = (run: typeof one) => run.result!.propertyReturns.sale.forwardNetOperatingIncome;
+    expect(forward(two)).toBe(forward(one));
+    expect(two.result!.developmentCapital.totals.operatingShortfall).toBeGreaterThan(one.result!.developmentCapital.totals.operatingShortfall);
+    expect(two.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+  });
+
+  it("refuses a lease-up cap rate on the stated assessed value basis and one entered as a decimal", () => {
+    const codes = (plan: PropertyTaxPlan) => computeApartmentOperations(withTax(plan)).issues.map(({ path, code }) => `${path}:${code}`);
+    expect(codes(pilot({ leaseUpAssessmentCapRatePercent: 7 }))).toEqual(["propertyTax.leaseUpAssessmentCapRatePercent:invalid_assessment"]);
+    expect(codes(incomePlan({ leaseUpAssessmentCapRatePercent: 0.07 }))).toEqual(["propertyTax.leaseUpAssessmentCapRatePercent:implausible_tax_rate"]);
+  });
+});
+
 describe("property tax unit checks", () => {
   const codes = (plan: PropertyTaxPlan) => computeApartmentOperations(withTax(plan)).issues.map(({ path, code }) => `${path}:${code}`);
 

@@ -804,6 +804,39 @@ describe("underwriting calculation repository", () => {
     expect(evidence.assessment.reviewState).toBe("done");
   });
 
+  const incomeTaxPlan = (overrides: Record<string, unknown> = {}) => taxPlan({
+    mode: "abatement", assessmentBasis: "income", landAssessedValue: undefined, improvementAssessedValue: undefined,
+    assessorExpenseRatioPercent: 30, assessmentCapRatePercent: 8.6, assessmentRatioPercent: 100,
+    fiscalYears: [{ rate: 18.8172, exemptionPercent: 50 }], annualRateGrowthPercent: 0,
+    ...overrides,
+  });
+
+  it("stores a lease-up cap rate, runs it, and reports both rates", async () => {
+    const property = await caseWithTax(incomeTaxPlan({ leaseUpAssessmentCapRatePercent: 7 }));
+    expect(property!.apartmentOperations!.propertyTax).toMatchObject({ assessmentCapRatePercent: 8.6, leaseUpAssessmentCapRatePercent: 7 });
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    expect(run!.issues, JSON.stringify(run!.issues)).toEqual([]);
+    expect(run).toMatchObject({ status: "complete" });
+    expect(run!.propertyReturnsResult!.propertyTax!.capRates).toEqual({ leaseUpPercent: 7, stabilizedPercent: 8.6, stabilizedFromMonth: "2026-01" });
+    expect((await getUnderwritingRun(db, run!.id))).toEqual(run);
+  });
+
+  it("returns the assessment evidence to Working on It when the lease-up cap rate changes or is removed", async () => {
+    const property = await caseWithTax(incomeTaxPlan({ leaseUpAssessmentCapRatePercent: 7 }));
+    const { lastChangedAt, ...operations } = property!.apartmentOperations!;
+    void lastChangedAt;
+    const save = (revision: number, propertyTax: Record<string, unknown>) => saveApartmentOperations(db, property!.id, revision, {
+      ...operations, propertyTax,
+    } as Parameters<typeof saveApartmentOperations>[3]);
+    const unchanged = await save(property!.caseRevision, incomeTaxPlan({ leaseUpAssessmentCapRatePercent: 7 }));
+    expect(unchanged!.apartmentOperations!.propertyTax!.taxEvidence.assessment.reviewState).toBe("done");
+    const changed = await save(unchanged!.caseRevision, incomeTaxPlan({ leaseUpAssessmentCapRatePercent: 6.5 }));
+    expect(changed!.apartmentOperations!.propertyTax!.taxEvidence.assessment.reviewState).toBe("working");
+    expect(changed!.apartmentOperations!.propertyTax!.taxEvidence.fiscalYears.reviewState).toBe("done");
+    const removed = await save(changed!.caseRevision, incomeTaxPlan());
+    expect(removed!.apartmentOperations!.propertyTax).not.toHaveProperty("leaseUpAssessmentCapRatePercent");
+  });
+
   it("keeps runs saved before the tax schedule readable", async () => {
     const property = await caseWithPropertyReturns();
     const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);

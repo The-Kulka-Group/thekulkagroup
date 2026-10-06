@@ -15,9 +15,18 @@ import {
 } from "./property-tax";
 
 export const APARTMENT_OPERATIONS_INPUT_VERSION = "apartment_operations_inputs.v1" as const;
-/** v2 adds the dated property tax schedule (LA-1690). Runs saved under v1 stay readable and carry no tax line. */
-export const APARTMENT_OPERATIONS_FORMULA_VERSION = "underwriting.apartment_operations.v2" as const;
+/**
+ * v3 adds the lease-up expense ramp, lease-up concessions, seasonal absorption and the stabilization
+ * rule (LA-1704). v2 added the dated property tax schedule (LA-1690). Earlier runs stay readable:
+ * v2 runs carry no concession line, and v1 runs carry no tax line either.
+ */
+export const APARTMENT_OPERATIONS_FORMULA_VERSION = "underwriting.apartment_operations.v3" as const;
+export const APARTMENT_OPERATIONS_V2_FORMULA_VERSION = "underwriting.apartment_operations.v2" as const;
 export const APARTMENT_OPERATIONS_V1_FORMULA_VERSION = "underwriting.apartment_operations.v1" as const;
+export const MAX_EXPENSE_LEAD_MONTHS = 24;
+export const MAX_CONCESSION_LEASE_TERM_MONTHS = 36;
+export const MAX_STABILIZATION_HOLD_MONTHS = 24;
+export const MAX_SEASONAL_ABSORPTION_FACTOR = 10;
 export const MAX_APARTMENT_OPERATION_LINES = 250;
 export const MAX_OPERATION_LINE_ID_LENGTH = 100;
 export const MAX_OPERATION_LINE_NAME_LENGTH = 200;
@@ -76,11 +85,48 @@ export type OtherIncomeLine = SourcedLine & {
 export type OperatingExpenseLine = SourcedLine & {
   amount: number;
   unit: "usd_per_year" | "usd_per_unit_year" | "percent_effective_gross_revenue";
+  /** Share of the line that scales with leased units during lease-up. Absent reads as zero, a fully fixed line. */
+  variablePercent?: number;
+  /** Months the line starts before operation start, at its fixed share. Absent reads as zero. */
+  leadMonths?: number;
 };
 
 export type CapitalExpenditureLine = SourcedLine & {
   amount: number;
   unit: "usd_per_year" | "usd_per_unit_year";
+  /** Share of the line that scales with leased units during lease-up. Absent reads as zero, a fully fixed line. */
+  variablePercent?: number;
+};
+
+type Evidence = {
+  sourceLabel?: string;
+  sourceDate?: string;
+  reviewState: ReviewState;
+};
+
+export const LEASE_UP_CONCESSION_TIMINGS = ["at_move_in", "spread_over_term"] as const;
+export type LeaseUpConcessionTiming = typeof LEASE_UP_CONCESSION_TIMINGS[number];
+
+/**
+ * Free rent on each lease signed during lease-up, apart from the stabilized free-rent percent.
+ * At move-in, the lease's first months are free. Spread over the term, each month of the first
+ * lease term carries months free over the term.
+ */
+export type LeaseUpConcession = Evidence & {
+  monthsFree: number;
+  leaseTermMonths: number;
+  timing: LeaseUpConcessionTiming;
+};
+
+/** Twelve factors on the lease-up pace, January first. A factor of one keeps the base pace. */
+export type SeasonalAbsorption = Evidence & {
+  monthlyFactors: number[];
+};
+
+/** The property stabilizes once leased units hold at or above the target for the stated months. */
+export type StabilizationRule = Evidence & {
+  targetOccupancyPercent: number;
+  holdMonths: number;
 };
 
 export type ApartmentOperationsInputs = MonthlyCostScheduleInputs & {
@@ -102,10 +148,18 @@ export type ApartmentOperationsInputs = MonthlyCostScheduleInputs & {
   capitalExpenditureLines: CapitalExpenditureLine[];
   /** Replaces a flat tax expense line. Its scheduled tax joins operating expenses. */
   propertyTax?: PropertyTaxPlan;
+  /** Absent means no lease-up free rent beyond the stabilized free-rent percent. */
+  leaseUpConcession?: LeaseUpConcession;
+  /** Absent means the same pace every month. */
+  seasonalAbsorption?: SeasonalAbsorption;
+  /** Absent means the first month every revenue unit is leased. */
+  stabilizationRule?: StabilizationRule;
 };
 
 export type ApartmentOperationsIssueCode = MonthlyCostIssueCode
   | "invalid_affordability_tier"
+  | "invalid_absorption_factor"
+  | "invalid_concession_timing"
   | PropertyTaxIssueCode
   | "unsupported_input_version"
   | "outside_timeline"
@@ -149,6 +203,8 @@ export type MonthlyApartmentOperations = {
   leaseUpLoss: number;
   rentAdjustmentLoss: number;
   freeRentLoss: number;
+  /** Free rent on leases signed during lease-up. Zero with no lease-up concession. */
+  leaseUpConcessionLoss: number;
   totalResidentialRent: number;
   otherIncome: number;
   totalPotentialIncome: number;
@@ -354,7 +410,126 @@ function validate(input: ApartmentOperationsInputs) {
   validateMoneyLines(issues, input.otherIncomeLines, "otherIncomeLines", OTHER_INCOME_UNITS);
   validateMoneyLines(issues, input.operatingExpenseLines, "operatingExpenseLines", OPERATING_EXPENSE_UNITS);
   validateMoneyLines(issues, input.capitalExpenditureLines, "capitalExpenditureLines", CAPITAL_EXPENDITURE_UNITS);
+  validateExpenseRamp(issues, input, operation, analysis);
+  validateLeaseUpConcession(issues, input.leaseUpConcession);
+  validateSeasonalAbsorption(issues, input.seasonalAbsorption);
+  validateStabilizationRule(issues, input.stabilizationRule);
   return issues;
+}
+
+function validateExpenseRamp(
+  issues: ApartmentOperationsIssue[],
+  input: ApartmentOperationsInputs,
+  operation: number | null,
+  analysis: number | null,
+) {
+  const sections = [
+    ["operatingExpenseLines", input.operatingExpenseLines],
+    ["capitalExpenditureLines", input.capitalExpenditureLines],
+  ] as const;
+  for (const [path, lines] of sections) {
+    if (!Array.isArray(lines)) continue;
+    lines.forEach((line, index) => {
+      if (!isLineObject(line)) return;
+      const linePath = `${path}.${index}`;
+      const { variablePercent } = line;
+      if (variablePercent !== undefined) {
+        if (!(typeof variablePercent === "number" && Number.isFinite(variablePercent) && variablePercent >= 0 && variablePercent <= 100)) {
+          addIssue(issues, `${linePath}.variablePercent`, "invalid_percent", "Variable share must be from 0 to 100 percent.");
+        } else if (line.unit === "percent_effective_gross_revenue" && variablePercent > 0) {
+          addIssue(issues, `${linePath}.variablePercent`, "unsupported_unit", "A percent-of-revenue line already moves with revenue, so it takes no variable share.");
+        }
+      }
+      const leadMonths = (line as OperatingExpenseLine).leadMonths;
+      if (leadMonths === undefined) return;
+      if (path !== "operatingExpenseLines") {
+        addIssue(issues, `${linePath}.leadMonths`, "invalid_line", "Only operating expense lines can start before operation start.");
+      } else if (!Number.isSafeInteger(leadMonths) || leadMonths < 0 || leadMonths > MAX_EXPENSE_LEAD_MONTHS) {
+        addIssue(issues, `${linePath}.leadMonths`, "invalid_units", `Lead months must be a whole number from 0 to ${MAX_EXPENSE_LEAD_MONTHS}.`);
+      } else if (line.unit === "percent_effective_gross_revenue" && leadMonths > 0) {
+        addIssue(issues, `${linePath}.leadMonths`, "unsupported_unit", "A percent-of-revenue line has nothing to charge before revenue starts.");
+      } else if (operation !== null && analysis !== null && operation - leadMonths < analysis) {
+        addIssue(issues, `${linePath}.leadMonths`, "outside_timeline", "Lead months cannot start the line before the analysis start month.");
+      }
+    });
+  }
+}
+
+function validateLeaseUpConcession(issues: ApartmentOperationsIssue[], concession: LeaseUpConcession | undefined) {
+  if (concession === undefined) return;
+  const path = "leaseUpConcession";
+  if (!isEvidenceObject(concession)) {
+    addIssue(issues, path, "invalid_line", "Lease-up concession must be an object.");
+    return;
+  }
+  const { leaseTermMonths, monthsFree, timing } = concession;
+  if (!Number.isSafeInteger(leaseTermMonths) || leaseTermMonths < 1 || leaseTermMonths > MAX_CONCESSION_LEASE_TERM_MONTHS) {
+    addIssue(issues, `${path}.leaseTermMonths`, "invalid_units", `Lease term must be a whole number of months from 1 to ${MAX_CONCESSION_LEASE_TERM_MONTHS}.`);
+  }
+  if (!(typeof monthsFree === "number" && Number.isFinite(monthsFree) && monthsFree > 0 && hasAtMostDecimals(monthsFree, 2))) {
+    addIssue(issues, `${path}.monthsFree`, "invalid_amount", "Months free must be above zero with no more than two decimal places.");
+  } else if (Number.isSafeInteger(leaseTermMonths) && monthsFree > leaseTermMonths) {
+    addIssue(issues, `${path}.monthsFree`, "invalid_amount", "Months free cannot exceed the lease term.");
+  }
+  if (!(LEASE_UP_CONCESSION_TIMINGS as readonly string[]).includes(timing)) {
+    addIssue(issues, `${path}.timing`, "invalid_concession_timing", "Concession timing must be at move-in or spread over the lease term.");
+  }
+  validateEvidence(issues, path, concession);
+}
+
+function validateSeasonalAbsorption(issues: ApartmentOperationsIssue[], seasonal: SeasonalAbsorption | undefined) {
+  if (seasonal === undefined) return;
+  const path = "seasonalAbsorption";
+  if (!isEvidenceObject(seasonal)) {
+    addIssue(issues, path, "invalid_line", "Seasonal absorption must be an object.");
+    return;
+  }
+  if (!Array.isArray(seasonal.monthlyFactors) || seasonal.monthlyFactors.length !== 12) {
+    addIssue(issues, `${path}.monthlyFactors`, "invalid_absorption_factor", "Seasonal absorption needs twelve monthly factors, January first.");
+  } else {
+    seasonal.monthlyFactors.forEach((factor, index) => {
+      if (!(typeof factor === "number" && Number.isFinite(factor) && factor >= 0 && factor <= MAX_SEASONAL_ABSORPTION_FACTOR && hasAtMostDecimals(factor, 4))) {
+        addIssue(issues, `${path}.monthlyFactors.${index}`, "invalid_absorption_factor", `Each factor must be from 0 to ${MAX_SEASONAL_ABSORPTION_FACTOR} with no more than four decimal places.`);
+      }
+    });
+  }
+  validateEvidence(issues, path, seasonal);
+}
+
+function validateStabilizationRule(issues: ApartmentOperationsIssue[], rule: StabilizationRule | undefined) {
+  if (rule === undefined) return;
+  const path = "stabilizationRule";
+  if (!isEvidenceObject(rule)) {
+    addIssue(issues, path, "invalid_line", "Stabilization rule must be an object.");
+    return;
+  }
+  const { targetOccupancyPercent, holdMonths } = rule;
+  if (!(typeof targetOccupancyPercent === "number" && Number.isFinite(targetOccupancyPercent) && targetOccupancyPercent > 0 && targetOccupancyPercent <= 100)) {
+    addIssue(issues, `${path}.targetOccupancyPercent`, "invalid_percent", "Target occupancy must be above 0 and at most 100 percent.");
+  }
+  if (!Number.isSafeInteger(holdMonths) || holdMonths < 1 || holdMonths > MAX_STABILIZATION_HOLD_MONTHS) {
+    addIssue(issues, `${path}.holdMonths`, "invalid_units", `Hold months must be a whole number from 1 to ${MAX_STABILIZATION_HOLD_MONTHS}.`);
+  }
+  validateEvidence(issues, path, rule);
+}
+
+function isEvidenceObject(value: unknown): value is Evidence {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function validateEvidence(issues: ApartmentOperationsIssue[], path: string, item: Evidence) {
+  validateSourceLabel(issues, `${path}.sourceLabel`, item.sourceLabel);
+  if (item.sourceDate !== undefined && !validDate(item.sourceDate)) {
+    addIssue(issues, `${path}.sourceDate`, "invalid_source_date", "Source date must be a valid YYYY-MM-DD date.");
+  }
+  if (item.reviewState !== "working" && item.reviewState !== "done") {
+    addIssue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on It or Done.");
+  }
+}
+
+function hasAtMostDecimals(value: number, places: number) {
+  const scale = 10 ** places;
+  return Math.abs(value * scale - Math.round(value * scale)) < 1e-6;
 }
 
 function validateAssumptionEvidence(
@@ -502,17 +677,29 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
   let potentialIncomeYearToDate = 0;
   let vacancyLossYearToDate = 0;
   let creditLossYearToDate = 0;
+  const lastOffset = monthIndex(costSchedule.months.at(-1)?.month ?? input.operationStartMonth)! - operationStart;
+  const leasedByOffset = leasedUnitsByOffset(input, revenueUnits, operationStart, lastOffset);
+  const leadMonths = Math.max(0, ...input.operatingExpenseLines.map((line) => line.leadMonths ?? 0));
 
   const months = costSchedule.months.map((costMonth) => {
     const operationOffset = monthIndex(costMonth.month)! - operationStart;
-    if (operationOffset < 0) return emptyMonth(costMonth.month, costMonth.totalUses);
     const currentMonth = monthIndex(costMonth.month)!;
-    const incomeGrowthPeriods = annualGrowthPeriods(currentMonth, growthStart);
     const expenseGrowthPeriods = annualGrowthPeriods(currentMonth, growthStart);
-    const leasedUnits = Math.min(
-      revenueUnits,
-      input.preleasedUnits + input.leaseUpUnitsPerMonth * operationOffset,
-    );
+    if (operationOffset < -leadMonths) return emptyMonth(costMonth.month, costMonth.totalUses);
+    if (operationOffset < 0) {
+      const operatingExpenses = input.operatingExpenseLines
+        .filter((line) => (line.leadMonths ?? 0) >= -operationOffset)
+        .reduce((sum, line) => sum + lineAmountCents(line, operationOffset, 0, 0, totalUnits, 0, input.annualExpenseGrowthPercent, expenseGrowthPeriods), 0);
+      return moneyMonth({
+        ...emptyMonth(costMonth.month, costMonth.totalUses),
+        operatingExpenses,
+        netOperatingIncome: -operatingExpenses,
+        operatingCashFlow: -operatingExpenses,
+      });
+    }
+    const incomeGrowthPeriods = annualGrowthPeriods(currentMonth, growthStart);
+    const leasedUnits = leasedByOffset[operationOffset];
+    const occupancy = leasedUnits / revenueUnits;
     const residentialGrossRent = input.residentialUnitTypes.reduce(
       (sum, line) => sum + grownCents(cents(line.monthlyMarketRent), input.annualIncomeGrowthPercent, incomeGrowthPeriods) * line.units,
       0,
@@ -526,11 +713,14 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     const occupiedResidentialRent = residentialGrossRent + nonRevenueRentAdjustment + leaseUpLoss;
     const rentAdjustmentLoss = -percentOf(occupiedResidentialRent, input.rentAdjustmentLossPercent);
     const freeRentLoss = -percentOf(occupiedResidentialRent, input.freeRentPercent);
-    const totalResidentialRent = occupiedResidentialRent + rentAdjustmentLoss + freeRentLoss;
+    const leaseUpConcessionLoss = input.leaseUpConcession
+      ? 0 - Math.round(revenueRentCents * concessionUnits(input.leaseUpConcession, leasedByOffset, operationOffset) / revenueUnits)
+      : 0;
+    const totalResidentialRent = occupiedResidentialRent + rentAdjustmentLoss + freeRentLoss + leaseUpConcessionLoss;
     const otherIncome = input.otherIncomeLines.reduce((sum, line) => sum + lineAmountCents(
-      line.amount,
-      line.unit,
+      line,
       operationOffset,
+      occupancy,
       leasedUnits,
       totalUnits,
       0,
@@ -555,9 +745,9 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
       ? propertyTaxForMonth(input.propertyTax, currentMonth, effectiveGrossRevenue)
       : { full: 0, scheduled: 0 };
     const operatingExpenses = tax.scheduled + input.operatingExpenseLines.reduce((sum, line) => sum + lineAmountCents(
-      line.amount,
-      line.unit,
+      line,
       operationOffset,
+      occupancy,
       leasedUnits,
       totalUnits,
       effectiveGrossRevenue,
@@ -566,9 +756,9 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     ), 0);
     const netOperatingIncome = effectiveGrossRevenue - operatingExpenses;
     const capitalExpenditures = input.capitalExpenditureLines.reduce((sum, line) => sum + lineAmountCents(
-      line.amount,
-      line.unit,
+      line,
       operationOffset,
+      occupancy,
       leasedUnits,
       totalUnits,
       0,
@@ -588,6 +778,7 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
       leaseUpLoss,
       rentAdjustmentLoss,
       freeRentLoss,
+      leaseUpConcessionLoss,
       totalResidentialRent,
       otherIncome,
       totalPotentialIncome,
@@ -609,26 +800,77 @@ function calculate(input: ApartmentOperationsInputs, costSchedule: MonthlyCostSc
     unitSummary: { totalUnits, revenueUnits, nonRevenueUnits, totalAreaSf },
     months,
     totals,
-    firstStabilizedMonth: months.find((month) => month.revenueUnits > 0 && month.leasedUnits === month.revenueUnits)?.month,
+    firstStabilizedMonth: firstStabilizedMonth(months, input.stabilizationRule),
     propertyTax: input.propertyTax ? propertyTaxResult(input.propertyTax, months, input.operationStartMonth) : null,
     formulaTraces: formulaTraces(),
   };
 }
 
 function lineAmountCents(
-  amount: number,
-  unit: string,
+  line: { amount: number; unit: string; variablePercent?: number },
   operationOffset: number,
+  occupancy: number,
   leasedUnits: number,
   totalUnits: number,
   effectiveGrossRevenueCents: number,
   annualGrowthPercent: number,
   growthPeriods: number,
 ) {
+  const { amount, unit } = line;
   if (unit === "usd_per_occupied_unit_month") return grownCents(cents(amount), annualGrowthPercent, growthPeriods) * leasedUnits;
-  if (unit === "usd_per_unit_year") return annualAllocation(grownCents(cents(amount), annualGrowthPercent, growthPeriods) * totalUnits, operationOffset);
   if (unit === "percent_effective_gross_revenue") return percentOf(effectiveGrossRevenueCents, amount);
-  return annualAllocation(grownCents(cents(amount), annualGrowthPercent, growthPeriods), operationOffset);
+  const annualCents = grownCents(cents(amount), annualGrowthPercent, growthPeriods) * (unit === "usd_per_unit_year" ? totalUnits : 1);
+  const monthCents = annualAllocation(annualCents, operationOffset);
+  const variableShare = (line.variablePercent ?? 0) / 100;
+  if (variableShare === 0 || occupancy >= 1) return monthCents;
+  return Math.round(monthCents * (1 - variableShare + variableShare * occupancy));
+}
+
+/**
+ * Leased units at each month from operation start. Without seasonal factors this is pre-leased
+ * units plus the pace times the months elapsed. With them, each month adds the pace times that
+ * calendar month's factor, and the running total rounds to whole units.
+ */
+function leasedUnitsByOffset(input: ApartmentOperationsInputs, revenueUnits: number, operationStart: number, lastOffset: number) {
+  const factors = input.seasonalAbsorption?.monthlyFactors;
+  const leased: number[] = [];
+  let absorbedTenThousandths = 0;
+  for (let offset = 0; offset <= lastOffset; offset += 1) {
+    if (offset > 0) {
+      const factor = factors ? factors[(operationStart + offset) % 12] : 1;
+      absorbedTenThousandths += Math.round(input.leaseUpUnitsPerMonth * factor * 10_000);
+    }
+    leased.push(Math.min(revenueUnits, input.preleasedUnits + Math.round(absorbedTenThousandths / 10_000)));
+  }
+  return leased;
+}
+
+/** Leased units whose rent the concession forgoes this month, summed over each month's new leases. */
+function concessionUnits(concession: LeaseUpConcession, leasedByOffset: number[], operationOffset: number) {
+  let units = 0;
+  for (let signed = 0; signed <= operationOffset; signed += 1) {
+    const newLeases = leasedByOffset[signed] - (signed === 0 ? 0 : leasedByOffset[signed - 1]);
+    if (newLeases === 0) continue;
+    const age = operationOffset - signed;
+    const share = concession.timing === "at_move_in"
+      ? Math.min(Math.max(concession.monthsFree - age, 0), 1)
+      : age < concession.leaseTermMonths ? concession.monthsFree / concession.leaseTermMonths : 0;
+    units += newLeases * share;
+  }
+  return units;
+}
+
+/** The month leased units have held at or above the target for the hold months, counting the first. */
+function firstStabilizedMonth(months: MonthlyApartmentOperations[], rule: StabilizationRule | undefined) {
+  const target = rule?.targetOccupancyPercent ?? 100;
+  const hold = rule?.holdMonths ?? 1;
+  let held = 0;
+  for (const month of months) {
+    const atTarget = month.revenueUnits > 0 && month.leasedUnits * 100 >= target * month.revenueUnits - 1e-9;
+    held = atTarget ? held + 1 : 0;
+    if (held >= hold) return month.month;
+  }
+  return undefined;
 }
 
 function annualGrowthPeriods(month: number, growthStart: number) {
@@ -640,7 +882,7 @@ function grownCents(baseCents: number, annualPercent: number, periods: number) {
 }
 
 function annualAllocation(annualCents: number, operationOffset: number) {
-  const position = operationOffset % 12;
+  const position = ((operationOffset % 12) + 12) % 12;
   const prior = Math.round(annualCents * position / 12);
   const next = position === 11 ? annualCents : Math.round(annualCents * (position + 1) / 12);
   return next - prior;
@@ -652,7 +894,7 @@ function percentOf(baseCents: number, percent: number) {
 
 type MoneyMonthInput = Omit<MonthlyApartmentOperations,
   "totalUses" | "residentialGrossRent" | "nonRevenueRentAdjustment" | "leaseUpLoss" |
-  "rentAdjustmentLoss" | "freeRentLoss" | "totalResidentialRent" | "otherIncome" |
+  "rentAdjustmentLoss" | "freeRentLoss" | "leaseUpConcessionLoss" | "totalResidentialRent" | "otherIncome" |
   "totalPotentialIncome" | "vacancyLoss" | "creditLoss" | "effectiveGrossRevenue" |
   "operatingExpenses" | "propertyTax" | "fullPropertyTax" | "netOperatingIncome" | "capitalExpenditures" | "operatingCashFlow"> & {
     totalUses: number;
@@ -661,6 +903,7 @@ type MoneyMonthInput = Omit<MonthlyApartmentOperations,
     leaseUpLoss: number;
     rentAdjustmentLoss: number;
     freeRentLoss: number;
+    leaseUpConcessionLoss: number;
     totalResidentialRent: number;
     otherIncome: number;
     totalPotentialIncome: number;
@@ -683,6 +926,7 @@ function moneyMonth(month: MoneyMonthInput): MonthlyApartmentOperations {
     leaseUpLoss: dollars(month.leaseUpLoss),
     rentAdjustmentLoss: dollars(month.rentAdjustmentLoss),
     freeRentLoss: dollars(month.freeRentLoss),
+    leaseUpConcessionLoss: dollars(month.leaseUpConcessionLoss),
     totalResidentialRent: dollars(month.totalResidentialRent),
     otherIncome: dollars(month.otherIncome),
     totalPotentialIncome: dollars(month.totalPotentialIncome),
@@ -711,6 +955,7 @@ function emptyMonth(month: string, totalUses: number): MonthlyApartmentOperation
     leaseUpLoss: 0,
     rentAdjustmentLoss: 0,
     freeRentLoss: 0,
+    leaseUpConcessionLoss: 0,
     totalResidentialRent: 0,
     otherIncome: 0,
     totalPotentialIncome: 0,
@@ -729,7 +974,7 @@ function emptyMonth(month: string, totalUses: number): MonthlyApartmentOperation
 function totalOperations(months: MonthlyApartmentOperations[]): ApartmentOperationsTotals {
   const keys: Array<keyof ApartmentOperationsTotals> = [
     "residentialGrossRent", "nonRevenueRentAdjustment", "leaseUpLoss", "rentAdjustmentLoss",
-    "freeRentLoss", "totalResidentialRent", "otherIncome", "totalPotentialIncome", "vacancyLoss",
+    "freeRentLoss", "leaseUpConcessionLoss", "totalResidentialRent", "otherIncome", "totalPotentialIncome", "vacancyLoss",
     "creditLoss", "effectiveGrossRevenue", "operatingExpenses", "propertyTax", "fullPropertyTax", "netOperatingIncome",
     "capitalExpenditures", "operatingCashFlow",
   ];
@@ -767,7 +1012,7 @@ function operationReconciliations(result: ApartmentOperationsResult) {
       `residential-rent:${month.month}`,
       `${month.month} residential rent equals its separate rent lines`,
       month.totalResidentialRent,
-      sumMoney(month.residentialGrossRent, month.nonRevenueRentAdjustment, month.leaseUpLoss, month.rentAdjustmentLoss, month.freeRentLoss),
+      sumMoney(month.residentialGrossRent, month.nonRevenueRentAdjustment, month.leaseUpLoss, month.rentAdjustmentLoss, month.freeRentLoss, month.leaseUpConcessionLoss),
     ),
     check(
       `effective-gross-revenue:${month.month}`,
@@ -795,7 +1040,7 @@ function operationReconciliations(result: ApartmentOperationsResult) {
       "residential-rent-total",
       "Residential rent total equals its separate rent totals",
       result.totals.totalResidentialRent,
-      sumMoney(result.totals.residentialGrossRent, result.totals.nonRevenueRentAdjustment, result.totals.leaseUpLoss, result.totals.rentAdjustmentLoss, result.totals.freeRentLoss),
+      sumMoney(result.totals.residentialGrossRent, result.totals.nonRevenueRentAdjustment, result.totals.leaseUpLoss, result.totals.rentAdjustmentLoss, result.totals.freeRentLoss, result.totals.leaseUpConcessionLoss),
     ),
     check(
       "potential-income-total",
@@ -859,20 +1104,21 @@ function check(
 
 function formulaTraces(): OperationsFormulaTrace[] {
   return [
-    { key: "monthlyLeaseUp", label: "Monthly Lease-Up", formula: "the lesser of revenue units or pre-leased units plus monthly lease pace after operation start", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "residentialUnitTypes"] },
-    { key: "totalResidentialRent", label: "Total Residential Rent", formula: "grown gross residential rent plus non-revenue, lease-up, rent adjustment, and free-rent losses", inputPaths: ["residentialUnitTypes", "growthStartMonth", "annualIncomeGrowthPercent", "rentAdjustmentLossPercent", "freeRentPercent"] },
+    { key: "monthlyLeaseUp", label: "Monthly Lease-Up", formula: "the lesser of revenue units or pre-leased units plus the monthly lease pace for each month after operation start, each month's pace times its calendar month's seasonal factor when factors are set, with the running total rounded to whole units", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "residentialUnitTypes"] },
+    { key: "leaseUpConcessionLoss", label: "Lease-Up Concession", formula: "negative average revenue rent times the leases each month's new leases still have free: at move-in, each lease's first months up to the months free; spread over the term, months free over the lease term for each month of the first term", inputPaths: ["leaseUpConcession", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "residentialUnitTypes"] },
+    { key: "totalResidentialRent", label: "Total Residential Rent", formula: "grown gross residential rent plus non-revenue, lease-up, rent adjustment, free-rent, and lease-up concession losses", inputPaths: ["residentialUnitTypes", "growthStartMonth", "annualIncomeGrowthPercent", "rentAdjustmentLossPercent", "freeRentPercent", "leaseUpConcession"] },
     { key: "otherIncome", label: "Other Income", formula: "sum of separate grown annual and per-occupied-unit other-income lines", inputPaths: ["otherIncomeLines", "growthStartMonth", "annualIncomeGrowthPercent"] },
     { key: "totalPotentialIncome", label: "Total Potential Income", formula: "total residential rent plus other income", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "growthStartMonth", "annualIncomeGrowthPercent"] },
     { key: "vacancyLoss", label: "Vacancy Loss", formula: "negative total potential income times vacancy percent", inputPaths: ["vacancyPercent", "residentialUnitTypes", "otherIncomeLines"] },
     { key: "creditLoss", label: "Credit Loss", formula: "negative total potential income times credit-loss percent", inputPaths: ["creditLossPercent", "residentialUnitTypes", "otherIncomeLines"] },
     { key: "effectiveGrossRevenue", label: "Effective Gross Revenue", formula: "total potential income plus vacancy loss and credit loss", inputPaths: ["residentialUnitTypes", "otherIncomeLines", "vacancyPercent", "creditLossPercent"] },
-    { key: "operatingExpenses", label: "Operating Expenses", formula: "sum of grown annual, per-unit, and percent-of-revenue operating expense lines plus scheduled property tax", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent", "propertyTax"] },
+    { key: "operatingExpenses", label: "Operating Expenses", formula: "sum of grown annual, per-unit, and percent-of-revenue operating expense lines plus scheduled property tax; each annual or per-unit line's month is its fixed share plus its variable share times leased units over revenue units, and a line with lead months runs at its fixed share for those months before operation start", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent", "propertyTax"] },
     { key: "propertyTax", label: "Property Tax", formula: "each fiscal year's tax after its exemption step, or its stated PILOT payment, spread evenly over the fiscal year's months; on the income basis, each month's revenue less the assessor's expense ratio, over the assessment cap rate, times the assessment ratio and the rate", inputPaths: ["propertyTax"] },
     { key: "fullPropertyTax", label: "Full Property Tax", formula: "the same fiscal-year tax with no exemption or PILOT payment; years after the listed schedule grow the last listed rate", inputPaths: ["propertyTax"] },
     { key: "netOperatingIncome", label: "Net Operating Income", formula: "effective gross revenue less grown operating expenses", inputPaths: ["operatingExpenseLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
-    { key: "capitalExpenditures", label: "Capital Expenditures", formula: "sum of grown annual and per-unit capital expenditure lines", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
+    { key: "capitalExpenditures", label: "Capital Expenditures", formula: "sum of grown annual and per-unit capital expenditure lines, each month's fixed share plus its variable share times leased units over revenue units", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
     { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "net operating income less grown capital expenditures", inputPaths: ["capitalExpenditureLines", "growthStartMonth", "annualExpenseGrowthPercent"] },
-    { key: "firstStabilizedMonth", label: "First Stabilized Month", formula: "first month when leased units equal all revenue units after operation start", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "residentialUnitTypes"] },
+    { key: "firstStabilizedMonth", label: "First Stabilized Month", formula: "the month leased units have held at or above the target share of revenue units for the hold months, counting the first month at target; with no rule, the first month every revenue unit is leased", inputPaths: ["operationStartMonth", "preleasedUnits", "leaseUpUnitsPerMonth", "seasonalAbsorption", "stabilizationRule", "residentialUnitTypes"] },
   ];
 }
 

@@ -13,15 +13,24 @@ import { APARTMENT_DEVELOPMENT_V2_98_COST_SCHEDULE } from "./apartment-developme
  * month one calendar month later, so this adapter keeps its amounts, categories and methods
  * and re-dates each line from the workbook's start and end month columns D and E.
  *
+ * LA-1704 inputs: each expense line's variable share is one less its percent fixed in column E, and
+ * capital expenditures are fully variable (E138), matching rows 122 to 138's fixed part plus
+ * occupancy times the rest. Lease-up free rent is one month per thirteen-month lease (E93:E97, I90),
+ * spread over the lease term.
+ *
  * Workbook features the engine cannot express, with the closest honest input used here:
  * - S-curve cost timing: the engine has one smoothstep curve; the workbook's curve front-loads less.
- * - Lease-up free rent (one month per thirteen-month lease, Underwriting E93:E97 and I90) and the
- *   loss-to-lease that lags rent growth behind thirteen-month lease rolls (row 101): no engine
- *   input. Free rent and rent adjustment use the stabilized inputs F99 and I101, both zero.
- * - Partly fixed operating expenses (column E) and fully variable capital expenditures scale with
- *   occupancy during lease-up in the workbook. Engine expense lines run in full from operation start.
+ * - Lease-up free rent. Row 100 charges one-thirteenth of gross rent on every unit, leased or not,
+ *   until the first stabilized month (FU93:FU98 read AK93:AK98), and row 101 floors net rent at
+ *   zero. That charges free rent on vacant units, which is a workbook defect, so the engine does not
+ *   copy it: it charges each lease signed in lease-up its own free month over its first term. The
+ *   engine therefore charges less free rent early in lease-up, and keeps charging the last leases'
+ *   free rent after stabilization, where the workbook stops at once. The stabilized-year rent and
+ *   NOI targets read low by that tail.
+ * - The loss-to-lease that lags rent growth behind thirteen-month lease rolls (rows 151 to 160 and
+ *   row 101): no engine input. Rent adjustment uses the stabilized input I101, zero.
  * - Property taxes phase in at 50, 75 and 100 percent by operation year (I118:I120). The engine
- *   charges the full tax from operation start.
+ *   charges the full tax from operation start, which keeps its lease-up operating shortfall high.
  * - Lease-up counts all 300 units in the workbook; the engine leases revenue units only, so
  *   per-occupied-unit other income stops at 298 units.
  */
@@ -73,7 +82,7 @@ const engineInputs: PropertyReturnsInputs = {
     annualIncomeGrowthPercent: evidence("Underwriting D88 rent growth and C105:C108 other income growth, 3%"),
     annualExpenseGrowthPercent: evidence("Underwriting D122:D131 expense growth and D138 capital expenditure growth, 3%"),
     rentAdjustmentLossPercent: evidence("Underwriting I101 untrended gain/loss-to-lease, zero; the monthly lease-roll lag in row 101 has no engine input"),
-    freeRentPercent: evidence("Underwriting F99 stabilized free rent, zero; lease-up free rent E93:E97 over lease length I90 has no engine input"),
+    freeRentPercent: evidence("Underwriting F99 stabilized free rent, zero; lease-up free rent is the lease-up concession below"),
     vacancyPercent: evidence("Underwriting F113, 5% of total potential income (E113)"),
     creditLossPercent: evidence("Underwriting F114, 1% of total potential income (E114)"),
   },
@@ -99,10 +108,10 @@ const engineInputs: PropertyReturnsInputs = {
   operatingExpenseLines: [
     workbookLine("repairs-maintenance", "Repairs and Maintenance", 315_000, "usd_per_year", "Underwriting I122"),
     workbookLine("payroll", "Payroll", 395_100, "usd_per_year", "Underwriting I123"),
-    workbookLine("general-administrative", "General & Administrative", 240_000, "usd_per_year", "Underwriting I124; 75% fixed in E124, run in full"),
+    { ...workbookLine("general-administrative", "General & Administrative", 240_000, "usd_per_year", "Underwriting I124; 75% fixed in E124"), variablePercent: 25 },
     workbookLine("marketing", "Marketing", 130_000, "usd_per_year", "Underwriting I125"),
-    workbookLine("utilities", "Utilities", 280_000, "usd_per_year", "Underwriting I126; 50% fixed in E126, run in full"),
-    workbookLine("contract-services", "Contract Services", 105_000, "usd_per_year", "Underwriting I127; 75% fixed in E127, run in full"),
+    { ...workbookLine("utilities", "Utilities", 280_000, "usd_per_year", "Underwriting I126; 50% fixed in E126"), variablePercent: 50 },
+    { ...workbookLine("contract-services", "Contract Services", 105_000, "usd_per_year", "Underwriting I127; 75% fixed in E127"), variablePercent: 25 },
     workbookLine("capital-reserves", "Capital Reserves", 60_000, "usd_per_year", "Underwriting I128, placed above NOI per E119"),
     workbookLine("management-fee", "Management Fee", 3, "percent_effective_gross_revenue", "Underwriting G129, 3% of effective gross revenue"),
     workbookLine("insurance", "Insurance", 105_000, "usd_per_year", "Underwriting I130"),
@@ -110,8 +119,14 @@ const engineInputs: PropertyReturnsInputs = {
     workbookLine("property-taxes", "Property Taxes", 895_532.75, "usd_per_year", "Underwriting I131 rounded to cents; phase-in I118:I120 not applied"),
   ],
   capitalExpenditureLines: [
-    workbookLine("other-capital-expenditures", "Other Capital Expenditures", 25_000, "usd_per_year", "Underwriting I138; 0% fixed in E138, run in full"),
+    { ...workbookLine("other-capital-expenditures", "Other Capital Expenditures", 25_000, "usd_per_year", "Underwriting I138; 0% fixed in E138"), variablePercent: 100 },
   ],
+  leaseUpConcession: {
+    monthsFree: 1,
+    leaseTermMonths: 13,
+    timing: "spread_over_term",
+    ...evidence("Underwriting E93:E97 initial free rent, one month, over lease contract length I90, thirteen months"),
+  },
   capitalInputVersion: "development_capital_inputs.v1",
   // The workbook's debt share after its own Goal Seek run (F57), not the displayed 65% target in C57.
   targetDebtSharePercent: 64.99991417777832,

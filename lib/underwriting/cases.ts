@@ -835,7 +835,16 @@ function reconcileOperationsReview(
     operatingExpenseLines: reconcileLineReview(existing?.operatingExpenseLines, draft.operatingExpenseLines),
     capitalExpenditureLines: reconcileLineReview(existing?.capitalExpenditureLines, draft.capitalExpenditureLines),
     ...(draft.propertyTax ? { propertyTax: reconcilePropertyTaxReview(existing?.propertyTax, draft.propertyTax) } : {}),
+    ...(draft.leaseUpConcession ? { leaseUpConcession: reconcileBlockReview(existing?.leaseUpConcession, draft.leaseUpConcession) } : {}),
+    ...(draft.seasonalAbsorption ? { seasonalAbsorption: reconcileBlockReview(existing?.seasonalAbsorption, draft.seasonalAbsorption) } : {}),
+    ...(draft.stabilizationRule ? { stabilizationRule: reconcileBlockReview(existing?.stabilizationRule, draft.stabilizationRule) } : {}),
   };
+}
+
+/** A lease-up block whose values or source change goes back to Working on It. */
+function reconcileBlockReview<T extends { reviewState: "working" | "done" }>(existing: T | undefined, draft: T): T {
+  if (!existing || sameLineWithoutReview(existing, draft)) return draft;
+  return { ...draft, reviewState: "working" };
 }
 
 function reconcileAssumptionEvidence(

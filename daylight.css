@@ -1719,7 +1719,9 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-unit-types { min-width: 1580px; }
 .underwriting-assumption-evidence { min-width: 820px; }
 .underwriting-money-lines { min-width: 1120px; }
-.underwriting-operations-results { min-width: 2360px; }
+.underwriting-money-lines--ramp { min-width: 1400px; }
+.underwriting-seasonal-factors { min-width: 1080px; }
+.underwriting-operations-results { min-width: 2500px; }
 .underwriting-operations-table th,
 .underwriting-operations-table td {
   padding: var(--s2);

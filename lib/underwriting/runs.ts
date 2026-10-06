@@ -3,6 +3,7 @@ import {
   APARTMENT_OPERATIONS_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   PROPERTY_RETURNS_FORMULA_VERSION,
+  PROPERTY_RETURNS_V1_FORMULA_VERSION,
   computeApartmentOperations,
   computeDevelopmentCapital,
   computeMonthlyCostSchedule,
@@ -234,12 +235,13 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     && "capital" in row.result_snapshot
     ? row.result_snapshot as NonNullable<DevelopmentCapitalRun["result"]>
     : undefined;
-  const propertyReturns = row.formula_version === PROPERTY_RETURNS_FORMULA_VERSION
+  const propertyReturns = (row.formula_version === PROPERTY_RETURNS_FORMULA_VERSION
+      || row.formula_version === PROPERTY_RETURNS_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "developmentCapital" in row.result_snapshot
     && "forwardOperations" in row.result_snapshot
     && "propertyReturns" in row.result_snapshot
-    ? row.result_snapshot as PropertyReturnsResult
+    ? withLenderTests(row.result_snapshot as PropertyReturnsResult)
     : undefined;
   const scenarios = row.formula_version === APARTMENT_SCENARIO_FORMULA_VERSION
     && !Array.isArray(row.result_snapshot)
@@ -310,6 +312,11 @@ function capitalInputsFor(savedCase: UnderwritingCase): DevelopmentCapitalInputs
     ...operationsInputsFor(savedCase),
     ...savedCapital,
   };
+}
+
+/** v1 property runs predate lender tests; read them as having none. */
+function withLenderTests(result: PropertyReturnsResult): PropertyReturnsResult {
+  return { ...result, lenderTests: result.lenderTests ?? null };
 }
 
 export function propertyReturnsInputsFor(savedCase: UnderwritingCase): PropertyReturnsInputs {

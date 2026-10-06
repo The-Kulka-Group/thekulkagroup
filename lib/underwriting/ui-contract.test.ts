@@ -156,6 +156,25 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("It does not model permanent debt, investor waterfalls, taxes, or sensitivity cases.");
   });
 
+  it("takes lender test inputs with their own sources and shows each test with its trace or its issue", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
+    const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("Add Lender Tests");
+    expect(editor).toContain("As-Stabilized Cap Rate");
+    expect(editor).toContain("Annual Debt Service");
+    expect(editor).toContain("NOI Before Reserves");
+    expect(editor).toContain("NOI After Reserves");
+    expect(editor).toContain("Lender Test Sources");
+    expect(editor).toContain("maxLength={MAX_LENDER_TEST_SOURCE_LABEL_LENGTH}");
+    expect(editor).toContain("LENDER_TESTS_INPUT_VERSION");
+    expect(editor).toContain("fieldErrors[`lenderTests.${key}`]");
+    expect(results).toContain("Lender Tests and Formula Traces");
+    expect(results).toContain("Not Reported");
+    expect(results).toContain("result.lenderTests");
+    expect(runPage).toContain("LENDER_TEST_ASSUMPTION_KEYS");
+  });
+
   it("links every scenario control to field errors and renders scenario evidence in saved runs", async () => {
     const editor = await source("app/(app)/underwriting/[id]/ScenarioComparisonEditor.tsx");
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");

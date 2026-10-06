@@ -276,11 +276,27 @@ export {
 } from "./development-capital";
 
 export {
+  LENDER_TESTS_INPUT_VERSION,
+  LENDER_TEST_ASSUMPTION_KEYS,
+  MAX_LENDER_TEST_SOURCE_LABEL_LENGTH,
+  validateLenderTestPlan,
+  type LenderTestAssumptionKey,
+  type LenderTestEvidence,
+  type LenderTestIssue,
+  type LenderTestMetric,
+  type LenderTestMetricKey,
+  type LenderTestNoiBasis,
+  type LenderTestPlan,
+  type LenderTestsResult,
+} from "./lender-tests";
+
+export {
   FORWARD_TWELVE_MONTH_NOI_VERSION,
   MONTH_END_CASH_FLOW_DATES_VERSION,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
   PROPERTY_RETURNS_FORMULA_VERSION,
   PROPERTY_RETURNS_INPUT_VERSION,
+  PROPERTY_RETURNS_V1_FORMULA_VERSION,
   MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH,
   XIRR_ACTUAL_365_VERSION,
   calculatePropertyReturns,

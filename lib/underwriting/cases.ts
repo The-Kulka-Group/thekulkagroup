@@ -6,6 +6,8 @@ import {
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalPlan,
+  LENDER_TEST_ASSUMPTION_KEYS,
+  type LenderTestPlan,
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
@@ -719,6 +721,32 @@ function reconcilePropertyReturnsReview(
       );
       return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
     })) as Record<PropertyReturnsAssumptionKey, PropertyReturnsPlan["saleAssumptionEvidence"][PropertyReturnsAssumptionKey]>,
+    ...(draft.lenderTests ? { lenderTests: reconcileLenderTestReview(existing?.lenderTests, draft.lenderTests) } : {}),
+  };
+}
+
+function reconcileLenderTestReview(existing: LenderTestPlan | undefined, draft: LenderTestPlan): LenderTestPlan {
+  return {
+    lenderTestInputVersion: draft.lenderTestInputVersion,
+    valuationMonth: draft.valuationMonth,
+    asStabilizedCapRatePercent: draft.asStabilizedCapRatePercent,
+    annualDebtService: draft.annualDebtService,
+    noiBasis: draft.noiBasis,
+    lenderTestEvidence: Object.fromEntries(LENDER_TEST_ASSUMPTION_KEYS.map((key) => {
+      const priorEvidence = existing?.lenderTestEvidence[key];
+      const { sourceLabel, sourceDate, reviewState } = draft.lenderTestEvidence[key];
+      const nextEvidence = {
+        ...(sourceLabel === undefined ? {} : { sourceLabel }),
+        ...(sourceDate === undefined ? {} : { sourceDate }),
+        reviewState,
+      };
+      const changed = existing && (
+        existing[key] !== draft[key]
+        || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
+        || priorEvidence?.sourceDate !== nextEvidence.sourceDate
+      );
+      return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
+    })) as LenderTestPlan["lenderTestEvidence"],
   };
 }
 

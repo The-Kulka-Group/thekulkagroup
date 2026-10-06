@@ -474,7 +474,7 @@ describe("underwriting calculation repository", () => {
     const reopened = await getUnderwritingRun(db, run!.id);
 
     expect(run).toMatchObject({
-      formulaVersion: "underwriting.property_returns.v1", status: "complete", caseRevision: 5,
+      formulaVersion: "underwriting.property_returns.v2", status: "complete", caseRevision: 5,
       inputSnapshot: { terminalCapRatePercent: 5.75, sellingCostPercent: 1.5 },
       evidenceSnapshot: { propertyReturns: expect.objectContaining({ saleInputVersion: "property_returns_inputs.v1", lastChangedAt: expect.any(String) }) },
       propertyReturnsResult: {
@@ -487,8 +487,101 @@ describe("underwriting calculation repository", () => {
       },
     });
     expect(run!.propertyReturnsResult!.forwardOperations.months).toHaveLength(12);
+    expect(run!.propertyReturnsResult!.lenderTests).toBeNull();
     expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
     expect(reopened).toEqual(run);
+  });
+
+  async function caseWithPropertyReturns(lenderTests?: Record<string, unknown>) {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01", preleasedUnits: 10, leaseUpUnitsPerMonth: 1,
+      annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0, rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(), residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const capital = await saveDevelopmentCapital(db, savedCase!.id, operating!.caseRevision, {
+      capitalInputVersion: "development_capital_inputs.v1", targetDebtSharePercent: 65, annualInterestRatePercent: 8, loanFeePercent: 1,
+      fundingOrder: "equity_first.v1", interestTreatment: "capitalized_net_operating_cash.v1", interestConvention: "opening_balance_monthly.v1",
+      feeMonth: "2026-01", payoffMonth: "2026-12", capitalAssumptionEvidence: workingCapitalEvidence(),
+    });
+    return savePropertyReturns(db, savedCase!.id, capital!.caseRevision, {
+      saleInputVersion: "property_returns_inputs.v1", terminalCapRatePercent: 5.75, sellingCostPercent: 1.5,
+      forwardNoiConvention: "forward_twelve_month_noi.v1", cashFlowDateConvention: "month_end_dates.v1", xirrConvention: "xirr_actual_365.v1",
+      saleAssumptionEvidence: workingSaleEvidence(),
+      ...(lenderTests ? { lenderTests } : {}),
+    } as Parameters<typeof savePropertyReturns>[3]);
+  }
+
+  const lenderEvidence = (reviewState: "working" | "done") => ({ sourceLabel: "Term sheet", sourceDate: "2026-10-05", reviewState });
+  const lenderPlan = (overrides: Record<string, unknown> = {}) => ({
+    lenderTestInputVersion: "lender_tests_inputs.v1", valuationMonth: "2026-01", asStabilizedCapRatePercent: 6,
+    annualDebtService: 100_000, noiBasis: "noi_before_reserves",
+    lenderTestEvidence: {
+      valuationMonth: lenderEvidence("done"), asStabilizedCapRatePercent: lenderEvidence("done"),
+      annualDebtService: lenderEvidence("done"), noiBasis: lenderEvidence("done"),
+    },
+    ...overrides,
+  });
+
+  it("stores lender tests with the property run and reopens them unchanged", async () => {
+    const property = await caseWithPropertyReturns(lenderPlan());
+    expect(property!.propertyReturns!.lenderTests).toMatchObject({ valuationMonth: "2026-01", annualDebtService: 100_000 });
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    const tests = run!.propertyReturnsResult!.lenderTests!;
+    expect(tests).toMatchObject({ valuationStartMonth: "2026-01", valuationEndMonth: "2026-12", stabilizedNoi: 240_000, issues: [] });
+    const value = (key: string) => tests.metrics.find((item) => item.key === key)!.value;
+    expect(value("asStabilizedValue")).toBe(4_000_000);
+    expect(value("debtServiceCoverage")).toBeCloseTo(2.4, 12);
+    expect(value("loanToValue")).toBeCloseTo(tests.loanAmount / 4_000_000, 12);
+    expect(reopened).toEqual(run);
+  });
+
+  it("stores only the known lender test fields", async () => {
+    const property = await caseWithPropertyReturns({ ...lenderPlan(), extra: { nested: "value" } });
+    expect(property!.propertyReturns!.lenderTests).not.toHaveProperty("extra");
+  });
+
+  it("returns a lender test input to Working on It when its value changes", async () => {
+    const property = await caseWithPropertyReturns(lenderPlan());
+    const changed = await savePropertyReturns(db, property!.id, property!.caseRevision, {
+      ...property!.propertyReturns!,
+      lenderTests: lenderPlan({ asStabilizedCapRatePercent: 6.5 }),
+    } as Parameters<typeof savePropertyReturns>[3]);
+    const evidence = changed!.propertyReturns!.lenderTests!.lenderTestEvidence;
+    expect(evidence.asStabilizedCapRatePercent.reviewState).toBe("working");
+    expect(evidence.annualDebtService.reviewState).toBe("done");
+  });
+
+  it("keeps a property run saved under v1 readable", async () => {
+    const property = await caseWithPropertyReturns();
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const values = names.map((name) => name === "formula_version"
+      ? "'underwriting.property_returns.v1'"
+      : name === "result_snapshot" ? "result_snapshot - 'lenderTests'" : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const legacy = await getUnderwritingRun(db, rows[0].id);
+    expect(legacy!.formulaVersion).toBe("underwriting.property_returns.v1");
+    expect(legacy!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
+    expect(legacy!.propertyReturnsResult!.lenderTests).toBeNull();
   });
 });
 

@@ -1771,6 +1771,13 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-cost-lines td:nth-child(7) { min-width: 210px; }
 .underwriting-cost-lines td:last-child { min-width: 100px; }
 .underwriting-cost-lines .input-error { display: block; margin-top: var(--s1); }
+.underwriting-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
 .underwriting-money-input { position: relative; }
 .underwriting-money-input .input { padding-right: 48px; }
 .underwriting-money-input span {

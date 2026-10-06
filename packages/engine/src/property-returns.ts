@@ -9,10 +9,18 @@ import {
   type DevelopmentCapitalIssue,
   type DevelopmentCapitalResult,
 } from "./development-capital";
+import {
+  lenderTestsFor,
+  validateLenderTestPlan,
+  type LenderTestPlan,
+  type LenderTestsResult,
+} from "./lender-tests";
 import type { ReconciliationCheck } from "./monthly-cost-schedule";
 
 export const PROPERTY_RETURNS_INPUT_VERSION = "property_returns_inputs.v1" as const;
-export const PROPERTY_RETURNS_FORMULA_VERSION = "underwriting.property_returns.v1" as const;
+/** v2 adds lender tests (LA-1689). Runs saved under v1 stay readable and carry no lender tests. */
+export const PROPERTY_RETURNS_FORMULA_VERSION = "underwriting.property_returns.v2" as const;
+export const PROPERTY_RETURNS_V1_FORMULA_VERSION = "underwriting.property_returns.v1" as const;
 export const FORWARD_TWELVE_MONTH_NOI_VERSION = "forward_twelve_month_noi.v1" as const;
 export const MONTH_END_CASH_FLOW_DATES_VERSION = "month_end_dates.v1" as const;
 export const XIRR_ACTUAL_365_VERSION = "xirr_actual_365.v1" as const;
@@ -45,6 +53,7 @@ export type PropertyReturnsPlan = {
   cashFlowDateConvention: typeof MONTH_END_CASH_FLOW_DATES_VERSION;
   xirrConvention: typeof XIRR_ACTUAL_365_VERSION;
   saleAssumptionEvidence: Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>;
+  lenderTests?: LenderTestPlan;
 };
 
 export type PropertyReturnsInputs = DevelopmentCapitalInputs & PropertyReturnsPlan;
@@ -85,7 +94,9 @@ export type PropertyReturnsIssueCode =
   | "invalid_review_state"
   | "xirr_no_root"
   | "xirr_convergence"
-  | "derived_results";
+  | "derived_results"
+  | "invalid_lender_tests"
+  | "invalid_noi_basis";
 
 export type PropertyReturnsIssue = {
   path: string;
@@ -160,6 +171,7 @@ export type PropertyReturnsResult = {
     months: MonthlyApartmentOperations[];
   };
   propertyReturns: PropertyReturnsCalculationResult;
+  lenderTests: LenderTestsResult | null;
 };
 
 export type PropertyReturnsRun = {
@@ -173,6 +185,10 @@ export type PropertyReturnsRun = {
 
 export function computePropertyReturns(input: PropertyReturnsInputs): PropertyReturnsRun {
   const inputSnapshot = structuredClone(input);
+  if (inputSnapshot.lenderTests !== undefined) {
+    const lenderIssues = validateLenderTestPlan(inputSnapshot.lenderTests);
+    if (lenderIssues.length > 0) return failedFull(inputSnapshot, lenderIssues);
+  }
   const capitalRun = computeDevelopmentCapital(inputSnapshot);
   if (capitalRun.status === "failed" || !capitalRun.result) {
     return failedFull(inputSnapshot, capitalRun.issues);
@@ -223,6 +239,7 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
       developmentCapital: capitalRun.result.capital,
       forwardOperations: { startMonth: inputSnapshot.saleMonth, endMonth: forwardEndMonth, months: forwardMonths },
       propertyReturns: calculation.result,
+      lenderTests: lenderTestsFor(inputSnapshot, capitalRun.result.capital.totals, projectedMonths),
     },
     reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations],
   };
@@ -327,6 +344,7 @@ export function validatePropertyReturnsPlan(plan: PropertyReturnsPlan): Property
   if (plan.cashFlowDateConvention !== MONTH_END_CASH_FLOW_DATES_VERSION) issues.push({ path: "cashFlowDateConvention", code: "unsupported_date_convention", message: `Use ${MONTH_END_CASH_FLOW_DATES_VERSION}.` });
   if (plan.xirrConvention !== XIRR_ACTUAL_365_VERSION) issues.push({ path: "xirrConvention", code: "unsupported_xirr_convention", message: `Use ${XIRR_ACTUAL_365_VERSION}.` });
   validateEvidence(issues, plan.saleAssumptionEvidence);
+  if (plan.lenderTests !== undefined) issues.push(...validateLenderTestPlan(plan.lenderTests));
   return issues;
 }
 

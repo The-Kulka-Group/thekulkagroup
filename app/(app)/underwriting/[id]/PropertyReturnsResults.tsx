@@ -1,4 +1,4 @@
-import type { PropertyReturnsResult, ReconciliationCheck } from "@kulka/engine";
+import type { LenderTestsResult, PropertyReturnsResult, ReconciliationCheck } from "@kulka/engine";
 
 import { Chip } from "@/components/Status";
 
@@ -32,11 +32,28 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {result.propertyReturns.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatMetric(metric.value, metric.unit)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
+    {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}
     <h4>Reconciliation Checks</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead><tbody>
       {reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatCheck(check.expected, check.unit)}</td><td className="num right">{formatCheck(check.actual, check.unit)}</td><td className="num right">{formatCheck(check.difference, check.unit)}</td></tr>)}
     </tbody></table></div>
   </div>;
+}
+
+const NOI_BASIS: Record<LenderTestsResult["noiBasis"], string> = {
+  noi_before_reserves: "NOI Before Reserves",
+  noi_after_reserves: "NOI After Reserves",
+};
+
+function LenderTests({ tests }: { tests: LenderTestsResult }) {
+  return <>
+    <h4>Lender Tests and Formula Traces</h4>
+    <p className="t-meta">Valuation year {tests.valuationStartMonth} to {tests.valuationEndMonth} on {NOI_BASIS[tests.noiBasis]}: {MONEY.format(tests.stabilizedNoi)}. Construction debt {MONEY.format(tests.loanAmount)}, total uses {MONEY.format(tests.totalCost)}, stated annual debt service {MONEY.format(tests.annualDebtService)}.</p>
+    <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Test</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
+      {tests.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{metric.value === null ? "Not Reported" : formatMetric(metric.value, metric.unit)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
+    </tbody></table></div>
+    {tests.issues.length > 0 ? <ul className="underwriting-issues">{tests.issues.map((issue) => <li key={issue.code}>{issue.message}</li>)}</ul> : null}
+  </>;
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

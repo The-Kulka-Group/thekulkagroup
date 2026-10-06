@@ -131,18 +131,21 @@ describe("parseApartmentOperations with lease-up inputs", () => {
     leaseUpConcession: { monthsFree: 1, leaseTermMonths: 13, timing: "spread_over_term", ...evidence },
     seasonalAbsorption: { monthlyFactors: [0.5, 0.5, 1, 1, 1.25, 1.25, 1.25, 1.25, 1, 1, 0.5, 0.5], ...evidence },
     stabilizationRule: { targetOccupancyPercent: 93, holdMonths: 3, ...evidence },
+    leaseTurnover: { turnoverPercent: 50, leaseTermMonths: 12, vacantMonths: 1, basis: "net_units_gained", ...evidence },
   };
 
-  it("keeps the three blocks and drops fields the engine does not know", () => {
+  it("keeps the four blocks and drops fields the engine does not know", () => {
     const draft = parseApartmentOperations({
       ...operations,
       leaseUpConcession: { ...leaseUp.leaseUpConcession, note: "typed" },
       seasonalAbsorption: { ...leaseUp.seasonalAbsorption, extra: 1 },
       stabilizationRule: leaseUp.stabilizationRule,
+      leaseTurnover: { ...leaseUp.leaseTurnover, retentionPercent: 50 },
     }, costSchedule);
     expect(draft).toMatchObject(leaseUp);
     expect(draft.leaseUpConcession).not.toHaveProperty("note");
     expect(draft.seasonalAbsorption).not.toHaveProperty("extra");
+    expect(draft.leaseTurnover).not.toHaveProperty("retentionPercent");
   });
 
   it("leaves the blocks out when the case has none", () => {

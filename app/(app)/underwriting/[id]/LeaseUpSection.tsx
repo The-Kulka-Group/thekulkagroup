@@ -2,6 +2,8 @@
 
 import {
   MAX_OPERATION_SOURCE_LABEL_LENGTH,
+  type LeaseTurnover,
+  type LeaseTurnoverBasis,
   type LeaseUpConcession,
   type LeaseUpConcessionTiming,
   type SeasonalAbsorption,
@@ -17,20 +19,28 @@ const TIMINGS: Array<[LeaseUpConcessionTiming, string]> = [
   ["spread_over_term", "Spread Over the Lease Term"],
 ];
 
-/** Optional lease-up inputs (LA-1704). Each block left off keeps the engine's default behavior. */
-export function LeaseUpSection({ concession, setConcession, seasonal, setSeasonal, rule, setRule, fieldErrors }: {
+const TURNOVER_BASES: Array<[LeaseTurnoverBasis, string, string]> = [
+  ["each_new_lease_once", "Each New Lease Once", "Each lease signed during lease-up expires once at the end of its term, and the share moves out. Renewed leases do not expire again during lease-up."],
+  ["every_expiring_lease", "Every Expiring Lease", "Every lease expires at the end of every term, renewals included, and the share moves out each time."],
+  ["net_units_gained", "Net Units Gained", "The share applies to the units the building gained one term earlier. Leases that refill moved-out units do not expire again during lease-up."],
+];
+
+/** Optional lease-up inputs (LA-1704, LA-1784). Each block left off keeps the engine's default behavior. */
+export function LeaseUpSection({ concession, setConcession, seasonal, setSeasonal, rule, setRule, turnover, setTurnover, fieldErrors }: {
   concession?: LeaseUpConcession;
   setConcession: (value?: LeaseUpConcession) => void;
   seasonal?: SeasonalAbsorption;
   setSeasonal: (value?: SeasonalAbsorption) => void;
   rule?: StabilizationRule;
   setRule: (value?: StabilizationRule) => void;
+  turnover?: LeaseTurnover;
+  setTurnover: (value?: LeaseTurnover) => void;
   fieldErrors: Record<string, string>;
 }) {
   return (
     <section className="underwriting-line-section" aria-labelledby="lease-up-heading">
       <h4 id="lease-up-heading">Lease-Up</h4>
-      <p className="t-meta">Free rent on new leases, a seasonal pace and a stabilization test. Leave a block off to keep one pace, no lease-up free rent, and stabilization the first month every revenue unit is leased.</p>
+      <p className="t-meta">Free rent on new leases, a seasonal pace, a stabilization test and lease turnover. Leave a block off to keep one pace, no lease-up free rent, stabilization the first month every revenue unit is leased, and no lease ending during lease-up.</p>
 
       <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(concession)} onChange={(event) => setConcession(event.target.checked ? { monthsFree: 1, leaseTermMonths: 12, timing: "at_move_in", reviewState: "working" } : undefined)} /> Add Lease-Up Concession</label>
       {concession ? <>
@@ -70,6 +80,22 @@ export function LeaseUpSection({ concession, setConcession, seasonal, setSeasona
           <Field path="stabilizationRule.holdMonths" label="Hold Months" value={rule.holdMonths} step="1" onChange={(value) => setRule({ ...rule, holdMonths: Number(value) })} error={fieldErrors["stabilizationRule.holdMonths"]} />
         </div>
         <EvidenceRow path="stabilizationRule" label="Stabilization Rule" item={rule} onChange={(change) => setRule({ ...rule, ...change })} fieldErrors={fieldErrors} />
+      </> : null}
+
+      <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(turnover)} onChange={(event) => setTurnover(event.target.checked ? { turnoverPercent: 50, leaseTermMonths: 12, vacantMonths: 0, basis: "each_new_lease_once", reviewState: "working" } : undefined)} /> Add Lease Turnover</label>
+      {turnover ? <>
+        <p className="t-meta">Leases signed during lease-up end, and the turnover share moves out. Those units can be leased again after the vacant months. Turnover stops once leased units reach the stabilization target, and the vacancy percent carries it from then on.</p>
+        <div className="underwriting-form-grid underwriting-operations-controls">
+          <Field path="leaseTurnover.turnoverPercent" label="Turnover" value={turnover.turnoverPercent} step="0.01" suffix="%" onChange={(value) => setTurnover({ ...turnover, turnoverPercent: Number(value) })} error={fieldErrors["leaseTurnover.turnoverPercent"]} />
+          <Field path="leaseTurnover.leaseTermMonths" label="Lease Term Months" value={turnover.leaseTermMonths} step="1" onChange={(value) => setTurnover({ ...turnover, leaseTermMonths: Number(value) })} error={fieldErrors["leaseTurnover.leaseTermMonths"]} />
+          <Field path="leaseTurnover.vacantMonths" label="Vacant Months" value={turnover.vacantMonths} step="1" onChange={(value) => setTurnover({ ...turnover, vacantMonths: Number(value) })} error={fieldErrors["leaseTurnover.vacantMonths"]} />
+          <label className="field-label t-label" htmlFor={controlId("leaseTurnover.basis")}>Expiring Leases
+            <select id={controlId("leaseTurnover.basis")} className="input" value={turnover.basis} onChange={(event) => setTurnover({ ...turnover, basis: event.target.value as LeaseTurnoverBasis })} aria-invalid={Boolean(fieldErrors["leaseTurnover.basis"])}>{TURNOVER_BASES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select>
+            <FieldError error={fieldErrors["leaseTurnover.basis"]} />
+          </label>
+        </div>
+        <p className="t-meta">{TURNOVER_BASES.find(([value]) => value === turnover.basis)?.[2]}</p>
+        <EvidenceRow path="leaseTurnover" label="Lease Turnover" item={turnover} onChange={(change) => setTurnover({ ...turnover, ...change })} fieldErrors={fieldErrors} />
       </> : null}
     </section>
   );

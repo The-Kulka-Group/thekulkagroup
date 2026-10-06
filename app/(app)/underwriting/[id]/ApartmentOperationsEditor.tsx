@@ -14,6 +14,7 @@ import {
   type ApartmentOperationsAssumptionEvidence,
   type ApartmentOperationsAssumptionKey,
   type CapitalExpenditureLine,
+  type LeaseTurnover,
   type LeaseUpConcession,
   type OperatingExpenseLine,
   type OtherIncomeLine,
@@ -52,6 +53,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [leaseUpConcession, setLeaseUpConcession] = useState<LeaseUpConcession | undefined>(saved?.leaseUpConcession);
   const [seasonalAbsorption, setSeasonalAbsorption] = useState<SeasonalAbsorption | undefined>(saved?.seasonalAbsorption);
   const [stabilizationRule, setStabilizationRule] = useState<StabilizationRule | undefined>(saved?.stabilizationRule);
+  const [leaseTurnover, setLeaseTurnover] = useState<LeaseTurnover | undefined>(saved?.leaseTurnover);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -100,6 +102,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           ...(leaseUpConcession ? { leaseUpConcession } : {}),
           ...(seasonalAbsorption ? { seasonalAbsorption } : {}),
           ...(stabilizationRule ? { stabilizationRule } : {}),
+          ...(leaseTurnover ? { leaseTurnover } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -153,6 +156,8 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         setSeasonal={setSeasonalAbsorption}
         rule={stabilizationRule}
         setRule={setStabilizationRule}
+        turnover={leaseTurnover}
+        setTurnover={setLeaseTurnover}
         fieldErrors={fieldErrors}
       />
 

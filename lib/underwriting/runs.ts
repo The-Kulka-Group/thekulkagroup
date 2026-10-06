@@ -364,8 +364,9 @@ function withRateColumns(capital: DevelopmentCapitalResult, inputSnapshot: unkno
 }
 
 /**
- * v1 operations runs predate the tax schedule, and v1 and v2 runs predate lease-up concessions
- * (LA-1704). Read their months as charging no tax and no concession.
+ * v1 operations runs predate the tax schedule, v1 and v2 runs predate lease-up concessions
+ * (LA-1704), and runs saved before lease turnover (LA-1784) predate turned units. Read their months
+ * as charging no tax and no concession and turning no units.
  */
 function withEarlierOperationsLines(result: ApartmentOperationsResult): ApartmentOperationsResult {
   const month = (item: MonthlyApartmentOperations) => ({
@@ -373,6 +374,7 @@ function withEarlierOperationsLines(result: ApartmentOperationsResult): Apartmen
     propertyTax: item.propertyTax ?? 0,
     fullPropertyTax: item.fullPropertyTax ?? 0,
     leaseUpConcessionLoss: item.leaseUpConcessionLoss ?? 0,
+    turnedUnits: item.turnedUnits ?? 0,
   });
   return {
     ...result,

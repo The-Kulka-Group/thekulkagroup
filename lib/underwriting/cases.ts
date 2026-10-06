@@ -838,6 +838,7 @@ function reconcileOperationsReview(
     ...(draft.leaseUpConcession ? { leaseUpConcession: reconcileBlockReview(existing?.leaseUpConcession, draft.leaseUpConcession) } : {}),
     ...(draft.seasonalAbsorption ? { seasonalAbsorption: reconcileBlockReview(existing?.seasonalAbsorption, draft.seasonalAbsorption) } : {}),
     ...(draft.stabilizationRule ? { stabilizationRule: reconcileBlockReview(existing?.stabilizationRule, draft.stabilizationRule) } : {}),
+    ...(draft.leaseTurnover ? { leaseTurnover: reconcileBlockReview(existing?.leaseTurnover, draft.leaseTurnover) } : {}),
   };
 }
 

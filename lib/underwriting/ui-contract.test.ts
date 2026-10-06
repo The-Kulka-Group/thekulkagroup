@@ -180,7 +180,7 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("SALE_TAX_ASSUMPTION_KEYS");
   });
 
-  it("takes lease-up inputs with their own sources and shows the concession line in every operations table", async () => {
+  it("takes lease-up inputs with their own sources and shows the concession line and turned units in every operations table", async () => {
     const operations = await source("app/(app)/underwriting/[id]/ApartmentOperationsEditor.tsx");
     const leaseUp = await source("app/(app)/underwriting/[id]/LeaseUpSection.tsx");
     const casePage = await source("app/(app)/underwriting/[id]/page.tsx");
@@ -188,13 +188,18 @@ describe("underwriting form accessibility contract", () => {
     expect(operations).toContain("<LeaseUpSection");
     expect(operations).toContain("Variable Share</th>");
     expect(operations).toContain("Lead Months</th>");
-    for (const label of ["Add Lease-Up Concession", "Add Seasonal Absorption", "Add Stabilization Rule", "Spread Over the Lease Term"]) {
+    for (const label of [
+      "Add Lease-Up Concession", "Add Seasonal Absorption", "Add Stabilization Rule", "Spread Over the Lease Term",
+      "Add Lease Turnover", "Vacant Months", "Each New Lease Once", "Every Expiring Lease", "Net Units Gained",
+    ]) {
       expect(leaseUp).toContain(label);
     }
     expect(leaseUp).toContain("maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH}");
     for (const page of [casePage, runPage]) {
       expect(page).toContain("Lease-Up Concession</th>");
       expect(page).toContain("month.leaseUpConcessionLoss");
+      expect(page).toContain("Turned Units</th>");
+      expect(page).toContain("month.turnedUnits");
     }
   });
 

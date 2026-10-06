@@ -3,6 +3,7 @@ import {
   APARTMENT_OPERATIONS_FORMULA_VERSION,
   APARTMENT_OPERATIONS_V1_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
+  DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION,
   PROPERTY_RETURNS_FORMULA_VERSION,
   PROPERTY_RETURNS_V1_FORMULA_VERSION,
   PROPERTY_RETURNS_V2_FORMULA_VERSION,
@@ -21,6 +22,7 @@ import {
   type ApartmentOperationsResult,
   type DevelopmentCapitalInputs,
   type DevelopmentCapitalIssue,
+  type DevelopmentCapitalResult,
   type DevelopmentCapitalRun,
   type MonthlyApartmentOperations,
   type MonthlyCostIssue,
@@ -233,11 +235,12 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     && "totals" in row.result_snapshot
     ? withTaxLine(row.result_snapshot as ApartmentOperationsResult)
     : undefined;
-  const developmentCapital = row.formula_version === DEVELOPMENT_CAPITAL_FORMULA_VERSION
+  const developmentCapital = (row.formula_version === DEVELOPMENT_CAPITAL_FORMULA_VERSION
+      || row.formula_version === DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "apartmentOperations" in row.result_snapshot
     && "capital" in row.result_snapshot
-    ? row.result_snapshot as NonNullable<DevelopmentCapitalRun["result"]>
+    ? withCapitalRateColumns(row.result_snapshot as NonNullable<DevelopmentCapitalRun["result"]>, row.input_snapshot)
     : undefined;
   const propertyReturns = (row.formula_version === PROPERTY_RETURNS_FORMULA_VERSION
       || row.formula_version === PROPERTY_RETURNS_V2_FORMULA_VERSION
@@ -246,7 +249,7 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     && "developmentCapital" in row.result_snapshot
     && "forwardOperations" in row.result_snapshot
     && "propertyReturns" in row.result_snapshot
-    ? withLenderTests(row.result_snapshot as PropertyReturnsResult)
+    ? withLenderTests(row.result_snapshot as PropertyReturnsResult, row.input_snapshot)
     : undefined;
   const scenarios = row.formula_version === APARTMENT_SCENARIO_FORMULA_VERSION
     && !Array.isArray(row.result_snapshot)
@@ -323,12 +326,38 @@ function capitalInputsFor(savedCase: UnderwritingCase): DevelopmentCapitalInputs
  * v1 property runs predate lender tests, and v1 and v2 runs predate the tax schedule (LA-1690).
  * Read them as having no lender tests, no full-tax tests and no sale tax basis.
  */
-function withLenderTests(result: PropertyReturnsResult): PropertyReturnsResult {
+function withLenderTests(result: PropertyReturnsResult, inputSnapshot: unknown): PropertyReturnsResult {
   return {
     ...result,
+    developmentCapital: result.developmentCapital ? withRateColumns(result.developmentCapital, inputSnapshot) : result.developmentCapital,
     lenderTests: result.lenderTests ? { ...result.lenderTests, fullTax: result.lenderTests.fullTax ?? null } : null,
     saleTax: result.saleTax ?? null,
     propertyTax: result.propertyTax ?? null,
+  };
+}
+
+/**
+ * v1 capital runs predate the rate path (LA-1691). Read each of their months as charging the
+ * fixed annual rate saved in the run's input snapshot.
+ */
+function withCapitalRateColumns(
+  result: NonNullable<DevelopmentCapitalRun["result"]>,
+  inputSnapshot: unknown,
+): NonNullable<DevelopmentCapitalRun["result"]> {
+  return { ...result, capital: withRateColumns(result.capital, inputSnapshot) };
+}
+
+function withRateColumns(capital: DevelopmentCapitalResult, inputSnapshot: unknown): DevelopmentCapitalResult {
+  const fixedRate = (inputSnapshot as { annualInterestRatePercent?: number } | null)?.annualInterestRatePercent ?? 0;
+  return {
+    ...capital,
+    rateSchedule: capital.rateSchedule ?? null,
+    months: capital.months.map((month) => ({
+      ...month,
+      annualRatePercent: month.annualRatePercent ?? fixedRate,
+      baseRatePercent: month.baseRatePercent ?? null,
+      rateSource: month.rateSource ?? "fixed",
+    })),
   };
 }
 

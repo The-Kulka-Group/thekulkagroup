@@ -37,6 +37,7 @@ export function parseDevelopmentCapital(
     interestConvention: candidate.interestConvention,
     feeMonth: candidate.feeMonth,
     payoffMonth: candidate.payoffMonth,
+    ...(candidate.ratePath !== undefined && candidate.ratePath !== null ? { ratePath: candidate.ratePath } : {}),
     capitalAssumptionEvidence: candidate.capitalAssumptionEvidence,
   } as DevelopmentCapitalInputs);
   if (checked.status === "failed") {
@@ -59,6 +60,7 @@ export function parseDevelopmentCapital(
     interestConvention: checked.inputSnapshot.interestConvention,
     feeMonth: checked.inputSnapshot.feeMonth,
     payoffMonth: checked.inputSnapshot.payoffMonth,
+    ...(checked.inputSnapshot.ratePath !== undefined ? { ratePath: checked.inputSnapshot.ratePath } : {}),
     capitalAssumptionEvidence: checked.inputSnapshot.capitalAssumptionEvidence,
   };
 }

@@ -424,7 +424,7 @@ describe("underwriting calculation repository", () => {
     const reopened = await getUnderwritingRun(db, run!.id);
 
     expect(run).toMatchObject({
-      formulaVersion: "underwriting.development_capital.v1",
+      formulaVersion: "underwriting.development_capital.v2",
       status: "complete",
       caseRevision: 4,
       inputSnapshot: {
@@ -582,6 +582,76 @@ describe("underwriting calculation repository", () => {
     expect(legacy!.formulaVersion).toBe("underwriting.property_returns.v1");
     expect(legacy!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
     expect(legacy!.propertyReturnsResult!.lenderTests).toBeNull();
+  });
+
+  async function caseWithCapital(ratePath?: Record<string, unknown>) {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01", preleasedUnits: 10, leaseUpUnitsPerMonth: 1,
+      annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0, rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(), residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    return saveDevelopmentCapital(db, savedCase!.id, operating!.caseRevision, {
+      capitalInputVersion: "development_capital_inputs.v1", targetDebtSharePercent: 65, annualInterestRatePercent: 8, loanFeePercent: 1,
+      fundingOrder: "equity_first.v1", interestTreatment: "capitalized_net_operating_cash.v1", interestConvention: "opening_balance_monthly.v1",
+      feeMonth: "2026-01", payoffMonth: "2026-12", ...(ratePath ? { ratePath } : {}), capitalAssumptionEvidence: workingCapitalEvidence(),
+    } as unknown as Parameters<typeof saveDevelopmentCapital>[3]);
+  }
+
+  it("runs the construction loan on a dated rate path and shows the rate used each month", async () => {
+    const capital = await caseWithCapital({
+      baseRates: [{ month: "2026-03", baseRatePercent: 4 }, { month: "2026-04", baseRatePercent: 4.5 }],
+      spreadPercent: 3, curveSourceLabel: "Forward SOFR, lender quote", asOfDate: "2026-01-10",
+    });
+    const run = await runUnderwritingCase(db, capital!.id, capital!.caseRevision);
+    const months = run!.developmentCapitalResult!.capital.months;
+    expect(run!.formulaVersion).toBe("underwriting.development_capital.v2");
+    expect(months[0]).toMatchObject({ annualRatePercent: 7, rateSource: "before_curve" });
+    expect(months[2]).toMatchObject({ annualRatePercent: 7, rateSource: "curve" });
+    expect(months[3]).toMatchObject({ annualRatePercent: 7.5, rateSource: "curve" });
+    expect(months[11]).toMatchObject({ annualRatePercent: 7.5, rateSource: "after_curve" });
+    expect(run!.developmentCapitalResult!.capital.rateSchedule).toMatchObject({ monthsBeforeCurve: 2, monthsAfterCurve: 8 });
+    expect(await getUnderwritingRun(db, run!.id)).toEqual(run);
+  });
+
+  it("fails the run on a rate path whose as-of date is far from the analysis start", async () => {
+    const capital = await caseWithCapital({
+      baseRates: [{ month: "2026-01", baseRatePercent: 4 }], spreadPercent: 3, curveSourceLabel: "Forward SOFR", asOfDate: "2025-01-10",
+    });
+    const run = await runUnderwritingCase(db, capital!.id, capital!.caseRevision);
+    expect(run!.status).toBe("failed");
+    expect(run!.issues).toEqual([expect.objectContaining({ path: "ratePath.asOfDate", code: "stale_rate_curve" })]);
+  });
+
+  it("keeps a capital run saved under v1 readable at its fixed rate", async () => {
+    const capital = await caseWithCapital();
+    const run = await runUnderwritingCase(db, capital!.id, capital!.caseRevision);
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const stripped = `jsonb_set(result_snapshot, '{capital}', (result_snapshot->'capital') - 'rateSchedule')`;
+    const values = names.map((name) => name === "formula_version"
+      ? "'underwriting.development_capital.v1'"
+      : name === "result_snapshot" ? stripped : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const legacy = await getUnderwritingRun(db, rows[0].id);
+    expect(legacy!.formulaVersion).toBe("underwriting.development_capital.v1");
+    expect(legacy!.developmentCapitalResult!.capital.rateSchedule).toBeNull();
+    expect(legacy!.developmentCapitalResult!.capital.months.every(({ annualRatePercent, rateSource }) => annualRatePercent === 8 && rateSource === "fixed")).toBe(true);
+    expect(legacy!.developmentCapitalResult!.capital.totals).toEqual(run!.developmentCapitalResult!.capital.totals);
   });
 
   const taxEvidence = (reviewState: "working" | "done") => ({ sourceLabel: "PILOT agreement", sourceDate: "2026-10-05", reviewState });

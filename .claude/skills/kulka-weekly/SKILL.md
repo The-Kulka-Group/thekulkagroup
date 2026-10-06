@@ -45,6 +45,16 @@ https://claude.ai/code/artifact/47cd3063-84f0-4533-b86b-645d69779513
    that did not come from a verified source (dates you set, definitions you
    added). Matt confirms those before sending. Never send to Kulka directly.
 
+## Headline (locked 2026-10-02)
+
+- Title Case
+- Short
+- Use numeric shorthand when a number is the story
+- Example (Weekly 06): First ROM Test Lands Within $2/SF
+- No em dashes or en dashes (same as Matt's global writing rules)
+
+Farm mirror: `/home/box/shared/decisions/2026-10-02-kulka-weekly-headline-format.md`
+
 ## Design contract (settled by adversarial review, do not relitigate)
 
 - Pure white ground, black ink, BLDG lime `#8FE800` on black or as an outlined

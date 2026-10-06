@@ -2,6 +2,7 @@ import {
   APARTMENT_SCENARIO_FORMULA_VERSION,
   APARTMENT_OPERATIONS_FORMULA_VERSION,
   APARTMENT_OPERATIONS_V1_FORMULA_VERSION,
+  APARTMENT_OPERATIONS_V2_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION,
   PROPERTY_RETURNS_FORMULA_VERSION,
@@ -229,11 +230,12 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     ? row.result_snapshot as MonthlyCostScheduleResult
     : undefined;
   const apartmentOperations = (row.formula_version === APARTMENT_OPERATIONS_FORMULA_VERSION
+      || row.formula_version === APARTMENT_OPERATIONS_V2_FORMULA_VERSION
       || row.formula_version === APARTMENT_OPERATIONS_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "months" in row.result_snapshot
     && "totals" in row.result_snapshot
-    ? withTaxLine(row.result_snapshot as ApartmentOperationsResult)
+    ? withEarlierOperationsLines(row.result_snapshot as ApartmentOperationsResult)
     : undefined;
   const developmentCapital = (row.formula_version === DEVELOPMENT_CAPITAL_FORMULA_VERSION
       || row.formula_version === DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION)
@@ -361,13 +363,26 @@ function withRateColumns(capital: DevelopmentCapitalResult, inputSnapshot: unkno
   };
 }
 
-/** v1 operations runs predate the tax schedule; read their months as charging no tax. */
-function withTaxLine(result: ApartmentOperationsResult): ApartmentOperationsResult {
-  const month = (item: MonthlyApartmentOperations) => ({ ...item, propertyTax: item.propertyTax ?? 0, fullPropertyTax: item.fullPropertyTax ?? 0 });
+/**
+ * v1 operations runs predate the tax schedule, and v1 and v2 runs predate lease-up concessions
+ * (LA-1704). Read their months as charging no tax and no concession.
+ */
+function withEarlierOperationsLines(result: ApartmentOperationsResult): ApartmentOperationsResult {
+  const month = (item: MonthlyApartmentOperations) => ({
+    ...item,
+    propertyTax: item.propertyTax ?? 0,
+    fullPropertyTax: item.fullPropertyTax ?? 0,
+    leaseUpConcessionLoss: item.leaseUpConcessionLoss ?? 0,
+  });
   return {
     ...result,
     months: result.months.map(month),
-    totals: { ...result.totals, propertyTax: result.totals.propertyTax ?? 0, fullPropertyTax: result.totals.fullPropertyTax ?? 0 },
+    totals: {
+      ...result.totals,
+      propertyTax: result.totals.propertyTax ?? 0,
+      fullPropertyTax: result.totals.fullPropertyTax ?? 0,
+      leaseUpConcessionLoss: result.totals.leaseUpConcessionLoss ?? 0,
+    },
     propertyTax: result.propertyTax ?? null,
   };
 }

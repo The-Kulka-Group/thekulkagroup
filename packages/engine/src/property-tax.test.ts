@@ -68,9 +68,9 @@ function monthlyShare(annualDollars: number, position: number) {
 }
 
 describe("property tax schedule on the operating run", () => {
-  it("runs under the v2 operations formula and leaves a run with no schedule unchanged", () => {
+  it("runs under the current operations formula and leaves a run with no schedule unchanged", () => {
     const plain = computeApartmentOperations(base);
-    expect(APARTMENT_OPERATIONS_FORMULA_VERSION).toBe("underwriting.apartment_operations.v2");
+    expect(plain.formulaVersion).toBe(APARTMENT_OPERATIONS_FORMULA_VERSION);
     expect(plain.result?.propertyTax).toBeNull();
     expect(plain.result?.months.every(({ propertyTax, fullPropertyTax }) => propertyTax === 0 && fullPropertyTax === 0)).toBe(true);
   });

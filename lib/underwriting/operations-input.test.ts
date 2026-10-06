@@ -91,3 +91,39 @@ describe("parseApartmentOperations with affordability tiers", () => {
     }
   });
 });
+
+describe("parseApartmentOperations with lease-up inputs", () => {
+  const evidence = { sourceLabel: "Leasing plan", sourceDate: "2026-09-01", reviewState: "working" as const };
+  const leaseUp = {
+    leaseUpConcession: { monthsFree: 1, leaseTermMonths: 13, timing: "spread_over_term", ...evidence },
+    seasonalAbsorption: { monthlyFactors: [0.5, 0.5, 1, 1, 1.25, 1.25, 1.25, 1.25, 1, 1, 0.5, 0.5], ...evidence },
+    stabilizationRule: { targetOccupancyPercent: 93, holdMonths: 3, ...evidence },
+  };
+
+  it("keeps the three blocks and drops fields the engine does not know", () => {
+    const draft = parseApartmentOperations({
+      ...operations,
+      leaseUpConcession: { ...leaseUp.leaseUpConcession, note: "typed" },
+      seasonalAbsorption: { ...leaseUp.seasonalAbsorption, extra: 1 },
+      stabilizationRule: leaseUp.stabilizationRule,
+    }, costSchedule);
+    expect(draft).toMatchObject(leaseUp);
+    expect(draft.leaseUpConcession).not.toHaveProperty("note");
+    expect(draft.seasonalAbsorption).not.toHaveProperty("extra");
+  });
+
+  it("leaves the blocks out when the case has none", () => {
+    const draft = parseApartmentOperations(operations, costSchedule);
+    for (const key of Object.keys(leaseUp)) expect(draft).not.toHaveProperty(key);
+  });
+
+  it("reports a bad block against its field", () => {
+    try {
+      parseApartmentOperations({ ...operations, seasonalAbsorption: { monthlyFactors: [1], ...evidence } }, costSchedule);
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidApartmentOperations);
+      expect((error as InvalidApartmentOperations).fieldErrors).toHaveProperty(["seasonalAbsorption.monthlyFactors"]);
+    }
+  });
+});

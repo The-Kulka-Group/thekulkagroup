@@ -19,6 +19,18 @@ export class InvalidApartmentOperations extends Error {
   }
 }
 
+function knownEvidenceFields(item: Record<string, unknown>) {
+  const { sourceLabel, sourceDate, reviewState } = item;
+  return { sourceLabel, sourceDate, reviewState };
+}
+
+/** Keeps only the fields a lease-up block defines, so stray keys never reach the stored case. */
+function knownLeaseUpFields(value: unknown, fields: string[]) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const block = value as Record<string, unknown>;
+  return { ...Object.fromEntries(fields.map((key) => [key, block[key]])), ...knownEvidenceFields(block) };
+}
+
 function knownPropertyTaxFields(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const plan = value as Record<string, unknown>;
@@ -81,6 +93,15 @@ export function parseApartmentOperations(
     operatingExpenseLines: candidate.operatingExpenseLines,
     capitalExpenditureLines: candidate.capitalExpenditureLines,
     ...(candidate.propertyTax === undefined ? {} : { propertyTax: knownPropertyTaxFields(candidate.propertyTax) }),
+    ...(candidate.leaseUpConcession === undefined ? {} : {
+      leaseUpConcession: knownLeaseUpFields(candidate.leaseUpConcession, ["monthsFree", "leaseTermMonths", "timing"]),
+    }),
+    ...(candidate.seasonalAbsorption === undefined ? {} : {
+      seasonalAbsorption: knownLeaseUpFields(candidate.seasonalAbsorption, ["monthlyFactors"]),
+    }),
+    ...(candidate.stabilizationRule === undefined ? {} : {
+      stabilizationRule: knownLeaseUpFields(candidate.stabilizationRule, ["targetOccupancyPercent", "holdMonths"]),
+    }),
   } as ApartmentOperationsInputs);
   if (checked.status === "failed") {
     const issues = checked.issues.filter((item) => !item.path.startsWith("costLines")
@@ -109,5 +130,8 @@ export function parseApartmentOperations(
     operatingExpenseLines: checked.inputSnapshot.operatingExpenseLines,
     capitalExpenditureLines: checked.inputSnapshot.capitalExpenditureLines,
     ...(checked.inputSnapshot.propertyTax ? { propertyTax: checked.inputSnapshot.propertyTax } : {}),
+    ...(checked.inputSnapshot.leaseUpConcession ? { leaseUpConcession: checked.inputSnapshot.leaseUpConcession } : {}),
+    ...(checked.inputSnapshot.seasonalAbsorption ? { seasonalAbsorption: checked.inputSnapshot.seasonalAbsorption } : {}),
+    ...(checked.inputSnapshot.stabilizationRule ? { stabilizationRule: checked.inputSnapshot.stabilizationRule } : {}),
   };
 }

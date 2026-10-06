@@ -360,7 +360,7 @@ describe("underwriting calculation repository", () => {
     const reopened = await getUnderwritingRun(db, run!.id);
 
     expect(run).toMatchObject({
-      formulaVersion: "underwriting.apartment_operations.v2",
+      formulaVersion: "underwriting.apartment_operations.v3",
       status: "complete",
       caseRevision: 3,
       apartmentOperationsResult: {
@@ -391,6 +391,82 @@ describe("underwriting calculation repository", () => {
     expect(run!.monthlyCostResult).toBeUndefined();
     expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
     expect(reopened).toEqual(run);
+  });
+
+  async function caseWithLeaseUp(extra: Record<string, unknown>) {
+    const savedCase = await createUnderwritingCase(db, completeDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, savedCase!.id, savedCase!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    return saveApartmentOperations(db, savedCase!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-04", growthStartMonth: "2026-04",
+      preleasedUnits: 2, leaseUpUnitsPerMonth: 2, annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0,
+      rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [],
+      operatingExpenseLines: [{ id: "payroll", name: "Payroll", amount: 12_000, unit: "usd_per_year", variablePercent: 50, leadMonths: 2, reviewState: "working" }],
+      capitalExpenditureLines: [],
+      ...extra,
+    } as Parameters<typeof saveApartmentOperations>[3]);
+  }
+
+  it("stores lease-up inputs with their evidence and runs them under v3", async () => {
+    const evidence = { sourceLabel: "Leasing plan", sourceDate: "2026-09-01", reviewState: "working" };
+    const operating = await caseWithLeaseUp({
+      leaseUpConcession: { monthsFree: 1, leaseTermMonths: 12, timing: "at_move_in", ...evidence },
+      seasonalAbsorption: { monthlyFactors: Array(12).fill(1), ...evidence },
+      stabilizationRule: { targetOccupancyPercent: 90, holdMonths: 2, ...evidence },
+    });
+    expect(operating!.apartmentOperations!.leaseUpConcession).toEqual({ monthsFree: 1, leaseTermMonths: 12, timing: "at_move_in", ...evidence });
+    expect(operating!.apartmentOperations!.operatingExpenseLines[0]).toMatchObject({ variablePercent: 50, leadMonths: 2 });
+    const run = await runUnderwritingCase(db, operating!.id, operating!.caseRevision);
+    expect(run!.formulaVersion).toBe("underwriting.apartment_operations.v3");
+    const months = run!.apartmentOperationsResult!.months;
+    const month = (label: string) => months.find((item) => item.month === label)!;
+    expect(month("2026-02")).toMatchObject({ operatingExpenses: 500, operatingCashFlow: -500 });
+    expect(month("2026-04")).toMatchObject({ leasedUnits: 2, leaseUpConcessionLoss: -4_000, operatingExpenses: 600 });
+    // 2 leased in April, then 2 more a month: 9 of 10 is first reached in August with all 10, held two months to September.
+    expect(run!.apartmentOperationsResult!.firstStabilizedMonth).toBe("2026-09");
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+  });
+
+  it("returns a changed lease-up block to Working on It", async () => {
+    const done = { sourceLabel: "Leasing plan", reviewState: "done" };
+    const operating = await caseWithLeaseUp({ stabilizationRule: { targetOccupancyPercent: 95, holdMonths: 3, ...done } });
+    const unchanged = await saveApartmentOperations(db, operating!.id, operating!.caseRevision, operating!.apartmentOperations!);
+    expect(unchanged!.apartmentOperations!.stabilizationRule!.reviewState).toBe("done");
+    const changed = await saveApartmentOperations(db, unchanged!.id, unchanged!.caseRevision, {
+      ...unchanged!.apartmentOperations!,
+      stabilizationRule: { ...unchanged!.apartmentOperations!.stabilizationRule!, holdMonths: 4 },
+    });
+    expect(changed!.apartmentOperations!.stabilizationRule!.reviewState).toBe("working");
+  });
+
+  it("keeps an operations run saved under v2 readable, with no concession line", async () => {
+    const operating = await caseWithLeaseUp({});
+    const run = await runUnderwritingCase(db, operating!.id, operating!.caseRevision);
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const values = names.map((name) => name === "formula_version"
+      ? "'underwriting.apartment_operations.v2'"
+      : name === "result_snapshot"
+        ? `jsonb_set(result_snapshot, '{months}', (select jsonb_agg(item - 'leaseUpConcessionLoss') from jsonb_array_elements(result_snapshot -> 'months') item)) #- '{totals,leaseUpConcessionLoss}'`
+        : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const legacy = await getUnderwritingRun(db, rows[0].id);
+    expect(legacy!.formulaVersion).toBe("underwriting.apartment_operations.v2");
+    expect(legacy!.apartmentOperationsResult).toEqual(run!.apartmentOperationsResult);
   });
 
   it("stores an immutable capital run with sources, uses, reserves, and debt roll-forward", async () => {

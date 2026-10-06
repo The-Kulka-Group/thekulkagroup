@@ -14,13 +14,17 @@ import {
   type ApartmentOperationsAssumptionEvidence,
   type ApartmentOperationsAssumptionKey,
   type CapitalExpenditureLine,
+  type LeaseUpConcession,
   type OperatingExpenseLine,
   type OtherIncomeLine,
   type PropertyTaxPlan,
   type ResidentialUnitType,
+  type SeasonalAbsorption,
+  type StabilizationRule,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
+import { LeaseUpSection } from "./LeaseUpSection";
 import { PropertyTaxSection } from "./PropertyTaxSection";
 import { TIER_LABELS } from "./UnitMixByTier";
 
@@ -45,6 +49,9 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [operatingExpenseLines, setOperatingExpenseLines] = useState<OperatingExpenseLine[]>(saved?.operatingExpenseLines ?? []);
   const [capitalExpenditureLines, setCapitalExpenditureLines] = useState<CapitalExpenditureLine[]>(saved?.capitalExpenditureLines ?? []);
   const [propertyTax, setPropertyTax] = useState<PropertyTaxPlan | undefined>(saved?.propertyTax);
+  const [leaseUpConcession, setLeaseUpConcession] = useState<LeaseUpConcession | undefined>(saved?.leaseUpConcession);
+  const [seasonalAbsorption, setSeasonalAbsorption] = useState<SeasonalAbsorption | undefined>(saved?.seasonalAbsorption);
+  const [stabilizationRule, setStabilizationRule] = useState<StabilizationRule | undefined>(saved?.stabilizationRule);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -90,6 +97,9 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           operatingExpenseLines,
           capitalExpenditureLines,
           ...(propertyTax ? { propertyTax } : {}),
+          ...(leaseUpConcession ? { leaseUpConcession } : {}),
+          ...(seasonalAbsorption ? { seasonalAbsorption } : {}),
+          ...(stabilizationRule ? { stabilizationRule } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -136,6 +146,16 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         <NumberField path="creditLossPercent" label="Credit Loss" value={creditLossPercent} onChange={(value) => setCreditLossPercent(Number(value))} error={fieldErrors.creditLossPercent} min="0" max="100" step="0.01" suffix="%" />
       </div>
 
+      <LeaseUpSection
+        concession={leaseUpConcession}
+        setConcession={setLeaseUpConcession}
+        seasonal={seasonalAbsorption}
+        setSeasonal={setSeasonalAbsorption}
+        rule={stabilizationRule}
+        setRule={setStabilizationRule}
+        fieldErrors={fieldErrors}
+      />
+
       <LineSection
         title="Residential Unit Types"
         description="Gross rent and non-revenue units remain visible before lease-up and rent losses."
@@ -166,11 +186,11 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       <MoneyLineSection title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" canAdd={canAddLine} lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_occupied_unit_month", "USD per Occupied Unit per Month"],
       ]} fieldErrors={fieldErrors} />
-      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" units={[
+      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate. Variable share scales a line with leased units during lease-up; lead months start it before operation start at its fixed share." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" ramp="variable_and_lead" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"], ["percent_effective_gross_revenue", "Percent of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
       <PropertyTaxSection plan={propertyTax} setPlan={setPropertyTax} fieldErrors={fieldErrors} />
-      <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" units={[
+      <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow. Variable share scales a line with leased units during lease-up." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" ramp="variable" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"],
       ]} fieldErrors={fieldErrors} />
 
@@ -241,7 +261,9 @@ function LineSection({ title, description, addLabel, canAdd, onAdd, children }: 
   return <section className="underwriting-line-section"><div className="underwriting-section-head"><div><h4>{title}</h4><p className="t-meta">{description}</p></div><button className="btn btn--secondary" type="button" onClick={onAdd} disabled={!canAdd}>{addLabel}</button></div>{children}</section>;
 }
 
-function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors }: {
+function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors, ramp }: {
+  /** Lease-up ramp columns: variable share, and for operating expenses lead months too. */
+  ramp?: "variable" | "variable_and_lead";
   title: string;
   description: string;
   addLabel: string;
@@ -255,15 +277,16 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, c
   return (
     <LineSection title={title} description={description} addLabel={addLabel} canAdd={canAdd} onAdd={() => setLines((current) => [...current, blankMoneyLine(units[0][0]) as T])}>
       <div className="underwriting-edit-table-wrap">
-        <table className="underwriting-operations-table underwriting-money-lines">
-          <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
+        <table className={`underwriting-operations-table underwriting-money-lines${ramp ? " underwriting-money-lines--ramp" : ""}`}>
+          <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th>{ramp ? <th className="right">Variable Share</th> : null}{ramp === "variable_and_lead" ? <th className="right">Lead Months</th> : null}<th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
           <tbody>{lines.map((line, index) => {
             const linePath = `${path}.${index}`;
             const unit = controlProps(`${linePath}.unit`, fieldErrors[`${linePath}.unit`]);
             return <tr key={line.id}>
               <td><TextInput path={`${linePath}.name`} label={`${title} line ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setLines, index, { name } as Partial<T>)} error={fieldErrors[`${linePath}.name`]} /></td>
               <td><NumberInput path={`${linePath}.amount`} label={`${line.name || `${title} line ${index + 1}`} amount`} value={line.amount} onChange={(amount) => updateAt(setLines, index, { amount } as Partial<T>)} error={fieldErrors[`${linePath}.amount`]} min="0" step="0.01" /></td>
-              <td><select {...unit.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, { unit: event.target.value } as Partial<T>)}>{units.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select><FieldError id={unit.errorId} error={fieldErrors[`${linePath}.unit`]} /></td>
+              <td><select {...unit.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, (event.target.value === "percent_effective_gross_revenue" ? { unit: event.target.value, variablePercent: undefined, leadMonths: undefined } : { unit: event.target.value }) as Partial<T>)}>{units.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select><FieldError id={unit.errorId} error={fieldErrors[`${linePath}.unit`]} /></td>
+              {ramp ? <RampCells line={line as OperatingExpenseLine} linePath={linePath} label={line.name || `${title} line ${index + 1}`} withLead={ramp === "variable_and_lead"} fieldErrors={fieldErrors} onChange={(update) => updateAt(setLines, index, update as Partial<T>)} /> : null}
               <EvidenceCells path={linePath} line={line} fieldErrors={fieldErrors} onChange={(update) => updateAt(setLines, index, update as Partial<T>)} />
               <td><RemoveButton onClick={() => removeAt(setLines, index)} /></td>
             </tr>;
@@ -272,6 +295,23 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, c
       </div>
     </LineSection>
   );
+}
+
+function RampCells({ line, linePath, label, withLead, fieldErrors, onChange }: {
+  line: OperatingExpenseLine;
+  linePath: string;
+  label: string;
+  withLead: boolean;
+  fieldErrors: Record<string, string>;
+  onChange: (update: Partial<OperatingExpenseLine>) => void;
+}) {
+  if (line.unit === "percent_effective_gross_revenue") {
+    return <><td><span className="t-meta">Moves with Revenue</span></td>{withLead ? <td><span className="t-meta">None</span></td> : null}</>;
+  }
+  return <>
+    <td><NumberInput path={`${linePath}.variablePercent`} label={`${label} variable share`} value={line.variablePercent ?? 0} onChange={(value) => onChange({ variablePercent: value === 0 ? undefined : value })} error={fieldErrors[`${linePath}.variablePercent`]} min="0" max="100" step="1" suffix="%" /></td>
+    {withLead ? <td><NumberInput path={`${linePath}.leadMonths`} label={`${label} lead months`} value={line.leadMonths ?? 0} onChange={(value) => onChange({ leadMonths: value === 0 ? undefined : value })} error={fieldErrors[`${linePath}.leadMonths`]} min="0" step="1" /></td> : null}
+  </>;
 }
 
 function EvidenceCells({ path, line, fieldErrors, onChange }: { path: string; line: ResidentialUnitType | MoneyLine; fieldErrors: Record<string, string>; onChange: (update: Partial<ResidentialUnitType | MoneyLine>) => void }) {

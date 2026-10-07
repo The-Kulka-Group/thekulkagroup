@@ -64,6 +64,18 @@ function LenderTests({ tests }: { tests: LenderTestsResult }) {
       })}
     </tbody></table></div>
     {tests.issues.length > 0 ? <ul className="underwriting-issues">{tests.issues.map((issue) => <li key={issue.code}>{issue.message}</li>)}</ul> : null}
+    {tests.loanSizing ? <LoanSizing sizing={tests.loanSizing} /> : null}
+  </>;
+}
+
+function LoanSizing({ sizing }: { sizing: NonNullable<LenderTestsResult["loanSizing"]> }) {
+  const binding = sizing.caps.find((cap) => cap.binding)!;
+  return <>
+    <h4>Loan Sizing</h4>
+    <p className="t-meta">The loan is the lesser of every cap. {binding.label} binds at {MONEY.format(binding.amount)}, and the funded loan is {MONEY.format(sizing.loanAmount)}. NOI caps size on {MONEY.format(sizing.sizingNoi)} with {sizing.noiTaxBasis === "full_tax" ? "full tax" : "abated tax"}.</p>
+    <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Cap</th><th className="right">Largest Loan</th><th>Binds</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
+      {sizing.caps.map((cap) => <tr key={cap.key}><th scope="row">{cap.label}</th><td className="num right">{MONEY.format(cap.amount)}</td><td>{cap.binding ? <strong>Binding</strong> : null}</td><td>{cap.formula}</td><td className="t-meta">{cap.inputPaths.join(", ")}</td></tr>)}
+    </tbody></table></div>
   </>;
 }
 

@@ -36,6 +36,25 @@ function knownLenderTestFields(value: unknown) {
         return [key, { sourceLabel, sourceDate, reviewState }];
       }))
       : evidence,
+    ...(plan.loanSizing === undefined ? {} : { loanSizing: knownLoanSizingFields(plan.loanSizing) }),
+  };
+}
+
+function knownLoanSizingFields(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const sizing = value as Record<string, unknown>;
+  const evidence = sizing.evidence;
+  const optional = (key: string) => sizing[key] === undefined || sizing[key] === null ? {} : { [key]: sizing[key] };
+  return {
+    noiTaxBasis: sizing.noiTaxBasis,
+    ...optional("maxLoanToValuePercent"),
+    ...optional("minDebtYieldPercent"),
+    ...optional("minDebtServiceCoverage"),
+    ...optional("dscrRatePercent"),
+    ...optional("dscrAmortizationYears"),
+    evidence: evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? (({ sourceLabel, sourceDate, reviewState }: Record<string, unknown>) => ({ sourceLabel, sourceDate, reviewState }))(evidence as Record<string, unknown>)
+      : evidence,
   };
 }
 

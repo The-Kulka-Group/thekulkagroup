@@ -36,6 +36,48 @@ export type LenderTestPlan = {
   annualDebtService: number;
   noiBasis: LenderTestNoiBasis;
   lenderTestEvidence: Record<LenderTestAssumptionKey, LenderTestEvidence>;
+  /** Optional caps that size the construction loan below its LTC (LA-1823). Absent keeps LTC sizing only. */
+  loanSizing?: LoanSizingPlan;
+};
+
+export const LOAN_SIZING_TAX_BASES = ["full_tax", "abated"] as const;
+export const MAX_DSCR_AMORTIZATION_YEARS = 40;
+
+/**
+ * The loan is the lesser of LTC on total cost (the capital plan's target debt share) and each cap
+ * set here. Every NOI cap reads the lender-test valuation year and NOI basis, taxed on `noiTaxBasis`:
+ * full tax as if any abatement had ended, or the scheduled abated tax.
+ */
+export type LoanSizingPlan = {
+  noiTaxBasis: (typeof LOAN_SIZING_TAX_BASES)[number];
+  maxLoanToValuePercent?: number;
+  minDebtYieldPercent?: number;
+  minDebtServiceCoverage?: number;
+  /** Rate the DSCR cap prices debt service at. Required with a DSCR floor. */
+  dscrRatePercent?: number;
+  /** Amortization the DSCR cap prices debt service at; zero is interest only. Required with a DSCR floor. */
+  dscrAmortizationYears?: number;
+  evidence: LenderTestEvidence;
+};
+
+export type LoanSizingCapKey = "loanToCost" | "loanToValue" | "debtYield" | "debtServiceCoverage";
+
+export type LoanSizingCap = {
+  key: LoanSizingCapKey;
+  label: string;
+  /** The largest loan this test allows. */
+  amount: number;
+  binding: boolean;
+  formula: string;
+  inputPaths: string[];
+};
+
+export type LoanSizingResult = {
+  noiTaxBasis: LoanSizingPlan["noiTaxBasis"];
+  sizingNoi: number;
+  loanAmount: number;
+  bindingCap: LoanSizingCapKey;
+  caps: LoanSizingCap[];
 };
 
 export type LenderTestMetricKey =
@@ -83,6 +125,8 @@ export type LenderTestsResult = {
   metrics: LenderTestMetric[];
   /** Present when the run's tax schedule carries an abatement. */
   fullTax: LenderFullTaxTests | null;
+  /** Present when the lender tests carry loan sizing caps. Runs saved before LA-1823 read it as absent. */
+  loanSizing?: LoanSizingResult | null;
   issues: LenderTestIssue[];
 };
 
@@ -115,7 +159,159 @@ export function validateLenderTestPlan(plan: unknown): PropertyReturnsIssue[] {
     issues.push({ path: "lenderTests.noiBasis", code: "invalid_noi_basis", message: "NOI basis must be NOI before reserves or NOI after reserves." });
   }
   issues.push(...validateEvidence(candidate.lenderTestEvidence));
+  if (candidate.loanSizing !== undefined) issues.push(...validateLoanSizing(candidate.loanSizing));
   return issues;
+}
+
+function validateLoanSizing(sizing: unknown): PropertyReturnsIssue[] {
+  const path = "lenderTests.loanSizing";
+  if (!sizing || typeof sizing !== "object" || Array.isArray(sizing)) {
+    return [{ path, code: "invalid_loan_sizing", message: "Loan sizing must be an object." }];
+  }
+  const plan = sizing as LoanSizingPlan;
+  const issues: PropertyReturnsIssue[] = [];
+  const bad = (field: string, message: string) => issues.push({ path: `${path}.${field}`, code: "invalid_loan_sizing", message });
+  if (!LOAN_SIZING_TAX_BASES.includes(plan.noiTaxBasis)) bad("noiTaxBasis", "Size on full tax or abated tax.");
+  const positive = (value: unknown, max: number) => typeof value === "number" && Number.isFinite(value) && value > 0 && value <= max;
+  if (plan.maxLoanToValuePercent !== undefined && !positive(plan.maxLoanToValuePercent, 100)) bad("maxLoanToValuePercent", "Maximum LTV must be above zero and no more than 100 percent.");
+  if (plan.minDebtYieldPercent !== undefined && !positive(plan.minDebtYieldPercent, 100)) bad("minDebtYieldPercent", "Minimum debt yield must be above zero and no more than 100 percent.");
+  if (plan.minDebtServiceCoverage !== undefined) {
+    if (!positive(plan.minDebtServiceCoverage, 10)) bad("minDebtServiceCoverage", "Minimum DSCR must be above zero and no more than 10.");
+    if (!positive(plan.dscrRatePercent, 100)) bad("dscrRatePercent", "Enter the rate the DSCR test prices debt service at, above zero and no more than 100 percent.");
+    const years = plan.dscrAmortizationYears;
+    if (typeof years !== "number" || !Number.isInteger(years) || years < 0 || years > MAX_DSCR_AMORTIZATION_YEARS) {
+      bad("dscrAmortizationYears", `Amortization must be a whole number of years from 0 (interest only) to ${MAX_DSCR_AMORTIZATION_YEARS}.`);
+    }
+  } else if (plan.dscrRatePercent !== undefined || plan.dscrAmortizationYears !== undefined) {
+    bad("minDebtServiceCoverage", "Enter a minimum DSCR to use the DSCR rate and amortization.");
+  }
+  const item = plan.evidence as LenderTestEvidence | undefined;
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    issues.push({ path: `${path}.evidence`, code: "missing_evidence", message: "Add source and review details for the loan sizing terms." });
+  } else {
+    if (item.sourceLabel !== undefined && (typeof item.sourceLabel !== "string" || item.sourceLabel.length > MAX_LENDER_TEST_SOURCE_LABEL_LENGTH)) issues.push({ path: `${path}.evidence.sourceLabel`, code: "invalid_source_label", message: `Source label must be text of no more than ${MAX_LENDER_TEST_SOURCE_LABEL_LENGTH} characters.` });
+    if (item.sourceDate !== undefined && (typeof item.sourceDate !== "string" || !validDate(item.sourceDate))) issues.push({ path: `${path}.evidence.sourceDate`, code: "invalid_source_date", message: "Source date must be a valid YYYY-MM-DD date." });
+    if (item.reviewState !== "working" && item.reviewState !== "done") issues.push({ path: `${path}.evidence.reviewState`, code: "invalid_review_state", message: "Review state must be Working on It or Done." });
+  }
+  return issues;
+}
+
+/** Annual debt service per dollar of loan with level monthly payments; zero years is interest only. */
+export function annualDebtConstant(ratePercent: number, amortizationYears: number) {
+  const monthlyRate = ratePercent / 100 / 12;
+  if (amortizationYears === 0) return ratePercent / 100;
+  const payments = amortizationYears * 12;
+  return 12 * monthlyRate / (1 - (1 + monthlyRate) ** -payments);
+}
+
+export type LoanSizingCeiling = {
+  /** The smallest NOI cap in cents, or null when only LTC sizes the loan. */
+  maxLoanCents: number | null;
+  sizingNoiCents: number;
+  noiCaps: Array<Omit<LoanSizingCap, "binding"> & { amountCents: number }>;
+};
+
+/**
+ * The NOI caps, read before the capital plan runs: the valuation-year NOI does not depend on the
+ * loan, so the capital plan can take the smallest cap as a ceiling on total debt. Returns an issue
+ * when a cap is set but the valuation year has no positive NOI to size on.
+ */
+export function loanSizingCeiling(
+  input: PropertyReturnsInputs,
+  projectedMonths: MonthlyApartmentOperations[],
+): LoanSizingCeiling | PropertyReturnsIssue {
+  const plan = input.lenderTests!;
+  const sizing = plan.loanSizing!;
+  const valuationEndMonth = addMonths(plan.valuationMonth, 11);
+  const year = projectedMonths.filter(({ month }) => month >= plan.valuationMonth && month <= valuationEndMonth);
+  const field = plan.noiBasis === "noi_after_reserves" ? "operatingCashFlow" : "netOperatingIncome";
+  const scheduledCents = year.reduce((total, month) => total + cents(month[field]), 0);
+  const abatementCents = year.reduce((total, month) => total + cents(month.fullPropertyTax) - cents(month.propertyTax), 0);
+  const noiCents = sizing.noiTaxBasis === "full_tax" ? scheduledCents - abatementCents : scheduledCents;
+  const anyCap = sizing.maxLoanToValuePercent !== undefined || sizing.minDebtYieldPercent !== undefined || sizing.minDebtServiceCoverage !== undefined;
+  if (anyCap && (year.length !== 12 || noiCents <= 0)) {
+    return {
+      path: "lenderTests.loanSizing",
+      code: "loan_sizing_unavailable",
+      message: "The loan sizing caps need a full valuation year with positive NOI on the chosen tax basis. Move the valuation month or remove the caps.",
+    };
+  }
+  const basis = `${NOI_BASIS_LABELS[plan.noiBasis]}${sizing.noiTaxBasis === "full_tax" ? " with full tax" : " with scheduled tax"}`;
+  const operationPaths = input.propertyTax ? [...OPERATION_PATHS, "propertyTax"] : OPERATION_PATHS;
+  const noiPaths = [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis", "lenderTests.loanSizing.noiTaxBasis"];
+  const noiCaps: LoanSizingCeiling["noiCaps"] = [];
+  if (sizing.maxLoanToValuePercent !== undefined) {
+    const valueCents = Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
+    const amountCents = Math.floor(valueCents * sizing.maxLoanToValuePercent / 100);
+    noiCaps.push({
+      key: "loanToValue",
+      label: "Loan to Value",
+      amount: dollars(amountCents),
+      amountCents,
+      formula: `maximum LTV times as-stabilized value, where value is valuation-year ${basis} divided by the as-stabilized cap rate`,
+      inputPaths: [...noiPaths, "lenderTests.asStabilizedCapRatePercent", "lenderTests.loanSizing.maxLoanToValuePercent"],
+    });
+  }
+  if (sizing.minDebtYieldPercent !== undefined) {
+    const amountCents = Math.floor(noiCents / (sizing.minDebtYieldPercent / 100));
+    noiCaps.push({
+      key: "debtYield",
+      label: "Debt Yield",
+      amount: dollars(amountCents),
+      amountCents,
+      formula: `valuation-year ${basis} divided by the minimum debt yield`,
+      inputPaths: [...noiPaths, "lenderTests.loanSizing.minDebtYieldPercent"],
+    });
+  }
+  if (sizing.minDebtServiceCoverage !== undefined) {
+    const constant = annualDebtConstant(sizing.dscrRatePercent!, sizing.dscrAmortizationYears!);
+    const amountCents = Math.floor(noiCents / sizing.minDebtServiceCoverage / constant);
+    noiCaps.push({
+      key: "debtServiceCoverage",
+      label: "Debt Service Coverage",
+      amount: dollars(amountCents),
+      amountCents,
+      formula: `valuation-year ${basis} divided by the minimum DSCR, divided by the annual debt constant ${constant.toFixed(6)} at ${sizing.dscrRatePercent} percent ${sizing.dscrAmortizationYears === 0 ? "interest only" : `over ${sizing.dscrAmortizationYears} years of monthly payments`}`,
+      inputPaths: [...noiPaths, "lenderTests.loanSizing.minDebtServiceCoverage", "lenderTests.loanSizing.dscrRatePercent", "lenderTests.loanSizing.dscrAmortizationYears"],
+    });
+  }
+  return {
+    maxLoanCents: noiCaps.length === 0 ? null : Math.min(...noiCaps.map(({ amountCents }) => amountCents)),
+    sizingNoiCents: noiCents,
+    noiCaps,
+  };
+}
+
+/** The sized loan against every cap. LTC reads the run's final total uses, so it is added after the capital plan settles. */
+export function loanSizingResult(
+  sizing: LoanSizingPlan,
+  ceiling: LoanSizingCeiling,
+  capital: DevelopmentCapitalTotals,
+  targetDebtSharePercent: number,
+): LoanSizingResult {
+  const ltcCents = Math.round(cents(capital.totalUses) * targetDebtSharePercent / 100);
+  const caps = [
+    {
+      key: "loanToCost" as const,
+      label: "Loan to Cost",
+      amountCents: ltcCents,
+      amount: dollars(ltcCents),
+      formula: "target debt share times total uses including carry, with land at cash cost",
+      inputPaths: [...CAPITAL_PATHS],
+    },
+    ...ceiling.noiCaps,
+  ];
+  const smallest = caps.reduce((low, cap) => cap.amountCents < low.amountCents ? cap : low, caps[0]);
+  return {
+    noiTaxBasis: sizing.noiTaxBasis,
+    sizingNoi: dollars(ceiling.sizingNoiCents),
+    loanAmount: capital.totalDebt,
+    bindingCap: smallest.key,
+    caps: caps.map(({ amountCents: _amountCents, ...cap }) => {
+      void _amountCents;
+      return { ...cap, binding: cap.key === smallest.key };
+    }),
+  };
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   type DevelopmentCapitalPlan,
   LENDER_TEST_ASSUMPTION_KEYS,
   type LenderTestPlan,
+  type LoanSizingPlan,
   type CostQuantities,
   type CostLineBasisType,
   type PercentOfTotalBase,
@@ -857,7 +858,33 @@ function reconcileLenderTestReview(existing: LenderTestPlan | undefined, draft: 
       );
       return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
     })) as LenderTestPlan["lenderTestEvidence"],
+    ...(draft.loanSizing ? { loanSizing: reconcileLoanSizingReview(existing?.loanSizing, draft.loanSizing) } : {}),
   };
+}
+
+/** Loan sizing terms carry one evidence record, reset to Working on It when any term or its source changes. */
+function reconcileLoanSizingReview(existing: LoanSizingPlan | undefined, draft: LoanSizingPlan): LoanSizingPlan {
+  const { evidence } = draft;
+  const terms = {
+    noiTaxBasis: draft.noiTaxBasis,
+    ...(draft.maxLoanToValuePercent === undefined ? {} : { maxLoanToValuePercent: draft.maxLoanToValuePercent }),
+    ...(draft.minDebtYieldPercent === undefined ? {} : { minDebtYieldPercent: draft.minDebtYieldPercent }),
+    ...(draft.minDebtServiceCoverage === undefined ? {} : { minDebtServiceCoverage: draft.minDebtServiceCoverage }),
+    ...(draft.dscrRatePercent === undefined ? {} : { dscrRatePercent: draft.dscrRatePercent }),
+    ...(draft.dscrAmortizationYears === undefined ? {} : { dscrAmortizationYears: draft.dscrAmortizationYears }),
+  };
+  const nextEvidence = {
+    ...(evidence.sourceLabel === undefined ? {} : { sourceLabel: evidence.sourceLabel }),
+    ...(evidence.sourceDate === undefined ? {} : { sourceDate: evidence.sourceDate }),
+    reviewState: evidence.reviewState,
+  };
+  const termKeys = ["noiTaxBasis", "maxLoanToValuePercent", "minDebtYieldPercent", "minDebtServiceCoverage", "dscrRatePercent", "dscrAmortizationYears"] as const;
+  const changed = existing && (
+    termKeys.some((key) => existing[key] !== draft[key])
+    || existing.evidence.sourceLabel !== nextEvidence.sourceLabel
+    || existing.evidence.sourceDate !== nextEvidence.sourceDate
+  );
+  return { ...terms, evidence: changed ? { ...nextEvidence, reviewState: "working" } : nextEvidence };
 }
 
 function propertyReturnsValue(plan: PropertyReturnsPlan, key: PropertyReturnsAssumptionKey) {

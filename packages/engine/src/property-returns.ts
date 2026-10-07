@@ -11,6 +11,9 @@ import {
 } from "./development-capital";
 import {
   lenderTestsFor,
+  loanSizingCeiling,
+  loanSizingResult,
+  type LoanSizingResult,
   validateLenderTestPlan,
   type LenderTestPlan,
   type LenderTestsResult,
@@ -140,6 +143,8 @@ export type PropertyReturnsIssueCode =
   | "derived_results"
   | "invalid_lender_tests"
   | "invalid_noi_basis"
+  | "invalid_loan_sizing"
+  | "loan_sizing_unavailable"
   | "invalid_sale_tax"
   | "missing_sale_tax_basis";
 
@@ -239,7 +244,27 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     const lenderIssues = validateLenderTestPlan(inputSnapshot.lenderTests);
     if (lenderIssues.length > 0) return failedFull(inputSnapshot, lenderIssues);
   }
-  const capitalRun = computeDevelopmentCapital(inputSnapshot);
+  const firstCapitalRun = computeDevelopmentCapital(inputSnapshot);
+  if (firstCapitalRun.status === "failed" || !firstCapitalRun.result) {
+    return failedFull(inputSnapshot, firstCapitalRun.issues);
+  }
+  const forwardEndMonth = addMonths(inputSnapshot.saleMonth, 11);
+  const abatementEndMonth = inputSnapshot.propertyTax ? propertyTaxScheduleEndMonth(inputSnapshot.propertyTax) : null;
+  const projectionEndMonth = abatementEndMonth && monthIndex(abatementEndMonth)! > monthIndex(forwardEndMonth)!
+    ? abatementEndMonth
+    : forwardEndMonth;
+  const allProjectedMonths = projectApartmentOperationsThrough(inputSnapshot, projectionEndMonth);
+  const projectedMonths = allProjectedMonths.filter(({ month }) => monthIndex(month)! <= monthIndex(forwardEndMonth)!);
+  /*
+   * LA-1823: the valuation-year NOI does not depend on the loan, so lender NOI caps set a ceiling on
+   * total debt and the capital plan funds again under it. The first run validated the inputs.
+   */
+  const sizing = inputSnapshot.lenderTests?.loanSizing;
+  const ceiling = sizing ? loanSizingCeiling(inputSnapshot, projectedMonths) : null;
+  if (ceiling && "code" in ceiling) return failedFull(inputSnapshot, [ceiling]);
+  const capitalRun = ceiling?.maxLoanCents == null
+    ? firstCapitalRun
+    : computeDevelopmentCapital(inputSnapshot, { maxLoan: dollars(ceiling.maxLoanCents) });
   if (capitalRun.status === "failed" || !capitalRun.result) {
     return failedFull(inputSnapshot, capitalRun.issues);
   }
@@ -254,14 +279,7 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   const saleTaxIssues = validateSaleTax(inputSnapshot);
   if (saleTaxIssues.length > 0) return failedFull(inputSnapshot, saleTaxIssues);
 
-  const forwardEndMonth = addMonths(inputSnapshot.saleMonth, 11);
   const saleTax = inputSnapshot.saleTax;
-  const abatementEndMonth = inputSnapshot.propertyTax ? propertyTaxScheduleEndMonth(inputSnapshot.propertyTax) : null;
-  const projectionEndMonth = abatementEndMonth && monthIndex(abatementEndMonth)! > monthIndex(forwardEndMonth)!
-    ? abatementEndMonth
-    : forwardEndMonth;
-  const allProjectedMonths = projectApartmentOperationsThrough(inputSnapshot, projectionEndMonth);
-  const projectedMonths = allProjectedMonths.filter(({ month }) => monthIndex(month)! <= monthIndex(forwardEndMonth)!);
   const forwardMonths = projectedMonths.filter((month) => monthIndex(month.month)! >= monthIndex(inputSnapshot.saleMonth)!);
   const scheduledExpenses = sum(forwardMonths, "operatingExpenses");
   const fullExpenses = dollars(forwardMonths.reduce((total, month) =>
@@ -295,6 +313,16 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   if (calculation.status === "failed" || !calculation.result) {
     return failedFull(inputSnapshot, calculation.issues);
   }
+  const { totals } = capitalRun.result.capital;
+  const sizingResult = sizing && ceiling ? loanSizingResult(sizing, ceiling, totals, inputSnapshot.targetDebtSharePercent) : null;
+  const binding = sizingResult?.caps.find((cap) => cap.binding);
+  // Skipped when equity is zero, because other sources then hold debt below every cap.
+  const sizingChecks = sizingResult && binding && totals.equity > 0
+    ? [checkUsd("loan-sizing-binding-cap", `Total debt equals the binding ${binding.label} cap`, binding.amount, sizingResult.loanAmount)]
+    : [];
+  if (sizingChecks.some(({ status }) => status === "fail")) {
+    return failedFull(inputSnapshot, [{ path: "lenderTests.loanSizing", code: "derived_results", message: "The funded loan did not settle on its binding cap within one cent." }]);
+  }
   return {
     formulaVersion: PROPERTY_RETURNS_FORMULA_VERSION,
     inputSnapshot,
@@ -304,14 +332,18 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
       developmentCapital: capitalRun.result.capital,
       forwardOperations: { startMonth: inputSnapshot.saleMonth, endMonth: forwardEndMonth, months: forwardMonths },
       propertyReturns: { ...calculation.result, metrics: withTaxPaths(calculation.result.metrics, inputSnapshot) },
-      lenderTests: lenderTestsFor(inputSnapshot, capitalRun.result.capital.totals, projectedMonths),
+      lenderTests: withLoanSizing(lenderTestsFor(inputSnapshot, totals, projectedMonths), sizingResult),
       saleTax: saleTax && abatementEndMonth
         ? saleTaxResult(saleTax, forwardSalePeriod.effectiveGrossRevenue, scheduledExpenses, fullExpenses, abatementValue, abatementEndMonth, inputSnapshot.terminalCapRatePercent)
         : null,
       propertyTax: capitalRun.result.apartmentOperations.propertyTax,
     },
-    reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations],
+    reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks],
   };
+}
+
+function withLoanSizing(tests: LenderTestsResult | null, sizing: LoanSizingResult | null) {
+  return tests && sizing ? { ...tests, loanSizing: sizing } : tests;
 }
 
 export function calculatePropertyReturns(

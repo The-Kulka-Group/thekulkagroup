@@ -65,7 +65,7 @@ export const WORKSTREAMS: Workstream[] = [
   {
     key: "crm",
     name: "CRM",
-    summary: "Pursuits, companies, contacts and briefs. The screens are laid out; the working CRM comes next.",
+    summary: "Pursuits, companies, contacts and briefs. The empty Pursuits and Briefs screens came off the live site on 2026-10-07; the working CRM comes next.",
     items: [
       b("2026-08-26", undefined, "Home, Pursuits, Clients and Briefs screens laid out in Daylight"),
       b("2026-08-26", undefined, "Make the app usable below 860px"),

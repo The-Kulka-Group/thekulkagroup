@@ -49,8 +49,8 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
     value: "signed-out",
     url: "http://127.0.0.1:3188",
   }]);
-  await page.goto("/pursuits");
-  await expect(page).toHaveURL(/\/login\?next=%2Fpursuits$/);
+  await page.goto("/underwriting");
+  await expect(page).toHaveURL(/\/login\?next=%2Funderwriting$/);
   await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
   await expect(page.getByLabel("Email")).toBeVisible();
   await expect(page.getByRole("button", { name: "Send Sign-In Link" })).toBeVisible();
@@ -63,7 +63,7 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
   await page.getByRole("button", { name: "Send Sign-In Link" }).click();
   const signInResponse = await signInResponsePromise;
   expectPrivateAuthHeaders(signInResponse.headers());
-  await expect(page).toHaveURL(/\/pursuits$/);
+  await expect(page).toHaveURL(/\/underwriting$/);
   await expect(page.getByText("browser-test@kulka.invalid")).toBeVisible();
 
   const signOutResponsePromise = page.waitForResponse((response) =>
@@ -73,20 +73,20 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
   const signOutResponse = await signOutResponsePromise;
   expectPrivateAuthHeaders(signOutResponse.headers());
   await expect(page).toHaveURL(/\/login$/);
-  await page.goto("/pursuits");
-  await expect(page).toHaveURL(/\/login\?next=%2Fpursuits$/);
+  await page.goto("/underwriting");
+  await expect(page).toHaveURL(/\/login\?next=%2Funderwriting$/);
 });
 
 test("stops a signed-out page request at the proxy boundary", async ({ request }) => {
-  const response = await request.get("/pursuits?view=mine", {
+  const response = await request.get("/underwriting?view=mine", {
     headers: { Cookie: "kulka-test-auth=signed-out" },
     maxRedirects: 0,
   });
 
   expect(response.status()).toBe(307);
-  expect(response.headers().location).toMatch(/\/login\?next=%2Fpursuits%3Fview%3Dmine$/);
+  expect(response.headers().location).toMatch(/\/login\?next=%2Funderwriting%3Fview%3Dmine$/);
   expectPrivateAuthHeaders(response.headers());
-  expect((await response.body()).toString()).toBe("/login?next=%2Fpursuits%3Fview%3Dmine");
+  expect((await response.body()).toString()).toBe("/login?next=%2Funderwriting%3Fview%3Dmine");
 });
 
 for (const viewport of [
@@ -131,7 +131,7 @@ for (const viewport of [
 
 test("keeps the sign-in form in logical keyboard order", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.goto("/login?next=%2Fpursuits");
+  await page.goto("/login?next=%2Funderwriting");
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Email")).toBeFocused();
   await page.keyboard.press("Tab");
@@ -185,7 +185,7 @@ test("confirms an invite and returns straight to the safe path", async ({ page, 
     url: "http://127.0.0.1:3188",
   }]);
   await page.goto(
-    "/auth/continue?token_hash=browser-test-token&type=invite&next=%2Fpursuits",
+    "/auth/continue?token_hash=browser-test-token&type=invite&next=%2Funderwriting",
   );
   await expect(page.getByRole("heading", { name: "Finish Account Setup" })).toBeVisible();
   const confirmResponsePromise = page.waitForResponse((response) =>
@@ -194,7 +194,7 @@ test("confirms an invite and returns straight to the safe path", async ({ page, 
   await page.getByRole("button", { name: "Continue" }).click();
   const confirmResponse = await confirmResponsePromise;
   expectPrivateAuthHeaders(confirmResponse.headers());
-  await expect(page).toHaveURL(/\/pursuits$/);
+  await expect(page).toHaveURL(/\/underwriting$/);
 });
 
 test("confirms a magic link and returns straight to the safe path", async ({ page, context }) => {

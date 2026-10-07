@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar, List, MapTrifold,
+  House, Users, Calculator, ChartLineUp, Binoculars, ChartBar, List, MapTrifold,
   MagnifyingGlass, SidebarSimple,
 } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
@@ -22,8 +22,6 @@ const NAV_GROUPS = [
     label: "Business Development",
     items: [
       { href: "/vision", label: "Vision", count: undefined, Icon: Binoculars },
-      { href: "/pursuits", label: "Pursuits", count: undefined, Icon: Target },
-      { href: "/briefs", label: "Briefs", count: undefined, Icon: FileText },
     ],
   },
   {

@@ -445,6 +445,24 @@ describe("underwriting calculation repository", () => {
     expect(changed!.apartmentOperations!.stabilizationRule!.reviewState).toBe("working");
   });
 
+  it("stores an occupancy cap, runs without vacancy loss, and returns it to Working on It when the case's vacancy changes it", async () => {
+    const done = { sourceLabel: "Benjamin lease-up", reviewState: "done" };
+    const operating = await caseWithLeaseUp({ occupancyCap: done });
+    expect(operating!.apartmentOperations!.occupancyCap).toMatchObject(done);
+    const run = await runUnderwritingCase(db, operating!.id, operating!.caseRevision);
+    expect(run!.status).toBe("complete");
+    expect(run!.inputSnapshot.occupancyCap).toMatchObject(done);
+    expect(run!.apartmentOperationsResult!.totals.vacancyLoss).toBe(0);
+    expect(run!.apartmentOperationsResult!.formulaTraces.find(({ key }) => key === "vacancyLoss")!.formula).toContain("occupancy cap");
+    const unchanged = await saveApartmentOperations(db, operating!.id, operating!.caseRevision, operating!.apartmentOperations!);
+    expect(unchanged!.apartmentOperations!.occupancyCap!.reviewState).toBe("done");
+    const changed = await saveApartmentOperations(db, unchanged!.id, unchanged!.caseRevision, {
+      ...unchanged!.apartmentOperations!,
+      occupancyCap: { ...unchanged!.apartmentOperations!.occupancyCap!, sourceLabel: "Other source" },
+    });
+    expect(changed!.apartmentOperations!.occupancyCap!.reviewState).toBe("working");
+  });
+
   it("stores lease turnover, runs it under v3, and returns it to Working on It when it changes", async () => {
     const done = { sourceLabel: "Leasing plan", reviewState: "done" };
     const operating = await caseWithLeaseUp({

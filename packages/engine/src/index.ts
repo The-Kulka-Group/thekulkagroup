@@ -310,6 +310,7 @@ export {
   type CategoryGrowth,
   type GrowthCategory,
   type LeaseTurnover,
+  type OccupancyCap,
   type LeaseTurnoverBasis,
   type LeaseUpConcession,
   type LeaseUpConcessionTiming,

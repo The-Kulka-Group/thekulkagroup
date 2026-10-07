@@ -17,6 +17,7 @@ import {
   type CategoryGrowth,
   type LeaseTurnover,
   type LeaseUpConcession,
+  type OccupancyCap,
   type MilestoneAnchor,
   type OperatingExpenseLine,
   type OtherIncomeLine,
@@ -59,6 +60,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [propertyTax, setPropertyTax] = useState<PropertyTaxPlan | undefined>(saved?.propertyTax);
   const [leaseUpConcession, setLeaseUpConcession] = useState<LeaseUpConcession | undefined>(saved?.leaseUpConcession);
   const [seasonalAbsorption, setSeasonalAbsorption] = useState<SeasonalAbsorption | undefined>(saved?.seasonalAbsorption);
+  const [occupancyCap, setOccupancyCap] = useState<OccupancyCap | undefined>(saved?.occupancyCap);
   const [stabilizationRule, setStabilizationRule] = useState<StabilizationRule | undefined>(saved?.stabilizationRule);
   const [leaseTurnover, setLeaseTurnover] = useState<LeaseTurnover | undefined>(saved?.leaseTurnover);
   const [categoryGrowth, setCategoryGrowth] = useState<CategoryGrowth | undefined>(saved?.categoryGrowth);
@@ -111,6 +113,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           ...(propertyTax ? { propertyTax } : {}),
           ...(leaseUpConcession ? { leaseUpConcession } : {}),
           ...(seasonalAbsorption ? { seasonalAbsorption } : {}),
+          ...(occupancyCap ? { occupancyCap } : {}),
           ...(stabilizationRule ? { stabilizationRule } : {}),
           ...(leaseTurnover ? { leaseTurnover } : {}),
           ...(categoryGrowth ? { categoryGrowth } : {}),
@@ -199,6 +202,9 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         setConcession={setLeaseUpConcession}
         seasonal={seasonalAbsorption}
         setSeasonal={setSeasonalAbsorption}
+        occupancyCap={occupancyCap}
+        setOccupancyCap={setOccupancyCap}
+        vacancyPercent={vacancyPercent}
         rule={stabilizationRule}
         setRule={setStabilizationRule}
         turnover={leaseTurnover}

@@ -3,6 +3,7 @@
 import {
   MAX_OPERATION_SOURCE_LABEL_LENGTH,
   type LeaseTurnover,
+  type OccupancyCap,
   type LeaseTurnoverBasis,
   type LeaseUpConcession,
   type LeaseUpConcessionTiming,
@@ -25,12 +26,15 @@ const TURNOVER_BASES: Array<[LeaseTurnoverBasis, string, string]> = [
   ["net_units_gained", "Net Units Gained", "The share applies to the units the building gained one term earlier. Leases that refill moved-out units do not expire again during lease-up."],
 ];
 
-/** Optional lease-up inputs (LA-1704, LA-1784). Each block left off keeps the engine's default behavior. */
-export function LeaseUpSection({ concession, setConcession, seasonal, setSeasonal, rule, setRule, turnover, setTurnover, fieldErrors }: {
+/** Optional lease-up inputs (LA-1704, LA-1784, LA-1849). Each block left off keeps the engine's default behavior. */
+export function LeaseUpSection({ concession, setConcession, seasonal, setSeasonal, occupancyCap, setOccupancyCap, vacancyPercent, rule, setRule, turnover, setTurnover, fieldErrors }: {
   concession?: LeaseUpConcession;
   setConcession: (value?: LeaseUpConcession) => void;
   seasonal?: SeasonalAbsorption;
   setSeasonal: (value?: SeasonalAbsorption) => void;
+  occupancyCap?: OccupancyCap;
+  setOccupancyCap: (value?: OccupancyCap) => void;
+  vacancyPercent: number;
   rule?: StabilizationRule;
   setRule: (value?: StabilizationRule) => void;
   turnover?: LeaseTurnover;
@@ -40,7 +44,7 @@ export function LeaseUpSection({ concession, setConcession, seasonal, setSeasona
   return (
     <section className="underwriting-line-section" aria-labelledby="lease-up-heading">
       <h4 id="lease-up-heading">Lease-Up</h4>
-      <p className="t-meta">Free rent on new leases, a seasonal pace, a stabilization test and lease turnover. Leave a block off to keep one pace, no lease-up free rent, stabilization the first month every revenue unit is leased, and no lease ending during lease-up.</p>
+      <p className="t-meta">Free rent on new leases, a seasonal pace, a stabilization test and lease turnover. Leave a block off to keep one pace, no lease-up free rent, every revenue unit leased with the vacancy percent taken off income, stabilization the first month every revenue unit is leased, and no lease ending during lease-up.</p>
 
       <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(concession)} onChange={(event) => setConcession(event.target.checked ? { monthsFree: 1, leaseTermMonths: 12, timing: "at_move_in", reviewState: "working" } : undefined)} /> Add Lease-Up Concession</label>
       {concession ? <>
@@ -70,6 +74,12 @@ export function LeaseUpSection({ concession, setConcession, seasonal, setSeasona
         </div>
         <FieldError error={fieldErrors["seasonalAbsorption.monthlyFactors"]} />
         <EvidenceRow path="seasonalAbsorption" label="Seasonal Absorption" item={seasonal} onChange={(change) => setSeasonal({ ...seasonal, ...change })} fieldErrors={fieldErrors} />
+      </> : null}
+
+      <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(occupancyCap)} onChange={(event) => setOccupancyCap(event.target.checked ? { reviewState: "working" } : undefined)} /> Stop Lease-Up at One Less the Vacancy Rate</label>
+      {occupancyCap ? <>
+        <p className="t-meta">Leased units stop at {Number.isFinite(vacancyPercent) ? `${100 - vacancyPercent} percent` : "one less the vacancy percent"} of revenue units. The unleased units are the vacancy, so lease-up loss carries them and no vacancy loss is charged on top. Credit loss still applies. Stabilization is the first month at the cap, and a stabilization rule cannot target more than the cap.</p>
+        <EvidenceRow path="occupancyCap" label="Occupancy Cap" item={occupancyCap} onChange={(change) => setOccupancyCap({ ...occupancyCap, ...change })} fieldErrors={fieldErrors} />
       </> : null}
 
       <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(rule)} onChange={(event) => setRule(event.target.checked ? { targetOccupancyPercent: 95, holdMonths: 3, reviewState: "working" } : undefined)} /> Add Stabilization Rule</label>

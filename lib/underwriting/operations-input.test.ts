@@ -194,3 +194,32 @@ describe("parseApartmentOperations with growth by category", () => {
     }
   });
 });
+
+describe("parseApartmentOperations with an occupancy cap", () => {
+  const occupancyCap = { sourceLabel: "Benjamin lease-up", sourceDate: "2026-10-07", reviewState: "working" as const };
+
+  it("keeps the block and drops fields the engine does not know", () => {
+    const draft = parseApartmentOperations({ ...operations, occupancyCap: { ...occupancyCap, capPercent: 90 } }, costSchedule);
+    expect(draft.occupancyCap).toEqual(occupancyCap);
+  });
+
+  it("treats a cleared block sent as null the same as an absent one", () => {
+    expect(parseApartmentOperations({ ...operations, occupancyCap: null }, costSchedule)).not.toHaveProperty("occupancyCap");
+    expect(parseApartmentOperations(operations, costSchedule)).not.toHaveProperty("occupancyCap");
+  });
+
+  it("reports a stabilization rule above the cap against its field", () => {
+    try {
+      parseApartmentOperations({
+        ...operations,
+        vacancyPercent: 5,
+        occupancyCap,
+        stabilizationRule: { targetOccupancyPercent: 99, holdMonths: 1, ...occupancyCap },
+      }, costSchedule);
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidApartmentOperations);
+      expect((error as InvalidApartmentOperations).fieldErrors).toHaveProperty(["stabilizationRule.targetOccupancyPercent"]);
+    }
+  });
+});

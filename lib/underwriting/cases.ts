@@ -1076,6 +1076,7 @@ function reconcileOperationsReview(
     ...(draft.propertyTax ? { propertyTax: reconcilePropertyTaxReview(existing?.propertyTax, draft.propertyTax) } : {}),
     ...(draft.leaseUpConcession ? { leaseUpConcession: reconcileBlockReview(existing?.leaseUpConcession, draft.leaseUpConcession) } : {}),
     ...(draft.seasonalAbsorption ? { seasonalAbsorption: reconcileBlockReview(existing?.seasonalAbsorption, draft.seasonalAbsorption) } : {}),
+    ...(draft.occupancyCap ? { occupancyCap: reconcileBlockReview(existing?.occupancyCap, draft.occupancyCap) } : {}),
     ...(draft.stabilizationRule ? { stabilizationRule: reconcileBlockReview(existing?.stabilizationRule, draft.stabilizationRule) } : {}),
     ...(draft.leaseTurnover ? { leaseTurnover: reconcileBlockReview(existing?.leaseTurnover, draft.leaseTurnover) } : {}),
     ...(draft.categoryGrowth ? { categoryGrowth: reconcileBlockReview(existing?.categoryGrowth, draft.categoryGrowth) } : {}),

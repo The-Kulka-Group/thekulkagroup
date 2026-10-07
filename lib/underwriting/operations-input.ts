@@ -103,6 +103,9 @@ export function parseApartmentOperations(
     ...(candidate.seasonalAbsorption === undefined ? {} : {
       seasonalAbsorption: knownLeaseUpFields(candidate.seasonalAbsorption, ["monthlyFactors"]),
     }),
+    ...(candidate.occupancyCap === undefined || candidate.occupancyCap === null ? {} : {
+      occupancyCap: knownLeaseUpFields(candidate.occupancyCap, []),
+    }),
     ...(candidate.stabilizationRule === undefined ? {} : {
       stabilizationRule: knownLeaseUpFields(candidate.stabilizationRule, ["targetOccupancyPercent", "holdMonths"]),
     }),
@@ -145,6 +148,7 @@ export function parseApartmentOperations(
     ...(checked.inputSnapshot.propertyTax ? { propertyTax: checked.inputSnapshot.propertyTax } : {}),
     ...(checked.inputSnapshot.leaseUpConcession ? { leaseUpConcession: checked.inputSnapshot.leaseUpConcession } : {}),
     ...(checked.inputSnapshot.seasonalAbsorption ? { seasonalAbsorption: checked.inputSnapshot.seasonalAbsorption } : {}),
+    ...(checked.inputSnapshot.occupancyCap ? { occupancyCap: checked.inputSnapshot.occupancyCap } : {}),
     ...(checked.inputSnapshot.stabilizationRule ? { stabilizationRule: checked.inputSnapshot.stabilizationRule } : {}),
     ...(checked.inputSnapshot.leaseTurnover ? { leaseTurnover: checked.inputSnapshot.leaseTurnover } : {}),
     ...(checked.inputSnapshot.categoryGrowth ? { categoryGrowth: checked.inputSnapshot.categoryGrowth } : {}),

@@ -326,3 +326,104 @@ describe("cost line basis types", () => {
     ]);
   });
 });
+
+describe("percent-of-total lines", () => {
+  const line = (id: string, category: MonthlyCostScheduleInputs["costLines"][number]["category"], priced: Partial<MonthlyCostScheduleInputs["costLines"][number]>) => ({
+    id,
+    name: id,
+    category,
+    unit: "usd" as const,
+    startMonth: "2026-01",
+    endMonth: "2026-02",
+    distributionMethod: "straight_line" as const,
+    distributionVersion: STRAIGHT_LINE_DISTRIBUTION_VERSION,
+    reviewState: "working" as const,
+    ...priced,
+  });
+  const schedule = (costLines: MonthlyCostScheduleInputs["costLines"]): MonthlyCostScheduleInputs => ({
+    analysisStartMonth: "2026-01",
+    saleMonth: "2026-03",
+    costLines,
+  });
+  const land = line("land", "land", { amount: 1_000_000 });
+  const hard = line("hard", "hard_cost", { amount: 10_000_000 });
+  const soft = line("soft", "soft_cost", { amount: 2_000_000 });
+
+  it("prices a line on hard and soft cost, leaving out land, other categories and itself", () => {
+    const run = computeMonthlyCostSchedule(schedule([
+      land,
+      hard,
+      soft,
+      line("contingency", "soft_cost", { basis: { type: "percent_of_total", base: "hard_and_soft", percent: 5 } }),
+    ]));
+    expect(run.status).toBe("complete");
+    const contingency = run.result!.costLineSchedules[3];
+    expect(contingency).toMatchObject({ amount: 600_000, percentBase: 12_000_000, basisType: "percent_of_total" });
+    expect(run.reconciliations.find(({ id }) => id === "percent-of-total:contingency")?.status).toBe("pass");
+  });
+
+  it("settles two percent-of-total lines that sit in each other's base", () => {
+    const run = computeMonthlyCostSchedule(schedule([
+      land,
+      hard,
+      line("fee", "development_fee", { basis: { type: "percent_of_total", base: "total_cost", percent: 4 } }),
+      line("contingency", "hard_cost", { basis: { type: "percent_of_total", base: "total_less_land", percent: 5 } }),
+    ]));
+    // fee = 4% × (11M + contingency); contingency = 5% × (10M + fee).
+    const fee = 460_000 / 0.998;
+    const [, , feeLine, contingencyLine] = run.result!.costLineSchedules;
+    expect(feeLine.amount).toBeCloseTo(fee, 1);
+    expect(contingencyLine.amount).toBeCloseTo(500_000 + 0.05 * fee, 1);
+    expect(run.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(feeLine.formulaTrace).toContain("no financing yet");
+  });
+
+  it("adds financing the capital plan passes in to a total base but not to hard and soft", () => {
+    const lines = [
+      hard,
+      line("fee", "development_fee", { basis: { type: "percent_of_total", base: "total_cost", percent: 10 } }),
+      line("contingency", "soft_cost", { basis: { type: "percent_of_total", base: "hard_and_soft", percent: 10 } }),
+    ];
+    const run = computeMonthlyCostSchedule(schedule(lines), { financingCost: 500_000 });
+    const [, fee, contingency] = run.result!.costLineSchedules;
+    expect(contingency.amount).toBe(1_000_000);
+    expect(fee.amount).toBe(1_150_000);
+    expect(fee.formulaTrace).toContain("including financing of 500000");
+    expect(run.inputSnapshot).not.toHaveProperty("financingCost");
+  });
+
+  it("lets a percent-of-line line follow a percent-of-total line", () => {
+    const run = computeMonthlyCostSchedule(schedule([
+      hard,
+      line("fee", "development_fee", { basis: { type: "percent_of_total", base: "hard_and_soft", percent: 3 } }),
+      line("fee-tax", "soft_cost", { basis: { type: "percent_of_line", baseLineId: "fee", percent: 10 } }),
+    ]));
+    // fee = 3% × (10M + fee tax); fee tax = 10% × fee.
+    const fee = 300_000 / 0.997;
+    expect(run.result!.costLineSchedules[1].amount).toBeCloseTo(fee, 1);
+    expect(run.result!.costLineSchedules[2].amount).toBeCloseTo(fee / 10, 1);
+  });
+
+  it("fails percents at or above 100 in total, a bad base, and a loop that will not settle", () => {
+    const tooHigh = computeMonthlyCostSchedule(schedule([
+      hard,
+      line("a", "soft_cost", { basis: { type: "percent_of_total", base: "total_cost", percent: 60 } }),
+      line("b", "soft_cost", { basis: { type: "percent_of_total", base: "total_cost", percent: 40 } }),
+    ]));
+    expect(tooHigh.issues.map(({ code }) => code)).toEqual(["percent_total_too_high"]);
+
+    const bad = computeMonthlyCostSchedule(schedule([
+      hard,
+      line("a", "soft_cost", { basis: { type: "percent_of_total", base: "everything" as never, percent: 100 } }),
+    ]));
+    expect(bad.issues.map(({ path }) => path)).toEqual(["costLines.1.basis.percent", "costLines.1.basis.base", "costLines"]);
+
+    const runaway = computeMonthlyCostSchedule(schedule([
+      hard,
+      line("fee", "development_fee", { basis: { type: "percent_of_total", base: "total_cost", percent: 50 } }),
+      line("echo", "soft_cost", { basis: { type: "percent_of_line", baseLineId: "fee", percent: 1000 } }),
+    ]));
+    expect(runaway.status).toBe("failed");
+    expect(runaway.issues.map(({ code }) => code)).toEqual(["percent_total_unsettled"]);
+  });
+});

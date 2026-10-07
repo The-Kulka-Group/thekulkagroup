@@ -29,12 +29,22 @@ const BASIS_OPTIONS = [
   ["per_gross_square_foot", "Per Gross SF"],
   ["per_unit", "Per Unit"],
   ["percent_of_line", "Percent of Line"],
+  ["percent_of_total", "Percent of Total"],
 ] as const;
+
+const TOTAL_BASE_OPTIONS = [
+  ["total_cost", "Total Cost"],
+  ["total_less_land", "Total Less Land"],
+  ["hard_and_soft", "Hard and Soft Cost"],
+] as const;
+
+type TotalBasis = Extract<CostLineBasis, { type: "percent_of_total" }>;
 
 function withBasis(line: EditableLine, type: CostLineBasis["type"], otherLines: EditableLine[]): EditableLine {
   const { amount, basis, ...rest } = line;
   void basis;
   if (type === "fixed") return { ...rest, amount: amount ?? 0 };
+  if (type === "percent_of_total") return { ...rest, basis: { type, base: "total_cost", percent: 0 } };
   if (type === "percent_of_line") {
     return { ...rest, basis: { type, baseLineId: otherLines[0]?.id ?? "", percent: 0 } };
   }
@@ -217,6 +227,17 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                         onChange={(event) => updateLine(index, { amount: Number(event.target.value) })} />
                       <span>USD</span>
                     </div>
+                  ) : line.basis.type === "percent_of_total" ? (
+                    <div className="underwriting-money-input">
+                      <input id={`cost-line-${index}-basis-percent`} className="input num right" type="number" min="0.01" max="99.99" step="0.01"
+                        aria-label={`${label} percent of total`} value={line.basis.percent || ""}
+                        onChange={(event) => updateLine(index, { basis: { ...line.basis as TotalBasis, percent: Number(event.target.value) } })} />
+                      <span>% of</span>
+                      <select className="input" aria-label={`${label} total base`} value={line.basis.base}
+                        onChange={(event) => updateLine(index, { basis: { ...line.basis as TotalBasis, base: event.target.value as TotalBasis["base"] } })}>
+                        {TOTAL_BASE_OPTIONS.map(([value, optionLabel]) => <option value={value} key={value}>{optionLabel}</option>)}
+                      </select>
+                    </div>
                   ) : line.basis.type === "percent_of_line" ? (
                     <div className="underwriting-money-input">
                       <input id={`cost-line-${index}-basis-percent`} className="input num right" type="number" min="0.01" max="1000" step="0.01"
@@ -237,7 +258,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                       <span>{line.basis.type === "per_unit" ? "USD/Unit" : "USD/GSF"}</span>
                     </div>
                   )}
-                  <FieldError id={amount.errorId} error={amount.error ?? fieldErrors[`costLines.${index}.basis.rate`] ?? fieldErrors[`costLines.${index}.basis.percent`] ?? fieldErrors[`costLines.${index}.basis.baseLineId`] ?? quantityError} />
+                  <FieldError id={amount.errorId} error={amount.error ?? fieldErrors[`costLines.${index}.basis.rate`] ?? fieldErrors[`costLines.${index}.basis.percent`] ?? fieldErrors[`costLines.${index}.basis.baseLineId`] ?? fieldErrors[`costLines.${index}.basis.base`] ?? quantityError} />
                 </td>
                 <td><input {...startMonth.controlProps} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`} aria-label={`${line.name || `Cost line ${index + 1}`} start month`}
                   value={line.startMonth} onChange={(event) => updateLine(index, { startMonth: event.target.value })} /><FieldError id={startMonth.errorId} error={startMonth.error} /></td>

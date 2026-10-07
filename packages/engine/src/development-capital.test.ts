@@ -357,3 +357,56 @@ describe("dated rate path", () => {
     expect(run(curve([["2026-01", 4]])).formulaVersion).toBe("underwriting.development_capital.v3");
   });
 });
+
+describe("percent-of-total lines through the capital plan", () => {
+  const base = APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE.fullModelInput as DevelopmentCapitalInputs;
+  const withFee = (basis: { base: "total_cost" | "total_less_land" | "hard_and_soft"; percent: number }): DevelopmentCapitalInputs => {
+    const first = base.costLines[0];
+    return {
+      ...base,
+      costLines: [...base.costLines, {
+        id: "solved-fee",
+        name: "Solved Development Fee",
+        category: "development_fee",
+        basis: { type: "percent_of_total", ...basis },
+        unit: "usd",
+        startMonth: first.startMonth,
+        endMonth: first.startMonth,
+        distributionMethod: "straight_line",
+        distributionVersion: first.distributionVersion.startsWith("straight") ? first.distributionVersion : "straight_line.v1",
+        reviewState: "working",
+      } as DevelopmentCapitalInputs["costLines"][number]],
+    };
+  };
+
+  it("solves a fee on total cost including the financing it helps create", () => {
+    const run = computeDevelopmentCapital(withFee({ base: "total_cost", percent: 3 }));
+    expect(run.status).toBe("complete");
+    const { capital, apartmentOperations } = run.result!;
+    const fee = apartmentOperations.costSchedule.costLineSchedules.find(({ lineId }) => lineId === "solved-fee")!;
+    const financing = capital.totals.totalUses - capital.totals.projectCosts;
+    const otherLines = capital.totals.projectCosts - fee.amount;
+    expect(financing).toBeGreaterThan(0);
+    expect(fee.amount).toBeCloseTo(0.03 * (otherLines + financing), 1);
+    expect(fee.amount).toBeGreaterThan(0.03 * otherLines);
+    const check = run.reconciliations.find(({ id }) => id === "percent-of-total-financed:solved-fee");
+    expect(check?.status).toBe("pass");
+    expect(run.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(run.inputSnapshot).toEqual(withFee({ base: "total_cost", percent: 3 }));
+  });
+
+  it("leaves land out of a total-less-land base and financing out of hard and soft", () => {
+    const lessLand = computeDevelopmentCapital(withFee({ base: "total_less_land", percent: 3 }));
+    const hardSoft = computeDevelopmentCapital(withFee({ base: "hard_and_soft", percent: 3 }));
+    const total = computeDevelopmentCapital(withFee({ base: "total_cost", percent: 3 }));
+    const feeOf = (run: typeof total) => run.result!.apartmentOperations.costSchedule.costLineSchedules.find(({ lineId }) => lineId === "solved-fee")!.amount;
+    expect(feeOf(lessLand)).toBeLessThan(feeOf(total));
+    expect(feeOf(hardSoft)).toBeLessThan(feeOf(lessLand));
+    expect(hardSoft.reconciliations.some(({ id }) => id.startsWith("percent-of-total-financed:"))).toBe(false);
+  });
+
+  it("runs one round and changes nothing when no line is a percent of total", () => {
+    expect(computeDevelopmentCapital(base).result).toEqual(computeDevelopmentCapital(structuredClone(base)).result);
+    expect(computeDevelopmentCapital(base).reconciliations.some(({ id }) => id.startsWith("percent-of-total"))).toBe(false);
+  });
+});

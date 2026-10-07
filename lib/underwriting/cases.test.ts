@@ -603,6 +603,43 @@ describe("underwriting case repository", () => {
     ]);
   });
 
+  it("saves a percent-of-total line with its base and resets review when the base changes", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const fee: MonthlyCostLine = {
+      id: "fee", name: "Development Fee", category: "development_fee", unit: "usd", startMonth: "2026-01", endMonth: "2026-02",
+      distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "done",
+      basis: { type: "percent_of_total", base: "total_cost", percent: 3.5 },
+    };
+    const hard: MonthlyCostLine = { ...fee, id: "hard", name: "Hard", category: "hard_cost", basis: undefined, amount: 1_000_000 };
+    const saved = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-03", costLines: [hard, fee],
+    });
+    expect(saved!.costSchedule!.costLines[1].basis).toEqual({ type: "percent_of_total", base: "total_cost", percent: 3.5 });
+    expect(saved!.costSchedule!.costLines[1]).not.toHaveProperty("amount");
+
+    const changed = await saveUnderwritingCostSchedule(db, created!.id, saved!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-03",
+      costLines: [hard, { ...fee, basis: { type: "percent_of_total", base: "total_less_land", percent: 3.5 } }],
+    });
+    expect(changed!.costSchedule!.costLines.map(({ reviewState }) => reviewState)).toEqual(["done", "working"]);
+  });
+
+  it("rejects a percent-of-total row without a base or at 100 percent", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const insert = (values: string) => db.query(
+      `insert into underwriting_case_cost_lines
+         (case_id, id, line_order, name, category, unit, start_month, end_month,
+          distribution_method, distribution_version, review_state, basis_type, basis_percent, basis_total_base)
+       values ($1, 'x', 0, 'x', 'hard_cost', 'usd', '2026-01-01', '2026-02-01',
+          'straight_line', 'straight_line.v1', 'working', 'percent_of_total', ${values})`,
+      [created!.id],
+    );
+    await expect(insert("5, null")).rejects.toThrow();
+    await expect(insert("100, 'total_cost'")).rejects.toThrow();
+    await expect(insert("5, 'everything'")).rejects.toThrow();
+    await expect(insert("5, 'hard_and_soft'")).resolves.toBeDefined();
+  });
+
   it("moves a line from a basis back to a fixed amount", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     const base: MonthlyCostLine = {

@@ -8,9 +8,9 @@ import {
   type DevelopmentCapitalPlan,
   LENDER_TEST_ASSUMPTION_KEYS,
   type LenderTestPlan,
-  type CostLineBasis,
   type CostQuantities,
   type CostLineBasisType,
+  type PercentOfTotalBase,
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
@@ -190,6 +190,7 @@ type CostLineRow = {
   basis_rate: string | number | null;
   basis_base_line_id: string | null;
   basis_percent: string | number | null;
+  basis_total_base: PercentOfTotalBase | null;
   unit: MonthlyCostLine["unit"];
   start_month: Date | string;
   end_month: Date | string;
@@ -239,6 +240,9 @@ function optionalNumber(value: string | number | null) {
 function basisFields(line: CostLineRow): Pick<MonthlyCostLine, "amount" | "basis"> {
   if (line.basis_type === "per_gross_square_foot" || line.basis_type === "per_unit") {
     return { basis: { type: line.basis_type, rate: Number(line.basis_rate) } };
+  }
+  if (line.basis_type === "percent_of_total") {
+    return { basis: { type: "percent_of_total", base: line.basis_total_base!, percent: Number(line.basis_percent) } };
   }
   if (line.basis_type === "percent_of_line") {
     return { basis: { type: "percent_of_line", baseLineId: line.basis_base_line_id!, percent: Number(line.basis_percent) } };
@@ -443,6 +447,7 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
                     'basis_rate', line.basis_rate,
                     'basis_base_line_id', line.basis_base_line_id,
                     'basis_percent', line.basis_percent,
+                    'basis_total_base', line.basis_total_base,
                     'unit', line.unit,
                     'start_month', line.start_month,
                     'end_month', line.end_month,
@@ -563,7 +568,8 @@ export async function saveUnderwritingCostSchedule(
     basisType: line.basis?.type ?? "fixed",
     basisRate: line.basis && "rate" in line.basis ? line.basis.rate : null,
     basisBaseLineId: line.basis?.type === "percent_of_line" ? line.basis.baseLineId : null,
-    basisPercent: line.basis?.type === "percent_of_line" ? line.basis.percent : null,
+    basisPercent: line.basis?.type === "percent_of_line" || line.basis?.type === "percent_of_total" ? line.basis.percent : null,
+    basisTotalBase: line.basis?.type === "percent_of_total" ? line.basis.base : null,
     lineOrder,
     sourceLabel: line.sourceLabel ?? null,
     sourceDate: line.sourceDate ?? null,
@@ -597,6 +603,7 @@ export async function saveUnderwritingCostSchedule(
        select * from jsonb_to_recordset($4::jsonb) as supplied(
          id text, name text, category text, amount numeric, unit text,
          "basisType" text, "basisRate" numeric, "basisBaseLineId" text, "basisPercent" numeric,
+         "basisTotalBase" text,
          "startMonth" text, "endMonth" text, "distributionMethod" text,
          "distributionVersion" text, "sourceLabel" text, "sourceDate" date,
          "reviewState" text, "lineOrder" integer
@@ -608,13 +615,13 @@ export async function saveUnderwritingCostSchedule(
      ), saved_lines as (
        insert into underwriting_case_cost_lines
          (case_id, id, line_order, name, category, amount, unit, basis_type,
-          basis_rate, basis_base_line_id, basis_percent, start_month,
+          basis_rate, basis_base_line_id, basis_percent, basis_total_base, start_month,
           end_month, distribution_method, distribution_version, source_label,
           source_date, review_state)
        select updated_case.id, supplied.id, supplied."lineOrder", supplied.name,
               supplied.category, supplied.amount, supplied.unit,
               supplied."basisType", supplied."basisRate", supplied."basisBaseLineId",
-              supplied."basisPercent",
+              supplied."basisPercent", supplied."basisTotalBase",
               (supplied."startMonth" || '-01')::date,
               (supplied."endMonth" || '-01')::date,
               supplied."distributionMethod", supplied."distributionVersion",
@@ -630,6 +637,7 @@ export async function saveUnderwritingCostSchedule(
            basis_rate = excluded.basis_rate,
            basis_base_line_id = excluded.basis_base_line_id,
            basis_percent = excluded.basis_percent,
+           basis_total_base = excluded.basis_total_base,
            start_month = excluded.start_month,
            end_month = excluded.end_month,
            distribution_method = excluded.distribution_method,
@@ -645,6 +653,7 @@ export async function saveUnderwritingCostSchedule(
                or underwriting_case_cost_lines.basis_rate is distinct from excluded.basis_rate
                or underwriting_case_cost_lines.basis_base_line_id is distinct from excluded.basis_base_line_id
                or underwriting_case_cost_lines.basis_percent is distinct from excluded.basis_percent
+               or underwriting_case_cost_lines.basis_total_base is distinct from excluded.basis_total_base
                or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
                or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
                or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
@@ -663,6 +672,7 @@ export async function saveUnderwritingCostSchedule(
                or underwriting_case_cost_lines.basis_rate is distinct from excluded.basis_rate
                or underwriting_case_cost_lines.basis_base_line_id is distinct from excluded.basis_base_line_id
                or underwriting_case_cost_lines.basis_percent is distinct from excluded.basis_percent
+               or underwriting_case_cost_lines.basis_total_base is distinct from excluded.basis_total_base
                or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
                or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
                or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method

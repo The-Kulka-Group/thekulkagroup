@@ -4,7 +4,7 @@ import {
   type ApartmentOperationsIssue,
   type ApartmentOperationsResult,
 } from "./apartment-operations";
-import type { ReconciliationCheck } from "./monthly-cost-schedule";
+import type { MonthlyCostLine, MonthlyCostScheduleResult, ReconciliationCheck } from "./monthly-cost-schedule";
 import {
   scheduleOtherSources,
   validateOtherFunding,
@@ -115,6 +115,7 @@ export type DevelopmentCapitalIssueCode =
   | "stale_rate_curve"
   | "other_sources_exceed_equity_need"
   | "other_sources_unused"
+  | "percent_total_unsettled"
   | OtherSourceIssueCode;
 
 export type DevelopmentCapitalIssue = {
@@ -277,47 +278,86 @@ export type DevelopmentCapitalRun = {
   reconciliations: ReconciliationCheck[];
 };
 
+export const MAX_FINANCING_ROUNDS = 100;
+
 export function computeDevelopmentCapital(input: DevelopmentCapitalInputs): DevelopmentCapitalRun {
   const inputSnapshot = structuredClone(input);
-  const operationsRun = computeApartmentOperations(inputSnapshot);
-  if (operationsRun.status === "failed" || !operationsRun.result) {
-    return {
-      formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
-      inputSnapshot,
-      status: "failed",
-      issues: operationsRun.issues,
-      result: null,
-      reconciliations: [],
-    };
-  }
-  const monthlyCashFlow = operationsRun.result.months.map((month) => ({
-    month: month.month,
-    projectCosts: month.totalUses,
-    operatingCashFlow: month.operatingCashFlow,
-  }));
-  const landCashCost = operationsRun.result.costSchedule.totalsByCategory.land;
-  const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost);
-  if (capitalRun.status === "failed" || !capitalRun.result) {
-    return {
-      formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
-      inputSnapshot,
-      status: "failed",
-      issues: capitalRun.issues,
-      result: null,
-      reconciliations: [],
-    };
-  }
-  return {
+  const failedWith = (issues: DevelopmentCapitalRun["issues"]): DevelopmentCapitalRun => ({
     formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
     inputSnapshot,
-    status: "complete",
-    issues: [],
-    result: {
-      apartmentOperations: operationsRun.result,
-      capital: capitalRun.result,
-    },
-    reconciliations: [...operationsRun.reconciliations, ...capitalRun.reconciliations],
-  };
+    status: "failed",
+    issues,
+    result: null,
+    reconciliations: [],
+  });
+  /*
+   * LA-1822: a percent-of-total line on a total base is a share of cost that includes financing,
+   * and financing depends on cost. Run the schedule with a financing guess from zero, fund it, and
+   * feed the financing back until it moves by no more than a cent. With no such line one round runs.
+   */
+  const needsFinancing = financedPercentLines(inputSnapshot).length > 0;
+  let financingCents = 0;
+  for (let round = 0; round < MAX_FINANCING_ROUNDS; round += 1) {
+    const operationsRun = computeApartmentOperations(inputSnapshot, { financingCost: dollars(financingCents) });
+    if (operationsRun.status === "failed" || !operationsRun.result) return failedWith(operationsRun.issues);
+    const monthlyCashFlow = operationsRun.result.months.map((month) => ({
+      month: month.month,
+      projectCosts: month.totalUses,
+      operatingCashFlow: month.operatingCashFlow,
+    }));
+    const landCashCost = operationsRun.result.costSchedule.totalsByCategory.land;
+    const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost);
+    if (capitalRun.status === "failed" || !capitalRun.result) return failedWith(capitalRun.issues);
+    const { totals } = capitalRun.result;
+    const nextFinancingCents = cents(totals.totalUses) - cents(totals.projectCosts);
+    if (needsFinancing && Math.abs(nextFinancingCents - financingCents) > 1) {
+      financingCents = nextFinancingCents;
+      continue;
+    }
+    const percentChecks = percentOfTotalChecks(inputSnapshot, operationsRun.result.costSchedule, nextFinancingCents);
+    if (percentChecks.some(({ status }) => status === "fail")) {
+      return failedWith([{ path: "costLines", code: "percent_total_unsettled", message: "A percent-of-total line did not tie to its share of cost including financing." }]);
+    }
+    return {
+      formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
+      inputSnapshot,
+      status: "complete",
+      issues: [],
+      result: {
+        apartmentOperations: operationsRun.result,
+        capital: capitalRun.result,
+      },
+      reconciliations: [...operationsRun.reconciliations, ...capitalRun.reconciliations, ...percentChecks],
+    };
+  }
+  return failedWith([{
+    path: "costLines",
+    code: "percent_total_unsettled",
+    message: `Percent-of-total lines and financing did not settle to a cent within ${MAX_FINANCING_ROUNDS} rounds.`,
+  }]);
+}
+
+type FinancedPercentLine = MonthlyCostLine & { basis: { type: "percent_of_total"; base: "total_cost" | "total_less_land"; percent: number } };
+
+function financedPercentLines(input: DevelopmentCapitalInputs): FinancedPercentLine[] {
+  return (input.costLines ?? []).filter((line): line is FinancedPercentLine => line?.basis?.type === "percent_of_total"
+    && (line.basis.base === "total_cost" || line.basis.base === "total_less_land"));
+}
+
+/** Each percent-of-total line on a total base equals its percent of every other line in the base plus the funded financing. */
+function percentOfTotalChecks(input: DevelopmentCapitalInputs, schedule: MonthlyCostScheduleResult, financingCents: number) {
+  return financedPercentLines(input).map((line) => {
+    const baseCents = schedule.costLineSchedules.reduce((sum, other) => (
+      other.lineId !== line.id && (line.basis.base === "total_cost" || other.category !== "land") ? sum + cents(other.amount) : sum
+    ), financingCents);
+    const amount = schedule.costLineSchedules.find(({ lineId }) => lineId === line.id)!.amount;
+    return check(
+      `percent-of-total-financed:${line.id}`,
+      `${line.name} equals ${line.basis.percent} percent of its base including the funded financing`,
+      dollars(Math.round(baseCents * line.basis.percent / 100)),
+      amount,
+    );
+  });
 }
 
 /**

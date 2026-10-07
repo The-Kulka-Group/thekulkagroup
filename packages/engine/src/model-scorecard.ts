@@ -22,6 +22,7 @@ export const LENDER_OUTPUT_KEYS = [
   "asStabilizedValue",
   "loanToValue",
   "loanToCost",
+  "loanToCostCreditedLand",
   "debtServiceCoverage",
   "debtYield",
   "lenderValuationNoiFullTax",
@@ -29,6 +30,17 @@ export const LENDER_OUTPUT_KEYS = [
   "loanToValueFullTax",
   "debtServiceCoverageFullTax",
   "debtYieldFullTax",
+] as const;
+
+/** Present only when the input snapshot carries grants, soft loans or credited land (LA-1813). */
+export const OTHER_SOURCE_OUTPUT_KEYS = [
+  "grants",
+  "softLoans",
+  "softLoanInterest",
+  "softLoanRepayment",
+  "creditedLandStepUp",
+  "creditedLandEquity",
+  "sponsorEquity",
 ] as const;
 
 /** Present only when the input snapshot carries a property tax schedule (LA-1690). */
@@ -113,6 +125,7 @@ const CATALOG_KEYS = [
   "yieldOnCost",
   "developmentSpreadBasisPoints",
   ...LENDER_OUTPUT_KEYS,
+  ...OTHER_SOURCE_OUTPUT_KEYS,
   ...PROPERTY_TAX_OUTPUT_KEYS,
   ...TIER_OUTPUT_KEYS,
 ] as const;
@@ -241,6 +254,18 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     yieldOnCost: propertyReturns.yieldOnCost,
     developmentSpreadBasisPoints: propertyReturns.developmentSpreadBasisPoints,
   };
+
+  if (input.otherSources !== undefined) {
+    outputs.grants = capital.grants;
+    outputs.softLoans = capital.softLoans;
+    outputs.softLoanInterest = capital.softLoanInterest;
+    outputs.softLoanRepayment = capital.softLoanRepayment;
+  }
+  if (input.creditedLand !== undefined && capital.creditedLandStepUp !== null) {
+    outputs.creditedLandStepUp = capital.creditedLandStepUp;
+    outputs.creditedLandEquity = capital.creditedLandEquity;
+    outputs.sponsorEquity = capital.sponsorEquity;
+  }
 
   const lenderTests = run.result.lenderTests;
   if (lenderTests) {

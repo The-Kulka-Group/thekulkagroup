@@ -103,6 +103,10 @@ export type MonthlyPropertyReturnsInput = {
   totalDebtDraw: number;
   operatingCashFlow: number;
   repayment: number;
+  /** Grant and soft loan cash applied to the month's uses (LA-1813). Absent means zero. */
+  otherSourcesApplied?: number;
+  /** Soft loan principal and accrued interest repaid in the month (LA-1813). Absent means zero. */
+  softLoanRepayment?: number;
 };
 
 export type ForwardSalePeriod = {
@@ -282,6 +286,8 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
       totalDebtDraw: month.totalDebtDraw,
       operatingCashFlow: month.operatingCashFlow,
       repayment: month.repayment,
+      otherSourcesApplied: month.otherSourcesApplied,
+      softLoanRepayment: month.softLoanRepayment,
     })),
     forwardSalePeriod,
     planFrom(inputSnapshot),
@@ -340,13 +346,16 @@ export function calculatePropertyReturns(
     const totalDebtDrawCents = cents(month.totalDebtDraw);
     const operatingCashFlowCents = cents(month.operatingCashFlow);
     const repaymentCents = cents(month.repayment);
+    const otherSourcesAppliedCents = cents(month.otherSourcesApplied ?? 0);
+    const softLoanRepaymentCents = cents(month.softLoanRepayment ?? 0);
     return {
       ...month,
       date: monthEndDate(month.month),
       netSaleProceeds: dollars(saleProceedsCents),
       unleveredCashFlow: dollars(-projectCostsCents + operatingCashFlowCents + saleProceedsCents),
       leveredCashFlow: dollars(-loanFeeCents - projectCostsCents - grossInterestCents
-        + totalDebtDrawCents + operatingCashFlowCents + saleProceedsCents - repaymentCents),
+        + totalDebtDrawCents + otherSourcesAppliedCents + operatingCashFlowCents + saleProceedsCents
+        - repaymentCents - softLoanRepaymentCents),
     };
   });
   if (!datedMonths.every((month) => Number.isSafeInteger(cents(month.unleveredCashFlow)) && Number.isSafeInteger(cents(month.leveredCashFlow)))) {
@@ -503,6 +512,9 @@ function validate(months: MonthlyPropertyReturnsInput[], period: ForwardSalePeri
     for (const key of ["projectCosts", "loanFee", "grossInterest", "totalDebtDraw", "repayment"] as const) {
       if (!validUsd(month[key], false)) issues.push({ path: `months.${index}.${key}`, code: "invalid_amount", message: `${labelFor(key)} must be zero or a positive safe USD amount with no more than two decimal places.` });
     }
+    for (const key of ["otherSourcesApplied", "softLoanRepayment"] as const) {
+      if (month[key] !== undefined && !validUsd(month[key], false)) issues.push({ path: `months.${index}.${key}`, code: "invalid_amount", message: `${labelFor(key)} must be zero or a positive safe USD amount with no more than two decimal places.` });
+    }
     if (!validUsd(month.operatingCashFlow, true)) issues.push({ path: `months.${index}.operatingCashFlow`, code: "invalid_amount", message: "Operating cash flow must be a safe USD amount with no more than two decimal places." });
   });
   issues.push(...validatePropertyReturnsPlan(plan));
@@ -634,7 +646,7 @@ function reconcile(
     checkUsd("equity-sale-proceeds", "Equity sale proceeds equal net sale proceeds less construction debt payoff", sale.equitySaleProceeds, dollars(cents(sale.netSaleProceeds) - cents(sale.debtPayoff))),
     ...months.flatMap((month) => [
       checkUsd(`unlevered-cash-flow:${month.month}`, `${month.month} unlevered cash flow equals operating cash and sale proceeds less project costs`, month.unleveredCashFlow, dollars(-cents(month.projectCosts) + cents(month.operatingCashFlow) + cents(month.netSaleProceeds))),
-      checkUsd(`levered-cash-flow:${month.month}`, `${month.month} levered cash flow equals operating cash, debt funding, sale proceeds, costs, interest, and debt repayment`, month.leveredCashFlow, dollars(-cents(month.loanFee) - cents(month.projectCosts) - cents(month.grossInterest) + cents(month.totalDebtDraw) + cents(month.operatingCashFlow) + cents(month.netSaleProceeds) - cents(month.repayment))),
+      checkUsd(`levered-cash-flow:${month.month}`, `${month.month} levered cash flow equals operating cash, debt funding, grant and soft loan cash applied, sale proceeds, costs, interest, debt repayment, and soft loan repayment`, month.leveredCashFlow, dollars(-cents(month.loanFee) - cents(month.projectCosts) - cents(month.grossInterest) + cents(month.totalDebtDraw) + cents(month.otherSourcesApplied ?? 0) + cents(month.operatingCashFlow) + cents(month.netSaleProceeds) - cents(month.repayment) - cents(month.softLoanRepayment ?? 0))),
     ]),
     checkMetric("unlevered-equity-multiple", "Unlevered equity multiple equals positive cash flow divided by negative cash flow", returns.unlevered.equityMultiple, equityMultiple(unleveredCents), 1e-10, "multiple"),
     checkMetric("levered-equity-multiple", "Levered equity multiple equals positive cash flow divided by negative cash flow", returns.levered.equityMultiple, equityMultiple(leveredCents), 1e-10, "multiple"),

@@ -565,6 +565,56 @@ describe("underwriting case repository", () => {
       .rejects.toThrow("project changed before your edits were saved");
   });
 
+  it("keeps review on unchanged grants and credited land, and resets it when an amount changes", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, created!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01",
+      preleasedUnits: 10, leaseUpUnitsPerMonth: 1, annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0,
+      rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const plan = {
+      capitalInputVersion: "development_capital_inputs.v1" as const,
+      targetDebtSharePercent: 65,
+      annualInterestRatePercent: 8,
+      loanFeePercent: 1,
+      fundingOrder: "equity_first.v1" as const,
+      interestTreatment: "capitalized_net_operating_cash.v1" as const,
+      interestConvention: "opening_balance_monthly.v1" as const,
+      feeMonth: "2026-01",
+      payoffMonth: "2026-12",
+      otherSources: [{ id: "grant", name: "State Grant", kind: "grant" as const, draws: [{ month: "2026-01", amount: 100_000 }], reviewState: "done" as const }],
+      creditedLand: { creditedValue: 1_500_000, countsAsSponsorEquity: true, reviewState: "done" as const },
+      capitalAssumptionEvidence: doneCapitalEvidence(),
+    };
+    const saved = await saveDevelopmentCapital(db, created!.id, operating!.caseRevision, plan);
+    expect(saved!.developmentCapital!.otherSources![0].reviewState).toBe("done");
+    expect(saved!.developmentCapital!.creditedLand!.reviewState).toBe("done");
+
+    const same = await saveDevelopmentCapital(db, created!.id, saved!.caseRevision, plan);
+    expect(same!.developmentCapital!.otherSources![0].reviewState).toBe("done");
+    expect(same!.developmentCapital!.creditedLand!.reviewState).toBe("done");
+
+    const changed = await saveDevelopmentCapital(db, created!.id, same!.caseRevision, {
+      ...plan,
+      otherSources: [{ ...plan.otherSources[0], draws: [{ month: "2026-01", amount: 120_000 }] }],
+      creditedLand: { ...plan.creditedLand, countsAsSponsorEquity: false },
+    });
+    expect(changed!.developmentCapital!.otherSources![0].reviewState).toBe("working");
+    expect(changed!.developmentCapital!.creditedLand!.reviewState).toBe("working");
+
+    const removed = await saveDevelopmentCapital(db, created!.id, changed!.caseRevision, { ...plan, otherSources: undefined, creditedLand: undefined });
+    expect(removed!.developmentCapital).not.toHaveProperty("otherSources");
+    expect(removed!.developmentCapital).not.toHaveProperty("creditedLand");
+  });
+
   it("stores a versioned capital plan and resets review when a term changes", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {

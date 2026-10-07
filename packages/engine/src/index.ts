@@ -306,13 +306,16 @@ export {
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_INPUT_VERSION,
   DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION,
+  DEVELOPMENT_CAPITAL_V2_FORMULA_VERSION,
   EQUITY_FIRST_FUNDING_VERSION,
   MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH,
   MAX_RATE_CURVE_AGE_MONTHS,
   OPENING_BALANCE_MONTHLY_VERSION,
   computeDevelopmentCapital,
+  earlierSourcesAndUses,
   fundMonthlyDevelopmentCashFlow,
   type CapitalFormulaTrace,
+  type CreditedLandResult,
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalEvidence,
   type DevelopmentCapitalInputs,
@@ -327,9 +330,25 @@ export {
   type MonthlyCapitalRun,
   type MonthlyDevelopmentCapital,
   type MonthlyDevelopmentCashFlow,
+  type OtherSourceResult,
   type RateScheduleTrace,
   type RateSource,
+  type SourcesAndUses,
+  type SourcesAndUsesBasis,
+  type SourcesAndUsesLine,
 } from "./development-capital";
+
+export {
+  MAX_OTHER_SOURCES,
+  MAX_OTHER_SOURCE_DRAWS,
+  MAX_OTHER_SOURCE_TEXT_LENGTH,
+  type CreditedLandPlan,
+  type OtherFundingSource,
+  type OtherSourceDraw,
+  type OtherSourceIssue,
+  type OtherSourceIssueCode,
+  type OtherSourceKind,
+} from "./other-sources";
 
 export {
   LENDER_TESTS_INPUT_VERSION,

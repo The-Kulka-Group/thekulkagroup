@@ -5,6 +5,7 @@ import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartmen
 import {
   ENGINE_OUTPUT_KEYS,
   LENDER_OUTPUT_KEYS,
+  OTHER_SOURCE_OUTPUT_KEYS,
   PROPERTY_TAX_OUTPUT_KEYS,
   engineOutputsFor,
   formatScorecard,
@@ -221,7 +222,7 @@ describe("engineOutputsFor", () => {
     const run = engineOutputsFor(input);
     expect(run.status).toBe("complete");
     expect(run.issueCodes).toEqual([]);
-    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS]);
+    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...OTHER_SOURCE_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS]);
     const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item) && !/AverageMonthlyRent$/.test(item));
     for (const key of always) expect(run.outputs[key], key).toBeDefined();
     expect(run.outputs.marketAverageMonthlyRent).toBeDefined();
@@ -272,7 +273,7 @@ describe("engineOutputsFor", () => {
     const run = computePropertyReturns(withTests);
     const { outputs } = engineOutputsFor(withTests);
     for (const metric of run.result!.lenderTests!.metrics) {
-      const key = ({ asStabilizedValue: "asStabilizedValue", loanToValue: "loanToValue", loanToCost: "loanToCost", debtServiceCoverage: "debtServiceCoverage", debtYield: "debtYield" } as const)[metric.key];
+      const key = ({ asStabilizedValue: "asStabilizedValue", loanToValue: "loanToValue", loanToCost: "loanToCost", loanToCostCreditedLand: "loanToCostCreditedLand", debtServiceCoverage: "debtServiceCoverage", debtYield: "debtYield" } as const)[metric.key];
       expect(outputs[key], key).toBe(metric.value ?? undefined);
     }
     expect(outputs.lenderValuationNoi).toBe(run.result!.lenderTests!.stabilizedNoi);

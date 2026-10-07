@@ -2,6 +2,8 @@ import type { LenderTestMetric, LenderTestsResult, PropertyReturnsResult, Proper
 
 import { Chip } from "@/components/Status";
 
+import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
+
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
@@ -32,6 +34,7 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {result.propertyReturns.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatMetric(metric.value, metric.unit)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
+    <SourcesAndUsesSection capital={result.developmentCapital} />
     {result.saleTax ? <SaleTax report={result.saleTax} /> : null}
     {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}
     {result.propertyTax ? <PropertyTaxByYear tax={result.propertyTax} /> : null}
@@ -52,7 +55,7 @@ function LenderTests({ tests }: { tests: LenderTestsResult }) {
   const fullMetric = (key: LenderTestMetric["key"]) => fullTax?.metrics.find((metric) => metric.key === key);
   return <>
     <h4>Lender Tests and Formula Traces</h4>
-    <p className="t-meta">Valuation year {tests.valuationStartMonth} to {tests.valuationEndMonth} on {NOI_BASIS[tests.noiBasis]}: {MONEY.format(tests.stabilizedNoi)}{fullTax ? `, or ${MONEY.format(fullTax.stabilizedNoi)} with full tax` : ""}. Construction debt {MONEY.format(tests.loanAmount)}, total uses {MONEY.format(tests.totalCost)}, stated annual debt service {MONEY.format(tests.annualDebtService)}.</p>
+    <p className="t-meta">Valuation year {tests.valuationStartMonth} to {tests.valuationEndMonth} on {NOI_BASIS[tests.noiBasis]}: {MONEY.format(tests.stabilizedNoi)}{fullTax ? `, or ${MONEY.format(fullTax.stabilizedNoi)} with full tax` : ""}. Construction debt {MONEY.format(tests.loanAmount)}, total uses {MONEY.format(tests.totalCost)} with land at cash cost{tests.totalCostAtCreditedLand != null ? `, or ${MONEY.format(tests.totalCostAtCreditedLand)} with land at credited value` : ""}, stated annual debt service {MONEY.format(tests.annualDebtService)}.</p>
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Test</th><th className="right">{fullTax ? "Scheduled Tax" : "Value"}</th>{fullTax ? <th className="right">Full Tax</th> : null}<th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {fullTax ? <tr><th scope="row">Valuation-Year NOI</th><td className="num right">{MONEY.format(tests.stabilizedNoi)}</td><td className="num right">{MONEY.format(fullTax.stabilizedNoi)}</td><td>{NOI_BASIS[tests.noiBasis]} for the valuation year; full tax removes the abatement for the same months</td><td className="t-meta">propertyTax</td></tr> : null}
       {tests.metrics.map((metric) => {

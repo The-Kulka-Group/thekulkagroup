@@ -9,6 +9,7 @@ const LENDER_ROWS: Array<[LenderTestMetricKey, string, (value: number) => string
   ["asStabilizedValue", "As-Stabilized Value", (value) => MONEY.format(value)],
   ["loanToValue", "Loan to Value", (value) => PERCENT.format(value)],
   ["loanToCost", "Loan to Cost", (value) => PERCENT.format(value)],
+  ["loanToCostCreditedLand", "Loan to Cost, Land at Credited Value", (value) => PERCENT.format(value)],
   ["debtServiceCoverage", "Debt Service Coverage", (value) => `${NUMBER.format(value)}x`],
   ["debtYield", "Debt Yield", (value) => PERCENT.format(value)],
 ];
@@ -30,9 +31,12 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
     ...lenderRowsFor("scheduledTax", ""),
     ...(result.base.metrics.lender?.fullTax ? lenderRowsFor("fullTax", " on Full Tax") : []),
   ];
+  function columnsHaveCreditedLand() {
+    return columns.some((value) => value.metrics.lender?.scheduledTax?.loanToCostCreditedLand != null);
+  }
   function lenderRowsFor(tax: keyof ScenarioLenderMetrics, suffix: string) {
     if (!result.base.metrics.lender) return [];
-    return LENDER_ROWS.map(([key, label, format]) => [`${label}${suffix}`, (value: typeof columns[number]) => {
+    return LENDER_ROWS.filter(([key]) => key !== "loanToCostCreditedLand" || columnsHaveCreditedLand()).map(([key, label, format]) => [`${label}${suffix}`, (value: typeof columns[number]) => {
       const metric = value.metrics.lender?.[tax]?.[key];
       return metric === null || metric === undefined ? "Not Reported" : format(metric);
     }] as const);

@@ -5,9 +5,23 @@ import {
   type ApartmentOperationsResult,
 } from "./apartment-operations";
 import type { ReconciliationCheck } from "./monthly-cost-schedule";
+import {
+  scheduleOtherSources,
+  validateOtherFunding,
+  type CreditedLandPlan,
+  type OtherFundingSource,
+  type OtherSourceIssueCode,
+  type OtherSourceKind,
+  type OtherSourceScheduleCents,
+} from "./other-sources";
 
 export const DEVELOPMENT_CAPITAL_INPUT_VERSION = "development_capital_inputs.v1" as const;
-export const DEVELOPMENT_CAPITAL_FORMULA_VERSION = "underwriting.development_capital.v2" as const;
+/**
+ * v2 adds the dated rate path (LA-1691). v3 adds grants, soft loans and credited land, a sources and
+ * uses summary, and the totals and months that carry them (LA-1813). Runs saved under v1 and v2 stay readable.
+ */
+export const DEVELOPMENT_CAPITAL_FORMULA_VERSION = "underwriting.development_capital.v3" as const;
+export const DEVELOPMENT_CAPITAL_V2_FORMULA_VERSION = "underwriting.development_capital.v2" as const;
 export const DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION = "underwriting.development_capital.v1" as const;
 export const EQUITY_FIRST_FUNDING_VERSION = "equity_first.v1" as const;
 export const CAPITALIZED_NET_OPERATING_CASH_VERSION = "capitalized_net_operating_cash.v1" as const;
@@ -63,6 +77,10 @@ export type DevelopmentCapitalPlan = {
   feeMonth: string;
   payoffMonth: string;
   ratePath?: DevelopmentCapitalRatePath;
+  /** Grants and soft loans, each with its own draw timing. They fund uses before equity and debt. */
+  otherSources?: OtherFundingSource[];
+  /** Land value the deal credits apart from cash land cost. */
+  creditedLand?: CreditedLandPlan;
   capitalAssumptionEvidence: Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalEvidence>;
 };
 
@@ -94,7 +112,10 @@ export type DevelopmentCapitalIssueCode =
   | "derived_results"
   | "funding_solution"
   | "invalid_rate_path"
-  | "stale_rate_curve";
+  | "stale_rate_curve"
+  | "other_sources_exceed_equity_need"
+  | "other_sources_unused"
+  | OtherSourceIssueCode;
 
 export type DevelopmentCapitalIssue = {
   path: string;
@@ -119,6 +140,17 @@ export type MonthlyDevelopmentCapital = MonthlyDevelopmentCashFlow & {
   interestReserveDraw: number;
   operatingShortfallReserveDraw: number;
   totalDebtDraw: number;
+  /** Grant cash that arrives this month. */
+  grantDraw: number;
+  /** Soft loan cash that arrives this month. */
+  softLoanDraw: number;
+  /** Grant and soft loan cash applied to this month's uses. */
+  otherSourcesApplied: number;
+  /** Grant and soft loan cash that has arrived and is not yet applied. */
+  otherSourcesCashBalance: number;
+  softLoanInterest: number;
+  softLoanRepayment: number;
+  softLoanBalance: number;
   totalSources: number;
   totalUses: number;
   repayment: number;
@@ -140,10 +172,65 @@ export type DevelopmentCapitalTotals = {
   totalSources: number;
   totalUses: number;
   debtSharePercent: number;
+  grants: number;
+  softLoans: number;
+  otherSourcesApplied: number;
+  softLoanInterest: number;
+  softLoanRepayment: number;
+  /** Land cost lines in the cost schedule, paid in cash. */
+  landCashCost: number;
+  /** Credited land value less cash land cost. Null when the case has no credited land. */
+  creditedLandStepUp: number | null;
+  /** The step-up when the deal counts credited land as sponsor equity, otherwise zero. */
+  creditedLandEquity: number;
+  /** Cash equity plus credited land counted as equity. */
+  sponsorEquity: number;
+};
+
+export type OtherSourceResult = {
+  id: string;
+  name: string;
+  kind: OtherSourceKind;
+  drawn: number;
+  /** Cash from this source applied to uses. Matches drawn when the source ties to sources and uses. */
+  applied: number;
+  accruedInterest: number;
+  repaid: number;
+  closingBalance: number;
+};
+
+export type CreditedLandResult = {
+  cashLandCost: number;
+  creditedValue: number;
+  stepUp: number;
+  countsAsSponsorEquity: boolean;
+};
+
+export type SourcesAndUsesLine = {
+  key: string;
+  label: string;
+  amount: number;
+};
+
+export type SourcesAndUsesBasis = {
+  sources: SourcesAndUsesLine[];
+  uses: SourcesAndUsesLine[];
+  totalSources: number;
+  totalUses: number;
+};
+
+export type SourcesAndUses = {
+  /** Land at cash cost. Every source and every use is cash. */
+  cashBasis: SourcesAndUsesBasis;
+  /**
+   * Land at credited value. Present only when the deal counts credited land as sponsor equity, so the
+   * step-up appears as a non-cash use and a non-cash equity source of the same amount.
+   */
+  creditedBasis: SourcesAndUsesBasis | null;
 };
 
 export type CapitalFormulaTrace = {
-  key: keyof DevelopmentCapitalTotals | "operatingCashFlow" | "repayment" | "monthlyDebtRollForward";
+  key: keyof DevelopmentCapitalTotals | "operatingCashFlow" | "repayment" | "monthlyDebtRollForward" | "sourcesAndUses";
   label: string;
   formula: string;
   inputPaths: string[];
@@ -164,6 +251,9 @@ export type RateScheduleTrace = {
 export type DevelopmentCapitalResult = {
   months: MonthlyDevelopmentCapital[];
   rateSchedule: RateScheduleTrace | null;
+  otherSources: OtherSourceResult[];
+  creditedLand: CreditedLandResult | null;
+  sourcesAndUses: SourcesAndUses;
   totals: DevelopmentCapitalTotals;
   formulaTraces: CapitalFormulaTrace[];
   reconciliations: ReconciliationCheck[];
@@ -205,7 +295,8 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs): Deve
     projectCosts: month.totalUses,
     operatingCashFlow: month.operatingCashFlow,
   }));
-  const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot));
+  const landCashCost = operationsRun.result.costSchedule.totalsByCategory.land;
+  const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost);
   if (capitalRun.status === "failed" || !capitalRun.result) {
     return {
       formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
@@ -229,31 +320,54 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs): Deve
   };
 }
 
+/**
+ * `landCashCost` is the cost schedule's land total, paid in cash. It splits land from other project
+ * costs in the sources and uses summary and sets the floor for credited land value.
+ */
 export function fundMonthlyDevelopmentCashFlow(
   submittedCashFlow: MonthlyDevelopmentCashFlow[],
   submittedPlan: DevelopmentCapitalPlan,
+  landCashCost = 0,
 ): MonthlyCapitalRun {
   const monthlyCashFlow = structuredClone(submittedCashFlow);
   const plan = structuredClone(submittedPlan);
   const inputSnapshot = { monthlyCashFlow, plan };
-  const issues = validate(monthlyCashFlow, plan);
+  const issues = validate(monthlyCashFlow, plan, cents(landCashCost));
   if (issues.length > 0) return failed(inputSnapshot, issues);
 
   const loanFeeCents = percentOf(
     monthlyCashFlow.reduce((sum, month) => sum + cents(month.projectCosts), 0),
     plan.targetDebtSharePercent * plan.loanFeePercent / 100,
   );
-  const equityCents = solveEquityCommitment(monthlyCashFlow, plan, loanFeeCents);
-  if (equityCents === null) {
+  const schedule = scheduleOtherSources(plan.otherSources ?? [], monthlyCashFlow.map(({ month }) => month));
+  const solution = solveEquityCommitment(monthlyCashFlow, plan, loanFeeCents, schedule);
+  if (solution.kind === "negative") {
+    return failed(inputSnapshot, [{
+      path: "otherSources",
+      code: "other_sources_exceed_equity_need",
+      message: "Grants and soft loans cover more than the share of cost left after the target debt share, so equity would be negative. Lower the other sources or the target debt share.",
+    }]);
+  }
+  if (solution.kind === "unsettled") {
     return failed(inputSnapshot, [{
       path: "targetDebtSharePercent",
       code: "funding_solution",
       message: "The equity and debt funding target did not settle to a cent within the formula limit.",
     }]);
   }
-  const calculated = simulate(monthlyCashFlow, plan, loanFeeCents, equityCents);
-  const totals = totalsFor(calculated.months);
-  const reconciliations = reconciliationsFor(calculated.months, totals, plan);
+  const calculated = simulate(monthlyCashFlow, plan, loanFeeCents, solution.cents, schedule);
+  if (calculated.unusedOtherCashCents !== 0) {
+    return failed(inputSnapshot, [{
+      path: "otherSources",
+      code: "other_sources_unused",
+      message: `Grants and soft loans bring ${formatUsd(calculated.unusedOtherCashCents)} more cash than the project uses, so sources would exceed uses. Lower an amount or move a draw earlier.`,
+    }]);
+  }
+  const totals = totalsFor(calculated.months, cents(landCashCost), plan.creditedLand);
+  const otherSources = otherSourceResults(schedule, calculated.sourceAppliedCents);
+  const creditedLand = creditedLandResult(plan.creditedLand, cents(landCashCost));
+  const sourcesAndUses = sourcesAndUsesFor(totals, otherSources, creditedLand);
+  const reconciliations = reconciliationsFor(calculated.months, totals, plan, sourcesAndUses, otherSources);
   if (!numbersAreSafe(calculated.months, totals) || reconciliations.some(({ status }) => status === "fail")) {
     return failed(inputSnapshot, [{
       path: "capital",
@@ -264,6 +378,9 @@ export function fundMonthlyDevelopmentCashFlow(
   const result = {
     months: calculated.months,
     rateSchedule: rateScheduleTrace(plan, calculated.months),
+    otherSources,
+    creditedLand,
+    sourcesAndUses,
     totals,
     formulaTraces: formulaTraces(plan),
     reconciliations,
@@ -278,7 +395,7 @@ export function fundMonthlyDevelopmentCashFlow(
   };
 }
 
-function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapitalPlan) {
+function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapitalPlan, landCashCostCents: number) {
   const issues: DevelopmentCapitalIssue[] = [];
   if (!Array.isArray(months) || months.length === 0) {
     addIssue(issues, "monthlyCashFlow", "invalid_amount", "Add at least one monthly development cash-flow row.");
@@ -337,6 +454,19 @@ function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapital
     }
   }
   validateEvidence(issues, plan.capitalAssumptionEvidence);
+  issues.push(...validateOtherFunding(plan.otherSources, plan.creditedLand, months[0].month, months[months.length - 1].month));
+  if (
+    plan.creditedLand
+    && typeof plan.creditedLand.creditedValue === "number"
+    && cents(plan.creditedLand.creditedValue) < landCashCostCents
+  ) {
+    addIssue(
+      issues,
+      "creditedLand.creditedValue",
+      "credited_land_below_cash_cost",
+      `Credited land value cannot be below the ${formatUsd(landCashCostCents)} of cash land cost in the cost schedule.`,
+    );
+  }
   return issues;
 }
 
@@ -419,27 +549,40 @@ function validateEvidence(
   }
 }
 
+type EquitySolution = { kind: "solved"; cents: number } | { kind: "negative" } | { kind: "unsettled" };
+
 function solveEquityCommitment(
   months: MonthlyDevelopmentCashFlow[],
   plan: DevelopmentCapitalPlan,
   loanFeeCents: number,
-) {
+  schedule: OtherSourceScheduleCents[],
+): EquitySolution {
+  const otherTotalCents = schedule.reduce(
+    (sum, entry) => sum + entry.months.reduce((total, month) => total + month.drawCents, 0),
+    0,
+  );
   const baseCents = months.reduce(
     (sum, month) => sum + cents(month.projectCosts) + Math.max(-cents(month.operatingCashFlow), 0),
     loanFeeCents,
   );
-  let equityCents = baseCents - percentOf(baseCents, plan.targetDebtSharePercent);
+  let equityCents = Math.max(baseCents - percentOf(baseCents, plan.targetDebtSharePercent) - otherTotalCents, 0);
   const seen = new Set<number>();
   for (let iteration = 0; iteration < 200; iteration += 1) {
-    if (seen.has(equityCents)) return null;
+    if (seen.has(equityCents)) return { kind: "unsettled" };
     seen.add(equityCents);
-    const simulation = simulate(months, plan, loanFeeCents, equityCents);
+    const simulation = simulate(months, plan, loanFeeCents, equityCents, schedule);
     const totalUsesCents = simulation.months.reduce((sum, month) => sum + cents(month.totalUses), 0);
-    const nextEquityCents = totalUsesCents - percentOf(totalUsesCents, plan.targetDebtSharePercent);
-    if (Math.abs(nextEquityCents - equityCents) <= 1) return equityCents;
-    equityCents = nextEquityCents;
+    const nextEquityCents = totalUsesCents - percentOf(totalUsesCents, plan.targetDebtSharePercent) - otherTotalCents;
+    if (nextEquityCents < -1) {
+      if (equityCents === 0) return { kind: "negative" };
+      equityCents = 0;
+      continue;
+    }
+    const next = Math.max(nextEquityCents, 0);
+    if (Math.abs(next - equityCents) <= 1) return { kind: "solved", cents: equityCents };
+    equityCents = next;
   }
-  return null;
+  return { kind: "unsettled" };
 }
 
 function simulate(
@@ -447,11 +590,25 @@ function simulate(
   plan: DevelopmentCapitalPlan,
   loanFeeCents: number,
   equityCommitmentCents: number,
+  schedule: OtherSourceScheduleCents[],
 ) {
   let remainingEquityCents = equityCommitmentCents;
   let openingDebtCents = 0;
+  const sourceCashCents = schedule.map(() => 0);
+  const sourceAppliedCents = schedule.map(() => 0);
+  /** Takes up to `needCents` from the arrived grant and soft loan cash, in the order the sources are listed. */
+  const applyOtherCash = (needCents: number) => {
+    let remaining = needCents;
+    sourceCashCents.forEach((available, index) => {
+      const take = Math.min(available, remaining);
+      sourceCashCents[index] -= take;
+      sourceAppliedCents[index] += take;
+      remaining -= take;
+    });
+    return needCents - remaining;
+  };
   const rows: MonthlyDevelopmentCapital[] = [];
-  for (const month of months) {
+  months.forEach((month, position) => {
     const projectCostCents = cents(month.projectCosts);
     const operatingCashFlowCents = cents(month.operatingCashFlow);
     const operatingShortfallCents = Math.max(-operatingCashFlowCents, 0);
@@ -461,23 +618,47 @@ function simulate(
     const operatingCashAppliedCents = Math.min(Math.max(operatingCashFlowCents, 0), grossInterestCents);
     const capitalizedInterestCents = grossInterestCents - operatingCashAppliedCents;
 
+    let grantDrawCents = 0;
+    let softLoanDrawCents = 0;
+    let softLoanInterestCents = 0;
+    let softLoanRepaymentCents = 0;
+    let softLoanBalanceCents = 0;
+    schedule.forEach((entry, index) => {
+      const sourceMonth = entry.months[position];
+      sourceCashCents[index] += sourceMonth.drawCents;
+      if (entry.source.kind === "grant") grantDrawCents += sourceMonth.drawCents;
+      else {
+        softLoanDrawCents += sourceMonth.drawCents;
+        softLoanInterestCents += sourceMonth.interestCents;
+        softLoanRepaymentCents += sourceMonth.repaymentCents;
+        softLoanBalanceCents += sourceMonth.closingBalanceCents;
+      }
+    });
+
     const projectAndFeeCents = projectCostCents + currentLoanFeeCents;
-    const projectEquityCents = Math.min(remainingEquityCents, projectAndFeeCents);
+    const projectOtherCents = applyOtherCash(projectAndFeeCents);
+    const projectNeedCents = projectAndFeeCents - projectOtherCents;
+    const projectEquityCents = Math.min(remainingEquityCents, projectNeedCents);
     remainingEquityCents -= projectEquityCents;
-    const debtBeforeReservesCents = projectAndFeeCents - projectEquityCents;
-    const shortfallEquityCents = Math.min(remainingEquityCents, operatingShortfallCents);
+    const debtBeforeReservesCents = projectNeedCents - projectEquityCents;
+    const shortfallOtherCents = applyOtherCash(operatingShortfallCents);
+    const shortfallNeedCents = operatingShortfallCents - shortfallOtherCents;
+    const shortfallEquityCents = Math.min(remainingEquityCents, shortfallNeedCents);
     remainingEquityCents -= shortfallEquityCents;
-    const shortfallReserveCents = operatingShortfallCents - shortfallEquityCents;
-    const interestEquityCents = Math.min(remainingEquityCents, capitalizedInterestCents);
+    const shortfallReserveCents = shortfallNeedCents - shortfallEquityCents;
+    const interestOtherCents = applyOtherCash(capitalizedInterestCents);
+    const interestNeedCents = capitalizedInterestCents - interestOtherCents;
+    const interestEquityCents = Math.min(remainingEquityCents, interestNeedCents);
     remainingEquityCents -= interestEquityCents;
-    const interestReserveCents = capitalizedInterestCents - interestEquityCents;
+    const interestReserveCents = interestNeedCents - interestEquityCents;
+    const otherAppliedCents = projectOtherCents + shortfallOtherCents + interestOtherCents;
     const equityContributionCents = projectEquityCents + shortfallEquityCents + interestEquityCents;
     const totalDebtDrawCents = debtBeforeReservesCents + shortfallReserveCents + interestReserveCents;
     const beforeRepaymentCents = openingDebtCents + totalDebtDrawCents;
     const repaymentCents = month.month === plan.payoffMonth ? beforeRepaymentCents : 0;
     const closingDebtCents = beforeRepaymentCents - repaymentCents;
     const totalUsesCents = projectAndFeeCents + operatingShortfallCents + capitalizedInterestCents;
-    const totalSourcesCents = equityContributionCents + totalDebtDrawCents;
+    const totalSourcesCents = equityContributionCents + totalDebtDrawCents + otherAppliedCents;
 
     rows.push({
       month: month.month,
@@ -497,17 +678,33 @@ function simulate(
       interestReserveDraw: dollars(interestReserveCents),
       operatingShortfallReserveDraw: dollars(shortfallReserveCents),
       totalDebtDraw: dollars(totalDebtDrawCents),
+      grantDraw: dollars(grantDrawCents),
+      softLoanDraw: dollars(softLoanDrawCents),
+      otherSourcesApplied: dollars(otherAppliedCents),
+      otherSourcesCashBalance: dollars(sourceCashCents.reduce((sum, value) => sum + value, 0)),
+      softLoanInterest: dollars(softLoanInterestCents),
+      softLoanRepayment: dollars(softLoanRepaymentCents),
+      softLoanBalance: dollars(softLoanBalanceCents),
       totalSources: dollars(totalSourcesCents),
       totalUses: dollars(totalUsesCents),
       repayment: dollars(repaymentCents),
       closingDebtBalance: dollars(closingDebtCents),
     });
     openingDebtCents = closingDebtCents;
-  }
-  return { months: rows, remainingEquityCents };
+  });
+  return {
+    months: rows,
+    remainingEquityCents,
+    sourceAppliedCents,
+    unusedOtherCashCents: sourceCashCents.reduce((sum, value) => sum + value, 0),
+  };
 }
 
-function totalsFor(months: MonthlyDevelopmentCapital[]): DevelopmentCapitalTotals {
+function totalsFor(
+  months: MonthlyDevelopmentCapital[],
+  landCashCents: number,
+  creditedLand: CreditedLandPlan | undefined,
+): DevelopmentCapitalTotals {
   const sum = (key: keyof MonthlyDevelopmentCapital) => dollars(
     months.reduce((total, month) => total + (typeof month[key] === "number" ? cents(month[key] as number) : 0), 0),
   );
@@ -515,6 +712,9 @@ function totalsFor(months: MonthlyDevelopmentCapital[]): DevelopmentCapitalTotal
     cents(sum("debtBeforeReservesDraw")) + cents(sum("interestReserveDraw")) + cents(sum("operatingShortfallReserveDraw")),
   );
   const totalUses = sum("totalUses");
+  const equity = sum("equityContribution");
+  const stepUpCents = creditedLand ? cents(creditedLand.creditedValue) - landCashCents : null;
+  const creditedEquityCents = stepUpCents !== null && creditedLand?.countsAsSponsorEquity ? stepUpCents : 0;
   return {
     projectCosts: sum("projectCosts"),
     loanFees: sum("loanFee"),
@@ -522,7 +722,7 @@ function totalsFor(months: MonthlyDevelopmentCapital[]): DevelopmentCapitalTotal
     grossInterest: sum("grossInterest"),
     operatingCashAppliedToInterest: sum("operatingCashAppliedToInterest"),
     capitalizedInterest: sum("capitalizedInterest"),
-    equity: sum("equityContribution"),
+    equity,
     debtBeforeReserves: sum("debtBeforeReservesDraw"),
     interestReserve: sum("interestReserveDraw"),
     operatingShortfallReserve: sum("operatingShortfallReserveDraw"),
@@ -530,13 +730,115 @@ function totalsFor(months: MonthlyDevelopmentCapital[]): DevelopmentCapitalTotal
     totalSources: sum("totalSources"),
     totalUses,
     debtSharePercent: totalUses === 0 ? 0 : totalDebt / totalUses * 100,
+    grants: sum("grantDraw"),
+    softLoans: sum("softLoanDraw"),
+    otherSourcesApplied: sum("otherSourcesApplied"),
+    softLoanInterest: sum("softLoanInterest"),
+    softLoanRepayment: sum("softLoanRepayment"),
+    landCashCost: dollars(landCashCents),
+    creditedLandStepUp: stepUpCents === null ? null : dollars(stepUpCents),
+    creditedLandEquity: dollars(creditedEquityCents),
+    sponsorEquity: money(equity, dollars(creditedEquityCents)),
   };
+}
+
+/**
+ * Capital runs saved before LA-1813 carry no land split, so their summary lists project costs as one
+ * line with land inside it. Readers use this for those runs only.
+ */
+export function earlierSourcesAndUses(
+  totals: Pick<DevelopmentCapitalTotals, "equity" | "totalDebt" | "projectCosts" | "loanFees" | "operatingShortfall" | "capitalizedInterest">,
+): SourcesAndUses {
+  const sources = [
+    { key: "equity", label: "Cash Equity", amount: totals.equity },
+    { key: "debt", label: "Senior Construction Debt", amount: totals.totalDebt },
+  ];
+  const uses = [
+    { key: "projectCosts", label: "Project Costs, Land Included", amount: totals.projectCosts },
+    { key: "loanFees", label: "Loan Fees", amount: totals.loanFees },
+    { key: "operatingShortfall", label: "Operating Shortfall", amount: totals.operatingShortfall },
+    { key: "capitalizedInterest", label: "Capitalized Interest", amount: totals.capitalizedInterest },
+  ];
+  return {
+    cashBasis: {
+      sources,
+      uses,
+      totalSources: money(...sources.map(({ amount }) => amount)),
+      totalUses: money(...uses.map(({ amount }) => amount)),
+    },
+    creditedBasis: null,
+  };
+}
+
+function otherSourceResults(schedule: OtherSourceScheduleCents[], appliedCents: number[]): OtherSourceResult[] {
+  return schedule.map((entry, index) => ({
+    id: entry.source.id,
+    name: entry.source.name,
+    kind: entry.source.kind,
+    drawn: dollars(entry.months.reduce((total, month) => total + month.drawCents, 0)),
+    applied: dollars(appliedCents[index]),
+    accruedInterest: dollars(entry.months.reduce((total, month) => total + month.interestCents, 0)),
+    repaid: dollars(entry.months.reduce((total, month) => total + month.repaymentCents, 0)),
+    closingBalance: dollars(entry.months.at(-1)?.closingBalanceCents ?? 0),
+  }));
+}
+
+function creditedLandResult(creditedLand: CreditedLandPlan | undefined, landCashCents: number): CreditedLandResult | null {
+  if (!creditedLand) return null;
+  return {
+    cashLandCost: dollars(landCashCents),
+    creditedValue: creditedLand.creditedValue,
+    stepUp: dollars(cents(creditedLand.creditedValue) - landCashCents),
+    countsAsSponsorEquity: creditedLand.countsAsSponsorEquity,
+  };
+}
+
+/**
+ * Builds the summary from the schedule's totals, one line per source and use, so a source the schedule
+ * funds cannot be left off the summary without a reconciliation failing.
+ */
+function sourcesAndUsesFor(
+  totals: DevelopmentCapitalTotals,
+  otherSources: OtherSourceResult[],
+  creditedLand: CreditedLandResult | null,
+): SourcesAndUses {
+  const basis = (sources: SourcesAndUsesLine[], uses: SourcesAndUsesLine[]): SourcesAndUsesBasis => ({
+    sources,
+    uses,
+    totalSources: money(...sources.map(({ amount }) => amount)),
+    totalUses: money(...uses.map(({ amount }) => amount)),
+  });
+  const sources: SourcesAndUsesLine[] = [
+    { key: "equity", label: "Cash Equity", amount: totals.equity },
+    { key: "debt", label: "Senior Construction Debt", amount: totals.totalDebt },
+    ...otherSources.map((source) => ({
+      key: `other:${source.id}`,
+      label: `${source.name} (${source.kind === "grant" ? "Grant" : "Soft Loan"})`,
+      amount: source.applied,
+    })),
+  ];
+  const uses: SourcesAndUsesLine[] = [
+    { key: "land", label: "Land at Cash Cost", amount: totals.landCashCost },
+    { key: "otherProjectCosts", label: "Other Project Costs", amount: money(totals.projectCosts, -totals.landCashCost) },
+    { key: "loanFees", label: "Loan Fees", amount: totals.loanFees },
+    { key: "operatingShortfall", label: "Operating Shortfall", amount: totals.operatingShortfall },
+    { key: "capitalizedInterest", label: "Capitalized Interest", amount: totals.capitalizedInterest },
+  ];
+  const credited = creditedLand?.countsAsSponsorEquity
+    ? basis(
+      [...sources, { key: "creditedLandEquity", label: "Credited Land Equity (Non-Cash)", amount: creditedLand.stepUp }],
+      [...uses, { key: "landStepUp", label: "Land Step-Up to Credited Value (Non-Cash)", amount: creditedLand.stepUp }],
+    )
+    : null;
+  return { cashBasis: basis(sources, uses), creditedBasis: credited };
 }
 
 function reconciliationsFor(
   months: MonthlyDevelopmentCapital[],
   totals: DevelopmentCapitalTotals,
   plan: DevelopmentCapitalPlan,
+  summary: SourcesAndUses,
+  otherSources: OtherSourceResult[],
 ) {
   const checks = months.flatMap((month) => [
     check(`sources-uses:${month.month}`, `${month.month} sources equal uses`, month.totalUses, month.totalSources),
@@ -559,9 +861,46 @@ function reconciliationsFor(
       month.operatingCashAppliedToInterest,
     ),
   ]);
+  const softLoanChecks = otherSources.some(({ kind }) => kind === "soft_loan")
+    ? months.map((month, index) => check(
+      `soft-loan-roll-forward:${month.month}`,
+      `${month.month} soft loan opening plus draws and interest less repayment equals closing`,
+      month.softLoanBalance,
+      money(months[index - 1]?.softLoanBalance ?? 0, month.softLoanDraw, month.softLoanInterest, -month.softLoanRepayment),
+    ))
+    : [];
+  const sourceChecks = otherSources.flatMap((source) => {
+    const planned = plan.otherSources?.find(({ id }) => id === source.id);
+    return [
+      check(
+        `other-source-draws:${source.id}`,
+        `${source.name} draws equal the amounts entered`,
+        money(...(planned?.draws ?? []).map(({ amount }) => amount)),
+        source.drawn,
+      ),
+      check(
+        `other-source-in-sources-and-uses:${source.id}`,
+        `${source.name} is fully applied to uses in the sources and uses summary`,
+        source.drawn,
+        summary.cashBasis.sources.find(({ key }) => key === `other:${source.id}`)?.amount ?? 0,
+      ),
+    ];
+  });
+  const creditedChecks = summary.creditedBasis
+    ? [check("sources-and-uses-credited-basis", "Sources equal uses with land at credited value", summary.creditedBasis.totalUses, summary.creditedBasis.totalSources)]
+    : [];
   return [
     ...checks,
+    ...softLoanChecks,
     check("total-sources-uses", "Total sources equal total uses", totals.totalUses, totals.totalSources),
+    check("sources-and-uses-cash-basis", "Sources equal uses with land at cash cost", summary.cashBasis.totalUses, summary.cashBasis.totalSources),
+    check("sources-and-uses-uses-tie", "The sources and uses summary uses equal the monthly uses", totals.totalUses, summary.cashBasis.totalUses),
+    check("sources-and-uses-sources-tie", "The sources and uses summary sources equal the monthly sources", totals.totalSources, summary.cashBasis.totalSources),
+    ...sourceChecks,
+    ...creditedChecks,
+    ...(otherSources.some(({ kind }) => kind === "soft_loan")
+      ? [check("soft-loans-repaid", "Every soft loan is repaid by the final model month", 0, months.at(-1)?.softLoanBalance ?? 0)]
+      : []),
     check(
       "debt-components",
       "Total debt equals debt before reserves plus interest and operating shortfall reserves",
@@ -580,6 +919,8 @@ function reconciliationsFor(
 
 function formulaTraces(plan: DevelopmentCapitalPlan): CapitalFormulaTrace[] {
   const ratePath = plan.ratePath !== undefined ? ["ratePath"] : [];
+  const otherSources = plan.otherSources !== undefined ? ["otherSources"] : [];
+  const creditedLand = plan.creditedLand !== undefined ? ["creditedLand"] : [];
   const operatingCashFlowInputs = [
     "analysisStartMonth",
     "saleMonth",
@@ -602,7 +943,7 @@ function formulaTraces(plan: DevelopmentCapitalPlan): CapitalFormulaTrace[] {
     { key: "projectCosts", label: "Project Costs", formula: "the displayed monthly cost schedule carried into the capital schedule", inputPaths: ["analysisStartMonth", "saleMonth", "costLines"] },
     { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "the displayed monthly apartment operating cash flow carried into the capital schedule", inputPaths: [...operatingCashFlowInputs] },
     { key: "operatingShortfall", label: "Operating Shortfall", formula: "the amount by which monthly operating cash flow is below zero", inputPaths: [...operatingCashFlowInputs] },
-    { key: "equity", label: "Equity", formula: "equity funds monthly uses first until the target debt share of total uses is reached", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
+    { key: "equity", label: "Equity", formula: "grants and soft loans fund monthly uses first, then equity funds uses until the target debt share of total uses is reached; equity is total uses less target debt less grants and soft loans", inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
     { key: "debtBeforeReserves", label: "Debt Before Reserves", formula: "project costs and loan fees not funded by equity", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth", "fundingOrder"] },
     { key: "grossInterest", label: "Gross Interest", formula: "opening monthly debt balance times the month's annual rate divided by twelve; the rate is the fixed annual rate, or with a rate path the month's base rate plus the spread, using the first base rate before the curve starts and the last base rate after it ends", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention"] },
     { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", formula: "the lesser of positive monthly operating cash flow or gross interest", inputPaths: ["interestTreatment", ...operatingCashFlowInputs] },
@@ -611,10 +952,24 @@ function formulaTraces(plan: DevelopmentCapitalPlan): CapitalFormulaTrace[] {
     { key: "operatingShortfallReserve", label: "Operating Shortfall Reserve", formula: "negative operating cash flow funded after equity under the equity-first rule and kept separate from project costs", inputPaths: ["fundingOrder", ...operatingCashFlowInputs] },
     { key: "loanFees", label: "Loan Fees", formula: "project costs times target debt share times loan fee percent in the entered fee month", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth"] },
     { key: "totalDebt", label: "Total Debt", formula: "debt before reserves plus interest reserve and operating shortfall reserve draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", "annualInterestRatePercent", ...ratePath, "loanFeePercent", "costLines", ...operatingCashFlowInputs] },
-    { key: "totalSources", label: "Total Sources", formula: "equity contributions plus all debt draws", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
+    { key: "totalSources", label: "Total Sources", formula: "grant and soft loan cash applied to uses, plus equity contributions, plus all debt draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
     { key: "totalUses", label: "Total Uses", formula: "project costs plus loan fees, operating shortfalls, and capitalized interest", inputPaths: ["costLines", "loanFeePercent", "annualInterestRatePercent", ...ratePath, ...operatingCashFlowInputs] },
     { key: "debtSharePercent", label: "Debt Share", formula: "total debt divided by total uses", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
     { key: "repayment", label: "Debt Repayment", formula: "the full opening debt plus current debt draws repaid in the final entered payoff month", inputPaths: ["payoffMonth"] },
+    ...(plan.otherSources !== undefined ? [
+      { key: "grants" as const, label: "Grants", formula: "grant cash that arrives in each entered draw month and funds uses before equity and debt", inputPaths: ["otherSources"] },
+      { key: "softLoans" as const, label: "Soft Loans", formula: "soft loan cash that arrives in each entered draw month and funds uses before equity and debt", inputPaths: ["otherSources"] },
+      { key: "otherSourcesApplied" as const, label: "Other Sources Applied", formula: "grant and soft loan cash applied to project costs, loan fees, operating shortfall and capitalized interest in the month it arrives or later", inputPaths: ["otherSources", "costLines", "loanFeePercent", ...operatingCashFlowInputs] },
+      { key: "softLoanInterest" as const, label: "Soft Loan Interest", formula: "opening soft loan balance times the loan's annual rate divided by twelve, accrued to the balance and paid at repayment; it is not a project use and does not enter total uses", inputPaths: ["otherSources"] },
+      { key: "softLoanRepayment" as const, label: "Soft Loan Repayment", formula: "soft loan principal plus accrued interest repaid in the entered repayment month", inputPaths: ["otherSources"] },
+    ] : []),
+    { key: "landCashCost", label: "Land at Cash Cost", formula: "land cost lines in the cost schedule, paid in cash", inputPaths: ["costLines"] },
+    ...(plan.creditedLand !== undefined ? [
+      { key: "creditedLandStepUp" as const, label: "Credited Land Step-Up", formula: "credited land value less land at cash cost; it is never cash spent", inputPaths: ["creditedLand", "costLines"] },
+      { key: "creditedLandEquity" as const, label: "Credited Land Equity", formula: "the credited land step-up when the deal counts credited land as sponsor equity, otherwise zero", inputPaths: ["creditedLand", "costLines"] },
+      { key: "sponsorEquity" as const, label: "Sponsor Equity", formula: "cash equity plus credited land counted as sponsor equity", inputPaths: ["targetDebtSharePercent", ...creditedLand, ...otherSources, "costLines"] },
+    ] : []),
+    { key: "sourcesAndUses" as const, label: "Sources and Uses", formula: "one line per source and use from the schedule's totals, with land at cash cost; with credited land counted as equity a second basis adds the step-up to both sides; the run fails if sources and uses differ", inputPaths: ["costLines", "targetDebtSharePercent", ...otherSources, ...creditedLand] },
     { key: "monthlyDebtRollForward", label: "Monthly Debt Roll-Forward", formula: "opening debt plus debt draws and reserves less payoff equals closing debt", inputPaths: ["payoffMonth", "fundingOrder", "interestTreatment", "interestConvention"] },
   ];
 }
@@ -631,6 +986,8 @@ function planFrom(input: DevelopmentCapitalInputs): DevelopmentCapitalPlan {
     feeMonth: input.feeMonth,
     payoffMonth: input.payoffMonth,
     ...(input.ratePath !== undefined ? { ratePath: structuredClone(input.ratePath) } : {}),
+    ...(input.otherSources !== undefined ? { otherSources: structuredClone(input.otherSources) } : {}),
+    ...(input.creditedLand !== undefined ? { creditedLand: structuredClone(input.creditedLand) } : {}),
     capitalAssumptionEvidence: structuredClone(input.capitalAssumptionEvidence),
   };
 }
@@ -695,7 +1052,7 @@ function money(...values: number[]) {
 
 function numbersAreSafe(months: MonthlyDevelopmentCapital[], totals: DevelopmentCapitalTotals) {
   return months.every((month) => Object.values(month).every((value) => typeof value !== "number" || (Number.isFinite(value) && Number.isSafeInteger(cents(value)))))
-    && Object.values(totals).every((value) => Number.isFinite(value) && Number.isSafeInteger(Math.round(value * 100)));
+    && Object.values(totals).every((value) => value === null || (Number.isFinite(value) && Number.isSafeInteger(Math.round(value * 100))));
 }
 
 function monthIndex(value: unknown) {
@@ -720,6 +1077,10 @@ function cents(value: number) {
 
 function dollars(valueCents: number) {
   return valueCents / 100;
+}
+
+function formatUsd(valueCents: number) {
+  return `$${(valueCents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function labelFor(path: string) {

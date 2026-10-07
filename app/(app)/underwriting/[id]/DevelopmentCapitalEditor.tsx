@@ -11,10 +11,14 @@ import {
   OPENING_BALANCE_MONTHLY_VERSION,
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalEvidence,
+  type CreditedLandPlan,
   type DevelopmentCapitalRatePath,
+  type OtherFundingSource,
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+
+import { OtherSourcesSection } from "./OtherSourcesSection";
 
 export function DevelopmentCapitalEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
@@ -31,6 +35,8 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   const [asOfDate, setAsOfDate] = useState(savedPath?.asOfDate ?? "");
   const [curveStartMonth, setCurveStartMonth] = useState(savedPath?.baseRates[0]?.month ?? savedCase.costSchedule?.analysisStartMonth ?? "");
   const [baseRates, setBaseRates] = useState<Array<number | "">>(savedPath?.baseRates.map(({ baseRatePercent }) => baseRatePercent) ?? [""]);
+  const [otherSources, setOtherSources] = useState<OtherFundingSource[]>(saved?.otherSources ?? []);
+  const [creditedLand, setCreditedLand] = useState<CreditedLandPlan | undefined>(saved?.creditedLand);
   const [capitalAssumptionEvidence, setCapitalAssumptionEvidence] = useState(saved?.capitalAssumptionEvidence ?? blankEvidence());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -66,6 +72,8 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
           feeMonth,
           payoffMonth,
           ratePath: usePath ? ratePathFrom({ spreadPercent, curveSourceLabel, asOfDate, curveStartMonth, baseRates }) : null,
+          otherSources: otherSources.length > 0 ? otherSources : null,
+          creditedLand: creditedLand ?? null,
           capitalAssumptionEvidence,
         }),
       });
@@ -138,6 +146,15 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
           </div>
         </> : null}
       </section>
+
+      <OtherSourcesSection
+        sources={otherSources}
+        setSources={setOtherSources}
+        creditedLand={creditedLand}
+        setCreditedLand={setCreditedLand}
+        defaultMonth={feeMonth}
+        fieldErrors={fieldErrors}
+      />
 
       <section className="underwriting-line-section">
         <h4>Capital Assumption Sources</h4>

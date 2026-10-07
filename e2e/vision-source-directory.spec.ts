@@ -28,12 +28,12 @@ test("shows joined source coverage and filters to a clear empty result", async (
   const sourceUrls = await page.getByRole("link", {name: "Open official source"}).evaluateAll(links => links.map(link => (link as HTMLAnchorElement).href));
   expect(sourceUrls).toEqual(VISION_SOURCES.map(source => source.url));
 
-  const municipalityType = page.getByRole("combobox", {name: "Municipality type", exact: true});
+  const municipalityType = page.getByRole("combobox", {name: "Municipality Type", exact: true});
   await municipalityType.selectOption("village");
   await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({jurisdictionType: "village"}));
   await municipalityType.selectOption("");
 
-  const recordType = page.getByRole("combobox", {name: "Record type", exact: true});
+  const recordType = page.getByRole("combobox", {name: "Record Type", exact: true});
   await recordType.selectOption("Building permits");
   await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({recordFamily: "Building permits"}));
   await recordType.selectOption("");
@@ -85,12 +85,12 @@ test("keeps the coverage view usable at 375px", async ({page}) => {
   await expect(floralParkPopup).toHaveURL("https://floralparkny.gov/board-of-trustees-meeting-minutes/");
   await floralParkPopup.close();
   await location.selectOption("");
-  const municipalityType = page.getByRole("combobox", {name: "Municipality type", exact: true});
+  const municipalityType = page.getByRole("combobox", {name: "Municipality Type", exact: true});
   await municipalityType.selectOption("town");
   await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({jurisdictionType: "town"}));
   await municipalityType.selectOption("");
 
-  const recordType = page.getByRole("combobox", {name: "Record type", exact: true});
+  const recordType = page.getByRole("combobox", {name: "Record Type", exact: true});
   await recordType.selectOption("Building permits");
   await expect(page.locator(".vision-directory-card")).toHaveCount(expectedCount({recordFamily: "Building permits"}));
   await recordType.selectOption("");

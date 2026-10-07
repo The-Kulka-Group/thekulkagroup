@@ -64,7 +64,7 @@ test("saves, calculates, reloads, and reopens property sale returns", async ({ p
   await expect(page.locator("#returns-terminal-cap-rate")).toHaveValue("5.75");
   await expect(page.locator("#returns-selling-cost")).toHaveValue("1.5");
   await page.getByRole("link", { name: "Current revision" }).click();
-  await expect(page.getByText("Saved results and formulas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
   await expect(page.getByText("Sale Input Version")).toBeVisible();
   await expect(page.getByText("Saved Sale Assumption")).toBeVisible();
   await expect(page.getByText("2026-12 unlevered cash flow equals operating cash and sale proceeds less project costs")).toBeVisible();

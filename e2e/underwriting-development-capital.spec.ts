@@ -104,7 +104,7 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
   await expect(page.locator("#capital-target-debt-share")).toHaveValue("65");
   await expect(page.locator("#capital-annual-interest-rate")).toHaveValue("8");
   await page.getByRole("link", { name: "Current revision" }).click();
-  await expect(page.getByText("Saved results and formulas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
   await expect(page.getByText("Capital Input Version")).toBeVisible();
   await expect(page.getByText("Saved Capital Assumption")).toBeVisible();
   await expect(page.getByText("Closing construction debt equals zero after the payoff month")).toBeVisible();

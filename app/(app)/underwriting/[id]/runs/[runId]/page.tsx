@@ -281,7 +281,7 @@ export default async function UnderwritingRunPage({
               </table>
               <table className="underwriting-cost-lines">
                 <thead><tr><th>Cost Line</th><th>Category</th><th className="right">Amount</th><th>Start</th><th>End</th><th>Distribution</th><th>Version</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead>
-                <tbody>{run.inputSnapshot.costLines.map((line) => <tr key={line.id}><th scope="row">{line.name}</th><td>{categoryLabel(line.category)}</td><td className="num right">{MONEY.format(line.amount)}</td><td className="num">{line.startMonth}</td><td className="num">{line.endMonth}</td><td>{line.distributionMethod === "straight_line" ? "Straight-line" : "S-curve"}</td><td className="num">{line.distributionVersion}</td><td>{line.sourceLabel || "Missing"}</td><td className="num">{line.sourceDate || "Missing"}</td><td><Chip status={line.reviewState} /></td></tr>)}</tbody>
+                <tbody>{run.inputSnapshot.costLines.map((line) => <tr key={line.id}><th scope="row">{line.name}</th><td>{categoryLabel(line.category)}</td><td className="num right">{line.amount === undefined ? "By Basis" : MONEY.format(line.amount)}</td><td className="num">{line.startMonth}</td><td className="num">{line.endMonth}</td><td>{line.distributionMethod === "straight_line" ? "Straight-line" : "S-curve"}</td><td className="num">{line.distributionVersion}</td><td>{line.sourceLabel || "Missing"}</td><td className="num">{line.sourceDate || "Missing"}</td><td><Chip status={line.reviewState} /></td></tr>)}</tbody>
               </table>
             </div>
           ) : <div className="underwriting-results-wrap">

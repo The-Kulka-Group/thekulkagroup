@@ -18,11 +18,35 @@ export type CostDistributionVersion =
   | typeof STRAIGHT_LINE_DISTRIBUTION_VERSION
   | typeof S_CURVE_DISTRIBUTION_VERSION;
 
+export const COST_LINE_BASIS_TYPES = ["fixed", "per_gross_square_foot", "per_unit", "percent_of_line"] as const;
+export const MAX_BASIS_PERCENT = 1000;
+
+/**
+ * How a line gets its amount. A line with no basis, or a fixed one, uses its entered amount. The
+ * other three derive the amount from a rate and a quantity or another line, and carry no amount
+ * of their own, so the entered rate and the derived amount never mix.
+ */
+export type CostLineBasis =
+  | { type: "fixed" }
+  | { type: "per_gross_square_foot"; rate: number }
+  | { type: "per_unit"; rate: number }
+  | { type: "percent_of_line"; baseLineId: string; percent: number };
+
+export type CostLineBasisType = (typeof COST_LINE_BASIS_TYPES)[number];
+
+/** Case quantities that per-area and per-unit lines multiply against. */
+export type CostQuantities = {
+  grossSquareFeet?: number;
+  units?: number;
+};
+
 export type MonthlyCostLine = {
   id: string;
   name: string;
   category: CostCategory;
-  amount: number;
+  /** Required for a fixed line. Absent on a derived line, whose amount the engine computes. */
+  amount?: number;
+  basis?: CostLineBasis;
   unit: "usd";
   startMonth: string;
   endMonth: string;
@@ -37,6 +61,7 @@ export type MonthlyCostScheduleInputs = {
   analysisStartMonth: string;
   saleMonth: string;
   costLines: MonthlyCostLine[];
+  quantities?: CostQuantities;
 };
 
 export type MonthlyCostIssueCode =
@@ -44,6 +69,11 @@ export type MonthlyCostIssueCode =
   | "month_order"
   | "outside_timeline"
   | "invalid_amount"
+  | "invalid_basis"
+  | "amount_with_basis"
+  | "missing_quantity"
+  | "unknown_base_line"
+  | "circular_basis"
   | "invalid_unit"
   | "invalid_category"
   | "missing_text"
@@ -79,6 +109,9 @@ export type CostLineSchedule = {
   lineId: string;
   name: string;
   category: CostCategory;
+  basisType: CostLineBasisType;
+  /** The line's amount after any basis is applied: the entered amount for a fixed line, the derived amount otherwise. */
+  amount: number;
   months: string[];
   monthlyAmounts: number[];
   total: number;
@@ -132,8 +165,9 @@ export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs): Mo
   if (issues.length > 0) return failed(inputSnapshot, issues);
 
   const spine = monthSpine(inputSnapshot.analysisStartMonth, inputSnapshot.saleMonth);
-  const schedules = inputSnapshot.costLines.map((line, index) => scheduleLine(line, index));
-  const result = resultFor(spine, inputSnapshot.costLines, schedules);
+  const amountsInCents = resolveAmountsInCents(inputSnapshot);
+  const schedules = inputSnapshot.costLines.map((line, index) => scheduleLine(line, index, amountsInCents[index], inputSnapshot));
+  const result = resultFor(spine, inputSnapshot, schedules);
   if (!result || !Number.isSafeInteger(Math.round(result.totalUses * 100))) {
     return failed(inputSnapshot, [{
       path: "costLines",
@@ -142,7 +176,7 @@ export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs): Mo
     }]);
   }
 
-  const reconciliations = reconciliationChecks(inputSnapshot.costLines, schedules, result);
+  const reconciliations = reconciliationChecks(inputSnapshot.costLines, amountsInCents, schedules, result);
   if (reconciliations.some(({ status }) => status === "fail")) {
     return failed(inputSnapshot, [{
       path: "costLines",
@@ -214,10 +248,7 @@ function validate(input: MonthlyCostScheduleInputs) {
     if (!CATEGORIES.includes(line.category)) {
       issue(issues, `${path}.category`, "invalid_category", "Cost line category is not supported.");
     }
-    const cents = Math.round(line.amount * 100);
-    if (!Number.isFinite(line.amount) || line.amount < 0.01 || !Number.isSafeInteger(cents) || Math.abs(line.amount - cents / 100) > 1e-9) {
-      issue(issues, `${path}.amount`, "invalid_amount", "Cost line amount must be a positive USD amount with no more than two decimal places.");
-    }
+    validateAmountAndBasis(issues, input, line, path);
     if (line.unit !== "usd") issue(issues, `${path}.unit`, "invalid_unit", "This formula version supports USD cost lines.");
 
     const start = monthIndex(line.startMonth);
@@ -257,12 +288,127 @@ function validate(input: MonthlyCostScheduleInputs) {
       issue(issues, `${path}.reviewState`, "invalid_review_state", "Review state must be Working on It or Done.");
     }
   }
+  validateBasisCycles(issues, input.costLines);
   return issues;
 }
 
-function scheduleLine(line: MonthlyCostLine, index: number): CostLineSchedule {
+function isDerived(line: MonthlyCostLine): line is MonthlyCostLine & { basis: Exclude<CostLineBasis, { type: "fixed" }> } {
+  return !!line.basis && typeof line.basis === "object" && line.basis.type !== "fixed";
+}
+
+function validateAmountAndBasis(issues: MonthlyCostIssue[], input: MonthlyCostScheduleInputs, line: MonthlyCostLine, path: string) {
+  const basis = line.basis as unknown;
+  if (basis !== undefined && (!basis || typeof basis !== "object" || !COST_LINE_BASIS_TYPES.includes((basis as { type: CostLineBasisType }).type))) {
+    issue(issues, `${path}.basis`, "invalid_basis", "Cost line basis must be fixed, per gross square foot, per unit or percent of another line.");
+    return;
+  }
+  if (!isDerived(line)) {
+    const cents = Math.round((line.amount as number) * 100);
+    if (typeof line.amount !== "number" || !Number.isFinite(line.amount) || line.amount < 0.01 || !Number.isSafeInteger(cents) || Math.abs(line.amount - cents / 100) > 1e-9) {
+      issue(issues, `${path}.amount`, "invalid_amount", "Cost line amount must be a positive USD amount with no more than two decimal places.");
+    }
+    return;
+  }
+  if (line.amount !== undefined) {
+    issue(issues, `${path}.amount`, "amount_with_basis", "A line priced by a basis takes no entered amount. The engine derives it.");
+  }
+  const { basis: derived } = line;
+  if (derived.type === "percent_of_line") {
+    if (!Number.isFinite(derived.percent) || derived.percent <= 0 || derived.percent > MAX_BASIS_PERCENT) {
+      issue(issues, `${path}.basis.percent`, "invalid_basis", `Percent must be above zero and no more than ${MAX_BASIS_PERCENT}.`);
+    }
+    if (typeof derived.baseLineId !== "string" || !input.costLines.some((other) => other && other.id === derived.baseLineId)) {
+      issue(issues, `${path}.basis.baseLineId`, "unknown_base_line", "Choose another cost line in this schedule as the base.");
+    } else if (derived.baseLineId === line.id) {
+      issue(issues, `${path}.basis.baseLineId`, "circular_basis", "A line cannot be a percent of itself.");
+    }
+    return;
+  }
+  if (!Number.isFinite(derived.rate) || derived.rate <= 0 || !Number.isSafeInteger(Math.round(derived.rate * 10000)) || Math.abs(derived.rate * 10000 - Math.round(derived.rate * 10000)) > 1e-6) {
+    issue(issues, `${path}.basis.rate`, "invalid_basis", "Rate must be above zero with no more than four decimal places.");
+  }
+  const quantity = derived.type === "per_unit" ? input.quantities?.units : input.quantities?.grossSquareFeet;
+  const quantityPath = derived.type === "per_unit" ? "quantities.units" : "quantities.grossSquareFeet";
+  const validQuantity = typeof quantity === "number" && Number.isFinite(quantity) && quantity > 0
+    && (derived.type !== "per_unit" || Number.isInteger(quantity));
+  if (!validQuantity) {
+    issue(
+      issues,
+      quantityPath,
+      "missing_quantity",
+      derived.type === "per_unit"
+        ? "Enter the number of units, a positive whole number, to price a line per unit."
+        : "Enter the gross square feet, above zero, to price a line per gross square foot.",
+    );
+  }
+}
+
+function validateBasisCycles(issues: MonthlyCostIssue[], lines: MonthlyCostLine[]) {
+  if (!Array.isArray(lines)) return;
+  const byId = new Map<string, number>();
+  lines.forEach((line, index) => {
+    if (line && typeof line.id === "string" && !byId.has(line.id)) byId.set(line.id, index);
+  });
+  const baseOf = (index: number) => {
+    const line = lines[index];
+    return line && isDerived(line) && line.basis.type === "percent_of_line" ? byId.get(line.basis.baseLineId) : undefined;
+  };
+  const reported = new Set<number>();
+  for (const start of lines.keys()) {
+    const seen = new Set<number>();
+    let current: number | undefined = start;
+    while (current !== undefined && !seen.has(current)) {
+      seen.add(current);
+      current = baseOf(current);
+    }
+    if (current !== undefined && current !== start) continue;
+    if (current === start && seen.size > 1 && !reported.has(start)) {
+      for (const member of seen) reported.add(member);
+      issue(issues, `costLines.${start}.basis.baseLineId`, "circular_basis", "Percent-of-line bases cannot form a loop.");
+    }
+  }
+}
+
+/** Derived amounts in cents, in line order. Runs only after validation, so bases are known and acyclic. */
+function resolveAmountsInCents(input: MonthlyCostScheduleInputs) {
+  const byId = new Map(input.costLines.map((line, index) => [line.id, index]));
+  const resolved = new Map<number, number>();
+  const resolve = (index: number): number => {
+    const known = resolved.get(index);
+    if (known !== undefined) return known;
+    const line = input.costLines[index];
+    let cents: number;
+    if (!isDerived(line)) cents = Math.round((line.amount as number) * 100);
+    else if (line.basis.type === "percent_of_line") cents = Math.round(resolve(byId.get(line.basis.baseLineId)!) * line.basis.percent / 100);
+    else if (line.basis.type === "per_unit") cents = Math.round(line.basis.rate * input.quantities!.units! * 100);
+    else cents = Math.round(line.basis.rate * input.quantities!.grossSquareFeet! * 100);
+    resolved.set(index, cents);
+    return cents;
+  };
+  return input.costLines.map((_, index) => resolve(index));
+}
+
+function basisTrace(line: MonthlyCostLine, input: MonthlyCostScheduleInputs) {
+  if (!isDerived(line)) return null;
+  const { basis } = line;
+  if (basis.type === "per_gross_square_foot") return `Amount derived as rate ${basis.rate} per gross square foot times ${input.quantities?.grossSquareFeet} gross square feet.`;
+  if (basis.type === "per_unit") return `Amount derived as rate ${basis.rate} per unit times ${input.quantities?.units} units.`;
+  const base = input.costLines.find(({ id }) => id === basis.baseLineId);
+  return `Amount derived as ${basis.percent} percent of the ${base?.name ?? basis.baseLineId} line.`;
+}
+
+function basisInputPaths(line: MonthlyCostLine, index: number, input: MonthlyCostScheduleInputs): string[] {
+  if (!isDerived(line)) return [`costLines.${index}.amount`];
+  const { basis } = line;
+  if (basis.type === "per_gross_square_foot") return [`costLines.${index}.basis`, "quantities.grossSquareFeet"];
+  if (basis.type === "per_unit") return [`costLines.${index}.basis`, "quantities.units"];
+  const baseIndex = input.costLines.findIndex(({ id }) => id === basis.baseLineId);
+  return [`costLines.${index}.basis`, ...basisInputPaths(input.costLines[baseIndex], baseIndex, input)];
+}
+
+function scheduleLine(line: MonthlyCostLine, index: number, cents: number, input: MonthlyCostScheduleInputs): CostLineSchedule {
   const months = monthSpine(line.startMonth, line.endMonth);
-  const cents = Math.round(line.amount * 100);
+  const derivation = basisTrace(line, input);
   const monthlyCents = line.distributionMethod === "straight_line"
     ? cumulativeAllocation(cents, months.length, (position) => position)
     : cumulativeAllocation(cents, months.length, smoothstep);
@@ -270,14 +416,16 @@ function scheduleLine(line: MonthlyCostLine, index: number): CostLineSchedule {
     lineId: line.id,
     name: line.name,
     category: line.category,
+    basisType: line.basis?.type ?? "fixed",
+    amount: fromCents(cents),
     months,
     monthlyAmounts: monthlyCents.map(fromCents),
     total: fromCents(monthlyCents.reduce((sum, amount) => sum + amount, 0)),
-    formulaTrace: line.distributionMethod === "straight_line"
-      ? "Entered amount allocated in equal cumulative shares across inclusive cost months; rounding is assigned by cumulative cents."
-      : "Entered amount allocated from cumulative smoothstep 3t² - 2t³ across inclusive cost months; rounding is assigned by cumulative cents.",
+    formulaTrace: `${derivation ?? "Entered amount"}${derivation ? " That amount is" : ""} ${line.distributionMethod === "straight_line"
+      ? "allocated in equal cumulative shares across inclusive cost months; rounding is assigned by cumulative cents."
+      : "allocated from cumulative smoothstep 3t² - 2t³ across inclusive cost months; rounding is assigned by cumulative cents."}`,
     inputPaths: [
-      `costLines.${index}.amount`,
+      ...basisInputPaths(line, index, input),
       `costLines.${index}.startMonth`,
       `costLines.${index}.endMonth`,
       `costLines.${index}.distributionMethod`,
@@ -301,7 +449,8 @@ function smoothstep(position: number) {
   return 3 * position ** 2 - 2 * position ** 3;
 }
 
-function resultFor(spine: string[], lines: MonthlyCostLine[], schedules: CostLineSchedule[]): MonthlyCostScheduleResult | null {
+function resultFor(spine: string[], input: MonthlyCostScheduleInputs, schedules: CostLineSchedule[]): MonthlyCostScheduleResult | null {
+  const lines = input.costLines;
   const totalsByCategory = emptyCategories();
   const scheduleStarts = schedules.map((schedule) => monthIndex(schedule.months[0])!);
   const spineStart = monthIndex(spine[0])!;
@@ -329,23 +478,24 @@ function resultFor(spine: string[], lines: MonthlyCostLine[], schedules: CostLin
     costLineSchedules: schedules,
     totalsByCategory,
     totalUses,
-    aggregateFormulaTraces: aggregateFormulaTraces(months, lines, schedules, totalsByCategory, totalUses),
+    aggregateFormulaTraces: aggregateFormulaTraces(months, input, schedules, totalsByCategory, totalUses),
   };
 }
 
 function aggregateFormulaTraces(
   months: MonthlyUses[],
-  lines: MonthlyCostLine[],
+  input: MonthlyCostScheduleInputs,
   schedules: CostLineSchedule[],
   totalsByCategory: Record<CostCategory, number>,
   totalUses: number,
 ): AggregateFormulaTrace[] {
+  const lines = input.costLines;
   const monthly = months.map((month) => {
     const monthNumber = monthIndex(month.month)!;
     const inputPaths = schedules.flatMap((schedule, index) => {
       const start = monthIndex(schedule.months[0])!;
       return monthNumber >= start && monthNumber < start + schedule.monthlyAmounts.length
-        ? costLineInputPaths(index)
+        ? schedule.inputPaths
         : [];
     });
     return {
@@ -362,7 +512,7 @@ function aggregateFormulaTraces(
     value: totalsByCategory[category],
     formulaTrace: "Sum all monthly amounts for cost lines in this category.",
     inputPaths: lines.flatMap((line, index) => line.category === category
-      ? [`costLines.${index}.category`, `costLines.${index}.amount`]
+      ? [`costLines.${index}.category`, ...basisInputPaths(line, index, input)]
       : []),
   }));
   return [
@@ -372,19 +522,9 @@ function aggregateFormulaTraces(
       key: "total-uses",
       label: "Total Uses",
       value: totalUses,
-      formulaTrace: "Sum the entered amount of every cost line across all categories.",
-      inputPaths: lines.map((_, index) => `costLines.${index}.amount`),
+      formulaTrace: "Sum the amount of every cost line across all categories, entered or derived from its basis.",
+      inputPaths: lines.flatMap((line, index) => basisInputPaths(line, index, input)),
     },
-  ];
-}
-
-function costLineInputPaths(index: number) {
-  return [
-    `costLines.${index}.amount`,
-    `costLines.${index}.startMonth`,
-    `costLines.${index}.endMonth`,
-    `costLines.${index}.distributionMethod`,
-    `costLines.${index}.distributionVersion`,
   ];
 }
 
@@ -398,17 +538,17 @@ function categoryLabel(category: CostCategory) {
   } as const)[category];
 }
 
-function reconciliationChecks(lines: MonthlyCostLine[], schedules: CostLineSchedule[], result: MonthlyCostScheduleResult) {
+function reconciliationChecks(lines: MonthlyCostLine[], amountsInCents: number[], schedules: CostLineSchedule[], result: MonthlyCostScheduleResult) {
   const checks = lines.map((line, index) => check(
     `cost-line:${line.id}`,
-    `${line.name} monthly distribution equals its entered amount`,
-    fromCents(Math.round(line.amount * 100)),
+    `${line.name} monthly distribution equals its ${isDerived(line) ? "derived" : "entered"} amount`,
+    fromCents(amountsInCents[index]),
     schedules[index].total,
   ));
   checks.push(check(
     "total-uses",
-    "Monthly uses equal the sum of entered cost lines",
-    fromCents(lines.reduce((sum, line) => sum + Math.round(line.amount * 100), 0)),
+    "Monthly uses equal the sum of cost line amounts",
+    fromCents(amountsInCents.reduce((sum, cents) => sum + cents, 0)),
     result.totalUses,
   ));
   return checks;

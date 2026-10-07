@@ -233,3 +233,96 @@ describe("computeMonthlyCostSchedule", () => {
     expect(result.totalUses).toBe(checks.projectCostBeforeFinancing.expected);
   });
 });
+
+describe("cost line basis types", () => {
+  const line = (id: string, basis: NonNullable<MonthlyCostScheduleInputs["costLines"][number]["basis"]>, category: "hard_cost" | "soft_cost" = "hard_cost") => ({
+    id,
+    name: id,
+    category,
+    basis,
+    unit: "usd" as const,
+    startMonth: "2026-01",
+    endMonth: "2026-02",
+    distributionMethod: "straight_line" as const,
+    distributionVersion: STRAIGHT_LINE_DISTRIBUTION_VERSION,
+    reviewState: "working" as const,
+  });
+  const base = (costLines: MonthlyCostScheduleInputs["costLines"], quantities?: MonthlyCostScheduleInputs["quantities"]): MonthlyCostScheduleInputs => ({
+    analysisStartMonth: "2026-01",
+    saleMonth: "2026-03",
+    costLines,
+    quantities,
+  });
+
+  it("derives per gross square foot, per unit and percent of line amounts apart from the entered ones", () => {
+    const run = computeMonthlyCostSchedule(base([
+      line("shell", { type: "per_gross_square_foot", rate: 185.5 }),
+      line("appliances", { type: "per_unit", rate: 4_250 }),
+      line("design", { type: "percent_of_line", baseLineId: "shell", percent: 6.5 }, "soft_cost"),
+    ], { grossSquareFeet: 120_000, units: 140 }));
+
+    expect(run.status).toBe("complete");
+    const [shell, appliances, design] = run.result!.costLineSchedules;
+    expect([shell.amount, appliances.amount, design.amount]).toEqual([22_260_000, 595_000, 1_446_900]);
+    expect([shell.basisType, appliances.basisType, design.basisType]).toEqual(["per_gross_square_foot", "per_unit", "percent_of_line"]);
+    expect(run.result!.totalUses).toBe(24_301_900);
+    expect(run.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(shell.inputPaths).toContain("quantities.grossSquareFeet");
+    expect(design.inputPaths).toEqual(expect.arrayContaining(["costLines.2.basis", "costLines.0.basis", "quantities.grossSquareFeet"]));
+    expect(design.formulaTrace).toContain("6.5 percent of the shell line");
+  });
+
+  it("follows a percent through a chain of derived lines in any order", () => {
+    const run = computeMonthlyCostSchedule(base([
+      line("fee", { type: "percent_of_line", baseLineId: "soft", percent: 10 }, "soft_cost"),
+      line("soft", { type: "percent_of_line", baseLineId: "hard", percent: 20 }, "soft_cost"),
+      line("hard", { type: "per_unit", rate: 1_000 }),
+    ], { units: 100 }));
+    expect(run.result!.costLineSchedules.map(({ amount }) => amount)).toEqual([2_000, 20_000, 100_000]);
+  });
+
+  it("treats a fixed basis like an entered amount and leaves existing traces unchanged", () => {
+    const fixed = { ...line("land", { type: "fixed" }), amount: 1_000 };
+    const plain = { ...fixed, basis: undefined };
+    const withBasis = computeMonthlyCostSchedule(base([fixed]));
+    const without = computeMonthlyCostSchedule(base([plain]));
+    expect(withBasis.result!.costLineSchedules[0].formulaTrace).toBe(without.result!.costLineSchedules[0].formulaTrace);
+    expect(without.result!.costLineSchedules[0].formulaTrace.startsWith("Entered amount allocated")).toBe(true);
+  });
+
+  it("fails a basis line that is missing its quantity, has an entered amount, or names a bad base", () => {
+    const missing = computeMonthlyCostSchedule(base([line("a", { type: "per_gross_square_foot", rate: 10 }), line("b", { type: "per_unit", rate: 10 })], { units: 12.5 }));
+    expect(missing.issues.map(({ code, path }) => [code, path])).toEqual([
+      ["missing_quantity", "quantities.grossSquareFeet"],
+      ["missing_quantity", "quantities.units"],
+    ]);
+
+    const both = computeMonthlyCostSchedule(base([{ ...line("a", { type: "per_unit", rate: 10 }), amount: 500 }], { units: 10 }));
+    expect(both.issues.map(({ code }) => code)).toEqual(["amount_with_basis"]);
+
+    const unknown = computeMonthlyCostSchedule(base([line("a", { type: "percent_of_line", baseLineId: "ghost", percent: 5 })]));
+    expect(unknown.issues.map(({ code }) => code)).toEqual(["unknown_base_line"]);
+
+    const self = computeMonthlyCostSchedule(base([line("a", { type: "percent_of_line", baseLineId: "a", percent: 5 })]));
+    expect(self.issues.map(({ code }) => code)).toEqual(["circular_basis"]);
+  });
+
+  it("fails a loop of percent lines once and rejects bad rates and percents", () => {
+    const loop = computeMonthlyCostSchedule(base([
+      line("a", { type: "percent_of_line", baseLineId: "b", percent: 5 }),
+      line("b", { type: "percent_of_line", baseLineId: "a", percent: 5 }),
+    ]));
+    expect(loop.issues.filter(({ code }) => code === "circular_basis")).toHaveLength(1);
+
+    const bad = computeMonthlyCostSchedule(base([
+      line("a", { type: "per_unit", rate: 0 }),
+      line("b", { type: "percent_of_line", baseLineId: "a", percent: 1_001 }),
+      { ...line("c", { type: "fixed" }), basis: { type: "per_cubic_yard" } as never },
+    ], { units: 10 }));
+    expect(bad.issues.map(({ code, path }) => [code, path])).toEqual([
+      ["invalid_basis", "costLines.0.basis.rate"],
+      ["invalid_basis", "costLines.1.basis.percent"],
+      ["invalid_basis", "costLines.2.basis"],
+    ]);
+  });
+});

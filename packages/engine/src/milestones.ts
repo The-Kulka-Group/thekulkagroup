@@ -146,7 +146,10 @@ export function resolveMilestoneAnchors(target: AnchorTarget): MilestoneResoluti
       milestoneId: resolved.milestone.id,
       milestoneName: resolved.milestone.name,
       offsetMonths: resolved.offset,
-      trace: `${verb} ${offsetPhrase(resolved.offset)} ${resolved.milestone.name} (${resolved.milestone.month}), which is ${month}.`,
+      trace: resolved.offset === 0
+        // At the milestone itself the month is the milestone's, so the trace does not repeat it.
+        ? `${verb}${verb.endsWith(" is") ? "" : " at"} ${resolved.milestone.name} (${resolved.milestone.month}).`
+        : `${verb} ${offsetPhrase(resolved.offset)} ${resolved.milestone.name} (${resolved.milestone.month}), which is ${month}.`,
     };
   };
 

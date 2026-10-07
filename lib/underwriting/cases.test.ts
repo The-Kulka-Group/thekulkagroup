@@ -821,7 +821,40 @@ describe("underwriting case repository", () => {
     expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.terminalCapRatePercent.reviewState).toBe("working");
     expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.sellingCostPercent.reviewState).toBe("working");
     expect(saleChanged!.propertyReturns!.saleAssumptionEvidence.saleMonth.reviewState).toBe("done");
-    const revisedSchedule = await saveUnderwritingCostSchedule(db, created!.id, saleChanged!.caseRevision, {
+    const done = { sourceLabel: "Operating agreement", sourceDate: "2026-10-07", reviewState: "done" as const };
+    const partnership = {
+      partnershipInputVersion: "partnership_inputs.v1" as const,
+      lpFundingSharePercent: 90,
+      fundingOrder: "pari_passu" as const,
+      preferredReturn: { ratePercent: 8, accrual: "compound_monthly" as const },
+      tiers: [{ lpIrrHurdlePercent: 12, promotePercent: 20, lpBaseSharePercent: 90 }],
+      finalSplit: { promotePercent: 40, lpBaseSharePercent: 90 },
+      partnershipEvidence: { funding: done, preferredReturn: done, promoteTiers: done },
+    };
+    const withWaterfall = await savePropertyReturns(db, created!.id, saleChanged!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 6,
+      saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+      partnership,
+    });
+    expect(withWaterfall!.propertyReturns!.partnership).toEqual(partnership);
+    const promoteChanged = await savePropertyReturns(db, created!.id, withWaterfall!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 6,
+      saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+      partnership: { ...partnership, finalSplit: { promotePercent: 35, lpBaseSharePercent: 90 } },
+    });
+    const evidenceAfter = promoteChanged!.propertyReturns!.partnership!.partnershipEvidence;
+    expect(evidenceAfter.promoteTiers!.reviewState).toBe("working");
+    expect(evidenceAfter.funding!.reviewState).toBe("done");
+    expect(evidenceAfter.preferredReturn!.reviewState).toBe("done");
+    const withoutWaterfall = await savePropertyReturns(db, created!.id, promoteChanged!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 6,
+      saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+    });
+    expect(withoutWaterfall!.propertyReturns!.partnership).toBeUndefined();
+    const revisedSchedule = await saveUnderwritingCostSchedule(db, created!.id, withoutWaterfall!.caseRevision, {
       analysisStartMonth: saleChanged!.costSchedule!.analysisStartMonth,
       saleMonth: "2027-01",
       costLines: saleChanged!.costSchedule!.costLines.map(({ lastChangedAt, ...line }) => {

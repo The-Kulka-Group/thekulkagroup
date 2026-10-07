@@ -6,6 +6,7 @@ import {
   ENGINE_OUTPUT_KEYS,
   LENDER_OUTPUT_KEYS,
   OTHER_SOURCE_OUTPUT_KEYS,
+  PARTNERSHIP_OUTPUT_KEYS,
   PROPERTY_TAX_OUTPUT_KEYS,
   engineOutputsFor,
   formatScorecard,
@@ -252,11 +253,35 @@ describe("engineOutputsFor", () => {
     const run = engineOutputsFor(input);
     expect(run.status).toBe("complete");
     expect(run.issueCodes).toEqual([]);
-    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...OTHER_SOURCE_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS]);
+    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...OTHER_SOURCE_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS, ...PARTNERSHIP_OUTPUT_KEYS, "lpPeakEquityMonth", "gpPeakEquityMonth"]);
     const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item) && !/AverageMonthlyRent$/.test(item));
     for (const key of always) expect(run.outputs[key], key).toBeDefined();
     expect(run.outputs.marketAverageMonthlyRent).toBeDefined();
     for (const key of PROPERTY_TAX_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
+    for (const key of PARTNERSHIP_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
+  });
+
+  it("reads peak equity on every run and the waterfall when the plan has one", () => {
+    const evidence = { reviewState: "working" as const };
+    const withWaterfall: PropertyReturnsInputs = {
+      ...input,
+      partnership: {
+        partnershipInputVersion: "partnership_inputs.v1",
+        lpFundingSharePercent: 90,
+        fundingOrder: "pari_passu",
+        tiers: [{ lpIrrHurdlePercent: 12, promotePercent: 20, lpBaseSharePercent: 90 }],
+        finalSplit: { promotePercent: 40, lpBaseSharePercent: 90 },
+        partnershipEvidence: { funding: evidence, promoteTiers: evidence },
+      },
+    };
+    const run = computePropertyReturns(withWaterfall);
+    const { outputs } = engineOutputsFor(withWaterfall);
+    expect(outputs.peakEquity).toBe(run.result!.propertyReturns.peakEquity!.amount);
+    expect(outputs.peakEquityMonth).toBe(run.result!.propertyReturns.peakEquity!.month);
+    for (const key of PARTNERSHIP_OUTPUT_KEYS.filter((key) => !key.includes("PreferredReturn"))) expect(outputs[key], key).toBeDefined();
+    expect(outputs.lpPreferredReturnAccrued).toBe(0);
+    expect(outputs.lpXirr).toBe(run.result!.partnership!.lp.xirr);
+    expect(Number(outputs.partnershipNetProfit)).toBeCloseTo(Number(outputs.leveredNetProfit), 2);
   });
 
   it("reads cost category totals from the run's own cost schedule", () => {

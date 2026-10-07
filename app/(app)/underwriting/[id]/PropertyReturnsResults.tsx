@@ -2,6 +2,7 @@ import type { LenderTestMetric, LenderTestsResult, PropertyReturnsResult, Proper
 
 import { Chip } from "@/components/Status";
 
+import { PartnershipResults } from "./PartnershipResults";
 import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -11,6 +12,7 @@ const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 export function PropertyReturnsResults({ result, reconciliations }: { result: PropertyReturnsResult; reconciliations: ReconciliationCheck[] }) {
   const sale = result.propertyReturns.sale;
   const returns = result.propertyReturns.returns;
+  const peak = result.propertyReturns.peakEquity;
   return <div className="underwriting-monthly-results">
     <div className="underwriting-summary-band">
       <Summary label="Forward 12-Month NOI" value={MONEY.format(sale.forwardNetOperatingIncome)} />
@@ -25,6 +27,8 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
       <Summary label="Levered Equity Multiple" value={`${NUMBER.format(returns.levered.equityMultiple)}x`} />
       <Summary label="Yield on Cost" value={PERCENT.format(result.propertyReturns.yieldOnCost)} />
       <Summary label="Development Spread" value={`${NUMBER.format(result.propertyReturns.developmentSpreadBasisPoints)} bps`} />
+      {peak ? <Summary label="Peak Equity" value={MONEY.format(peak.amount)} /> : null}
+      {peak?.month ? <Summary label="Peak Equity Month" value={peak.month} /> : null}
     </div>
     <h4>Dated Monthly Property Cash Flow</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-monthly-table underwriting-property-cash-flow"><thead><tr><th>Month</th><th>Date</th><th className="right">Project Costs</th><th className="right">Operating Cash Flow</th><th className="right">Gross Interest</th><th className="right">Debt Draws</th><th className="right">Debt Payoff</th><th className="right">Net Sale Proceeds</th><th className="right">Unlevered Cash Flow</th><th className="right">Levered Cash Flow</th></tr></thead><tbody>
@@ -38,6 +42,7 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
     {result.saleTax ? <SaleTax report={result.saleTax} /> : null}
     {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}
     {result.propertyTax ? <PropertyTaxByYear tax={result.propertyTax} /> : null}
+    {result.partnership ? <PartnershipResults result={result.partnership} /> : null}
     <h4>Reconciliation Checks</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead><tbody>
       {reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatCheck(check.expected, check.unit)}</td><td className="num right">{formatCheck(check.actual, check.unit)}</td><td className="num right">{formatCheck(check.difference, check.unit)}</td></tr>)}

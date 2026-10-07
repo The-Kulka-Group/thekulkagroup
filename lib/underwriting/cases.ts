@@ -8,6 +8,9 @@ import {
   type DevelopmentCapitalPlan,
   LENDER_TEST_ASSUMPTION_KEYS,
   type LenderTestPlan,
+  PARTNERSHIP_ASSUMPTION_KEYS,
+  type PartnershipAssumptionKey,
+  type PartnershipPlan,
   type LoanSizingPlan,
   type CostQuantities,
   type CostLineBasisType,
@@ -939,6 +942,31 @@ function reconcilePropertyReturnsReview(
     })) as Record<PropertyReturnsAssumptionKey, PropertyReturnsPlan["saleAssumptionEvidence"][PropertyReturnsAssumptionKey]>,
     ...(draft.lenderTests ? { lenderTests: reconcileLenderTestReview(existing?.lenderTests, draft.lenderTests) } : {}),
     ...(draft.saleTax ? { saleTax: reconcileSaleTaxReview(existing?.saleTax, draft.saleTax) } : {}),
+    ...(draft.partnership ? { partnership: reconcilePartnershipReview(existing?.partnership, draft.partnership) } : {}),
+  };
+}
+
+/** The partnership inputs each piece of evidence speaks for. Changing any of them resets that evidence to Working on It. */
+const PARTNERSHIP_EVIDENCE_FIELDS: Record<PartnershipAssumptionKey, Array<keyof PartnershipPlan>> = {
+  funding: ["lpFundingSharePercent", "fundingOrder", "lpEntryMonth"],
+  preferredReturn: ["preferredReturn"],
+  promoteTiers: ["tiers", "finalSplit"],
+};
+
+function reconcilePartnershipReview(existing: PartnershipPlan | undefined, draft: PartnershipPlan): PartnershipPlan {
+  return {
+    ...draft,
+    partnershipEvidence: Object.fromEntries(PARTNERSHIP_ASSUMPTION_KEYS.flatMap((key) => {
+      const nextEvidence = draft.partnershipEvidence[key];
+      if (!nextEvidence) return [];
+      const priorEvidence = existing?.partnershipEvidence[key];
+      const changed = existing && (
+        PARTNERSHIP_EVIDENCE_FIELDS[key].some((field) => stableJson(existing[field]) !== stableJson(draft[field]))
+        || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
+        || priorEvidence?.sourceDate !== nextEvidence.sourceDate
+      );
+      return [[key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence]];
+    })),
   };
 }
 

@@ -1,5 +1,6 @@
 import type { MonthlyApartmentOperations } from "./apartment-operations";
 import type { DevelopmentCapitalTotals } from "./development-capital";
+import type { PermanentLoanResult } from "./permanent-loan";
 import type { PropertyReturnsInputs, PropertyReturnsIssue } from "./property-returns";
 
 /*
@@ -38,7 +39,16 @@ export type LenderTestPlan = {
   lenderTestEvidence: Record<LenderTestAssumptionKey, LenderTestEvidence>;
   /** Optional caps that size the construction loan below its LTC (LA-1823). Absent keeps LTC sizing only. */
   loanSizing?: LoanSizingPlan;
+  /**
+   * Which debt service DSCR divides by (LA-1867). With a permanent loan the default is the loan's own
+   * computed annual debt service, and "stated" keeps `annualDebtService` as an override. With no
+   * permanent loan the stated figure is the only one, so the field is absent or "stated".
+   */
+  debtServiceBasis?: LenderDebtServiceBasis;
 };
+
+export const LENDER_DEBT_SERVICE_BASES = ["stated", "permanent_loan"] as const;
+export type LenderDebtServiceBasis = (typeof LENDER_DEBT_SERVICE_BASES)[number];
 
 export const LOAN_SIZING_TAX_BASES = ["full_tax", "abated"] as const;
 export const MAX_DSCR_AMORTIZATION_YEARS = 40;
@@ -127,6 +137,8 @@ export type LenderTestsResult = {
   fullTax: LenderFullTaxTests | null;
   /** Present when the lender tests carry loan sizing caps. Runs saved before LA-1823 read it as absent. */
   loanSizing?: LoanSizingResult | null;
+  /** Present only when the run has a permanent loan (LA-1867): the debt service DSCR divides by. */
+  debtServiceSource?: LenderDebtServiceBasis;
   issues: LenderTestIssue[];
 };
 
@@ -160,6 +172,9 @@ export function validateLenderTestPlan(plan: unknown): PropertyReturnsIssue[] {
   }
   issues.push(...validateEvidence(candidate.lenderTestEvidence));
   if (candidate.loanSizing !== undefined) issues.push(...validateLoanSizing(candidate.loanSizing));
+  if (candidate.debtServiceBasis !== undefined && !LENDER_DEBT_SERVICE_BASES.includes(candidate.debtServiceBasis)) {
+    issues.push({ path: "lenderTests.debtServiceBasis", code: "invalid_lender_tests", message: "Debt service basis must be Stated or Permanent Loan." });
+  }
   return issues;
 }
 
@@ -204,11 +219,74 @@ export function annualDebtConstant(ratePercent: number, amortizationYears: numbe
   return 12 * monthlyRate / (1 - (1 + monthlyRate) ** -payments);
 }
 
+/** The terms one set of NOI caps reads. Each cap is optional; a DSCR floor needs its rate and amortization. */
+export type NoiCapTerms = {
+  maxLoanToValuePercent?: number;
+  /** The cap rate that turns the sizing NOI into value. Required with an LTV cap. */
+  capRatePercent?: number;
+  minDebtYieldPercent?: number;
+  minDebtServiceCoverage?: number;
+  ratePercent?: number;
+  amortizationYears?: number;
+};
+
+export type NoiSizingCap = Omit<LoanSizingCap, "binding"> & { key: Exclude<LoanSizingCapKey, "loanToCost">; amountCents: number };
+
+/**
+ * The largest loan each NOI cap allows on one sizing NOI (LA-1823). The construction loan calls it on
+ * the lender-test valuation year and the permanent loan on its own NOI window (LA-1867), so the two
+ * share one formula. `text` names the NOI, the value and the cap rate in the traces.
+ */
+export function noiSizingCaps(
+  noiCents: number,
+  terms: NoiCapTerms,
+  text: { noi: string; value: string; capRate: string },
+  paths: { noi: string[]; capRate: string; loanToValue: string; debtYield: string; debtServiceCoverage: string; rate: string; amortization: string },
+): NoiSizingCap[] {
+  const caps: NoiSizingCap[] = [];
+  if (terms.maxLoanToValuePercent !== undefined) {
+    const valueCents = Math.round(noiCents / (terms.capRatePercent! / 100));
+    const amountCents = Math.floor(valueCents * terms.maxLoanToValuePercent / 100);
+    caps.push({
+      key: "loanToValue",
+      label: "Loan to Value",
+      amount: dollars(amountCents),
+      amountCents,
+      formula: `maximum LTV times ${text.value}, where value is ${text.noi} divided by ${text.capRate}`,
+      inputPaths: [...paths.noi, paths.capRate, paths.loanToValue],
+    });
+  }
+  if (terms.minDebtYieldPercent !== undefined) {
+    const amountCents = Math.floor(noiCents / (terms.minDebtYieldPercent / 100));
+    caps.push({
+      key: "debtYield",
+      label: "Debt Yield",
+      amount: dollars(amountCents),
+      amountCents,
+      formula: `${text.noi} divided by the minimum debt yield`,
+      inputPaths: [...paths.noi, paths.debtYield],
+    });
+  }
+  if (terms.minDebtServiceCoverage !== undefined) {
+    const constant = annualDebtConstant(terms.ratePercent!, terms.amortizationYears!);
+    const amountCents = Math.floor(noiCents / terms.minDebtServiceCoverage / constant);
+    caps.push({
+      key: "debtServiceCoverage",
+      label: "Debt Service Coverage",
+      amount: dollars(amountCents),
+      amountCents,
+      formula: `${text.noi} divided by the minimum DSCR, divided by the annual debt constant ${constant.toFixed(6)} at ${terms.ratePercent} percent ${terms.amortizationYears === 0 ? "interest only" : `over ${terms.amortizationYears} years of monthly payments`}`,
+      inputPaths: [...paths.noi, paths.debtServiceCoverage, paths.rate, paths.amortization],
+    });
+  }
+  return caps;
+}
+
 export type LoanSizingCeiling = {
   /** The smallest NOI cap in cents, or null when only LTC sizes the loan. */
   maxLoanCents: number | null;
   sizingNoiCents: number;
-  noiCaps: Array<Omit<LoanSizingCap, "binding"> & { amountCents: number }>;
+  noiCaps: NoiSizingCap[];
 };
 
 /**
@@ -238,43 +316,26 @@ export function loanSizingCeiling(
   }
   const basis = `${NOI_BASIS_LABELS[plan.noiBasis]}${sizing.noiTaxBasis === "full_tax" ? " with full tax" : " with scheduled tax"}`;
   const operationPaths = input.propertyTax ? [...OPERATION_PATHS, "propertyTax"] : OPERATION_PATHS;
-  const noiPaths = [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis", "lenderTests.loanSizing.noiTaxBasis"];
-  const noiCaps: LoanSizingCeiling["noiCaps"] = [];
-  if (sizing.maxLoanToValuePercent !== undefined) {
-    const valueCents = Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
-    const amountCents = Math.floor(valueCents * sizing.maxLoanToValuePercent / 100);
-    noiCaps.push({
-      key: "loanToValue",
-      label: "Loan to Value",
-      amount: dollars(amountCents),
-      amountCents,
-      formula: `maximum LTV times as-stabilized value, where value is valuation-year ${basis} divided by the as-stabilized cap rate`,
-      inputPaths: [...noiPaths, "lenderTests.asStabilizedCapRatePercent", "lenderTests.loanSizing.maxLoanToValuePercent"],
-    });
-  }
-  if (sizing.minDebtYieldPercent !== undefined) {
-    const amountCents = Math.floor(noiCents / (sizing.minDebtYieldPercent / 100));
-    noiCaps.push({
-      key: "debtYield",
-      label: "Debt Yield",
-      amount: dollars(amountCents),
-      amountCents,
-      formula: `valuation-year ${basis} divided by the minimum debt yield`,
-      inputPaths: [...noiPaths, "lenderTests.loanSizing.minDebtYieldPercent"],
-    });
-  }
-  if (sizing.minDebtServiceCoverage !== undefined) {
-    const constant = annualDebtConstant(sizing.dscrRatePercent!, sizing.dscrAmortizationYears!);
-    const amountCents = Math.floor(noiCents / sizing.minDebtServiceCoverage / constant);
-    noiCaps.push({
-      key: "debtServiceCoverage",
-      label: "Debt Service Coverage",
-      amount: dollars(amountCents),
-      amountCents,
-      formula: `valuation-year ${basis} divided by the minimum DSCR, divided by the annual debt constant ${constant.toFixed(6)} at ${sizing.dscrRatePercent} percent ${sizing.dscrAmortizationYears === 0 ? "interest only" : `over ${sizing.dscrAmortizationYears} years of monthly payments`}`,
-      inputPaths: [...noiPaths, "lenderTests.loanSizing.minDebtServiceCoverage", "lenderTests.loanSizing.dscrRatePercent", "lenderTests.loanSizing.dscrAmortizationYears"],
-    });
-  }
+  const noiCaps = noiSizingCaps(noiCents, {
+    maxLoanToValuePercent: sizing.maxLoanToValuePercent,
+    capRatePercent: plan.asStabilizedCapRatePercent,
+    minDebtYieldPercent: sizing.minDebtYieldPercent,
+    minDebtServiceCoverage: sizing.minDebtServiceCoverage,
+    ratePercent: sizing.dscrRatePercent,
+    amortizationYears: sizing.dscrAmortizationYears,
+  }, {
+    noi: `valuation-year ${basis}`,
+    value: "as-stabilized value",
+    capRate: "the as-stabilized cap rate",
+  }, {
+    noi: [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis", "lenderTests.loanSizing.noiTaxBasis"],
+    capRate: "lenderTests.asStabilizedCapRatePercent",
+    loanToValue: "lenderTests.loanSizing.maxLoanToValuePercent",
+    debtYield: "lenderTests.loanSizing.minDebtYieldPercent",
+    debtServiceCoverage: "lenderTests.loanSizing.minDebtServiceCoverage",
+    rate: "lenderTests.loanSizing.dscrRatePercent",
+    amortization: "lenderTests.loanSizing.dscrAmortizationYears",
+  });
   return {
     maxLoanCents: noiCaps.length === 0 ? null : Math.min(...noiCaps.map(({ amountCents }) => amountCents)),
     sizingNoiCents: noiCents,
@@ -322,6 +383,7 @@ export function lenderTestsFor(
   input: PropertyReturnsInputs,
   capital: DevelopmentCapitalTotals,
   projectedMonths: MonthlyApartmentOperations[],
+  permanentLoan: Pick<PermanentLoanResult, "annualDebtService" | "annualDebtServiceFormula"> | null = null,
 ): LenderTestsResult | null {
   const plan = input.lenderTests;
   if (!plan) return null;
@@ -336,7 +398,10 @@ export function lenderTestsFor(
   const totalCostCents = cents(capital.totalUses);
   const stepUpCents = capital.creditedLandStepUp == null ? null : cents(capital.creditedLandStepUp);
   const creditedCostCents = stepUpCents === null ? null : totalCostCents + stepUpCents;
-  const debtServiceCents = cents(plan.annualDebtService);
+  const debtServiceSource: LenderDebtServiceBasis = permanentLoan && plan.debtServiceBasis !== "stated" ? "permanent_loan" : "stated";
+  const debtServiceCents = permanentLoan && debtServiceSource === "permanent_loan"
+    ? cents(permanentLoan.annualDebtService)
+    : cents(plan.annualDebtService);
   const basis = NOI_BASIS_LABELS[plan.noiBasis];
   const issues: LenderTestIssue[] = [];
 
@@ -352,10 +417,13 @@ export function lenderTestsFor(
     issues.push({ path: "targetDebtSharePercent", code: "zero_debt", message: "The run has no construction debt, so debt yield is not reported." });
   }
   if (noiCents !== null && debtServiceCents <= 0) {
-    issues.push({ path: "lenderTests.annualDebtService", code: "zero_debt_service", message: "Annual debt service is zero, so DSCR is not reported." });
+    issues.push({ path: debtServiceSource === "permanent_loan" ? "permanentLoan" : "lenderTests.annualDebtService", code: "zero_debt_service", message: "Annual debt service is zero, so DSCR is not reported." });
   }
 
-  const tests = { plan, loanCents, debtServiceCents };
+  const debtService = permanentLoan && debtServiceSource === "permanent_loan"
+    ? { text: `the permanent loan's annual debt service, ${permanentLoan.annualDebtServiceFormula}`, paths: ["permanentLoan"] }
+    : { text: "stated annual debt service", paths: ["lenderTests.annualDebtService"] };
+  const tests = { plan, loanCents, debtServiceCents, debtService };
   const operationPaths = input.propertyTax ? [...OPERATION_PATHS, "propertyTax"] : OPERATION_PATHS;
   const noiPaths = [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis"];
   const scheduled = noiMetrics(tests, noiCents, basis, noiPaths);
@@ -408,18 +476,19 @@ export function lenderTestsFor(
     annualDebtService: dollars(debtServiceCents),
     metrics,
     fullTax,
+    ...(permanentLoan ? { debtServiceSource } : {}),
     issues,
   };
 }
 
 /** Value, LTV, DSCR and debt yield on one valuation-year NOI. LTC does not read NOI, so it is reported once. */
 function noiMetrics(
-  tests: { plan: LenderTestPlan; loanCents: number; debtServiceCents: number },
+  tests: { plan: LenderTestPlan; loanCents: number; debtServiceCents: number; debtService: { text: string; paths: string[] } },
   noiCents: number | null,
   basis: string,
   noiPaths: string[],
 ): LenderTestMetric[] {
-  const { plan, loanCents, debtServiceCents } = tests;
+  const { plan, loanCents, debtServiceCents, debtService } = tests;
   const valueCents = noiCents === null ? null : Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
   return [
     {
@@ -443,8 +512,8 @@ function noiMetrics(
       label: "Debt Service Coverage",
       value: noiCents === null || debtServiceCents <= 0 ? null : noiCents / debtServiceCents,
       unit: "multiple",
-      formula: `valuation-year ${basis} divided by stated annual debt service`,
-      inputPaths: [...noiPaths, "lenderTests.annualDebtService"],
+      formula: `valuation-year ${basis} divided by ${debtService.text}`,
+      inputPaths: [...noiPaths, ...debtService.paths],
     },
     {
       key: "debtYield",

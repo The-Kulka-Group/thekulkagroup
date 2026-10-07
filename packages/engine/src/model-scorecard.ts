@@ -8,6 +8,7 @@ import { summarizeAffordabilityTiers } from "./affordability-tiers";
 import { computeDevelopmentCapital } from "./development-capital";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
 import { MAX_PROPERTY_TAX_FISCAL_YEARS } from "./property-tax";
+import type { PermanentLoanBindingKey } from "./permanent-loan";
 
 /*
  * Scores the engine against values saved in an audited development workbook (LA-1687).
@@ -63,6 +64,33 @@ export const PARTNERSHIP_OUTPUT_KEYS = [
   "lpPreferredReturnAccrued",
   "gpPreferredReturnAccrued",
   "promoteTotal",
+] as const;
+
+/** Present only when the input snapshot carries a permanent loan (LA-1867). */
+export const PERMANENT_LOAN_OUTPUT_KEYS = [
+  "constructionLoanPayoff",
+  "permanentLoanAmount",
+  "permanentLoanSizingNoi",
+  "permanentLoanFirstYearDebtService",
+  "permanentLoanAnnualDebtService",
+  "permanentLoanDebtServiceCoverage",
+  "permanentLoanDebtYield",
+  "permanentLoanLoanToValue",
+  "permanentLoanCashOut",
+  "permanentLoanEquityPaydown",
+  "permanentLoanPayoff",
+] as const;
+
+const PERMANENT_LOAN_BINDING_KEYS: string[] = ["loanToValue", "debtYield", "debtServiceCoverage", "constructionBalance", "payoffLimit"] satisfies PermanentLoanBindingKey[];
+
+/** Text outputs of a permanent loan: the binding cap key and the funding month. */
+export const PERMANENT_LOAN_TEXT_OUTPUT_KEYS = ["permanentLoanBindingCap", "permanentLoanFundingMonth"] as const;
+
+/** The permanent balance after each of the first ten whole loan years; later years are not scored. */
+export const PERMANENT_LOAN_BALANCE_OUTPUT_KEYS = [
+  "permanentLoanBalanceYear1", "permanentLoanBalanceYear2", "permanentLoanBalanceYear3", "permanentLoanBalanceYear4",
+  "permanentLoanBalanceYear5", "permanentLoanBalanceYear6", "permanentLoanBalanceYear7", "permanentLoanBalanceYear8",
+  "permanentLoanBalanceYear9", "permanentLoanBalanceYear10",
 ] as const;
 
 /** Present only when the input snapshot carries a property tax schedule (LA-1690). */
@@ -150,6 +178,9 @@ const CATALOG_KEYS = [
   ...LENDER_OUTPUT_KEYS,
   ...PARTNERSHIP_OUTPUT_KEYS,
   ...OTHER_SOURCE_OUTPUT_KEYS,
+  ...PERMANENT_LOAN_OUTPUT_KEYS,
+  ...PERMANENT_LOAN_TEXT_OUTPUT_KEYS,
+  ...PERMANENT_LOAN_BALANCE_OUTPUT_KEYS,
   ...PROPERTY_TAX_OUTPUT_KEYS,
   ...TIER_OUTPUT_KEYS,
 ] as const;
@@ -329,6 +360,29 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     outputs.sponsorEquity = capital.sponsorEquity;
   }
 
+  const permanentLoan = developmentCapital.permanentLoan;
+  if (permanentLoan) {
+    Object.assign(outputs, {
+      constructionLoanPayoff: permanentLoan.constructionPayoff,
+      permanentLoanAmount: permanentLoan.loanAmount,
+      permanentLoanSizingNoi: permanentLoan.sizingNoi,
+      permanentLoanFirstYearDebtService: permanentLoan.firstYearDebtService,
+      permanentLoanAnnualDebtService: permanentLoan.annualDebtService,
+      permanentLoanDebtYield: permanentLoan.debtYield,
+      permanentLoanCashOut: permanentLoan.cashOut,
+      permanentLoanEquityPaydown: permanentLoan.equityPaydown,
+      permanentLoanPayoff: permanentLoan.payoffAtSale,
+      permanentLoanBindingCap: permanentLoan.binding,
+      permanentLoanFundingMonth: permanentLoan.fundingMonth,
+    } satisfies EngineOutputs);
+    if (permanentLoan.debtServiceCoverage !== null) outputs.permanentLoanDebtServiceCoverage = permanentLoan.debtServiceCoverage;
+    if (permanentLoan.loanToValue !== null) outputs.permanentLoanLoanToValue = permanentLoan.loanToValue;
+    for (const { loanYear, balance } of permanentLoan.loanYearBalances) {
+      const key = `permanentLoanBalanceYear${loanYear}`;
+      if ((PERMANENT_LOAN_BALANCE_OUTPUT_KEYS as readonly string[]).includes(key)) outputs[key as EngineOutputKey] = balance;
+    }
+  }
+
   const lenderTests = run.result.lenderTests;
   if (lenderTests) {
     outputs.lenderValuationNoi = lenderTests.stabilizedNoi;
@@ -478,6 +532,8 @@ function compareValues(actual: number | string, expected: number | string, toler
 }
 
 function expectedFits(output: EngineOutputKey, expected: ScorecardTarget["expected"]) {
+  if (output === "permanentLoanFundingMonth") return typeof expected === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(expected);
+  if (output === "permanentLoanBindingCap") return typeof expected === "string" && PERMANENT_LOAN_BINDING_KEYS.includes(expected);
   if ((MONTH_OUTPUT_KEYS as readonly string[]).includes(output)) {
     return typeof expected === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(expected);
   }

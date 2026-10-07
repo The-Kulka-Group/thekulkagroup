@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { InvalidJsonBody, JsonBodyTooLarge, readJsonBody } from "@/lib/http/json-body";
 import {
+  getUnderwritingCase,
   saveUnderwritingCostSchedule,
   UnderwritingCaseRevisionConflict,
 } from "@/lib/underwriting/cases";
@@ -35,12 +36,17 @@ export async function PUT(request: Request, context: Context) {
     return NextResponse.json({ error: "Send a valid expected project revision." }, { status: 400 });
   }
 
+  const existing = await getUnderwritingCase(getDb(), id);
+  if (!existing) return NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
   try {
     const savedCase = await saveUnderwritingCostSchedule(
       getDb(),
       id,
       Number(expectedRevision),
-      parseCostSchedule(body),
+      parseCostSchedule(body, {
+        ...(existing.grossBuildingSquareFeet !== undefined ? { grossSquareFeet: existing.grossBuildingSquareFeet } : {}),
+        ...(existing.proposedUnits !== undefined ? { units: existing.proposedUnits } : {}),
+      }),
     );
     return savedCase
       ? NextResponse.json({ case: savedCase })

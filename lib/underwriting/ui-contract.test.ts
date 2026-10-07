@@ -81,7 +81,7 @@ describe("underwriting form accessibility contract", () => {
   it("links every cost schedule control to its own field error", async () => {
     const editor = await source("app/(app)/underwriting/[id]/CostScheduleEditor.tsx");
     for (const field of [
-      "name", "category", "amount", "startMonth", "endMonth",
+      "name", "category", "basis", "amount", "startMonth", "endMonth",
       "distributionMethod", "sourceLabel", "sourceDate", "reviewState",
     ]) {
       expect(editor).toContain(`fieldState(fieldErrors, index, "${field}"`);

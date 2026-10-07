@@ -1,5 +1,6 @@
 import {
   computeMonthlyCostSchedule,
+  type CostQuantities,
   type MonthlyCostIssue,
   type MonthlyCostScheduleInputs,
 } from "@kulka/engine";
@@ -14,7 +15,8 @@ export class InvalidCostSchedule extends Error {
   }
 }
 
-export function parseCostSchedule(body: unknown): MonthlyCostScheduleInputs {
+/** Quantities come from the saved case facts. Anything the request body says about them is ignored. */
+export function parseCostSchedule(body: unknown, quantities: CostQuantities = {}): MonthlyCostScheduleInputs {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new InvalidCostSchedule("Send a cost schedule object.", [], {});
   }
@@ -23,12 +25,8 @@ export function parseCostSchedule(body: unknown): MonthlyCostScheduleInputs {
     analysisStartMonth: candidate.analysisStartMonth,
     saleMonth: candidate.saleMonth,
     costLines: candidate.costLines,
+    quantities,
   } as MonthlyCostScheduleInputs;
-  if (Array.isArray(schedule.costLines) && schedule.costLines.some((line) => line?.basis && line.basis.type !== "fixed")) {
-    throw new InvalidCostSchedule("Pricing a cost line by a basis is not saved yet. Enter an amount.", [], {
-      costLines: "Pricing a cost line by a basis is not saved yet. Enter an amount.",
-    });
-  }
   const checked = computeMonthlyCostSchedule(schedule);
   if (checked.status === "failed") {
     throw new InvalidCostSchedule(

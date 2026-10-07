@@ -51,7 +51,8 @@ export async function PUT(request: Request, context: Context) {
       id: line.id,
       name: line.name,
       category: line.category,
-      amount: line.amount,
+      ...(line.amount !== undefined ? { amount: line.amount } : {}),
+      ...(line.basis ? { basis: line.basis } : {}),
       unit: line.unit,
       startMonth: line.startMonth,
       endMonth: line.endMonth,
@@ -61,6 +62,7 @@ export async function PUT(request: Request, context: Context) {
       sourceDate: line.sourceDate,
       reviewState: line.reviewState,
     })),
+    ...(savedCase.costSchedule.quantities ? { quantities: savedCase.costSchedule.quantities } : {}),
   };
   try {
     const saved = await saveApartmentOperations(

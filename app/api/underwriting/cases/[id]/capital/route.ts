@@ -53,6 +53,7 @@ export async function PUT(request: Request, context: Context) {
       void _changedAt;
       return line;
     }),
+    ...(savedCase.costSchedule.quantities ? { quantities: savedCase.costSchedule.quantities } : {}),
     ...operations,
   };
   try {

@@ -6,6 +6,7 @@ import {
   type MonthlyCostScheduleResult,
   type ReconciliationCheck,
 } from "./monthly-cost-schedule";
+import { resolveMilestoneAnchors, type MilestoneAnchor, type MilestoneResolution } from "./milestones";
 import {
   propertyTaxForMonth,
   propertyTaxResult,
@@ -163,7 +164,11 @@ export type CategoryGrowth = Evidence & Record<GrowthCategory, number[]>;
 export type ApartmentOperationsInputs = MonthlyCostScheduleInputs & {
   inputVersion: typeof APARTMENT_OPERATIONS_INPUT_VERSION;
   operationStartMonth: string;
+  /** Puts the operation start at a milestone plus an offset, in place of the typed month. */
+  operationStartAnchor?: MilestoneAnchor;
   growthStartMonth: string;
+  /** Puts the growth start at a milestone plus an offset, in place of the typed month. */
+  growthStartAnchor?: MilestoneAnchor;
   preleasedUnits: number;
   leaseUpUnitsPerMonth: number;
   annualIncomeGrowthPercent: number;
@@ -283,6 +288,8 @@ export type ApartmentOperationsResult = {
   firstStabilizedMonth?: string;
   propertyTax: PropertyTaxResult | null;
   formulaTraces: OperationsFormulaTrace[];
+  /** Operation start and growth start months resolved from milestones. Cost line and sale anchors sit on the cost schedule result. */
+  anchors?: MilestoneResolution[];
 };
 
 export type ApartmentOperationsRun = {
@@ -300,6 +307,8 @@ const CAPITAL_EXPENDITURE_UNITS = ["usd_per_year", "usd_per_unit_year"];
 
 export function computeApartmentOperations(input: ApartmentOperationsInputs, options: CostScheduleOptions = {}): ApartmentOperationsRun {
   const inputSnapshot = structuredClone(input);
+  const anchors = resolveMilestoneAnchors(inputSnapshot);
+  if (anchors.issues.length > 0) return failed(inputSnapshot, anchors.issues);
   const costRun = computeMonthlyCostSchedule(inputSnapshot, options);
   const issues = validate(inputSnapshot);
   if (inputSnapshot.propertyTax !== undefined) {
@@ -314,6 +323,8 @@ export function computeApartmentOperations(input: ApartmentOperationsInputs, opt
   if (issues.length > 0 || !costRun.result) return failed(inputSnapshot, issues);
 
   const result = calculate(inputSnapshot, costRun.result);
+  const projectAnchors = anchors.resolutions.filter(({ path }) => path === "operationStartMonth" || path === "growthStartMonth");
+  if (result && projectAnchors.length > 0) result.anchors = projectAnchors;
   if (!result || !resultNumbersAreSafe(result)) {
     return failed(inputSnapshot, [{
       path: "operations",

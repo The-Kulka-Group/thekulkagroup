@@ -213,6 +213,10 @@ export {
   MONTHLY_COST_FORMULA_VERSION,
   S_CURVE_DISTRIBUTION_VERSION,
   STRAIGHT_LINE_DISTRIBUTION_VERSION,
+  FRONT_LOADED_DISTRIBUTION_VERSION,
+  BACK_LOADED_DISTRIBUTION_VERSION,
+  COST_DISTRIBUTION_METHODS,
+  COST_DISTRIBUTION_VERSIONS,
   type AggregateFormulaTrace,
   type CostCategory,
   type CostDistributionMethod,
@@ -232,6 +236,21 @@ export {
   type MonthlyUses,
   type ReconciliationCheck,
 } from "./monthly-cost-schedule";
+
+export {
+  MAX_ANCHOR_OFFSET_MONTHS,
+  MAX_MILESTONES,
+  anchorPreview,
+  resolveMilestoneAnchors,
+  type AnchorTarget,
+  type Milestone,
+  type MilestoneAnchor,
+  type MilestoneEndAnchor,
+  type MilestoneIssue,
+  type MilestoneIssueCode,
+  type MilestoneResolution,
+  type MilestoneResolutionResult,
+} from "./milestones";
 
 export {
   MAX_PROPERTY_TAX_FISCAL_YEARS,

@@ -17,6 +17,7 @@ import {
   type CategoryGrowth,
   type LeaseTurnover,
   type LeaseUpConcession,
+  type MilestoneAnchor,
   type OperatingExpenseLine,
   type OtherIncomeLine,
   type PropertyTaxPlan,
@@ -26,6 +27,7 @@ import {
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
+import { MilestoneAnchorField } from "./MilestoneAnchorField";
 import { GrowthSection } from "./GrowthSection";
 import { LeaseUpSection } from "./LeaseUpSection";
 import { PropertyTaxSection } from "./PropertyTaxSection";
@@ -36,8 +38,11 @@ type MoneyLine = OtherIncomeLine | OperatingExpenseLine | CapitalExpenditureLine
 export function ApartmentOperationsEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
   const saved = savedCase.apartmentOperations;
+  const milestones = savedCase.costSchedule?.milestones ?? [];
   const [operationStartMonth, setOperationStartMonth] = useState(saved?.operationStartMonth ?? "");
+  const [operationStartAnchor, setOperationStartAnchor] = useState<MilestoneAnchor | undefined>(saved?.operationStartAnchor);
   const [growthStartMonth, setGrowthStartMonth] = useState(saved?.growthStartMonth ?? "");
+  const [growthStartAnchor, setGrowthStartAnchor] = useState<MilestoneAnchor | undefined>(saved?.growthStartAnchor);
   const [preleasedUnits, setPreleasedUnits] = useState(saved?.preleasedUnits ?? 0);
   const [leaseUpUnitsPerMonth, setLeaseUpUnitsPerMonth] = useState(saved?.leaseUpUnitsPerMonth ?? 0);
   const [annualIncomeGrowthPercent, setAnnualIncomeGrowthPercent] = useState(saved?.annualIncomeGrowthPercent ?? 0);
@@ -87,7 +92,9 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           expectedRevision: savedCase.caseRevision,
           inputVersion: APARTMENT_OPERATIONS_INPUT_VERSION,
           operationStartMonth,
+          operationStartAnchor: operationStartAnchor ?? null,
           growthStartMonth,
+          growthStartAnchor: growthStartAnchor ?? null,
           preleasedUnits,
           leaseUpUnitsPerMonth,
           annualIncomeGrowthPercent,
@@ -141,8 +148,34 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       />
 
       <div className="underwriting-form-grid underwriting-operations-controls">
-        <NumberField path="operationStartMonth" label="Operation Start Month" type="month" value={operationStartMonth} onChange={setOperationStartMonth} error={fieldErrors.operationStartMonth} />
-        <NumberField path="growthStartMonth" label="Growth Start Month" type="month" value={growthStartMonth} onChange={setGrowthStartMonth} error={fieldErrors.growthStartMonth} />
+        <div className="field-label t-label">
+          Operation Start Month
+          <MilestoneAnchorField
+            id="apartment-operations-operationStartMonth"
+            label="Operation Start"
+            typedLabel="Operation Start Month"
+            month={operationStartMonth}
+            onMonthChange={setOperationStartMonth}
+            anchor={operationStartAnchor}
+            onAnchorChange={(anchor) => setOperationStartAnchor(anchor && "milestoneId" in anchor ? anchor : undefined)}
+            milestones={milestones}
+            errors={[fieldErrors.operationStartMonth, fieldErrors.operationStartAnchor, fieldErrors["operationStartAnchor.milestoneId"], fieldErrors["operationStartAnchor.offsetMonths"]]}
+          />
+        </div>
+        <div className="field-label t-label">
+          Growth Start Month
+          <MilestoneAnchorField
+            id="apartment-operations-growthStartMonth"
+            label="Growth Start"
+            typedLabel="Growth Start Month"
+            month={growthStartMonth}
+            onMonthChange={setGrowthStartMonth}
+            anchor={growthStartAnchor}
+            onAnchorChange={(anchor) => setGrowthStartAnchor(anchor && "milestoneId" in anchor ? anchor : undefined)}
+            milestones={milestones}
+            errors={[fieldErrors.growthStartMonth, fieldErrors.growthStartAnchor, fieldErrors["growthStartAnchor.milestoneId"], fieldErrors["growthStartAnchor.offsetMonths"]]}
+          />
+        </div>
         <NumberField path="preleasedUnits" label="Pre-leased units" value={preleasedUnits} onChange={(value) => setPreleasedUnits(Number(value))} error={fieldErrors.preleasedUnits} min="0" step="1" />
         <NumberField path="leaseUpUnitsPerMonth" label="Lease-up units per month" value={leaseUpUnitsPerMonth} onChange={(value) => setLeaseUpUnitsPerMonth(Number(value))} error={fieldErrors.leaseUpUnitsPerMonth} min="1" step="1" />
         <NumberField path="annualIncomeGrowthPercent" label="Annual Income Growth" value={annualIncomeGrowthPercent} onChange={(value) => setAnnualIncomeGrowthPercent(Number(value))} error={fieldErrors.annualIncomeGrowthPercent} min="0" max="100" step="0.01" suffix="%" />

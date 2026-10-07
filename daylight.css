@@ -1744,7 +1744,7 @@ textarea.input { border-radius: var(--r-lg); }
   border-collapse: separate;
   border-spacing: 0;
 }
-.underwriting-cost-lines { min-width: 1720px; }
+.underwriting-cost-lines { min-width: 2000px; }
 .underwriting-monthly-table { min-width: 920px; }
 .underwriting-cost-lines th,
 .underwriting-cost-lines td,
@@ -1772,6 +1772,21 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-cost-lines td:first-child,
 .underwriting-cost-lines td:nth-child(7) { min-width: 210px; }
 .underwriting-cost-lines td:last-child { min-width: 100px; }
+.underwriting-cost-lines td:nth-child(5),
+.underwriting-cost-lines td:nth-child(6) { min-width: 230px; }
+.underwriting-anchor-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.underwriting-milestones { margin-bottom: var(--s6); }
+.underwriting-milestone-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: 0 0 var(--s3);
+}
+.underwriting-milestone-table { min-width: 560px; max-width: 760px; }
 .underwriting-cost-lines .input-error { display: block; margin-top: var(--s1); }
 .underwriting-checkbox {
   display: flex;

@@ -442,10 +442,13 @@ export function propertyReturnsInputsFor(savedCase: UnderwritingCase): PropertyR
   };
 }
 
-function monthlyInputsFor(schedule: NonNullable<UnderwritingCase["costSchedule"]>): MonthlyCostScheduleInputs {
+/** The saved schedule as engine inputs, anchors included, so every route and run resolves the same months. */
+export function monthlyInputsFor(schedule: NonNullable<UnderwritingCase["costSchedule"]>): MonthlyCostScheduleInputs {
   return {
     analysisStartMonth: schedule.analysisStartMonth,
     saleMonth: schedule.saleMonth,
+    ...(schedule.saleAnchor ? { saleAnchor: schedule.saleAnchor } : {}),
+    ...(schedule.milestones ? { milestones: schedule.milestones } : {}),
     costLines: schedule.costLines.map((savedLine) => {
       const { lastChangedAt, ...line } = savedLine;
       void lastChangedAt;

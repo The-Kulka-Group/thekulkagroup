@@ -11,6 +11,9 @@ import {
   type LoanSizingPlan,
   type CostQuantities,
   type CostLineBasisType,
+  type MilestoneAnchor,
+  type MilestoneEndAnchor,
+  resolveMilestoneAnchors,
   type PercentOfTotalBase,
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
@@ -156,6 +159,8 @@ type CaseRow = {
   updated_at: Date | string;
   analysis_start_month: Date | string | null;
   sale_month: Date | string | null;
+  sale_anchor_milestone_id: string | null;
+  sale_anchor_offset_months: number | null;
   apartment_operations_input_version: ApartmentOperationsInputs["inputVersion"] | null;
   apartment_operations_input: ApartmentOperationsDraft | null;
   apartment_operations_changed_at: Date | string | null;
@@ -195,12 +200,22 @@ type CostLineRow = {
   unit: MonthlyCostLine["unit"];
   start_month: Date | string;
   end_month: Date | string;
+  start_anchor_milestone_id: string | null;
+  start_anchor_offset_months: number | null;
+  end_anchor_milestone_id: string | null;
+  end_anchor_offset_months: number | null;
+  end_duration_months: number | null;
   distribution_method: MonthlyCostLine["distributionMethod"];
   distribution_version: MonthlyCostLine["distributionVersion"];
   source_label: string | null;
   source_date: Date | string | null;
   review_state: MonthlyCostLine["reviewState"];
   value_changed_at: Date | string;
+};
+type MilestoneRow = {
+  id: string;
+  name: string;
+  month: Date | string;
 };
 type ScenarioRow = {
   id: string;
@@ -211,7 +226,7 @@ type ScenarioRow = {
   evidence: ApartmentScenarioDefinition["evidence"];
   value_changed_at: Date | string;
 };
-type CaseDetailRow = CaseWithAssumptionsRow & { cost_lines: CostLineRow[]; scenarios: ScenarioRow[] };
+type CaseDetailRow = CaseWithAssumptionsRow & { cost_lines: CostLineRow[]; milestones: MilestoneRow[]; scenarios: ScenarioRow[] };
 
 const byStoredKey = new Map(
   Object.entries(ASSUMPTION_DEFINITIONS).map(([name, definition]) => [
@@ -251,6 +266,48 @@ function basisFields(line: CostLineRow): Pick<MonthlyCostLine, "amount" | "basis
   return { amount: Number(line.amount) };
 }
 
+function anchorFields(line: CostLineRow): Pick<MonthlyCostLine, "startAnchor" | "endAnchor"> {
+  const startAnchor: MilestoneAnchor | undefined = line.start_anchor_milestone_id === null
+    ? undefined
+    : { milestoneId: line.start_anchor_milestone_id, offsetMonths: Number(line.start_anchor_offset_months) };
+  const endAnchor: MilestoneEndAnchor | undefined = line.end_anchor_milestone_id !== null
+    ? { milestoneId: line.end_anchor_milestone_id, offsetMonths: Number(line.end_anchor_offset_months) }
+    : line.end_duration_months !== null
+      ? { durationMonths: Number(line.end_duration_months) }
+      : undefined;
+  return { ...(startAnchor ? { startAnchor } : {}), ...(endAnchor ? { endAnchor } : {}) };
+}
+
+/**
+ * Months that come from a milestone move when the milestone moves, so a read gives the month the
+ * anchor resolves to now. A run resolves the same anchors again and reports any that fail.
+ */
+function withCurrentAnchoredMonths(
+  costSchedule: UnderwritingCostSchedule | undefined,
+  operations: SavedApartmentOperations | undefined,
+  capital: SavedDevelopmentCapital | undefined,
+) {
+  if (!costSchedule?.milestones) return { operations, capital };
+  const target = {
+    analysisStartMonth: costSchedule.analysisStartMonth,
+    saleMonth: costSchedule.saleMonth,
+    saleAnchor: costSchedule.saleAnchor,
+    milestones: costSchedule.milestones,
+    operationStartMonth: operations?.operationStartMonth,
+    operationStartAnchor: operations?.operationStartAnchor,
+    growthStartMonth: operations?.growthStartMonth,
+    growthStartAnchor: operations?.growthStartAnchor,
+    payoffMonth: capital?.payoffMonth,
+  };
+  resolveMilestoneAnchors(target);
+  return {
+    operations: operations && target.operationStartMonth !== undefined && target.growthStartMonth !== undefined
+      ? { ...operations, operationStartMonth: target.operationStartMonth, growthStartMonth: target.growthStartMonth }
+      : operations,
+    capital: capital && target.payoffMonth !== undefined ? { ...capital, payoffMonth: target.payoffMonth } : capital,
+  };
+}
+
 /** Quantities that per-area and per-unit lines price against come from the case facts, never from the schedule save. */
 function costQuantities(row: CaseRow): CostQuantities {
   const grossSquareFeet = optionalNumber(row.gross_building_square_feet);
@@ -261,7 +318,51 @@ function costQuantities(row: CaseRow): CostQuantities {
   };
 }
 
-function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: CostLineRow[] = [], scenarios: ScenarioRow[] = []): UnderwritingCase {
+function mapCase(
+  row: CaseRow,
+  assumptions: AssumptionRow[] = [],
+  costLines: CostLineRow[] = [],
+  scenarios: ScenarioRow[] = [],
+  milestoneRows: MilestoneRow[] = [],
+): UnderwritingCase {
+  const costSchedule: UnderwritingCostSchedule | undefined = row.analysis_start_month && row.sale_month ? {
+    analysisStartMonth: monthOnly(row.analysis_start_month),
+    saleMonth: monthOnly(row.sale_month),
+    ...(row.sale_anchor_milestone_id !== null
+      ? { saleAnchor: { milestoneId: row.sale_anchor_milestone_id, offsetMonths: Number(row.sale_anchor_offset_months) } }
+      : {}),
+    ...(milestoneRows.length > 0
+      ? { milestones: milestoneRows.map((milestone) => ({ id: milestone.id, name: milestone.name, month: monthOnly(milestone.month) })) }
+      : {}),
+    costLines: costLines.map((line) => ({
+      id: line.id,
+      name: line.name,
+      category: line.category,
+      ...basisFields(line),
+      unit: line.unit,
+      startMonth: monthOnly(line.start_month),
+      endMonth: monthOnly(line.end_month),
+      ...anchorFields(line),
+      distributionMethod: line.distribution_method,
+      distributionVersion: line.distribution_version,
+      sourceLabel: line.source_label ?? undefined,
+      sourceDate: dateOnly(line.source_date),
+      reviewState: line.review_state,
+      lastChangedAt: iso(line.value_changed_at),
+    })),
+    quantities: costQuantities(row),
+  } : undefined;
+  const savedOperations: SavedApartmentOperations | undefined = row.apartment_operations_input_version && row.apartment_operations_input && row.apartment_operations_changed_at ? {
+    ...row.apartment_operations_input,
+    inputVersion: row.apartment_operations_input_version,
+    lastChangedAt: iso(row.apartment_operations_changed_at),
+  } : undefined;
+  const savedCapital: SavedDevelopmentCapital | undefined = row.development_capital_input_version && row.development_capital_input && row.development_capital_changed_at ? {
+    ...row.development_capital_input,
+    capitalInputVersion: row.development_capital_input_version,
+    lastChangedAt: iso(row.development_capital_changed_at),
+  } : undefined;
+  const { operations, capital } = withCurrentAnchoredMonths(costSchedule, savedOperations, savedCapital);
   return {
     id: row.id,
     caseNumber: Number(row.case_number),
@@ -302,42 +403,9 @@ function mapCase(row: CaseRow, assumptions: AssumptionRow[] = [], costLines: Cos
       evidence: scenario.evidence,
       lastChangedAt: iso(scenario.value_changed_at),
     })),
-    ...(row.analysis_start_month && row.sale_month ? {
-      costSchedule: {
-        analysisStartMonth: monthOnly(row.analysis_start_month),
-        saleMonth: monthOnly(row.sale_month),
-        costLines: costLines.map((line) => ({
-          id: line.id,
-          name: line.name,
-          category: line.category,
-          ...basisFields(line),
-          unit: line.unit,
-          startMonth: monthOnly(line.start_month),
-          endMonth: monthOnly(line.end_month),
-          distributionMethod: line.distribution_method,
-          distributionVersion: line.distribution_version,
-          sourceLabel: line.source_label ?? undefined,
-          sourceDate: dateOnly(line.source_date),
-          reviewState: line.review_state,
-          lastChangedAt: iso(line.value_changed_at),
-        })),
-        quantities: costQuantities(row),
-      },
-    } : {}),
-    ...(row.apartment_operations_input_version && row.apartment_operations_input && row.apartment_operations_changed_at ? {
-      apartmentOperations: {
-        ...row.apartment_operations_input,
-        inputVersion: row.apartment_operations_input_version,
-        lastChangedAt: iso(row.apartment_operations_changed_at),
-      },
-    } : {}),
-    ...(row.development_capital_input_version && row.development_capital_input && row.development_capital_changed_at ? {
-      developmentCapital: {
-        ...row.development_capital_input,
-        capitalInputVersion: row.development_capital_input_version,
-        lastChangedAt: iso(row.development_capital_changed_at),
-      },
-    } : {}),
+    ...(costSchedule ? { costSchedule } : {}),
+    ...(operations ? { apartmentOperations: operations } : {}),
+    ...(capital ? { developmentCapital: capital } : {}),
     ...(row.property_returns_input_version && row.property_returns_input && row.property_returns_changed_at ? {
       propertyReturns: {
         ...row.property_returns_input,
@@ -452,6 +520,11 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
                     'unit', line.unit,
                     'start_month', line.start_month,
                     'end_month', line.end_month,
+                    'start_anchor_milestone_id', line.start_anchor_milestone_id,
+                    'start_anchor_offset_months', line.start_anchor_offset_months,
+                    'end_anchor_milestone_id', line.end_anchor_milestone_id,
+                    'end_anchor_offset_months', line.end_anchor_offset_months,
+                    'end_duration_months', line.end_duration_months,
                     'distribution_method', line.distribution_method,
                     'distribution_version', line.distribution_version,
                     'source_label', line.source_label,
@@ -465,6 +538,17 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
               ),
               '[]'::jsonb
             ) as cost_lines
+            ,coalesce(
+              (
+                select jsonb_agg(
+                  jsonb_build_object('id', milestone.id, 'name', milestone.name, 'month', milestone.month)
+                  order by milestone.line_order
+                )
+                from underwriting_case_milestones milestone
+                where milestone.case_id = c.id
+              ),
+              '[]'::jsonb
+            ) as milestones
             ,coalesce(
               (
                 select jsonb_agg(jsonb_build_object(
@@ -487,7 +571,7 @@ export async function getUnderwritingCase(db: Db, id: string): Promise<Underwrit
      group by c.id`,
     [id],
   );
-  return rows[0] ? mapCase(rows[0], rows[0].assumptions, rows[0].cost_lines, rows[0].scenarios) : null;
+  return rows[0] ? mapCase(rows[0], rows[0].assumptions, rows[0].cost_lines, rows[0].scenarios, rows[0].milestones) : null;
 }
 
 export async function saveApartmentScenarios(
@@ -571,15 +655,23 @@ export async function saveUnderwritingCostSchedule(
     basisBaseLineId: line.basis?.type === "percent_of_line" ? line.basis.baseLineId : null,
     basisPercent: line.basis?.type === "percent_of_line" || line.basis?.type === "percent_of_total" ? line.basis.percent : null,
     basisTotalBase: line.basis?.type === "percent_of_total" ? line.basis.base : null,
+    startAnchorMilestoneId: line.startAnchor?.milestoneId ?? null,
+    startAnchorOffsetMonths: line.startAnchor?.offsetMonths ?? null,
+    endAnchorMilestoneId: line.endAnchor && "milestoneId" in line.endAnchor ? line.endAnchor.milestoneId : null,
+    endAnchorOffsetMonths: line.endAnchor && "milestoneId" in line.endAnchor ? line.endAnchor.offsetMonths : null,
+    endDurationMonths: line.endAnchor && "durationMonths" in line.endAnchor ? line.endAnchor.durationMonths : null,
     lineOrder,
     sourceLabel: line.sourceLabel ?? null,
     sourceDate: line.sourceDate ?? null,
   }));
+  const suppliedMilestones = (schedule.milestones ?? []).map((milestone, lineOrder) => ({ ...milestone, lineOrder }));
   const { rows } = await db.query<{ id: string }>(
     `with updated_case as (
        update underwriting_cases
        set analysis_start_month = ($2::text || '-01')::date,
            sale_month = ($3::text || '-01')::date,
+           sale_anchor_milestone_id = $6::text,
+           sale_anchor_offset_months = $7::integer,
            property_returns_input = case
              when property_returns_input is not null
                and sale_month is distinct from ($3::text || '-01')::date
@@ -605,10 +697,36 @@ export async function saveUnderwritingCostSchedule(
          id text, name text, category text, amount numeric, unit text,
          "basisType" text, "basisRate" numeric, "basisBaseLineId" text, "basisPercent" numeric,
          "basisTotalBase" text,
-         "startMonth" text, "endMonth" text, "distributionMethod" text,
+         "startMonth" text, "endMonth" text,
+         "startAnchorMilestoneId" text, "startAnchorOffsetMonths" integer,
+         "endAnchorMilestoneId" text, "endAnchorOffsetMonths" integer, "endDurationMonths" integer,
+         "distributionMethod" text,
          "distributionVersion" text, "sourceLabel" text, "sourceDate" date,
          "reviewState" text, "lineOrder" integer
        )
+     ), removed_milestones as (
+       delete from underwriting_case_milestones
+       where case_id in (select id from updated_case)
+         and id not in (select id from jsonb_to_recordset($8::jsonb) as kept(id text))
+     ), saved_milestones as (
+       insert into underwriting_case_milestones (case_id, id, line_order, name, month)
+       select updated_case.id, supplied.id, supplied."lineOrder", supplied.name,
+              (supplied.month || '-01')::date
+       from updated_case
+       cross join jsonb_to_recordset($8::jsonb)
+         as supplied(id text, name text, month text, "lineOrder" integer)
+       on conflict (case_id, id) do update
+       set line_order = excluded.line_order,
+           name = excluded.name,
+           month = excluded.month,
+           value_changed_at = case
+             when underwriting_case_milestones.name is distinct from excluded.name
+               or underwriting_case_milestones.month is distinct from excluded.month
+             then now()
+             else underwriting_case_milestones.value_changed_at
+           end,
+           updated_at = now()
+       returning case_id
      ), removed_lines as (
        delete from underwriting_case_cost_lines
        where case_id in (select id from updated_case)
@@ -617,7 +735,9 @@ export async function saveUnderwritingCostSchedule(
        insert into underwriting_case_cost_lines
          (case_id, id, line_order, name, category, amount, unit, basis_type,
           basis_rate, basis_base_line_id, basis_percent, basis_total_base, start_month,
-          end_month, distribution_method, distribution_version, source_label,
+          end_month, start_anchor_milestone_id, start_anchor_offset_months,
+          end_anchor_milestone_id, end_anchor_offset_months, end_duration_months,
+          distribution_method, distribution_version, source_label,
           source_date, review_state)
        select updated_case.id, supplied.id, supplied."lineOrder", supplied.name,
               supplied.category, supplied.amount, supplied.unit,
@@ -625,6 +745,9 @@ export async function saveUnderwritingCostSchedule(
               supplied."basisPercent", supplied."basisTotalBase",
               (supplied."startMonth" || '-01')::date,
               (supplied."endMonth" || '-01')::date,
+              supplied."startAnchorMilestoneId", supplied."startAnchorOffsetMonths",
+              supplied."endAnchorMilestoneId", supplied."endAnchorOffsetMonths",
+              supplied."endDurationMonths",
               supplied."distributionMethod", supplied."distributionVersion",
               supplied."sourceLabel", supplied."sourceDate", supplied."reviewState"
        from updated_case cross join supplied_lines supplied
@@ -641,6 +764,11 @@ export async function saveUnderwritingCostSchedule(
            basis_total_base = excluded.basis_total_base,
            start_month = excluded.start_month,
            end_month = excluded.end_month,
+           start_anchor_milestone_id = excluded.start_anchor_milestone_id,
+           start_anchor_offset_months = excluded.start_anchor_offset_months,
+           end_anchor_milestone_id = excluded.end_anchor_milestone_id,
+           end_anchor_offset_months = excluded.end_anchor_offset_months,
+           end_duration_months = excluded.end_duration_months,
            distribution_method = excluded.distribution_method,
            distribution_version = excluded.distribution_version,
            source_label = excluded.source_label,
@@ -657,6 +785,11 @@ export async function saveUnderwritingCostSchedule(
                or underwriting_case_cost_lines.basis_total_base is distinct from excluded.basis_total_base
                or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
                or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
+               or underwriting_case_cost_lines.start_anchor_milestone_id is distinct from excluded.start_anchor_milestone_id
+               or underwriting_case_cost_lines.start_anchor_offset_months is distinct from excluded.start_anchor_offset_months
+               or underwriting_case_cost_lines.end_anchor_milestone_id is distinct from excluded.end_anchor_milestone_id
+               or underwriting_case_cost_lines.end_anchor_offset_months is distinct from excluded.end_anchor_offset_months
+               or underwriting_case_cost_lines.end_duration_months is distinct from excluded.end_duration_months
                or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
                or underwriting_case_cost_lines.distribution_version is distinct from excluded.distribution_version
                or underwriting_case_cost_lines.source_label is distinct from excluded.source_label
@@ -676,6 +809,11 @@ export async function saveUnderwritingCostSchedule(
                or underwriting_case_cost_lines.basis_total_base is distinct from excluded.basis_total_base
                or underwriting_case_cost_lines.start_month is distinct from excluded.start_month
                or underwriting_case_cost_lines.end_month is distinct from excluded.end_month
+               or underwriting_case_cost_lines.start_anchor_milestone_id is distinct from excluded.start_anchor_milestone_id
+               or underwriting_case_cost_lines.start_anchor_offset_months is distinct from excluded.start_anchor_offset_months
+               or underwriting_case_cost_lines.end_anchor_milestone_id is distinct from excluded.end_anchor_milestone_id
+               or underwriting_case_cost_lines.end_anchor_offset_months is distinct from excluded.end_anchor_offset_months
+               or underwriting_case_cost_lines.end_duration_months is distinct from excluded.end_duration_months
                or underwriting_case_cost_lines.distribution_method is distinct from excluded.distribution_method
                or underwriting_case_cost_lines.distribution_version is distinct from excluded.distribution_version
                or underwriting_case_cost_lines.source_label is distinct from excluded.source_label
@@ -687,7 +825,16 @@ export async function saveUnderwritingCostSchedule(
        returning case_id
      )
      select id from updated_case`,
-    [id, schedule.analysisStartMonth, schedule.saleMonth, JSON.stringify(supplied), expectedRevision],
+    [
+      id,
+      schedule.analysisStartMonth,
+      schedule.saleMonth,
+      JSON.stringify(supplied),
+      expectedRevision,
+      schedule.saleAnchor?.milestoneId ?? null,
+      schedule.saleAnchor?.offsetMonths ?? null,
+      JSON.stringify(suppliedMilestones),
+    ],
   );
   if (!rows[0]) {
     const existing = await getUnderwritingCase(db, id);

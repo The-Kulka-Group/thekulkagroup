@@ -59,19 +59,25 @@ export const WORKSTREAMS: Workstream[] = [
       { date: null, ticket: "LA-608", title: "Invite-only password login", status: "dropped", note: "Replaced by the magic link, then by open access." },
       { date: null, title: "Sign-in comes back", status: "waiting", note: "Deferred until the team is ready for accounts." },
       { date: null, title: "kulka.ai domain and outgoing email", status: "waiting", note: "Waiting on DNS and mail setup on Kulka's side." },
+      { date: null, title: "Account roles and an admin permission", status: "waiting", note: "Controls who can set standard rates, accept client corrections and edit the CRM. Follows sign-in." },
     ],
   },
   {
     key: "crm",
     name: "CRM",
-    summary: "Home, Pursuits, Clients and Briefs. The CRM ships first; other modules wait.",
+    summary: "Pursuits, companies, contacts and briefs. The screens are laid out; the working CRM comes next.",
     items: [
-      b("2026-08-26", undefined, "Home, Pursuits, Clients and Briefs screens in Daylight"),
+      b("2026-08-26", undefined, "Home, Pursuits, Clients and Briefs screens laid out in Daylight"),
       b("2026-08-26", undefined, "Make the app usable below 860px"),
       b("2026-09-03", undefined, "Move Home above the sidebar groups"),
       b("2026-09-12", "LA-226", "Plan the shared CRM and Long Island source expansion"),
       b("2026-09-12", "LA-230", "Save the approved single-screen opportunity workflow"),
       { date: null, title: "Scopes, contracts and estimating modules", status: "waiting", note: "Deferred until the CRM and budgeting settle." },
+      // LA-1841: the build order in docs/crm/plan.md.
+      { date: null, title: "Pursuits board and a Home work queue", status: "planning", note: "Active pursuits by stage, plus missing next actions, assignments and overdue work." },
+      { date: null, title: "Companies and contacts pages", status: "planning", note: "Replaces the empty Clients page with every business relationship and its people." },
+      { date: null, title: "A production pilot with two people using the CRM", status: "planning", note: "Tests the move to the live system, rollback, access and a full work cycle." },
+      { date: null, title: "Meeting briefs, contact import and pipeline reports", status: "waiting", note: "Each is added only when it replaces a real manual step." },
     ],
   },
   {
@@ -88,6 +94,8 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-09-10", "LA-436", "Keep one SmartGov detail error from dropping every permit"),
       b("2026-09-10", "LA-221", "Make Vision map-first with a compact source picker"),
       b("2026-09-13", "LA-224", "Filter on the map, with pill controls for map layers"),
+      // LA-1841: docs/vision/discovery.md and docs/crm/long-island-sources.md.
+      { date: null, title: "Check public sources daily, and add more towns", status: "planning", note: "Daily checks are set up but off. Islip comes next, then Brookhaven, Huntington, Smithtown and the East End towns." },
     ],
   },
   {
@@ -114,6 +122,12 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-10-06", "LA-1823", "Size the loan as the lesser of LTC, LTV, debt yield and DSCR"),
       b("2026-10-07", "LA-1838", "Grow market rent, affordable rent, other income and expenses separately"),
       b("2026-10-07", "LA-1839", "Anchor cost lines and project dates to named milestones"),
+      // LA-1841: steps 10 and 11 of docs/underwriting-model-audit/build-order.md and the spec's later modules.
+      { date: null, title: "Report peak equity and split cash flow between LP and GP partners", status: "planning", note: "Next step. Adds the preferred return, IRR hurdle tiers and promotes, and shows when the most equity is out." },
+      { date: null, title: "Commercial tenants, permanent debt with a refinance, and an annual view", status: "planning", note: "Scoped after the partnership split. Covers ground-floor retail, the long-term loan and a year-by-year summary." },
+      { date: null, title: "Soft loans that a buyer assumes at sale or that repay after the sale", status: "waiting", note: "Today a soft loan repays in one month within the model's timeline." },
+      { date: null, title: "Work out residual land value", status: "waiting", note: "Shows what a site is worth given the planned building and target returns." },
+      { date: null, title: "Let capital plan dates, source draws and tax years follow named milestones", status: "waiting", note: "Cost lines already move with milestones. These dates are still typed in." },
     ],
   },
   {
@@ -139,6 +153,12 @@ export const WORKSTREAMS: Workstream[] = [
       { date: null, ticket: "LA-111", title: "SharePoint project-metadata pilot", status: "dropped" },
       { date: null, ticket: "LA-36", title: "Multifamily Autodesk Cost actuals export", status: "waiting", note: "Kept for Phase 2." },
       { date: null, title: "Separate building, parking and site sections", status: "waiting", note: "One $/SF basis on total gross area for now." },
+      // LA-1841: planned in the repo docs, mostly without a ticket yet.
+      { date: null, title: "Score each issued budget against the job's actual costs", status: "waiting", note: "Runs when actuals are imported, so every finished job checks how close the budget was." },
+      { date: null, title: "Price HVAC separately by system type", status: "waiting", note: "PTAC, ducted split and central plant share one blended rate until enough closed jobs record their system." },
+      { date: null, title: "Self-storage budgets", status: "waiting", note: "The second product type after multifamily. There is no cost history for it yet." },
+      { date: null, title: "Shorter and longer question paths", status: "waiting", note: "Comes back only if testing shows the two paths differ in accuracy." },
+      { date: null, title: "Land, financing and other soft costs as an add-on section", status: "waiting", note: "Kept out of construction totals for now." },
     ],
   },
   {
@@ -163,6 +183,11 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-09-28", "LA-1323", "Price unit-driven trades per dwelling unit"),
       b("2026-09-29", "LA-1331", "A total and wording a client can read"),
       b("2026-09-29", "LA-1384", "Ledger and Rail layout for the saved budget"),
+      // LA-1841: planned in the repo docs, mostly without a ticket yet.
+      { date: null, title: "Work on a budget from a Claude chat", status: "planning", note: "Read a budget, propose lines and answer questions. Internal only; chat can draft but never issue a budget." },
+      { date: null, title: "Compare two versions of a budget side by side", status: "waiting", note: "Answers what-if questions, such as going to five stories." },
+      { date: null, title: "A review view sorted by confidence and dollar impact", status: "waiting", note: "Lets the estimator fix the few lines that matter most first." },
+      { date: null, title: "A version that works during a live call", status: "waiting", note: "Today the budget is built after the call." },
     ],
   },
   {
@@ -181,6 +206,8 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-09-28", "LA-1317", "3D model of the building across the top of the budget"),
       b("2026-09-28", "LA-1318", "Play each answer as a scene on the 3D stage"),
       b("2026-09-28", "LA-1325", "Building Form card and the Building View with section cuts"),
+      // LA-1841: planned in the repo docs, mostly without a ticket yet.
+      { date: null, title: "Look up local code requirements from the project address", status: "waiting", note: "Emergency radio coverage and fire alarm type are asked directly until the lookup exists." },
       { date: null, ticket: "LA-1319", title: "Click part of the model to see and correct its decision", status: "dropped" },
       { date: null, ticket: "LA-1308", title: "Standalone Design and Engineering prototype", status: "dropped", note: "Built straight into the app instead." },
     ],
@@ -232,6 +259,11 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-10-05", "LA-1671", "Tighter leader lines for criterion notes"),
       { date: null, ticket: "LA-1481", title: "Assumption deltas and a VE control per division", status: "waiting", note: "Waiting on Kulka's alternate prices and VE options." },
       { date: null, title: "Past jobs back on the client page", status: "waiting", note: "Returns when marketing adds them." },
+      // LA-1841: planned in the repo docs, mostly without a ticket yet.
+      { date: null, title: "Turn on comment alerts to Kulka's channel", status: "waiting", note: "Built and switched off until Kulka names who receives them." },
+      { date: null, title: "Suggested replies to client questions that a person reviews and releases", status: "waiting", note: "The data structure is ready. It gets its own spec later." },
+      { date: null, title: "Private questions that only Kulka and the asker can see", status: "waiting", note: "Every reader on a project sees every thread for now." },
+      { date: null, title: "A web-based living proposal to follow the PDF", status: "waiting", note: "A later client document, separate from version 1." },
     ],
   },
 ];

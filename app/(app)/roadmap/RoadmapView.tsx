@@ -82,7 +82,8 @@ function Timeline({ workstreams, asOf, onJump }: { workstreams: Workstream[]; as
                     />
                   )),
                 )}
-                {open.map((i, n) => (
+                {/* Three dots at most, so a lane with many open items stays on its track. */}
+                {open.slice(0, 3).map((i, n) => (
                   <span
                     key={i.title}
                     className={`rm-mark rm-mark--next rm-${i.status}`}
@@ -90,6 +91,11 @@ function Timeline({ workstreams, asOf, onJump }: { workstreams: Workstream[]; as
                     style={{ left: `calc(${at(openAt)} + ${n * 15}px)` }}
                   />
                 ))}
+                {open.length > 3 ? (
+                  <span className="rm-more" style={{ left: `calc(${at(openAt)} + 40px)` }} title={open.slice(3).map((i) => i.title).join("\n")}>
+                    +{open.length - 3}
+                  </span>
+                ) : null}
               </div>
             </div>
           );
@@ -155,12 +161,14 @@ export function RoadmapView({ workstreams, asOf }: { workstreams: Workstream[]; 
       <section className="rm-section">
         <div className="rm-head">
           <h2>Up Next</h2>
-          <p>Work that is planned or waiting on an answer.</p>
+          <p>
+            Work scoped as the next steps. {count("waiting")} more items are discussed and waiting;{" "}
+            <button type="button" className="rm-link" onClick={() => pick("waiting")}>show them below</button>.
+          </p>
         </div>
         <div className="rm-next">
           {all
-            .filter(({ item }) => isOpen(item))
-            .sort((a, b) => (a.item.status === b.item.status ? 0 : a.item.status === "planning" ? -1 : 1))
+            .filter(({ item }) => item.status === "planning")
             .map(({ item, ws }) => (
               <div className="rm-card" key={`${ws.key}-${item.title}`}>
                 <div className="rm-card-top">

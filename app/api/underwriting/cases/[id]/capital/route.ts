@@ -12,6 +12,7 @@ import {
   InvalidDevelopmentCapital,
   parseDevelopmentCapital,
 } from "@/lib/underwriting/capital-input";
+import { monthlyInputsFor } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
@@ -46,16 +47,7 @@ export async function PUT(request: Request, context: Context) {
   }
   const { lastChangedAt: _operationsChangedAt, ...operations } = savedCase.apartmentOperations;
   void _operationsChangedAt;
-  const operationsInputs = {
-    analysisStartMonth: savedCase.costSchedule.analysisStartMonth,
-    saleMonth: savedCase.costSchedule.saleMonth,
-    costLines: savedCase.costSchedule.costLines.map(({ lastChangedAt: _changedAt, ...line }) => {
-      void _changedAt;
-      return line;
-    }),
-    ...(savedCase.costSchedule.quantities ? { quantities: savedCase.costSchedule.quantities } : {}),
-    ...operations,
-  };
+  const operationsInputs = { ...monthlyInputsFor(savedCase.costSchedule), ...operations };
   try {
     const saved = await saveDevelopmentCapital(
       getDb(),

@@ -1,3 +1,4 @@
+import { resolveMilestoneAnchors } from "./milestones";
 import type { LenderTestMetric, LenderTestMetricKey } from "./lender-tests";
 import {
   computePropertyReturns,
@@ -128,6 +129,8 @@ export function runApartmentScenarioComparison(
   submittedScenarios: ApartmentScenarioDefinition[],
 ): ApartmentScenarioComparisonRun {
   const base = structuredClone(submittedBase);
+  // A growth-start shift reads the base month, so anchored months resolve first. Any anchor failure surfaces in the base run below.
+  resolveMilestoneAnchors(base);
   const scenarios = structuredClone(submittedScenarios);
   const inputSnapshot = { base, scenarios };
   const issues = validateScenarios(scenarios);
@@ -289,7 +292,11 @@ function applyDelta(base: PropertyReturnsInputs, delta: ApartmentScenarioDelta) 
     }
   }
   if (delta.terminalCapRatePercent !== undefined) input.terminalCapRatePercent = delta.terminalCapRatePercent;
-  if (delta.growthStartMonthShiftMonths !== undefined) input.growthStartMonth = addMonths(base.growthStartMonth, delta.growthStartMonthShiftMonths);
+  if (delta.growthStartMonthShiftMonths !== undefined) {
+    input.growthStartMonth = addMonths(base.growthStartMonth, delta.growthStartMonthShiftMonths);
+    // The scenario moves the resolved month, so a milestone anchor on the base would put it back.
+    delete input.growthStartAnchor;
+  }
   return input;
 }
 

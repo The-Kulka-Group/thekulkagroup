@@ -12,6 +12,7 @@ import {
   InvalidApartmentOperations,
   parseApartmentOperations,
 } from "@/lib/underwriting/operations-input";
+import { monthlyInputsFor } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
@@ -44,26 +45,7 @@ export async function PUT(request: Request, context: Context) {
   if (!savedCase.costSchedule) {
     return NextResponse.json({ error: "Save the monthly cost schedule before apartment operations." }, { status: 400 });
   }
-  const costSchedule = {
-    analysisStartMonth: savedCase.costSchedule.analysisStartMonth,
-    saleMonth: savedCase.costSchedule.saleMonth,
-    costLines: savedCase.costSchedule.costLines.map((line) => ({
-      id: line.id,
-      name: line.name,
-      category: line.category,
-      ...(line.amount !== undefined ? { amount: line.amount } : {}),
-      ...(line.basis ? { basis: line.basis } : {}),
-      unit: line.unit,
-      startMonth: line.startMonth,
-      endMonth: line.endMonth,
-      distributionMethod: line.distributionMethod,
-      distributionVersion: line.distributionVersion,
-      sourceLabel: line.sourceLabel,
-      sourceDate: line.sourceDate,
-      reviewState: line.reviewState,
-    })),
-    ...(savedCase.costSchedule.quantities ? { quantities: savedCase.costSchedule.quantities } : {}),
-  };
+  const costSchedule = monthlyInputsFor(savedCase.costSchedule);
   try {
     const saved = await saveApartmentOperations(
       getDb(),

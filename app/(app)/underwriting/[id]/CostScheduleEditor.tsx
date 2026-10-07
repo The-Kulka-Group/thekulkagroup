@@ -4,15 +4,20 @@ import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  COST_DISTRIBUTION_VERSIONS,
   MAX_COST_LINES,
+  MAX_MILESTONES,
   MAX_MODEL_YEAR,
   MIN_MODEL_YEAR,
-  S_CURVE_DISTRIBUTION_VERSION,
   STRAIGHT_LINE_DISTRIBUTION_VERSION,
   type CostLineBasis,
+  type Milestone,
+  type MilestoneAnchor,
   type MonthlyCostLine,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+
+import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
 type EditableLine = MonthlyCostLine;
 
@@ -31,6 +36,19 @@ const BASIS_OPTIONS = [
   ["percent_of_line", "Percent of Line"],
   ["percent_of_total", "Percent of Total"],
 ] as const;
+
+const DISTRIBUTION_OPTIONS = [
+  ["straight_line", "Straight-line"],
+  ["s_curve", "S-curve"],
+  ["front_loaded", "Front-loaded"],
+  ["back_loaded", "Back-loaded"],
+] as const;
+
+const SUGGESTED_MILESTONES = ["Land Close", "Construction Start", "Construction Complete", "First Units", "Sale"];
+
+function slug(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 
 const TOTAL_BASE_OPTIONS = [
   ["total_cost", "Total Cost"],
@@ -59,6 +77,8 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   });
   const [analysisStartMonth, setAnalysisStartMonth] = useState(savedCase.costSchedule?.analysisStartMonth ?? "");
   const [saleMonth, setSaleMonth] = useState(savedCase.costSchedule?.saleMonth ?? "");
+  const [saleAnchor, setSaleAnchor] = useState<MilestoneAnchor | undefined>(savedCase.costSchedule?.saleAnchor);
+  const [milestones, setMilestones] = useState<Milestone[]>(savedCase.costSchedule?.milestones ?? []);
   const [lines, setLines] = useState<EditableLine[]>(() => editableLines(savedCase));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -83,6 +103,14 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
     }]);
   }
 
+  function addMilestone(name = "") {
+    setMilestones((current) => [...current, { id: name ? slug(name) : crypto.randomUUID(), name, month: analysisStartMonth }]);
+  }
+
+  function updateMilestone(index: number, update: Partial<Milestone>) {
+    setMilestones((current) => current.map((milestone, position) => position === index ? { ...milestone, ...update } : milestone));
+  }
+
   function updateLine(index: number, update: Partial<EditableLine>, replace = false) {
     setLines((current) => current.map((line, position) => position === index ? (replace ? update as EditableLine : { ...line, ...update }) : line));
   }
@@ -100,6 +128,8 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
           expectedRevision,
           analysisStartMonth,
           saleMonth,
+          saleAnchor: saleAnchor ?? null,
+          milestones,
           costLines: lines,
         }),
       });
@@ -118,6 +148,8 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
       setLastScheduleSave({ caseId: body.case.id, revision: body.case.caseRevision });
       setAnalysisStartMonth(body.case.costSchedule.analysisStartMonth);
       setSaleMonth(body.case.costSchedule.saleMonth);
+      setSaleAnchor(body.case.costSchedule.saleAnchor);
+      setMilestones(body.case.costSchedule.milestones ?? []);
       setLines(editableLines(body.case));
       router.refresh();
     } catch {
@@ -158,22 +190,65 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
           />
           <FieldError id="cost-schedule-analysis-start-month-error" error={fieldErrors.analysisStartMonth} />
         </label>
-        <label className="field-label t-label">
+        <div className="field-label t-label">
           Sale Month
-          <input
+          <MilestoneAnchorField
             id="cost-schedule-sale-month"
-            className="input"
-            type="month"
-            min={`${MIN_MODEL_YEAR}-01`}
-            max={`${MAX_MODEL_YEAR}-12`}
-            value={saleMonth}
-            onChange={(event) => setSaleMonth(event.target.value)}
-            aria-invalid={Boolean(fieldErrors.saleMonth)}
-            aria-describedby={fieldErrors.saleMonth ? "cost-schedule-sale-month-error" : undefined}
+            label="Sale"
+            month={saleMonth}
+            onMonthChange={setSaleMonth}
+            anchor={saleAnchor}
+            onAnchorChange={(anchor) => setSaleAnchor(anchor && "milestoneId" in anchor ? anchor : undefined)}
+            milestones={milestones}
+            errors={[fieldErrors.saleMonth, fieldErrors.saleAnchor, fieldErrors["saleAnchor.milestoneId"], fieldErrors["saleAnchor.offsetMonths"]]}
           />
-          <FieldError id="cost-schedule-sale-month-error" error={fieldErrors.saleMonth} />
-        </label>
+        </div>
       </div>
+
+      <section className="underwriting-milestones" aria-labelledby="cost-schedule-milestones-heading">
+        <div className="underwriting-section-head">
+          <div>
+            <h4 id="cost-schedule-milestones-heading">Milestones</h4>
+            <p className="t-meta">Name the months the budget hangs on. A line, the sale, operation start and growth start can start at a milestone plus an offset, so moving a milestone moves everything anchored to it.</p>
+          </div>
+          <button className="btn btn--secondary" type="button" onClick={() => addMilestone()} disabled={milestones.length >= MAX_MILESTONES}>Add Milestone</button>
+        </div>
+        {SUGGESTED_MILESTONES.some((name) => !milestones.some((milestone) => milestone.id === slug(name))) ? (
+          <p className="underwriting-milestone-suggestions">
+            {SUGGESTED_MILESTONES.filter((name) => !milestones.some((milestone) => milestone.id === slug(name))).map((name) => (
+              <button className="btn btn--secondary" type="button" key={name} onClick={() => addMilestone(name)} disabled={milestones.length >= MAX_MILESTONES}>Add {name}</button>
+            ))}
+          </p>
+        ) : null}
+        {milestones.length > 0 ? (
+          <table className="underwriting-edit-table underwriting-milestone-table">
+            <thead><tr><th>Milestone</th><th>Month</th><th>Action</th></tr></thead>
+            <tbody>
+              {milestones.map((milestone, index) => {
+                const nameError = fieldErrors[`milestones.${index}.name`] ?? fieldErrors[`milestones.${index}.id`];
+                const monthError = fieldErrors[`milestones.${index}.month`];
+                return <tr key={milestone.id}>
+                  <td>
+                    <input id={`milestone-${index}-name`} className="input" maxLength={80} aria-label={`Milestone ${index + 1} name`} value={milestone.name}
+                      aria-invalid={Boolean(nameError)} aria-describedby={nameError ? `milestone-${index}-name-error` : undefined}
+                      onChange={(event) => updateMilestone(index, { name: event.target.value })} />
+                    <FieldError id={`milestone-${index}-name-error`} error={nameError} />
+                  </td>
+                  <td>
+                    <input id={`milestone-${index}-month`} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`}
+                      aria-label={`${milestone.name || `Milestone ${index + 1}`} month`} value={milestone.month}
+                      aria-invalid={Boolean(monthError)} aria-describedby={monthError ? `milestone-${index}-month-error` : undefined}
+                      onChange={(event) => updateMilestone(index, { month: event.target.value })} />
+                    <FieldError id={`milestone-${index}-month-error`} error={monthError} />
+                  </td>
+                  <td><button className="btn btn--secondary" type="button" onClick={() => setMilestones((current) => current.filter((_, position) => position !== index))}>Remove</button></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        ) : null}
+        <FieldError id="cost-schedule-milestones-error" error={fieldErrors.milestones} />
+      </section>
 
       <div className="underwriting-edit-table-wrap">
         <table className="underwriting-cost-lines">
@@ -260,10 +335,31 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                   )}
                   <FieldError id={amount.errorId} error={amount.error ?? fieldErrors[`costLines.${index}.basis.rate`] ?? fieldErrors[`costLines.${index}.basis.percent`] ?? fieldErrors[`costLines.${index}.basis.baseLineId`] ?? fieldErrors[`costLines.${index}.basis.base`] ?? quantityError} />
                 </td>
-                <td><input {...startMonth.controlProps} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`} aria-label={`${line.name || `Cost line ${index + 1}`} start month`}
-                  value={line.startMonth} onChange={(event) => updateLine(index, { startMonth: event.target.value })} /><FieldError id={startMonth.errorId} error={startMonth.error} /></td>
-                <td><input {...endMonth.controlProps} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`} aria-label={`${line.name || `Cost line ${index + 1}`} end month`}
-                  value={line.endMonth} onChange={(event) => updateLine(index, { endMonth: event.target.value })} /><FieldError id={endMonth.errorId} error={endMonth.error} /></td>
+                <td>
+                  <MilestoneAnchorField
+                    id={`cost-line-${index}-startMonth`}
+                    label={`${label} start`}
+                    month={line.startMonth}
+                    onMonthChange={(value) => updateLine(index, { startMonth: value })}
+                    anchor={line.startAnchor}
+                    onAnchorChange={(anchor) => updateLine(index, { startAnchor: anchor && "milestoneId" in anchor ? anchor : undefined })}
+                    milestones={milestones}
+                    errors={[startMonth.error, fieldErrors[`costLines.${index}.startAnchor`], fieldErrors[`costLines.${index}.startAnchor.milestoneId`], fieldErrors[`costLines.${index}.startAnchor.offsetMonths`]]}
+                  />
+                </td>
+                <td>
+                  <MilestoneAnchorField
+                    id={`cost-line-${index}-endMonth`}
+                    label={`${label} end`}
+                    month={line.endMonth}
+                    onMonthChange={(value) => updateLine(index, { endMonth: value })}
+                    anchor={line.endAnchor}
+                    onAnchorChange={(anchor) => updateLine(index, { endAnchor: anchor })}
+                    milestones={milestones}
+                    allowDuration
+                    errors={[endMonth.error, fieldErrors[`costLines.${index}.endAnchor`], fieldErrors[`costLines.${index}.endAnchor.milestoneId`], fieldErrors[`costLines.${index}.endAnchor.offsetMonths`], fieldErrors[`costLines.${index}.endAnchor.durationMonths`]]}
+                  />
+                </td>
                 <td>
                   <select {...distribution.controlProps} className="input" aria-label={`${line.name || `Cost line ${index + 1}`} distribution`}
                     value={line.distributionMethod}
@@ -271,13 +367,10 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                       const distributionMethod = event.target.value as EditableLine["distributionMethod"];
                       updateLine(index, {
                         distributionMethod,
-                        distributionVersion: distributionMethod === "straight_line"
-                          ? STRAIGHT_LINE_DISTRIBUTION_VERSION
-                          : S_CURVE_DISTRIBUTION_VERSION,
+                        distributionVersion: COST_DISTRIBUTION_VERSIONS[distributionMethod],
                       });
                     }}>
-                    <option value="straight_line">Straight-line</option>
-                    <option value="s_curve">S-curve</option>
+                    {DISTRIBUTION_OPTIONS.map(([value, optionLabel]) => <option value={value} key={value}>{optionLabel}</option>)}
                   </select>
                   <FieldError id={distribution.errorId} error={distribution.error} />
                 </td>

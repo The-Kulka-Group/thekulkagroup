@@ -1,3 +1,4 @@
+import { resolveMilestoneAnchors } from "./milestones";
 import {
   projectApartmentOperationsThrough,
   type ApartmentOperationsIssue,
@@ -240,6 +241,8 @@ export type PropertyReturnsRun = {
 
 export function computePropertyReturns(input: PropertyReturnsInputs): PropertyReturnsRun {
   const inputSnapshot = structuredClone(input);
+  const anchors = resolveMilestoneAnchors(inputSnapshot);
+  if (anchors.issues.length > 0) return failedFull(inputSnapshot, anchors.issues);
   if (inputSnapshot.lenderTests !== undefined) {
     const lenderIssues = validateLenderTestPlan(inputSnapshot.lenderTests);
     if (lenderIssues.length > 0) return failedFull(inputSnapshot, lenderIssues);

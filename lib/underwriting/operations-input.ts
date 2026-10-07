@@ -80,7 +80,9 @@ export function parseApartmentOperations(
     ...costSchedule,
     inputVersion: candidate.inputVersion,
     operationStartMonth: candidate.operationStartMonth,
+    ...(candidate.operationStartAnchor === null || candidate.operationStartAnchor === undefined ? {} : { operationStartAnchor: candidate.operationStartAnchor }),
     growthStartMonth: candidate.growthStartMonth,
+    ...(candidate.growthStartAnchor === null || candidate.growthStartAnchor === undefined ? {} : { growthStartAnchor: candidate.growthStartAnchor }),
     preleasedUnits: candidate.preleasedUnits,
     leaseUpUnitsPerMonth: candidate.leaseUpUnitsPerMonth,
     annualIncomeGrowthPercent: candidate.annualIncomeGrowthPercent,
@@ -113,6 +115,7 @@ export function parseApartmentOperations(
   } as ApartmentOperationsInputs);
   if (checked.status === "failed") {
     const issues = checked.issues.filter((item) => !item.path.startsWith("costLines")
+      && !item.path.startsWith("milestones") && item.path !== "saleAnchor"
       && item.path !== "analysisStartMonth" && item.path !== "saleMonth");
     throw new InvalidApartmentOperations(
       "Review the apartment operations fields.",
@@ -123,7 +126,9 @@ export function parseApartmentOperations(
   return {
     inputVersion: checked.inputSnapshot.inputVersion,
     operationStartMonth: checked.inputSnapshot.operationStartMonth,
+    ...(checked.inputSnapshot.operationStartAnchor ? { operationStartAnchor: checked.inputSnapshot.operationStartAnchor } : {}),
     growthStartMonth: checked.inputSnapshot.growthStartMonth,
+    ...(checked.inputSnapshot.growthStartAnchor ? { growthStartAnchor: checked.inputSnapshot.growthStartAnchor } : {}),
     preleasedUnits: checked.inputSnapshot.preleasedUnits,
     leaseUpUnitsPerMonth: checked.inputSnapshot.leaseUpUnitsPerMonth,
     annualIncomeGrowthPercent: checked.inputSnapshot.annualIncomeGrowthPercent,

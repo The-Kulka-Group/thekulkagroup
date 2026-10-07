@@ -1,6 +1,17 @@
+import {
+  resolveMilestoneAnchors,
+  type Milestone,
+  type MilestoneAnchor,
+  type MilestoneEndAnchor,
+  type MilestoneIssueCode,
+  type MilestoneResolution,
+} from "./milestones";
+
 export const MONTHLY_COST_FORMULA_VERSION = "underwriting.monthly_cost_schedule.v1" as const;
 export const STRAIGHT_LINE_DISTRIBUTION_VERSION = "straight_line.v1" as const;
 export const S_CURVE_DISTRIBUTION_VERSION = "s_curve.smoothstep.v1" as const;
+export const FRONT_LOADED_DISTRIBUTION_VERSION = "front_loaded.quadratic.v1" as const;
+export const BACK_LOADED_DISTRIBUTION_VERSION = "back_loaded.quadratic.v1" as const;
 export const MIN_MODEL_YEAR = 1900;
 export const MAX_MODEL_YEAR = 2200;
 export const MAX_TIMELINE_MONTHS = 240;
@@ -13,10 +24,20 @@ export type CostCategory =
   | "development_fee"
   | "financing_fee";
 
-export type CostDistributionMethod = "straight_line" | "s_curve";
+export const COST_DISTRIBUTION_METHODS = ["straight_line", "s_curve", "front_loaded", "back_loaded"] as const;
+export type CostDistributionMethod = (typeof COST_DISTRIBUTION_METHODS)[number];
 export type CostDistributionVersion =
   | typeof STRAIGHT_LINE_DISTRIBUTION_VERSION
-  | typeof S_CURVE_DISTRIBUTION_VERSION;
+  | typeof S_CURVE_DISTRIBUTION_VERSION
+  | typeof FRONT_LOADED_DISTRIBUTION_VERSION
+  | typeof BACK_LOADED_DISTRIBUTION_VERSION;
+
+export const COST_DISTRIBUTION_VERSIONS: Record<CostDistributionMethod, CostDistributionVersion> = {
+  straight_line: STRAIGHT_LINE_DISTRIBUTION_VERSION,
+  s_curve: S_CURVE_DISTRIBUTION_VERSION,
+  front_loaded: FRONT_LOADED_DISTRIBUTION_VERSION,
+  back_loaded: BACK_LOADED_DISTRIBUTION_VERSION,
+};
 
 export const COST_LINE_BASIS_TYPES = ["fixed", "per_gross_square_foot", "per_unit", "percent_of_line", "percent_of_total"] as const;
 export const MAX_BASIS_PERCENT = 1000;
@@ -61,8 +82,14 @@ export type MonthlyCostLine = {
   amount?: number;
   basis?: CostLineBasis;
   unit: "usd";
+  /** With a start anchor, the month the anchor resolves to. The engine overwrites it on every run. */
   startMonth: string;
+  /** With an end anchor, the month the anchor resolves to. The engine overwrites it on every run. */
   endMonth: string;
+  /** Starts the line at a milestone plus an offset in months, in place of the typed start month. */
+  startAnchor?: MilestoneAnchor;
+  /** Ends the line at a milestone plus an offset, or a number of months after it starts, in place of the typed end month. */
+  endAnchor?: MilestoneEndAnchor;
   distributionMethod: CostDistributionMethod;
   distributionVersion: CostDistributionVersion;
   sourceLabel?: string;
@@ -73,11 +100,16 @@ export type MonthlyCostLine = {
 export type MonthlyCostScheduleInputs = {
   analysisStartMonth: string;
   saleMonth: string;
+  /** Puts the sale month at a milestone plus an offset, in place of the typed sale month. */
+  saleAnchor?: MilestoneAnchor;
+  /** Named months that cost lines and project dates anchor to. */
+  milestones?: Milestone[];
   costLines: MonthlyCostLine[];
   quantities?: CostQuantities;
 };
 
 export type MonthlyCostIssueCode =
+  | MilestoneIssueCode
   | "invalid_month"
   | "month_order"
   | "outside_timeline"
@@ -157,6 +189,8 @@ export type MonthlyCostScheduleResult = {
   totalsByCategory: Record<CostCategory, number>;
   totalUses: number;
   aggregateFormulaTraces: AggregateFormulaTrace[];
+  /** Every month resolved from a milestone anchor, with the milestone it came from. Absent on runs saved before anchors. */
+  anchors?: MilestoneResolution[];
 };
 
 export type MonthlyCostScheduleRun = {
@@ -178,6 +212,8 @@ const CATEGORIES: CostCategory[] = [
 
 export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs, options: CostScheduleOptions = {}): MonthlyCostScheduleRun {
   const inputSnapshot = structuredClone(input);
+  const anchors = resolveMilestoneAnchors(inputSnapshot);
+  if (anchors.issues.length > 0) return failed(inputSnapshot, anchors.issues);
   const issues = validate(inputSnapshot);
   if (issues.length > 0) return failed(inputSnapshot, issues);
 
@@ -198,8 +234,9 @@ export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs, opt
     inputSnapshot,
     financingCents,
     percentBaseCents(inputSnapshot.costLines, amountsInCents, index, financingCents),
+    anchors.resolutions,
   ));
-  const result = resultFor(spine, inputSnapshot, schedules);
+  const result = resultFor(spine, inputSnapshot, schedules, anchors.resolutions);
   if (!result || !Number.isSafeInteger(Math.round(result.totalUses * 100))) {
     return failed(inputSnapshot, [{
       path: "costLines",
@@ -300,12 +337,10 @@ function validate(input: MonthlyCostScheduleInputs) {
       issue(issues, path, "outside_timeline", "Cost line months must stay within the analysis timeline.");
     }
 
-    if (line.distributionMethod !== "straight_line" && line.distributionMethod !== "s_curve") {
-      issue(issues, `${path}.distributionMethod`, "unsupported_distribution", "Choose straight-line or S-curve distribution.");
+    if (!COST_DISTRIBUTION_METHODS.includes(line.distributionMethod)) {
+      issue(issues, `${path}.distributionMethod`, "unsupported_distribution", "Choose straight-line, S-curve, front-loaded or back-loaded distribution.");
     } else {
-      const expected = line.distributionMethod === "straight_line"
-        ? STRAIGHT_LINE_DISTRIBUTION_VERSION
-        : S_CURVE_DISTRIBUTION_VERSION;
+      const expected = COST_DISTRIBUTION_VERSIONS[line.distributionMethod];
       if (line.distributionVersion !== expected) {
         issue(issues, `${path}.distributionVersion`, "unsupported_distribution_version", `Use ${expected} with this distribution method.`);
       }
@@ -519,12 +554,14 @@ function scheduleLine(
   input: MonthlyCostScheduleInputs,
   financingCents: number,
   percentBase: number | null,
+  resolutions: MilestoneResolution[],
 ): CostLineSchedule {
   const months = monthSpine(line.startMonth, line.endMonth);
   const derivation = basisTrace(line, input, financingCents, percentBase);
-  const monthlyCents = line.distributionMethod === "straight_line"
-    ? cumulativeAllocation(cents, months.length, (position) => position)
-    : cumulativeAllocation(cents, months.length, smoothstep);
+  const monthlyCents = cumulativeAllocation(cents, months.length, CURVES[line.distributionMethod]);
+  const anchorTraces = resolutions
+    .filter(({ path }) => path === `costLines.${index}.startMonth` || path === `costLines.${index}.endMonth`)
+    .map(({ trace }) => trace);
   return {
     lineId: line.id,
     name: line.name,
@@ -535,13 +572,13 @@ function scheduleLine(
     months,
     monthlyAmounts: monthlyCents.map(fromCents),
     total: fromCents(monthlyCents.reduce((sum, amount) => sum + amount, 0)),
-    formulaTrace: `${derivation ?? "Entered amount"}${derivation ? " That amount is" : ""} ${line.distributionMethod === "straight_line"
-      ? "allocated in equal cumulative shares across inclusive cost months; rounding is assigned by cumulative cents."
-      : "allocated from cumulative smoothstep 3t² - 2t³ across inclusive cost months; rounding is assigned by cumulative cents."}`,
+    formulaTrace: `${anchorTraces.length > 0 ? `${anchorTraces.join(" ")} ` : ""}${derivation ?? "Entered amount"}${derivation ? " That amount is" : ""} ${CURVE_TRACES[line.distributionMethod]}`,
     inputPaths: [
       ...basisInputPaths(line, index, input),
       `costLines.${index}.startMonth`,
       `costLines.${index}.endMonth`,
+      ...(line.startAnchor !== undefined ? [`costLines.${index}.startAnchor`, "milestones"] : []),
+      ...(line.endAnchor !== undefined ? [`costLines.${index}.endAnchor`, "milestones"] : []),
       `costLines.${index}.distributionMethod`,
       `costLines.${index}.distributionVersion`,
     ],
@@ -563,7 +600,27 @@ function smoothstep(position: number) {
   return 3 * position ** 2 - 2 * position ** 3;
 }
 
-function resultFor(spine: string[], input: MonthlyCostScheduleInputs, schedules: CostLineSchedule[]): MonthlyCostScheduleResult | null {
+/** Cumulative share of the amount spent by the end of each month, as a function of the share of months elapsed. */
+const CURVES: Record<CostDistributionMethod, (position: number) => number> = {
+  straight_line: (position) => position,
+  s_curve: smoothstep,
+  front_loaded: (position) => 1 - (1 - position) ** 2,
+  back_loaded: (position) => position ** 2,
+};
+
+const CURVE_TRACES: Record<CostDistributionMethod, string> = {
+  straight_line: "allocated in equal cumulative shares across inclusive cost months; rounding is assigned by cumulative cents.",
+  s_curve: "allocated from cumulative smoothstep 3t² - 2t³ across inclusive cost months; rounding is assigned by cumulative cents.",
+  front_loaded: "allocated from cumulative 1 - (1 - t)² across inclusive cost months, so spending is heaviest in the first months; rounding is assigned by cumulative cents.",
+  back_loaded: "allocated from cumulative t² across inclusive cost months, so spending is heaviest in the last months; rounding is assigned by cumulative cents.",
+};
+
+function resultFor(
+  spine: string[],
+  input: MonthlyCostScheduleInputs,
+  schedules: CostLineSchedule[],
+  anchors: MilestoneResolution[],
+): MonthlyCostScheduleResult | null {
   const lines = input.costLines;
   const totalsByCategory = emptyCategories();
   const scheduleStarts = schedules.map((schedule) => monthIndex(schedule.months[0])!);
@@ -593,6 +650,7 @@ function resultFor(spine: string[], input: MonthlyCostScheduleInputs, schedules:
     totalsByCategory,
     totalUses,
     aggregateFormulaTraces: aggregateFormulaTraces(months, input, schedules, totalsByCategory, totalUses),
+    ...(anchors.length > 0 ? { anchors } : {}),
   };
 }
 

@@ -1,3 +1,4 @@
+import { resolveMilestoneAnchors } from "./milestones";
 import {
   computeApartmentOperations,
   type ApartmentOperationsInputs,
@@ -298,6 +299,8 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs, optio
     result: null,
     reconciliations: [],
   });
+  const anchors = resolveMilestoneAnchors(inputSnapshot);
+  if (anchors.issues.length > 0) return failedWith(anchors.issues);
   /*
    * LA-1822: a percent-of-total line on a total base is a share of cost that includes financing,
    * and financing depends on cost. Run the schedule with a financing guess from zero, fund it, and

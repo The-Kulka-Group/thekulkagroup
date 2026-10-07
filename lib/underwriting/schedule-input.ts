@@ -15,6 +15,17 @@ export class InvalidCostSchedule extends Error {
   }
 }
 
+/** A form sends null for an anchor the user cleared. The engine reads an absent anchor as a typed month. */
+function withoutNullAnchors(line: unknown) {
+  if (!line || typeof line !== "object" || Array.isArray(line)) return line;
+  const { startAnchor, endAnchor, ...rest } = line as Record<string, unknown>;
+  return {
+    ...rest,
+    ...(startAnchor === null || startAnchor === undefined ? {} : { startAnchor }),
+    ...(endAnchor === null || endAnchor === undefined ? {} : { endAnchor }),
+  };
+}
+
 /** Quantities come from the saved case facts. Anything the request body says about them is ignored. */
 export function parseCostSchedule(body: unknown, quantities: CostQuantities = {}): MonthlyCostScheduleInputs {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -24,7 +35,9 @@ export function parseCostSchedule(body: unknown, quantities: CostQuantities = {}
   const schedule = {
     analysisStartMonth: candidate.analysisStartMonth,
     saleMonth: candidate.saleMonth,
-    costLines: candidate.costLines,
+    ...(candidate.saleAnchor === null || candidate.saleAnchor === undefined ? {} : { saleAnchor: candidate.saleAnchor }),
+    ...(candidate.milestones === null || candidate.milestones === undefined ? {} : { milestones: candidate.milestones }),
+    costLines: Array.isArray(candidate.costLines) ? candidate.costLines.map(withoutNullAnchors) : candidate.costLines,
     quantities,
   } as MonthlyCostScheduleInputs;
   const checked = computeMonthlyCostSchedule(schedule);

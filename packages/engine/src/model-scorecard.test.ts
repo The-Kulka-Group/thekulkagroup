@@ -14,6 +14,7 @@ import {
   validateScorecardTargets,
   type ScorecardTarget,
 } from "./model-scorecard";
+import { computeDevelopmentCapital } from "./development-capital";
 import { computeApartmentOperations } from "./apartment-operations";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
 import { PROPERTY_TAX_INPUT_VERSION } from "./property-tax";
@@ -216,6 +217,35 @@ describe("engineOutputsFor", () => {
     expect((run.outputs.marketUnits as number) + (run.outputs.affordableUnits as number)).toBe(run.outputs.totalUnits);
     expect((run.outputs.marketRentableSf as number) + (run.outputs.affordableRentableSf as number)).toBe(run.outputs.totalAreaSf);
     expect(run.outputs.affordableAverageMonthlyRent).toBeCloseTo((first.monthlyMarketRent / 2), 6);
+  });
+
+  it("scores a percent-of-total fee on the financed schedule, the one the full run uses", () => {
+    const last = input.costLines.at(-1)!;
+    const solved: PropertyReturnsInputs = {
+      ...input,
+      costLines: [...input.costLines, {
+        id: "solved-fee",
+        name: "Solved Fee",
+        category: "development_fee",
+        basis: { type: "percent_of_total", base: "total_cost", percent: 3 },
+        unit: "usd",
+        startMonth: last.startMonth,
+        endMonth: last.endMonth,
+        distributionMethod: "straight_line",
+        distributionVersion: "straight_line.v1",
+        reviewState: "working",
+      }],
+    };
+    const run = engineOutputsFor(solved);
+    expect(run.status).toBe("complete");
+    const full = computePropertyReturns(solved);
+    const financing = full.result!.developmentCapital.totals;
+    // The fee is 3 percent of every other line plus financing, so it is larger than the same share of cost alone.
+    const withoutFinancing = computeApartmentOperations(solved).result!.costSchedule.totalsByCategory.development_fee;
+    expect(financing.totalUses - financing.projectCosts).toBeGreaterThan(1_000);
+    expect(run.outputs.developmentFee).toBeGreaterThan(withoutFinancing + 1_000);
+    expect(run.outputs.developmentFee).toBeCloseTo(computeDevelopmentCapital(solved).result!.apartmentOperations.costSchedule.totalsByCategory.development_fee, 2);
+    expect(run.outputs.costBeforeFinancing).toBeCloseTo(financing.projectCosts, 2);
   });
 
   it("reads every catalog output from one complete run", () => {

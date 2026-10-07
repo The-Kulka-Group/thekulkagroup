@@ -5,6 +5,7 @@ import {
 } from "./apartment-operations";
 import { AFFORDABILITY_TIERS } from "./apartment-operations";
 import { summarizeAffordabilityTiers } from "./affordability-tiers";
+import { computeDevelopmentCapital } from "./development-capital";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
 import { MAX_PROPERTY_TAX_FISCAL_YEARS } from "./property-tax";
 
@@ -209,7 +210,16 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
 
   const { developmentCapital, propertyReturns } = run.result;
   const capital = developmentCapital.totals;
-  const costs = operations.result.costSchedule.totalsByCategory;
+  /*
+   * A percent-of-total line settles against a base that includes financing, and the cost-only run
+   * above has none. The financed run, under the same debt ceiling as the property run, holds the
+   * schedule the full run uses.
+   */
+  const financed = computeDevelopmentCapital(input, { maxLoan: developmentCapital.debtCeiling ?? null });
+  const costSchedule = financed.status === "complete" && financed.result
+    ? financed.result.apartmentOperations.costSchedule
+    : operations.result.costSchedule;
+  const costs = costSchedule.totalsByCategory;
   const units = operations.result.unitSummary;
   const { sale, returns } = propertyReturns;
   const outputs: EngineOutputs = {
@@ -218,7 +228,7 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     softCost: costs.soft_cost,
     developmentFee: costs.development_fee,
     financingFeeCost: costs.financing_fee,
-    costBeforeFinancing: operations.result.costSchedule.totalUses,
+    costBeforeFinancing: costSchedule.totalUses,
     loanFees: capital.loanFees,
     grossInterest: capital.grossInterest,
     operatingCashAppliedToInterest: capital.operatingCashAppliedToInterest,

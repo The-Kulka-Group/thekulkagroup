@@ -231,6 +231,26 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("LENDER_TEST_ASSUMPTION_KEYS");
   });
 
+  it("takes the partnership waterfall with its own sources and shows LP and GP results with traces", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
+    const section = await source("app/(app)/underwriting/[id]/PartnershipSection.tsx");
+    const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    const waterfall = await source("app/(app)/underwriting/[id]/PartnershipResults.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("<PartnershipSection");
+    for (const label of ["Add Partnership Waterfall", "LP Funding Share", "Funding Order", "Pari Passu", "GP First", "LP Entry Month", "Compound Monthly", "Simple Monthly", "IRR Hurdle Tiers", "Add Tier", "Final Split", "Partnership Sources"]) {
+      expect(section).toContain(label);
+    }
+    expect(section).toContain("maxLength={MAX_PARTNERSHIP_SOURCE_LABEL_LENGTH}");
+    expect(section).toContain("fieldErrors[`partnership.${path}`]");
+    expect(results).toContain("Peak Equity");
+    expect(results).toContain("<PartnershipResults");
+    for (const label of ["Partnership Waterfall", "Distributions by Tier", "Partnership Formula Traces", "Monthly LP and GP Cash Flow", "Not Reported"]) {
+      expect(waterfall).toContain(label);
+    }
+    expect(runPage).toContain("PARTNERSHIP_ASSUMPTION_KEYS");
+  });
+
   it("links every scenario control to field errors and renders scenario evidence in saved runs", async () => {
     const editor = await source("app/(app)/underwriting/[id]/ScenarioComparisonEditor.tsx");
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");

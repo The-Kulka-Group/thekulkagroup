@@ -747,6 +747,60 @@ describe("underwriting calculation repository", () => {
     expect(legacy!.propertyReturnsResult!.lenderTests).toBeNull();
   });
 
+  it("stores a partnership waterfall with the property run, ties it to levered cash flow and reopens it unchanged", async () => {
+    const property = await caseWithPropertyReturns();
+    const done = { sourceLabel: "Operating agreement", sourceDate: "2026-10-07", reviewState: "done" as const };
+    const withWaterfall = await savePropertyReturns(db, property!.id, property!.caseRevision, {
+      ...property!.propertyReturns!,
+      partnership: {
+        partnershipInputVersion: "partnership_inputs.v1",
+        lpFundingSharePercent: 90,
+        fundingOrder: "pari_passu",
+        preferredReturn: { ratePercent: 8, accrual: "compound_monthly" },
+        tiers: [{ lpIrrHurdlePercent: 12, promotePercent: 20, lpBaseSharePercent: 90 }],
+        finalSplit: { promotePercent: 40, lpBaseSharePercent: 90 },
+        partnershipEvidence: { funding: done, preferredReturn: done, promoteTiers: done },
+      },
+    } as Parameters<typeof savePropertyReturns>[3]);
+    const run = await runUnderwritingCase(db, property!.id, withWaterfall!.caseRevision);
+    expect(run!.status).toBe("complete");
+    const result = run!.propertyReturnsResult!;
+    const waterfall = result.partnership!;
+    // Units lease from the first month, so operating cash comes back while equity still goes in and the peak sits below total equity.
+    let running = 0;
+    const peak = Math.max(...result.propertyReturns.months.map(({ leveredCashFlow }) => (running -= leveredCashFlow)));
+    expect(result.propertyReturns.peakEquity!.amount).toBeCloseTo(peak, 2);
+    expect(result.propertyReturns.peakEquity!.amount).toBeLessThan(result.developmentCapital.totals.equity);
+    expect(waterfall.lp.contributions + waterfall.gp.contributions).toBeCloseTo(result.developmentCapital.totals.equity, 2);
+    expect(waterfall.lp.netProfit + waterfall.gp.netProfit).toBeCloseTo(result.propertyReturns.returns.levered.netProfit, 2);
+    expect(run!.reconciliations.some(({ id }) => id.startsWith("partnership-distributions:"))).toBe(true);
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(run!.inputSnapshot.partnership).toMatchObject({ lpFundingSharePercent: 90 });
+    expect(await getUnderwritingRun(db, run!.id)).toEqual(run);
+  });
+
+  it("reads a property run saved before the waterfall as having none", async () => {
+    const property = await caseWithPropertyReturns();
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    expect(run!.propertyReturnsResult!.partnership).toBeNull();
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const values = names.map((name) => name === "result_snapshot" ? "result_snapshot - 'partnership'" : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const earlier = await getUnderwritingRun(db, rows[0].id);
+    expect(earlier!.propertyReturnsResult!.partnership).toBeNull();
+    expect(earlier!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
+  });
+
   async function caseWithScenarios(lenderTests?: Record<string, unknown>) {
     const property = await caseWithPropertyReturns(lenderTests);
     const evidence = { sourceLabel: "Scenario review note", sourceDate: "2026-10-05", reviewState: "done" as const };

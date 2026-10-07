@@ -447,6 +447,37 @@ export {
 } from "./property-returns";
 
 export {
+  MAX_PARTNERSHIP_SOURCE_LABEL_LENGTH,
+  MAX_PARTNERSHIP_TIERS,
+  PARTNERSHIP_ASSUMPTION_KEYS,
+  PARTNERSHIP_FUNDING_ORDERS,
+  PARTNERSHIP_INPUT_VERSION,
+  PREFERRED_RETURN_ACCRUALS,
+  peakEquityOf,
+  runPartnershipWaterfall,
+  validatePartnershipPlan,
+  type PartnerReturns,
+  type PartnershipAssumptionKey,
+  type PartnershipCashFlowMonth,
+  type PartnershipEvidence,
+  type PartnershipFundingOrder,
+  type PartnershipIssue,
+  type PartnershipLevelSplit,
+  type PartnershipMetric,
+  type PartnershipMetricKey,
+  type PartnershipMonth,
+  type PartnershipPlan,
+  type PartnershipResult,
+  type PartnershipRun,
+  type PartnershipSplit,
+  type PartnershipTier,
+  type PartnershipTierResult,
+  type PeakEquity,
+  type PreferredReturnAccrual,
+  type PreferredReturnPlan,
+} from "./partnership-waterfall";
+
+export {
   APARTMENT_SCENARIO_CHANGE_KEYS,
   APARTMENT_SCENARIO_FORMULA_VERSION,
   APARTMENT_SCENARIO_INPUT_VERSION,

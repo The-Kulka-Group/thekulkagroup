@@ -20,7 +20,16 @@ import {
   type LenderTestsResult,
 } from "./lender-tests";
 import type { ReconciliationCheck } from "./monthly-cost-schedule";
+import {
+  peakEquityOf,
+  runPartnershipWaterfall,
+  validatePartnershipPlan,
+  type PartnershipPlan,
+  type PartnershipResult,
+  type PeakEquity,
+} from "./partnership-waterfall";
 import { abatementValueAtSale, propertyTaxScheduleEndMonth, type PropertyTaxResult } from "./property-tax";
+import { xirr, xnpv, yearsFrom, type XirrResult } from "./xirr";
 
 export const PROPERTY_RETURNS_INPUT_VERSION = "property_returns_inputs.v1" as const;
 export const SALE_TAX_INPUT_VERSION = "sale_tax_inputs.v1" as const;
@@ -95,6 +104,8 @@ export type PropertyReturnsPlan = {
   lenderTests?: LenderTestPlan;
   /** Required when the operating tax schedule carries an abatement, and allowed only then. */
   saleTax?: SaleTaxPlan;
+  /** LP and GP funding and the distribution waterfall on levered cash flow (LA-1863). Absent runs no waterfall. */
+  partnership?: PartnershipPlan;
 };
 
 export type PropertyReturnsInputs = DevelopmentCapitalInputs & PropertyReturnsPlan;
@@ -147,7 +158,9 @@ export type PropertyReturnsIssueCode =
   | "invalid_loan_sizing"
   | "loan_sizing_unavailable"
   | "invalid_sale_tax"
-  | "missing_sale_tax_basis";
+  | "missing_sale_tax_basis"
+  | "invalid_partnership"
+  | "partnership_outside_timeline";
 
 export type PropertyReturnsIssue = {
   path: string;
@@ -198,6 +211,8 @@ export type PropertyReturnsCalculationResult = {
   };
   yieldOnCost: number;
   developmentSpreadBasisPoints: number;
+  /** Largest cumulative net equity out on levered cash flow, and the first month it is reached (LA-1863). Runs saved earlier read it as absent. */
+  peakEquity?: PeakEquity;
   metrics: PropertyReturnMetric[];
   reconciliations: ReconciliationCheck[];
 };
@@ -228,6 +243,8 @@ export type PropertyReturnsResult = {
   saleTax: SaleTaxResult | null;
   /** The operating run's tax by fiscal year, when the case has a tax schedule. */
   propertyTax: PropertyTaxResult | null;
+  /** The LP and GP waterfall when the case carries one (LA-1863). Runs saved earlier read it as null. */
+  partnership: PartnershipResult | null;
 };
 
 export type PropertyReturnsRun = {
@@ -246,6 +263,10 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   if (inputSnapshot.lenderTests !== undefined) {
     const lenderIssues = validateLenderTestPlan(inputSnapshot.lenderTests);
     if (lenderIssues.length > 0) return failedFull(inputSnapshot, lenderIssues);
+  }
+  if (inputSnapshot.partnership !== undefined) {
+    const partnershipIssues = validatePartnershipPlan(inputSnapshot.partnership);
+    if (partnershipIssues.length > 0) return failedFull(inputSnapshot, partnershipIssues);
   }
   const firstCapitalRun = computeDevelopmentCapital(inputSnapshot);
   if (firstCapitalRun.status === "failed" || !firstCapitalRun.result) {
@@ -326,6 +347,25 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   if (sizingChecks.some(({ status }) => status === "fail")) {
     return failedFull(inputSnapshot, [{ path: "lenderTests.loanSizing", code: "derived_results", message: "The funded loan did not settle on its binding cap within one cent." }]);
   }
+  /*
+   * LA-1863: the waterfall reads the reconciled levered cash flow and the capital plan's equity
+   * contributions month by month, so its own checks tie LP and GP cash to both.
+   */
+  const partnershipRun = inputSnapshot.partnership
+    ? runPartnershipWaterfall(
+      calculation.result.months.map((month, index) => ({
+        month: month.month,
+        date: month.date,
+        leveredCashFlow: month.leveredCashFlow,
+        equityContribution: capitalRun.result!.capital.months[index].equityContribution,
+      })),
+      inputSnapshot.partnership,
+      withTaxPaths(calculation.result.metrics, inputSnapshot).find(({ key }) => key === "leveredNetProfit")!.inputPaths,
+    )
+    : null;
+  if (partnershipRun && (partnershipRun.status === "failed" || !partnershipRun.result)) {
+    return failedFull(inputSnapshot, partnershipRun.issues);
+  }
   return {
     formulaVersion: PROPERTY_RETURNS_FORMULA_VERSION,
     inputSnapshot,
@@ -340,8 +380,9 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
         ? saleTaxResult(saleTax, forwardSalePeriod.effectiveGrossRevenue, scheduledExpenses, fullExpenses, abatementValue, abatementEndMonth, inputSnapshot.terminalCapRatePercent)
         : null,
       propertyTax: capitalRun.result.apartmentOperations.propertyTax,
+      partnership: partnershipRun?.result ?? null,
     },
-    reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks],
+    reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks, ...(partnershipRun?.reconciliations ?? [])],
   };
 }
 
@@ -435,12 +476,13 @@ export function calculatePropertyReturns(
     equitySaleProceeds: dollars(equitySaleProceedsCents),
   };
   const reconciliations = reconcile(datedMonths, sale, returns, plan, totalProjectCostCents, unleveredXirr, leveredXirr, yieldOnCost, developmentSpreadBasisPoints);
-  const metrics = metricsFor(sale, returns, yieldOnCost, developmentSpreadBasisPoints);
+  const peakEquity = peakEquityOf(datedMonths);
+  const metrics = metricsFor(sale, returns, yieldOnCost, developmentSpreadBasisPoints, peakEquity);
   if (![...Object.values(sale), yieldOnCost, developmentSpreadBasisPoints, ...metrics.map(({ value }) => value)].every(Number.isFinite)
     || reconciliations.some(({ status }) => status === "fail")) {
     return failedCalculation(inputSnapshot, [{ path: "propertyReturns", code: "derived_results", message: "The sale and property return results did not reconcile within one cent." }]);
   }
-  const result = { sale, months: datedMonths, returns, yieldOnCost, developmentSpreadBasisPoints, metrics, reconciliations };
+  const result = { sale, months: datedMonths, returns, yieldOnCost, developmentSpreadBasisPoints, peakEquity, metrics, reconciliations };
   return { formulaVersion: PROPERTY_RETURNS_FORMULA_VERSION, inputSnapshot, status: "complete", issues: [], result, reconciliations };
 }
 
@@ -455,6 +497,7 @@ export function validatePropertyReturnsPlan(plan: PropertyReturnsPlan): Property
   validateEvidence(issues, plan.saleAssumptionEvidence);
   if (plan.lenderTests !== undefined) issues.push(...validateLenderTestPlan(plan.lenderTests));
   if (plan.saleTax !== undefined) issues.push(...validateSaleTaxPlan(plan.saleTax));
+  if (plan.partnership !== undefined) issues.push(...validatePartnershipPlan(plan.partnership));
   return issues;
 }
 
@@ -594,69 +637,6 @@ function stream(cashFlow: number[], rate: number): PropertyReturnStream {
   return { xirr: rate, equityMultiple: positive / -negative, netProfit: dollars(positive + negative) };
 }
 
-type XirrResult =
-  | { status: "ok"; rate: number; residualCents: number; toleranceCents: number }
-  | { status: "no_root" | "convergence" };
-
-function xirr(cashFlow: Array<{ date: string; amountCents: number }>): XirrResult {
-  if (!cashFlow.some(({ amountCents }) => amountCents < 0) || !cashFlow.some(({ amountCents }) => amountCents > 0)) return { status: "no_root" };
-  const first = Date.parse(`${cashFlow[0].date}T00:00:00.000Z`);
-  const timed = cashFlow.map(({ date, amountCents }) => ({ amountCents, years: (Date.parse(`${date}T00:00:00.000Z`) - first) / 86_400_000 / 365 }));
-  const toleranceCents = Math.max(0.01, cashFlow.reduce((total, item) => total + Math.abs(item.amountCents), 0) * 1e-10);
-  const accept = (rate: number): XirrResult | undefined => {
-    const residualCents = xnpv(timed, rate);
-    return Number.isFinite(residualCents) && Math.abs(residualCents) <= toleranceCents
-      ? { status: "ok", rate, residualCents, toleranceCents }
-      : undefined;
-  };
-  let rate = 0.1;
-  for (let iteration = 0; iteration < 100; iteration += 1) {
-    const base = 1 + rate;
-    if (base <= 0) break;
-    const value = xnpv(timed, rate);
-    const accepted = accept(rate);
-    if (accepted) return accepted;
-    const derivative = timed.reduce((total, item) => total - item.years * item.amountCents / base ** (item.years + 1), 0);
-    if (!Number.isFinite(derivative) || Math.abs(derivative) < 1e-12) break;
-    const next = rate - value / derivative;
-    if (!Number.isFinite(next) || next <= -0.999999999) break;
-    if (Math.abs(next - rate) <= 1e-12) {
-      const acceptedNext = accept(next);
-      if (acceptedNext) return acceptedNext;
-      break;
-    }
-    rate = next;
-  }
-  const candidates: Array<{ low: number; high: number }> = [];
-  let priorRate = Math.expm1(-20);
-  let priorValue = xnpv(timed, priorRate);
-  for (let logBase = -19.75; logBase <= 14; logBase += 0.25) {
-    const currentRate = Math.expm1(logBase);
-    const currentValue = xnpv(timed, currentRate);
-    if (Number.isFinite(priorValue) && Number.isFinite(currentValue) && priorValue * currentValue <= 0) candidates.push({ low: priorRate, high: currentRate });
-    priorRate = currentRate;
-    priorValue = currentValue;
-  }
-  const bracket = candidates.sort((a, b) => Math.abs((a.low + a.high) / 2 - 0.1) - Math.abs((b.low + b.high) / 2 - 0.1))[0];
-  if (!bracket) return { status: "convergence" };
-  let { low, high } = bracket;
-  let lowValue = xnpv(timed, low);
-  for (let iteration = 0; iteration < 200; iteration += 1) {
-    const middle = (low + high) / 2;
-    const value = xnpv(timed, middle);
-    const accepted = accept(middle);
-    if (accepted) return accepted;
-    if (Math.abs(high - low) <= 1e-12) break;
-    if (lowValue * value <= 0) high = middle;
-    else { low = middle; lowValue = value; }
-  }
-  return { status: "convergence" };
-}
-
-function xnpv(cashFlow: Array<{ amountCents: number; years: number }>, rate: number) {
-  return cashFlow.reduce((total, item) => total + item.amountCents / (1 + rate) ** item.years, 0);
-}
-
 function reconcile(
   months: DatedPropertyCashFlow[],
   sale: PropertyReturnsCalculationResult["sale"],
@@ -699,6 +679,7 @@ function metricsFor(
   returns: PropertyReturnsCalculationResult["returns"],
   yieldOnCost: number,
   developmentSpreadBasisPoints: number,
+  peakEquity: PeakEquity,
 ): PropertyReturnMetric[] {
   const costPaths = ["analysisStartMonth", "saleMonth", "costLines"];
   const operationPaths = [
@@ -728,6 +709,7 @@ function metricsFor(
     { key: "leveredXirr", label: "Levered XIRR", value: returns.levered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, returnTimingPaths, capitalPaths) },
     { key: "leveredEquityMultiple", label: "Levered Equity Multiple", value: returns.levered.equityMultiple, unit: "multiple", formula: "positive levered cash flow divided by negative levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
     { key: "leveredNetProfit", label: "Levered Net Profit", value: returns.levered.netProfit, unit: "usd", formula: "sum dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
+    { key: "peakEquity", label: "Peak Equity", value: peakEquity.amount, unit: "usd", formula: `largest running total of negative levered cash flow less positive levered cash flow${peakEquity.month ? `, first reached ${peakEquity.month}` : ""}`, inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
     { key: "yieldOnCost", label: "Sale Yield on Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: rootPaths(costPaths, operationPaths, ["forwardNoiConvention"], capitalPaths) },
     { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: "sale yield on cost less terminal cap rate, in basis points", inputPaths: rootPaths(costPaths, operationPaths, saleValuePaths, capitalPaths) },
   ];
@@ -783,10 +765,6 @@ function equityMultiple(cashFlowCents: number[]) {
   const positive = cashFlowCents.reduce((total, value) => total + Math.max(value, 0), 0);
   const negative = cashFlowCents.reduce((total, value) => total + Math.min(value, 0), 0);
   return positive / -negative;
-}
-
-function yearsFrom(firstDate: string, date: string) {
-  return (Date.parse(`${date}T00:00:00.000Z`) - Date.parse(`${firstDate}T00:00:00.000Z`)) / 86_400_000 / 365;
 }
 
 function validUsd(value: number, allowNegative: boolean) {

@@ -1,5 +1,6 @@
 import {
   LENDER_TEST_ASSUMPTION_KEYS,
+  PARTNERSHIP_ASSUMPTION_KEYS,
   SALE_TAX_ASSUMPTION_KEYS,
   validatePropertyReturnsPlan,
   type PropertyReturnsIssue,
@@ -78,6 +79,46 @@ function knownSaleTaxFields(value: unknown) {
   };
 }
 
+function knownPartnershipFields(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const plan = value as Record<string, unknown>;
+  const split = (item: unknown) => item && typeof item === "object" && !Array.isArray(item)
+    ? (({ promotePercent, lpBaseSharePercent }: Record<string, unknown>) => ({ promotePercent, lpBaseSharePercent }))(item as Record<string, unknown>)
+    : item;
+  const preferredReturn = plan.preferredReturn;
+  const evidence = plan.partnershipEvidence;
+  return {
+    partnershipInputVersion: plan.partnershipInputVersion,
+    lpFundingSharePercent: plan.lpFundingSharePercent,
+    fundingOrder: plan.fundingOrder,
+    ...(plan.lpEntryMonth === undefined || plan.lpEntryMonth === null ? {} : { lpEntryMonth: plan.lpEntryMonth }),
+    ...(preferredReturn === undefined || preferredReturn === null ? {} : {
+      preferredReturn: preferredReturn && typeof preferredReturn === "object" && !Array.isArray(preferredReturn)
+        ? (({ ratePercent, accrual }: Record<string, unknown>) => ({ ratePercent, accrual }))(preferredReturn as Record<string, unknown>)
+        : preferredReturn,
+    }),
+    tiers: Array.isArray(plan.tiers)
+      ? plan.tiers.map((tier) => tier && typeof tier === "object" && !Array.isArray(tier)
+        ? { lpIrrHurdlePercent: (tier as Record<string, unknown>).lpIrrHurdlePercent, ...split(tier) as object }
+        : tier)
+      : plan.tiers,
+    finalSplit: split(plan.finalSplit),
+    partnershipEvidence: evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? Object.fromEntries(PARTNERSHIP_ASSUMPTION_KEYS.flatMap((key) => {
+        const item = (evidence as Record<string, unknown>)[key];
+        if (item === undefined) return [];
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [[key, item]];
+        const { sourceLabel, sourceDate, reviewState } = item as Record<string, unknown>;
+        return [[key, {
+          ...(sourceLabel === undefined ? {} : { sourceLabel }),
+          ...(sourceDate === undefined ? {} : { sourceDate }),
+          reviewState,
+        }]];
+      }))
+      : evidence,
+  };
+}
+
 export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new InvalidPropertyReturns("Send a property sale and returns object.", [], {});
@@ -93,6 +134,7 @@ export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
     saleAssumptionEvidence: candidate.saleAssumptionEvidence,
     ...(candidate.lenderTests === undefined ? {} : { lenderTests: knownLenderTestFields(candidate.lenderTests) }),
     ...(candidate.saleTax === undefined ? {} : { saleTax: knownSaleTaxFields(candidate.saleTax) }),
+    ...(candidate.partnership === undefined || candidate.partnership === null ? {} : { partnership: knownPartnershipFields(candidate.partnership) }),
   } as PropertyReturnsPlan;
   const issues = validatePropertyReturnsPlan(draft);
   if (issues.length > 0) {

@@ -28,6 +28,36 @@ describe("parsePropertyReturns", () => {
     expect(() => parsePropertyReturns({ ...plan, saleTax: { ...saleTax, valueBasis: "scheduled_tax" } })).toThrow(InvalidPropertyReturns);
   });
 
+  it("keeps a partnership waterfall and drops fields it does not know", () => {
+    const working = { reviewState: "working" };
+    const partnership = {
+      partnershipInputVersion: "partnership_inputs.v1",
+      lpFundingSharePercent: 75,
+      fundingOrder: "pari_passu",
+      lpEntryMonth: "2024-06",
+      preferredReturn: { ratePercent: 10, accrual: "compound_monthly" },
+      tiers: [{ lpIrrHurdlePercent: 12, promotePercent: 20, lpBaseSharePercent: 90 }],
+      finalSplit: { promotePercent: 40, lpBaseSharePercent: 90 },
+      partnershipEvidence: { funding: working, preferredReturn: working, promoteTiers: working },
+    };
+    const parsed = parsePropertyReturns({
+      ...plan,
+      partnership: {
+        ...partnership,
+        extra: "value",
+        tiers: [{ ...partnership.tiers[0], note: "drop" }],
+        partnershipEvidence: { ...partnership.partnershipEvidence, funding: { ...working, extra: true } },
+      },
+    });
+    expect(parsed.partnership).toEqual(partnership);
+    const { lpEntryMonth, preferredReturn, ...withoutOptional } = partnership;
+    void lpEntryMonth;
+    void preferredReturn;
+    const plain = { ...withoutOptional, partnershipEvidence: { funding: working, promoteTiers: working } };
+    expect(parsePropertyReturns({ ...plan, partnership: plain }).partnership).toEqual(plain);
+    expect(() => parsePropertyReturns({ ...plan, partnership: { ...partnership, lpFundingSharePercent: 0 } })).toThrow(InvalidPropertyReturns);
+  });
+
   it("returns a typed field error for an invalid terminal cap rate", () => {
     try {
       parsePropertyReturns({ ...plan, terminalCapRatePercent: 0 });

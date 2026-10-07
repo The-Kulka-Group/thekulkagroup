@@ -1,6 +1,7 @@
 import type { AuditedModelScorecard, ScorecardTarget } from "../model-scorecard";
 import type { PropertyReturnsInputs } from "../property-returns";
 import { APARTMENT_DEVELOPMENT_V2_98_COST_SCHEDULE } from "./apartment-development-v2-98";
+import { APARTMENT_DEVELOPMENT_V2_98_PARTNERSHIP, APARTMENT_DEVELOPMENT_V2_98_WATERFALL_EXPECTED } from "./apartment-development-model-v2.98-partnership";
 
 /*
  * LA-1687 adapter: the real v2.98 sample deal as one full engine input, scored against the
@@ -161,6 +162,7 @@ const engineInputs: PropertyReturnsInputs = {
     cashFlowDateConvention: evidence("Underwriting row 23 end-of-month dates"),
     xirrConvention: evidence("Underwriting H217 and H218 dated XIRR"),
   },
+  partnership: APARTMENT_DEVELOPMENT_V2_98_PARTNERSHIP,
 };
 
 const USD = { absolute: 0.01 };
@@ -229,10 +231,13 @@ const targets: ScorecardTarget[] = [
   // I221 divides sale NOI by Project_Cost_Total, which is total uses I53 including carry, as the engine does.
   compare("sale-yield-on-cost", "yieldOnCost", 0.070331103995619, RATIO),
   compare("sale-development-spread", "developmentSpreadBasisPoints", 128.3110399561897, RATIO), // I223, basis points
-  notReachable("waterfall-distribution-total", "The engine has no partnership waterfall"),
-  notReachable("waterfall-net-profit-reconciliation", "The engine has no partnership waterfall"),
-  notReachable("lp-net-xirr", "The engine has no partnership waterfall"),
-  notReachable("gp-net-xirr", "The engine has no partnership waterfall"),
+  // LA-1863. These read the engine's own levered cash flow, so they carry its gaps above. The workbook
+  // also pays the GP an asset management fee before the waterfall, which the engine does not model; the
+  // replay in partnership-replay.test.ts checks the waterfall rules on the workbook's own cash flow.
+  compare("waterfall-distribution-total", "partnershipDistributions", APARTMENT_DEVELOPMENT_V2_98_WATERFALL_EXPECTED.distributionTotal), // I247
+  compare("waterfall-net-profit-reconciliation", "partnershipNetProfit", APARTMENT_DEVELOPMENT_V2_98_WATERFALL_EXPECTED.partnershipNetProfit), // I250:I252
+  compare("lp-net-xirr", "lpXirr", APARTMENT_DEVELOPMENT_V2_98_WATERFALL_EXPECTED.lpNetXirr, RATIO), // I229
+  compare("gp-net-xirr", "gpXirr", APARTMENT_DEVELOPMENT_V2_98_WATERFALL_EXPECTED.gpNetXirr, RATIO), // I230
   notReachable("sensitivity-exit-cap-5-percent-emx", "The engine has no sensitivity runs; each scorecard scores one input snapshot"),
   notReachable("sensitivity-exit-cap-5-25-percent-emx", "The engine has no sensitivity runs; each scorecard scores one input snapshot"),
   notReachable("sensitivity-exit-cap-5-5-percent-emx", "The engine has no sensitivity runs; each scorecard scores one input snapshot"),

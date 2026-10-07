@@ -15,7 +15,7 @@ import { MAX_PROPERTY_TAX_FISCAL_YEARS } from "./property-tax";
  * carries target ids, statuses and percent off only, never an expected or actual value.
  */
 
-const MONTH_OUTPUT_KEYS = ["firstStabilizedMonth"] as const;
+const MONTH_OUTPUT_KEYS = ["firstStabilizedMonth", "peakEquityMonth", "lpPeakEquityMonth", "gpPeakEquityMonth"] as const;
 
 /** Present only when the input snapshot carries a lender test plan, and a test is reported. */
 export const LENDER_OUTPUT_KEYS = [
@@ -42,6 +42,27 @@ export const OTHER_SOURCE_OUTPUT_KEYS = [
   "creditedLandStepUp",
   "creditedLandEquity",
   "sponsorEquity",
+] as const;
+
+/** Present only when the input snapshot carries a partnership waterfall (LA-1863). Null IRRs and multiples are left out. */
+export const PARTNERSHIP_OUTPUT_KEYS = [
+  "lpContributions",
+  "gpContributions",
+  "lpDistributions",
+  "gpDistributions",
+  "partnershipDistributions",
+  "lpNetProfit",
+  "gpNetProfit",
+  "partnershipNetProfit",
+  "lpXirr",
+  "gpXirr",
+  "lpEquityMultiple",
+  "gpEquityMultiple",
+  "lpPeakEquity",
+  "gpPeakEquity",
+  "lpPreferredReturnAccrued",
+  "gpPreferredReturnAccrued",
+  "promoteTotal",
 ] as const;
 
 /** Present only when the input snapshot carries a property tax schedule (LA-1690). */
@@ -125,7 +146,9 @@ const CATALOG_KEYS = [
   "leveredNetProfit",
   "yieldOnCost",
   "developmentSpreadBasisPoints",
+  "peakEquity",
   ...LENDER_OUTPUT_KEYS,
+  ...PARTNERSHIP_OUTPUT_KEYS,
   ...OTHER_SOURCE_OUTPUT_KEYS,
   ...PROPERTY_TAX_OUTPUT_KEYS,
   ...TIER_OUTPUT_KEYS,
@@ -264,6 +287,35 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     yieldOnCost: propertyReturns.yieldOnCost,
     developmentSpreadBasisPoints: propertyReturns.developmentSpreadBasisPoints,
   };
+  if (propertyReturns.peakEquity) {
+    outputs.peakEquity = propertyReturns.peakEquity.amount;
+    if (propertyReturns.peakEquity.month) outputs.peakEquityMonth = propertyReturns.peakEquity.month;
+  }
+  const waterfall = run.result.partnership;
+  if (waterfall) {
+    const { lp, gp } = waterfall;
+    Object.assign(outputs, {
+      lpContributions: lp.contributions,
+      gpContributions: gp.contributions,
+      lpDistributions: lp.distributions,
+      gpDistributions: gp.distributions,
+      partnershipDistributions: roundCents(lp.distributions + gp.distributions),
+      lpNetProfit: lp.netProfit,
+      gpNetProfit: gp.netProfit,
+      partnershipNetProfit: roundCents(lp.netProfit + gp.netProfit),
+      lpPeakEquity: lp.peakEquity,
+      gpPeakEquity: gp.peakEquity,
+      lpPreferredReturnAccrued: lp.preferredReturnAccrued,
+      gpPreferredReturnAccrued: gp.preferredReturnAccrued,
+      promoteTotal: waterfall.promoteTotal,
+    } satisfies EngineOutputs);
+    if (lp.xirr !== null) outputs.lpXirr = lp.xirr;
+    if (gp.xirr !== null) outputs.gpXirr = gp.xirr;
+    if (lp.equityMultiple !== null) outputs.lpEquityMultiple = lp.equityMultiple;
+    if (gp.equityMultiple !== null) outputs.gpEquityMultiple = gp.equityMultiple;
+    if (lp.peakEquityMonth) outputs.lpPeakEquityMonth = lp.peakEquityMonth;
+    if (gp.peakEquityMonth) outputs.gpPeakEquityMonth = gp.peakEquityMonth;
+  }
 
   if (input.otherSources !== undefined) {
     outputs.grants = capital.grants;

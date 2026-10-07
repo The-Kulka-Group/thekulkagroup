@@ -17,6 +17,7 @@ import {
   type LenderTestAssumptionKey,
   type LenderTestEvidence,
   type LenderTestNoiBasis,
+  type LoanSizingPlan,
   type PropertyReturnsAssumptionKey,
   type PropertyReturnsEvidence,
   type SaleTaxAssumptionKey,
@@ -38,6 +39,15 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   const [annualDebtService, setAnnualDebtService] = useState<number | "">(savedLender?.annualDebtService ?? "");
   const [noiBasis, setNoiBasis] = useState<LenderTestNoiBasis>(savedLender?.noiBasis ?? "noi_before_reserves");
   const [lenderTestEvidence, setLenderTestEvidence] = useState(savedLender?.lenderTestEvidence ?? blankLenderEvidence());
+  const savedSizing = savedLender?.loanSizing;
+  const [sizingEnabled, setSizingEnabled] = useState(Boolean(savedSizing));
+  const [noiTaxBasis, setNoiTaxBasis] = useState<LoanSizingPlan["noiTaxBasis"]>(savedSizing?.noiTaxBasis ?? "full_tax");
+  const [maxLoanToValuePercent, setMaxLoanToValuePercent] = useState<number | "">(savedSizing?.maxLoanToValuePercent ?? "");
+  const [minDebtYieldPercent, setMinDebtYieldPercent] = useState<number | "">(savedSizing?.minDebtYieldPercent ?? "");
+  const [minDebtServiceCoverage, setMinDebtServiceCoverage] = useState<number | "">(savedSizing?.minDebtServiceCoverage ?? "");
+  const [dscrRatePercent, setDscrRatePercent] = useState<number | "">(savedSizing?.dscrRatePercent ?? "");
+  const [dscrAmortizationYears, setDscrAmortizationYears] = useState<number | "">(savedSizing?.dscrAmortizationYears ?? "");
+  const [sizingEvidence, setSizingEvidence] = useState<LenderTestEvidence>(savedSizing?.evidence ?? { reviewState: "working" });
   const savedSaleTax = saved?.saleTax;
   const [saleTaxBasis, setSaleTaxBasis] = useState<SaleTaxValueBasis>(savedSaleTax?.valueBasis ?? "scheduled_tax");
   const [abatementDiscountRatePercent, setAbatementDiscountRatePercent] = useState<number | "">(savedSaleTax?.abatementDiscountRatePercent ?? "");
@@ -79,6 +89,19 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
               annualDebtService,
               noiBasis,
               lenderTestEvidence,
+              ...(sizingEnabled ? {
+                loanSizing: {
+                  noiTaxBasis,
+                  ...(maxLoanToValuePercent === "" ? {} : { maxLoanToValuePercent }),
+                  ...(minDebtYieldPercent === "" ? {} : { minDebtYieldPercent }),
+                  ...(minDebtServiceCoverage === "" ? {} : {
+                    minDebtServiceCoverage,
+                    dscrRatePercent: dscrRatePercent === "" ? undefined : dscrRatePercent,
+                    dscrAmortizationYears: dscrAmortizationYears === "" ? undefined : dscrAmortizationYears,
+                  }),
+                  evidence: sizingEvidence,
+                },
+              } : {}),
             },
           } : {}),
           ...(hasAbatement ? {
@@ -162,7 +185,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     </section> : null}
     <section className="underwriting-line-section" aria-labelledby="lender-tests-heading">
       <h4 id="lender-tests-heading">Lender Tests</h4>
-      <p className="t-meta">A lender values the stabilized year and tests the construction loan against value, cost and debt service. These tests report only; they do not size the loan.</p>
+      <p className="t-meta">A lender values the stabilized year and tests the construction loan against value, cost and debt service. The tests report on the loan. Loan Sizing below can also size it.</p>
       <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={lenderEnabled} onChange={(event) => setLenderEnabled(event.target.checked)} /> Add Lender Tests</label>
       {lenderEnabled ? <>
         <div className="underwriting-form-grid underwriting-capital-controls">
@@ -184,6 +207,25 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
           })}
         </tbody></table></div>
         {fieldErrors["lenderTests.lenderTestEvidence"] ? <p className="input-error" role="alert">{fieldErrors["lenderTests.lenderTestEvidence"]}</p> : null}
+        <h4 id="loan-sizing-heading">Loan Sizing</h4>
+        <p className="t-meta">The loan is the lesser of the capital plan&apos;s loan to cost and each cap set here. Leave a cap blank to skip it. Every cap reads the valuation year above.</p>
+        <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={sizingEnabled} onChange={(event) => setSizingEnabled(event.target.checked)} /> Size the Loan on Lender Caps</label>
+        {sizingEnabled ? <>
+          <div className="underwriting-form-grid underwriting-capital-controls">
+            <label className="field-label t-label" htmlFor="sizing-tax-basis">Size On<select id="sizing-tax-basis" className="input" value={noiTaxBasis} onChange={(event) => setNoiTaxBasis(event.target.value as LoanSizingPlan["noiTaxBasis"])} aria-invalid={Boolean(fieldErrors["lenderTests.loanSizing.noiTaxBasis"])} aria-describedby={fieldErrors["lenderTests.loanSizing.noiTaxBasis"] ? "sizing-tax-basis-error" : undefined}><option value="full_tax">Full Tax</option><option value="abated">Abated Tax</option></select><FieldError id="sizing-tax-basis-error" error={fieldErrors["lenderTests.loanSizing.noiTaxBasis"]} /></label>
+            <NumberField id="sizing-max-ltv" label="Maximum Loan to Value" value={maxLoanToValuePercent} onChange={setMaxLoanToValuePercent} error={fieldErrors["lenderTests.loanSizing.maxLoanToValuePercent"]} />
+            <NumberField id="sizing-min-debt-yield" label="Minimum Debt Yield" value={minDebtYieldPercent} onChange={setMinDebtYieldPercent} error={fieldErrors["lenderTests.loanSizing.minDebtYieldPercent"]} />
+            <NumberField id="sizing-min-dscr" label="Minimum DSCR" suffix="x" max={10} value={minDebtServiceCoverage} onChange={setMinDebtServiceCoverage} error={fieldErrors["lenderTests.loanSizing.minDebtServiceCoverage"]} />
+            {minDebtServiceCoverage !== "" ? <>
+              <NumberField id="sizing-dscr-rate" label="DSCR Rate" value={dscrRatePercent} onChange={setDscrRatePercent} error={fieldErrors["lenderTests.loanSizing.dscrRatePercent"]} />
+              <NumberField id="sizing-dscr-amortization" label="DSCR Amortization" suffix="Years" max={40} value={dscrAmortizationYears} onChange={setDscrAmortizationYears} error={fieldErrors["lenderTests.loanSizing.dscrAmortizationYears"]} />
+            </> : null}
+          </div>
+          <div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Sizing Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>
+            <tr><th scope="row">Loan Sizing Terms</th><td><input className="input" id="sizing-evidence-source-label" aria-label="Loan sizing terms source label" maxLength={MAX_LENDER_TEST_SOURCE_LABEL_LENGTH} value={sizingEvidence.sourceLabel ?? ""} onChange={(event) => setSizingEvidence((current) => ({ ...current, sourceLabel: event.target.value || undefined }))} aria-invalid={Boolean(fieldErrors["lenderTests.loanSizing.evidence.sourceLabel"])} /><FieldError error={fieldErrors["lenderTests.loanSizing.evidence.sourceLabel"]} /></td><td><input className="input" id="sizing-evidence-source-date" type="date" aria-label="Loan sizing terms source date" value={sizingEvidence.sourceDate ?? ""} onChange={(event) => setSizingEvidence((current) => ({ ...current, sourceDate: event.target.value || undefined }))} aria-invalid={Boolean(fieldErrors["lenderTests.loanSizing.evidence.sourceDate"])} /><FieldError error={fieldErrors["lenderTests.loanSizing.evidence.sourceDate"]} /></td><td><select className="input" id="sizing-evidence-review-state" aria-label="Loan sizing terms review state" value={sizingEvidence.reviewState} onChange={(event) => setSizingEvidence((current) => ({ ...current, reviewState: event.target.value as "working" | "done" }))}><option value="working">Working on It</option><option value="done">Done</option></select></td></tr>
+          </tbody></table></div>
+          {fieldErrors["lenderTests.loanSizing"] ? <p className="input-error" role="alert">{fieldErrors["lenderTests.loanSizing"]}</p> : null}
+        </> : null}
       </> : null}
     </section>
     {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
@@ -200,9 +242,9 @@ const LABELS: Record<PropertyReturnsAssumptionKey, string> = {
   xirrConvention: "XIRR Convention",
 };
 
-function NumberField({ id, label, value, onChange, error }: { id: string; label: string; value: number | ""; onChange: (value: number | "") => void; error?: string }) {
+function NumberField({ id, label, value, onChange, error, suffix = "%", max = 100 }: { id: string; label: string; value: number | ""; onChange: (value: number | "") => void; error?: string; suffix?: string; max?: number }) {
   const errorId = `${id}-error`;
-  return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><input id={id} className="input num" type="number" min="0" max="100" step="0.000001" value={value} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} /><span>%</span></span><FieldError id={errorId} error={error} /></label>;
+  return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><input id={id} className="input num" type="number" min="0" max={max} step="0.000001" value={value} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} /><span>{suffix}</span></span><FieldError id={errorId} error={error} /></label>;
 }
 
 const SALE_TAX_LABELS: Record<SaleTaxAssumptionKey, string> = {

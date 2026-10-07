@@ -329,6 +329,7 @@ export {
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalEvidence,
   type DevelopmentCapitalInputs,
+  type DevelopmentCapitalOptions,
   type DevelopmentCapitalIssue,
   type DevelopmentCapitalIssueCode,
   type DevelopmentCapitalPlan,
@@ -364,6 +365,9 @@ export {
   LENDER_TESTS_INPUT_VERSION,
   LENDER_TEST_ASSUMPTION_KEYS,
   MAX_LENDER_TEST_SOURCE_LABEL_LENGTH,
+  LOAN_SIZING_TAX_BASES,
+  MAX_DSCR_AMORTIZATION_YEARS,
+  annualDebtConstant,
   validateLenderTestPlan,
   type LenderFullTaxTests,
   type LenderTestAssumptionKey,
@@ -374,6 +378,10 @@ export {
   type LenderTestNoiBasis,
   type LenderTestPlan,
   type LenderTestsResult,
+  type LoanSizingCap,
+  type LoanSizingCapKey,
+  type LoanSizingPlan,
+  type LoanSizingResult,
 } from "./lender-tests";
 
 export {

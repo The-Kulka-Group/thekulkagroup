@@ -683,6 +683,28 @@ describe("underwriting calculation repository", () => {
     expect(evidence.annualDebtService.reviewState).toBe("done");
   });
 
+  it("saves loan sizing, sizes the run's loan on the binding cap, and resets review when a term changes", async () => {
+    const sizing = { noiTaxBasis: "full_tax", maxLoanToValuePercent: 10, evidence: lenderEvidence("done"), extra: "dropped" };
+    const property = await caseWithPropertyReturns(lenderPlan({ loanSizing: sizing }));
+    expect(property!.propertyReturns!.lenderTests!.loanSizing).toEqual({
+      noiTaxBasis: "full_tax", maxLoanToValuePercent: 10, evidence: lenderEvidence("done"),
+    });
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    expect(run!.status).toBe("complete");
+    const loanSizing = run!.propertyReturnsResult!.lenderTests!.loanSizing!;
+    expect(loanSizing.bindingCap).toBe("loanToValue");
+    expect(loanSizing.loanAmount).toBeCloseTo(400_000, 2);
+    expect(run!.propertyReturnsResult!.developmentCapital.totals.totalDebt).toBeCloseTo(400_000, 2);
+    expect(await getUnderwritingRun(db, run!.id)).toEqual(run);
+
+    const changed = await savePropertyReturns(db, property!.id, property!.caseRevision, {
+      ...property!.propertyReturns!,
+      lenderTests: lenderPlan({ loanSizing: { ...sizing, maxLoanToValuePercent: 12 } }),
+    } as Parameters<typeof savePropertyReturns>[3]);
+    expect(changed!.propertyReturns!.lenderTests!.loanSizing!.evidence.reviewState).toBe("working");
+    expect(changed!.propertyReturns!.lenderTests!.lenderTestEvidence.valuationMonth.reviewState).toBe("done");
+  });
+
   it("keeps a property run saved under v1 readable", async () => {
     const property = await caseWithPropertyReturns();
     const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);

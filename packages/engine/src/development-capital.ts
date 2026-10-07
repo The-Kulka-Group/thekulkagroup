@@ -256,9 +256,17 @@ export type DevelopmentCapitalResult = {
   creditedLand: CreditedLandResult | null;
   sourcesAndUses: SourcesAndUses;
   totals: DevelopmentCapitalTotals;
+  /** The largest total debt the lender's NOI caps allow (LA-1823); absent or null when LTC alone sizes the loan. */
+  debtCeiling?: number | null;
   formulaTraces: CapitalFormulaTrace[];
   reconciliations: ReconciliationCheck[];
 };
+
+/**
+ * Engine-derived limits the property returns layer passes in. `maxLoan` is the smallest NOI cap
+ * on total debt; it is never a user input and never enters the input snapshot.
+ */
+export type DevelopmentCapitalOptions = { maxLoan?: number | null };
 
 export type MonthlyCapitalRun = {
   formulaVersion: typeof DEVELOPMENT_CAPITAL_FORMULA_VERSION;
@@ -280,7 +288,7 @@ export type DevelopmentCapitalRun = {
 
 export const MAX_FINANCING_ROUNDS = 100;
 
-export function computeDevelopmentCapital(input: DevelopmentCapitalInputs): DevelopmentCapitalRun {
+export function computeDevelopmentCapital(input: DevelopmentCapitalInputs, options: DevelopmentCapitalOptions = {}): DevelopmentCapitalRun {
   const inputSnapshot = structuredClone(input);
   const failedWith = (issues: DevelopmentCapitalRun["issues"]): DevelopmentCapitalRun => ({
     formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
@@ -306,7 +314,7 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs): Deve
       operatingCashFlow: month.operatingCashFlow,
     }));
     const landCashCost = operationsRun.result.costSchedule.totalsByCategory.land;
-    const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost);
+    const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost, options.maxLoan ?? null);
     if (capitalRun.status === "failed" || !capitalRun.result) return failedWith(capitalRun.issues);
     const { totals } = capitalRun.result;
     const nextFinancingCents = cents(totals.totalUses) - cents(totals.projectCosts);
@@ -368,6 +376,7 @@ export function fundMonthlyDevelopmentCashFlow(
   submittedCashFlow: MonthlyDevelopmentCashFlow[],
   submittedPlan: DevelopmentCapitalPlan,
   landCashCost = 0,
+  maxLoan: number | null = null,
 ): MonthlyCapitalRun {
   const monthlyCashFlow = structuredClone(submittedCashFlow);
   const plan = structuredClone(submittedPlan);
@@ -375,12 +384,15 @@ export function fundMonthlyDevelopmentCashFlow(
   const issues = validate(monthlyCashFlow, plan, cents(landCashCost));
   if (issues.length > 0) return failed(inputSnapshot, issues);
 
-  const loanFeeCents = percentOf(
-    monthlyCashFlow.reduce((sum, month) => sum + cents(month.projectCosts), 0),
-    plan.targetDebtSharePercent * plan.loanFeePercent / 100,
-  );
+  const maxLoanCents = maxLoan === null ? null : cents(maxLoan);
+  const projectCostCents = monthlyCashFlow.reduce((sum, month) => sum + cents(month.projectCosts), 0);
+  const committedLoanCents = percentOf(projectCostCents, plan.targetDebtSharePercent);
+  // With a ceiling below the LTC commitment the fee is on the capped loan; otherwise the original single-rounding formula.
+  const loanFeeCents = maxLoanCents !== null && maxLoanCents < committedLoanCents
+    ? percentOf(maxLoanCents, plan.loanFeePercent)
+    : percentOf(projectCostCents, plan.targetDebtSharePercent * plan.loanFeePercent / 100);
   const schedule = scheduleOtherSources(plan.otherSources ?? [], monthlyCashFlow.map(({ month }) => month));
-  const solution = solveEquityCommitment(monthlyCashFlow, plan, loanFeeCents, schedule);
+  const solution = solveEquityCommitment(monthlyCashFlow, plan, loanFeeCents, schedule, maxLoanCents);
   if (solution.kind === "negative") {
     return failed(inputSnapshot, [{
       path: "otherSources",
@@ -407,7 +419,7 @@ export function fundMonthlyDevelopmentCashFlow(
   const otherSources = otherSourceResults(schedule, calculated.sourceAppliedCents);
   const creditedLand = creditedLandResult(plan.creditedLand, cents(landCashCost));
   const sourcesAndUses = sourcesAndUsesFor(totals, otherSources, creditedLand);
-  const reconciliations = reconciliationsFor(calculated.months, totals, plan, sourcesAndUses, otherSources);
+  const reconciliations = reconciliationsFor(calculated.months, totals, plan, sourcesAndUses, otherSources, maxLoanCents);
   if (!numbersAreSafe(calculated.months, totals) || reconciliations.some(({ status }) => status === "fail")) {
     return failed(inputSnapshot, [{
       path: "capital",
@@ -422,7 +434,8 @@ export function fundMonthlyDevelopmentCashFlow(
     creditedLand,
     sourcesAndUses,
     totals,
-    formulaTraces: formulaTraces(plan),
+    ...(maxLoanCents === null ? {} : { debtCeiling: dollars(maxLoanCents) }),
+    formulaTraces: formulaTraces(plan, maxLoanCents !== null),
     reconciliations,
   };
   return {
@@ -596,7 +609,11 @@ function solveEquityCommitment(
   plan: DevelopmentCapitalPlan,
   loanFeeCents: number,
   schedule: OtherSourceScheduleCents[],
+  maxLoanCents: number | null,
 ): EquitySolution {
+  const targetDebtCents = (usesCents: number) => maxLoanCents === null
+    ? percentOf(usesCents, plan.targetDebtSharePercent)
+    : Math.min(percentOf(usesCents, plan.targetDebtSharePercent), maxLoanCents);
   const otherTotalCents = schedule.reduce(
     (sum, entry) => sum + entry.months.reduce((total, month) => total + month.drawCents, 0),
     0,
@@ -605,14 +622,14 @@ function solveEquityCommitment(
     (sum, month) => sum + cents(month.projectCosts) + Math.max(-cents(month.operatingCashFlow), 0),
     loanFeeCents,
   );
-  let equityCents = Math.max(baseCents - percentOf(baseCents, plan.targetDebtSharePercent) - otherTotalCents, 0);
+  let equityCents = Math.max(baseCents - targetDebtCents(baseCents) - otherTotalCents, 0);
   const seen = new Set<number>();
   for (let iteration = 0; iteration < 200; iteration += 1) {
     if (seen.has(equityCents)) return { kind: "unsettled" };
     seen.add(equityCents);
     const simulation = simulate(months, plan, loanFeeCents, equityCents, schedule);
     const totalUsesCents = simulation.months.reduce((sum, month) => sum + cents(month.totalUses), 0);
-    const nextEquityCents = totalUsesCents - percentOf(totalUsesCents, plan.targetDebtSharePercent) - otherTotalCents;
+    const nextEquityCents = totalUsesCents - targetDebtCents(totalUsesCents) - otherTotalCents;
     if (nextEquityCents < -1) {
       if (equityCents === 0) return { kind: "negative" };
       equityCents = 0;
@@ -879,6 +896,7 @@ function reconciliationsFor(
   plan: DevelopmentCapitalPlan,
   summary: SourcesAndUses,
   otherSources: OtherSourceResult[],
+  maxLoanCents: number | null = null,
 ) {
   const checks = months.flatMap((month) => [
     check(`sources-uses:${month.month}`, `${month.month} sources equal uses`, month.totalUses, month.totalSources),
@@ -947,17 +965,20 @@ function reconciliationsFor(
       totals.totalDebt,
       money(totals.debtBeforeReserves, totals.interestReserve, totals.operatingShortfallReserve),
     ),
-    check(
-      "target-debt-share",
-      "Total debt equals the target share of total uses",
-      dollars(percentOf(cents(totals.totalUses), plan.targetDebtSharePercent)),
-      totals.totalDebt,
-    ),
+    maxLoanCents !== null && maxLoanCents < percentOf(cents(totals.totalUses), plan.targetDebtSharePercent)
+      ? check("debt-ceiling", "Total debt equals the lender's NOI cap, which is below the target share of total uses", dollars(maxLoanCents), totals.totalDebt)
+      : check(
+        "target-debt-share",
+        "Total debt equals the target share of total uses",
+        dollars(percentOf(cents(totals.totalUses), plan.targetDebtSharePercent)),
+        totals.totalDebt,
+      ),
     check("debt-paid-off", "Closing construction debt equals zero after the payoff month", 0, months.at(-1)?.closingDebtBalance ?? 0),
   ];
 }
 
-function formulaTraces(plan: DevelopmentCapitalPlan): CapitalFormulaTrace[] {
+function formulaTraces(plan: DevelopmentCapitalPlan, hasDebtCeiling = false): CapitalFormulaTrace[] {
+  const ceiling = hasDebtCeiling ? ", or until debt reaches the lender's smallest NOI cap if that is lower" : "";
   const ratePath = plan.ratePath !== undefined ? ["ratePath"] : [];
   const otherSources = plan.otherSources !== undefined ? ["otherSources"] : [];
   const creditedLand = plan.creditedLand !== undefined ? ["creditedLand"] : [];
@@ -983,14 +1004,14 @@ function formulaTraces(plan: DevelopmentCapitalPlan): CapitalFormulaTrace[] {
     { key: "projectCosts", label: "Project Costs", formula: "the displayed monthly cost schedule carried into the capital schedule", inputPaths: ["analysisStartMonth", "saleMonth", "costLines"] },
     { key: "operatingCashFlow", label: "Operating Cash Flow", formula: "the displayed monthly apartment operating cash flow carried into the capital schedule", inputPaths: [...operatingCashFlowInputs] },
     { key: "operatingShortfall", label: "Operating Shortfall", formula: "the amount by which monthly operating cash flow is below zero", inputPaths: [...operatingCashFlowInputs] },
-    { key: "equity", label: "Equity", formula: "grants and soft loans fund monthly uses first, then equity funds uses until the target debt share of total uses is reached; equity is total uses less target debt less grants and soft loans", inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
+    { key: "equity", label: "Equity", formula: `grants and soft loans fund monthly uses first, then equity funds uses until the target debt share of total uses is reached${ceiling}; equity is total uses less target debt less grants and soft loans`, inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
     { key: "debtBeforeReserves", label: "Debt Before Reserves", formula: "project costs and loan fees not funded by equity", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth", "fundingOrder"] },
     { key: "grossInterest", label: "Gross Interest", formula: "opening monthly debt balance times the month's annual rate divided by twelve; the rate is the fixed annual rate, or with a rate path the month's base rate plus the spread, using the first base rate before the curve starts and the last base rate after it ends", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention"] },
     { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", formula: "the lesser of positive monthly operating cash flow or gross interest", inputPaths: ["interestTreatment", ...operatingCashFlowInputs] },
     { key: "capitalizedInterest", label: "Capitalized Interest", formula: "gross monthly interest less positive operating cash applied to interest", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention", "interestTreatment", ...operatingCashFlowInputs] },
     { key: "interestReserve", label: "Interest Reserve", formula: "gross interest less positive operating cash applied to interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestTreatment", "fundingOrder"] },
     { key: "operatingShortfallReserve", label: "Operating Shortfall Reserve", formula: "negative operating cash flow funded after equity under the equity-first rule and kept separate from project costs", inputPaths: ["fundingOrder", ...operatingCashFlowInputs] },
-    { key: "loanFees", label: "Loan Fees", formula: "project costs times target debt share times loan fee percent in the entered fee month", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth"] },
+    { key: "loanFees", label: "Loan Fees", formula: `project costs times target debt share times loan fee percent in the entered fee month${hasDebtCeiling ? ", on the lender's NOI cap in place of that commitment when the cap is lower" : ""}`, inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth"] },
     { key: "totalDebt", label: "Total Debt", formula: "debt before reserves plus interest reserve and operating shortfall reserve draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", "annualInterestRatePercent", ...ratePath, "loanFeePercent", "costLines", ...operatingCashFlowInputs] },
     { key: "totalSources", label: "Total Sources", formula: "grant and soft loan cash applied to uses, plus equity contributions, plus all debt draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
     { key: "totalUses", label: "Total Uses", formula: "project costs plus loan fees, operating shortfalls, and capitalized interest", inputPaths: ["costLines", "loanFeePercent", "annualInterestRatePercent", ...ratePath, ...operatingCashFlowInputs] },

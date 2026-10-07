@@ -58,8 +58,8 @@ test("changes each map layer from a pressed On pill to an Off pill", async ({pag
   await page.goto("/vision");
 
   const discoveries = page.getByRole("button", {name:/^Discoveries \d+/});
-  const approximate = page.getByRole("button", {name:/^Approximate areas \d+/});
-  const tracked = page.getByRole("button", {name:/^Tracked opportunities \d+/});
+  const approximate = page.getByRole("button", {name:/^Approximate Areas \d+/});
+  const tracked = page.getByRole("button", {name:/^Tracked Opportunities \d+/});
   const discoveryPins = page.locator(".vision-map-canvas .vision-discovery-pin");
   const approximatePins = page.locator(".vision-map-canvas .vision-approximate-pin");
   const trackedPins = page.locator(".vision-map-canvas .vision-map-pin");

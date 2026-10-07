@@ -86,7 +86,7 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   await expect(page.locator("#cost-line-0-name")).toHaveValue("Land");
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
   await page.getByRole("link", { name: "Current revision" }).click();
-  await expect(page.getByText("Saved results and formulas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
   await expect(page.getByText("Aggregate Result")).toBeVisible();
   await expect(page.getByText("Missing").first()).toBeVisible();
 

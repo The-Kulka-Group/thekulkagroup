@@ -64,6 +64,8 @@ test("redirects, signs in to a safe return path, and signs out", async ({ page, 
   const signInResponse = await signInResponsePromise;
   expectPrivateAuthHeaders(signInResponse.headers());
   await expect(page).toHaveURL(/\/underwriting$/);
+  // The rail rests collapsed (LA-1330); the account footer shows once it opens.
+  await page.locator("#rail-nav").hover();
   await expect(page.getByText("browser-test@kulka.invalid")).toBeVisible();
 
   const signOutResponsePromise = page.waitForResponse((response) =>

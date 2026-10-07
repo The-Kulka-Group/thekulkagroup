@@ -1,5 +1,6 @@
 import {
   computeMonthlyCostSchedule,
+  type CostScheduleOptions,
   type MonthlyCostIssueCode,
   type MonthlyCostScheduleInputs,
   type MonthlyCostScheduleResult,
@@ -283,9 +284,9 @@ const OTHER_INCOME_UNITS = ["usd_per_year", "usd_per_occupied_unit_month"];
 const OPERATING_EXPENSE_UNITS = ["usd_per_year", "usd_per_unit_year", "percent_effective_gross_revenue"];
 const CAPITAL_EXPENDITURE_UNITS = ["usd_per_year", "usd_per_unit_year"];
 
-export function computeApartmentOperations(input: ApartmentOperationsInputs): ApartmentOperationsRun {
+export function computeApartmentOperations(input: ApartmentOperationsInputs, options: CostScheduleOptions = {}): ApartmentOperationsRun {
   const inputSnapshot = structuredClone(input);
-  const costRun = computeMonthlyCostSchedule(inputSnapshot);
+  const costRun = computeMonthlyCostSchedule(inputSnapshot, options);
   const issues = validate(inputSnapshot);
   if (inputSnapshot.propertyTax !== undefined) {
     issues.push(...validatePropertyTaxPlan(inputSnapshot.propertyTax, {

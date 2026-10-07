@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar, List,
+  House, Target, Users, FileText, Calculator, ChartLineUp, Binoculars, ChartBar, List, MapTrifold,
   MagnifyingGlass, SidebarSimple,
 } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
@@ -36,6 +36,11 @@ const NAV_GROUPS = [
   {
     label: "Development",
     items: [{ href: "/underwriting", label: "Underwriting", count: undefined, Icon: ChartLineUp }],
+  },
+  {
+    // LA-1840: what has been built, planned and is waiting, for Matt and Kulka.
+    label: "Kulka AI",
+    items: [{ href: "/roadmap", label: "Roadmap", count: undefined, Icon: MapTrifold }],
   },
 ];
 

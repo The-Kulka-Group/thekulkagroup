@@ -236,7 +236,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                   </td>
                   <td>
                     <input id={`milestone-${index}-month`} className="input" type="month" min={`${MIN_MODEL_YEAR}-01`} max={`${MAX_MODEL_YEAR}-12`}
-                      aria-label={`${milestone.name || `Milestone ${index + 1}`} month`} value={milestone.month}
+                      aria-label={`${milestone.name || `Milestone ${index + 1}`} milestone month`} value={milestone.month}
                       aria-invalid={Boolean(monthError)} aria-describedby={monthError ? `milestone-${index}-month-error` : undefined}
                       onChange={(event) => updateMilestone(index, { month: event.target.value })} />
                     <FieldError id={`milestone-${index}-month-error`} error={monthError} />

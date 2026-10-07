@@ -114,6 +114,14 @@ describe("milestone anchors on cost lines", () => {
     expect(result!.anchors).toContainEqual(expect.objectContaining({ path: "costLines.1.endMonth", milestoneName: "Construction Complete", month: "2027-02" }));
   });
 
+  it("says a zero offset sits at the milestone, without repeating its month", () => {
+    const { result } = schedule(anchored);
+    const hard = result!.costLineSchedules.find(({ lineId }) => lineId === "hard")!;
+    expect(hard.formulaTrace).toContain("Starts at Construction Start (2026-03). Ends at Construction Complete (2027-02).");
+    expect(hard.formulaTrace).not.toContain("which is 2026-03");
+    expect(result!.anchors).toContainEqual(expect.objectContaining({ path: "saleMonth", trace: "Sale month is Sale (2027-12)." }));
+  });
+
   it("moves every anchored line when one milestone moves", () => {
     const moved = structuredClone(anchored);
     moved.milestones![1].month = "2026-06";
@@ -358,6 +366,13 @@ describe("milestone anchors on operation start, growth start and sale", () => {
       expect.objectContaining({ path: "growthStartMonth", month: "2026-06", offsetMonths: 5 }),
     ]);
     expect(run.result!.anchors![0].trace).toContain("Operation start month is 2 months after");
+    const atMilestone = structuredClone(input);
+    atMilestone.operationStartAnchor = { milestoneId: operationMilestone.id, offsetMonths: 0 };
+    atMilestone.growthStartAnchor = { milestoneId: growthMilestone.id, offsetMonths: 0 };
+    expect(computeApartmentOperations(atMilestone).result!.anchors!.map(({ trace }) => trace)).toEqual([
+      `Operation start month is ${operationMilestone.name} (${operationMilestone.month}).`,
+      `Growth start month is ${growthMilestone.name} (${growthMilestone.month}).`,
+    ]);
     operationMilestone.month = "2026-02";
     expect(computeApartmentOperations(input).inputSnapshot.operationStartMonth).toBe("2026-04");
   });

@@ -56,8 +56,8 @@ test("saves, runs, reloads, and reopens monthly apartment operations", async ({ 
   await expect(page.getByLabel("Line source label", { exact: true })).toHaveAttribute("aria-invalid", "false");
   await expect(page.getByLabel("Line source date", { exact: true })).toHaveAttribute("id", "apartment-operations-residentialUnitTypes-0-sourceDate");
   await expect(page.getByLabel("Line review state", { exact: true })).toHaveAttribute("id", "apartment-operations-residentialUnitTypes-0-reviewState");
-  await expect(page.getByRole("spinbutton", { name: "Rent adjustment loss %", exact: true })).toHaveValue("0");
-  await expect(page.getByRole("spinbutton", { name: "Free rent %", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Rent Adjustment Loss %", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Free Rent %", exact: true })).toHaveValue("0");
   await expect(page.getByLabel("Unit type 1 non-revenue units", { exact: true })).toHaveValue("0");
 
   await page.locator("#apartment-operations-operationStartMonth").fill("2026-02");
@@ -98,17 +98,17 @@ test("saves, runs, reloads, and reopens monthly apartment operations", async ({ 
   await expect(page.getByText("First Stabilized Month", { exact: true }).first()).toBeVisible();
 
   await page.reload();
-  await expect(page.getByLabel("Operation start month", { exact: true })).toHaveValue("2026-02");
+  await expect(page.getByLabel("Operation Start Month", { exact: true })).toHaveValue("2026-02");
   await expect(page.getByLabel("One Bedroom units", { exact: true })).toHaveValue("10");
-  await expect(page.getByRole("spinbutton", { name: "Rent adjustment loss %", exact: true })).toHaveValue("0");
-  await expect(page.getByRole("spinbutton", { name: "Free rent %", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Rent Adjustment Loss %", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("spinbutton", { name: "Free Rent %", exact: true })).toHaveValue("0");
   await expect(page.getByLabel("One Bedroom non-revenue units", { exact: true })).toHaveValue("0");
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
   await expect(page.getByText("One Bedroom needs a source label.")).toBeVisible();
 
   await page.getByRole("link", { name: "Current revision" }).click();
-  await expect(page.getByText("Saved results and formulas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
   await expect(page.getByText("Total Potential Income", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Saved evidence snapshot" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved Evidence Snapshot" })).toBeVisible();
   await expect(page.getByText("Missing").first()).toBeVisible();
 });

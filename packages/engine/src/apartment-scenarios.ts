@@ -288,7 +288,14 @@ function applyDelta(base: PropertyReturnsInputs, delta: ApartmentScenarioDelta) 
     // With growth by category, the scenario rate replaces every income category's yearly rates.
     if (input.categoryGrowth) {
       const rates = [delta.annualIncomeGrowthPercent];
-      input.categoryGrowth = { ...input.categoryGrowth, marketRentPercent: rates, affordableRentPercent: rates, otherIncomePercent: rates };
+      // A block with its own commercial rent list takes the scenario rate too. One without follows market rent, which the scenario sets.
+      input.categoryGrowth = {
+        ...input.categoryGrowth,
+        marketRentPercent: rates,
+        affordableRentPercent: rates,
+        otherIncomePercent: rates,
+        ...(input.categoryGrowth.commercialRentPercent ? { commercialRentPercent: rates } : {}),
+      };
     }
   }
   if (delta.terminalCapRatePercent !== undefined) input.terminalCapRatePercent = delta.terminalCapRatePercent;

@@ -64,7 +64,20 @@ export type PercentOfTotalBase = (typeof PERCENT_OF_TOTAL_BASES)[number];
  * shortfall. Only the capital plan knows it, so it passes it in while it solves; it is never a
  * user input and never enters the input snapshot.
  */
-export type CostScheduleOptions = { financingCost?: number };
+export type CostScheduleOptions = {
+  financingCost?: number;
+  /**
+   * Cost lines another module derives, such as commercial tenant improvements. They run through the
+   * same schedule and checks as entered lines, but they are never saved: the run's input snapshot
+   * keeps only the entered lines, and each derived line says where it came from.
+   */
+  derivedLines?: DerivedCostLine[];
+};
+
+/** A cost line a module derives on every run. Its trace and input paths replace the "entered amount" wording. */
+export type DerivedCostLine = MonthlyCostLine & {
+  derivation: { trace: string; inputPaths: string[] };
+};
 
 export type CostLineBasisType = (typeof COST_LINE_BASIS_TYPES)[number];
 
@@ -211,17 +224,25 @@ const CATEGORIES: CostCategory[] = [
 ];
 
 export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs, options: CostScheduleOptions = {}): MonthlyCostScheduleRun {
-  const inputSnapshot = structuredClone(input);
-  const anchors = resolveMilestoneAnchors(inputSnapshot);
-  if (anchors.issues.length > 0) return failed(inputSnapshot, anchors.issues);
+  const reported = structuredClone(input);
+  const anchors = resolveMilestoneAnchors(reported);
+  if (anchors.issues.length > 0) return failed(reported, anchors.issues);
+  /*
+   * Derived lines join the lines the schedule works on, after the entered lines so every entered
+   * line keeps its index. The snapshot a run reports holds the entered lines alone.
+   */
+  const derivedLines = options.derivedLines ?? [];
+  const inputSnapshot: MonthlyCostScheduleInputs = derivedLines.length === 0
+    ? reported
+    : { ...reported, costLines: [...(Array.isArray(reported.costLines) ? reported.costLines : []), ...structuredClone(derivedLines)] };
   const issues = validate(inputSnapshot);
-  if (issues.length > 0) return failed(inputSnapshot, issues);
+  if (issues.length > 0) return failed(reported, issues);
 
   const financingCents = Math.round((options.financingCost ?? 0) * 100);
   const spine = monthSpine(inputSnapshot.analysisStartMonth, inputSnapshot.saleMonth);
   const amountsInCents = resolveAmountsInCents(inputSnapshot, financingCents);
   if (!amountsInCents) {
-    return failed(inputSnapshot, [{
+    return failed(reported, [{
       path: "costLines",
       code: "percent_total_unsettled",
       message: `The percent-of-total lines did not settle to a cent within ${MAX_PERCENT_OF_TOTAL_ITERATIONS} rounds. Check percent-of-line lines that point at them.`,
@@ -238,7 +259,7 @@ export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs, opt
   ));
   const result = resultFor(spine, inputSnapshot, schedules, anchors.resolutions);
   if (!result || !Number.isSafeInteger(Math.round(result.totalUses * 100))) {
-    return failed(inputSnapshot, [{
+    return failed(reported, [{
       path: "costLines",
       code: "derived_results",
       message: "The monthly cost result is outside the supported numeric range.",
@@ -247,7 +268,7 @@ export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs, opt
 
   const reconciliations = reconciliationChecks(inputSnapshot.costLines, amountsInCents, schedules, result, financingCents);
   if (reconciliations.some(({ status }) => status === "fail")) {
-    return failed(inputSnapshot, [{
+    return failed(reported, [{
       path: "costLines",
       code: "derived_results",
       message: "The monthly cost schedule did not reconcile to its source amounts.",
@@ -256,7 +277,7 @@ export function computeMonthlyCostSchedule(input: MonthlyCostScheduleInputs, opt
 
   return {
     formulaVersion: MONTHLY_COST_FORMULA_VERSION,
-    inputSnapshot,
+    inputSnapshot: reported,
     status: "complete",
     issues: [],
     result,
@@ -538,6 +559,8 @@ function basisTrace(line: MonthlyCostLine, input: MonthlyCostScheduleInputs, fin
 }
 
 function basisInputPaths(line: MonthlyCostLine, index: number, input: MonthlyCostScheduleInputs): string[] {
+  const derivedFrom = (line as Partial<DerivedCostLine>).derivation;
+  if (derivedFrom) return derivedFrom.inputPaths;
   if (!isDerived(line)) return [`costLines.${index}.amount`];
   const { basis } = line;
   if (basis.type === "per_gross_square_foot") return [`costLines.${index}.basis`, "quantities.grossSquareFeet"];
@@ -557,7 +580,8 @@ function scheduleLine(
   resolutions: MilestoneResolution[],
 ): CostLineSchedule {
   const months = monthSpine(line.startMonth, line.endMonth);
-  const derivation = basisTrace(line, input, financingCents, percentBase);
+  const derivedFrom = (line as Partial<DerivedCostLine>).derivation;
+  const derivation = derivedFrom ? derivedFrom.trace : basisTrace(line, input, financingCents, percentBase);
   const monthlyCents = cumulativeAllocation(cents, months.length, CURVES[line.distributionMethod]);
   const anchorTraces = resolutions
     .filter(({ path }) => path === `costLines.${index}.startMonth` || path === `costLines.${index}.endMonth`)
@@ -573,7 +597,7 @@ function scheduleLine(
     monthlyAmounts: monthlyCents.map(fromCents),
     total: fromCents(monthlyCents.reduce((sum, amount) => sum + amount, 0)),
     formulaTrace: `${anchorTraces.length > 0 ? `${anchorTraces.join(" ")} ` : ""}${derivation ?? "Entered amount"}${derivation ? " That amount is" : ""} ${CURVE_TRACES[line.distributionMethod]}`,
-    inputPaths: [
+    inputPaths: derivedFrom ? [...derivedFrom.inputPaths] : [
       ...basisInputPaths(line, index, input),
       `costLines.${index}.startMonth`,
       `costLines.${index}.endMonth`,
@@ -684,7 +708,7 @@ function aggregateFormulaTraces(
     value: totalsByCategory[category],
     formulaTrace: "Sum all monthly amounts for cost lines in this category.",
     inputPaths: lines.flatMap((line, index) => line.category === category
-      ? [`costLines.${index}.category`, ...basisInputPaths(line, index, input)]
+      ? [...((line as Partial<DerivedCostLine>).derivation ? [] : [`costLines.${index}.category`]), ...basisInputPaths(line, index, input)]
       : []),
   }));
   return [
@@ -719,7 +743,7 @@ function reconciliationChecks(
 ) {
   const checks = lines.map((line, index) => check(
     `cost-line:${line.id}`,
-    `${line.name} monthly distribution equals its ${isDerived(line) ? "derived" : "entered"} amount`,
+    `${line.name} monthly distribution equals its ${isDerived(line) || (line as Partial<DerivedCostLine>).derivation ? "derived" : "entered"} amount`,
     fromCents(amountsInCents[index]),
     schedules[index].total,
   ));

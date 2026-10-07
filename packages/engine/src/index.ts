@@ -226,6 +226,7 @@ export {
   type CostLineSchedule,
   type CostQuantities,
   type CostScheduleOptions,
+  type DerivedCostLine,
   type PercentOfTotalBase,
   type MonthlyCostIssue,
   type MonthlyCostIssueCode,
@@ -308,7 +309,11 @@ export {
   type ApartmentOperationsTotals,
   type CapitalExpenditureLine,
   type CategoryGrowth,
+  type CommercialOperationsResult,
+  type CommercialRecoverySummary,
+  type CommercialSpaceSummary,
   type GrowthCategory,
+  type RequiredGrowthCategory,
   type LeaseTurnover,
   type OccupancyCap,
   type LeaseTurnoverBasis,
@@ -322,6 +327,19 @@ export {
   type SeasonalAbsorption,
   type StabilizationRule,
 } from "./apartment-operations";
+
+export {
+  MAX_COMMERCIAL_AREA_SF,
+  MAX_COMMERCIAL_LEASE_TERM_MONTHS,
+  MAX_COMMERCIAL_RECOVERIES_PER_SPACE,
+  MAX_COMMERCIAL_SPACES,
+  type CommercialIssue,
+  type CommercialIssueCode,
+  type CommercialOperations,
+  type CommercialRecovery,
+  type CommercialRecoveryBasis,
+  type CommercialSpace,
+} from "./commercial-operations";
 
 export {
   AFFORDABILITY_ALLOCATION_RULE,

@@ -203,6 +203,15 @@ describe("underwriting form accessibility contract", () => {
     }
   });
 
+  it("takes growth by category with its own source", async () => {
+    const operations = await source("app/(app)/underwriting/[id]/ApartmentOperationsEditor.tsx");
+    const growth = await source("app/(app)/underwriting/[id]/GrowthSection.tsx");
+    expect(operations).toContain("<GrowthSection");
+    for (const label of ["Add Growth by Category", "Add Year", "Remove Last Year"]) expect(growth).toContain(label);
+    expect(growth).toContain("GROWTH_CATEGORY_LABELS");
+    expect(growth).toContain("maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH}");
+  });
+
   it("takes lender test inputs with their own sources and shows each test with its trace or its issue", async () => {
     const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
     const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");

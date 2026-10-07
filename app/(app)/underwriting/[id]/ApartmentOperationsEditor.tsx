@@ -14,6 +14,7 @@ import {
   type ApartmentOperationsAssumptionEvidence,
   type ApartmentOperationsAssumptionKey,
   type CapitalExpenditureLine,
+  type CategoryGrowth,
   type LeaseTurnover,
   type LeaseUpConcession,
   type OperatingExpenseLine,
@@ -25,6 +26,7 @@ import {
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
+import { GrowthSection } from "./GrowthSection";
 import { LeaseUpSection } from "./LeaseUpSection";
 import { PropertyTaxSection } from "./PropertyTaxSection";
 import { TIER_LABELS } from "./UnitMixByTier";
@@ -54,6 +56,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [seasonalAbsorption, setSeasonalAbsorption] = useState<SeasonalAbsorption | undefined>(saved?.seasonalAbsorption);
   const [stabilizationRule, setStabilizationRule] = useState<StabilizationRule | undefined>(saved?.stabilizationRule);
   const [leaseTurnover, setLeaseTurnover] = useState<LeaseTurnover | undefined>(saved?.leaseTurnover);
+  const [categoryGrowth, setCategoryGrowth] = useState<CategoryGrowth | undefined>(saved?.categoryGrowth);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -103,6 +106,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           ...(seasonalAbsorption ? { seasonalAbsorption } : {}),
           ...(stabilizationRule ? { stabilizationRule } : {}),
           ...(leaseTurnover ? { leaseTurnover } : {}),
+          ...(categoryGrowth ? { categoryGrowth } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -148,6 +152,14 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         <NumberField path="vacancyPercent" label="Vacancy" value={vacancyPercent} onChange={(value) => setVacancyPercent(Number(value))} error={fieldErrors.vacancyPercent} min="0" max="100" step="0.01" suffix="%" />
         <NumberField path="creditLossPercent" label="Credit Loss" value={creditLossPercent} onChange={(value) => setCreditLossPercent(Number(value))} error={fieldErrors.creditLossPercent} min="0" max="100" step="0.01" suffix="%" />
       </div>
+
+      <GrowthSection
+        growth={categoryGrowth}
+        setGrowth={setCategoryGrowth}
+        incomePercent={annualIncomeGrowthPercent}
+        expensePercent={annualExpenseGrowthPercent}
+        fieldErrors={fieldErrors}
+      />
 
       <LeaseUpSection
         concession={leaseUpConcession}

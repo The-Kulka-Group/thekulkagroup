@@ -38,7 +38,13 @@ export type LenderTestPlan = {
   lenderTestEvidence: Record<LenderTestAssumptionKey, LenderTestEvidence>;
 };
 
-export type LenderTestMetricKey = "asStabilizedValue" | "loanToValue" | "loanToCost" | "debtServiceCoverage" | "debtYield";
+export type LenderTestMetricKey =
+  | "asStabilizedValue"
+  | "loanToValue"
+  | "loanToCost"
+  | "loanToCostCreditedLand"
+  | "debtServiceCoverage"
+  | "debtYield";
 
 export type LenderTestMetric = {
   key: LenderTestMetricKey;
@@ -67,7 +73,12 @@ export type LenderTestsResult = {
   noiBasis: LenderTestNoiBasis;
   stabilizedNoi: number;
   loanAmount: number;
+  /** Total uses including carry, with land at cash cost. */
   totalCost: number;
+  /** Credited land value less cash land cost, when the case has credited land (LA-1813). */
+  creditedLandStepUp: number | null;
+  /** Total cost with land at credited value in place of cash cost, when the case has credited land. */
+  totalCostAtCreditedLand: number | null;
   annualDebtService: number;
   metrics: LenderTestMetric[];
   /** Present when the run's tax schedule carries an abatement. */
@@ -127,6 +138,8 @@ export function lenderTestsFor(
   const abatementCents = year.reduce((total, month) => total + cents(month.fullPropertyTax) - cents(month.propertyTax), 0);
   const loanCents = cents(capital.totalDebt);
   const totalCostCents = cents(capital.totalUses);
+  const stepUpCents = capital.creditedLandStepUp == null ? null : cents(capital.creditedLandStepUp);
+  const creditedCostCents = stepUpCents === null ? null : totalCostCents + stepUpCents;
   const debtServiceCents = cents(plan.annualDebtService);
   const basis = NOI_BASIS_LABELS[plan.noiBasis];
   const issues: LenderTestIssue[] = [];
@@ -158,9 +171,17 @@ export function lenderTestsFor(
       label: "Loan to Cost",
       value: totalCostCents > 0 ? loanCents / totalCostCents : null,
       unit: "ratio",
-      formula: "total construction debt divided by total uses including carry",
+      formula: "total construction debt divided by total uses including carry, with land at cash cost",
       inputPaths: [...CAPITAL_PATHS],
     },
+    ...(creditedCostCents === null ? [] : [{
+      key: "loanToCostCreditedLand" as const,
+      label: "Loan to Cost, Land at Credited Value",
+      value: creditedCostCents > 0 ? loanCents / creditedCostCents : null,
+      unit: "ratio" as const,
+      formula: "total construction debt divided by total uses including carry, with land at credited value in place of cash cost",
+      inputPaths: [...CAPITAL_PATHS, "creditedLand"],
+    }]),
     scheduled[2],
     scheduled[3],
   ];
@@ -186,6 +207,8 @@ export function lenderTestsFor(
     stabilizedNoi: dollars(stabilizedNoiCents),
     loanAmount: dollars(loanCents),
     totalCost: dollars(totalCostCents),
+    creditedLandStepUp: stepUpCents === null ? null : dollars(stepUpCents),
+    totalCostAtCreditedLand: creditedCostCents === null ? null : dollars(creditedCostCents),
     annualDebtService: dollars(debtServiceCents),
     metrics,
     fullTax,

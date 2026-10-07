@@ -809,6 +809,8 @@ function reconcileDevelopmentCapitalReview(
   const ratePathChanged = existing !== undefined && JSON.stringify(existing.ratePath) !== JSON.stringify(draft.ratePath);
   return {
     ...draft,
+    ...(draft.otherSources ? { otherSources: reconcileLineReview(existing?.otherSources, draft.otherSources) } : {}),
+    ...(draft.creditedLand ? { creditedLand: reconcileBlockReview(existing?.creditedLand, draft.creditedLand) } : {}),
     capitalAssumptionEvidence: Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
       key,
       existing && (
@@ -880,7 +882,17 @@ function sameLineWithoutReview<T extends { reviewState: "working" | "done" }>(le
   const withoutReview = (line: T) => Object.fromEntries(
     Object.entries(line).filter(([key]) => key !== "reviewState"),
   );
-  return JSON.stringify(withoutReview(left)) === JSON.stringify(withoutReview(right));
+  return stableJson(withoutReview(left)) === stableJson(withoutReview(right));
+}
+
+/** JSON with sorted keys, so a stored object and a submitted one compare equal whatever their key order. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 export async function updateUnderwritingCase(

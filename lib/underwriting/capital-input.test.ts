@@ -9,6 +9,34 @@ const start = fixture.analysisStartMonth;
 const operationsFixtureForCapital = () => fixture;
 const body = (ratePath?: unknown) => ({ ...fixture, ...(ratePath === undefined ? {} : { ratePath }) });
 
+describe("parseDevelopmentCapital other sources", () => {
+  const grant = { id: "grant", name: "State Grant", kind: "grant", draws: [{ month: start, amount: 1_000_000 }], reviewState: "working" };
+  const land = { creditedValue: 10_000_000, countsAsSponsorEquity: true, reviewState: "working" };
+
+  it("drops null sources and credited land", () => {
+    const parsed = parseDevelopmentCapital({ ...fixture, otherSources: null, creditedLand: null }, operationsFixtureForCapital());
+    expect(parsed).not.toHaveProperty("otherSources");
+    expect(parsed).not.toHaveProperty("creditedLand");
+  });
+
+  it("keeps valid sources and credited land", () => {
+    const parsed = parseDevelopmentCapital({ ...fixture, otherSources: [grant], creditedLand: land }, operationsFixtureForCapital());
+    expect(parsed.otherSources).toEqual([grant]);
+    expect(parsed.creditedLand).toEqual(land);
+  });
+
+  it("reports each bad field under its own path", () => {
+    try {
+      parseDevelopmentCapital({ ...fixture, otherSources: [{ ...grant, draws: [{ month: start, amount: 0 }] }], creditedLand: { ...land, creditedValue: 1 } }, operationsFixtureForCapital());
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidDevelopmentCapital);
+      expect((error as InvalidDevelopmentCapital).fieldErrors).toHaveProperty(["otherSources.0.draws.0.amount"]);
+      expect((error as InvalidDevelopmentCapital).fieldErrors).toHaveProperty(["creditedLand.creditedValue"]);
+    }
+  });
+});
+
 describe("parseDevelopmentCapital rate path", () => {
   it("drops a null rate path and keeps the fixed rate", () => {
     expect(parseDevelopmentCapital(body(null), operationsFixtureForCapital())).not.toHaveProperty("ratePath");

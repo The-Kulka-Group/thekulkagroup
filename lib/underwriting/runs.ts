@@ -6,6 +6,8 @@ import {
   APARTMENT_OPERATIONS_V2_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION,
+  DEVELOPMENT_CAPITAL_V2_FORMULA_VERSION,
+  earlierSourcesAndUses,
   PROPERTY_RETURNS_FORMULA_VERSION,
   PROPERTY_RETURNS_V1_FORMULA_VERSION,
   PROPERTY_RETURNS_V2_FORMULA_VERSION,
@@ -239,6 +241,7 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     ? withEarlierOperationsLines(row.result_snapshot as ApartmentOperationsResult)
     : undefined;
   const developmentCapital = (row.formula_version === DEVELOPMENT_CAPITAL_FORMULA_VERSION
+      || row.formula_version === DEVELOPMENT_CAPITAL_V2_FORMULA_VERSION
       || row.formula_version === DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "apartmentOperations" in row.result_snapshot
@@ -363,16 +366,42 @@ function withCapitalRateColumns(
   return { ...result, capital: withRateColumns(result.capital, inputSnapshot) };
 }
 
+/**
+ * v1 and v2 capital runs also predate grants, soft loans and credited land (LA-1813). Read them as
+ * having none, with a sources and uses summary built from their saved totals.
+ */
 function withRateColumns(capital: DevelopmentCapitalResult, inputSnapshot: unknown): DevelopmentCapitalResult {
   const fixedRate = (inputSnapshot as { annualInterestRatePercent?: number } | null)?.annualInterestRatePercent ?? 0;
   return {
     ...capital,
     rateSchedule: capital.rateSchedule ?? null,
+    otherSources: capital.otherSources ?? [],
+    creditedLand: capital.creditedLand ?? null,
+    sourcesAndUses: capital.sourcesAndUses ?? earlierSourcesAndUses(capital.totals),
+    totals: {
+      ...capital.totals,
+      grants: capital.totals.grants ?? 0,
+      softLoans: capital.totals.softLoans ?? 0,
+      otherSourcesApplied: capital.totals.otherSourcesApplied ?? 0,
+      softLoanInterest: capital.totals.softLoanInterest ?? 0,
+      softLoanRepayment: capital.totals.softLoanRepayment ?? 0,
+      landCashCost: capital.totals.landCashCost ?? 0,
+      creditedLandStepUp: capital.totals.creditedLandStepUp ?? null,
+      creditedLandEquity: capital.totals.creditedLandEquity ?? 0,
+      sponsorEquity: capital.totals.sponsorEquity ?? capital.totals.equity,
+    },
     months: capital.months.map((month) => ({
       ...month,
       annualRatePercent: month.annualRatePercent ?? fixedRate,
       baseRatePercent: month.baseRatePercent ?? null,
       rateSource: month.rateSource ?? "fixed",
+      grantDraw: month.grantDraw ?? 0,
+      softLoanDraw: month.softLoanDraw ?? 0,
+      otherSourcesApplied: month.otherSourcesApplied ?? 0,
+      otherSourcesCashBalance: month.otherSourcesCashBalance ?? 0,
+      softLoanInterest: month.softLoanInterest ?? 0,
+      softLoanRepayment: month.softLoanRepayment ?? 0,
+      softLoanBalance: month.softLoanBalance ?? 0,
     })),
   };
 }

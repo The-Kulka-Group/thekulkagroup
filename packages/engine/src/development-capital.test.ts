@@ -353,7 +353,7 @@ describe("dated rate path", () => {
     ]));
   });
 
-  it("stamps the v2 formula version", () => {
-    expect(run(curve([["2026-01", 4]])).formulaVersion).toBe("underwriting.development_capital.v2");
+  it("stamps the v3 formula version", () => {
+    expect(run(curve([["2026-01", 4]])).formulaVersion).toBe("underwriting.development_capital.v3");
   });
 });

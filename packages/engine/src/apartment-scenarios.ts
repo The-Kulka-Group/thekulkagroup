@@ -73,7 +73,7 @@ export type ScenarioChangedInput = {
   scenarioValue: number | string;
 };
 
-const LENDER_TEST_METRIC_KEYS: LenderTestMetricKey[] = ["asStabilizedValue", "loanToValue", "loanToCost", "debtServiceCoverage", "debtYield"];
+const LENDER_TEST_METRIC_KEYS: LenderTestMetricKey[] = ["asStabilizedValue", "loanToValue", "loanToCost", "loanToCostCreditedLand", "debtServiceCoverage", "debtYield"];
 
 export type ScenarioLenderMetrics = {
   scheduledTax: Record<LenderTestMetricKey, number | null>;

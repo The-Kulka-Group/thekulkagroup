@@ -280,7 +280,14 @@ function validateDelta(issues: ApartmentScenarioIssue[], scenario: ApartmentScen
 function applyDelta(base: PropertyReturnsInputs, delta: ApartmentScenarioDelta) {
   const input = structuredClone(base);
   if (delta.vacancyPercent !== undefined) input.vacancyPercent = delta.vacancyPercent;
-  if (delta.annualIncomeGrowthPercent !== undefined) input.annualIncomeGrowthPercent = delta.annualIncomeGrowthPercent;
+  if (delta.annualIncomeGrowthPercent !== undefined) {
+    input.annualIncomeGrowthPercent = delta.annualIncomeGrowthPercent;
+    // With growth by category, the scenario rate replaces every income category's yearly rates.
+    if (input.categoryGrowth) {
+      const rates = [delta.annualIncomeGrowthPercent];
+      input.categoryGrowth = { ...input.categoryGrowth, marketRentPercent: rates, affordableRentPercent: rates, otherIncomePercent: rates };
+    }
+  }
   if (delta.terminalCapRatePercent !== undefined) input.terminalCapRatePercent = delta.terminalCapRatePercent;
   if (delta.growthStartMonthShiftMonths !== undefined) input.growthStartMonth = addMonths(base.growthStartMonth, delta.growthStartMonthShiftMonths);
   return input;
@@ -290,6 +297,7 @@ function changedInputs(base: PropertyReturnsInputs, input: PropertyReturnsInputs
   return APARTMENT_SCENARIO_CHANGE_KEYS.flatMap((key): ScenarioChangedInput[] => {
     if (delta[key] === undefined) return [];
     if (key === "growthStartMonthShiftMonths") return [{ key, label: "Growth Start Month", unit: "month", baseValue: base.growthStartMonth, scenarioValue: input.growthStartMonth }];
+    if (key === "annualIncomeGrowthPercent" && base.categoryGrowth) return [{ key, label: labelFor(key), unit: "percent", baseValue: "By Category", scenarioValue: input[key] }];
     return [{ key, label: labelFor(key), unit: "percent", baseValue: base[key], scenarioValue: input[key] }];
   });
 }

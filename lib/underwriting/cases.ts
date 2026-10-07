@@ -931,10 +931,11 @@ function reconcileOperationsReview(
     ...(draft.seasonalAbsorption ? { seasonalAbsorption: reconcileBlockReview(existing?.seasonalAbsorption, draft.seasonalAbsorption) } : {}),
     ...(draft.stabilizationRule ? { stabilizationRule: reconcileBlockReview(existing?.stabilizationRule, draft.stabilizationRule) } : {}),
     ...(draft.leaseTurnover ? { leaseTurnover: reconcileBlockReview(existing?.leaseTurnover, draft.leaseTurnover) } : {}),
+    ...(draft.categoryGrowth ? { categoryGrowth: reconcileBlockReview(existing?.categoryGrowth, draft.categoryGrowth) } : {}),
   };
 }
 
-/** A lease-up block whose values or source change goes back to Working on It. */
+/** An optional block whose values or source change goes back to Working on It. */
 function reconcileBlockReview<T extends { reviewState: "working" | "done" }>(existing: T | undefined, draft: T): T {
   if (!existing || sameLineWithoutReview(existing, draft)) return draft;
   return { ...draft, reviewState: "working" };

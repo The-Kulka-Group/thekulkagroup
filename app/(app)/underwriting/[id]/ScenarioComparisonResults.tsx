@@ -58,4 +58,4 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
 }
 
 function title(value: string) { return `${value[0].toUpperCase()}${value.slice(1)}`; }
-function formatInput(value: number | string, unit: "percent" | "month") { return unit === "month" ? String(value) : `${NUMBER.format(Number(value))}%`; }
+function formatInput(value: number | string, unit: "percent" | "month") { return unit === "month" || typeof value === "string" ? String(value) : `${NUMBER.format(value)}%`; }

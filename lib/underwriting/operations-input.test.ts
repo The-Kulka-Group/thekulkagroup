@@ -163,3 +163,34 @@ describe("parseApartmentOperations with lease-up inputs", () => {
     }
   });
 });
+
+describe("parseApartmentOperations with growth by category", () => {
+  const categoryGrowth = {
+    marketRentPercent: [3, 4],
+    affordableRentPercent: [2],
+    otherIncomePercent: [3],
+    operatingExpensePercent: [3, 3, 2.5],
+    sourceLabel: "Growth memo",
+    sourceDate: "2026-10-01",
+    reviewState: "working" as const,
+  };
+
+  it("keeps the block and drops fields the engine does not know", () => {
+    const draft = parseApartmentOperations({ ...operations, categoryGrowth: { ...categoryGrowth, propertyTaxPercent: [2] } }, costSchedule);
+    expect(draft.categoryGrowth).toEqual(categoryGrowth);
+  });
+
+  it("leaves it out when the case has none", () => {
+    expect(parseApartmentOperations(operations, costSchedule)).not.toHaveProperty("categoryGrowth");
+  });
+
+  it("reports a bad year's rate against its field", () => {
+    try {
+      parseApartmentOperations({ ...operations, categoryGrowth: { ...categoryGrowth, marketRentPercent: [3, 140] } }, costSchedule);
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidApartmentOperations);
+      expect((error as InvalidApartmentOperations).fieldErrors).toHaveProperty(["categoryGrowth.marketRentPercent.1"]);
+    }
+  });
+});

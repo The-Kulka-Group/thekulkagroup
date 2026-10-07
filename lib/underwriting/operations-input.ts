@@ -1,4 +1,5 @@
 import {
+  GROWTH_CATEGORIES,
   PROPERTY_TAX_ASSUMPTION_KEYS,
   computeApartmentOperations,
   type ApartmentOperationsInputs,
@@ -24,7 +25,7 @@ function knownEvidenceFields(item: Record<string, unknown>) {
   return { sourceLabel, sourceDate, reviewState };
 }
 
-/** Keeps only the fields a lease-up block defines, so stray keys never reach the stored case. */
+/** Keeps only the fields an optional block defines, so stray keys never reach the stored case. */
 function knownLeaseUpFields(value: unknown, fields: string[]) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const block = value as Record<string, unknown>;
@@ -106,6 +107,9 @@ export function parseApartmentOperations(
     ...(candidate.leaseTurnover === undefined ? {} : {
       leaseTurnover: knownLeaseUpFields(candidate.leaseTurnover, ["turnoverPercent", "leaseTermMonths", "vacantMonths", "basis"]),
     }),
+    ...(candidate.categoryGrowth === undefined ? {} : {
+      categoryGrowth: knownLeaseUpFields(candidate.categoryGrowth, [...GROWTH_CATEGORIES]),
+    }),
   } as ApartmentOperationsInputs);
   if (checked.status === "failed") {
     const issues = checked.issues.filter((item) => !item.path.startsWith("costLines")
@@ -138,5 +142,6 @@ export function parseApartmentOperations(
     ...(checked.inputSnapshot.seasonalAbsorption ? { seasonalAbsorption: checked.inputSnapshot.seasonalAbsorption } : {}),
     ...(checked.inputSnapshot.stabilizationRule ? { stabilizationRule: checked.inputSnapshot.stabilizationRule } : {}),
     ...(checked.inputSnapshot.leaseTurnover ? { leaseTurnover: checked.inputSnapshot.leaseTurnover } : {}),
+    ...(checked.inputSnapshot.categoryGrowth ? { categoryGrowth: checked.inputSnapshot.categoryGrowth } : {}),
   };
 }

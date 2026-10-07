@@ -239,4 +239,11 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("Saved Scenario Evidence");
     expect(runPage).toContain("scenario.lastChangedAt");
   });
+
+  it("shows lender test values beside returns in the scenario comparison table", async () => {
+    const table = await source("app/(app)/underwriting/[id]/ScenarioComparisonResults.tsx");
+    for (const text of ["Loan to Value", "Debt Service Coverage", "Debt Yield", "metrics.lender", "Not Reported"]) {
+      expect(table).toContain(text);
+    }
+  });
 });

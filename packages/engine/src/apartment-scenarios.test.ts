@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartment-development-model-v2.98-returns";
+import { LENDER_TESTS_INPUT_VERSION, type LenderTestPlan } from "./lender-tests";
 import {
   APARTMENT_SCENARIO_FORMULA_VERSION,
   MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH,
@@ -12,6 +13,21 @@ const scenarios: ApartmentScenarioDefinition[] = [
   scenario("higher-vacancy", "downside", "Higher Vacancy", { vacancyPercent: 8 }),
   scenario("lower-exit-cap", "upside", "Lower Terminal Cap", { terminalCapRatePercent: 5 }),
 ];
+
+const lenderEvidence = { sourceLabel: "Lender term sheet", sourceDate: "2026-10-05", reviewState: "working" as const };
+const lenderPlan: LenderTestPlan = {
+  lenderTestInputVersion: LENDER_TESTS_INPUT_VERSION,
+  valuationMonth: "2027-09",
+  asStabilizedCapRatePercent: 5.5,
+  annualDebtService: 3_000_000,
+  noiBasis: "noi_before_reserves",
+  lenderTestEvidence: {
+    valuationMonth: lenderEvidence,
+    asStabilizedCapRatePercent: lenderEvidence,
+    annualDebtService: lenderEvidence,
+    noiBasis: lenderEvidence,
+  },
+};
 
 describe("runApartmentScenarioComparison", () => {
   it("runs reviewed scenario deltas through the property engine without mutating the base", () => {
@@ -107,6 +123,29 @@ describe("runApartmentScenarioComparison", () => {
       [{ ...scenarios[0], name }, scenarios[1]],
     );
     expect(run.issues).toContainEqual(expect.objectContaining({ path: "scenarios.0.name", code: "invalid_name" }));
+  });
+
+  it("records lender tests on the base and every scenario column", () => {
+    const base = { ...APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput, lenderTests: lenderPlan };
+    const run = runApartmentScenarioComparison(base, scenarios);
+    const baseLender = run.result?.base.metrics.lender;
+    const downsideLender = run.result?.scenarios.find(({ role }) => role === "downside")?.metrics.lender;
+
+    expect(run.formulaVersion).toBe("underwriting.apartment_scenarios.v2");
+    expect(run.status).toBe("complete");
+    for (const lender of [baseLender, downsideLender]) {
+      expect(lender?.scheduledTax.loanToValue).toEqual(expect.any(Number));
+      expect(lender?.scheduledTax.debtServiceCoverage).toEqual(expect.any(Number));
+      expect(lender?.scheduledTax.debtYield).toEqual(expect.any(Number));
+    }
+    expect(downsideLender!.scheduledTax.debtServiceCoverage!).toBeLessThan(baseLender!.scheduledTax.debtServiceCoverage!);
+    expect(baseLender?.scheduledTax.asStabilizedValue).toBe(run.result?.base.propertyResult.lenderTests?.metrics.find(({ key }) => key === "asStabilizedValue")?.value);
+  });
+
+  it("reports no lender values when the base has no lender test inputs", () => {
+    const run = runApartmentScenarioComparison(APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE.fullModelInput, scenarios);
+    expect(run.result?.base.metrics.lender).toBeNull();
+    expect(run.result?.scenarios.map(({ metrics }) => metrics.lender)).toEqual([null, null]);
   });
 
   it("does not reject a neutral name that merely contains the same letters", () => {

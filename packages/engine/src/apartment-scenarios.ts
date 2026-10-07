@@ -1,3 +1,4 @@
+import type { LenderTestMetric, LenderTestMetricKey } from "./lender-tests";
 import {
   computePropertyReturns,
   type PropertyReturnsInputs,
@@ -6,7 +7,8 @@ import {
 } from "./property-returns";
 
 export const APARTMENT_SCENARIO_INPUT_VERSION = "apartment_scenario_delta.v1" as const;
-export const APARTMENT_SCENARIO_FORMULA_VERSION = "underwriting.apartment_scenarios.v1" as const;
+export const APARTMENT_SCENARIO_FORMULA_VERSION = "underwriting.apartment_scenarios.v2" as const;
+export const APARTMENT_SCENARIO_V1_FORMULA_VERSION = "underwriting.apartment_scenarios.v1" as const;
 export const APARTMENT_SCENARIO_CHANGE_KEYS = [
   "vacancyPercent",
   "annualIncomeGrowthPercent",
@@ -71,6 +73,13 @@ export type ScenarioChangedInput = {
   scenarioValue: number | string;
 };
 
+const LENDER_TEST_METRIC_KEYS: LenderTestMetricKey[] = ["asStabilizedValue", "loanToValue", "loanToCost", "debtServiceCoverage", "debtYield"];
+
+export type ScenarioLenderMetrics = {
+  scheduledTax: Record<LenderTestMetricKey, number | null>;
+  fullTax: Record<LenderTestMetricKey, number | null> | null;
+};
+
 export type ApartmentScenarioMetrics = {
   forwardNetOperatingIncome: number;
   grossSaleValue: number;
@@ -80,6 +89,7 @@ export type ApartmentScenarioMetrics = {
   leveredEquityMultiple: number;
   yieldOnCost: number;
   developmentSpreadBasisPoints: number;
+  lender: ScenarioLenderMetrics | null;
 };
 
 export type ApartmentScenarioResult = {
@@ -294,7 +304,23 @@ function metricsFor(result: PropertyReturnsResult): ApartmentScenarioMetrics {
     leveredEquityMultiple: result.propertyReturns.returns.levered.equityMultiple,
     yieldOnCost: result.propertyReturns.yieldOnCost,
     developmentSpreadBasisPoints: result.propertyReturns.developmentSpreadBasisPoints,
+    lender: lenderMetricsFor(result),
   };
+}
+
+function lenderMetricsFor(result: PropertyReturnsResult): ScenarioLenderMetrics | null {
+  const tests = result.lenderTests;
+  if (!tests) return null;
+  return {
+    scheduledTax: valuesByKey(tests.metrics),
+    fullTax: tests.fullTax ? valuesByKey(tests.fullTax.metrics) : null,
+  };
+}
+
+function valuesByKey(metrics: LenderTestMetric[]) {
+  return Object.fromEntries(
+    LENDER_TEST_METRIC_KEYS.map((key) => [key, metrics.find((metric) => metric.key === key)?.value ?? null]),
+  ) as Record<LenderTestMetricKey, number | null>;
 }
 
 function statusFor(reconciliations: Array<{ status: "pass" | "fail" }>) {

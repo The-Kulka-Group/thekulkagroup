@@ -4,6 +4,7 @@ import { seededDatabase } from "@/test/database";
 import {
   createUnderwritingCase,
   saveApartmentOperations,
+  saveApartmentScenarios,
   saveDevelopmentCapital,
   savePropertyReturns,
   saveUnderwritingCostSchedule,
@@ -704,6 +705,76 @@ describe("underwriting calculation repository", () => {
     expect(legacy!.formulaVersion).toBe("underwriting.property_returns.v1");
     expect(legacy!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
     expect(legacy!.propertyReturnsResult!.lenderTests).toBeNull();
+  });
+
+  async function caseWithScenarios(lenderTests?: Record<string, unknown>) {
+    const property = await caseWithPropertyReturns(lenderTests);
+    const evidence = { sourceLabel: "Scenario review note", sourceDate: "2026-10-05", reviewState: "done" as const };
+    return saveApartmentScenarios(db, property!.id, property!.caseRevision, [
+      { id: "higher-vacancy", role: "downside", name: "Higher Vacancy", inputVersion: "apartment_scenario_delta.v1", delta: { vacancyPercent: 8 }, evidence: { vacancyPercent: evidence } },
+      { id: "lower-exit-cap", role: "upside", name: "Lower Terminal Cap", inputVersion: "apartment_scenario_delta.v1", delta: { terminalCapRatePercent: 5 }, evidence: { terminalCapRatePercent: evidence } },
+    ]);
+  }
+
+  it("records a scenario run under v2 with lender metrics for each column", async () => {
+    const savedCase = await caseWithScenarios(lenderPlan());
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const reopened = await getUnderwritingRun(db, run!.id);
+
+    expect(run!.formulaVersion).toBe("underwriting.apartment_scenarios.v2");
+    const result = run!.scenarioComparisonResult!;
+    const downside = result.scenarios.find(({ role }) => role === "downside")!;
+    expect(result.base.metrics.lender!.scheduledTax.debtServiceCoverage).toBeCloseTo(2.4, 12);
+    expect(result.base.metrics.lender!.fullTax).toBeNull();
+    expect(downside.metrics.lender!.scheduledTax.debtServiceCoverage!).toBeLessThan(result.base.metrics.lender!.scheduledTax.debtServiceCoverage!);
+    expect(reopened).toEqual(run);
+  });
+
+  it("records no lender metrics for a scenario run whose case has no lender tests", async () => {
+    const savedCase = await caseWithScenarios();
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const result = run!.scenarioComparisonResult!;
+
+    expect(run!.formulaVersion).toBe("underwriting.apartment_scenarios.v2");
+    expect(result.base.metrics.lender).toBeNull();
+    expect(result.scenarios.map(({ metrics }) => metrics.lender)).toEqual([null, null]);
+  });
+
+  it("keeps a scenario run saved under v1 readable with no lender metrics", async () => {
+    const savedCase = await caseWithScenarios(lenderPlan());
+    const run = await runUnderwritingCase(db, savedCase!.id, savedCase!.caseRevision);
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const stripLender = `jsonb_set(jsonb_set(result_snapshot,
+      '{base,metrics}', (result_snapshot #> '{base,metrics}') - 'lender'),
+      '{scenarios}', (select jsonb_agg(jsonb_set(item, '{metrics}', (item -> 'metrics') - 'lender'))
+        from jsonb_array_elements(result_snapshot -> 'scenarios') as item))`;
+    const values = names.map((name) => name === "formula_version"
+      ? "'underwriting.apartment_scenarios.v1'"
+      : name === "result_snapshot" ? stripLender : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const stored = await db.query<{ result_snapshot: { base: { metrics: object }; scenarios: Array<{ metrics: object }> } }>(
+      `select result_snapshot from underwriting_calculation_runs where id = $1`,
+      [rows[0].id],
+    );
+    expect(stored.rows[0].result_snapshot.base.metrics).not.toHaveProperty("lender");
+    expect(stored.rows[0].result_snapshot.scenarios[0].metrics).not.toHaveProperty("lender");
+
+    const legacy = await getUnderwritingRun(db, rows[0].id);
+    const result = legacy!.scenarioComparisonResult!;
+    expect(legacy!.formulaVersion).toBe("underwriting.apartment_scenarios.v1");
+    expect(result.base.metrics.lender).toBeNull();
+    expect(result.scenarios.map(({ metrics }) => metrics.lender)).toEqual([null, null]);
+    expect(result.base.metrics.leveredXirr).toBe(run!.scenarioComparisonResult!.base.metrics.leveredXirr);
   });
 
   async function caseWithCapital(ratePath?: Record<string, unknown>) {

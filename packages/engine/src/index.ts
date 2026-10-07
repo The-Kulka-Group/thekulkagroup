@@ -388,6 +388,7 @@ export {
   APARTMENT_SCENARIO_CHANGE_KEYS,
   APARTMENT_SCENARIO_FORMULA_VERSION,
   APARTMENT_SCENARIO_INPUT_VERSION,
+  APARTMENT_SCENARIO_V1_FORMULA_VERSION,
   MAX_APARTMENT_SCENARIO_NAME_LENGTH,
   MAX_APARTMENT_SCENARIO_SOURCE_LABEL_LENGTH,
   MAX_SCENARIO_TIMING_SHIFT_MONTHS,
@@ -406,6 +407,7 @@ export {
   type ApartmentScenarioResult,
   type ApartmentScenarioRole,
   type ScenarioChangedInput,
+  type ScenarioLenderMetrics,
 } from "./apartment-scenarios";
 
 export {

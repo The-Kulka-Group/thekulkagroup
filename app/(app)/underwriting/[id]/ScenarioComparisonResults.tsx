@@ -1,9 +1,17 @@
-import type { ApartmentScenarioComparisonResult } from "@kulka/engine";
+import type { ApartmentScenarioComparisonResult, LenderTestMetricKey, ScenarioLenderMetrics } from "@kulka/engine";
 import { Chip } from "@/components/Status";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+const LENDER_ROWS: Array<[LenderTestMetricKey, string, (value: number) => string]> = [
+  ["asStabilizedValue", "As-Stabilized Value", (value) => MONEY.format(value)],
+  ["loanToValue", "Loan to Value", (value) => PERCENT.format(value)],
+  ["loanToCost", "Loan to Cost", (value) => PERCENT.format(value)],
+  ["debtServiceCoverage", "Debt Service Coverage", (value) => `${NUMBER.format(value)}x`],
+  ["debtYield", "Debt Yield", (value) => PERCENT.format(value)],
+];
 
 export function ScenarioComparisonResults({ result }: { result: ApartmentScenarioComparisonResult }) {
   const columns = [result.base, ...result.scenarios];
@@ -18,10 +26,21 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
     ["Yield on Cost", (value: typeof columns[number]) => PERCENT.format(value.metrics.yieldOnCost)],
     ["Development Spread", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.developmentSpreadBasisPoints)} bps`],
   ] as const;
+  const lenderRows = [
+    ...lenderRowsFor("scheduledTax", ""),
+    ...(result.base.metrics.lender?.fullTax ? lenderRowsFor("fullTax", " on Full Tax") : []),
+  ];
+  function lenderRowsFor(tax: keyof ScenarioLenderMetrics, suffix: string) {
+    if (!result.base.metrics.lender) return [];
+    return LENDER_ROWS.map(([key, label, format]) => [`${label}${suffix}`, (value: typeof columns[number]) => {
+      const metric = value.metrics.lender?.[tax]?.[key];
+      return metric === null || metric === undefined ? "Not Reported" : format(metric);
+    }] as const);
+  }
   return <div className="underwriting-monthly-results">
     <h4>Scenario Comparison</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-results underwriting-scenario-comparison"><thead><tr><th>Metric</th>{names.map((name) => <th className="right" key={name}>{name}</th>)}</tr></thead><tbody>
-      {rows.map(([label, format]) => <tr key={label}><th scope="row">{label}</th>{columns.map((value, index) => <td className="num right" key={names[index]}>{format(value)}</td>)}</tr>)}
+      {[...rows, ...lenderRows].map(([label, format]) => <tr key={label}><th scope="row">{label}</th>{columns.map((value, index) => <td className="num right" key={names[index]}>{format(value)}</td>)}</tr>)}
       <tr><th scope="row">Reconciliation</th>{columns.map((value, index) => <td className="right" key={names[index]}><Chip status={value.reconciliationStatus === "pass" ? "done" : "stuck"} /></td>)}</tr>
     </tbody></table></div>
     <h4>Changed Inputs</h4>

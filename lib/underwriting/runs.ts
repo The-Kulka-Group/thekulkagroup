@@ -1,5 +1,6 @@
 import {
   APARTMENT_SCENARIO_FORMULA_VERSION,
+  APARTMENT_SCENARIO_V1_FORMULA_VERSION,
   APARTMENT_OPERATIONS_FORMULA_VERSION,
   APARTMENT_OPERATIONS_V1_FORMULA_VERSION,
   APARTMENT_OPERATIONS_V2_FORMULA_VERSION,
@@ -253,11 +254,12 @@ function mapRun(row: RunRow): SavedUnderwritingRun {
     && "propertyReturns" in row.result_snapshot
     ? withLenderTests(row.result_snapshot as PropertyReturnsResult, row.input_snapshot)
     : undefined;
-  const scenarios = row.formula_version === APARTMENT_SCENARIO_FORMULA_VERSION
+  const scenarios = (row.formula_version === APARTMENT_SCENARIO_FORMULA_VERSION
+      || row.formula_version === APARTMENT_SCENARIO_V1_FORMULA_VERSION)
     && !Array.isArray(row.result_snapshot)
     && "base" in row.result_snapshot
     && "scenarios" in row.result_snapshot
-    ? row.result_snapshot as ApartmentScenarioComparisonResult
+    ? withEarlierScenarioMetrics(row.result_snapshot as ApartmentScenarioComparisonResult)
     : undefined;
   return {
     id: row.id,
@@ -336,6 +338,18 @@ function withLenderTests(result: PropertyReturnsResult, inputSnapshot: unknown):
     saleTax: result.saleTax ?? null,
     propertyTax: result.propertyTax ?? null,
   };
+}
+
+/**
+ * v1 scenario runs predate lender metrics (LA-1701). Read every column as having none, so the run
+ * opens as it was saved.
+ */
+function withEarlierScenarioMetrics(result: ApartmentScenarioComparisonResult): ApartmentScenarioComparisonResult {
+  const metrics = <T extends { metrics: ApartmentScenarioComparisonResult["base"]["metrics"] }>(column: T): T => ({
+    ...column,
+    metrics: { ...column.metrics, lender: column.metrics.lender ?? null },
+  });
+  return { ...result, base: metrics(result.base), scenarios: result.scenarios.map(metrics) };
 }
 
 /**

@@ -24,6 +24,11 @@ export function parseCostSchedule(body: unknown): MonthlyCostScheduleInputs {
     saleMonth: candidate.saleMonth,
     costLines: candidate.costLines,
   } as MonthlyCostScheduleInputs;
+  if (Array.isArray(schedule.costLines) && schedule.costLines.some((line) => line?.basis && line.basis.type !== "fixed")) {
+    throw new InvalidCostSchedule("Pricing a cost line by a basis is not saved yet. Enter an amount.", [], {
+      costLines: "Pricing a cost line by a basis is not saved yet. Enter an amount.",
+    });
+  }
   const checked = computeMonthlyCostSchedule(schedule);
   if (checked.status === "failed") {
     throw new InvalidCostSchedule(

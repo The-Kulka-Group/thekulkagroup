@@ -202,6 +202,8 @@ export {
 
 export {
   computeMonthlyCostSchedule,
+  COST_LINE_BASIS_TYPES,
+  MAX_BASIS_PERCENT,
   MAX_COST_LINES,
   MAX_MODEL_YEAR,
   MAX_TIMELINE_MONTHS,
@@ -213,7 +215,10 @@ export {
   type CostCategory,
   type CostDistributionMethod,
   type CostDistributionVersion,
+  type CostLineBasis,
+  type CostLineBasisType,
   type CostLineSchedule,
+  type CostQuantities,
   type MonthlyCostIssue,
   type MonthlyCostIssueCode,
   type MonthlyCostLine,

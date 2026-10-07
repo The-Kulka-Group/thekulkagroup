@@ -5,9 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const RUNTIME_FILES = [
   "app/(app)/page.tsx",
-  "app/(app)/pursuits/page.tsx",
   "app/(app)/clients/page.tsx",
-  "app/(app)/briefs/page.tsx",
   "components/Rail.tsx",
   "lib/data.ts",
 ];

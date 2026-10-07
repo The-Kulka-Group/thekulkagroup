@@ -14,6 +14,7 @@ import {
   updateUnderwritingCase,
   type CaseDraft,
 } from "./cases";
+import type { MonthlyCostLine } from "@kulka/engine";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 
@@ -555,6 +556,85 @@ describe("underwriting case repository", () => {
       amount: 1_100_000,
       reviewState: "working",
     });
+  });
+
+  it("saves a basis line without an amount and reads it back with the case quantities", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const line = (id: string, extra: Partial<MonthlyCostLine>): MonthlyCostLine => ({
+      id,
+      name: id,
+      category: "hard_cost",
+      unit: "usd",
+      startMonth: "2026-01",
+      endMonth: "2026-02",
+      distributionMethod: "straight_line",
+      distributionVersion: "straight_line.v1",
+      reviewState: "done",
+      ...extra,
+    });
+    const saved = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-03",
+      costLines: [
+        line("shell", { basis: { type: "per_gross_square_foot", rate: 185.5 } }),
+        line("appliances", { basis: { type: "per_unit", rate: 4250 } }),
+        line("design", { category: "soft_cost", basis: { type: "percent_of_line", baseLineId: "shell", percent: 6.5 } }),
+        line("land", { category: "land", amount: 1_000_000 }),
+      ],
+    });
+
+    expect(saved!.costSchedule!.quantities).toEqual({ grossSquareFeet: 52000, units: 48 });
+    const [shell, appliances, design, land] = saved!.costSchedule!.costLines;
+    expect(shell).toMatchObject({ basis: { type: "per_gross_square_foot", rate: 185.5 } });
+    expect(shell).not.toHaveProperty("amount");
+    expect(appliances.basis).toEqual({ type: "per_unit", rate: 4250 });
+    expect(design.basis).toEqual({ type: "percent_of_line", baseLineId: "shell", percent: 6.5 });
+    expect(land).toMatchObject({ amount: 1_000_000 });
+    expect(land.basis).toBeUndefined();
+
+    const changed = await saveUnderwritingCostSchedule(db, created!.id, saved!.caseRevision, {
+      ...saved!.costSchedule!,
+      costLines: saved!.costSchedule!.costLines.map((saved) => saved.id === "shell"
+        ? { ...saved, basis: { type: "per_gross_square_foot" as const, rate: 190 } }
+        : saved),
+    });
+    expect(changed!.costSchedule!.costLines.map(({ id, reviewState }) => [id, reviewState])).toEqual([
+      ["shell", "working"], ["appliances", "done"], ["design", "done"], ["land", "done"],
+    ]);
+  });
+
+  it("moves a line from a basis back to a fixed amount", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const base: MonthlyCostLine = {
+      id: "shell", name: "Shell", category: "hard_cost", unit: "usd", startMonth: "2026-01", endMonth: "2026-02",
+      distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "done",
+    };
+    const derived = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-03",
+      costLines: [{ ...base, basis: { type: "per_unit", rate: 100 } }],
+    });
+    const fixed = await saveUnderwritingCostSchedule(db, created!.id, derived!.caseRevision, {
+      analysisStartMonth: "2026-01", saleMonth: "2026-03",
+      costLines: [{ ...base, amount: 5000 }],
+    });
+    expect(fixed!.costSchedule!.costLines[0]).toMatchObject({ amount: 5000 });
+    expect(fixed!.costSchedule!.costLines[0].basis).toBeUndefined();
+  });
+
+  it("rejects a basis line that is inconsistent in the database", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const insert = (columns: string) => db.query(
+      `insert into underwriting_case_cost_lines
+         (case_id, id, line_order, name, category, unit, start_month, end_month,
+          distribution_method, distribution_version, review_state, ${columns.split("|")[0]})
+       values ($1, 'x', 0, 'x', 'hard_cost', 'usd', '2026-01-01', '2026-02-01',
+          'straight_line', 'straight_line.v1', 'working', ${columns.split("|")[1]})`,
+      [created!.id],
+    );
+    await expect(insert("amount, basis_type|100, 'per_unit'")).rejects.toThrow();
+    await expect(insert("basis_type|'per_unit'")).rejects.toThrow();
+    await expect(insert("basis_type, basis_percent, basis_base_line_id|'percent_of_line', 5, 'x'")).rejects.toThrow();
+    await expect(insert("basis_type, basis_rate|'per_unit', 12.5")).resolves.toBeDefined();
   });
 
   it("rejects a stale cost schedule save", async () => {

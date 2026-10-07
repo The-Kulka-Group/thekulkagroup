@@ -451,6 +451,7 @@ function monthlyInputsFor(schedule: NonNullable<UnderwritingCase["costSchedule"]
       void lastChangedAt;
       return line;
     }),
+    ...(schedule.quantities ? { quantities: schedule.quantities } : {}),
   };
 }
 

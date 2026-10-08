@@ -161,12 +161,12 @@ describe("cost schedule and sources and uses layout", () => {
     expect(layoutOutputs(layout).filter(COST_AND_SOURCES_OUTPUTS).filter(({ cell }) => !cell.formula).map(({ cell }) => cell.id)).toEqual([]);
   });
 
-  it("keeps a leasing commission as the engine's value and writes the tenant improvement as a formula", () => {
+  it("writes the tenant improvement and the leasing commission of a commercial space as formulas", () => {
     const layout = underwritingWorkbookLayout(sourceFor("Retail", retailCase()));
     const outputs = layoutOutputs(layout);
     const amount = (prefix: string) => outputs.find(({ cell }) => cell.id.startsWith(`costs.${prefix}`) && cell.id.endsWith(".amount"))!.cell;
     expect(amount("commercial-ti:").formula).toMatch(/^ROUND\(/);
-    expect(amount("commercial-commission:").formula).toBeUndefined();
+    expect(amount("commercial-commission:").formula).toMatch(/^'Lease Terms'!/);
   });
 });
 

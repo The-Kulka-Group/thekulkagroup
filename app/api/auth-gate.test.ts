@@ -10,6 +10,7 @@ const routes = [
   "underwriting/cases/[id]/operations/route.ts",
   "underwriting/cases/[id]/returns/route.ts",
   "underwriting/cases/[id]/runs/route.ts",
+  "underwriting/cases/[id]/runs/[runId]/workbook/route.ts",
   "underwriting/cases/[id]/scenarios/route.ts",
   "underwriting/cases/[id]/schedule/route.ts",
   // LA-1486: reader links. The two that need the signed-in email use authorizeRequest, which requireApiUser wraps.

@@ -90,7 +90,10 @@ export default async function UnderwritingRunPage({
       actions={
         <>
           {run.status === "complete" && run.propertyReturnsResult ? (
-            <a className="btn btn--secondary" href={`/api/underwriting/cases/${savedCase.id}/runs/${run.id}/workbook`} download>Download Excel</a>
+            <>
+              <a className="btn btn--secondary" href={`/api/underwriting/cases/${savedCase.id}/runs/${run.id}/workbook`} download>Download Excel</a>
+              <a className="btn btn--secondary" href={`/api/underwriting/cases/${savedCase.id}/runs/${run.id}/summary-pdf`} download>Download PDF Summary</a>
+            </>
           ) : null}
           <Link className="btn btn--secondary" href={`/underwriting/${savedCase.id}#calculation-history`}>Back to Project</Link>
         </>

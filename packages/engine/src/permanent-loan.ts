@@ -1,4 +1,5 @@
 import type { MonthlyApartmentOperations } from "./apartment-operations";
+import { splitNoiByUse } from "./use-split";
 import type { DevelopmentCapitalEvidence } from "./development-capital";
 import { LOAN_SIZING_TAX_BASES, noiSizingCaps, type LoanSizingCap } from "./lender-tests";
 import type { Milestone, MilestoneAnchor } from "./milestones";
@@ -42,6 +43,7 @@ export const PERMANENT_LOAN_ASSUMPTION_KEYS = [
 export const PERMANENT_LOAN_CAP_KEYS = [
   "maxLoanToValuePercent",
   "valuationCapRatePercent",
+  "commercialValuationCapRatePercent",
   "minDebtServiceCoverage",
   "minDebtYieldPercent",
 ] as const;
@@ -66,6 +68,12 @@ export type PermanentLoanPlan = {
   maxLoanToValuePercent?: number;
   /** Turns the sizing NOI into value. Required with an LTV cap; with no cap it still reports LTV. */
   valuationCapRatePercent?: number;
+  /**
+   * Cap rate for the commercial spaces' part of the sizing NOI (LA-1869). With it the LTV cap values the
+   * residential NOI at `valuationCapRatePercent` and the commercial NOI at this rate. Absent keeps one cap
+   * for the whole NOI. It needs an LTV cap and a commercial block on the case, and carries its own evidence.
+   */
+  commercialValuationCapRatePercent?: number;
   minDebtServiceCoverage?: number;
   minDebtYieldPercent?: number;
   annualRatePercent: number;
@@ -90,6 +98,7 @@ export type PermanentLoanIssueCode =
   | "permanent_loan_sizing_unavailable"
   | "permanent_loan_after_maturity"
   | "permanent_loan_zero_amount"
+  | "permanent_loan_commercial_unavailable"
   | "missing_evidence"
   | "invalid_source_label"
   | "invalid_source_date"
@@ -216,6 +225,10 @@ export function validatePermanentLoanPlan(value: unknown): PermanentLoanIssue[] 
   const positive = (field: unknown, max: number) => typeof field === "number" && Number.isFinite(field) && field > 0 && field <= max;
   if (plan.maxLoanToValuePercent !== undefined && !positive(plan.maxLoanToValuePercent, 100)) bad("maxLoanToValuePercent", "Maximum LTV must be above zero and no more than 100 percent.");
   if (plan.valuationCapRatePercent !== undefined && !positive(plan.valuationCapRatePercent, 100)) bad("valuationCapRatePercent", "Valuation cap rate must be above zero and no more than 100 percent.");
+  if (plan.commercialValuationCapRatePercent !== undefined) {
+    if (!positive(plan.commercialValuationCapRatePercent, 100)) bad("commercialValuationCapRatePercent", "Commercial valuation cap rate must be above zero and no more than 100 percent.");
+    else if (plan.maxLoanToValuePercent === undefined) bad("commercialValuationCapRatePercent", "Enter a maximum LTV to use the commercial valuation cap rate.");
+  }
   if (plan.maxLoanToValuePercent !== undefined && plan.valuationCapRatePercent === undefined) bad("valuationCapRatePercent", "Enter the cap rate that values the sizing NOI for the LTV cap.");
   if (plan.minDebtServiceCoverage !== undefined && !positive(plan.minDebtServiceCoverage, 10)) bad("minDebtServiceCoverage", "Minimum DSCR must be above zero and no more than 10.");
   if (plan.minDebtYieldPercent !== undefined && !positive(plan.minDebtYieldPercent, 100)) bad("minDebtYieldPercent", "Minimum debt yield must be above zero and no more than 100 percent.");
@@ -302,6 +315,8 @@ export type PermanentLoanSchedule = {
   analysisStartMonth: string;
   /** Operating input paths the sizing NOI reads, for the traces. */
   operationPaths: string[];
+  /** The share of the property tax the commercial use carries in a month, as a percent. Absent when the case has no commercial block. */
+  commercialTaxSharePercent?: (month: string) => number;
 };
 
 /** Sizes the loan, runs its monthly schedule from funding through sale, and checks every month. */
@@ -341,9 +356,19 @@ export function schedulePermanentLoan(input: PermanentLoanSchedule): PermanentLo
     : `NOI before reserves for the ${window.monthCount} months before funding (${window.startMonth} to ${window.endMonth}), annualized`;
   const noiText = `${windowText}${plan.noiTaxBasis === "full_tax" ? " with full tax" : " with scheduled tax"}`;
   const noiPaths = [...input.operationPaths, "permanentLoan.sizingNoiWindow", "permanentLoan.noiTaxBasis", ...fundingPaths(plan)];
+  if (plan.commercialValuationCapRatePercent !== undefined && !input.commercialTaxSharePercent) {
+    return { path: "permanentLoan.commercialValuationCapRatePercent", code: "permanent_loan_commercial_unavailable", message: "The commercial valuation cap rate needs commercial spaces on the case. Add them or remove the rate." };
+  }
+  const commercialNoiCents = plan.commercialValuationCapRatePercent === undefined
+    ? null
+    : annualize(splitNoiByUse(windowMonths, "netOperatingIncome", plan.noiTaxBasis === "full_tax" ? "full" : "scheduled", input.commercialTaxSharePercent!).commercialCents);
+  const commercialTerm = plan.commercialValuationCapRatePercent === undefined || commercialNoiCents === null
+    ? {}
+    : { commercial: { noiCents: commercialNoiCents, capRatePercent: plan.commercialValuationCapRatePercent } };
   const noiCaps = noiSizingCaps(noiCents, {
     maxLoanToValuePercent: plan.maxLoanToValuePercent,
     capRatePercent: plan.valuationCapRatePercent,
+    ...commercialTerm,
     minDebtYieldPercent: plan.minDebtYieldPercent,
     minDebtServiceCoverage: plan.minDebtServiceCoverage,
     ratePercent: plan.annualRatePercent,
@@ -351,6 +376,7 @@ export function schedulePermanentLoan(input: PermanentLoanSchedule): PermanentLo
   }, { noi: noiText, value: "value", capRate: "the valuation cap rate" }, {
     noi: noiPaths,
     capRate: "permanentLoan.valuationCapRatePercent",
+    commercialCapRate: "permanentLoan.commercialValuationCapRatePercent",
     loanToValue: "permanentLoan.maxLoanToValuePercent",
     debtYield: "permanentLoan.minDebtYieldPercent",
     debtServiceCoverage: "permanentLoan.minDebtServiceCoverage",
@@ -443,7 +469,11 @@ export function schedulePermanentLoan(input: PermanentLoanSchedule): PermanentLo
     void _amountCents;
     return { ...cap, binding: cap.key === binding };
   });
-  const valueCents = plan.valuationCapRatePercent === undefined ? null : Math.round(noiCents / (plan.valuationCapRatePercent / 100));
+  const valueCents = plan.valuationCapRatePercent === undefined
+    ? null
+    : commercialNoiCents === null
+      ? Math.round(noiCents / (plan.valuationCapRatePercent / 100))
+      : Math.round((noiCents - commercialNoiCents) / (plan.valuationCapRatePercent / 100)) + Math.round(commercialNoiCents / (plan.commercialValuationCapRatePercent! / 100));
 
   const result: PermanentLoanResult = {
     fundingMonth,

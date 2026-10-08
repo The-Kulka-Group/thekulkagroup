@@ -732,6 +732,83 @@ describe("underwriting case repository", () => {
     expect(removed!.developmentCapital).not.toHaveProperty("creditedLand");
   });
 
+  it("keeps review on an unchanged permanent loan and resets only the evidence whose terms or source changed", async () => {
+    const created = await createUnderwritingCase(db, firstDraft);
+    const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {
+      analysisStartMonth: "2026-01",
+      saleMonth: "2026-12",
+      costLines: [{ id: "land", name: "Land", category: "land", amount: 1_000_000, unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "working" }],
+    });
+    const operating = await saveApartmentOperations(db, created!.id, scheduled!.caseRevision, {
+      inputVersion: "apartment_operations_inputs.v1", operationStartMonth: "2026-01", growthStartMonth: "2026-01",
+      preleasedUnits: 10, leaseUpUnitsPerMonth: 1, annualIncomeGrowthPercent: 0, annualExpenseGrowthPercent: 0,
+      rentAdjustmentLossPercent: 0, freeRentPercent: 0, vacancyPercent: 0, creditLossPercent: 0,
+      assumptionEvidence: workingAssumptionEvidence(),
+      residentialUnitTypes: [{ id: "unit", name: "Unit", units: 10, nonRevenueUnits: 0, averageAreaSf: 800, monthlyMarketRent: 2_000, reviewState: "working" }],
+      otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [],
+    });
+    const done = { sourceLabel: "Lender quote", sourceDate: "2026-10-07", reviewState: "done" as const };
+    const permanentLoan = {
+      permanentLoanInputVersion: "permanent_loan_inputs.v1" as const,
+      fundingMonth: "2026-06",
+      sizingMode: "lesser_of_tests" as const,
+      sizingNoiWindow: { kind: "trailing" as const, months: 3 },
+      noiTaxBasis: "full_tax" as const,
+      maxLoanToValuePercent: 65,
+      valuationCapRatePercent: 6,
+      annualRatePercent: 6,
+      interestOnlyMonths: 12,
+      amortizationYears: 30,
+      termYears: 10,
+      feePercent: 1,
+      closingCosts: 25_000,
+      cashOut: "distribute" as const,
+      evidence: {
+        fundingMonth: done, sizingMode: done, sizingNoiWindow: done, noiTaxBasis: done,
+        maxLoanToValuePercent: done, valuationCapRatePercent: done,
+        annualRatePercent: done, interestOnlyMonths: done, amortizationYears: done, termYears: done,
+        feePercent: done, closingCosts: done, cashOut: done,
+      },
+    };
+    const plan = {
+      capitalInputVersion: "development_capital_inputs.v1" as const,
+      targetDebtSharePercent: 65,
+      annualInterestRatePercent: 8,
+      loanFeePercent: 1,
+      fundingOrder: "equity_first.v1" as const,
+      interestTreatment: "capitalized_net_operating_cash.v1" as const,
+      interestConvention: "opening_balance_monthly.v1" as const,
+      feeMonth: "2026-01",
+      payoffMonth: "2026-12",
+      permanentLoan,
+      capitalAssumptionEvidence: doneCapitalEvidence(),
+    };
+    const saved = await saveDevelopmentCapital(db, created!.id, operating!.caseRevision, plan);
+    expect(saved!.developmentCapital!.permanentLoan!.evidence.annualRatePercent.reviewState).toBe("done");
+
+    const same = await saveDevelopmentCapital(db, created!.id, saved!.caseRevision, plan);
+    expect(Object.values(same!.developmentCapital!.permanentLoan!.evidence).map(({ reviewState }) => reviewState)).toEqual(Array(13).fill("done"));
+
+    const changed = await saveDevelopmentCapital(db, created!.id, same!.caseRevision, {
+      ...plan,
+      permanentLoan: {
+        ...permanentLoan,
+        annualRatePercent: 6.5,
+        maxLoanToValuePercent: 60,
+        evidence: { ...permanentLoan.evidence, closingCosts: { ...done, sourceLabel: "Revised quote" } },
+      },
+    });
+    const evidence = changed!.developmentCapital!.permanentLoan!.evidence;
+    expect(evidence.annualRatePercent.reviewState).toBe("working");
+    expect(evidence.maxLoanToValuePercent!.reviewState).toBe("working");
+    expect(evidence.closingCosts.reviewState).toBe("working");
+    expect(evidence.termYears.reviewState).toBe("done");
+    expect(evidence.cashOut.reviewState).toBe("done");
+
+    const removed = await saveDevelopmentCapital(db, created!.id, changed!.caseRevision, { ...plan, permanentLoan: undefined });
+    expect(removed!.developmentCapital).not.toHaveProperty("permanentLoan");
+  });
+
   it("stores a versioned capital plan and resets review when a term changes", async () => {
     const created = await createUnderwritingCase(db, firstDraft);
     const scheduled = await saveUnderwritingCostSchedule(db, created!.id, created!.caseRevision, {

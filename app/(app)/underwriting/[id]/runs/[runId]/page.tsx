@@ -6,6 +6,8 @@ import {
   LENDER_TEST_ASSUMPTION_KEYS,
   LENDER_TEST_COMMERCIAL_CAP_KEY,
   PARTNERSHIP_ASSUMPTION_KEYS,
+  PERMANENT_LOAN_ASSUMPTION_KEYS,
+  PERMANENT_LOAN_CAP_KEYS,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
   PROPERTY_RETURNS_COMMERCIAL_CAP_KEY,
   PROPERTY_TAX_ASSUMPTION_KEYS,
@@ -28,6 +30,7 @@ import {
 } from "@/lib/underwriting/presentation";
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
+import { PERMANENT_LOAN_EVIDENCE_LABELS } from "../../PermanentLoanResults";
 import { PropertyReturnsResults } from "../../PropertyReturnsResults";
 import { ScenarioComparisonResults } from "../../ScenarioComparisonResults";
 import { SourcesAndUsesSection } from "../../SourcesAndUsesSection";
@@ -379,6 +382,18 @@ export default async function UnderwritingRunPage({
                 <tbody>{DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => {
                   const evidence = run.evidenceSnapshot.developmentCapital!.capitalAssumptionEvidence[key];
                   return <tr key={key}><th scope="row">{key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase())}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.developmentCapital!.lastChangedAt))}</td></tr>;
+                })}</tbody>
+              </table>
+            </div>
+          ) : null}
+          {run.evidenceSnapshot.developmentCapital?.permanentLoan ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Permanent Loan Terms</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{[...PERMANENT_LOAN_ASSUMPTION_KEYS, ...PERMANENT_LOAN_CAP_KEYS].flatMap((key) => {
+                  const evidence = run.evidenceSnapshot.developmentCapital!.permanentLoan!.evidence[key];
+                  if (!evidence) return [];
+                  return [<tr key={key}><th scope="row">{PERMANENT_LOAN_EVIDENCE_LABELS[key]}</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.developmentCapital!.lastChangedAt))}</td></tr>];
                 })}</tbody>
               </table>
             </div>

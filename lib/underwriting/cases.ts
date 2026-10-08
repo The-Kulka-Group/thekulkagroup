@@ -12,6 +12,9 @@ import {
   PARTNERSHIP_ASSUMPTION_KEYS,
   type PartnershipAssumptionKey,
   type PartnershipPlan,
+  type PermanentLoanAssumptionKey,
+  type PermanentLoanCapKey,
+  type PermanentLoanPlan,
   type LoanSizingPlan,
   type CostQuantities,
   type CostLineBasisType,
@@ -1086,6 +1089,7 @@ function reconcileDevelopmentCapitalReview(
     ...draft,
     ...(draft.otherSources ? { otherSources: reconcileLineReview(existing?.otherSources, draft.otherSources) } : {}),
     ...(draft.creditedLand ? { creditedLand: reconcileBlockReview(existing?.creditedLand, draft.creditedLand) } : {}),
+    ...(draft.permanentLoan ? { permanentLoan: reconcilePermanentLoanReview(existing?.permanentLoan, draft.permanentLoan) } : {}),
     capitalAssumptionEvidence: Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
       key,
       existing && (
@@ -1098,6 +1102,40 @@ function reconcileDevelopmentCapitalReview(
         : draft.capitalAssumptionEvidence[key],
     ])) as Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalPlan["capitalAssumptionEvidence"][DevelopmentCapitalAssumptionKey]>,
   };
+}
+
+/** The permanent loan inputs each piece of evidence speaks for. Changing any of them resets that evidence to Working on It. */
+const PERMANENT_LOAN_EVIDENCE_FIELDS: Record<PermanentLoanAssumptionKey | PermanentLoanCapKey, Array<keyof PermanentLoanPlan>> = {
+  fundingMonth: ["fundingMonth", "fundingAnchor"],
+  sizingMode: ["sizingMode"],
+  sizingNoiWindow: ["sizingNoiWindow"],
+  noiTaxBasis: ["noiTaxBasis"],
+  annualRatePercent: ["annualRatePercent"],
+  interestOnlyMonths: ["interestOnlyMonths"],
+  amortizationYears: ["amortizationYears"],
+  termYears: ["termYears"],
+  feePercent: ["feePercent"],
+  closingCosts: ["closingCosts"],
+  cashOut: ["cashOut"],
+  maxLoanToValuePercent: ["maxLoanToValuePercent"],
+  valuationCapRatePercent: ["valuationCapRatePercent"],
+  commercialValuationCapRatePercent: ["commercialValuationCapRatePercent"],
+  minDebtServiceCoverage: ["minDebtServiceCoverage"],
+  minDebtYieldPercent: ["minDebtYieldPercent"],
+};
+
+function reconcilePermanentLoanReview(existing: PermanentLoanPlan | undefined, draft: PermanentLoanPlan): PermanentLoanPlan {
+  const evidence = Object.fromEntries(Object.entries(draft.evidence).map(([key, nextEvidence]) => {
+    const fields = PERMANENT_LOAN_EVIDENCE_FIELDS[key as keyof typeof PERMANENT_LOAN_EVIDENCE_FIELDS];
+    const priorEvidence = existing?.evidence[key as keyof PermanentLoanPlan["evidence"]];
+    const changed = existing && fields && (
+      fields.some((field) => stableJson(existing[field]) !== stableJson(draft[field]))
+      || priorEvidence?.sourceLabel !== nextEvidence?.sourceLabel
+      || priorEvidence?.sourceDate !== nextEvidence?.sourceDate
+    );
+    return [key, changed && nextEvidence ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
+  })) as PermanentLoanPlan["evidence"];
+  return { ...draft, evidence };
 }
 
 function reconcileOperationsReview(

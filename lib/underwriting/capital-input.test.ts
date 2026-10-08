@@ -58,3 +58,44 @@ describe("parseDevelopmentCapital rate path", () => {
     }
   });
 });
+
+describe("parseDevelopmentCapital permanent loan", () => {
+  const evidence = { sourceLabel: "Lender quote", sourceDate: "2026-10-07", reviewState: "working" as const };
+  const keys = ["fundingMonth", "sizingMode", "sizingNoiWindow", "noiTaxBasis", "annualRatePercent", "interestOnlyMonths", "amortizationYears", "termYears", "feePercent", "closingCosts", "cashOut"];
+  const permanentLoan = {
+    permanentLoanInputVersion: "permanent_loan_inputs.v1",
+    fundingMonth: "2027-09",
+    sizingMode: "construction_balance",
+    sizingNoiWindow: { kind: "trailing", months: 3 },
+    noiTaxBasis: "full_tax",
+    annualRatePercent: 6,
+    interestOnlyMonths: 12,
+    amortizationYears: 30,
+    termYears: 10,
+    feePercent: 0,
+    closingCosts: 0,
+    cashOut: "distribute",
+    evidence: Object.fromEntries(keys.map((key) => [key, evidence])),
+  };
+  const withLoan = (loan: unknown) => ({ ...fixture, permanentLoan: loan });
+
+  it("drops a null permanent loan", () => {
+    expect(parseDevelopmentCapital(withLoan(null), operationsFixtureForCapital())).not.toHaveProperty("permanentLoan");
+  });
+
+  it("keeps a valid permanent loan as sent", () => {
+    expect(parseDevelopmentCapital(withLoan(permanentLoan), operationsFixtureForCapital()).permanentLoan).toEqual(permanentLoan);
+  });
+
+  it("reports each bad term under its own permanent loan path", () => {
+    try {
+      parseDevelopmentCapital(withLoan({ ...permanentLoan, annualRatePercent: 0, termYears: 0 }), operationsFixtureForCapital());
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidDevelopmentCapital);
+      const fieldErrors = (error as InvalidDevelopmentCapital).fieldErrors;
+      expect(fieldErrors).toHaveProperty(["permanentLoan.annualRatePercent"]);
+      expect(fieldErrors).toHaveProperty(["permanentLoan.termYears"]);
+    }
+  });
+});

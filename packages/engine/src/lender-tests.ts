@@ -2,6 +2,7 @@ import type { MonthlyApartmentOperations } from "./apartment-operations";
 import type { DevelopmentCapitalTotals } from "./development-capital";
 import type { PermanentLoanResult } from "./permanent-loan";
 import type { PropertyReturnsInputs, PropertyReturnsIssue } from "./property-returns";
+import { commercialTaxSharePercentFor, splitNoiByUse, valueByUse, type UseSplit } from "./use-split";
 
 /*
  * LA-1689: the lender's tests on one underwriting run. They read the run's own capital totals and
@@ -20,6 +21,8 @@ export const LENDER_TEST_ASSUMPTION_KEYS = [
 ] as const;
 
 export type LenderTestAssumptionKey = typeof LENDER_TEST_ASSUMPTION_KEYS[number];
+/** Evidence for the commercial cap rate, required only when the plan states one (LA-1870). */
+export const LENDER_TEST_COMMERCIAL_CAP_KEY = "commercialCapRatePercent" as const;
 export type LenderTestNoiBasis = "noi_before_reserves" | "noi_after_reserves";
 
 export type LenderTestEvidence = {
@@ -36,7 +39,13 @@ export type LenderTestPlan = {
   /** Debt service the lender states, per year. The engine does not derive it. */
   annualDebtService: number;
   noiBasis: LenderTestNoiBasis;
-  lenderTestEvidence: Record<LenderTestAssumptionKey, LenderTestEvidence>;
+  /**
+   * Cap rate for the commercial spaces' NOI (LA-1870). With it, as-stabilized value is residential NOI
+   * over the as-stabilized cap plus commercial NOI over this cap, and so is the LTV cap. Absent keeps one
+   * cap for the whole property. It needs a commercial block on the case, and evidence of its own.
+   */
+  commercialCapRatePercent?: number;
+  lenderTestEvidence: Record<LenderTestAssumptionKey, LenderTestEvidence> & { commercialCapRatePercent?: LenderTestEvidence };
   /** Optional caps that size the construction loan below its LTC (LA-1823). Absent keeps LTC sizing only. */
   loanSizing?: LoanSizingPlan;
   /**
@@ -113,10 +122,32 @@ export type LenderTestIssue = {
   message: string;
 };
 
+export type LenderValueSplitKey = "residentialNoi" | "commercialNoi" | "residentialValue" | "commercialValue";
+
+export type LenderValueSplitLine = {
+  key: LenderValueSplitKey;
+  label: string;
+  value: number;
+  unit: "usd";
+  formula: string;
+  inputPaths: string[];
+};
+
+/** As-stabilized value by use, reported only with a commercial cap (LA-1870). The two values add to the as-stabilized value. */
+export type LenderValueSplit = {
+  residentialNoi: number;
+  commercialNoi: number;
+  residentialValue: number;
+  commercialValue: number;
+  lines: LenderValueSplitLine[];
+};
+
 /** The NOI tests again with full tax for the same valuation year, as if the abatement had ended (LA-1690). */
 export type LenderFullTaxTests = {
   stabilizedNoi: number;
   metrics: LenderTestMetric[];
+  /** Value by use on full tax. Present only with a commercial cap and a value to report. */
+  valueSplit?: LenderValueSplit;
 };
 
 export type LenderTestsResult = {
@@ -133,6 +164,8 @@ export type LenderTestsResult = {
   totalCostAtCreditedLand: number | null;
   annualDebtService: number;
   metrics: LenderTestMetric[];
+  /** Value by use. Present only with a commercial cap and a value to report (LA-1870). */
+  valueSplit?: LenderValueSplit;
   /** Present when the run's tax schedule carries an abatement. */
   fullTax: LenderFullTaxTests | null;
   /** Present when the lender tests carry loan sizing caps. Runs saved before LA-1823 read it as absent. */
@@ -170,7 +203,11 @@ export function validateLenderTestPlan(plan: unknown): PropertyReturnsIssue[] {
   if (candidate.noiBasis !== "noi_before_reserves" && candidate.noiBasis !== "noi_after_reserves") {
     issues.push({ path: "lenderTests.noiBasis", code: "invalid_noi_basis", message: "NOI basis must be NOI before reserves or NOI after reserves." });
   }
-  issues.push(...validateEvidence(candidate.lenderTestEvidence));
+  const commercialCap = candidate.commercialCapRatePercent;
+  if (commercialCap !== undefined && (typeof commercialCap !== "number" || !Number.isFinite(commercialCap) || commercialCap <= 0 || commercialCap > 100)) {
+    issues.push({ path: "lenderTests.commercialCapRatePercent", code: "invalid_percent", message: "Commercial cap rate must be greater than zero and no more than 100 percent." });
+  }
+  issues.push(...validateEvidence(candidate.lenderTestEvidence, commercialCap !== undefined));
   if (candidate.loanSizing !== undefined) issues.push(...validateLoanSizing(candidate.loanSizing));
   if (candidate.debtServiceBasis !== undefined && !LENDER_DEBT_SERVICE_BASES.includes(candidate.debtServiceBasis)) {
     issues.push({ path: "lenderTests.debtServiceBasis", code: "invalid_lender_tests", message: "Debt service basis must be Stated or Permanent Loan." });
@@ -228,6 +265,11 @@ export type NoiCapTerms = {
   minDebtServiceCoverage?: number;
   ratePercent?: number;
   amortizationYears?: number;
+  /**
+   * The commercial part of the sizing NOI and the cap rate that values it (LA-1870). The LTV cap then
+   * values the rest of the NOI at `capRatePercent`. Debt yield and DSCR read the whole NOI either way.
+   */
+  commercial?: { noiCents: number; capRatePercent: number };
 };
 
 export type NoiSizingCap = Omit<LoanSizingCap, "binding"> & { key: Exclude<LoanSizingCapKey, "loanToCost">; amountCents: number };
@@ -241,19 +283,24 @@ export function noiSizingCaps(
   noiCents: number,
   terms: NoiCapTerms,
   text: { noi: string; value: string; capRate: string },
-  paths: { noi: string[]; capRate: string; loanToValue: string; debtYield: string; debtServiceCoverage: string; rate: string; amortization: string },
+  paths: { noi: string[]; capRate: string; commercialCapRate?: string; loanToValue: string; debtYield: string; debtServiceCoverage: string; rate: string; amortization: string },
 ): NoiSizingCap[] {
   const caps: NoiSizingCap[] = [];
   if (terms.maxLoanToValuePercent !== undefined) {
-    const valueCents = Math.round(noiCents / (terms.capRatePercent! / 100));
+    const { commercial } = terms;
+    const valueCents = commercial
+      ? Math.round((noiCents - commercial.noiCents) / (terms.capRatePercent! / 100)) + Math.round(commercial.noiCents / (commercial.capRatePercent / 100))
+      : Math.round(noiCents / (terms.capRatePercent! / 100));
     const amountCents = Math.floor(valueCents * terms.maxLoanToValuePercent / 100);
     caps.push({
       key: "loanToValue",
       label: "Loan to Value",
       amount: dollars(amountCents),
       amountCents,
-      formula: `maximum LTV times ${text.value}, where value is ${text.noi} divided by ${text.capRate}`,
-      inputPaths: [...paths.noi, paths.capRate, paths.loanToValue],
+      formula: commercial
+        ? `maximum LTV times ${text.value}, where value is the residential part of ${text.noi} divided by ${text.capRate}, plus the commercial part divided by the commercial cap rate`
+        : `maximum LTV times ${text.value}, where value is ${text.noi} divided by ${text.capRate}`,
+      inputPaths: [...paths.noi, paths.capRate, ...(commercial && paths.commercialCapRate ? [paths.commercialCapRate] : []), paths.loanToValue],
     });
   }
   if (terms.minDebtYieldPercent !== undefined) {
@@ -315,10 +362,15 @@ export function loanSizingCeiling(
     };
   }
   const basis = `${NOI_BASIS_LABELS[plan.noiBasis]}${sizing.noiTaxBasis === "full_tax" ? " with full tax" : " with scheduled tax"}`;
-  const operationPaths = input.propertyTax ? [...OPERATION_PATHS, "propertyTax"] : OPERATION_PATHS;
+  const operationPaths = operationPathsFor(input);
+  const commercialCap = plan.commercialCapRatePercent;
+  const commercialNoiCents = commercialCap === undefined
+    ? null
+    : splitNoiByUse(year, field, sizing.noiTaxBasis === "full_tax" ? "full" : "scheduled", commercialTaxSharePercentFor(input)).commercialCents;
   const noiCaps = noiSizingCaps(noiCents, {
     maxLoanToValuePercent: sizing.maxLoanToValuePercent,
     capRatePercent: plan.asStabilizedCapRatePercent,
+    ...(commercialCap === undefined || commercialNoiCents === null ? {} : { commercial: { noiCents: commercialNoiCents, capRatePercent: commercialCap } }),
     minDebtYieldPercent: sizing.minDebtYieldPercent,
     minDebtServiceCoverage: sizing.minDebtServiceCoverage,
     ratePercent: sizing.dscrRatePercent,
@@ -330,6 +382,7 @@ export function loanSizingCeiling(
   }, {
     noi: [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis", "lenderTests.loanSizing.noiTaxBasis"],
     capRate: "lenderTests.asStabilizedCapRatePercent",
+    commercialCapRate: "lenderTests.commercialCapRatePercent",
     loanToValue: "lenderTests.loanSizing.maxLoanToValuePercent",
     debtYield: "lenderTests.loanSizing.minDebtYieldPercent",
     debtServiceCoverage: "lenderTests.loanSizing.minDebtServiceCoverage",
@@ -424,9 +477,14 @@ export function lenderTestsFor(
     ? { text: `the permanent loan's annual debt service, ${permanentLoan.annualDebtServiceFormula}`, paths: ["permanentLoan"] }
     : { text: "stated annual debt service", paths: ["lenderTests.annualDebtService"] };
   const tests = { plan, loanCents, debtServiceCents, debtService };
-  const operationPaths = input.propertyTax ? [...OPERATION_PATHS, "propertyTax"] : OPERATION_PATHS;
-  const noiPaths = [...operationPaths, "lenderTests.valuationMonth", "lenderTests.noiBasis"];
-  const scheduled = noiMetrics(tests, noiCents, basis, noiPaths);
+  const noiPaths = [...operationPathsFor(input), "lenderTests.valuationMonth", "lenderTests.noiBasis"];
+  // LA-1870: with a commercial cap each use's NOI takes its own cap rate. Without one the split is never read.
+  const commercialTaxShare = commercialTaxSharePercentFor(input);
+  const useFor = (taxBasis: "scheduled" | "full"): UseCapTerms | undefined => plan.commercialCapRatePercent === undefined || year.length !== 12
+    ? undefined
+    : { split: splitNoiByUse(year, field, taxBasis, commercialTaxShare), commercialCapRatePercent: plan.commercialCapRatePercent };
+  const scheduledUse = useFor("scheduled");
+  const scheduled = noiMetrics(tests, noiCents, basis, noiPaths, scheduledUse);
   const metrics: LenderTestMetric[] = [
     scheduled[0],
     scheduled[1],
@@ -449,6 +507,7 @@ export function lenderTestsFor(
     scheduled[2],
     scheduled[3],
   ];
+  const valueSplit = scheduledUse && noiCents !== null ? valueSplitFor(plan, scheduledUse, basis, noiPaths) : undefined;
 
   let fullTax: LenderFullTaxTests | null = null;
   if (input.propertyTax?.mode === "abatement") {
@@ -458,9 +517,11 @@ export function lenderTestsFor(
       fullNoi = null;
       issues.push({ path: "propertyTax", code: "nonpositive_full_tax_noi", message: `${basis} with full tax for the valuation year is zero or negative, so the full-tax value, LTV, DSCR and debt yield are not reported.` });
     }
+    const fullUse = useFor("full");
     fullTax = {
       stabilizedNoi: dollars(fullTaxNoiCents),
-      metrics: noiMetrics(tests, fullNoi, `${basis} with full tax`, noiPaths),
+      metrics: noiMetrics(tests, fullNoi, `${basis} with full tax`, noiPaths, fullUse),
+      ...(fullUse && fullNoi !== null ? { valueSplit: valueSplitFor(plan, fullUse, `${basis} with full tax`, noiPaths) } : {}),
     };
   }
 
@@ -475,6 +536,7 @@ export function lenderTestsFor(
     totalCostAtCreditedLand: creditedCostCents === null ? null : dollars(creditedCostCents),
     annualDebtService: dollars(debtServiceCents),
     metrics,
+    ...(valueSplit ? { valueSplit } : {}),
     fullTax,
     ...(permanentLoan ? { debtServiceSource } : {}),
     issues,
@@ -487,17 +549,25 @@ function noiMetrics(
   noiCents: number | null,
   basis: string,
   noiPaths: string[],
+  use?: UseCapTerms,
 ): LenderTestMetric[] {
   const { plan, loanCents, debtServiceCents, debtService } = tests;
-  const valueCents = noiCents === null ? null : Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
+  const valueCents = noiCents === null
+    ? null
+    : use
+      ? valueByUse(use.split, plan.asStabilizedCapRatePercent, use.commercialCapRatePercent).totalValueCents
+      : Math.round(noiCents / (plan.asStabilizedCapRatePercent / 100));
+  const commercialCapPath = use ? ["lenderTests.commercialCapRatePercent"] : [];
   return [
     {
       key: "asStabilizedValue",
       label: "As-Stabilized Value",
       value: valueCents === null ? null : dollars(valueCents),
       unit: "usd",
-      formula: `valuation-year ${basis} divided by the as-stabilized cap rate`,
-      inputPaths: [...noiPaths, "lenderTests.asStabilizedCapRatePercent"],
+      formula: use
+        ? `valuation-year residential ${basis} divided by the as-stabilized cap rate, plus valuation-year commercial ${basis} divided by the commercial cap rate`
+        : `valuation-year ${basis} divided by the as-stabilized cap rate`,
+      inputPaths: [...noiPaths, "lenderTests.asStabilizedCapRatePercent", ...commercialCapPath],
     },
     {
       key: "loanToValue",
@@ -505,7 +575,7 @@ function noiMetrics(
       value: valueCents === null ? null : loanCents / valueCents,
       unit: "ratio",
       formula: `total construction debt divided by as-stabilized value on ${basis}`,
-      inputPaths: [...noiPaths, ...CAPITAL_PATHS, "lenderTests.asStabilizedCapRatePercent"],
+      inputPaths: [...noiPaths, ...CAPITAL_PATHS, "lenderTests.asStabilizedCapRatePercent", ...commercialCapPath],
     },
     {
       key: "debtServiceCoverage",
@@ -526,6 +596,32 @@ function noiMetrics(
   ];
 }
 
+type UseCapTerms = { split: UseSplit; commercialCapRatePercent: number };
+
+/** The operating inputs behind NOI. A tax schedule and a commercial block each join the list only when the case has them. */
+export function operationPathsFor(input: Pick<PropertyReturnsInputs, "propertyTax" | "commercial">) {
+  return [...OPERATION_PATHS, ...(input.propertyTax ? ["propertyTax"] : []), ...(input.commercial ? ["commercial"] : [])];
+}
+
+/** Valuation-year NOI and value for each use, with a formula for every line. The two values add to the as-stabilized value. */
+function valueSplitFor(plan: LenderTestPlan, use: UseCapTerms, basis: string, noiPaths: string[]): LenderValueSplit {
+  const { residentialValueCents, commercialValueCents } = valueByUse(use.split, plan.asStabilizedCapRatePercent, use.commercialCapRatePercent);
+  const line = (key: LenderValueSplitKey, label: string, valueCents: number, formula: string, inputPaths: string[]): LenderValueSplitLine =>
+    ({ key, label, value: dollars(valueCents), unit: "usd", formula, inputPaths });
+  return {
+    residentialNoi: dollars(use.split.residentialCents),
+    commercialNoi: dollars(use.split.commercialCents),
+    residentialValue: dollars(residentialValueCents),
+    commercialValue: dollars(commercialValueCents),
+    lines: [
+      line("residentialNoi", "Residential NOI", use.split.residentialCents, `valuation-year ${basis} of the residential use: residential effective gross revenue less the expenses it carries${basis.includes("full tax") ? ", with the added tax shared by each use's tenant recovery share" : ""}`, noiPaths),
+      line("commercialNoi", "Commercial NOI", use.split.commercialCents, `valuation-year ${basis} of the commercial spaces: commercial effective gross revenue less the expenses they carry${basis.includes("full tax") ? ", with the added tax shared by each use's tenant recovery share" : ""}`, noiPaths),
+      line("residentialValue", "Residential Value", residentialValueCents, "residential NOI divided by the as-stabilized cap rate", [...noiPaths, "lenderTests.asStabilizedCapRatePercent"]),
+      line("commercialValue", "Commercial Value", commercialValueCents, "commercial NOI divided by the commercial cap rate", [...noiPaths, "lenderTests.commercialCapRatePercent"]),
+    ],
+  };
+}
+
 const OPERATION_PATHS = [
   "analysisStartMonth", "inputVersion", "operationStartMonth", "growthStartMonth",
   "preleasedUnits", "leaseUpUnitsPerMonth", "annualIncomeGrowthPercent",
@@ -541,12 +637,13 @@ const CAPITAL_PATHS = [
 
 const MAX_MONTH_INDEX = 2200 * 12 + 11;
 
-function validateEvidence(evidence: unknown): PropertyReturnsIssue[] {
+function validateEvidence(evidence: unknown, withCommercialCap: boolean): PropertyReturnsIssue[] {
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
     return [{ path: "lenderTests.lenderTestEvidence", code: "missing_evidence", message: "Add source and review details for the lender tests." }];
   }
   const issues: PropertyReturnsIssue[] = [];
-  for (const key of LENDER_TEST_ASSUMPTION_KEYS) {
+  const keys: readonly string[] = withCommercialCap ? [...LENDER_TEST_ASSUMPTION_KEYS, LENDER_TEST_COMMERCIAL_CAP_KEY] : LENDER_TEST_ASSUMPTION_KEYS;
+  for (const key of keys) {
     const item = (evidence as Record<string, LenderTestEvidence | undefined>)[key];
     const path = `lenderTests.lenderTestEvidence.${key}`;
     if (!item || typeof item !== "object" || Array.isArray(item)) {

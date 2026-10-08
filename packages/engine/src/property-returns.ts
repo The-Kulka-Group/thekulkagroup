@@ -29,6 +29,7 @@ import {
   type PeakEquity,
 } from "./partnership-waterfall";
 import { abatementValueAtSale, propertyTaxScheduleEndMonth, type PropertyTaxResult } from "./property-tax";
+import { commercialTaxSharePercentFor, splitNoiByUse, valueByUse, type UseSplit } from "./use-split";
 import { xirr, xnpv, yearsFrom, type XirrResult } from "./xirr";
 
 export const PROPERTY_RETURNS_INPUT_VERSION = "property_returns_inputs.v1" as const;
@@ -57,6 +58,8 @@ export const PROPERTY_RETURNS_ASSUMPTION_KEYS = [
 ] as const;
 
 export type PropertyReturnsAssumptionKey = typeof PROPERTY_RETURNS_ASSUMPTION_KEYS[number];
+/** Evidence for the commercial exit cap rate, required only when the plan states one (LA-1870). */
+export const PROPERTY_RETURNS_COMMERCIAL_CAP_KEY = "commercialTerminalCapRatePercent" as const;
 
 export type PropertyReturnsEvidence = {
   sourceLabel?: string;
@@ -96,11 +99,17 @@ export type SaleTaxResult = {
 export type PropertyReturnsPlan = {
   saleInputVersion: typeof PROPERTY_RETURNS_INPUT_VERSION;
   terminalCapRatePercent: number;
+  /**
+   * Exit cap rate for the commercial spaces' forward NOI (LA-1870). With it, gross sale value is
+   * residential forward NOI over `terminalCapRatePercent` plus commercial forward NOI over this rate.
+   * Absent keeps one cap for the whole property. It needs a commercial block on the case, and evidence of its own.
+   */
+  commercialTerminalCapRatePercent?: number;
   sellingCostPercent: number;
   forwardNoiConvention: typeof FORWARD_TWELVE_MONTH_NOI_VERSION;
   cashFlowDateConvention: typeof MONTH_END_CASH_FLOW_DATES_VERSION;
   xirrConvention: typeof XIRR_ACTUAL_365_VERSION;
-  saleAssumptionEvidence: Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>;
+  saleAssumptionEvidence: Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence> & { commercialTerminalCapRatePercent?: PropertyReturnsEvidence };
   lenderTests?: LenderTestPlan;
   /** Required when the operating tax schedule carries an abatement, and allowed only then. */
   saleTax?: SaleTaxPlan;
@@ -142,6 +151,12 @@ export type ForwardSalePeriod = {
   operatingExpenses: number;
   /** Present value of the tax abatement left at sale, added to the capped value. Zero when absent. */
   abatementValue?: number;
+  /**
+   * Forward NOI of each use on the same tax basis as `operatingExpenses` (LA-1870). Required with a
+   * commercial exit cap, and together they equal effective gross revenue less operating expenses.
+   */
+  residentialNetOperatingIncome?: number;
+  commercialNetOperatingIncome?: number;
 };
 
 export type PropertyReturnsIssueCode =
@@ -169,6 +184,7 @@ export type PropertyReturnsIssueCode =
   | "loan_sizing_unavailable"
   | "invalid_sale_tax"
   | "missing_sale_tax_basis"
+  | "invalid_commercial_cap"
   | "invalid_partnership"
   | "partnership_outside_timeline";
 
@@ -202,12 +218,23 @@ export type PropertyReturnMetric = {
   inputPaths: string[];
 };
 
+export type SaleValueSplit = {
+  residentialForwardNetOperatingIncome: number;
+  commercialForwardNetOperatingIncome: number;
+  residentialCapRatePercent: number;
+  commercialCapRatePercent: number;
+  residentialValue: number;
+  commercialValue: number;
+};
+
 export type PropertyReturnsCalculationResult = {
   sale: {
     forwardEffectiveGrossRevenue: number;
     forwardOperatingExpenses: number;
     forwardNetOperatingIncome: number;
     abatementValue: number;
+    /** Forward NOI and value by use. Present only with a commercial exit cap (LA-1870). The two values and the abatement value add to gross sale value. */
+    valueSplit?: SaleValueSplit;
     grossSaleValue: number;
     sellingCosts: number;
     netSaleProceeds: number;
@@ -278,6 +305,8 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     const partnershipIssues = validatePartnershipPlan(inputSnapshot.partnership);
     if (partnershipIssues.length > 0) return failedFull(inputSnapshot, partnershipIssues);
   }
+  const capIssues = commercialCapIssuesFor(inputSnapshot);
+  if (capIssues.length > 0) return failedFull(inputSnapshot, capIssues);
   const firstCapitalRun = computeDevelopmentCapital(inputSnapshot);
   if (firstCapitalRun.status === "failed" || !firstCapitalRun.result) {
     return failedFull(inputSnapshot, firstCapitalRun.issues);
@@ -321,6 +350,19 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   const abatementValue = saleTax?.abatementDiscountRatePercent === undefined
     ? null
     : abatementValueAtSale(allProjectedMonths, inputSnapshot.saleMonth, saleTax.abatementDiscountRatePercent);
+  /*
+   * LA-1870: with a commercial exit cap, each use's forward NOI takes its own cap rate. The added tax
+   * of the full tax bases lands on each use by the share of the tax its tenants reimburse.
+   */
+  const commercialExitCap = inputSnapshot.commercialTerminalCapRatePercent;
+  const commercialTaxShare = commercialTaxSharePercentFor(inputSnapshot);
+  const forwardUse = commercialExitCap === undefined
+    ? null
+    : {
+      scheduled: splitNoiByUse(forwardMonths, "netOperatingIncome", "scheduled", commercialTaxShare),
+      full: splitNoiByUse(forwardMonths, "netOperatingIncome", "full", commercialTaxShare),
+    };
+  const saleUse = forwardUse && (saleTax && saleTax.valueBasis !== "scheduled_tax" ? forwardUse.full : forwardUse.scheduled);
   const forwardSalePeriod: ForwardSalePeriod = {
     startMonth: inputSnapshot.saleMonth,
     endMonth: forwardEndMonth,
@@ -328,6 +370,7 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     effectiveGrossRevenue: sum(forwardMonths, "effectiveGrossRevenue"),
     operatingExpenses: saleTax && saleTax.valueBasis !== "scheduled_tax" ? fullExpenses : scheduledExpenses,
     ...(saleTax?.valueBasis === "full_tax_plus_abatement_value" ? { abatementValue: abatementValue! } : {}),
+    ...(saleUse ? { residentialNetOperatingIncome: dollars(saleUse.residentialCents), commercialNetOperatingIncome: dollars(saleUse.commercialCents) } : {}),
   };
   const permanentLoan = capitalRun.result.capital.permanentLoan ?? null;
   if (inputSnapshot.lenderTests?.debtServiceBasis === "permanent_loan" && !permanentLoan) {
@@ -368,6 +411,11 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   const sizingChecks = sizingResult && binding && totals.equity > 0
     ? [checkUsd("loan-sizing-binding-cap", `Total debt equals the binding ${binding.label} cap`, binding.amount, sizingResult.loanAmount)]
     : [];
+  const lenderTests = withLoanSizing(lenderTestsFor(inputSnapshot, totals, projectedMonths, permanentLoan), sizingResult);
+  const valueSplitChecks = lenderValueSplitChecks(lenderTests);
+  if (valueSplitChecks.some(({ status }) => status === "fail")) {
+    return failedFull(inputSnapshot, [{ path: "lenderTests.commercialCapRatePercent", code: "derived_results", message: "The lender value by use did not add to the as-stabilized value within one cent." }]);
+  }
   if (sizingChecks.some(({ status }) => status === "fail")) {
     return failedFull(inputSnapshot, [{ path: "lenderTests.loanSizing", code: "derived_results", message: "The funded loan did not settle on its binding cap within one cent." }]);
   }
@@ -399,15 +447,44 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
       developmentCapital: capitalRun.result.capital,
       forwardOperations: { startMonth: inputSnapshot.saleMonth, endMonth: forwardEndMonth, months: forwardMonths },
       propertyReturns: { ...calculation.result, metrics: withTaxPaths(calculation.result.metrics, inputSnapshot) },
-      lenderTests: withLoanSizing(lenderTestsFor(inputSnapshot, totals, projectedMonths, permanentLoan), sizingResult),
+      lenderTests,
       saleTax: saleTax && abatementEndMonth
-        ? saleTaxResult(saleTax, forwardSalePeriod.effectiveGrossRevenue, scheduledExpenses, fullExpenses, abatementValue, abatementEndMonth, inputSnapshot.terminalCapRatePercent)
+        ? saleTaxResult(saleTax, forwardSalePeriod.effectiveGrossRevenue, scheduledExpenses, fullExpenses, abatementValue, abatementEndMonth, inputSnapshot.terminalCapRatePercent, forwardUse && commercialExitCap !== undefined ? { ...forwardUse, commercialCapRatePercent: commercialExitCap } : undefined)
         : null,
       propertyTax: capitalRun.result.apartmentOperations.propertyTax,
       partnership: partnershipRun?.result ?? null,
     },
-    reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks, ...(partnershipRun?.reconciliations ?? [])],
+    reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks, ...valueSplitChecks, ...(partnershipRun?.reconciliations ?? [])],
   };
+}
+
+/** A commercial cap prices commercial NOI, so it needs a commercial block. Each cap is checked on its own. */
+function commercialCapIssuesFor(input: PropertyReturnsInputs): PropertyReturnsIssue[] {
+  const issues: PropertyReturnsIssue[] = [];
+  if (input.commercial !== undefined) return issues;
+  if (input.commercialTerminalCapRatePercent !== undefined) {
+    issues.push({ path: "commercialTerminalCapRatePercent", code: "invalid_commercial_cap", message: "A commercial exit cap rate needs commercial spaces on the case. Add a commercial space or remove the cap." });
+  }
+  if (input.lenderTests?.commercialCapRatePercent !== undefined) {
+    issues.push({ path: "lenderTests.commercialCapRatePercent", code: "invalid_commercial_cap", message: "A commercial cap rate needs commercial spaces on the case. Add a commercial space or remove the cap." });
+  }
+  return issues;
+}
+
+/** The value by use must add to the as-stabilized value it splits, on scheduled tax and, with an abatement, on full tax. */
+function lenderValueSplitChecks(tests: LenderTestsResult | null): ReconciliationCheck[] {
+  if (!tests) return [];
+  const checks: ReconciliationCheck[] = [];
+  const add = (suffix: string, label: string, stabilizedNoi: number, split: NonNullable<LenderTestsResult["valueSplit"]> | undefined, value: number | null | undefined) => {
+    if (!split || value == null) return;
+    checks.push(
+      checkUsd(`lender-value-split-noi${suffix}`, `Lender residential and commercial NOI${label} add to the valuation-year NOI`, stabilizedNoi, money(split.residentialNoi, split.commercialNoi)),
+      checkUsd(`lender-value-split-value${suffix}`, `Lender residential and commercial value${label} add to the as-stabilized value`, value, money(split.residentialValue, split.commercialValue)),
+    );
+  };
+  add("", "", tests.stabilizedNoi, tests.valueSplit, tests.metrics.find(({ key }) => key === "asStabilizedValue")?.value);
+  add("-full-tax", " on full tax", tests.fullTax?.stabilizedNoi ?? 0, tests.fullTax?.valueSplit, tests.fullTax?.metrics.find(({ key }) => key === "asStabilizedValue")?.value);
+  return checks;
 }
 
 function withLoanSizing(tests: LenderTestsResult | null, sizing: LoanSizingResult | null) {
@@ -430,7 +507,12 @@ export function calculatePropertyReturns(
   const forwardOperatingExpensesCents = cents(forwardSalePeriod.operatingExpenses);
   const forwardNetOperatingIncomeCents = forwardEffectiveGrossRevenueCents - forwardOperatingExpensesCents;
   const abatementValueCents = cents(forwardSalePeriod.abatementValue ?? 0);
-  const grossSaleValueCents = Math.round(forwardNetOperatingIncomeCents / (plan.terminalCapRatePercent / 100)) + abatementValueCents;
+  // LA-1870: with a commercial exit cap, each use's forward NOI is capped on its own and the two values add.
+  const commercialCap = plan.commercialTerminalCapRatePercent;
+  const useValue = commercialCap === undefined
+    ? null
+    : valueByUse({ residentialCents: cents(forwardSalePeriod.residentialNetOperatingIncome!), commercialCents: cents(forwardSalePeriod.commercialNetOperatingIncome!) }, plan.terminalCapRatePercent, commercialCap);
+  const grossSaleValueCents = (useValue ? useValue.totalValueCents : Math.round(forwardNetOperatingIncomeCents / (plan.terminalCapRatePercent / 100))) + abatementValueCents;
   const sellingCostsCents = percentOf(grossSaleValueCents, plan.sellingCostPercent);
   const netSaleProceedsCents = grossSaleValueCents - sellingCostsCents;
   // With a permanent loan the construction loan repaid at takeout, so the sale repays the permanent balance.
@@ -489,12 +571,22 @@ export function calculatePropertyReturns(
     levered: stream(datedMonths.map(({ leveredCashFlow }) => cents(leveredCashFlow)), leveredXirr.rate),
   };
   const yieldOnCost = forwardNetOperatingIncomeCents / totalProjectCostCents;
-  const developmentSpreadBasisPoints = (yieldOnCost - plan.terminalCapRatePercent / 100) * 10_000;
-  const sale = {
+  const developmentSpreadBasisPoints = (yieldOnCost - exitCapPercent(forwardNetOperatingIncomeCents, useValue?.totalValueCents, plan) / 100) * 10_000;
+  const sale: PropertyReturnsCalculationResult["sale"] = {
     forwardEffectiveGrossRevenue: dollars(forwardEffectiveGrossRevenueCents),
     forwardOperatingExpenses: dollars(forwardOperatingExpensesCents),
     forwardNetOperatingIncome: dollars(forwardNetOperatingIncomeCents),
     abatementValue: dollars(abatementValueCents),
+    ...(useValue && commercialCap !== undefined ? {
+      valueSplit: {
+        residentialForwardNetOperatingIncome: forwardSalePeriod.residentialNetOperatingIncome!,
+        commercialForwardNetOperatingIncome: forwardSalePeriod.commercialNetOperatingIncome!,
+        residentialCapRatePercent: plan.terminalCapRatePercent,
+        commercialCapRatePercent: commercialCap,
+        residentialValue: dollars(useValue.residentialValueCents),
+        commercialValue: dollars(useValue.commercialValueCents),
+      },
+    } : {}),
     grossSaleValue: dollars(grossSaleValueCents),
     sellingCosts: dollars(sellingCostsCents),
     netSaleProceeds: dollars(netSaleProceedsCents),
@@ -504,7 +596,7 @@ export function calculatePropertyReturns(
   const reconciliations = reconcile(datedMonths, sale, returns, plan, totalProjectCostCents, unleveredXirr, leveredXirr, yieldOnCost, developmentSpreadBasisPoints, hasPermanentLoan);
   const peakEquity = peakEquityOf(datedMonths);
   const metrics = metricsFor(sale, returns, yieldOnCost, developmentSpreadBasisPoints, peakEquity, hasPermanentLoan);
-  if (![...Object.values(sale), yieldOnCost, developmentSpreadBasisPoints, ...metrics.map(({ value }) => value)].every(Number.isFinite)
+  if (![...Object.values(sale).flatMap((value) => typeof value === "number" ? [value] : Object.values(value)), yieldOnCost, developmentSpreadBasisPoints, ...metrics.map(({ value }) => value)].every(Number.isFinite)
     || reconciliations.some(({ status }) => status === "fail")) {
     return failedCalculation(inputSnapshot, [{ path: "propertyReturns", code: "derived_results", message: "The sale and property return results did not reconcile within one cent." }]);
   }
@@ -516,11 +608,15 @@ export function validatePropertyReturnsPlan(plan: PropertyReturnsPlan): Property
   const issues: PropertyReturnsIssue[] = [];
   if (plan.saleInputVersion !== PROPERTY_RETURNS_INPUT_VERSION) issues.push({ path: "saleInputVersion", code: "unsupported_input_version", message: `Use ${PROPERTY_RETURNS_INPUT_VERSION}.` });
   if (!Number.isFinite(plan.terminalCapRatePercent) || plan.terminalCapRatePercent <= 0 || plan.terminalCapRatePercent > 100) issues.push({ path: "terminalCapRatePercent", code: "invalid_percent", message: "Terminal cap rate must be greater than zero and no more than 100 percent." });
+  const commercialCap = plan.commercialTerminalCapRatePercent;
+  if (commercialCap !== undefined && (typeof commercialCap !== "number" || !Number.isFinite(commercialCap) || commercialCap <= 0 || commercialCap > 100)) {
+    issues.push({ path: "commercialTerminalCapRatePercent", code: "invalid_percent", message: "Commercial exit cap rate must be greater than zero and no more than 100 percent." });
+  }
   if (!Number.isFinite(plan.sellingCostPercent) || plan.sellingCostPercent < 0 || plan.sellingCostPercent > 100) issues.push({ path: "sellingCostPercent", code: "invalid_percent", message: "Selling costs must be from 0 to 100 percent." });
   if (plan.forwardNoiConvention !== FORWARD_TWELVE_MONTH_NOI_VERSION) issues.push({ path: "forwardNoiConvention", code: "unsupported_forward_noi_convention", message: `Use ${FORWARD_TWELVE_MONTH_NOI_VERSION}.` });
   if (plan.cashFlowDateConvention !== MONTH_END_CASH_FLOW_DATES_VERSION) issues.push({ path: "cashFlowDateConvention", code: "unsupported_date_convention", message: `Use ${MONTH_END_CASH_FLOW_DATES_VERSION}.` });
   if (plan.xirrConvention !== XIRR_ACTUAL_365_VERSION) issues.push({ path: "xirrConvention", code: "unsupported_xirr_convention", message: `Use ${XIRR_ACTUAL_365_VERSION}.` });
-  validateEvidence(issues, plan.saleAssumptionEvidence);
+  validateEvidence(issues, plan.saleAssumptionEvidence, commercialCap !== undefined);
   if (plan.lenderTests !== undefined) issues.push(...validateLenderTestPlan(plan.lenderTests));
   if (plan.saleTax !== undefined) issues.push(...validateSaleTaxPlan(plan.saleTax));
   if (plan.partnership !== undefined) issues.push(...validatePartnershipPlan(plan.partnership));
@@ -586,15 +682,20 @@ function saleTaxResult(
   abatementValue: number | null,
   abatementEndMonth: string,
   capRatePercent: number,
+  byUse?: { scheduled: UseSplit; full: UseSplit; commercialCapRatePercent: number },
 ): SaleTaxResult {
   const scheduledNoiCents = cents(effectiveGrossRevenue) - cents(scheduledExpenses);
   const fullNoiCents = cents(effectiveGrossRevenue) - cents(fullExpenses);
+  // With a commercial cap each use is valued at its own cap, so the tax bases compare on the same pricing as the sale.
+  const valueCents = (noiCents: number, use?: UseSplit) => byUse && use
+    ? valueByUse(use, capRatePercent, byUse.commercialCapRatePercent).totalValueCents
+    : Math.round(noiCents / (capRatePercent / 100));
   return {
     valueBasis: plan.valueBasis,
     scheduledTaxForwardNoi: dollars(scheduledNoiCents),
     fullTaxForwardNoi: dollars(fullNoiCents),
-    scheduledTaxValue: dollars(Math.round(scheduledNoiCents / (capRatePercent / 100))),
-    fullTaxValue: dollars(Math.round(fullNoiCents / (capRatePercent / 100))),
+    scheduledTaxValue: dollars(valueCents(scheduledNoiCents, byUse?.scheduled)),
+    fullTaxValue: dollars(valueCents(fullNoiCents, byUse?.full)),
     abatementDiscountRatePercent: plan.abatementDiscountRatePercent ?? null,
     abatementValue,
     abatementEndMonth,
@@ -629,11 +730,30 @@ function validate(months: MonthlyPropertyReturnsInput[], period: ForwardSalePeri
   if (!validUsd(period.effectiveGrossRevenue, false) || !validUsd(period.operatingExpenses, false)) {
     issues.push({ path: "forwardSalePeriod", code: "invalid_amount", message: "Forward revenue and operating expenses must be safe, zero or positive USD amounts with no more than two decimal places." });
   }
+  issues.push(...validateForwardUseSplit(period, plan));
   if (period.abatementValue !== undefined && !validUsd(period.abatementValue, false)) {
     issues.push({ path: "forwardSalePeriod.abatementValue", code: "invalid_amount", message: "Abatement value at sale must be a safe, zero or positive USD amount with no more than two decimal places." });
   }
   issues.push(...validatePermanentLoanMonths(months));
   return issues;
+}
+
+/** A commercial exit cap needs the forward NOI of each use, and the two must add to the forward NOI they split. */
+function validateForwardUseSplit(period: ForwardSalePeriod, plan: PropertyReturnsPlan): PropertyReturnsIssue[] {
+  const { residentialNetOperatingIncome: residential, commercialNetOperatingIncome: commercial } = period;
+  if (plan.commercialTerminalCapRatePercent === undefined && residential === undefined && commercial === undefined) return [];
+  const path = "forwardSalePeriod";
+  if (residential === undefined || commercial === undefined) {
+    return [{ path, code: "invalid_forward_period", message: "A commercial exit cap needs the forward NOI of both the residential and the commercial use." }];
+  }
+  if (!validUsd(residential, true) || !validUsd(commercial, true)) {
+    return [{ path, code: "invalid_amount", message: "Forward NOI by use must be a safe USD amount with no more than two decimal places." }];
+  }
+  if (!validUsd(period.effectiveGrossRevenue, false) || !validUsd(period.operatingExpenses, false)) return [];
+  if (cents(residential) + cents(commercial) !== cents(period.effectiveGrossRevenue) - cents(period.operatingExpenses)) {
+    return [{ path, code: "invalid_forward_period", message: "Residential and commercial forward NOI must add to forward revenue less forward operating expenses." }];
+  }
+  return [];
 }
 
 /**
@@ -676,12 +796,15 @@ function permanentLoanCashCents(month: MonthlyPropertyReturnsInput) {
     - cents(month.permanentDebtService ?? 0) - cents(month.permanentLoanPayoff ?? 0);
 }
 
-function validateEvidence(issues: PropertyReturnsIssue[], evidence: Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>) {
+function validateEvidence(issues: PropertyReturnsIssue[], evidence: PropertyReturnsPlan["saleAssumptionEvidence"], withCommercialCap: boolean) {
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
     issues.push({ path: "saleAssumptionEvidence", code: "missing_evidence", message: "Add source and review details for the sale assumptions." });
     return;
   }
-  for (const key of PROPERTY_RETURNS_ASSUMPTION_KEYS) {
+  const keys: readonly (PropertyReturnsAssumptionKey | typeof PROPERTY_RETURNS_COMMERCIAL_CAP_KEY)[] = withCommercialCap
+    ? [...PROPERTY_RETURNS_ASSUMPTION_KEYS, PROPERTY_RETURNS_COMMERCIAL_CAP_KEY]
+    : PROPERTY_RETURNS_ASSUMPTION_KEYS;
+  for (const key of keys) {
     const item = evidence[key];
     const path = `saleAssumptionEvidence.${key}`;
     if (!item || typeof item !== "object" || Array.isArray(item)) {
@@ -719,7 +842,14 @@ function reconcile(
   const datedLevered = months.map((month) => ({ amountCents: cents(month.leveredCashFlow), years: yearsFrom(months[0].date, month.date) }));
   return [
     checkUsd("forward-noi", "Forward sale NOI equals effective gross revenue less operating expenses", sale.forwardNetOperatingIncome, dollars(cents(sale.forwardEffectiveGrossRevenue) - cents(sale.forwardOperatingExpenses))),
-    checkUsd("gross-sale-value", "Gross sale value equals forward sale NOI divided by terminal cap rate, plus any abatement value at sale", sale.grossSaleValue, dollars(Math.round(cents(sale.forwardNetOperatingIncome) / (plan.terminalCapRatePercent / 100)) + cents(sale.abatementValue))),
+    ...(sale.valueSplit ? [
+      checkUsd("sale-noi-by-use", "Residential and commercial forward NOI add to forward sale NOI", sale.forwardNetOperatingIncome, money(sale.valueSplit.residentialForwardNetOperatingIncome, sale.valueSplit.commercialForwardNetOperatingIncome)),
+      checkUsd("residential-sale-value", "Residential sale value equals residential forward NOI divided by the terminal cap rate", sale.valueSplit.residentialValue, dollars(Math.round(cents(sale.valueSplit.residentialForwardNetOperatingIncome) / (plan.terminalCapRatePercent / 100)))),
+      checkUsd("commercial-sale-value", "Commercial sale value equals commercial forward NOI divided by the commercial terminal cap rate", sale.valueSplit.commercialValue, dollars(Math.round(cents(sale.valueSplit.commercialForwardNetOperatingIncome) / (sale.valueSplit.commercialCapRatePercent / 100)))),
+      checkUsd("gross-sale-value", "Gross sale value equals residential sale value plus commercial sale value, plus any abatement value at sale", sale.grossSaleValue, money(sale.valueSplit.residentialValue, sale.valueSplit.commercialValue, sale.abatementValue)),
+    ] : [
+      checkUsd("gross-sale-value", "Gross sale value equals forward sale NOI divided by terminal cap rate, plus any abatement value at sale", sale.grossSaleValue, dollars(Math.round(cents(sale.forwardNetOperatingIncome) / (plan.terminalCapRatePercent / 100)) + cents(sale.abatementValue))),
+    ]),
     checkUsd("selling-costs", "Selling costs equal gross sale value times selling cost percent", sale.sellingCosts, dollars(percentOf(cents(sale.grossSaleValue), plan.sellingCostPercent))),
     checkUsd("net-sale-proceeds", "Net sale proceeds equal gross sale value less selling costs", sale.netSaleProceeds, dollars(cents(sale.grossSaleValue) - cents(sale.sellingCosts))),
     hasPermanentLoan
@@ -741,7 +871,7 @@ function reconcile(
     checkMetric("unlevered-xirr-residual", "Unlevered XIRR has a scale-aware XNPV residual", 0, dollars(xnpv(datedUnlevered, unleveredXirr.rate)), dollars(unleveredXirr.toleranceCents), "usd"),
     checkMetric("levered-xirr-residual", "Levered XIRR has a scale-aware XNPV residual", 0, dollars(xnpv(datedLevered, leveredXirr.rate)), dollars(leveredXirr.toleranceCents), "usd"),
     checkMetric("yield-on-cost", "Yield on cost equals forward NOI divided by total project cost", yieldOnCost, cents(sale.forwardNetOperatingIncome) / totalProjectCostCents, 1e-10, "ratio"),
-    checkMetric("development-spread", "Development spread equals yield on cost less terminal cap rate", developmentSpreadBasisPoints, (yieldOnCost - plan.terminalCapRatePercent / 100) * 10_000, 1e-6, "basis_points"),
+    checkMetric("development-spread", sale.valueSplit ? "Development spread equals yield on cost less the blended exit cap rate, which is forward sale NOI over the value of both uses" : "Development spread equals yield on cost less terminal cap rate", developmentSpreadBasisPoints, (yieldOnCost - exitCapPercent(cents(sale.forwardNetOperatingIncome), sale.valueSplit ? cents(sale.valueSplit.residentialValue) + cents(sale.valueSplit.commercialValue) : undefined, plan) / 100) * 10_000, 1e-6, "basis_points"),
     checkUsd("unlevered-net-profit", "Unlevered net profit equals dated unlevered cash flow", returns.unlevered.netProfit, dollars(unleveredCents.reduce((sum, value) => sum + value, 0))),
     checkUsd("levered-net-profit", "Levered net profit equals dated levered cash flow", returns.levered.netProfit, dollars(leveredCents.reduce((sum, value) => sum + value, 0))),
   ];
@@ -768,12 +898,21 @@ function metricsFor(
     "fundingOrder", "interestTreatment", "interestConvention", "feeMonth", "payoffMonth",
     ...(hasPermanentLoan ? ["permanentLoan"] : []),
   ];
-  const saleValuePaths = ["saleInputVersion", "terminalCapRatePercent", "forwardNoiConvention"];
+  const { valueSplit } = sale;
+  const saleValuePaths = ["saleInputVersion", "terminalCapRatePercent", ...(valueSplit ? ["commercialTerminalCapRatePercent"] : []), "forwardNoiConvention"];
   const saleProceedsPaths = [...saleValuePaths, "sellingCostPercent"];
   const returnTimingPaths = ["cashFlowDateConvention", "xirrConvention"];
   return [
     { key: "forwardNetOperatingIncome", label: "Forward Sale NOI", value: sale.forwardNetOperatingIncome, unit: "usd", formula: "forward twelve-month effective gross revenue less forward twelve-month operating expenses", inputPaths: rootPaths(operationPaths, ["forwardNoiConvention"]) },
-    { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: sale.abatementValue > 0 ? "forward sale NOI divided by terminal cap rate, plus the present value of the tax abatement left at sale" : "forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths) },
+    { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: valueSplit
+      ? `residential forward NOI divided by terminal cap rate, plus commercial forward NOI divided by the commercial terminal cap rate${sale.abatementValue > 0 ? ", plus the present value of the tax abatement left at sale" : ""}`
+      : sale.abatementValue > 0 ? "forward sale NOI divided by terminal cap rate, plus the present value of the tax abatement left at sale" : "forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths) },
+    ...(valueSplit ? [
+      { key: "residentialForwardNetOperatingIncome", label: "Residential Forward Sale NOI", value: valueSplit.residentialForwardNetOperatingIncome, unit: "usd" as const, formula: "forward twelve-month residential effective gross revenue less the forward twelve-month expenses the residential use carries; with a full tax sale basis, the added tax is shared by each use's tenant tax recovery share", inputPaths: rootPaths(operationPaths, ["forwardNoiConvention"]) },
+      { key: "commercialForwardNetOperatingIncome", label: "Commercial Forward Sale NOI", value: valueSplit.commercialForwardNetOperatingIncome, unit: "usd" as const, formula: "forward twelve-month commercial effective gross revenue less the forward twelve-month expenses the commercial spaces carry; with a full tax sale basis, the added tax is shared by each use's tenant tax recovery share", inputPaths: rootPaths(operationPaths, ["forwardNoiConvention"]) },
+      { key: "residentialSaleValue", label: "Residential Sale Value", value: valueSplit.residentialValue, unit: "usd" as const, formula: "residential forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths.filter((path) => path !== "commercialTerminalCapRatePercent")) },
+      { key: "commercialSaleValue", label: "Commercial Sale Value", value: valueSplit.commercialValue, unit: "usd" as const, formula: "commercial forward sale NOI divided by the commercial terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths.filter((path) => path !== "terminalCapRatePercent")) },
+    ] : []),
     { key: "sellingCosts", label: "Selling Costs", value: sale.sellingCosts, unit: "usd", formula: "gross sale value times selling cost percent", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
     { key: "netSaleProceeds", label: "Net Sale Proceeds", value: sale.netSaleProceeds, unit: "usd", formula: "gross sale value less selling costs", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
     hasPermanentLoan
@@ -788,7 +927,7 @@ function metricsFor(
     { key: "leveredNetProfit", label: "Levered Net Profit", value: returns.levered.netProfit, unit: "usd", formula: "sum dated monthly levered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
     { key: "peakEquity", label: "Peak Equity", value: peakEquity.amount, unit: "usd", formula: `largest running total of negative levered cash flow less positive levered cash flow${peakEquity.month ? `, first reached ${peakEquity.month}` : ""}`, inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
     { key: "yieldOnCost", label: "Sale Yield on Cost", value: yieldOnCost, unit: "ratio", formula: "forward sale NOI divided by total project cost including carry", inputPaths: rootPaths(costPaths, operationPaths, ["forwardNoiConvention"], capitalPaths) },
-    { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: "sale yield on cost less terminal cap rate, in basis points", inputPaths: rootPaths(costPaths, operationPaths, saleValuePaths, capitalPaths) },
+    { key: "developmentSpread", label: "Development Spread", value: developmentSpreadBasisPoints, unit: "basis_points", formula: valueSplit ? "sale yield on cost less the blended exit cap rate, which is forward sale NOI over the value of both uses, in basis points" : "sale yield on cost less terminal cap rate, in basis points", inputPaths: rootPaths(costPaths, operationPaths, saleValuePaths, capitalPaths) },
   ];
 }
 
@@ -797,9 +936,15 @@ function withTaxPaths(metrics: PropertyReturnMetric[], input: PropertyReturnsInp
   return metrics.map((metric) => {
     const paths = [...metric.inputPaths];
     if (input.propertyTax && paths.includes("operatingExpenseLines")) paths.push("propertyTax");
+    if (input.commercial && paths.includes("operatingExpenseLines")) paths.push("commercial");
     if (input.saleTax && paths.includes("terminalCapRatePercent")) paths.push("saleTax");
     return { ...metric, inputPaths: paths };
   });
+}
+
+/** The cap rate the sale's forward NOI implies: the stated terminal cap, or with a commercial cap the forward NOI over the value of both uses. */
+function exitCapPercent(forwardNoiCents: number, useValueCents: number | undefined, plan: PropertyReturnsPlan) {
+  return useValueCents === undefined ? plan.terminalCapRatePercent : forwardNoiCents / useValueCents * 100;
 }
 
 function rootPaths(...groups: string[][]) {
@@ -820,6 +965,7 @@ function planFrom(input: PropertyReturnsInputs): PropertyReturnsPlan {
   return {
     saleInputVersion: input.saleInputVersion,
     terminalCapRatePercent: input.terminalCapRatePercent,
+    ...(input.commercialTerminalCapRatePercent === undefined ? {} : { commercialTerminalCapRatePercent: input.commercialTerminalCapRatePercent }),
     sellingCostPercent: input.sellingCostPercent,
     forwardNoiConvention: input.forwardNoiConvention,
     cashFlowDateConvention: input.cashFlowDateConvention,

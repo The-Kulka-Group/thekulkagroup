@@ -407,6 +407,11 @@ export {
 export {
   LENDER_TESTS_INPUT_VERSION,
   LENDER_TEST_ASSUMPTION_KEYS,
+  LENDER_TEST_COMMERCIAL_CAP_KEY,
+  operationPathsFor,
+  type LenderValueSplit,
+  type LenderValueSplitKey,
+  type LenderValueSplitLine,
   MAX_LENDER_TEST_SOURCE_LABEL_LENGTH,
   LOAN_SIZING_TAX_BASES,
   MAX_DSCR_AMORTIZATION_YEARS,
@@ -463,6 +468,8 @@ export {
   FORWARD_TWELVE_MONTH_NOI_VERSION,
   MONTH_END_CASH_FLOW_DATES_VERSION,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  PROPERTY_RETURNS_COMMERCIAL_CAP_KEY,
+  type SaleValueSplit,
   PROPERTY_RETURNS_FORMULA_VERSION,
   PROPERTY_RETURNS_INPUT_VERSION,
   PROPERTY_RETURNS_V1_FORMULA_VERSION,
@@ -648,3 +655,5 @@ export {
   type LineQuantityRule,
   type QuantityRuleId,
 } from "./quantity-rules";
+
+export { commercialTaxSharePercentFor, splitNoiByUse, valueByUse, type UseSplit } from "./use-split";

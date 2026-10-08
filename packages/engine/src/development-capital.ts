@@ -1,11 +1,21 @@
 import { resolveMilestoneAnchors } from "./milestones";
 import {
   computeApartmentOperations,
+  projectApartmentOperationsThrough,
   type ApartmentOperationsInputs,
   type ApartmentOperationsIssue,
   type ApartmentOperationsResult,
 } from "./apartment-operations";
 import type { MonthlyCostLine, MonthlyCostScheduleResult, ReconciliationCheck } from "./monthly-cost-schedule";
+import {
+  permanentLoanWindowEndMonth,
+  resolvePermanentLoanFundingMonth,
+  schedulePermanentLoan,
+  validatePermanentLoanPlan,
+  type PermanentLoanIssueCode,
+  type PermanentLoanPlan,
+  type PermanentLoanResult,
+} from "./permanent-loan";
 import {
   scheduleOtherSources,
   validateOtherFunding,
@@ -82,6 +92,8 @@ export type DevelopmentCapitalPlan = {
   otherSources?: OtherFundingSource[];
   /** Land value the deal credits apart from cash land cost. */
   creditedLand?: CreditedLandPlan;
+  /** A permanent loan that takes out the construction loan before the sale (LA-1867). Absent repays construction debt at sale. */
+  permanentLoan?: PermanentLoanPlan;
   capitalAssumptionEvidence: Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalEvidence>;
 };
 
@@ -117,7 +129,8 @@ export type DevelopmentCapitalIssueCode =
   | "other_sources_exceed_equity_need"
   | "other_sources_unused"
   | "percent_total_unsettled"
-  | OtherSourceIssueCode;
+  | OtherSourceIssueCode
+  | PermanentLoanIssueCode;
 
 export type DevelopmentCapitalIssue = {
   path: string;
@@ -259,6 +272,8 @@ export type DevelopmentCapitalResult = {
   totals: DevelopmentCapitalTotals;
   /** The largest total debt the lender's NOI caps allow (LA-1823); absent or null when LTC alone sizes the loan. */
   debtCeiling?: number | null;
+  /** The permanent loan that takes out the construction loan (LA-1867); absent when the case has none. */
+  permanentLoan?: PermanentLoanResult;
   formulaTraces: CapitalFormulaTrace[];
   reconciliations: ReconciliationCheck[];
 };
@@ -317,7 +332,9 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs, optio
       operatingCashFlow: month.operatingCashFlow,
     }));
     const landCashCost = operationsRun.result.costSchedule.totalsByCategory.land;
-    const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost, options.maxLoan ?? null);
+    const funding = takeoutFor(inputSnapshot, operationsRun.result);
+    if (funding && "issues" in funding) return failedWith(funding.issues);
+    const capitalRun = fundMonthlyDevelopmentCashFlow(monthlyCashFlow, planFrom(inputSnapshot), landCashCost, options.maxLoan ?? null, funding?.month ?? null);
     if (capitalRun.status === "failed" || !capitalRun.result) return failedWith(capitalRun.issues);
     const { totals } = capitalRun.result;
     const nextFinancingCents = cents(totals.totalUses) - cents(totals.projectCosts);
@@ -329,6 +346,11 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs, optio
     if (percentChecks.some(({ status }) => status === "fail")) {
       return failedWith([{ path: "costLines", code: "percent_total_unsettled", message: "A percent-of-total line did not tie to its share of cost including financing." }]);
     }
+    const permanent = funding ? permanentLoanFor(inputSnapshot, funding, capitalRun.result) : null;
+    if (permanent && "code" in permanent) return failedWith([permanent]);
+    if (permanent && permanent.checks.some(({ status }) => status === "fail")) {
+      return failedWith([{ path: "permanentLoan", code: "derived_results", message: "The permanent loan schedule did not reconcile within one cent." }]);
+    }
     return {
       formulaVersion: DEVELOPMENT_CAPITAL_FORMULA_VERSION,
       inputSnapshot,
@@ -336,9 +358,9 @@ export function computeDevelopmentCapital(input: DevelopmentCapitalInputs, optio
       issues: [],
       result: {
         apartmentOperations: operationsRun.result,
-        capital: capitalRun.result,
+        capital: permanent ? { ...capitalRun.result, permanentLoan: permanent.loan } : capitalRun.result,
       },
-      reconciliations: [...operationsRun.reconciliations, ...capitalRun.reconciliations, ...percentChecks],
+      reconciliations: [...operationsRun.reconciliations, ...capitalRun.reconciliations, ...percentChecks, ...(permanent?.checks ?? [])],
     };
   }
   return failedWith([{
@@ -371,6 +393,65 @@ function percentOfTotalChecks(input: DevelopmentCapitalInputs, schedule: Monthly
   });
 }
 
+/** The permanent loan's funding month, which is the construction takeout month. Null when the case has no permanent loan. */
+function takeoutFor(
+  input: DevelopmentCapitalInputs,
+  operations: ApartmentOperationsResult,
+): { month: string; trace: string } | { issues: DevelopmentCapitalIssue[] } | null {
+  if (input.permanentLoan === undefined) return null;
+  const issues = validatePermanentLoanPlan(input.permanentLoan);
+  if (issues.length > 0) return { issues };
+  const resolved = resolvePermanentLoanFundingMonth(input.permanentLoan, {
+    firstStabilizedMonth: operations.firstStabilizedMonth,
+    milestones: input.milestones,
+  });
+  return "code" in resolved ? { issues: [resolved] } : resolved;
+}
+
+const PERMANENT_LOAN_OPERATION_PATHS = [
+  "analysisStartMonth", "inputVersion", "operationStartMonth", "growthStartMonth",
+  "preleasedUnits", "leaseUpUnitsPerMonth", "annualIncomeGrowthPercent",
+  "annualExpenseGrowthPercent", "rentAdjustmentLossPercent", "freeRentPercent",
+  "vacancyPercent", "creditLossPercent", "residentialUnitTypes", "otherIncomeLines",
+  "operatingExpenseLines",
+];
+
+/**
+ * Sizes and schedules the permanent loan on the funded capital plan. The sizing NOI reads operations,
+ * which never read the loan, so the loan cannot move its own NOI and no loop is needed.
+ */
+function permanentLoanFor(
+  input: DevelopmentCapitalInputs,
+  funding: { month: string; trace: string },
+  capital: DevelopmentCapitalResult,
+): { loan: PermanentLoanResult; checks: ReconciliationCheck[] } | DevelopmentCapitalIssue {
+  const plan = input.permanentLoan!;
+  const windowEnd = permanentLoanWindowEndMonth(plan, funding.month);
+  const projectionEnd = (monthIndex(windowEnd) ?? 0) > (monthIndex(input.saleMonth) ?? 0) ? windowEnd : input.saleMonth;
+  const takeoutRow = capital.months.find(({ month }) => month === funding.month);
+  const loan = schedulePermanentLoan({
+    plan,
+    fundingMonth: funding.month,
+    fundingTrace: funding.trace,
+    constructionPayoffCents: cents(takeoutRow?.repayment ?? 0),
+    months: capital.months.map(({ month, operatingCashFlow }) => ({ month, operatingCashFlow })),
+    operations: projectApartmentOperationsThrough(input, projectionEnd),
+    analysisStartMonth: input.analysisStartMonth,
+    operationPaths: input.propertyTax ? [...PERMANENT_LOAN_OPERATION_PATHS, "propertyTax"] : PERMANENT_LOAN_OPERATION_PATHS,
+  });
+  if ("code" in loan) return loan;
+  const checks = [
+    ...loan.reconciliations,
+    check(
+      "permanent-loan-construction-payoff",
+      "The permanent loan repays the construction balance the capital plan repays in the funding month",
+      takeoutRow?.repayment ?? 0,
+      loan.constructionPayoff,
+    ),
+  ];
+  return { loan: { ...loan, reconciliations: checks }, checks };
+}
+
 /**
  * `landCashCost` is the cost schedule's land total, paid in cash. It splits land from other project
  * costs in the sources and uses summary and sets the floor for credited land value.
@@ -380,11 +461,17 @@ export function fundMonthlyDevelopmentCashFlow(
   submittedPlan: DevelopmentCapitalPlan,
   landCashCost = 0,
   maxLoan: number | null = null,
+  takeoutMonth: string | null = null,
 ): MonthlyCapitalRun {
   const monthlyCashFlow = structuredClone(submittedCashFlow);
   const plan = structuredClone(submittedPlan);
   const inputSnapshot = { monthlyCashFlow, plan };
-  const issues = validate(monthlyCashFlow, plan, cents(landCashCost));
+  /*
+   * LA-1867: with a permanent loan the construction loan repays in the takeout month, which the full
+   * run resolves from operations. A direct call can only use a typed funding month.
+   */
+  const takeout = plan.permanentLoan === undefined ? null : takeoutMonth ?? plan.permanentLoan?.fundingMonth ?? null;
+  const issues = validate(monthlyCashFlow, plan, cents(landCashCost), takeout);
   if (issues.length > 0) return failed(inputSnapshot, issues);
 
   const maxLoanCents = maxLoan === null ? null : cents(maxLoan);
@@ -395,7 +482,7 @@ export function fundMonthlyDevelopmentCashFlow(
     ? percentOf(maxLoanCents, plan.loanFeePercent)
     : percentOf(projectCostCents, plan.targetDebtSharePercent * plan.loanFeePercent / 100);
   const schedule = scheduleOtherSources(plan.otherSources ?? [], monthlyCashFlow.map(({ month }) => month));
-  const solution = solveEquityCommitment(monthlyCashFlow, plan, loanFeeCents, schedule, maxLoanCents);
+  const solution = solveEquityCommitment(monthlyCashFlow, plan, loanFeeCents, schedule, maxLoanCents, takeout);
   if (solution.kind === "negative") {
     return failed(inputSnapshot, [{
       path: "otherSources",
@@ -410,7 +497,7 @@ export function fundMonthlyDevelopmentCashFlow(
       message: "The equity and debt funding target did not settle to a cent within the formula limit.",
     }]);
   }
-  const calculated = simulate(monthlyCashFlow, plan, loanFeeCents, solution.cents, schedule);
+  const calculated = simulate(monthlyCashFlow, plan, loanFeeCents, solution.cents, schedule, takeout);
   if (calculated.unusedOtherCashCents !== 0) {
     return failed(inputSnapshot, [{
       path: "otherSources",
@@ -438,7 +525,7 @@ export function fundMonthlyDevelopmentCashFlow(
     sourcesAndUses,
     totals,
     ...(maxLoanCents === null ? {} : { debtCeiling: dollars(maxLoanCents) }),
-    formulaTraces: formulaTraces(plan, maxLoanCents !== null),
+    formulaTraces: formulaTraces(plan, maxLoanCents !== null, takeout),
     reconciliations,
   };
   return {
@@ -451,7 +538,7 @@ export function fundMonthlyDevelopmentCashFlow(
   };
 }
 
-function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapitalPlan, landCashCostCents: number) {
+function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapitalPlan, landCashCostCents: number, takeout: string | null) {
   const issues: DevelopmentCapitalIssue[] = [];
   if (!Array.isArray(months) || months.length === 0) {
     addIssue(issues, "monthlyCashFlow", "invalid_amount", "Add at least one monthly development cash-flow row.");
@@ -501,12 +588,28 @@ function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapital
     if (last !== null && payoffIndex < last) {
       addIssue(issues, "payoffMonth", "payoff_before_final_month", "Debt payoff must occur in the final model month until a named payoff source is available.");
     }
-    const lastRequiredUse = [...months].reverse().find((month) => month.projectCosts > 0 || month.operatingCashFlow < 0);
+    const takeoutIndex = takeout === null ? null : monthIndex(takeout);
+    // After a permanent loan takeout, an operating shortfall is an equity call, not a construction draw.
+    const lastRequiredUse = [...months].reverse().find((month) => month.projectCosts > 0
+      || (month.operatingCashFlow < 0 && (takeoutIndex === null || (monthIndex(month.month) ?? 0) <= takeoutIndex)));
     const lastRequiredUseIndex = lastRequiredUse ? monthIndex(lastRequiredUse.month) : null;
     const feeIndex = plan.loanFeePercent > 0 ? monthIndex(plan.feeMonth) : null;
     const lastDrawIndex = Math.max(lastRequiredUseIndex ?? Number.NEGATIVE_INFINITY, feeIndex ?? Number.NEGATIVE_INFINITY);
     if (payoffIndex < lastDrawIndex) {
       addIssue(issues, "payoffMonth", "payoff_before_last_use", "Debt payoff cannot occur before the last project cost, loan fee, or operating shortfall.");
+    }
+    if (takeoutIndex !== null && takeoutIndex < lastDrawIndex) {
+      addIssue(issues, "permanentLoan.fundingMonth", "payoff_before_last_use", "The permanent loan cannot take out the construction loan before the last project cost or loan fee.");
+    }
+  }
+  if (plan.permanentLoan !== undefined) {
+    const loanIssues = validatePermanentLoanPlan(plan.permanentLoan);
+    issues.push(...loanIssues);
+    const takeoutIndex = monthIndex(takeout);
+    if (loanIssues.length === 0 && takeout === null) {
+      addIssue(issues, "permanentLoan.fundingAnchor", "permanent_loan_funding_unavailable", "An anchored funding month resolves only in a full run with operations.");
+    } else if (takeout !== null && (takeoutIndex === null || first === null || last === null || takeoutIndex < first || takeoutIndex >= last)) {
+      addIssue(issues, plan.permanentLoan.fundingMonth !== undefined ? "permanentLoan.fundingMonth" : "permanentLoan.fundingAnchor", "invalid_permanent_loan", `The permanent loan must fund inside the model timeline and before the sale month; it funds in ${takeout}.`);
     }
   }
   validateEvidence(issues, plan.capitalAssumptionEvidence);
@@ -613,6 +716,7 @@ function solveEquityCommitment(
   loanFeeCents: number,
   schedule: OtherSourceScheduleCents[],
   maxLoanCents: number | null,
+  takeout: string | null = null,
 ): EquitySolution {
   const targetDebtCents = (usesCents: number) => maxLoanCents === null
     ? percentOf(usesCents, plan.targetDebtSharePercent)
@@ -621,8 +725,10 @@ function solveEquityCommitment(
     (sum, entry) => sum + entry.months.reduce((total, month) => total + month.drawCents, 0),
     0,
   );
+  const takeoutIndex = takeout === null ? null : monthIndex(takeout);
   const baseCents = months.reduce(
-    (sum, month) => sum + cents(month.projectCosts) + Math.max(-cents(month.operatingCashFlow), 0),
+    (sum, month) => sum + cents(month.projectCosts)
+      + (takeoutIndex !== null && monthIndex(month.month)! > takeoutIndex ? 0 : Math.max(-cents(month.operatingCashFlow), 0)),
     loanFeeCents,
   );
   let equityCents = Math.max(baseCents - targetDebtCents(baseCents) - otherTotalCents, 0);
@@ -630,7 +736,7 @@ function solveEquityCommitment(
   for (let iteration = 0; iteration < 200; iteration += 1) {
     if (seen.has(equityCents)) return { kind: "unsettled" };
     seen.add(equityCents);
-    const simulation = simulate(months, plan, loanFeeCents, equityCents, schedule);
+    const simulation = simulate(months, plan, loanFeeCents, equityCents, schedule, takeout);
     const totalUsesCents = simulation.months.reduce((sum, month) => sum + cents(month.totalUses), 0);
     const nextEquityCents = totalUsesCents - targetDebtCents(totalUsesCents) - otherTotalCents;
     if (nextEquityCents < -1) {
@@ -651,7 +757,15 @@ function simulate(
   loanFeeCents: number,
   equityCommitmentCents: number,
   schedule: OtherSourceScheduleCents[],
+  takeout: string | null = null,
 ) {
+  /*
+   * LA-1867: with a permanent loan the construction loan repays in the takeout month. After it the
+   * construction loan is closed: it charges no interest and funds no operating shortfall, which the
+   * permanent loan schedule reports as an equity call.
+   */
+  const repaymentMonth = takeout ?? plan.payoffMonth;
+  const takeoutIndex = takeout === null ? null : monthIndex(takeout);
   let remainingEquityCents = equityCommitmentCents;
   let openingDebtCents = 0;
   const sourceCashCents = schedule.map(() => 0);
@@ -671,7 +785,8 @@ function simulate(
   months.forEach((month, position) => {
     const projectCostCents = cents(month.projectCosts);
     const operatingCashFlowCents = cents(month.operatingCashFlow);
-    const operatingShortfallCents = Math.max(-operatingCashFlowCents, 0);
+    const afterTakeout = takeoutIndex !== null && monthIndex(month.month)! > takeoutIndex;
+    const operatingShortfallCents = afterTakeout ? 0 : Math.max(-operatingCashFlowCents, 0);
     const currentLoanFeeCents = month.month === plan.feeMonth ? loanFeeCents : 0;
     const rate = rateFor(plan, month.month);
     const grossInterestCents = percentOf(openingDebtCents, rate.annualRatePercent / 12);
@@ -715,7 +830,7 @@ function simulate(
     const equityContributionCents = projectEquityCents + shortfallEquityCents + interestEquityCents;
     const totalDebtDrawCents = debtBeforeReservesCents + shortfallReserveCents + interestReserveCents;
     const beforeRepaymentCents = openingDebtCents + totalDebtDrawCents;
-    const repaymentCents = month.month === plan.payoffMonth ? beforeRepaymentCents : 0;
+    const repaymentCents = month.month === repaymentMonth ? beforeRepaymentCents : 0;
     const closingDebtCents = beforeRepaymentCents - repaymentCents;
     const totalUsesCents = projectAndFeeCents + operatingShortfallCents + capitalizedInterestCents;
     const totalSourcesCents = equityContributionCents + totalDebtDrawCents + otherAppliedCents;
@@ -980,7 +1095,7 @@ function reconciliationsFor(
   ];
 }
 
-function formulaTraces(plan: DevelopmentCapitalPlan, hasDebtCeiling = false): CapitalFormulaTrace[] {
+function formulaTraces(plan: DevelopmentCapitalPlan, hasDebtCeiling = false, takeout: string | null = null): CapitalFormulaTrace[] {
   const ceiling = hasDebtCeiling ? ", or until debt reaches the lender's smallest NOI cap if that is lower" : "";
   const ratePath = plan.ratePath !== undefined ? ["ratePath"] : [];
   const otherSources = plan.otherSources !== undefined ? ["otherSources"] : [];
@@ -1019,7 +1134,9 @@ function formulaTraces(plan: DevelopmentCapitalPlan, hasDebtCeiling = false): Ca
     { key: "totalSources", label: "Total Sources", formula: "grant and soft loan cash applied to uses, plus equity contributions, plus all debt draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
     { key: "totalUses", label: "Total Uses", formula: "project costs plus loan fees, operating shortfalls, and capitalized interest", inputPaths: ["costLines", "loanFeePercent", "annualInterestRatePercent", ...ratePath, ...operatingCashFlowInputs] },
     { key: "debtSharePercent", label: "Debt Share", formula: "total debt divided by total uses", inputPaths: ["targetDebtSharePercent", "fundingOrder"] },
-    { key: "repayment", label: "Debt Repayment", formula: "the full opening debt plus current debt draws repaid in the final entered payoff month", inputPaths: ["payoffMonth"] },
+    takeout === null
+      ? { key: "repayment", label: "Debt Repayment", formula: "the full opening debt plus current debt draws repaid in the final entered payoff month", inputPaths: ["payoffMonth"] }
+      : { key: "repayment", label: "Debt Repayment", formula: `the full opening debt plus current debt draws repaid in ${takeout}, when the permanent loan takes out the construction loan`, inputPaths: ["permanentLoan"] },
     ...(plan.otherSources !== undefined ? [
       { key: "grants" as const, label: "Grants", formula: "grant cash that arrives in each entered draw month and funds uses before equity and debt", inputPaths: ["otherSources"] },
       { key: "softLoans" as const, label: "Soft Loans", formula: "soft loan cash that arrives in each entered draw month and funds uses before equity and debt", inputPaths: ["otherSources"] },
@@ -1052,6 +1169,7 @@ function planFrom(input: DevelopmentCapitalInputs): DevelopmentCapitalPlan {
     ...(input.ratePath !== undefined ? { ratePath: structuredClone(input.ratePath) } : {}),
     ...(input.otherSources !== undefined ? { otherSources: structuredClone(input.otherSources) } : {}),
     ...(input.creditedLand !== undefined ? { creditedLand: structuredClone(input.creditedLand) } : {}),
+    ...(input.permanentLoan !== undefined ? { permanentLoan: structuredClone(input.permanentLoan) } : {}),
     capitalAssumptionEvidence: structuredClone(input.capitalAssumptionEvidence),
   };
 }

@@ -122,7 +122,17 @@ export type MonthlyPropertyReturnsInput = {
   otherSourcesApplied?: number;
   /** Soft loan principal and accrued interest repaid in the month (LA-1813). Absent means zero. */
   softLoanRepayment?: number;
+  /** Gross permanent loan proceeds in the takeout month (LA-1867). Absent means zero. */
+  permanentLoanProceeds?: number;
+  /** Permanent loan fee and closing costs, paid from proceeds in the takeout month. Absent means zero. */
+  refinanceCosts?: number;
+  /** Permanent loan interest and principal paid in the month. Absent means zero. */
+  permanentDebtService?: number;
+  /** Permanent loan balance repaid from sale proceeds, in the sale month. Absent means zero. */
+  permanentLoanPayoff?: number;
 };
+
+const PERMANENT_LOAN_MONTH_KEYS = ["permanentLoanProceeds", "refinanceCosts", "permanentDebtService", "permanentLoanPayoff"] as const;
 
 export type ForwardSalePeriod = {
   startMonth: string;
@@ -319,18 +329,32 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     operatingExpenses: saleTax && saleTax.valueBasis !== "scheduled_tax" ? fullExpenses : scheduledExpenses,
     ...(saleTax?.valueBasis === "full_tax_plus_abatement_value" ? { abatementValue: abatementValue! } : {}),
   };
+  const permanentLoan = capitalRun.result.capital.permanentLoan ?? null;
+  if (inputSnapshot.lenderTests?.debtServiceBasis === "permanent_loan" && !permanentLoan) {
+    return failedFull(inputSnapshot, [{ path: "lenderTests.debtServiceBasis", code: "invalid_lender_tests", message: "DSCR can read the permanent loan's debt service only when the case has a permanent loan." }]);
+  }
+  const permanentMonths = new Map(permanentLoan?.months.map((row) => [row.month, row]) ?? []);
   const calculation = calculatePropertyReturns(
-    capitalRun.result.capital.months.map((month) => ({
-      month: month.month,
-      projectCosts: month.projectCosts,
-      loanFee: month.loanFee,
-      grossInterest: month.grossInterest,
-      totalDebtDraw: month.totalDebtDraw,
-      operatingCashFlow: month.operatingCashFlow,
-      repayment: month.repayment,
-      otherSourcesApplied: month.otherSourcesApplied,
-      softLoanRepayment: month.softLoanRepayment,
-    })),
+    capitalRun.result.capital.months.map((month) => {
+      const row = permanentMonths.get(month.month);
+      return {
+        month: month.month,
+        projectCosts: month.projectCosts,
+        loanFee: month.loanFee,
+        grossInterest: month.grossInterest,
+        totalDebtDraw: month.totalDebtDraw,
+        operatingCashFlow: month.operatingCashFlow,
+        repayment: month.repayment,
+        otherSourcesApplied: month.otherSourcesApplied,
+        softLoanRepayment: month.softLoanRepayment,
+        ...(permanentLoan ? {
+          permanentLoanProceeds: row?.proceeds ?? 0,
+          refinanceCosts: row ? dollars(cents(row.fee) + cents(row.closingCosts)) : 0,
+          permanentDebtService: row?.debtService ?? 0,
+          permanentLoanPayoff: row?.payoff ?? 0,
+        } : {}),
+      };
+    }),
     forwardSalePeriod,
     planFrom(inputSnapshot),
   );
@@ -375,7 +399,7 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
       developmentCapital: capitalRun.result.capital,
       forwardOperations: { startMonth: inputSnapshot.saleMonth, endMonth: forwardEndMonth, months: forwardMonths },
       propertyReturns: { ...calculation.result, metrics: withTaxPaths(calculation.result.metrics, inputSnapshot) },
-      lenderTests: withLoanSizing(lenderTestsFor(inputSnapshot, totals, projectedMonths), sizingResult),
+      lenderTests: withLoanSizing(lenderTestsFor(inputSnapshot, totals, projectedMonths, permanentLoan), sizingResult),
       saleTax: saleTax && abatementEndMonth
         ? saleTaxResult(saleTax, forwardSalePeriod.effectiveGrossRevenue, scheduledExpenses, fullExpenses, abatementValue, abatementEndMonth, inputSnapshot.terminalCapRatePercent)
         : null,
@@ -409,7 +433,9 @@ export function calculatePropertyReturns(
   const grossSaleValueCents = Math.round(forwardNetOperatingIncomeCents / (plan.terminalCapRatePercent / 100)) + abatementValueCents;
   const sellingCostsCents = percentOf(grossSaleValueCents, plan.sellingCostPercent);
   const netSaleProceedsCents = grossSaleValueCents - sellingCostsCents;
-  const debtPayoffCents = cents(months.at(-1)!.repayment);
+  // With a permanent loan the construction loan repaid at takeout, so the sale repays the permanent balance.
+  const debtPayoffCents = cents(months.at(-1)!.repayment) + cents(months.at(-1)!.permanentLoanPayoff ?? 0);
+  const hasPermanentLoan = months.some((month) => PERMANENT_LOAN_MONTH_KEYS.some((key) => month[key] !== undefined));
   const equitySaleProceedsCents = netSaleProceedsCents - debtPayoffCents;
   if (![forwardNetOperatingIncomeCents, grossSaleValueCents, sellingCostsCents, netSaleProceedsCents, debtPayoffCents, equitySaleProceedsCents].every(Number.isSafeInteger)) {
     return failedCalculation(inputSnapshot, [{ path: "propertyReturns", code: "derived_results", message: "The sale result is outside the supported cent range." }]);
@@ -431,7 +457,7 @@ export function calculatePropertyReturns(
       unleveredCashFlow: dollars(-projectCostsCents + operatingCashFlowCents + saleProceedsCents),
       leveredCashFlow: dollars(-loanFeeCents - projectCostsCents - grossInterestCents
         + totalDebtDrawCents + otherSourcesAppliedCents + operatingCashFlowCents + saleProceedsCents
-        - repaymentCents - softLoanRepaymentCents),
+        - repaymentCents - softLoanRepaymentCents + permanentLoanCashCents(month)),
     };
   });
   if (!datedMonths.every((month) => Number.isSafeInteger(cents(month.unleveredCashFlow)) && Number.isSafeInteger(cents(month.leveredCashFlow)))) {
@@ -475,9 +501,9 @@ export function calculatePropertyReturns(
     debtPayoff: dollars(debtPayoffCents),
     equitySaleProceeds: dollars(equitySaleProceedsCents),
   };
-  const reconciliations = reconcile(datedMonths, sale, returns, plan, totalProjectCostCents, unleveredXirr, leveredXirr, yieldOnCost, developmentSpreadBasisPoints);
+  const reconciliations = reconcile(datedMonths, sale, returns, plan, totalProjectCostCents, unleveredXirr, leveredXirr, yieldOnCost, developmentSpreadBasisPoints, hasPermanentLoan);
   const peakEquity = peakEquityOf(datedMonths);
-  const metrics = metricsFor(sale, returns, yieldOnCost, developmentSpreadBasisPoints, peakEquity);
+  const metrics = metricsFor(sale, returns, yieldOnCost, developmentSpreadBasisPoints, peakEquity, hasPermanentLoan);
   if (![...Object.values(sale), yieldOnCost, developmentSpreadBasisPoints, ...metrics.map(({ value }) => value)].every(Number.isFinite)
     || reconciliations.some(({ status }) => status === "fail")) {
     return failedCalculation(inputSnapshot, [{ path: "propertyReturns", code: "derived_results", message: "The sale and property return results did not reconcile within one cent." }]);
@@ -606,10 +632,48 @@ function validate(months: MonthlyPropertyReturnsInput[], period: ForwardSalePeri
   if (period.abatementValue !== undefined && !validUsd(period.abatementValue, false)) {
     issues.push({ path: "forwardSalePeriod.abatementValue", code: "invalid_amount", message: "Abatement value at sale must be a safe, zero or positive USD amount with no more than two decimal places." });
   }
-  if (months.slice(0, -1).some(({ repayment }) => repayment !== 0)) {
-    issues.push({ path: "months.repayment", code: "sale_payoff_mismatch", message: "This formula version repays construction debt in the sale month only." });
-  }
+  issues.push(...validatePermanentLoanMonths(months));
   return issues;
+}
+
+/**
+ * Without a permanent loan, construction debt repays in the sale month only. With one (LA-1867), it
+ * repays in the one takeout month, where the permanent loan funds; debt service runs after it, and the
+ * permanent balance repays in the sale month.
+ */
+function validatePermanentLoanMonths(months: MonthlyPropertyReturnsInput[]): PropertyReturnsIssue[] {
+  const issues: PropertyReturnsIssue[] = [];
+  months.forEach((month, index) => {
+    for (const key of PERMANENT_LOAN_MONTH_KEYS) {
+      if (month[key] !== undefined && !validUsd(month[key], false)) issues.push({ path: `months.${index}.${key}`, code: "invalid_amount", message: `${labelFor(key)} must be zero or a positive safe USD amount with no more than two decimal places.` });
+    }
+  });
+  const last = months.length - 1;
+  const funding = months.flatMap((month, index) => (month.permanentLoanProceeds ?? 0) > 0 ? [index] : []);
+  const mismatch = (message: string) => issues.push({ path: "months.repayment", code: "sale_payoff_mismatch", message });
+  if (funding.length === 0) {
+    if (months.slice(0, -1).some(({ repayment }) => repayment !== 0)) mismatch("This formula version repays construction debt in the sale month only.");
+    if (months.some((month) => (month.refinanceCosts ?? 0) !== 0 || (month.permanentDebtService ?? 0) !== 0 || (month.permanentLoanPayoff ?? 0) !== 0)) {
+      mismatch("Permanent loan costs, debt service and payoff need permanent loan proceeds in a takeout month.");
+    }
+    return issues;
+  }
+  const takeout = funding[0];
+  if (funding.length > 1 || takeout === last) {
+    mismatch("A permanent loan funds in one month before the sale month.");
+    return issues;
+  }
+  if (months.some(({ repayment }, index) => repayment !== 0 && index !== takeout)) mismatch("With a permanent loan, construction debt repays in the takeout month only.");
+  if (months.some((month, index) => (month.refinanceCosts ?? 0) !== 0 && index !== takeout)) mismatch("Permanent loan costs are paid in the takeout month only.");
+  if (months.some((month, index) => (month.permanentDebtService ?? 0) !== 0 && index <= takeout)) mismatch("Permanent loan debt service starts after the takeout month.");
+  if (months.some((month, index) => (month.permanentLoanPayoff ?? 0) !== 0 && index !== last)) mismatch("The permanent loan repays in the sale month only.");
+  return issues;
+}
+
+/** Permanent loan proceeds less fee and closing costs, debt service and payoff at sale. Zero with no permanent loan. */
+function permanentLoanCashCents(month: MonthlyPropertyReturnsInput) {
+  return cents(month.permanentLoanProceeds ?? 0) - cents(month.refinanceCosts ?? 0)
+    - cents(month.permanentDebtService ?? 0) - cents(month.permanentLoanPayoff ?? 0);
 }
 
 function validateEvidence(issues: PropertyReturnsIssue[], evidence: Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>) {
@@ -647,6 +711,7 @@ function reconcile(
   leveredXirr: Extract<XirrResult, { status: "ok" }>,
   yieldOnCost: number,
   developmentSpreadBasisPoints: number,
+  hasPermanentLoan = false,
 ) {
   const unleveredCents = months.map((month) => cents(month.unleveredCashFlow));
   const leveredCents = months.map((month) => cents(month.leveredCashFlow));
@@ -657,11 +722,19 @@ function reconcile(
     checkUsd("gross-sale-value", "Gross sale value equals forward sale NOI divided by terminal cap rate, plus any abatement value at sale", sale.grossSaleValue, dollars(Math.round(cents(sale.forwardNetOperatingIncome) / (plan.terminalCapRatePercent / 100)) + cents(sale.abatementValue))),
     checkUsd("selling-costs", "Selling costs equal gross sale value times selling cost percent", sale.sellingCosts, dollars(percentOf(cents(sale.grossSaleValue), plan.sellingCostPercent))),
     checkUsd("net-sale-proceeds", "Net sale proceeds equal gross sale value less selling costs", sale.netSaleProceeds, dollars(cents(sale.grossSaleValue) - cents(sale.sellingCosts))),
-    checkUsd("debt-payoff", "Construction debt payoff equals sale-month repayment", sale.debtPayoff, months.at(-1)!.repayment),
-    checkUsd("equity-sale-proceeds", "Equity sale proceeds equal net sale proceeds less construction debt payoff", sale.equitySaleProceeds, dollars(cents(sale.netSaleProceeds) - cents(sale.debtPayoff))),
+    hasPermanentLoan
+      ? checkUsd("debt-payoff", "Debt payoff at sale equals the permanent loan balance repaid in the sale month", sale.debtPayoff, money(months.at(-1)!.repayment, months.at(-1)!.permanentLoanPayoff ?? 0))
+      : checkUsd("debt-payoff", "Construction debt payoff equals sale-month repayment", sale.debtPayoff, months.at(-1)!.repayment),
+    checkUsd("equity-sale-proceeds", hasPermanentLoan ? "Equity sale proceeds equal net sale proceeds less the permanent loan payoff" : "Equity sale proceeds equal net sale proceeds less construction debt payoff", sale.equitySaleProceeds, dollars(cents(sale.netSaleProceeds) - cents(sale.debtPayoff))),
     ...months.flatMap((month) => [
       checkUsd(`unlevered-cash-flow:${month.month}`, `${month.month} unlevered cash flow equals operating cash and sale proceeds less project costs`, month.unleveredCashFlow, dollars(-cents(month.projectCosts) + cents(month.operatingCashFlow) + cents(month.netSaleProceeds))),
-      checkUsd(`levered-cash-flow:${month.month}`, `${month.month} levered cash flow equals operating cash, debt funding, grant and soft loan cash applied, sale proceeds, costs, interest, debt repayment, and soft loan repayment`, month.leveredCashFlow, dollars(-cents(month.loanFee) - cents(month.projectCosts) - cents(month.grossInterest) + cents(month.totalDebtDraw) + cents(month.otherSourcesApplied ?? 0) + cents(month.operatingCashFlow) + cents(month.netSaleProceeds) - cents(month.repayment) - cents(month.softLoanRepayment ?? 0))),
+      checkUsd(
+        `levered-cash-flow:${month.month}`,
+        `${month.month} levered cash flow equals operating cash, debt funding, grant and soft loan cash applied, sale proceeds, costs, interest, debt repayment, and soft loan repayment${hasPermanentLoan ? ", plus permanent loan proceeds less refinance costs, debt service and payoff" : ""}`,
+        month.leveredCashFlow,
+        dollars(-cents(month.loanFee) - cents(month.projectCosts) - cents(month.grossInterest) + cents(month.totalDebtDraw) + cents(month.otherSourcesApplied ?? 0) + cents(month.operatingCashFlow) + cents(month.netSaleProceeds) - cents(month.repayment) - cents(month.softLoanRepayment ?? 0)
+          + cents(month.permanentLoanProceeds ?? 0) - cents(month.refinanceCosts ?? 0) - cents(month.permanentDebtService ?? 0) - cents(month.permanentLoanPayoff ?? 0)),
+      ),
     ]),
     checkMetric("unlevered-equity-multiple", "Unlevered equity multiple equals positive cash flow divided by negative cash flow", returns.unlevered.equityMultiple, equityMultiple(unleveredCents), 1e-10, "multiple"),
     checkMetric("levered-equity-multiple", "Levered equity multiple equals positive cash flow divided by negative cash flow", returns.levered.equityMultiple, equityMultiple(leveredCents), 1e-10, "multiple"),
@@ -680,6 +753,7 @@ function metricsFor(
   yieldOnCost: number,
   developmentSpreadBasisPoints: number,
   peakEquity: PeakEquity,
+  hasPermanentLoan = false,
 ): PropertyReturnMetric[] {
   const costPaths = ["analysisStartMonth", "saleMonth", "costLines"];
   const operationPaths = [
@@ -692,6 +766,7 @@ function metricsFor(
   const capitalPaths = [
     "capitalInputVersion", "targetDebtSharePercent", "annualInterestRatePercent", "loanFeePercent",
     "fundingOrder", "interestTreatment", "interestConvention", "feeMonth", "payoffMonth",
+    ...(hasPermanentLoan ? ["permanentLoan"] : []),
   ];
   const saleValuePaths = ["saleInputVersion", "terminalCapRatePercent", "forwardNoiConvention"];
   const saleProceedsPaths = [...saleValuePaths, "sellingCostPercent"];
@@ -701,8 +776,10 @@ function metricsFor(
     { key: "grossSaleValue", label: "Gross Sale Value", value: sale.grossSaleValue, unit: "usd", formula: sale.abatementValue > 0 ? "forward sale NOI divided by terminal cap rate, plus the present value of the tax abatement left at sale" : "forward sale NOI divided by terminal cap rate", inputPaths: rootPaths(operationPaths, saleValuePaths) },
     { key: "sellingCosts", label: "Selling Costs", value: sale.sellingCosts, unit: "usd", formula: "gross sale value times selling cost percent", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
     { key: "netSaleProceeds", label: "Net Sale Proceeds", value: sale.netSaleProceeds, unit: "usd", formula: "gross sale value less selling costs", inputPaths: rootPaths(operationPaths, saleProceedsPaths) },
-    { key: "debtPayoff", label: "Construction Debt Payoff", value: sale.debtPayoff, unit: "usd", formula: "construction debt repayment in the sale month", inputPaths: rootPaths(costPaths, operationPaths, capitalPaths) },
-    { key: "equitySaleProceeds", label: "Equity Sale Proceeds", value: sale.equitySaleProceeds, unit: "usd", formula: "net sale proceeds less construction debt payoff", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
+    hasPermanentLoan
+      ? { key: "debtPayoff", label: "Permanent Loan Payoff", value: sale.debtPayoff, unit: "usd", formula: "the permanent loan balance repaid in the sale month; the construction loan repaid at takeout", inputPaths: rootPaths(costPaths, operationPaths, capitalPaths) }
+      : { key: "debtPayoff", label: "Construction Debt Payoff", value: sale.debtPayoff, unit: "usd", formula: "construction debt repayment in the sale month", inputPaths: rootPaths(costPaths, operationPaths, capitalPaths) },
+    { key: "equitySaleProceeds", label: "Equity Sale Proceeds", value: sale.equitySaleProceeds, unit: "usd", formula: hasPermanentLoan ? "net sale proceeds less the permanent loan payoff" : "net sale proceeds less construction debt payoff", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, capitalPaths) },
     { key: "unleveredXirr", label: "Unlevered XIRR", value: returns.unlevered.xirr, unit: "ratio", formula: "actual-day XIRR of dated monthly unlevered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths, returnTimingPaths) },
     { key: "unleveredEquityMultiple", label: "Unlevered Equity Multiple", value: returns.unlevered.equityMultiple, unit: "multiple", formula: "positive unlevered cash flow divided by negative unlevered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths) },
     { key: "unleveredNetProfit", label: "Unlevered Net Profit", value: returns.unlevered.netProfit, unit: "usd", formula: "sum dated monthly unlevered cash flow", inputPaths: rootPaths(costPaths, operationPaths, saleProceedsPaths) },
@@ -775,6 +852,10 @@ function validUsd(value: number, allowNegative: boolean) {
 
 function cents(value: number) {
   return Math.round(value * 100);
+}
+
+function money(...values: number[]) {
+  return dollars(values.reduce((total, value) => total + cents(value), 0));
 }
 
 function dollars(valueCents: number) {

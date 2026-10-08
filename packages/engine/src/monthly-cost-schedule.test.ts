@@ -7,6 +7,7 @@ import {
   MONTHLY_COST_FORMULA_VERSION,
   S_CURVE_DISTRIBUTION_VERSION,
   STRAIGHT_LINE_DISTRIBUTION_VERSION,
+  type DerivedCostLine,
   type MonthlyCostScheduleInputs,
 } from "./monthly-cost-schedule";
 import {
@@ -425,5 +426,49 @@ describe("percent-of-total lines", () => {
     ]));
     expect(runaway.status).toBe("failed");
     expect(runaway.issues.map(({ code }) => code)).toEqual(["percent_total_unsettled"]);
+  });
+});
+
+describe("derived cost lines passed in by another module (LA-1868)", () => {
+  const derived: DerivedCostLine = {
+    id: "derived-ti",
+    name: "Tenant Improvements (Test)",
+    category: "hard_cost",
+    amount: 1_000,
+    unit: "usd",
+    startMonth: "2026-03",
+    endMonth: "2026-03",
+    distributionMethod: "straight_line",
+    distributionVersion: STRAIGHT_LINE_DISTRIBUTION_VERSION,
+    sourceLabel: "Commercial space Test",
+    reviewState: "working",
+    derivation: { trace: "Derived from a test space.", inputPaths: ["commercial.spaces.0.areaSf"] },
+  };
+
+  it("schedules them with the entered lines, keeps them out of the saved snapshot and names where they came from", () => {
+    const plain = computeMonthlyCostSchedule(complete);
+    const run = computeMonthlyCostSchedule(complete, { derivedLines: [derived] });
+    expect(run.status, JSON.stringify(run.issues)).toBe("complete");
+    expect(run.inputSnapshot.costLines.map(({ id }) => id)).toEqual(complete.costLines.map(({ id }) => id));
+    expect(run.result!.totalUses).toBe(plain.result!.totalUses + 1_000);
+    const line = run.result!.costLineSchedules.at(-1)!;
+    expect(line).toMatchObject({ lineId: "derived-ti", amount: 1_000, total: 1_000, months: ["2026-03"] });
+    expect(line.formulaTrace).toBe("Derived from a test space. That amount is allocated in equal cumulative shares across inclusive cost months; rounding is assigned by cumulative cents.");
+    expect(line.inputPaths).toEqual(["commercial.spaces.0.areaSf"]);
+    expect(run.reconciliations.find(({ id }) => id === "cost-line:derived-ti")!.label).toContain("derived amount");
+    // The aggregate traces never point at a cost line the saved snapshot does not hold.
+    const heldPaths = run.result!.aggregateFormulaTraces.flatMap(({ inputPaths }) => inputPaths).filter((path) => path.startsWith("costLines."));
+    const index = complete.costLines.length;
+    expect(heldPaths.filter((path) => path.startsWith(`costLines.${index}.`))).toEqual([]);
+  });
+
+  it("changes nothing without them", () => {
+    expect(computeMonthlyCostSchedule(complete, { derivedLines: [] })).toEqual(computeMonthlyCostSchedule(complete));
+  });
+
+  it("fails on a derived line whose id repeats an entered one", () => {
+    const run = computeMonthlyCostSchedule(complete, { derivedLines: [{ ...derived, id: "land" }] });
+    expect(run.status).toBe("failed");
+    expect(run.issues.map(({ code }) => code)).toContain("duplicate_id");
   });
 });

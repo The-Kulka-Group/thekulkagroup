@@ -5,6 +5,7 @@ import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartmen
 import {
   ENGINE_OUTPUT_KEYS,
   LENDER_OUTPUT_KEYS,
+  COMMERCIAL_OUTPUT_KEYS,
   OTHER_SOURCE_OUTPUT_KEYS,
   PARTNERSHIP_OUTPUT_KEYS,
   PERMANENT_LOAN_BALANCE_OUTPUT_KEYS,
@@ -256,7 +257,7 @@ describe("engineOutputsFor", () => {
     const run = engineOutputsFor(input);
     expect(run.status).toBe("complete");
     expect(run.issueCodes).toEqual([]);
-    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...OTHER_SOURCE_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS, ...PARTNERSHIP_OUTPUT_KEYS, "lpPeakEquityMonth", "gpPeakEquityMonth"]);
+    const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...OTHER_SOURCE_OUTPUT_KEYS, ...COMMERCIAL_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS, ...PARTNERSHIP_OUTPUT_KEYS, "lpPeakEquityMonth", "gpPeakEquityMonth"]);
     const permanentLoanKeys = [...PERMANENT_LOAN_OUTPUT_KEYS, ...PERMANENT_LOAN_TEXT_OUTPUT_KEYS, ...PERMANENT_LOAN_BALANCE_OUTPUT_KEYS];
     for (const key of permanentLoanKeys) conditional.add(key);
     const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item) && !/AverageMonthlyRent$/.test(item));
@@ -264,6 +265,7 @@ describe("engineOutputsFor", () => {
     expect(run.outputs.marketAverageMonthlyRent).toBeDefined();
     for (const key of PROPERTY_TAX_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
     for (const key of PARTNERSHIP_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
+    for (const key of COMMERCIAL_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
     for (const key of permanentLoanKeys) expect(run.outputs[key], key).toBeUndefined();
   });
 

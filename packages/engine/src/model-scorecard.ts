@@ -113,6 +113,25 @@ const FISCAL_YEAR_OUTPUT_KEYS: FiscalYearOutputKey[] = Array.from({ length: MAX_
   `fullPropertyTaxFiscalYear${index + 1}` as const,
 ]).flat();
 
+/**
+ * Present only when the input snapshot carries a commercial block (LA-1868). The residential and
+ * commercial NOI keys exist only then, because with no commercial space the stabilized and forward
+ * NOI keys already are the residential figures.
+ */
+export const COMMERCIAL_OUTPUT_KEYS = [
+  "commercialAreaSf",
+  "commercialAnnualRentRoll",
+  "commercialTenantImprovements",
+  "commercialLeasingCommissions",
+  "stabilizedCommercialBaseRent",
+  "stabilizedCommercialRecoveries",
+  "stabilizedCommercialEffectiveGrossRevenue",
+  "stabilizedCommercialNetOperatingIncome",
+  "stabilizedResidentialNetOperatingIncome",
+  "forwardCommercialNetOperatingIncome",
+  "forwardResidentialNetOperatingIncome",
+] as const;
+
 /** Units, rentable SF and rent per revenue unit for each affordability tier (LA-1692). */
 export const TIER_OUTPUT_KEYS = AFFORDABILITY_TIERS.flatMap((tier) => [
   `${tier}Units` as const,
@@ -182,6 +201,7 @@ const CATALOG_KEYS = [
   ...PERMANENT_LOAN_TEXT_OUTPUT_KEYS,
   ...PERMANENT_LOAN_BALANCE_OUTPUT_KEYS,
   ...PROPERTY_TAX_OUTPUT_KEYS,
+  ...COMMERCIAL_OUTPUT_KEYS,
   ...TIER_OUTPUT_KEYS,
 ] as const;
 
@@ -252,6 +272,14 @@ const STABILIZED_FIELDS: Array<[EngineOutputKey, keyof MonthlyApartmentOperation
 const STABILIZED_TAX_FIELDS: Array<[EngineOutputKey, keyof MonthlyApartmentOperations]> = [
   ["stabilizedPropertyTax", "propertyTax"],
   ["stabilizedFullPropertyTax", "fullPropertyTax"],
+];
+
+const COMMERCIAL_STABILIZED_FIELDS: Array<[EngineOutputKey, keyof MonthlyApartmentOperations]> = [
+  ["stabilizedCommercialBaseRent", "commercialBaseRent"],
+  ["stabilizedCommercialRecoveries", "commercialRecoveries"],
+  ["stabilizedCommercialEffectiveGrossRevenue", "commercialEffectiveGrossRevenue"],
+  ["stabilizedCommercialNetOperatingIncome", "commercialNetOperatingIncome"],
+  ["stabilizedResidentialNetOperatingIncome", "residentialNetOperatingIncome"],
 ];
 
 export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun {
@@ -413,6 +441,17 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     if (saleTax.abatementValue !== null) outputs.saleAbatementValue = saleTax.abatementValue;
   }
 
+  const commercial = operations.result.commercial;
+  if (commercial) {
+    outputs.commercialAreaSf = commercial.commercialAreaSf;
+    outputs.commercialAnnualRentRoll = commercial.annualRentRoll;
+    outputs.commercialTenantImprovements = commercial.tenantImprovements;
+    outputs.commercialLeasingCommissions = commercial.leasingCommissions;
+    const forward = run.result.forwardOperations.months;
+    outputs.forwardCommercialNetOperatingIncome = roundCents(forward.reduce((total, month) => total + month.commercialNetOperatingIncome, 0));
+    outputs.forwardResidentialNetOperatingIncome = roundCents(forward.reduce((total, month) => total + month.residentialNetOperatingIncome, 0));
+  }
+
   const firstStabilizedMonth = operations.result.firstStabilizedMonth;
   if (firstStabilizedMonth) {
     outputs.firstStabilizedMonth = firstStabilizedMonth;
@@ -426,6 +465,11 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
       if (tax) {
         outputs.stabilizedFullTaxNetOperatingIncome = roundCents(year.reduce((total, month) =>
           total + month.netOperatingIncome - month.fullPropertyTax + month.propertyTax, 0));
+      }
+      if (commercial) {
+        for (const [key, field] of COMMERCIAL_STABILIZED_FIELDS) {
+          outputs[key] = roundCents(year.reduce((total, month) => total + Number(month[field]), 0));
+        }
       }
     }
   }

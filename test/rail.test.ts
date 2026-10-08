@@ -32,7 +32,8 @@ describe("sidebar navigation", () => {
     expect(homeLink).toContain('aria-current="page"');
     expect(html).toContain(">H-100<");
     expect(html).toContain('href="/clients"');
-    expect(html).toContain('href="/briefs"');
+    expect(html).not.toContain('href="/briefs"');
+    expect(html).not.toContain('href="/pursuits"');
     expect(html).not.toMatch(/>31<|>9<|>6</);
   });
 
@@ -52,7 +53,7 @@ describe("sidebar navigation", () => {
   });
 
   it("does not mark Home as active on another page", () => {
-    pathname = "/pursuits";
+    pathname = "/clients";
 
     const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
     const homeLink = html.match(/<a class="rail-item" href="\/"[^>]*>/)?.[0];

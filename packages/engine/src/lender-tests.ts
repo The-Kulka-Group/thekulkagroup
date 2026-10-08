@@ -480,10 +480,10 @@ export function lenderTestsFor(
   const noiPaths = [...operationPathsFor(input), "lenderTests.valuationMonth", "lenderTests.noiBasis"];
   // LA-1870: with a commercial cap each use's NOI takes its own cap rate. Without one the split is never read.
   const commercialTaxShare = commercialTaxSharePercentFor(input);
-  const useFor = (taxBasis: "scheduled" | "full"): UseCapTerms | undefined => plan.commercialCapRatePercent === undefined || year.length !== 12
+  const capTermsFor = (taxBasis: "scheduled" | "full"): UseCapTerms | undefined => plan.commercialCapRatePercent === undefined || year.length !== 12
     ? undefined
     : { split: splitNoiByUse(year, field, taxBasis, commercialTaxShare), commercialCapRatePercent: plan.commercialCapRatePercent };
-  const scheduledUse = useFor("scheduled");
+  const scheduledUse = capTermsFor("scheduled");
   const scheduled = noiMetrics(tests, noiCents, basis, noiPaths, scheduledUse);
   const metrics: LenderTestMetric[] = [
     scheduled[0],
@@ -517,7 +517,7 @@ export function lenderTestsFor(
       fullNoi = null;
       issues.push({ path: "propertyTax", code: "nonpositive_full_tax_noi", message: `${basis} with full tax for the valuation year is zero or negative, so the full-tax value, LTV, DSCR and debt yield are not reported.` });
     }
-    const fullUse = useFor("full");
+    const fullUse = capTermsFor("full");
     fullTax = {
       stabilizedNoi: dollars(fullTaxNoiCents),
       metrics: noiMetrics(tests, fullNoi, `${basis} with full tax`, noiPaths, fullUse),

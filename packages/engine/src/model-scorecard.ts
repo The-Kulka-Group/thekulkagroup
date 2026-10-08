@@ -130,6 +130,8 @@ export const COMMERCIAL_OUTPUT_KEYS = [
   "stabilizedResidentialNetOperatingIncome",
   "forwardCommercialNetOperatingIncome",
   "forwardResidentialNetOperatingIncome",
+  // LA-1870: only with a commercial exit cap, which prices the commercial NOI apart from the residential.
+  "commercialSaleValue",
 ] as const;
 
 /** Units, rentable SF and rent per revenue unit for each affordability tier (LA-1692). */
@@ -450,6 +452,7 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     const forward = run.result.forwardOperations.months;
     outputs.forwardCommercialNetOperatingIncome = roundCents(forward.reduce((total, month) => total + month.commercialNetOperatingIncome, 0));
     outputs.forwardResidentialNetOperatingIncome = roundCents(forward.reduce((total, month) => total + month.residentialNetOperatingIncome, 0));
+    if (sale.valueSplit) outputs.commercialSaleValue = sale.valueSplit.commercialValue;
   }
 
   const firstStabilizedMonth = operations.result.firstStabilizedMonth;

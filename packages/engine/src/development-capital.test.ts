@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CAPITALIZED_GROSS_INTEREST_VERSION,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_INPUT_VERSION,
   MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH,
@@ -408,5 +409,58 @@ describe("percent-of-total lines through the capital plan", () => {
   it("runs one round and changes nothing when no line is a percent of total", () => {
     expect(computeDevelopmentCapital(base).result).toEqual(computeDevelopmentCapital(structuredClone(base)).result);
     expect(computeDevelopmentCapital(base).reconciliations.some(({ id }) => id.startsWith("percent-of-total"))).toBe(false);
+  });
+});
+
+describe("gross interest treatment (LA-1930)", () => {
+  const gross = { ...plan, interestTreatment: CAPITALIZED_GROSS_INTEREST_VERSION } satisfies DevelopmentCapitalPlan;
+
+  it("capitalizes every dollar of gross interest and applies no operating cash to it", () => {
+    const run = fundMonthlyDevelopmentCashFlow(cashFlow, gross);
+
+    expect(run.status).toBe("complete");
+    const result = run.result!;
+    expect(result.months.some(({ operatingCashFlow, grossInterest }) => operatingCashFlow > 0 && grossInterest > 0)).toBe(true);
+    for (const month of result.months) {
+      expect(month.operatingCashAppliedToInterest).toBe(0);
+      expect(month.capitalizedInterest).toBe(month.grossInterest);
+      expect(month.totalSources).toBeCloseTo(month.totalUses, 2);
+    }
+    expect(result.totals.capitalizedInterest).toBe(result.totals.grossInterest);
+    expect(result.reconciliations.filter(({ status }) => status !== "pass")).toEqual([]);
+  });
+
+  it("funds more uses than the net treatment by the operating cash the net treatment applied", () => {
+    const net = fundMonthlyDevelopmentCashFlow(cashFlow, plan).result!;
+    const result = fundMonthlyDevelopmentCashFlow(cashFlow, gross).result!;
+
+    expect(net.totals.operatingCashAppliedToInterest).toBeGreaterThan(0);
+    expect(result.totals.totalUses).toBeGreaterThan(net.totals.totalUses);
+    expect(result.totals.interestReserve + result.months.reduce((sum, month) => sum + month.equityContribution, 0))
+      .toBeGreaterThan(net.totals.interestReserve + net.months.reduce((sum, month) => sum + month.equityContribution, 0));
+  });
+
+  it("names the chosen rule in the interest traces and the offset checks", () => {
+    const result = fundMonthlyDevelopmentCashFlow(cashFlow, gross).result!;
+    const trace = (key: string) => result.formulaTraces.find((item) => item.key === key)!;
+
+    expect(trace("operatingCashAppliedToInterest").formula).toMatch(/^zero; the loan reserves gross interest/);
+    expect(trace("capitalizedInterest").formula).toBe("gross monthly interest, with no credit for operating cash");
+    expect(trace("capitalizedInterest").inputPaths).not.toContain("operatingExpenseLines");
+    expect(result.reconciliations.find(({ id }) => id === "operating-cash-offset:2026-03")!.label)
+      .toBe("2026-03 operating cash applied to interest is zero, because the loan reserves gross interest");
+  });
+
+  it("resolves every formula input path on a full run", () => {
+    const input = { ...APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE.fullModelInput, interestTreatment: CAPITALIZED_GROSS_INTEREST_VERSION } as DevelopmentCapitalInputs;
+    const run = computeDevelopmentCapital(input);
+
+    expect(run.status).toBe("complete");
+    expect(run.result!.capital.totals.operatingCashAppliedToInterest).toBe(0);
+    for (const trace of run.result!.capital.formulaTraces) {
+      for (const path of trace.inputPaths) {
+        expect(resolvePath(run.inputSnapshot, path), `${trace.key} input path ${path}`).not.toBeUndefined();
+      }
+    }
   });
 });

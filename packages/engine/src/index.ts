@@ -354,6 +354,7 @@ export {
 } from "./affordability-tiers";
 
 export {
+  CAPITALIZED_GROSS_INTEREST_VERSION,
   CAPITALIZED_NET_OPERATING_CASH_VERSION,
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   DEVELOPMENT_CAPITAL_FORMULA_VERSION,
@@ -361,6 +362,7 @@ export {
   DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION,
   DEVELOPMENT_CAPITAL_V2_FORMULA_VERSION,
   EQUITY_FIRST_FUNDING_VERSION,
+  INTEREST_TREATMENTS,
   MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH,
   MAX_RATE_CURVE_AGE_MONTHS,
   OPENING_BALANCE_MONTHLY_VERSION,
@@ -377,6 +379,7 @@ export {
   type DevelopmentCapitalIssue,
   type DevelopmentCapitalIssueCode,
   type DevelopmentCapitalPlan,
+  type InterestTreatment,
   type DevelopmentCapitalRatePath,
   type DevelopmentCapitalRatePoint,
   type DevelopmentCapitalResult,

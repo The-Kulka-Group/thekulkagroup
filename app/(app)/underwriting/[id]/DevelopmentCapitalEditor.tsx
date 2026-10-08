@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  CAPITALIZED_GROSS_INTEREST_VERSION,
   CAPITALIZED_NET_OPERATING_CASH_VERSION,
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   DEVELOPMENT_CAPITAL_INPUT_VERSION,
@@ -13,6 +14,7 @@ import {
   type DevelopmentCapitalEvidence,
   type CreditedLandPlan,
   type DevelopmentCapitalRatePath,
+  type InterestTreatment,
   type OtherFundingSource,
   type PermanentLoanPlan,
 } from "@kulka/engine";
@@ -30,6 +32,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   const [loanFeePercent, setLoanFeePercent] = useState<number | "">(saved?.loanFeePercent ?? "");
   const [feeMonth, setFeeMonth] = useState(saved?.feeMonth ?? savedCase.costSchedule?.analysisStartMonth ?? "");
   const [payoffMonth, setPayoffMonth] = useState(saved?.payoffMonth ?? savedCase.costSchedule?.saleMonth ?? "");
+  const [interestTreatment, setInterestTreatment] = useState<InterestTreatment>(saved?.interestTreatment ?? CAPITALIZED_NET_OPERATING_CASH_VERSION);
   const savedPath = saved?.ratePath;
   const [usePath, setUsePath] = useState(savedPath !== undefined);
   const [spreadPercent, setSpreadPercent] = useState<number | "">(savedPath?.spreadPercent ?? "");
@@ -70,7 +73,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
           annualInterestRatePercent,
           loanFeePercent,
           fundingOrder: EQUITY_FIRST_FUNDING_VERSION,
-          interestTreatment: CAPITALIZED_NET_OPERATING_CASH_VERSION,
+          interestTreatment,
           interestConvention: OPENING_BALANCE_MONTHLY_VERSION,
           feeMonth,
           payoffMonth,
@@ -117,7 +120,9 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
         <MonthField id="capital-fee-month" label="Fee Month" value={feeMonth} onChange={setFeeMonth} error={fieldErrors.feeMonth} />
         <MonthField id="capital-payoff-month" label="Debt Payoff Month" value={payoffMonth} onChange={setPayoffMonth} error={fieldErrors.payoffMonth} />
         <ReadOnlyField label="Funding Order" value="Equity First" />
-        <ReadOnlyField label="Interest Treatment" value="Operating Cash First, Then Capitalized" />
+        <label className="field-label t-label" htmlFor="capital-interest-treatment">Interest Treatment<select id="capital-interest-treatment" className="input" value={interestTreatment} onChange={(event) => setInterestTreatment(event.target.value as InterestTreatment)} aria-invalid={Boolean(fieldErrors.interestTreatment)} aria-describedby={fieldErrors.interestTreatment ? "capital-interest-treatment-error" : undefined}>
+          {Object.entries(INTEREST_TREATMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select><FieldError id="capital-interest-treatment-error" error={fieldErrors.interestTreatment} /></label>
         <ReadOnlyField label="Interest Convention" value="Opening Balance, Annual Rate Divided by 12" />
       </div>
 
@@ -198,6 +203,11 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
     </form>
   );
 }
+
+const INTEREST_TREATMENT_LABELS: Record<InterestTreatment, string> = {
+  [CAPITALIZED_NET_OPERATING_CASH_VERSION]: "Operating Cash First, Then Capitalized",
+  [CAPITALIZED_GROSS_INTEREST_VERSION]: "Full Interest Reserve, Lease-Up Cash to Equity",
+};
 
 const LABELS: Record<DevelopmentCapitalAssumptionKey, string> = {
   targetDebtSharePercent: "Target Debt Share",

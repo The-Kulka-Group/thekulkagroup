@@ -7,6 +7,7 @@ import {
   type PropertyReturnsInputs,
   type PropertyReturnsPlan,
 } from "./property-returns";
+import { CAPITALIZED_GROSS_INTEREST_VERSION } from "./development-capital";
 import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "./fixtures/apartment-development-model-v2.98-returns";
 
 const evidence = {
@@ -217,6 +218,24 @@ describe("computePropertyReturns", () => {
     expect(run.result?.developmentCapital.months).toHaveLength(monthCount);
     expect(run.result?.forwardOperations).toMatchObject({ startMonth: saleMonth, endMonth: "2201-11" });
     expect(run.result?.forwardOperations.months).toHaveLength(12);
+  });
+
+  it("pays lease-up cash to the equity holders when the loan reserves gross interest (LA-1930)", () => {
+    const fixture = APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE;
+    const netRun = computePropertyReturns(fixture.fullModelInput as PropertyReturnsInputs);
+    const run = computePropertyReturns({ ...fixture.fullModelInput, interestTreatment: CAPITALIZED_GROSS_INTEREST_VERSION } as PropertyReturnsInputs);
+
+    expect(run.status).toBe("complete");
+    const { developmentCapital, propertyReturns } = run.result!;
+    expect(propertyReturns.reconciliations.filter(({ status }) => status !== "pass")).toEqual([]);
+    const leaseUp = propertyReturns.months.filter((month) => month.operatingCashFlow > 0 && month.grossInterest > 0 && month.repayment === 0);
+    expect(leaseUp.length).toBeGreaterThan(0);
+    // Gross interest is drawn in full, so the month's interest and its reserve draw cancel and the operating cash is left over.
+    expect(developmentCapital.totals.capitalizedInterest).toBe(developmentCapital.totals.grossInterest);
+    const cents = (value: number) => Math.round(value * 100);
+    const financing = cents(developmentCapital.totals.loanFees) + cents(developmentCapital.totals.grossInterest);
+    expect(cents(propertyReturns.returns.levered.netProfit)).toBe(cents(propertyReturns.returns.unlevered.netProfit) - financing);
+    expect(developmentCapital.totals.totalUses).toBeGreaterThan(netRun.result!.developmentCapital.totals.totalUses);
   });
 
   it("resolves every return metric input path against the immutable flat input snapshot", () => {

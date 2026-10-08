@@ -30,6 +30,7 @@ import {
 } from "@/lib/underwriting/presentation";
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
+import { CommercialResults } from "../../CommercialResults";
 import { PERMANENT_LOAN_EVIDENCE_LABELS } from "../../PermanentLoanResults";
 import { PropertyReturnsResults } from "../../PropertyReturnsResults";
 import { ScenarioComparisonResults } from "../../ScenarioComparisonResults";
@@ -142,6 +143,7 @@ export default async function UnderwritingRunPage({
                   <tbody>{run.developmentCapitalResult.capital.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
               </div>
+              {run.developmentCapitalResult.apartmentOperations.commercial ? <CommercialResults months={run.developmentCapitalResult.apartmentOperations.months} commercial={run.developmentCapitalResult.apartmentOperations.commercial} totals={run.developmentCapitalResult.apartmentOperations.totals} costSchedule={run.developmentCapitalResult.apartmentOperations.costSchedule} /> : null}
               <ReconciliationTable checks={run.reconciliations} />
             </>
           ) : run.apartmentOperationsResult ? (
@@ -169,6 +171,7 @@ export default async function UnderwritingRunPage({
                   <tbody>{run.apartmentOperationsResult.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
               </div>
+              {run.apartmentOperationsResult.commercial ? <CommercialResults months={run.apartmentOperationsResult.months} commercial={run.apartmentOperationsResult.commercial} totals={run.apartmentOperationsResult.totals} costSchedule={run.apartmentOperationsResult.costSchedule} /> : null}
               <ReconciliationTable checks={run.reconciliations} />
             </>
           ) : run.monthlyCostResult ? (
@@ -374,6 +377,17 @@ export default async function UnderwritingRunPage({
                 ].map((line) => <tr key={`${line.id}-${line.name}`}><th scope="row">{line.name}</th><td>{line.sourceLabel || "Missing"}</td><td className="num">{line.sourceDate || "Missing"}</td><td><Chip status={line.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.apartmentOperations!.lastChangedAt))}</td></tr>)}</tbody>
               </table>
             </div></>
+          ) : null}
+          {run.evidenceSnapshot.apartmentOperations?.commercial ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Commercial Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{[
+                  { id: "commercial", name: "Commercial Vacancy and Credit Loss", ...run.evidenceSnapshot.apartmentOperations.commercial },
+                  ...run.evidenceSnapshot.apartmentOperations.commercial.spaces,
+                ].map((item) => <tr key={item.id}><th scope="row">{item.name}</th><td>{item.sourceLabel || "Missing"}</td><td className="num">{item.sourceDate || "Missing"}</td><td><Chip status={item.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.apartmentOperations!.lastChangedAt))}</td></tr>)}</tbody>
+              </table>
+            </div>
           ) : null}
           {run.evidenceSnapshot.developmentCapital ? (
             <div className="underwriting-results-wrap">

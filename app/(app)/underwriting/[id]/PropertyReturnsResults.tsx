@@ -2,6 +2,7 @@ import type { LenderTestMetric, LenderTestsResult, PropertyReturnsResult, Proper
 
 import { Chip } from "@/components/Status";
 
+import { CommercialResults, hasCommercialMonths } from "./CommercialResults";
 import { PartnershipResults } from "./PartnershipResults";
 import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
 
@@ -38,6 +39,7 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {result.propertyReturns.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatMetric(metric.value, metric.unit)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
+    {hasCommercialMonths(result.forwardOperations.months) ? <CommercialResults months={result.forwardOperations.months} heading="Forward Commercial and Residential Net Operating Income" /> : null}
     <SourcesAndUsesSection capital={result.developmentCapital} />
     {result.saleTax ? <SaleTax report={result.saleTax} byUse={Boolean(sale.valueSplit)} /> : null}
     {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}

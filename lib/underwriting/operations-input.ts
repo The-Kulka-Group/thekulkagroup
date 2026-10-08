@@ -68,6 +68,51 @@ function knownPropertyTaxFields(value: unknown) {
   };
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function knownRecoveryFields(value: unknown) {
+  if (!isPlainObject(value)) return value;
+  const basis = value.basis;
+  return {
+    basis: isPlainObject(basis)
+      ? { kind: basis.kind, ...(basis.lineIds === undefined ? {} : { lineIds: basis.lineIds }) }
+      : basis,
+    ...(value.sharePercent === undefined || value.sharePercent === null ? {} : { sharePercent: value.sharePercent }),
+  };
+}
+
+function knownSpaceFields(value: unknown) {
+  if (!isPlainObject(value)) return value;
+  const optional = (key: string) => value[key] === undefined || value[key] === null ? {} : { [key]: value[key] };
+  return {
+    id: value.id,
+    name: value.name,
+    areaSf: value.areaSf,
+    annualRentPerSf: value.annualRentPerSf,
+    ...optional("leaseStartMonth"),
+    ...optional("leaseStartAnchor"),
+    freeRentMonths: value.freeRentMonths,
+    recoveries: Array.isArray(value.recoveries) ? value.recoveries.map(knownRecoveryFields) : value.recoveries,
+    tenantImprovementPerSf: value.tenantImprovementPerSf,
+    leasingCommissionPercent: value.leasingCommissionPercent,
+    leaseTermMonths: value.leaseTermMonths,
+    ...knownEvidenceFields(value),
+  };
+}
+
+/** Keeps only the fields the commercial block defines, so stray keys never reach the stored case. */
+function knownCommercialFields(value: unknown) {
+  if (!isPlainObject(value)) return value;
+  return {
+    spaces: Array.isArray(value.spaces) ? value.spaces.map(knownSpaceFields) : value.spaces,
+    vacancyPercent: value.vacancyPercent,
+    creditLossPercent: value.creditLossPercent,
+    ...knownEvidenceFields(value),
+  };
+}
+
 export function parseApartmentOperations(
   body: unknown,
   costSchedule: MonthlyCostScheduleInputs,
@@ -115,6 +160,9 @@ export function parseApartmentOperations(
     ...(candidate.categoryGrowth === undefined ? {} : {
       categoryGrowth: knownLeaseUpFields(candidate.categoryGrowth, [...GROWTH_CATEGORIES]),
     }),
+    ...(candidate.commercial === undefined || candidate.commercial === null ? {} : {
+      commercial: knownCommercialFields(candidate.commercial),
+    }),
   } as ApartmentOperationsInputs);
   if (checked.status === "failed") {
     const issues = checked.issues.filter((item) => !item.path.startsWith("costLines")
@@ -152,5 +200,6 @@ export function parseApartmentOperations(
     ...(checked.inputSnapshot.stabilizationRule ? { stabilizationRule: checked.inputSnapshot.stabilizationRule } : {}),
     ...(checked.inputSnapshot.leaseTurnover ? { leaseTurnover: checked.inputSnapshot.leaseTurnover } : {}),
     ...(checked.inputSnapshot.categoryGrowth ? { categoryGrowth: checked.inputSnapshot.categoryGrowth } : {}),
+    ...(checked.inputSnapshot.commercial ? { commercial: checked.inputSnapshot.commercial } : {}),
   };
 }

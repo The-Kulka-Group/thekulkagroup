@@ -339,6 +339,7 @@ export {
   type CommercialRecovery,
   type CommercialRecoveryBasis,
   type CommercialSpace,
+  leaseStartMonthFor,
 } from "./commercial-operations";
 
 export {

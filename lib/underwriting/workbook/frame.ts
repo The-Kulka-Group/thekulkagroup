@@ -1,4 +1,4 @@
-import type { PropertyReturnsResult } from "@kulka/engine";
+import type { PropertyReturnsInputs, PropertyReturnsResult } from "@kulka/engine";
 
 // LA-1947, LA-1949. What every sheet builder shares: the layout types, cell addresses,
 // the Kulka header and the small formula pieces that turn an input into a month.
@@ -43,7 +43,9 @@ export const SHEET_NAMES = {
   returns: "Returns",
   sourcesAndUses: "Sources and Uses",
   monthly: "Monthly",
+  operations: "Operations",
   costs: "Costs",
+  leaseTerms: "Lease Terms",
   settling: "Percent Settling",
   annual: "Annual",
   assumptions: "Assumptions",
@@ -110,3 +112,33 @@ export type LayoutContext = {
   input: (path: string) => string;
   has: (path: string) => boolean;
 };
+
+/** A month as an Excel date: a typed month, or a milestone's month moved by an offset in months. */
+export function anchoredDate(ctx: LayoutContext, anchor: { milestoneId: string; offsetMonths: number } | undefined, anchorPath: string, typedPath: string) {
+  if (!anchor) return dateOfMonthText(ctx.input(typedPath));
+  const milestones = (ctx.source.inputs as PropertyReturnsInputs).milestones ?? [];
+  const found = milestones.findIndex(({ id }) => id === anchor.milestoneId);
+  if (found < 0) throw new Error(`The anchor at ${anchorPath} points at a milestone the case does not hold.`);
+  return `EDATE(${dateOfMonthText(ctx.input(`milestones.${found + 1}.month`))},${ctx.input(`${anchorPath}.offsetMonths`)})`;
+}
+
+/** Excel refuses a formula longer than 8,192 characters. The workbook stops short of that rather than write a file Excel must repair. */
+export const MAX_FORMULA_LENGTH = 8_000;
+
+export class WorkbookFormulaTooLongError extends Error {
+  constructor(sheet: string, address: string, length: number) {
+    super(`The formula at ${sheet}!${address} is ${length} characters, longer than Excel allows.`);
+    this.name = "WorkbookFormulaTooLongError";
+  }
+}
+
+export function assertFormulasFit(layout: WorkbookLayout) {
+  for (const sheet of layout.sheets) {
+    sheet.rows.forEach((row, rowIndex) => {
+      row.cells.forEach((cell, columnIndex) => {
+        const formula = cell && (cell.kind === "output" || cell.kind === "calc") ? cell.formula : undefined;
+        if (formula && formula.length > MAX_FORMULA_LENGTH) throw new WorkbookFormulaTooLongError(sheet.name, cellAddress(rowIndex, columnIndex), formula.length);
+      });
+    });
+  }
+}

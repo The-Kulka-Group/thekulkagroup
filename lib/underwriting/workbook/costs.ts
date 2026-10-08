@@ -2,6 +2,7 @@ import {
   computeApartmentOperations,
   leasingCommissionLineId,
   tenantImprovementLineId,
+  type ApartmentOperationsResult,
   type CostCategory,
   type CostDistributionMethod,
   type CostLineSchedule,
@@ -15,9 +16,9 @@ import {
   HEADER_ROWS,
   SHEET_NAMES,
   absoluteAddress,
+  anchoredDate,
   cellAddress,
   columnLetter,
-  dateOfMonthText,
   header,
   monthCount,
   sheetRef,
@@ -103,7 +104,11 @@ export type CostsBuild = {
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-export function costScheduleFor(ctx: LayoutContext): MonthlyCostScheduleResult {
+/**
+ * The engine's operations run for the saved inputs: the cost schedule and every operating month. The
+ * saved result keeps neither, so the workbook calculates them again to know the figures it checks.
+ */
+export function operationsFor(ctx: LayoutContext): ApartmentOperationsResult {
   const { source } = ctx;
   const inputs = source.inputs as PropertyReturnsInputs;
   const { totals } = source.result.developmentCapital;
@@ -112,7 +117,7 @@ export function costScheduleFor(ctx: LayoutContext): MonthlyCostScheduleResult {
   if (run.status !== "complete" || !run.result) {
     throw new Error("The workbook needs the cost schedule, and the saved inputs no longer calculate.");
   }
-  return run.result.costSchedule;
+  return run.result;
 }
 
 function linesFor(ctx: LayoutContext, schedule: MonthlyCostScheduleResult): Line[] {
@@ -150,15 +155,6 @@ function linesFor(ctx: LayoutContext, schedule: MonthlyCostScheduleResult): Line
   };
   for (const line of lines) line.dependent = line.potBase === null && dependsOnTotal(line);
   return lines;
-}
-
-/** The first or last month of a line or lease as an Excel date: a typed month, or a milestone month moved by its offset. */
-function anchoredDate(ctx: LayoutContext, anchor: { milestoneId: string; offsetMonths: number } | undefined, anchorPath: string, typedPath: string) {
-  if (!anchor) return dateOfMonthText(ctx.input(typedPath));
-  const milestones = (ctx.source.inputs as PropertyReturnsInputs).milestones ?? [];
-  const found = milestones.findIndex(({ id }) => id === anchor.milestoneId);
-  if (found < 0) throw new Error(`The anchor at ${anchorPath} points at a milestone the case does not hold.`);
-  return `EDATE(${dateOfMonthText(ctx.input(`milestones.${found + 1}.month`))},${ctx.input(`${anchorPath}.offsetMonths`)})`;
 }
 
 function cumulative(step: string, row: number) {
@@ -212,7 +208,7 @@ function settlingRounds(lines: Line[], amounts: number[], financing: number, per
   throw new Error("The percent-of-total lines do not settle, so the workbook cannot show them.");
 }
 
-export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostScheduleResult): CostsBuild {
+export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostScheduleResult, commission?: (spaceIndex: number) => string): CostsBuild {
   const { source } = ctx;
   const inputs = source.inputs as PropertyReturnsInputs;
   const lines = linesFor(ctx, schedule);
@@ -300,9 +296,9 @@ export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostSchedu
         rate = { kind: "calc", formula: space("tenantImprovementPerSf"), format: "number" };
         amount = { kind: "output", id: `${id}.amount`, format: "money", engineValue: line.schedule.amount, formula: `ROUND(${space("areaSf")}*${space("tenantImprovementPerSf")},2)` };
       } else {
-        // The commission reads the lease's scheduled rent, which is the rent roll LA-1950 writes as formulas.
+        // The commission is a share of the rent the lease schedules over its term, worked out on the Lease Terms sheet.
         rate = { kind: "calc", formula: space("leasingCommissionPercent"), format: "percent_number" };
-        amount = { kind: "output", id: `${id}.amount`, format: "money", engineValue: line.schedule.amount };
+        amount = { kind: "output", id: `${id}.amount`, format: "money", engineValue: line.schedule.amount, ...(commission ? { formula: commission(derived.spaceIndex) } : {}) };
       }
       firstMonth = { kind: "calc", format: "date", formula: leaseStart };
       lastMonth = { kind: "calc", format: "date", formula: `${columnLetter(COLUMN.first)}${row}` };
@@ -417,9 +413,6 @@ export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostSchedu
   }
   const notes = [
     "Month figures follow the cost schedule: a line spreads its amount over its months by its curve, and the last month takes what is left after rounding.",
-    ...(lines.some(({ derived }) => derived?.kind === "leasing_commission")
-      ? ["A leasing commission is gray because it reads the lease's scheduled rent, which becomes formulas with the operations issue (LA-1950)."]
-      : []),
     ...(financed ? ["Financing is the loan fees, operating shortfall and capitalized interest on the Monthly sheet. A percent of total line counts it, and the loan counts that line, so a loan written as formulas (LA-1951) closes a circle that Excel must iterate."] : []),
   ];
   rows.push({ cells: [] });

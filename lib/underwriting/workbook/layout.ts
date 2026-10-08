@@ -11,9 +11,12 @@ import {
   type PropertyReturnsResult,
 } from "@kulka/engine";
 
-import { buildCostsSheets, costScheduleFor, type CostsBuild } from "./costs";
+import { buildCostsSheets, operationsFor, type CostsBuild } from "./costs";
+import { buildLeaseTermsSheet } from "./lease-terms";
+import { buildOperationsSheet, type OperationsBuild } from "./operations";
 import {
   HEADER_ROWS,
+  assertFormulasFit,
   SHEET_NAMES,
   cellAddress,
   columnLetter,
@@ -32,6 +35,7 @@ import {
 import { buildSourcesAndUsesSheet } from "./sources";
 
 export { SHEET_NAMES, cellAddress, columnLetter };
+export { WorkbookFormulaTooLongError } from "./frame";
 export type { CellFormat, LayoutCell, LayoutRow, LayoutSheet, WorkbookLayout, WorkbookSource };
 
 // LA-1947. The workbook as plain data: sheets, rows and cells, with every
@@ -140,10 +144,10 @@ type MonthlyEntry = { section: string } | { line: MonthlyLine };
 const flow = (engineTotal: (totals: DevelopmentCapitalTotals, result: PropertyReturnsResult) => number | undefined = () => undefined) => ({ engineTotal });
 
 /** The funding rows. Project costs, sources, uses and soft loan repayment are live; the loan rows wait for LA-1951. */
-function capitalLines(costs: CostsBuild["refs"], softLoanRepayments: string[]): MonthlyLine[] {
+function capitalLines(costs: CostsBuild["refs"], operations: OperationsBuild, softLoanRepayments: string[]): MonthlyLine[] {
   return [
     { key: "projectCosts", label: "Project Costs", format: "money", read: (m) => m.projectCosts, total: flow((t) => t.projectCosts), formula: (at) => costs.monthTotal(at.position) },
-    { key: "operatingCashFlow", label: "Operating Cash Flow", format: "money", read: (m) => m.operatingCashFlow, total: flow() },
+    { key: "operatingCashFlow", label: "Operating Cash Flow", format: "money", read: (m) => m.operatingCashFlow, total: flow(), formula: (at) => operations.cell("operatingCashFlow", at.position) },
     { key: "operatingShortfall", label: "Operating Shortfall", format: "money", read: (m) => m.operatingShortfall, total: flow((t) => t.operatingShortfall) },
     { key: "loanFee", label: "Loan Fees", format: "money", read: (m) => m.loanFee, total: flow((t) => t.loanFees) },
     { key: "grossInterest", label: "Gross Interest", format: "money", read: (m) => m.grossInterest, total: flow((t) => t.grossInterest) },
@@ -290,7 +294,7 @@ type MonthlyBuild = {
   otherSourceDraws: (sourceId: string) => string;
 };
 
-function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"]): MonthlyBuild {
+function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"], operations: OperationsBuild): MonthlyBuild {
   const { source } = ctx;
   const { developmentCapital, propertyReturns } = source.result;
   const months = developmentCapital.months;
@@ -303,7 +307,7 @@ function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"]): MonthlyBui
 
   const entries: MonthlyEntry[] = [
     { section: "Development Costs and Funding" },
-    ...capitalLines(costs, other.repaymentKeys).map((line): MonthlyEntry => ({ line })),
+    ...capitalLines(costs, operations, other.repaymentKeys).map((line): MonthlyEntry => ({ line })),
     ...(other.lines.length > 0 ? [{ section: "Grants and Soft Loans" } as MonthlyEntry, ...other.lines.map((line): MonthlyEntry => ({ line }))] : []),
     ...(developmentCapital.permanentLoan ? [{ section: "Permanent Loan" } as MonthlyEntry, ...PERMANENT_LINES.map((line): MonthlyEntry => ({ line }))] : []),
     { section: "Property Cash Flow" },
@@ -502,19 +506,24 @@ export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayo
     },
     has: (path) => inputNames.has(path),
   };
-  const costs = buildCostsSheets(ctx, costScheduleFor(ctx));
-  const monthly = monthlySheet(ctx, costs.refs);
+  const run = operationsFor(ctx);
+  const operations = buildOperationsSheet(ctx, run);
+  const leaseTerms = buildLeaseTermsSheet(ctx, run, operations);
+  const costs = buildCostsSheets(ctx, run.costSchedule, leaseTerms?.commission);
+  const monthly = monthlySheet(ctx, costs.refs, operations);
   costs.refs.linkFinancing(`${monthly.total("loanFee")}+${monthly.total("operatingShortfall")}+${monthly.total("capitalizedInterest")}`);
   const sourcesAndUses = buildSourcesAndUsesSheet(ctx, {
     costs: costs.refs,
     monthlyTotal: monthly.total,
     otherSourceDraws: monthly.otherSourceDraws,
   });
-  return {
+  const layout: WorkbookLayout = {
     sheets: [
       returnsSheet(source),
       sourcesAndUses,
       monthly.sheet,
+      operations.sheet,
+      ...(leaseTerms ? [leaseTerms.sheet] : []),
       costs.costs,
       ...(costs.settling ? [costs.settling] : []),
       annualSheet(source),
@@ -522,6 +531,8 @@ export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayo
     ],
     names,
   };
+  assertFormulasFit(layout);
+  return layout;
 }
 
 export type LayoutOutput = { sheet: string; address: string; cell: Extract<LayoutCell, { kind: "output" }> };

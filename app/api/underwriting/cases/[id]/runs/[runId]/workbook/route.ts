@@ -4,7 +4,7 @@ import { requireApiUser } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { getUnderwritingCase } from "@/lib/underwriting/cases";
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
-import { underwritingWorkbookLayout } from "@/lib/underwriting/workbook/layout";
+import { underwritingWorkbookLayout, WorkbookFormulaTooLongError } from "@/lib/underwriting/workbook/layout";
 import { workbookFileName, workbookSourceFor } from "@/lib/underwriting/workbook/source";
 import { writeUnderwritingWorkbook } from "@/lib/underwriting/workbook/write";
 import { isUuid } from "@/lib/uuid";
@@ -31,7 +31,10 @@ export async function GET(request: Request, context: Context) {
   let layout;
   try {
     layout = underwritingWorkbookLayout(source);
-  } catch {
+  } catch (error) {
+    if (error instanceof WorkbookFormulaTooLongError) {
+      return NextResponse.json({ error: "This case has more lines than one Excel formula can add up. Split the unit types or lines and run it again." }, { status: 409 });
+    }
     // The workbook rebuilds the cost schedule from the saved inputs. A run saved by an older model can fail that.
     return NextResponse.json({ error: "This run's inputs no longer calculate. Run the case again to export it." }, { status: 409 });
   }

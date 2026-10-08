@@ -81,6 +81,13 @@ describe("permanent loan views", () => {
     expect(html).not.toContain("Minimum Debt Yield source label");
   });
 
+  it("shows the window-before-operations issue on the trailing months field (LA-1920)", () => {
+    const message = "The 24-month trailing window runs 2026-09 to 2028-08, and 12 of those months fall before operations start in 2027-09.";
+    const html = renderToStaticMarkup(<PermanentLoanSection permanentLoan={plan} setPermanentLoan={() => undefined} milestones={[]} defaultMonth="2028-02" fieldErrors={{ "permanentLoan.sizingNoiWindow.months": message }} />);
+    expect(html).toContain("permanent-loan-window-months");
+    expect(html).toContain("12 of those months fall before operations start");
+  });
+
   it("offers the commercial valuation cap rate only on a case with commercial spaces or a saved rate", () => {
     const section = (permanentLoan: PermanentLoanPlan, hasCommercial: boolean) => renderToStaticMarkup(<PermanentLoanSection permanentLoan={permanentLoan} setPermanentLoan={() => undefined} milestones={[]} defaultMonth="" hasCommercial={hasCommercial} fieldErrors={{}} />);
     expect(section(plan, false)).not.toContain("Commercial Valuation Cap Rate");

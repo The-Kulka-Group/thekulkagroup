@@ -96,6 +96,7 @@ export type PermanentLoanIssueCode =
   | "invalid_permanent_loan"
   | "permanent_loan_funding_unavailable"
   | "permanent_loan_sizing_unavailable"
+  | "permanent_loan_window_before_operations"
   | "permanent_loan_after_maturity"
   | "permanent_loan_zero_amount"
   | "permanent_loan_commercial_unavailable"
@@ -313,6 +314,8 @@ export type PermanentLoanSchedule = {
   /** Operations from the analysis start through at least the end of the sizing window. */
   operations: MonthlyApartmentOperations[];
   analysisStartMonth: string;
+  /** The first month of operations. A trailing sizing window may not start before it. */
+  operationStartMonth: string;
   /** Operating input paths the sizing NOI reads, for the traces. */
   operationPaths: string[];
   /** The share of the property tax the commercial use carries in a month, as a percent. Absent when the case has no commercial block. */
@@ -335,6 +338,19 @@ export function schedulePermanentLoan(input: PermanentLoanSchedule): PermanentLo
   const window = sizingWindow(plan, fundingMonth);
   if (monthIndex(window.startMonth)! < monthIndex(input.analysisStartMonth)!) {
     return { path: "permanentLoan.sizingNoiWindow", code: "permanent_loan_sizing_unavailable", message: `The trailing sizing window starts in ${window.startMonth}, before the analysis start. Shorten the window or fund later.` };
+  }
+  if (window.kind === "trailing" && monthIndex(window.startMonth)! < monthIndex(input.operationStartMonth)!) {
+    const before = monthIndex(input.operationStartMonth)! - monthIndex(window.startMonth)!;
+    const longest = monthIndex(fundingMonth)! - monthIndex(input.operationStartMonth)!;
+    const earliest = addMonths(input.operationStartMonth, window.monthCount);
+    const fit = longest >= 1
+      ? `The longest window that fits is ${longest} ${longest === 1 ? "month" : "months"}, or fund no earlier than ${earliest}.`
+      : `No trailing window fits a ${fundingMonth} funding, so fund no earlier than ${addMonths(input.operationStartMonth, 1)}.`;
+    return {
+      path: "permanentLoan.sizingNoiWindow.months",
+      code: "permanent_loan_window_before_operations",
+      message: `The ${window.monthCount}-month trailing window runs ${window.startMonth} to ${window.endMonth}, and ${before} of those ${before === 1 ? "month falls" : "months fall"} before operations start in ${input.operationStartMonth}. ${fit}`,
+    };
   }
   const windowMonths = input.operations.filter(({ month }) => month >= window.startMonth && month <= window.endMonth);
   if (windowMonths.length !== window.monthCount) {

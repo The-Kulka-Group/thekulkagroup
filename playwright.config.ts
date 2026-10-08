@@ -22,7 +22,8 @@ export default defineConfig({
   }],
   webServer: {
     command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-    env: { KULKA_BROWSER_TEST: "1" },
+    // LA-1935: keep the browser test server off the live Jev API whatever the shell exports.
+    env: { KULKA_BROWSER_TEST: "1", TYPESAFE_API_KEY: "" },
     port,
     reuseExistingServer: false,
     timeout: 120_000,

@@ -1798,6 +1798,9 @@ textarea.input { border-radius: var(--r-lg); }
 }
 .underwriting-annual-cash-flow tbody th:not([colspan]) { font-weight: 500; white-space: nowrap; }
 .underwriting-annual-cash-flow thead th .t-meta { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.underwriting-annual-cash-flow thead th .annual-head-label,
+.underwriting-annual-cash-flow thead th .annual-head-range { display: block; white-space: nowrap; }
+.underwriting-annual-cash-flow thead th .annual-head-note { display: block; white-space: normal; }
 .underwriting-anchor-field {
   display: flex;
   flex-direction: column;

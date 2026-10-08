@@ -49,6 +49,13 @@ describe("annual cash flow table", () => {
     expect(html).toContain("Calendar Years");
   });
 
+  it("stacks each year header as a label, a date range and a note, each kept whole", () => {
+    const html = render(null).split("Annual Cash Flow Formula Traces")[0];
+    expect(html).toMatch(/<th[^>]*scope="col"><span class="annual-head-label">Operating Year 1<\/span><span class="annual-head-range t-meta">\d{4}-\d{2} to \d{4}-\d{2}<\/span>/);
+    expect(html).toContain('class="annual-head-note t-meta">Part Year,');
+    expect(html).not.toContain("<br/>");
+  });
+
   it("shows the lines a lender reads, with coverage and debt yield on full operating years", () => {
     const html = render(null);
     for (const text of ["Effective Gross Revenue", "Residential Vacancy", "Residential Credit Loss", "Net Operating Income", "Capital Expenditures", "Project Costs", "Construction Interest", "Permanent Debt Service", "Permanent Loan Payoff", "Net Sale Proceeds", "Levered Cash Flow", "Debt Service Coverage", "Debt Yield", "Sale Year"]) {

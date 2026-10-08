@@ -37,6 +37,10 @@ export const DEVELOPMENT_CAPITAL_V2_FORMULA_VERSION = "underwriting.development_
 export const DEVELOPMENT_CAPITAL_V1_FORMULA_VERSION = "underwriting.development_capital.v1" as const;
 export const EQUITY_FIRST_FUNDING_VERSION = "equity_first.v1" as const;
 export const CAPITALIZED_NET_OPERATING_CASH_VERSION = "capitalized_net_operating_cash.v1" as const;
+/** LA-1930: the loan reserves all gross interest, and lease-up operating cash goes to the equity holders. */
+export const CAPITALIZED_GROSS_INTEREST_VERSION = "capitalized_gross_interest.v1" as const;
+export const INTEREST_TREATMENTS = [CAPITALIZED_NET_OPERATING_CASH_VERSION, CAPITALIZED_GROSS_INTEREST_VERSION] as const;
+export type InterestTreatment = typeof INTEREST_TREATMENTS[number];
 export const OPENING_BALANCE_MONTHLY_VERSION = "opening_balance_monthly.v1" as const;
 export const MAX_DEVELOPMENT_CAPITAL_SOURCE_LABEL_LENGTH = 500;
 export const MAX_RATE_CURVE_AGE_MONTHS = 6;
@@ -84,7 +88,7 @@ export type DevelopmentCapitalPlan = {
   annualInterestRatePercent: number;
   loanFeePercent: number;
   fundingOrder: typeof EQUITY_FIRST_FUNDING_VERSION;
-  interestTreatment: typeof CAPITALIZED_NET_OPERATING_CASH_VERSION;
+  interestTreatment: InterestTreatment;
   interestConvention: typeof OPENING_BALANCE_MONTHLY_VERSION;
   feeMonth: string;
   payoffMonth: string;
@@ -571,8 +575,8 @@ function validate(months: MonthlyDevelopmentCashFlow[], plan: DevelopmentCapital
   if (plan.fundingOrder !== EQUITY_FIRST_FUNDING_VERSION) {
     addIssue(issues, "fundingOrder", "unsupported_funding_order", `Use ${EQUITY_FIRST_FUNDING_VERSION} for this formula version.`);
   }
-  if (plan.interestTreatment !== CAPITALIZED_NET_OPERATING_CASH_VERSION) {
-    addIssue(issues, "interestTreatment", "unsupported_interest_treatment", `Use ${CAPITALIZED_NET_OPERATING_CASH_VERSION} for this formula version.`);
+  if (!INTEREST_TREATMENTS.includes(plan.interestTreatment)) {
+    addIssue(issues, "interestTreatment", "unsupported_interest_treatment", `Use ${INTEREST_TREATMENTS.join(" or ")} for this formula version.`);
   }
   if (plan.interestConvention !== OPENING_BALANCE_MONTHLY_VERSION) {
     addIssue(issues, "interestConvention", "unsupported_interest_convention", `Use ${OPENING_BALANCE_MONTHLY_VERSION} for this formula version.`);
@@ -711,6 +715,12 @@ function validateEvidence(
   }
 }
 
+/** The interest treatment decides how much positive operating cash pays the month's construction interest. */
+function operatingCashAppliedToInterestCents(plan: DevelopmentCapitalPlan, operatingCashFlowCents: number, grossInterestCents: number) {
+  if (plan.interestTreatment === CAPITALIZED_GROSS_INTEREST_VERSION) return 0;
+  return Math.min(Math.max(operatingCashFlowCents, 0), grossInterestCents);
+}
+
 type EquitySolution = { kind: "solved"; cents: number } | { kind: "negative" } | { kind: "unsettled" };
 
 function solveEquityCommitment(
@@ -793,7 +803,7 @@ function simulate(
     const currentLoanFeeCents = month.month === plan.feeMonth ? loanFeeCents : 0;
     const rate = rateFor(plan, month.month);
     const grossInterestCents = percentOf(openingDebtCents, rate.annualRatePercent / 12);
-    const operatingCashAppliedCents = Math.min(Math.max(operatingCashFlowCents, 0), grossInterestCents);
+    const operatingCashAppliedCents = operatingCashAppliedToInterestCents(plan, operatingCashFlowCents, grossInterestCents);
     const capitalizedInterestCents = grossInterestCents - operatingCashAppliedCents;
 
     let grantDrawCents = 0;
@@ -1035,8 +1045,10 @@ function reconciliationsFor(
     ),
     check(
       `operating-cash-offset:${month.month}`,
-      `${month.month} operating cash applied equals the lesser of positive operating cash flow or interest`,
-      dollars(Math.min(Math.max(cents(month.operatingCashFlow), 0), cents(month.grossInterest))),
+      plan.interestTreatment === CAPITALIZED_GROSS_INTEREST_VERSION
+        ? `${month.month} operating cash applied to interest is zero, because the loan reserves gross interest`
+        : `${month.month} operating cash applied equals the lesser of positive operating cash flow or interest`,
+      dollars(operatingCashAppliedToInterestCents(plan, cents(month.operatingCashFlow), cents(month.grossInterest))),
       month.operatingCashAppliedToInterest,
     ),
   ]);
@@ -1128,9 +1140,15 @@ function formulaTraces(plan: DevelopmentCapitalPlan, hasDebtCeiling = false, tak
     { key: "equity", label: "Equity", formula: `grants and soft loans fund monthly uses first, then equity funds uses until the target debt share of total uses is reached${ceiling}; equity is total uses less target debt less grants and soft loans`, inputPaths: ["targetDebtSharePercent", "fundingOrder", ...otherSources] },
     { key: "debtBeforeReserves", label: "Debt Before Reserves", formula: "project costs and loan fees not funded by equity", inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth", "fundingOrder"] },
     { key: "grossInterest", label: "Gross Interest", formula: "opening monthly debt balance times the month's annual rate divided by twelve; the rate is the fixed annual rate, or with a rate path the month's base rate plus the spread, using the first base rate before the curve starts and the last base rate after it ends", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention"] },
-    { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", formula: "the lesser of positive monthly operating cash flow or gross interest", inputPaths: ["interestTreatment", ...operatingCashFlowInputs] },
-    { key: "capitalizedInterest", label: "Capitalized Interest", formula: "gross monthly interest less positive operating cash applied to interest", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention", "interestTreatment", ...operatingCashFlowInputs] },
-    { key: "interestReserve", label: "Interest Reserve", formula: "gross interest less positive operating cash applied to interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestTreatment", "fundingOrder"] },
+    ...(plan.interestTreatment === CAPITALIZED_GROSS_INTEREST_VERSION ? [
+      { key: "operatingCashAppliedToInterest" as const, label: "Operating Cash Applied to Interest", formula: "zero; the loan reserves gross interest and positive operating cash goes to the equity holders", inputPaths: ["interestTreatment"] },
+      { key: "capitalizedInterest" as const, label: "Capitalized Interest", formula: "gross monthly interest, with no credit for operating cash", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention", "interestTreatment"] },
+      { key: "interestReserve" as const, label: "Interest Reserve", formula: "gross interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestTreatment", "fundingOrder"] },
+    ] : [
+      { key: "operatingCashAppliedToInterest" as const, label: "Operating Cash Applied to Interest", formula: "the lesser of positive monthly operating cash flow or gross interest", inputPaths: ["interestTreatment", ...operatingCashFlowInputs] },
+      { key: "capitalizedInterest" as const, label: "Capitalized Interest", formula: "gross monthly interest less positive operating cash applied to interest", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestConvention", "interestTreatment", ...operatingCashFlowInputs] },
+      { key: "interestReserve" as const, label: "Interest Reserve", formula: "gross interest less positive operating cash applied to interest after equity has funded its target amount", inputPaths: ["annualInterestRatePercent", ...ratePath, "interestTreatment", "fundingOrder"] },
+    ]),
     { key: "operatingShortfallReserve", label: "Operating Shortfall Reserve", formula: "negative operating cash flow funded after equity under the equity-first rule and kept separate from project costs", inputPaths: ["fundingOrder", ...operatingCashFlowInputs] },
     { key: "loanFees", label: "Loan Fees", formula: `project costs times target debt share times loan fee percent in the entered fee month${hasDebtCeiling ? ", on the lender's NOI cap in place of that commitment when the cap is lower" : ""}`, inputPaths: ["targetDebtSharePercent", "loanFeePercent", "feeMonth"] },
     { key: "totalDebt", label: "Total Debt", formula: "debt before reserves plus interest reserve and operating shortfall reserve draws", inputPaths: ["targetDebtSharePercent", "fundingOrder", "annualInterestRatePercent", ...ratePath, "loanFeePercent", "costLines", ...operatingCashFlowInputs] },

@@ -77,6 +77,8 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
   await expect(page.locator("#capital-target-debt-share-error")).toContainText("0 to 100");
 
   await page.locator("#capital-target-debt-share").fill("65");
+  await expect(page.locator("#capital-interest-treatment")).toHaveValue("capitalized_net_operating_cash.v1");
+  await page.locator("#capital-interest-treatment").selectOption({ label: "Full Interest Reserve, Lease-Up Cash to Equity" });
   const savedResponse = page.waitForResponse((response) =>
     response.request().method() === "PUT" && response.url().endsWith(`/api/underwriting/cases/${createdCase.id}/capital`));
   await page.getByRole("button", { name: "Save Capital Plan" }).click();
@@ -84,6 +86,7 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
   const capitalBody = await capitalResponse.json();
   expect(capitalResponse.status(), JSON.stringify(capitalBody)).toBe(200);
   expect(capitalBody.case.caseRevision).toBe(operatingCase.caseRevision + 1);
+  expect(capitalBody.case.developmentCapital.interestTreatment).toBe("capitalized_gross_interest.v1");
   await expect(page.locator(".underwriting-run-action")).toHaveAttribute(
     "data-case-revision",
     String(capitalBody.case.caseRevision),
@@ -103,10 +106,12 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
   await page.reload();
   await expect(page.locator("#capital-target-debt-share")).toHaveValue("65");
   await expect(page.locator("#capital-annual-interest-rate")).toHaveValue("8");
+  await expect(page.locator("#capital-interest-treatment")).toHaveValue("capitalized_gross_interest.v1");
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
   await expect(page.getByText("Capital Input Version")).toBeVisible();
   await expect(page.getByText("Saved Capital Assumption")).toBeVisible();
+  await expect(page.getByText("capitalized_gross_interest.v1").first()).toBeVisible();
   await expect(page.getByText("Closing construction debt equals zero after the payoff month")).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 812 });

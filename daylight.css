@@ -1648,6 +1648,8 @@ textarea.input { border-radius: var(--r-lg); }
   border-collapse: separate;
   border-spacing: 0;
 }
+/* A two-column comparison (stated land beside the residual) fits a narrow pane without scrolling its key column away. */
+.underwriting-results.underwriting-results--pair { min-width: 560px; }
 .underwriting-results th,
 .underwriting-results td {
   padding: var(--s3) var(--cell-pad-x);

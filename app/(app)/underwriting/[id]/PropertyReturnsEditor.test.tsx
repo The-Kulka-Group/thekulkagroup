@@ -30,7 +30,7 @@ function render(overrides: { commercial?: boolean; permanentLoan?: boolean; prop
   const savedCase = {
     id: "case-1",
     caseRevision: 3,
-    costSchedule: { saleMonth: "2030-12" },
+    costSchedule: { saleMonth: "2030-12", costLines: [] },
     apartmentOperations: overrides.commercial ? { commercial: { spaces: [] } } : {},
     developmentCapital: overrides.permanentLoan ? { permanentLoan: { sizingMode: "construction_balance" } } : {},
     propertyReturns: overrides.propertyReturns ?? sale,

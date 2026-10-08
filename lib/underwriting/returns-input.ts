@@ -2,8 +2,11 @@ import {
   LENDER_TEST_ASSUMPTION_KEYS,
   LENDER_TEST_COMMERCIAL_CAP_KEY,
   PARTNERSHIP_ASSUMPTION_KEYS,
+  residualLandLineIssues,
   SALE_TAX_ASSUMPTION_KEYS,
   validatePropertyReturnsPlan,
+  type MonthlyCostLine,
+  type PropertyReturnsInputs,
   type PropertyReturnsIssue,
   type PropertyReturnsPlan,
 } from "@kulka/engine";
@@ -125,7 +128,30 @@ function knownPartnershipFields(value: unknown) {
   };
 }
 
-export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
+function knownResidualLandFields(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const plan = value as Record<string, unknown>;
+  const evidence = plan.evidence;
+  return {
+    residualLandInputVersion: plan.residualLandInputVersion,
+    target: plan.target,
+    targetValue: plan.targetValue,
+    landLineId: plan.landLineId,
+    evidence: evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? (({ sourceLabel, sourceDate, reviewState }: Record<string, unknown>) => ({
+        ...(sourceLabel === undefined ? {} : { sourceLabel }),
+        ...(sourceDate === undefined ? {} : { sourceDate }),
+        reviewState,
+      }))(evidence as Record<string, unknown>)
+      : evidence,
+  };
+}
+
+/**
+ * With the case's saved cost lines, a residual land target is also checked against the line it prices,
+ * so a save names a missing, non-land or derived line before a run does.
+ */
+export function parsePropertyReturns(body: unknown, costLines?: MonthlyCostLine[]): PropertyReturnsDraft {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new InvalidPropertyReturns("Send a property sale and returns object.", [], {});
   }
@@ -142,8 +168,12 @@ export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
     ...(candidate.lenderTests === undefined ? {} : { lenderTests: knownLenderTestFields(candidate.lenderTests) }),
     ...(candidate.saleTax === undefined ? {} : { saleTax: knownSaleTaxFields(candidate.saleTax) }),
     ...(candidate.partnership === undefined || candidate.partnership === null ? {} : { partnership: knownPartnershipFields(candidate.partnership) }),
+    ...(candidate.residualLand === undefined || candidate.residualLand === null ? {} : { residualLand: knownResidualLandFields(candidate.residualLand) }),
   } as PropertyReturnsPlan;
   const issues = validatePropertyReturnsPlan(draft);
+  if (issues.length === 0 && draft.residualLand && costLines) {
+    issues.push(...residualLandLineIssues({ costLines, residualLand: draft.residualLand } as PropertyReturnsInputs));
+  }
   if (issues.length > 0) {
     throw new InvalidPropertyReturns(
       saveMessage("Review the property sale and returns fields.", issues),

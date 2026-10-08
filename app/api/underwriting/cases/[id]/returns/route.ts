@@ -49,7 +49,7 @@ export async function PUT(request: Request, context: Context) {
       getDb(),
       id,
       Number(expectedRevision),
-      parsePropertyReturns(body),
+      parsePropertyReturns(body, savedCase.costSchedule.costLines),
     );
     return saved
       ? NextResponse.json({ case: saved })

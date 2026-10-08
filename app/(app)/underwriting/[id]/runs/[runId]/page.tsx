@@ -479,6 +479,17 @@ export default async function UnderwritingRunPage({
               </table>
             </div>
           ) : null}
+          {run.evidenceSnapshot.propertyReturns?.residualLand ? (
+            <div className="underwriting-results-wrap">
+              <table className="underwriting-evidence">
+                <thead><tr><th>Saved Residual Land Target</th><th>Source Label</th><th>Source Date</th><th>Review State</th><th>Evidence Changed</th></tr></thead>
+                <tbody>{(() => {
+                  const { evidence } = run.evidenceSnapshot.propertyReturns!.residualLand!;
+                  return <tr><th scope="row">Target</th><td>{evidence.sourceLabel || "Missing"}</td><td className="num">{evidence.sourceDate || "Missing"}</td><td><Chip status={evidence.reviewState} /></td><td className="num">{DATE_TIME.format(new Date(run.evidenceSnapshot.propertyReturns!.lastChangedAt))}</td></tr>;
+                })()}</tbody>
+              </table>
+            </div>
+          ) : null}
           {run.evidenceSnapshot.scenarios?.length ? (
             <div className="underwriting-results-wrap">
               <h4>Saved Scenario Evidence</h4>

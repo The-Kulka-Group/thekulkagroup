@@ -25,6 +25,7 @@ import {
   type PartnershipPlan,
   type PropertyReturnsAssumptionKey,
   type PropertyReturnsEvidence,
+  type ResidualLandPlan,
   type SaleTaxAssumptionKey,
   type SaleTaxValueBasis,
 } from "@kulka/engine";
@@ -32,6 +33,7 @@ import {
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
 import { PartnershipSection } from "./PartnershipSection";
+import { ResidualLandSection } from "./ResidualLandSection";
 
 export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
@@ -63,6 +65,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   const [abatementDiscountRatePercent, setAbatementDiscountRatePercent] = useState<number | "">(savedSaleTax?.abatementDiscountRatePercent ?? "");
   const [saleTaxEvidence, setSaleTaxEvidence] = useState({ ...blankSaleTaxEvidence(), ...savedSaleTax?.saleTaxEvidence });
   const [partnership, setPartnership] = useState<PartnershipPlan | undefined>(saved?.partnership);
+  const [residualLand, setResidualLand] = useState<ResidualLandPlan | undefined>(saved?.residualLand);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -136,6 +139,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
             },
           } : {}),
           ...(partnership ? { partnership } : {}),
+          ...(residualLand ? { residualLand } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -258,6 +262,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
       </> : null}
     </section>
     <PartnershipSection partnership={partnership} setPartnership={setPartnership} fieldErrors={fieldErrors} />
+    <ResidualLandSection residualLand={residualLand} setResidualLand={setResidualLand} costLines={savedCase.costSchedule.costLines} fieldErrors={fieldErrors} />
     {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
     <div className="underwriting-form-actions"><button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Sale Plan" : "Save Sale Plan"}</button></div>
   </form>;

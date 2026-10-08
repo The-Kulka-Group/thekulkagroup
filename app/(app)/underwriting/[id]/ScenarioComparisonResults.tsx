@@ -1,6 +1,7 @@
 import type { ApartmentScenarioComparisonResult, LenderTestMetricKey, ScenarioLenderMetrics } from "@kulka/engine";
 import { Chip } from "@/components/Status";
 import { formatMultiple } from "./format-multiple";
+import { RESIDUAL_LAND_STATUS_LABELS } from "./ResidualLandResults";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,6 +43,20 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
       }],
     ] as const
     : [];
+  const residualOf = (value: typeof columns[number]) => value.propertyResult.residualLand;
+  const residualLandRows = result.base.propertyResult.residualLand
+    ? [
+      ["Residual Land Price", (value: typeof columns[number]) => {
+        const residual = residualOf(value);
+        if (!residual) return "Not Reported";
+        return residual.residualLineAmount === null ? RESIDUAL_LAND_STATUS_LABELS[residual.status] : MONEY.format(residual.residualLineAmount);
+      }],
+      ["Total Land Cost at Residual", (value: typeof columns[number]) => {
+        const cost = residualOf(value)?.residualLandCashCost;
+        return cost === null || cost === undefined ? "Not Reported" : MONEY.format(cost);
+      }],
+    ] as const
+    : [];
   function columnsHaveCreditedLand() {
     return columns.some((value) => value.metrics.lender?.scheduledTax?.loanToCostCreditedLand != null);
   }
@@ -55,7 +70,7 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
   return <div className="underwriting-monthly-results">
     <h4>Scenario Comparison</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-results underwriting-scenario-comparison"><thead><tr><th>Metric</th>{names.map((name) => <th className="right" key={name}>{name}</th>)}</tr></thead><tbody>
-      {[...rows, ...lenderRows, ...permanentLoanRows].map(([label, format]) => <tr key={label}><th scope="row">{label}</th>{columns.map((value, index) => <td className="num right" key={names[index]}>{format(value)}</td>)}</tr>)}
+      {[...rows, ...lenderRows, ...permanentLoanRows, ...residualLandRows].map(([label, format]) => <tr key={label}><th scope="row">{label}</th>{columns.map((value, index) => <td className="num right" key={names[index]}>{format(value)}</td>)}</tr>)}
       <tr><th scope="row">Reconciliation</th>{columns.map((value, index) => <td className="right" key={names[index]}><Chip status={value.reconciliationStatus === "pass" ? "done" : "stuck"} /></td>)}</tr>
     </tbody></table></div>
     <h4>Changed Inputs</h4>

@@ -931,7 +931,43 @@ describe("underwriting case repository", () => {
       saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
     });
     expect(withoutWaterfall!.propertyReturns!.partnership).toBeUndefined();
-    const revisedSchedule = await saveUnderwritingCostSchedule(db, created!.id, withoutWaterfall!.caseRevision, {
+    const residualLand = {
+      residualLandInputVersion: "residual_land_inputs.v1" as const,
+      target: "yield_on_cost" as const,
+      targetValue: 6.5,
+      landLineId: "land",
+      evidence: done,
+    };
+    const withTarget = await savePropertyReturns(db, created!.id, withoutWaterfall!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 6,
+      saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+      residualLand,
+    });
+    expect(withTarget!.propertyReturns!.residualLand).toEqual(residualLand);
+    const sameTarget = await savePropertyReturns(db, created!.id, withTarget!.caseRevision, {
+      ...salePlan,
+      terminalCapRatePercent: 7,
+      saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+      residualLand,
+    });
+    expect(sameTarget!.propertyReturns!.residualLand!.evidence.reviewState).toBe("done");
+    for (const change of [{ targetValue: 7 }, { target: "levered_xirr" as const }, { evidence: { ...done, sourceLabel: "Revised hurdle" } }]) {
+      const changed = await savePropertyReturns(db, created!.id, (await getUnderwritingCase(db, created!.id))!.caseRevision, {
+        ...salePlan,
+        terminalCapRatePercent: 6,
+        saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+        residualLand: { ...residualLand, ...change },
+      });
+      expect(changed!.propertyReturns!.residualLand!.evidence.reviewState).toBe("working");
+      await savePropertyReturns(db, created!.id, changed!.caseRevision, {
+        ...salePlan,
+        terminalCapRatePercent: 6,
+        saleAssumptionEvidence: saleChanged!.propertyReturns!.saleAssumptionEvidence,
+        residualLand,
+      });
+    }
+    const revisedSchedule = await saveUnderwritingCostSchedule(db, created!.id, (await getUnderwritingCase(db, created!.id))!.caseRevision, {
       analysisStartMonth: saleChanged!.costSchedule!.analysisStartMonth,
       saleMonth: "2027-01",
       costLines: saleChanged!.costSchedule!.costLines.map(({ lastChangedAt, ...line }) => {

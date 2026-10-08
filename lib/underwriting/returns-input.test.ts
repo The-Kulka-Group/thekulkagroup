@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { MonthlyCostLine } from "@kulka/engine";
+
 import { InvalidPropertyReturns, parsePropertyReturns } from "./returns-input";
 
 const plan = {
@@ -56,6 +58,47 @@ describe("parsePropertyReturns", () => {
     const plain = { ...withoutOptional, partnershipEvidence: { funding: working, promoteTiers: working } };
     expect(parsePropertyReturns({ ...plan, partnership: plain }).partnership).toEqual(plain);
     expect(() => parsePropertyReturns({ ...plan, partnership: { ...partnership, lpFundingSharePercent: 0 } })).toThrow(InvalidPropertyReturns);
+  });
+
+  it("keeps a residual land target, drops fields it does not know, and checks the line against the cost schedule", () => {
+    const residualLand = {
+      residualLandInputVersion: "residual_land_inputs.v1",
+      target: "levered_xirr",
+      targetValue: 15,
+      landLineId: "land",
+      evidence: { sourceLabel: "Investment committee hurdle", reviewState: "working" },
+    };
+    const parsed = parsePropertyReturns({ ...plan, residualLand: { ...residualLand, note: "drop", evidence: { ...residualLand.evidence, extra: true } } });
+    expect(parsed.residualLand).toEqual(residualLand);
+    expect(parsePropertyReturns({ ...plan, residualLand: null }).residualLand).toBeUndefined();
+    const fieldErrorsFor = (body: unknown, costLines?: MonthlyCostLine[]) => {
+      try {
+        parsePropertyReturns(body, costLines);
+      } catch (cause) {
+        expect(cause).toBeInstanceOf(InvalidPropertyReturns);
+        return (cause as InvalidPropertyReturns).fieldErrors;
+      }
+      return {};
+    };
+    expect(fieldErrorsFor({ ...plan, residualLand: { ...residualLand, target: "equity_multiple", landLineId: "" } })).toEqual({
+      "residualLand.target": expect.stringMatching(/Target must be/),
+      "residualLand.landLineId": expect.stringMatching(/Choose the land line/),
+    });
+    expect(fieldErrorsFor({ ...plan, residualLand: { ...residualLand, targetValue: -100, evidence: { reviewState: "maybe" } } }, [])).toEqual({
+      "residualLand.targetValue": expect.stringMatching(/Target XIRR/),
+      "residualLand.evidence.reviewState": expect.stringMatching(/Working on It or Done/),
+    });
+    const line = { name: "Land", unit: "usd", startMonth: "2026-01", endMonth: "2026-01", distributionMethod: "straight_line", distributionVersion: "straight_line.v1", reviewState: "done" } as const;
+    expect(fieldErrorsFor({ ...plan, residualLand }, [{ ...line, id: "land", category: "land", amount: 1_000_000 }])).toEqual({});
+    expect(fieldErrorsFor({ ...plan, residualLand }, [{ ...line, id: "other", category: "land", amount: 1_000_000 }])).toEqual({
+      "residualLand.landLineId": expect.stringMatching(/not on the cost schedule/),
+    });
+    expect(fieldErrorsFor({ ...plan, residualLand }, [{ ...line, id: "land", category: "hard_cost", amount: 1_000_000 }])).toEqual({
+      "residualLand.landLineId": expect.stringMatching(/not a land line/),
+    });
+    expect(fieldErrorsFor({ ...plan, residualLand }, [{ ...line, id: "land", category: "land", basis: { type: "per_unit", rate: 50_000 } }])).toEqual({
+      "residualLand.landLineId": expect.stringMatching(/priced by a basis/),
+    });
   });
 
   it("returns a typed field error for an invalid terminal cap rate", () => {

@@ -16,6 +16,7 @@ import {
   PARTNERSHIP_ASSUMPTION_KEYS,
   type PartnershipAssumptionKey,
   type PartnershipPlan,
+  type ResidualLandPlan,
   type PermanentLoanAssumptionKey,
   type PermanentLoanCapKey,
   type PermanentLoanPlan,
@@ -972,7 +973,19 @@ function reconcilePropertyReturnsReview(
     ...(draft.lenderTests ? { lenderTests: reconcileLenderTestReview(existing?.lenderTests, draft.lenderTests) } : {}),
     ...(draft.saleTax ? { saleTax: reconcileSaleTaxReview(existing?.saleTax, draft.saleTax) } : {}),
     ...(draft.partnership ? { partnership: reconcilePartnershipReview(existing?.partnership, draft.partnership) } : {}),
+    ...(draft.residualLand ? { residualLand: reconcileResidualLandReview(existing?.residualLand, draft.residualLand) } : {}),
   };
+}
+
+/** One evidence record speaks for the whole target, so a changed target, value, land line or source sends it back to Working on It. */
+function reconcileResidualLandReview(existing: ResidualLandPlan | undefined, draft: ResidualLandPlan): ResidualLandPlan {
+  if (!existing) return draft;
+  const changed = existing.target !== draft.target
+    || existing.targetValue !== draft.targetValue
+    || existing.landLineId !== draft.landLineId
+    || existing.evidence.sourceLabel !== draft.evidence.sourceLabel
+    || existing.evidence.sourceDate !== draft.evidence.sourceDate;
+  return changed ? { ...draft, evidence: { ...draft.evidence, reviewState: "working" } } : draft;
 }
 
 /** The partnership inputs each piece of evidence speaks for. Changing any of them resets that evidence to Working on It. */

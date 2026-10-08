@@ -300,6 +300,27 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("Saved Commercial Input");
   });
 
+  it("takes a residual land target with its own source and shows the solve beside the stated run", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
+    const section = await source("app/(app)/underwriting/[id]/ResidualLandSection.tsx");
+    const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    const residual = await source("app/(app)/underwriting/[id]/ResidualLandResults.tsx");
+    const scenarios = await source("app/(app)/underwriting/[id]/ScenarioComparisonResults.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("<ResidualLandSection");
+    for (const label of ["Solve for Residual Land", "Target Value", "Land Line to Price", "Residual Land Target"]) {
+      expect(section).toContain(label);
+    }
+    expect(section).toContain("maxLength={MAX_RESIDUAL_LAND_SOURCE_LABEL_LENGTH}");
+    expect(section).toContain("fieldErrors[`residualLand.${path}`]");
+    expect(results).toContain("<ResidualLandResults");
+    for (const label of ["Results at Stated Land and at the Residual", "Residual Land Search", "Residual Land Formula Trace", "Residual Land Checks", "Not Solved"]) {
+      expect(residual).toContain(label);
+    }
+    expect(scenarios).toContain("Residual Land Price");
+    expect(runPage).toContain("Saved Residual Land Target");
+  });
+
   it("links every scenario control to field errors and renders scenario evidence in saved runs", async () => {
     const editor = await source("app/(app)/underwriting/[id]/ScenarioComparisonEditor.tsx");
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");

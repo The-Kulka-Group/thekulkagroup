@@ -5,6 +5,7 @@ import { Chip } from "@/components/Status";
 import { AnnualCashFlowResults } from "./AnnualCashFlowResults";
 import { CommercialResults, hasCommercialMonths } from "./CommercialResults";
 import { PartnershipResults } from "./PartnershipResults";
+import { ResidualLandResults } from "./ResidualLandResults";
 import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
 import { formatMultiple } from "./format-multiple";
 
@@ -48,6 +49,7 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
     {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}
     {result.propertyTax ? <PropertyTaxByYear tax={result.propertyTax} /> : null}
     {result.partnership ? <PartnershipResults result={result.partnership} /> : null}
+    {result.residualLand ? <ResidualLandResults result={result} residual={result.residualLand} /> : null}
     <h4>Reconciliation Checks</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead><tbody>
       {reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatCheck(check.expected, check.unit)}</td><td className="num right">{formatCheck(check.actual, check.unit)}</td><td className="num right">{formatCheck(check.difference, check.unit)}</td></tr>)}

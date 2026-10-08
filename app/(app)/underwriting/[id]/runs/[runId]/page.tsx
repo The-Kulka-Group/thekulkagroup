@@ -87,7 +87,14 @@ export default async function UnderwritingRunPage({
     <Sheet
       number={savedCase.sheetNumber}
       title={`Calculation run ${run.id.slice(0, 8)}`}
-      actions={<Link className="btn btn--secondary" href={`/underwriting/${savedCase.id}#calculation-history`}>Back to Project</Link>}
+      actions={
+        <>
+          {run.status === "complete" && run.propertyReturnsResult ? (
+            <a className="btn btn--secondary" href={`/api/underwriting/cases/${savedCase.id}/runs/${run.id}/workbook`} download>Download Excel</a>
+          ) : null}
+          <Link className="btn btn--secondary" href={`/underwriting/${savedCase.id}#calculation-history`}>Back to Project</Link>
+        </>
+      }
       meta={
         <>
           <span>{savedCase.name}</span>

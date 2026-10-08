@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { computeApartmentOperations, projectApartmentOperationsThrough } from "./apartment-operations";
 import { runApartmentScenarioComparison } from "./apartment-scenarios";
+import type { CommercialOperations } from "./commercial-operations";
 import { fundMonthlyDevelopmentCashFlow } from "./development-capital";
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "./fixtures/apartment-development-model-v2.98-scorecard";
 import { annualDebtConstant, LENDER_TESTS_INPUT_VERSION, type LenderTestPlan } from "./lender-tests";
@@ -248,6 +249,34 @@ describe("permanent loan sizing", () => {
     expect(scenarioLoan.sizingNoi).toBeLessThan(baseLoan.sizingNoi);
     expect(scenarioLoan.loanAmount).toBeLessThan(baseLoan.loanAmount);
     expect(scenarioLoan.loanAmount).toBeCloseTo(scenarioLoan.sizingNoi / 0.09, -1);
+  });
+});
+
+describe("permanent loan on a case with commercial space (LA-1867 and LA-1868 seam)", () => {
+  it("sizes on total NOI, so commercial NOI raises the sizing NOI and the loan", () => {
+    const commercial: CommercialOperations = {
+      spaces: [{
+        id: "retail-a", name: "Retail A", areaSf: 10_000, annualRentPerSf: 30, leaseStartMonth: "2027-07", freeRentMonths: 0,
+        recoveries: [], tenantImprovementPerSf: 40, leasingCommissionPercent: 5, leaseTermMonths: 120, ...evidence,
+      }],
+      vacancyPercent: 5,
+      creditLossPercent: 1,
+      ...evidence,
+    };
+    const plan = loan({ sizingMode: "lesser_of_tests", sizingNoiWindow: { kind: "forward_twelve" }, minDebtYieldPercent: 9, evidence: { ...loan().evidence, minDebtYieldPercent: evidence } });
+    const residential = withLoan(plan);
+    const mixed = withLoan(plan, { commercial });
+    const withSpace = complete(mixed).loan;
+    const without = complete(residential).loan;
+    const window = projectApartmentOperationsThrough(mixed, addMonths(withSpace.fundingMonth, 11)).filter(({ month }) => month >= withSpace.fundingMonth);
+    const commercialNoiCents = window.reduce((total, month) => total + Math.round(month.commercialNetOperatingIncome * 100), 0);
+    expect(commercialNoiCents).toBeGreaterThan(0);
+    expect(Math.round(withSpace.sizingNoi * 100)).toBe(noiOver(mixed, withSpace.fundingMonth, addMonths(withSpace.fundingMonth, 11)));
+    expect(withSpace.fundingMonth).toBe(without.fundingMonth);
+    expect(Math.round(withSpace.sizingNoi * 100) - Math.round(without.sizingNoi * 100)).toBe(commercialNoiCents);
+    expect(withSpace.binding).toBe("debtYield");
+    expect(withSpace.loanAmount).toBe(Math.floor(Math.round(withSpace.sizingNoi * 100) / 0.09) / 100);
+    expect(withSpace.loanAmount).toBeGreaterThan(without.loanAmount);
   });
 });
 

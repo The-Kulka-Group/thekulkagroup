@@ -12,16 +12,17 @@ import { computePropertyReturns, type PropertyReturnsInputs } from "./property-r
 
 /*
  * LA-1867: a case without a permanent loan must give the same results as before the permanent loan
- * existed. Each digest is the SHA-256 of a full run's JSON, computed on origin/main at 86dc8d8 (the
- * LA-1863 merge) with these same inputs. Any change to a number, label, trace or check moves it.
+ * existed. Each digest is the SHA-256 of a full run's JSON, computed on origin/main at 7b51ac9 (the
+ * LA-1868 merge, whose commercial fields changed the run JSON) with these same inputs.
+ * Any change to a number, label, trace or check moves it.
  */
 const BEFORE_LA_1867 = {
-  propertyReturns: "39bf73b8a984cbcf88385221eb7722b512903f021ed1cfaf1a0beb3b9dca6d1c",
-  propertyReturnsSized: "3cd4b08183f05f0ed012f91dd018a7d7b58a5db03df7b6d9da891169da132a83",
-  developmentCapital: "9d615c124fb67ee7d3b78860c08be2396ced003617a4bedf37e61fc5999e853b",
-  returnsFixture: "7105e447fb80df64f817f4c7300877914033c94ee7e6dee9db72955461c2f142",
+  propertyReturns: "6866283838e418a72678b57c8d53f1d1ac643779a50b1352e4c09e97d13b551b",
+  propertyReturnsSized: "11e94343ee509424e51953661c9f3705fb2401755d216803f88e64ce03eb0f41",
+  developmentCapital: "3a517e9dbbd3235ca27e7edd164c3100d6c657fac54a54c032bc0c5f9ae39509",
+  returnsFixture: "51b75a5e599d2a519287c4808ae2d639f695637b1ea3824c96d3205c6475e187",
   capitalFixture: "0b2cf04c2fd8d8db45ae57e0be0c275967a8dbaff2995bb1da39315db865ca6c",
-  scenarios: "b08c6c801dc0d3e351b1dbfcf7f066291db619c4637c075a3fdc17284d1ab3f6",
+  scenarios: "d9d29f53ec01b4cde0b6215c7f0fac493a40541fc531a54d570f94644d9a4b0c",
 };
 
 const evidence = { sourceLabel: "Lender term sheet", sourceDate: "2026-10-05", reviewState: "working" as const };

@@ -67,7 +67,7 @@ export function AnnualCashFlowView({ views, basis, onBasis }: { views: AnnualCas
     </div>
     <div className="underwriting-results-wrap"><table className="underwriting-monthly-table underwriting-annual-cash-flow"><thead><tr>
       <th>Line</th>
-      {view.years.map((year) => <th key={year.key} className="right" scope="col">{year.label}<br /><span className="t-meta">{yearNote(year)}</span></th>)}
+      {view.years.map((year) => <th key={year.key} className="right" scope="col"><span className="annual-head-label">{year.label}</span><span className="annual-head-range t-meta">{yearRange(year)}</span>{yearNote(year) ? <span className="annual-head-note t-meta">{yearNote(year)}</span> : null}</th>)}
     </tr></thead><tbody>
       {SECTION_ORDER.map((section) => <Section key={section} section={section} views={views} view={view} />)}
       <tr><th scope="row" colSpan={view.years.length + 1}>Coverage</th></tr>
@@ -104,11 +104,14 @@ function isLine(key: string) {
   return key !== "debtServiceCoverage" && key !== "debtYield";
 }
 
+function yearRange(year: AnnualYear) {
+  return `${year.startMonth} to ${year.endMonth}`;
+}
+
 function yearNote(year: AnnualYear) {
-  const span = `${year.startMonth} to ${year.endMonth}`;
-  if (year.kind === "development") return `${span}, ${year.monthCount} Months`;
+  if (year.kind === "development") return `${year.monthCount} Months`;
   const marks = [year.partial ? `Part Year, ${year.monthCount} Months` : null, year.saleYear ? "Sale Year" : null].filter(Boolean);
-  return marks.length > 0 ? `${span}, ${marks.join(", ")}` : span;
+  return marks.join(", ");
 }
 
 function describe(view: AnnualCashFlowYears, kind: AnnualYearBasisKind) {

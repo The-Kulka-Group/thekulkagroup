@@ -23,6 +23,7 @@ import { computeDevelopmentCapital } from "./development-capital";
 import { computeApartmentOperations } from "./apartment-operations";
 import { computePropertyReturns, type PropertyReturnsInputs } from "./property-returns";
 import { PROPERTY_TAX_INPUT_VERSION } from "./property-tax";
+import { retailCase } from "./fixtures/commercial-cap-cases";
 
 const compare = (id: string, output: ScorecardTarget["output"], expected: number | string, tolerance = { absolute: 0.01 }): ScorecardTarget => ({
   id,
@@ -384,5 +385,27 @@ describe("engineOutputsFor", () => {
     expect(run.status).toBe("failed");
     expect(run.issueCodes.length).toBeGreaterThan(0);
     expect(run.outputs).toEqual({});
+  });
+});
+
+describe("commercial sale value output (LA-1870)", () => {
+  const evidence = { reviewState: "working" as const };
+  const cap = (value: number): PropertyReturnsInputs => {
+    const base = retailCase();
+    return { ...base, commercialTerminalCapRatePercent: value, saleAssumptionEvidence: { ...base.saleAssumptionEvidence, commercialTerminalCapRatePercent: evidence } };
+  };
+
+  it("reads the commercial value from the run, and reports it only with a commercial cap", () => {
+    const withCap = engineOutputsFor(cap(7));
+    expect(withCap.status).toBe("complete");
+    expect(withCap.outputs.commercialSaleValue).toBe(computePropertyReturns(cap(7)).result!.propertyReturns.sale.valueSplit!.commercialValue);
+    expect(withCap.outputs.commercialSaleValue).toBeGreaterThan(0);
+    expect(engineOutputsFor(retailCase()).outputs.commercialSaleValue).toBeUndefined();
+  });
+
+  it("scores a commercial sale target against the engine's commercial value", () => {
+    const { outputs } = engineOutputsFor(cap(7));
+    const rows = scoreTargets([compare("sale-gross-commercial", "commercialSaleValue", outputs.commercialSaleValue as number)], outputs);
+    expect(rows.map(({ status }) => status)).toEqual(["matched"]);
   });
 });

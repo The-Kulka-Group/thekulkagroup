@@ -2,6 +2,7 @@ import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  PROPERTY_RETURNS_COMMERCIAL_CAP_KEY,
   type UnderwritingInputKey,
 } from "@kulka/engine";
 
@@ -198,8 +199,11 @@ export function buildUnderwritingReviewItems(
   }
 
   if (savedCase.propertyReturns) {
-    for (const key of PROPERTY_RETURNS_ASSUMPTION_KEYS) {
-      const evidence = savedCase.propertyReturns.saleAssumptionEvidence[key];
+    const saleKeys = savedCase.propertyReturns.commercialTerminalCapRatePercent === undefined
+      ? [...PROPERTY_RETURNS_ASSUMPTION_KEYS]
+      : [...PROPERTY_RETURNS_ASSUMPTION_KEYS, PROPERTY_RETURNS_COMMERCIAL_CAP_KEY];
+    for (const key of saleKeys) {
+      const evidence = savedCase.propertyReturns.saleAssumptionEvidence[key]!;
       const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
       if (!evidence.sourceLabel?.trim()) {
         items.push({ id: `returns-assumption-source-label-${key}`, message: `${label} needs a source label.`, severity: "waiting" });

@@ -63,6 +63,71 @@ describe("/api/underwriting/cases/:id/returns", () => {
     });
   });
 
+  it("saves the commercial exit cap, the commercial lender cap and the debt service basis inside the existing JSON (LA-1870)", async () => {
+    const savedCase = await capitalCase();
+    const plan = {
+      ...salePlan,
+      commercialTerminalCapRatePercent: 7,
+      saleAssumptionEvidence: { ...salePlan.saleAssumptionEvidence, commercialTerminalCapRatePercent: { reviewState: "done" as const, sourceLabel: "Broker opinion", sourceDate: "2026-10-07" } },
+      lenderTests: {
+        lenderTestInputVersion: "lender_tests_inputs.v1",
+        valuationMonth: "2026-06",
+        asStabilizedCapRatePercent: 5.5,
+        commercialCapRatePercent: 7.25,
+        annualDebtService: 1_000_000,
+        noiBasis: "noi_before_reserves",
+        debtServiceBasis: "stated",
+        lenderTestEvidence: {
+          valuationMonth: item(), asStabilizedCapRatePercent: item(), annualDebtService: item(), noiBasis: item(),
+          commercialCapRatePercent: { reviewState: "done" as const, sourceLabel: "Lender term sheet", sourceDate: "2026-10-07" },
+        },
+      },
+    };
+    const response = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: savedCase.caseRevision, ...plan }) }), context(savedCase.id));
+    expect(response.status).toBe(200);
+    expect((await response.json()).case.propertyReturns).toMatchObject(plan);
+    const { rows } = await db.query<{ property_returns_input: typeof plan }>(`select property_returns_input from underwriting_cases where id = $1`, [savedCase.id]);
+    expect(rows[0].property_returns_input.commercialTerminalCapRatePercent).toBe(7);
+    expect(rows[0].property_returns_input.lenderTests).toMatchObject({ commercialCapRatePercent: 7.25, debtServiceBasis: "stated" });
+  });
+
+  it("resets a commercial cap's review to Working on It when its value changes", async () => {
+    const savedCase = await capitalCase();
+    const plan = (cap: number) => ({
+      ...salePlan,
+      commercialTerminalCapRatePercent: cap,
+      saleAssumptionEvidence: { ...salePlan.saleAssumptionEvidence, commercialTerminalCapRatePercent: { reviewState: "done" as const, sourceLabel: "Broker opinion", sourceDate: "2026-10-07" } },
+    });
+    const first = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: savedCase.caseRevision, ...plan(7) }) }), context(savedCase.id));
+    const revision = (await first.json()).case.caseRevision;
+    const second = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: revision, ...plan(7) }) }), context(savedCase.id));
+    expect((await second.json()).case.propertyReturns.saleAssumptionEvidence.commercialTerminalCapRatePercent.reviewState).toBe("done");
+    const third = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: revision + 1, ...plan(8) }) }), context(savedCase.id));
+    expect((await third.json()).case.propertyReturns.saleAssumptionEvidence.commercialTerminalCapRatePercent.reviewState).toBe("working");
+  });
+
+  it("refuses a commercial cap with no evidence, a bad rate or a bad debt service basis", async () => {
+    const savedCase = await capitalCase();
+    const put = async (body: object) => PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: savedCase.caseRevision, ...body }) }), context(savedCase.id));
+    const noEvidence = await put({ ...salePlan, commercialTerminalCapRatePercent: 7 });
+    expect(noEvidence.status).toBe(400);
+    expect(await noEvidence.json()).toMatchObject({ fieldErrors: { "saleAssumptionEvidence.commercialTerminalCapRatePercent": expect.any(String) } });
+    const badRate = await put({ ...salePlan, commercialTerminalCapRatePercent: 0, saleAssumptionEvidence: { ...salePlan.saleAssumptionEvidence, commercialTerminalCapRatePercent: item() } });
+    expect(await badRate.json()).toMatchObject({ fieldErrors: { commercialTerminalCapRatePercent: expect.stringMatching(/greater than zero/) } });
+    const lender = (overrides: object) => ({
+      ...salePlan,
+      lenderTests: {
+        lenderTestInputVersion: "lender_tests_inputs.v1", valuationMonth: "2026-06", asStabilizedCapRatePercent: 5.5, annualDebtService: 1, noiBasis: "noi_before_reserves",
+        lenderTestEvidence: { valuationMonth: item(), asStabilizedCapRatePercent: item(), annualDebtService: item(), noiBasis: item() },
+        ...overrides,
+      },
+    });
+    const noLenderEvidence = await put(lender({ commercialCapRatePercent: 7 }));
+    expect(await noLenderEvidence.json()).toMatchObject({ fieldErrors: { "lenderTests.lenderTestEvidence.commercialCapRatePercent": expect.any(String) } });
+    const badBasis = await put(lender({ debtServiceBasis: "guess" }));
+    expect(await badBasis.json()).toMatchObject({ fieldErrors: { "lenderTests.debtServiceBasis": expect.stringMatching(/Stated or Permanent Loan/) } });
+  });
+
   it("requires a saved capital plan", async () => {
     const savedCase = await createUnderwritingCase(db, { name: "No capital", address: "1 Test Way", assumptions: {} });
     const response = await PUT(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ expectedRevision: savedCase!.caseRevision, ...salePlan }) }), context(savedCase!.id));

@@ -517,7 +517,7 @@ function prepareCommercial(input: ApartmentOperationsInputs, issues: ApartmentOp
   return { derivedLines: commercialCostLines(spaces, operationStart, rentFactorFor), resolutions };
 }
 
-function residentialAreaSf(input: ApartmentOperationsInputs) {
+export function residentialAreaSf(input: ApartmentOperationsInputs) {
   return Array.isArray(input.residentialUnitTypes)
     ? input.residentialUnitTypes.filter(isLineObject).reduce((sum, line) => (
       Number.isFinite(line.averageAreaSf) && Number.isFinite(line.units) ? sum + line.averageAreaSf * line.units : sum

@@ -7,6 +7,7 @@ import {
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalPlan,
   LENDER_TEST_ASSUMPTION_KEYS,
+  LENDER_TEST_COMMERCIAL_CAP_KEY,
   type LenderTestPlan,
   PARTNERSHIP_ASSUMPTION_KEYS,
   type PartnershipAssumptionKey,
@@ -24,6 +25,7 @@ import {
   type MonthlyCostLine,
   type MonthlyCostScheduleInputs,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  PROPERTY_RETURNS_COMMERCIAL_CAP_KEY,
   PROPERTY_TAX_ASSUMPTION_KEYS,
   SALE_TAX_ASSUMPTION_KEYS,
   type ApartmentScenarioDefinition,
@@ -933,16 +935,19 @@ function reconcilePropertyReturnsReview(
 ): PropertyReturnsDraft {
   return {
     ...draft,
-    saleAssumptionEvidence: Object.fromEntries(PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => {
+    saleAssumptionEvidence: Object.fromEntries((draft.commercialTerminalCapRatePercent === undefined
+      ? [...PROPERTY_RETURNS_ASSUMPTION_KEYS]
+      : [...PROPERTY_RETURNS_ASSUMPTION_KEYS, PROPERTY_RETURNS_COMMERCIAL_CAP_KEY]
+    ).map((key) => {
       const priorEvidence = existing?.saleAssumptionEvidence[key];
-      const nextEvidence = draft.saleAssumptionEvidence[key];
+      const nextEvidence = draft.saleAssumptionEvidence[key]!;
       const changed = existing && (
         propertyReturnsValue(existing, key) !== propertyReturnsValue(draft, key)
         || priorEvidence?.sourceLabel !== nextEvidence.sourceLabel
         || priorEvidence?.sourceDate !== nextEvidence.sourceDate
       );
       return [key, changed ? { ...nextEvidence, reviewState: "working" as const } : nextEvidence];
-    })) as Record<PropertyReturnsAssumptionKey, PropertyReturnsPlan["saleAssumptionEvidence"][PropertyReturnsAssumptionKey]>,
+    })) as PropertyReturnsPlan["saleAssumptionEvidence"],
     ...(draft.lenderTests ? { lenderTests: reconcileLenderTestReview(existing?.lenderTests, draft.lenderTests) } : {}),
     ...(draft.saleTax ? { saleTax: reconcileSaleTaxReview(existing?.saleTax, draft.saleTax) } : {}),
     ...(draft.partnership ? { partnership: reconcilePartnershipReview(existing?.partnership, draft.partnership) } : {}),
@@ -1021,9 +1026,14 @@ function reconcileLenderTestReview(existing: LenderTestPlan | undefined, draft: 
     asStabilizedCapRatePercent: draft.asStabilizedCapRatePercent,
     annualDebtService: draft.annualDebtService,
     noiBasis: draft.noiBasis,
-    lenderTestEvidence: Object.fromEntries(LENDER_TEST_ASSUMPTION_KEYS.map((key) => {
+    ...(draft.commercialCapRatePercent === undefined ? {} : { commercialCapRatePercent: draft.commercialCapRatePercent }),
+    ...(draft.debtServiceBasis === undefined ? {} : { debtServiceBasis: draft.debtServiceBasis }),
+    lenderTestEvidence: Object.fromEntries((draft.commercialCapRatePercent === undefined
+      ? [...LENDER_TEST_ASSUMPTION_KEYS]
+      : [...LENDER_TEST_ASSUMPTION_KEYS, LENDER_TEST_COMMERCIAL_CAP_KEY]
+    ).map((key) => {
       const priorEvidence = existing?.lenderTestEvidence[key];
-      const { sourceLabel, sourceDate, reviewState } = draft.lenderTestEvidence[key];
+      const { sourceLabel, sourceDate, reviewState } = draft.lenderTestEvidence[key]!;
       const nextEvidence = {
         ...(sourceLabel === undefined ? {} : { sourceLabel }),
         ...(sourceDate === undefined ? {} : { sourceDate }),
@@ -1065,7 +1075,7 @@ function reconcileLoanSizingReview(existing: LoanSizingPlan | undefined, draft: 
   return { ...terms, evidence: changed ? { ...nextEvidence, reviewState: "working" } : nextEvidence };
 }
 
-function propertyReturnsValue(plan: PropertyReturnsPlan, key: PropertyReturnsAssumptionKey) {
+function propertyReturnsValue(plan: PropertyReturnsPlan, key: PropertyReturnsAssumptionKey | typeof PROPERTY_RETURNS_COMMERCIAL_CAP_KEY) {
   if (key === "saleMonth") return undefined;
   return plan[key];
 }

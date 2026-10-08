@@ -292,6 +292,16 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("scenario.lastChangedAt");
   });
 
+  it("names the commercial cap fields and the debt service basis in Title Case, with described errors (LA-1870)", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/PropertyReturnsEditor.tsx");
+    for (const text of ["Commercial Terminal Cap Rate", "Commercial Cap Rate", "Debt Service Basis", "\"Stated\"", "\"Permanent Loan\""]) {
+      expect(editor).toContain(text);
+    }
+    expect(editor).toContain("aria-describedby={lenderError(\"debtServiceBasis\") ?");
+    const results = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    expect(results).toContain("Value at Terminal and Commercial Cap Rates");
+  });
+
   it("shows lender test values beside returns in the scenario comparison table", async () => {
     const table = await source("app/(app)/underwriting/[id]/ScenarioComparisonResults.tsx");
     for (const text of ["Loan to Value", "Debt Service Coverage", "Debt Yield", "metrics.lender", "Not Reported"]) {

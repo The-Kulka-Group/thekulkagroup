@@ -1,5 +1,6 @@
 import type { ApartmentScenarioComparisonResult, LenderTestMetricKey, ScenarioLenderMetrics } from "@kulka/engine";
 import { Chip } from "@/components/Status";
+import { formatMultiple } from "./format-multiple";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -10,7 +11,7 @@ const LENDER_ROWS: Array<[LenderTestMetricKey, string, (value: number) => string
   ["loanToValue", "Loan to Value", (value) => PERCENT.format(value)],
   ["loanToCost", "Loan to Cost", (value) => PERCENT.format(value)],
   ["loanToCostCreditedLand", "Loan to Cost, Land at Credited Value", (value) => PERCENT.format(value)],
-  ["debtServiceCoverage", "Debt Service Coverage", (value) => `${NUMBER.format(value)}x`],
+  ["debtServiceCoverage", "Debt Service Coverage", (value) => formatMultiple(value)],
   ["debtYield", "Debt Yield", (value) => PERCENT.format(value)],
 ];
 
@@ -22,8 +23,8 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
     ["Gross Sale Value", (value: typeof columns[number]) => MONEY.format(value.metrics.grossSaleValue)],
     ["Unlevered XIRR", (value: typeof columns[number]) => PERCENT.format(value.metrics.unleveredXirr)],
     ["Levered XIRR", (value: typeof columns[number]) => PERCENT.format(value.metrics.leveredXirr)],
-    ["Unlevered Equity Multiple", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.unleveredEquityMultiple)}x`],
-    ["Levered Equity Multiple", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.leveredEquityMultiple)}x`],
+    ["Unlevered Equity Multiple", (value: typeof columns[number]) => formatMultiple(value.metrics.unleveredEquityMultiple)],
+    ["Levered Equity Multiple", (value: typeof columns[number]) => formatMultiple(value.metrics.leveredEquityMultiple)],
     ["Yield on Cost", (value: typeof columns[number]) => PERCENT.format(value.metrics.yieldOnCost)],
     ["Development Spread", (value: typeof columns[number]) => `${NUMBER.format(value.metrics.developmentSpreadBasisPoints)} bps`],
   ] as const;
@@ -37,7 +38,7 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
       ["Permanent Loan Amount", (value: typeof columns[number]) => loanOf(value) ? MONEY.format(loanOf(value)!.loanAmount) : "Not Reported"],
       ["Permanent Loan Debt Service Coverage", (value: typeof columns[number]) => {
         const coverage = loanOf(value)?.debtServiceCoverage;
-        return coverage === null || coverage === undefined ? "Not Reported" : `${NUMBER.format(coverage)}x`;
+        return coverage === null || coverage === undefined ? "Not Reported" : formatMultiple(coverage);
       }],
     ] as const
     : [];

@@ -107,7 +107,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
               lenderTestInputVersion: LENDER_TESTS_INPUT_VERSION,
               valuationMonth,
               asStabilizedCapRatePercent,
-              annualDebtService,
+              ...(annualDebtService === "" ? {} : { annualDebtService }),
               noiBasis,
               ...(commercialCapRatePercent === "" ? {} : { commercialCapRatePercent }),
               ...(showDebtServiceBasis && debtServiceBasis !== "" ? { debtServiceBasis } : {}),
@@ -211,7 +211,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     </section> : null}
     <section className="underwriting-line-section" aria-labelledby="lender-tests-heading">
       <h4 id="lender-tests-heading">Lender Tests</h4>
-      <p className="t-meta">A lender values the stabilized year and tests the construction loan against value, cost and debt service. The tests report on the loan. Loan Sizing below can also size it.</p>
+      <p className="t-meta">A lender values the stabilized year and tests the construction loan against value, cost and debt service. The tests report on the loan. Loan Sizing below can also size it. Annual debt service is optional: left blank, DSCR reads the debt service of the permanent loan, or is not reported without one.</p>
       <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={lenderEnabled} onChange={(event) => setLenderEnabled(event.target.checked)} /> Add Lender Tests</label>
       {lenderEnabled ? <>
         <div className="underwriting-form-grid underwriting-capital-controls">

@@ -15,6 +15,7 @@ import {
 } from "@kulka/engine";
 
 import { Chip } from "@/components/Status";
+import { formatMultiple } from "./format-multiple";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -71,7 +72,7 @@ export function AnnualCashFlowView({ views, basis, onBasis }: { views: AnnualCas
     </tr></thead><tbody>
       {SECTION_ORDER.map((section) => <Section key={section} section={section} views={views} view={view} />)}
       <tr><th scope="row" colSpan={view.years.length + 1}>Coverage</th></tr>
-      <tr><th scope="row">Debt Service Coverage</th>{view.years.map((year) => <td key={year.key} className="num right">{year.debtServiceCoverage === null ? "Not Reported" : `${NUMBER.format(year.debtServiceCoverage)}x`}</td>)}</tr>
+      <tr><th scope="row">Debt Service Coverage</th>{view.years.map((year) => <td key={year.key} className="num right">{year.debtServiceCoverage === null ? "Not Reported" : formatMultiple(year.debtServiceCoverage)}</td>)}</tr>
       <tr><th scope="row">Debt Yield</th>{view.years.map((year) => <td key={year.key} className="num right">{year.debtYield === null ? "Not Reported" : PERCENT.format(year.debtYield)}</td>)}</tr>
     </tbody></table></div>
     <p className="t-meta">Coverage and debt yield show for each full operating year. A part year or the development period shows Not Reported.</p>

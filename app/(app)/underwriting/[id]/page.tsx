@@ -28,6 +28,7 @@ import { PropertyReturnsResults } from "./PropertyReturnsResults";
 import { ScenarioComparisonEditor } from "./ScenarioComparisonEditor";
 import { ScenarioComparisonResults } from "./ScenarioComparisonResults";
 import { RunUnderwriting } from "./RunUnderwriting";
+import { formatMultiple } from "./format-multiple";
 
 export const dynamic = "force-dynamic";
 
@@ -422,7 +423,7 @@ function formatReconciliationValue(value: number, unit: "usd" | "count" | "sf" |
   if (unit === "count") return NUMBER.format(value);
   if (unit === "sf") return `${NUMBER.format(value)} SF`;
   if (unit === "ratio") return `${NUMBER.format(value * 100)}%`;
-  if (unit === "multiple") return `${NUMBER.format(value)}x`;
+  if (unit === "multiple") return formatMultiple(value);
   if (unit === "basis_points") return `${NUMBER.format(value)} bps`;
   return MONEY.format(value);
 }

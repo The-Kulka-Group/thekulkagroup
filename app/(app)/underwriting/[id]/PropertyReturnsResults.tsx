@@ -6,6 +6,7 @@ import { AnnualCashFlowResults } from "./AnnualCashFlowResults";
 import { CommercialResults, hasCommercialMonths } from "./CommercialResults";
 import { PartnershipResults } from "./PartnershipResults";
 import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
+import { formatMultiple } from "./format-multiple";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -25,8 +26,8 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
       <Summary label="Equity Sale Proceeds" value={MONEY.format(sale.equitySaleProceeds)} />
       <Summary label="Unlevered XIRR" value={PERCENT.format(returns.unlevered.xirr)} />
       <Summary label="Levered XIRR" value={PERCENT.format(returns.levered.xirr)} />
-      <Summary label="Unlevered Equity Multiple" value={`${NUMBER.format(returns.unlevered.equityMultiple)}x`} />
-      <Summary label="Levered Equity Multiple" value={`${NUMBER.format(returns.levered.equityMultiple)}x`} />
+      <Summary label="Unlevered Equity Multiple" value={formatMultiple(returns.unlevered.equityMultiple)} />
+      <Summary label="Levered Equity Multiple" value={formatMultiple(returns.levered.equityMultiple)} />
       <Summary label="Yield on Cost" value={PERCENT.format(result.propertyReturns.yieldOnCost)} />
       <Summary label="Development Spread" value={`${NUMBER.format(result.propertyReturns.developmentSpreadBasisPoints)} bps`} />
       {peak ? <Summary label="Peak Equity" value={MONEY.format(peak.amount)} /> : null}
@@ -132,7 +133,7 @@ function Summary({ label, value }: { label: string; value: string }) {
 function formatMetric(value: number, unit: "usd" | "ratio" | "multiple" | "basis_points") {
   if (unit === "usd") return MONEY.format(value);
   if (unit === "ratio") return PERCENT.format(value);
-  if (unit === "multiple") return `${NUMBER.format(value)}x`;
+  if (unit === "multiple") return formatMultiple(value);
   return `${NUMBER.format(value)} bps`;
 }
 

@@ -1045,7 +1045,7 @@ function reconcileLenderTestReview(existing: LenderTestPlan | undefined, draft: 
     lenderTestInputVersion: draft.lenderTestInputVersion,
     valuationMonth: draft.valuationMonth,
     asStabilizedCapRatePercent: draft.asStabilizedCapRatePercent,
-    annualDebtService: draft.annualDebtService,
+    ...(draft.annualDebtService === undefined ? {} : { annualDebtService: draft.annualDebtService }),
     noiBasis: draft.noiBasis,
     ...(draft.commercialCapRatePercent === undefined ? {} : { commercialCapRatePercent: draft.commercialCapRatePercent }),
     ...(draft.debtServiceBasis === undefined ? {} : { debtServiceBasis: draft.debtServiceBasis }),

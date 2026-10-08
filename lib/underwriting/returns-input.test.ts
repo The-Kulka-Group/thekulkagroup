@@ -67,6 +67,8 @@ describe("parsePropertyReturns", () => {
       expect((cause as InvalidPropertyReturns).fieldErrors).toEqual({
         terminalCapRatePercent: expect.stringMatching(/greater than zero/),
       });
+      // LA-1944: the message beside Save names the field that failed.
+      expect((cause as InvalidPropertyReturns).message).toMatch(/^Review the property sale and returns fields\. .*greater than zero/);
       expect((cause as InvalidPropertyReturns).issues).toEqual([
         expect.objectContaining({ path: "terminalCapRatePercent", code: "invalid_percent" }),
       ]);

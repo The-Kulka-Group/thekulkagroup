@@ -1,8 +1,8 @@
 import type { PermanentLoanAssumptionKey, PermanentLoanBindingKey, PermanentLoanCapKey, PermanentLoanResult } from "@kulka/engine";
+import { formatMultiple } from "./format-multiple";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 /** Plain names for each permanent loan term, shared by the editor and the saved run page. */
 export const PERMANENT_LOAN_EVIDENCE_LABELS: Record<PermanentLoanAssumptionKey | PermanentLoanCapKey, string> = {
@@ -56,7 +56,7 @@ export function PermanentLoanResults({ loan }: { loan: PermanentLoanResult }) {
         : <Summary label="Cash Out" value={MONEY.format(loan.cashOut)} />}
       <Summary label="Annual Debt Service" value={MONEY.format(loan.annualDebtService)} />
       <Summary label="First-Year Debt Service" value={MONEY.format(loan.firstYearDebtService)} />
-      <Summary label="Debt Service Coverage" value={loan.debtServiceCoverage === null ? "Not Reported" : `${NUMBER.format(loan.debtServiceCoverage)}x`} />
+      <Summary label="Debt Service Coverage" value={loan.debtServiceCoverage === null ? "Not Reported" : formatMultiple(loan.debtServiceCoverage)} />
       <Summary label="Debt Yield" value={PERCENT.format(loan.debtYield)} />
       <Summary label="Loan to Value" value={loan.loanToValue === null ? "Not Reported" : PERCENT.format(loan.loanToValue)} />
       <Summary label="Payoff at Sale" value={MONEY.format(loan.payoffAtSale)} />
@@ -114,7 +114,7 @@ export function PermanentLoanResults({ loan }: { loan: PermanentLoanResult }) {
 }
 
 function ratio(value: number | null) {
-  return value === null ? "not reported" : `${NUMBER.format(value)}x`;
+  return value === null ? "not reported" : formatMultiple(value);
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

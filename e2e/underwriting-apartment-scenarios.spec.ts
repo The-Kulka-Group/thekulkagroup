@@ -27,7 +27,9 @@ test("saves apartment scenario deltas and reopens the comparison run", async ({ 
   await page.getByRole("button", { name: "Save Scenarios" }).click();
   expect((await invalidResponse).status()).toBe(400);
   await expect(downsideVacancy).toHaveAttribute("aria-invalid", "true");
-  await expect(page.getByText(/Vacancy Percent must be no more than 100 percent/)).toBeVisible();
+  // LA-1944: the field shows the error and the save message names it too.
+  await expect(page.getByText(/Vacancy Percent must be no more than 100 percent/)).toHaveCount(2);
+  await expect(page.getByText(/^Review the scenario inputs and try again\. .*Vacancy Percent must be no more than 100 percent/)).toBeVisible();
   await page.locator("#scenario-downside-name").fill("Higher Vacancy");
   await downsideVacancy.fill("8");
   await page.getByLabel("Downside Vacancy source label").fill("Market study");

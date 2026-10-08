@@ -4,6 +4,7 @@ import {
   type MonthlyCostIssue,
   type MonthlyCostScheduleInputs,
 } from "@kulka/engine";
+import { saveMessage } from "./save-message";
 
 export class InvalidCostSchedule extends Error {
   constructor(
@@ -43,7 +44,7 @@ export function parseCostSchedule(body: unknown, quantities: CostQuantities = {}
   const checked = computeMonthlyCostSchedule(schedule);
   if (checked.status === "failed") {
     throw new InvalidCostSchedule(
-      "Review the cost schedule fields.",
+      saveMessage("Review the cost schedule fields.", checked.issues),
       checked.issues,
       checked.issues.reduce<Record<string, string>>((errors, item) => {
         errors[item.path] = errors[item.path]

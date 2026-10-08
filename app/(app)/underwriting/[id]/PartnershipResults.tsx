@@ -1,4 +1,5 @@
 import type { PartnerReturns, PartnershipMetric, PartnershipResult } from "@kulka/engine";
+import { formatMultiple } from "./format-multiple";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,8 +21,8 @@ export function PartnershipResults({ result }: { result: PartnershipResult }) {
     <div className="underwriting-summary-band">
       <Summary label="LP XIRR" value={formatRatio(lp.xirr)} />
       <Summary label="GP XIRR" value={formatRatio(gp.xirr)} />
-      <Summary label="LP Equity Multiple" value={formatMultiple(lp.equityMultiple)} />
-      <Summary label="GP Equity Multiple" value={formatMultiple(gp.equityMultiple)} />
+      <Summary label="LP Equity Multiple" value={multipleOrNotReported(lp.equityMultiple)} />
+      <Summary label="GP Equity Multiple" value={multipleOrNotReported(gp.equityMultiple)} />
       <Summary label="GP Promote" value={MONEY.format(result.promoteTotal)} />
     </div>
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Result</th><th className="right">LP</th><th className="right">GP</th><th className="right">Total</th></tr></thead><tbody>
@@ -66,13 +67,13 @@ function formatRatio(value: number | null) {
   return value === null ? "Not Reported" : PERCENT.format(value);
 }
 
-function formatMultiple(value: number | null) {
-  return value === null ? "Not Reported" : `${NUMBER.format(value)}x`;
+function multipleOrNotReported(value: number | null) {
+  return value === null ? "Not Reported" : formatMultiple(value);
 }
 
 function formatMetric(metric: PartnershipMetric) {
   if (metric.value === null) return "Not Reported";
   if (metric.unit === "usd") return MONEY.format(metric.value);
   if (metric.unit === "ratio") return PERCENT.format(metric.value);
-  return `${NUMBER.format(metric.value)}x`;
+  return formatMultiple(metric.value);
 }

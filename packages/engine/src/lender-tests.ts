@@ -36,8 +36,11 @@ export type LenderTestPlan = {
   /** First month of the twelve-month stabilized year the lender values. */
   valuationMonth: string;
   asStabilizedCapRatePercent: number;
-  /** Debt service the lender states, per year. The engine does not derive it. */
-  annualDebtService: number;
+  /**
+   * Debt service the lender states, per year. The engine does not derive it. Absent reports no DSCR
+   * unless a permanent loan supplies its own debt service (LA-1944).
+   */
+  annualDebtService?: number;
   noiBasis: LenderTestNoiBasis;
   /**
    * Cap rate for the commercial spaces' NOI (LA-1870). With it, as-stabilized value is residential NOI
@@ -197,7 +200,7 @@ export function validateLenderTestPlan(plan: unknown): PropertyReturnsIssue[] {
   if (typeof cap !== "number" || !Number.isFinite(cap) || cap <= 0 || cap > 100) {
     issues.push({ path: "lenderTests.asStabilizedCapRatePercent", code: "invalid_percent", message: "As-stabilized cap rate must be greater than zero and no more than 100 percent." });
   }
-  if (!validUsd(candidate.annualDebtService)) {
+  if (candidate.annualDebtService !== undefined && !validUsd(candidate.annualDebtService)) {
     issues.push({ path: "lenderTests.annualDebtService", code: "invalid_amount", message: "Annual debt service must be zero or a positive safe USD amount with no more than two decimal places." });
   }
   if (candidate.noiBasis !== "noi_before_reserves" && candidate.noiBasis !== "noi_after_reserves") {
@@ -454,7 +457,7 @@ export function lenderTestsFor(
   const debtServiceSource: LenderDebtServiceBasis = permanentLoan && plan.debtServiceBasis !== "stated" ? "permanent_loan" : "stated";
   const debtServiceCents = permanentLoan && debtServiceSource === "permanent_loan"
     ? cents(permanentLoan.annualDebtService)
-    : cents(plan.annualDebtService);
+    : cents(plan.annualDebtService ?? 0);
   const basis = NOI_BASIS_LABELS[plan.noiBasis];
   const issues: LenderTestIssue[] = [];
 
@@ -470,7 +473,9 @@ export function lenderTestsFor(
     issues.push({ path: "targetDebtSharePercent", code: "zero_debt", message: "The run has no construction debt, so debt yield is not reported." });
   }
   if (noiCents !== null && debtServiceCents <= 0) {
-    issues.push({ path: debtServiceSource === "permanent_loan" ? "permanentLoan" : "lenderTests.annualDebtService", code: "zero_debt_service", message: "Annual debt service is zero, so DSCR is not reported." });
+    issues.push(debtServiceSource === "stated" && plan.annualDebtService === undefined
+      ? { path: "lenderTests.annualDebtService", code: "zero_debt_service", message: "No annual debt service is stated, so DSCR is not reported. Enter one or add a permanent loan." }
+      : { path: debtServiceSource === "permanent_loan" ? "permanentLoan" : "lenderTests.annualDebtService", code: "zero_debt_service", message: "Annual debt service is zero, so DSCR is not reported." });
   }
 
   const debtService = permanentLoan && debtServiceSource === "permanent_loan"

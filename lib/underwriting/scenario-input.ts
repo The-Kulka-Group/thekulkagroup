@@ -9,13 +9,14 @@ import {
   type ApartmentScenarioIssue,
   type PropertyReturnsInputs,
 } from "@kulka/engine";
+import { saveMessage } from "./save-message";
 
 export class InvalidApartmentScenarios extends Error {
   constructor(
     public readonly issues: ApartmentScenarioIssue[],
     public readonly fieldErrors: Record<string, string>,
   ) {
-    super("Review the scenario inputs and try again.");
+    super(saveMessage("Review the scenario inputs and try again.", issues));
   }
 }
 

@@ -40,6 +40,7 @@ export function parseDevelopmentCapital(
     ...(candidate.ratePath !== undefined && candidate.ratePath !== null ? { ratePath: candidate.ratePath } : {}),
     ...(candidate.otherSources !== undefined && candidate.otherSources !== null ? { otherSources: candidate.otherSources } : {}),
     ...(candidate.creditedLand !== undefined && candidate.creditedLand !== null ? { creditedLand: candidate.creditedLand } : {}),
+    ...(candidate.permanentLoan !== undefined && candidate.permanentLoan !== null ? { permanentLoan: candidate.permanentLoan } : {}),
     capitalAssumptionEvidence: candidate.capitalAssumptionEvidence,
   } as DevelopmentCapitalInputs);
   if (checked.status === "failed") {
@@ -65,6 +66,7 @@ export function parseDevelopmentCapital(
     ...(checked.inputSnapshot.ratePath !== undefined ? { ratePath: checked.inputSnapshot.ratePath } : {}),
     ...(checked.inputSnapshot.otherSources !== undefined ? { otherSources: checked.inputSnapshot.otherSources } : {}),
     ...(checked.inputSnapshot.creditedLand !== undefined ? { creditedLand: checked.inputSnapshot.creditedLand } : {}),
+    ...(checked.inputSnapshot.permanentLoan !== undefined ? { permanentLoan: checked.inputSnapshot.permanentLoan } : {}),
     capitalAssumptionEvidence: checked.inputSnapshot.capitalAssumptionEvidence,
   };
 }

@@ -14,11 +14,13 @@ import {
   type CreditedLandPlan,
   type DevelopmentCapitalRatePath,
   type OtherFundingSource,
+  type PermanentLoanPlan,
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
 import { OtherSourcesSection } from "./OtherSourcesSection";
+import { PermanentLoanSection } from "./PermanentLoanSection";
 
 export function DevelopmentCapitalEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
@@ -37,6 +39,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   const [baseRates, setBaseRates] = useState<Array<number | "">>(savedPath?.baseRates.map(({ baseRatePercent }) => baseRatePercent) ?? [""]);
   const [otherSources, setOtherSources] = useState<OtherFundingSource[]>(saved?.otherSources ?? []);
   const [creditedLand, setCreditedLand] = useState<CreditedLandPlan | undefined>(saved?.creditedLand);
+  const [permanentLoan, setPermanentLoan] = useState<PermanentLoanPlan | undefined>(saved?.permanentLoan);
   const [capitalAssumptionEvidence, setCapitalAssumptionEvidence] = useState(saved?.capitalAssumptionEvidence ?? blankEvidence());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -74,6 +77,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
           ratePath: usePath ? ratePathFrom({ spreadPercent, curveSourceLabel, asOfDate, curveStartMonth, baseRates }) : null,
           otherSources: otherSources.length > 0 ? otherSources : null,
           creditedLand: creditedLand ?? null,
+          permanentLoan: permanentLoan ?? null,
           capitalAssumptionEvidence,
         }),
       });
@@ -153,6 +157,14 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
         creditedLand={creditedLand}
         setCreditedLand={setCreditedLand}
         defaultMonth={feeMonth}
+        fieldErrors={fieldErrors}
+      />
+
+      <PermanentLoanSection
+        permanentLoan={permanentLoan}
+        setPermanentLoan={setPermanentLoan}
+        milestones={savedCase.costSchedule.milestones ?? []}
+        defaultMonth={payoffMonth}
         fieldErrors={fieldErrors}
       />
 

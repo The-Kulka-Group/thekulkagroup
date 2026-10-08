@@ -1,5 +1,7 @@
 import type { DevelopmentCapitalResult, SourcesAndUsesBasis } from "@kulka/engine";
 
+import { PermanentLoanResults } from "./PermanentLoanResults";
+
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /**
@@ -39,6 +41,7 @@ export function SourcesAndUsesSection({ capital }: { capital: DevelopmentCapital
       </table></div>
       {totals.softLoanInterest > 0 ? <p className="t-meta">Soft loan interest accrues to the loan balance and is paid at repayment. It is not a project use, so it does not appear in total uses.</p> : null}
     </> : null}
+    {capital.permanentLoan ? <PermanentLoanResults loan={capital.permanentLoan} /> : null}
   </>;
 }
 

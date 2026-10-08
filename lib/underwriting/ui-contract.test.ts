@@ -251,6 +251,29 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("PARTNERSHIP_ASSUMPTION_KEYS");
   });
 
+  it("takes the permanent loan with its own sources and shows the takeout, caps, debt service and payoff", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/DevelopmentCapitalEditor.tsx");
+    const section = await source("app/(app)/underwriting/[id]/PermanentLoanSection.tsx");
+    const results = await source("app/(app)/underwriting/[id]/PermanentLoanResults.tsx");
+    const sourcesAndUses = await source("app/(app)/underwriting/[id]/SourcesAndUsesSection.tsx");
+    const scenarios = await source("app/(app)/underwriting/[id]/ScenarioComparisonResults.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("<PermanentLoanSection");
+    expect(editor).toContain("permanentLoan: permanentLoan ?? null");
+    for (const label of ["Add Permanent Loan", "Funding Month", "First Stabilized Month", "Sizing Mode", "Sizing NOI Window", "Maximum Loan to Value", "Minimum Debt Service Coverage", "Interest-Only Months", "Closing Costs", "Proceeds Above Payoff", "Permanent Loan Sources"]) {
+      expect(section).toContain(label);
+    }
+    expect(section).toContain("maxLength={MAX_PERMANENT_LOAN_SOURCE_LABEL_LENGTH}");
+    expect(section).toContain("fieldErrors[`permanentLoan.${path}`]");
+    for (const label of ["Takeout Month", "Binding Test", "Permanent Loan Sizing", "Permanent Loan Debt Service by Month", "Payoff at Sale", "Permanent Loan Formula Traces", "Not Reported"]) {
+      expect(results).toContain(label);
+    }
+    expect(sourcesAndUses).toContain("<PermanentLoanResults");
+    expect(scenarios).toContain("Permanent Loan Amount");
+    expect(scenarios).toContain("Permanent Loan Debt Service Coverage");
+    expect(runPage).toContain("PERMANENT_LOAN_ASSUMPTION_KEYS");
+  });
+
   it("links every scenario control to field errors and renders scenario evidence in saved runs", async () => {
     const editor = await source("app/(app)/underwriting/[id]/ScenarioComparisonEditor.tsx");
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");

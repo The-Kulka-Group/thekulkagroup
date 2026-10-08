@@ -31,6 +31,16 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
     ...lenderRowsFor("scheduledTax", ""),
     ...(result.base.metrics.lender?.fullTax ? lenderRowsFor("fullTax", " on Full Tax") : []),
   ];
+  const loanOf = (value: typeof columns[number]) => value.propertyResult.developmentCapital.permanentLoan;
+  const permanentLoanRows = columns.some((value) => loanOf(value))
+    ? [
+      ["Permanent Loan Amount", (value: typeof columns[number]) => loanOf(value) ? MONEY.format(loanOf(value)!.loanAmount) : "Not Reported"],
+      ["Permanent Loan Debt Service Coverage", (value: typeof columns[number]) => {
+        const coverage = loanOf(value)?.debtServiceCoverage;
+        return coverage === null || coverage === undefined ? "Not Reported" : `${NUMBER.format(coverage)}x`;
+      }],
+    ] as const
+    : [];
   function columnsHaveCreditedLand() {
     return columns.some((value) => value.metrics.lender?.scheduledTax?.loanToCostCreditedLand != null);
   }
@@ -44,7 +54,7 @@ export function ScenarioComparisonResults({ result }: { result: ApartmentScenari
   return <div className="underwriting-monthly-results">
     <h4>Scenario Comparison</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-results underwriting-scenario-comparison"><thead><tr><th>Metric</th>{names.map((name) => <th className="right" key={name}>{name}</th>)}</tr></thead><tbody>
-      {[...rows, ...lenderRows].map(([label, format]) => <tr key={label}><th scope="row">{label}</th>{columns.map((value, index) => <td className="num right" key={names[index]}>{format(value)}</td>)}</tr>)}
+      {[...rows, ...lenderRows, ...permanentLoanRows].map(([label, format]) => <tr key={label}><th scope="row">{label}</th>{columns.map((value, index) => <td className="num right" key={names[index]}>{format(value)}</td>)}</tr>)}
       <tr><th scope="row">Reconciliation</th>{columns.map((value, index) => <td className="right" key={names[index]}><Chip status={value.reconciliationStatus === "pass" ? "done" : "stuck"} /></td>)}</tr>
     </tbody></table></div>
     <h4>Changed Inputs</h4>

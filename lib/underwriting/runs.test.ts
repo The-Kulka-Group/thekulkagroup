@@ -801,6 +801,50 @@ describe("underwriting calculation repository", () => {
     expect(earlier!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
   });
 
+  it("stores a permanent loan with the property run, takes out the construction loan in its month and reopens unchanged", async () => {
+    const property = await caseWithPropertyReturns();
+    const done = { sourceLabel: "Lender quote", sourceDate: "2026-10-07", reviewState: "done" as const };
+    const { lastChangedAt: _changed, ...capital } = property!.developmentCapital!;
+    void _changed;
+    const withLoan = await saveDevelopmentCapital(db, property!.id, property!.caseRevision, {
+      ...capital,
+      permanentLoan: {
+        permanentLoanInputVersion: "permanent_loan_inputs.v1",
+        fundingMonth: "2026-06",
+        sizingMode: "construction_balance",
+        sizingNoiWindow: { kind: "trailing", months: 3 },
+        noiTaxBasis: "full_tax",
+        annualRatePercent: 6,
+        interestOnlyMonths: 12,
+        amortizationYears: 30,
+        termYears: 10,
+        feePercent: 0,
+        closingCosts: 0,
+        cashOut: "distribute",
+        evidence: Object.fromEntries(["fundingMonth", "sizingMode", "sizingNoiWindow", "noiTaxBasis", "annualRatePercent", "interestOnlyMonths", "amortizationYears", "termYears", "feePercent", "closingCosts", "cashOut"].map((key) => [key, done])),
+      },
+    } as Parameters<typeof saveDevelopmentCapital>[3]);
+    const run = await runUnderwritingCase(db, property!.id, withLoan!.caseRevision);
+    expect(run!.status, JSON.stringify(run!.issues)).toBe("complete");
+    const result = run!.propertyReturnsResult!;
+    const loan = result.developmentCapital.permanentLoan!;
+    expect(loan.fundingMonth).toBe("2026-06");
+    expect(result.developmentCapital.months.filter(({ repayment }) => repayment !== 0).map(({ month }) => month)).toEqual(["2026-06"]);
+    expect(loan.loanAmount).toBeCloseTo(loan.constructionPayoff, 2);
+    expect(loan.payoffAtSale).toBeCloseTo(loan.months.at(-1)!.payoff, 2);
+    expect(run!.reconciliations.some(({ id }) => id.startsWith("permanent-loan"))).toBe(true);
+    expect(run!.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+    expect(run!.evidenceSnapshot.developmentCapital!.permanentLoan).toMatchObject({ fundingMonth: "2026-06", termYears: 10 });
+    expect(await getUnderwritingRun(db, run!.id)).toEqual(run);
+  });
+
+  it("reads a run with no permanent loan as having none", async () => {
+    const property = await caseWithPropertyReturns();
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    expect(run!.propertyReturnsResult!.developmentCapital.permanentLoan).toBeUndefined();
+    expect(run!.evidenceSnapshot.developmentCapital).not.toHaveProperty("permanentLoan");
+  });
+
   async function caseWithScenarios(lenderTests?: Record<string, unknown>) {
     const property = await caseWithPropertyReturns(lenderTests);
     const evidence = { sourceLabel: "Scenario review note", sourceDate: "2026-10-05", reviewState: "done" as const };

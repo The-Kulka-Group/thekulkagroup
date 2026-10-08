@@ -26,6 +26,7 @@ const V2_98_MATCHED_BASELINE = [
   "cost-soft-total",
   "cost-before-financing",
   "hard-cost-monthly-sum",
+  "annual-hard-cost-sum",
   "stabilized-month",
   "stabilized-year-residential-gross-rent",
   "stabilized-year-residential-non-revenue",

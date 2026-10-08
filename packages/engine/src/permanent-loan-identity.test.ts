@@ -48,7 +48,9 @@ const scenarios: ApartmentScenarioDefinition[] = [
   { id: "lower-exit-cap", role: "upside", name: "Lower Terminal Cap", inputVersion: "apartment_scenario_delta.v1", delta: { terminalCapRatePercent: 5 }, evidence: { terminalCapRatePercent: evidence } },
 ];
 
-const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+// LA-1872 added `annualCashFlow` to the run result. The digest leaves that one key out, so every earlier figure still has to match to the byte.
+const withoutAnnual = (value: unknown) => JSON.stringify(value, (key, item) => (key === "annualCashFlow" ? undefined : item));
+const digest = (value: unknown) => createHash("sha256").update(withoutAnnual(value)).digest("hex");
 
 describe("runs without a permanent loan", () => {
   const runs = {

@@ -261,13 +261,28 @@ describe("engineOutputsFor", () => {
     const conditional = new Set<string>([...LENDER_OUTPUT_KEYS, ...OTHER_SOURCE_OUTPUT_KEYS, ...COMMERCIAL_OUTPUT_KEYS, ...PROPERTY_TAX_OUTPUT_KEYS, ...PARTNERSHIP_OUTPUT_KEYS, "lpPeakEquityMonth", "gpPeakEquityMonth"]);
     const permanentLoanKeys = [...PERMANENT_LOAN_OUTPUT_KEYS, ...PERMANENT_LOAN_TEXT_OUTPUT_KEYS, ...PERMANENT_LOAN_BALANCE_OUTPUT_KEYS];
     for (const key of permanentLoanKeys) conditional.add(key);
-    const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item) && !/AverageMonthlyRent$/.test(item));
+    const always = ENGINE_OUTPUT_KEYS.filter((item) => !conditional.has(item) && !/FiscalYear\d+$/.test(item) && !/AverageMonthlyRent$/.test(item) && !/^annual\w+Year\d+$/.test(item));
     for (const key of always) expect(run.outputs[key], key).toBeDefined();
     expect(run.outputs.marketAverageMonthlyRent).toBeDefined();
     for (const key of PROPERTY_TAX_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
     for (const key of PARTNERSHIP_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
     for (const key of COMMERCIAL_OUTPUT_KEYS) expect(run.outputs[key], key).toBeUndefined();
     for (const key of permanentLoanKeys) expect(run.outputs[key], key).toBeUndefined();
+  });
+
+  it("reads the annual view: the hard cost sum and each full operating year", () => {
+    const run = computePropertyReturns(input);
+    const { outputs } = engineOutputsFor(input);
+    const annual = run.result!.annualCashFlow!;
+    expect(outputs.annualHardCost).toBe(annual.analysis_year.totals.hardCost);
+    const full = annual.operating_year!.years.filter(({ kind, monthCount }) => kind === "year" && monthCount === 12);
+    expect(full.length).toBeGreaterThan(0);
+    full.forEach((year, index) => {
+      expect(outputs[`annualNetOperatingIncomeYear${index + 1}`]).toBe(year.lines.netOperatingIncome);
+      expect(outputs[`annualDebtYieldYear${index + 1}`]).toBe(year.debtYield ?? undefined);
+      expect(outputs[`annualDebtServiceCoverageYear${index + 1}`]).toBe(year.debtServiceCoverage ?? undefined);
+    });
+    expect(outputs[`annualNetOperatingIncomeYear${full.length + 1}`]).toBeUndefined();
   });
 
   it("reads peak equity on every run and the waterfall when the plan has one", () => {

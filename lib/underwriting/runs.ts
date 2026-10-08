@@ -332,7 +332,7 @@ function capitalInputsFor(savedCase: UnderwritingCase): DevelopmentCapitalInputs
 /**
  * v1 property runs predate lender tests, and v1 and v2 runs predate the tax schedule (LA-1690).
  * Read them as having no lender tests, no full-tax tests and no sale tax basis. Runs saved before
- * LA-1863 carry no partnership waterfall.
+ * LA-1863 carry no partnership waterfall, and runs saved before LA-1872 carry no annual cash flow.
  */
 function withLenderTests(result: PropertyReturnsResult, inputSnapshot: unknown): PropertyReturnsResult {
   return {
@@ -342,6 +342,7 @@ function withLenderTests(result: PropertyReturnsResult, inputSnapshot: unknown):
     saleTax: result.saleTax ?? null,
     propertyTax: result.propertyTax ?? null,
     partnership: result.partnership ?? null,
+    annualCashFlow: result.annualCashFlow ?? null,
   };
 }
 

@@ -202,6 +202,7 @@ const targets: ScorecardTarget[] = [
   compare("construction-debt-total", "totalDebt", 39_705_280.65026528), // I71
   compare("debt-plus-equity", "totalSources", 61_085_127.80750628), // I65 plus I71
   compare("hard-cost-monthly-sum", "hardCost", 42_630_000), // Annual Cash Flow G56:AZ56
+  compare("annual-hard-cost-sum", "annualHardCost", 42_630_000), // Annual Cash Flow G56:AZ56, summed by year in the engine annual view (LA-1872)
   notReachable("operation-begin-month", "No engine output in the scorecard catalog: operation start month, which is an engine input"),
   compare("stabilized-month", "firstStabilizedMonth", workbookMonth(33), EXACT), // D89, month 33
   compare("stabilized-year-residential-gross-rent", "stabilizedResidentialGrossRent", 6_707_772), // H153

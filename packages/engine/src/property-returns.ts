@@ -1,4 +1,5 @@
 import { resolveMilestoneAnchors } from "./milestones";
+import { annualCashFlowChecks, annualCashFlowViews, type AnnualCashFlowViews } from "./annual-cash-flow";
 import {
   projectApartmentOperationsThrough,
   type ApartmentOperationsIssue,
@@ -282,6 +283,12 @@ export type PropertyReturnsResult = {
   propertyTax: PropertyTaxResult | null;
   /** The LP and GP waterfall when the case carries one (LA-1863). Runs saved earlier read it as null. */
   partnership: PartnershipResult | null;
+  /**
+   * The monthly results rolled into years, on each year basis (LA-1872). A saved run keeps only the
+   * forward twelve months of operations, so the years are summed here, when the run is made. Runs saved
+   * earlier read it as null and show no annual view.
+   */
+  annualCashFlow: AnnualCashFlowViews | null;
 };
 
 export type PropertyReturnsRun = {
@@ -438,6 +445,33 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   if (partnershipRun && (partnershipRun.status === "failed" || !partnershipRun.result)) {
     return failedFull(inputSnapshot, partnershipRun.issues);
   }
+  /*
+   * LA-1872: the annual view sums the full monthly grid the capital run already holds. It adds no
+   * loop and changes no monthly figure, and a year that does not tie to its months fails the run.
+   */
+  const operationsRun = capitalRun.result.apartmentOperations;
+  const annual = annualCashFlowViews({
+    operations: operationsRun.months,
+    usesByCategory: operationsRun.costSchedule.months.map(({ usesByCategory }) => usesByCategory),
+    months: calculation.result.months,
+    sale: calculation.result.sale,
+    operationStartMonth: inputSnapshot.operationStartMonth ?? null,
+    firstStabilizedMonth: operationsRun.firstStabilizedMonth ?? null,
+    debt: permanentLoan
+      ? { loanAmount: permanentLoan.loanAmount, loanKind: "permanent", statedAnnualDebtService: null }
+      : { loanAmount: totals.totalDebt, loanKind: "construction", statedAnnualDebtService: inputSnapshot.lenderTests?.annualDebtService ?? null },
+    runTotals: {
+      netOperatingIncome: operationsRun.totals.netOperatingIncome,
+      operatingCashFlow: operationsRun.totals.operatingCashFlow,
+      projectCosts: totals.projectCosts,
+      unleveredNetProfit: calculation.result.returns.unlevered.netProfit,
+      leveredNetProfit: calculation.result.returns.levered.netProfit,
+    },
+  });
+  if (annual.status === "failed" || [annual.views.operating_year, annual.views.analysis_year, annual.views.calendar_year]
+    .some((view) => view && annualCashFlowChecks(view).some(({ status }) => status === "fail"))) {
+    return failedFull(inputSnapshot, [{ path: "annualCashFlow", code: "derived_results", message: "The annual cash flow did not add up to the monthly results within one cent." }]);
+  }
   return {
     formulaVersion: PROPERTY_RETURNS_FORMULA_VERSION,
     inputSnapshot,
@@ -453,6 +487,7 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
         : null,
       propertyTax: capitalRun.result.apartmentOperations.propertyTax,
       partnership: partnershipRun?.result ?? null,
+      annualCashFlow: annual.views,
     },
     reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks, ...valueSplitChecks, ...(partnershipRun?.reconciliations ?? [])],
   };

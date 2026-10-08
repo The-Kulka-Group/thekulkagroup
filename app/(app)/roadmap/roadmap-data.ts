@@ -124,7 +124,7 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-10-07", "LA-1839", "Anchor cost lines and project dates to named milestones"),
       // LA-1841: steps 10 and 11 of docs/underwriting-model-audit/build-order.md and the spec's later modules.
       b("2026-10-07", "LA-1863", "Report peak equity and split cash flow between LP and GP partners"),
-      { date: null, title: "Commercial tenants, permanent debt with a refinance, and an annual view", status: "planning", note: "Next step. Covers ground-floor retail, the long-term loan and a year-by-year summary." },
+      b("2026-10-07", "LA-1866", "Commercial tenants, permanent debt with a refinance, and an annual view"),
       { date: null, title: "Soft loans that a buyer assumes at sale or that repay after the sale", status: "waiting", note: "Today a soft loan repays in one month within the model's timeline." },
       { date: null, title: "Work out residual land value", status: "waiting", note: "Shows what a site is worth given the planned building and target returns." },
       { date: null, title: "Let capital plan dates, source draws and tax years follow named milestones", status: "waiting", note: "Cost lines already move with milestones. These dates are still typed in." },

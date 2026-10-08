@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { annualCashFlowChecks } from "@kulka/engine";
+
 import { seededDatabase } from "@/test/database";
 import {
   createUnderwritingCase,
@@ -798,6 +800,42 @@ describe("underwriting calculation repository", () => {
     );
     const earlier = await getUnderwritingRun(db, rows[0].id);
     expect(earlier!.propertyReturnsResult!.partnership).toBeNull();
+    expect(earlier!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
+  });
+
+  it("stores the annual cash flow inside the property run result, ties it to the months and reopens unchanged", async () => {
+    const property = await caseWithPropertyReturns();
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    expect(run!.status).toBe("complete");
+    const annual = run!.propertyReturnsResult!.annualCashFlow!;
+    expect(annual.analysis_year.years.length).toBeGreaterThan(0);
+    expect(annual.calendar_year.totals.leveredCashFlow).toBe(run!.propertyReturnsResult!.propertyReturns.returns.levered.netProfit);
+    for (const view of [annual.operating_year, annual.analysis_year, annual.calendar_year]) {
+      if (view) expect(annualCashFlowChecks(view).filter(({ status }) => status === "fail")).toEqual([]);
+    }
+    const reopened = await getUnderwritingRun(db, run!.id);
+    expect(reopened!.propertyReturnsResult!.annualCashFlow).toEqual(annual);
+  });
+
+  it("reads a property run saved before the annual view as having none", async () => {
+    const property = await caseWithPropertyReturns();
+    const run = await runUnderwritingCase(db, property!.id, property!.caseRevision);
+    expect(run!.propertyReturnsResult!.annualCashFlow).not.toBeNull();
+    const { rows: columns } = await db.query<{ column_name: string }>(
+      `select column_name from information_schema.columns
+       where table_name = 'underwriting_calculation_runs' and column_name not in ('id', 'created_at')
+       order by ordinal_position`,
+    );
+    const names = columns.map(({ column_name }) => column_name);
+    const values = names.map((name) => name === "result_snapshot" ? "result_snapshot - 'annualCashFlow'" : name);
+    const { rows } = await db.query<{ id: string }>(
+      `insert into underwriting_calculation_runs (${names.join(", ")})
+       select ${values.join(", ")} from underwriting_calculation_runs where id = $1
+       returning id`,
+      [run!.id],
+    );
+    const earlier = await getUnderwritingRun(db, rows[0].id);
+    expect(earlier!.propertyReturnsResult!.annualCashFlow).toBeNull();
     expect(earlier!.propertyReturnsResult!.propertyReturns).toEqual(run!.propertyReturnsResult!.propertyReturns);
   });
 

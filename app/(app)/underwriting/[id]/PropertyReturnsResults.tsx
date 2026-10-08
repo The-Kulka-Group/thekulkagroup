@@ -2,6 +2,7 @@ import type { LenderTestMetric, LenderTestsResult, PropertyReturnsResult, Proper
 
 import { Chip } from "@/components/Status";
 
+import { AnnualCashFlowResults } from "./AnnualCashFlowResults";
 import { CommercialResults, hasCommercialMonths } from "./CommercialResults";
 import { PartnershipResults } from "./PartnershipResults";
 import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
@@ -31,6 +32,7 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
       {peak ? <Summary label="Peak Equity" value={MONEY.format(peak.amount)} /> : null}
       {peak?.month ? <Summary label="Peak Equity Month" value={peak.month} /> : null}
     </div>
+    <AnnualCashFlowResults views={result.annualCashFlow} />
     <h4>Dated Monthly Property Cash Flow</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-monthly-table underwriting-property-cash-flow"><thead><tr><th>Month</th><th>Date</th><th className="right">Project Costs</th><th className="right">Operating Cash Flow</th><th className="right">Gross Interest</th><th className="right">Debt Draws</th><th className="right">Debt Payoff</th><th className="right">Net Sale Proceeds</th><th className="right">Unlevered Cash Flow</th><th className="right">Levered Cash Flow</th></tr></thead><tbody>
       {result.propertyReturns.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num">{month.date}</td><td className="num right">{MONEY.format(month.projectCosts)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td><td className="num right">{MONEY.format(month.grossInterest)}</td><td className="num right">{MONEY.format(month.totalDebtDraw)}</td><td className="num right">{MONEY.format(month.repayment)}</td><td className="num right">{MONEY.format(month.netSaleProceeds)}</td><td className="num right">{MONEY.format(month.unleveredCashFlow)}</td><td className="num right">{MONEY.format(month.leveredCashFlow)}</td></tr>)}

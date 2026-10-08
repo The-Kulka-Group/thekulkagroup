@@ -62,6 +62,7 @@ function replay(fixture: Replay): PermanentLoanResult {
     months,
     operations,
     analysisStartMonth: funding,
+    operationStartMonth: funding,
     operationPaths: [],
   });
   if ("code" in loan) throw new Error(loan.message);

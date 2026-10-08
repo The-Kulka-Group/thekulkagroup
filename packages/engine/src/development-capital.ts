@@ -438,6 +438,7 @@ function permanentLoanFor(
     months: capital.months.map(({ month, operatingCashFlow }) => ({ month, operatingCashFlow })),
     operations: projectApartmentOperationsThrough(input, projectionEnd),
     analysisStartMonth: input.analysisStartMonth,
+    operationStartMonth: input.operationStartMonth,
     operationPaths: [...PERMANENT_LOAN_OPERATION_PATHS, ...(input.propertyTax ? ["propertyTax"] : []), ...(input.commercial ? ["commercial"] : [])],
     ...(input.commercial ? { commercialTaxSharePercent: commercialTaxSharePercentFor(input) } : {}),
   });

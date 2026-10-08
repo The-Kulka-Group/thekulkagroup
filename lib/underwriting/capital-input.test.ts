@@ -98,4 +98,16 @@ describe("parseDevelopmentCapital permanent loan", () => {
       expect(fieldErrors).toHaveProperty(["permanentLoan.termYears"]);
     }
   });
+
+  it("returns the window-before-operations issue against the window months field (LA-1920)", () => {
+    try {
+      parseDevelopmentCapital(withLoan({ ...permanentLoan, sizingNoiWindow: { kind: "trailing", months: 24 } }), operationsFixtureForCapital());
+      throw new Error("expected a failure");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidDevelopmentCapital);
+      const failure = error as InvalidDevelopmentCapital;
+      expect(failure.issues.map(({ code }) => code)).toEqual(["permanent_loan_window_before_operations"]);
+      expect(failure.fieldErrors["permanentLoan.sizingNoiWindow.months"]).toContain("before operations start");
+    }
+  });
 });

@@ -63,6 +63,11 @@ function noiOver(input: PropertyReturnsInputs, first: string, last: string) {
     .reduce((total, month) => total + Math.round(month.netOperatingIncome * 100), 0);
 }
 
+function monthsBetween(from: string, to: string) {
+  const index = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
+  return index(to) - index(from);
+}
+
 function addMonths(month: string, offset: number) {
   const [year, number] = month.split("-").map(Number);
   const index = year * 12 + number - 1 + offset;
@@ -173,6 +178,28 @@ describe("permanent loan sizing", () => {
     const { loan: permanent } = complete(input);
     expect(permanent.sizingWindow.startMonth).toBe(STABILIZED);
     expect(Math.round(permanent.sizingNoi * 100)).toBe(noiOver(input, STABILIZED, addMonths(STABILIZED, 11)));
+  });
+
+  it("fails a trailing window that reaches back before operations, and names the window that fits (LA-1920)", () => {
+    const opStart = base.operationStartMonth;
+    const fits = monthsBetween(opStart, STABILIZED);
+    expect(fits).toBeGreaterThanOrEqual(1);
+    const months = fits + 3;
+    const run = computePropertyReturns(withLoan(loan({ sizingNoiWindow: { kind: "trailing", months } })));
+    expect(run.status).toBe("failed");
+    expect(run.issues.map(({ path, code }) => [path, code])).toEqual([["permanentLoan.sizingNoiWindow.months", "permanent_loan_window_before_operations"]]);
+    const message = run.issues[0].message;
+    expect(message).toContain("3 of those months fall before operations start");
+    expect(message).toContain(`The longest window that fits is ${fits} months`);
+    expect(message).toContain(`fund no earlier than ${addMonths(opStart, months)}`);
+  });
+
+  it("keeps a trailing window that starts on the operation start month, and the forward window", () => {
+    const fits = monthsBetween(base.operationStartMonth, STABILIZED);
+    const exact = complete(withLoan(loan({ sizingNoiWindow: { kind: "trailing", months: fits } }))).loan;
+    expect(exact.sizingWindow.startMonth).toBe(base.operationStartMonth);
+    const forward = withLoan(loan({ sizingNoiWindow: { kind: "forward_twelve" }, fundingAnchor: undefined, fundingMonth: addMonths(base.operationStartMonth, 0) }));
+    expect(computePropertyReturns(forward).issues.map(({ code }) => code)).not.toContain("permanent_loan_window_before_operations");
   });
 
   it("sizes on the lesser of the caps, marks the binding one, and pays the excess to the equity holders", () => {

@@ -81,7 +81,7 @@ describe("/api/underwriting/cases/:id/runs/:runId/workbook", () => {
     expect(response.headers.get("Content-Disposition")).toContain(`Run ${run.id.slice(0, 8)}.xlsx`);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(await response.arrayBuffer());
-    expect(workbook.worksheets.map(({ name }) => name)).toEqual(["Returns", "Monthly", "Annual", "Assumptions"]);
+    expect(workbook.worksheets.map(({ name }) => name)).toEqual(["Returns", "Sources and Uses", "Monthly", "Costs", "Annual", "Assumptions"]);
     expect(workbook.getWorksheet("Returns")!.getCell("A2").value).toMatch(/^Workbook Case, Case \d+ \(Sheet U-\d+\)$/);
   });
 

@@ -28,7 +28,14 @@ export async function GET(request: Request, context: Context) {
     return NextResponse.json({ error: "Only a completed run with returns can be exported to Excel." }, { status: 409 });
   }
 
-  const xlsx = await writeUnderwritingWorkbook(underwritingWorkbookLayout(source));
+  let layout;
+  try {
+    layout = underwritingWorkbookLayout(source);
+  } catch {
+    // The workbook rebuilds the cost schedule from the saved inputs. A run saved by an older model can fail that.
+    return NextResponse.json({ error: "This run's inputs no longer calculate. Run the case again to export it." }, { status: 409 });
+  }
+  const xlsx = await writeUnderwritingWorkbook(layout);
   const fileName = workbookFileName(source);
   return new Response(new Uint8Array(xlsx), {
     headers: {

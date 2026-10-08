@@ -340,6 +340,8 @@ export {
   type CommercialRecoveryBasis,
   type CommercialSpace,
   leaseStartMonthFor,
+  leasingCommissionLineId,
+  tenantImprovementLineId,
 } from "./commercial-operations";
 
 export {
@@ -400,12 +402,14 @@ export {
   MAX_OTHER_SOURCES,
   MAX_OTHER_SOURCE_DRAWS,
   MAX_OTHER_SOURCE_TEXT_LENGTH,
+  scheduleOtherSources,
   type CreditedLandPlan,
   type OtherFundingSource,
   type OtherSourceDraw,
   type OtherSourceIssue,
   type OtherSourceIssueCode,
   type OtherSourceKind,
+  type OtherSourceScheduleCents,
 } from "./other-sources";
 
 export {

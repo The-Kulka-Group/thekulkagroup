@@ -3,7 +3,9 @@ import ExcelJS from "exceljs";
 import type { CellFormat, LayoutCell, WorkbookLayout } from "./layout";
 
 // LA-1947. Writes a WorkbookLayout to .xlsx. Inputs are blue, live formulas
-// black and engine values gray italic, the convention the header states.
+// black and engine values gray italic, the convention the header states. A
+// working formula (kind "calc") has no engine value to cache, so Excel works it
+// out on load.
 
 const NUMBER_FORMATS: Record<CellFormat, string> = {
   money: '#,##0;(#,##0);"-"',
@@ -70,6 +72,12 @@ function writeCell(cell: ExcelJS.Cell, layoutCell: LayoutCell, columnIndex: numb
       cell.numFmt = NUMBER_FORMATS[layoutCell.format];
       cell.font = { name: FONT, size: 10, color: { argb: INPUT_BLUE } };
       if (layoutCell.format !== "text") cell.alignment = { horizontal: "right" };
+      return;
+    case "calc":
+      if (layoutCell.format !== "text") cell.numFmt = NUMBER_FORMATS[layoutCell.format];
+      cell.value = { formula: layoutCell.formula };
+      cell.font = { name: FONT, size: 10, color: { argb: INK } };
+      if (layoutCell.format === "text") cell.alignment = { horizontal: "left" };
       return;
     case "output":
       cell.numFmt = NUMBER_FORMATS[layoutCell.format];

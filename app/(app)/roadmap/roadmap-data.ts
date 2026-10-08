@@ -126,7 +126,7 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-10-07", "LA-1863", "Report peak equity and split cash flow between LP and GP partners"),
       b("2026-10-07", "LA-1866", "Commercial tenants, permanent debt with a refinance, and an annual view"),
       { date: null, title: "Soft loans that a buyer assumes at sale or that repay after the sale", status: "waiting", note: "Today a soft loan repays in one month within the model's timeline." },
-      { date: null, title: "Work out residual land value", status: "waiting", note: "Shows what a site is worth given the planned building and target returns." },
+      { date: null, ticket: "LA-1979", title: "Work out residual land value", status: "planning", note: "Shows what a site is worth given the planned building and a target return. The engine can solve it; saving a target on a case and showing the answer is next." },
       { date: null, title: "Let capital plan dates, source draws and tax years follow named milestones", status: "waiting", note: "Cost lines already move with milestones. These dates are still typed in." },
     ],
   },

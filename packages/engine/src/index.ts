@@ -564,6 +564,22 @@ export {
 } from "./partnership-waterfall";
 
 export {
+  MAX_RESIDUAL_LAND_AMOUNT,
+  MAX_RESIDUAL_LAND_TRIALS,
+  RESIDUAL_LAND_INPUT_VERSION,
+  RESIDUAL_LAND_SOLVE_VERSION,
+  RESIDUAL_LAND_TARGETS,
+  residualLandLineIssues,
+  validateResidualLandPlan,
+  type ResidualLandOutcome,
+  type ResidualLandPlan,
+  type ResidualLandPoint,
+  type ResidualLandResult,
+  type ResidualLandStatus,
+  type ResidualLandTarget,
+} from "./residual-land";
+
+export {
   APARTMENT_SCENARIO_CHANGE_KEYS,
   APARTMENT_SCENARIO_FORMULA_VERSION,
   APARTMENT_SCENARIO_INPUT_VERSION,

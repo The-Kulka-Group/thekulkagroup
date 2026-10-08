@@ -142,7 +142,24 @@ export const TIER_OUTPUT_KEYS = AFFORDABILITY_TIERS.flatMap((tier) => [
   `${tier}AverageMonthlyRent` as const,
 ]);
 
+/** Operating years the annual outputs number. Later years are not scored. */
+export const MAX_ANNUAL_OUTPUT_YEARS = 10;
+
+type AnnualYearOutputKey = `annualNetOperatingIncomeYear${number}` | `annualDebtServiceCoverageYear${number}` | `annualDebtYieldYear${number}`;
+
+/**
+ * LA-1872: the annual cash flow view. The hard cost sum adds the hard cost line over the years, which a
+ * workbook's annual sheet also sums. Each numbered output reads one full operating year, counted from the
+ * first stabilized month, and is absent when the run never stabilizes or holds fewer full years.
+ */
+const ANNUAL_YEAR_OUTPUT_KEYS: AnnualYearOutputKey[] = Array.from({ length: MAX_ANNUAL_OUTPUT_YEARS }, (_, index) => [
+  `annualNetOperatingIncomeYear${index + 1}` as const,
+  `annualDebtServiceCoverageYear${index + 1}` as const,
+  `annualDebtYieldYear${index + 1}` as const,
+]).flat();
+
 const CATALOG_KEYS = [
+  "annualHardCost",
   "landCost",
   "hardCost",
   "softCost",
@@ -207,8 +224,8 @@ const CATALOG_KEYS = [
   ...TIER_OUTPUT_KEYS,
 ] as const;
 
-export type EngineOutputKey = typeof CATALOG_KEYS[number] | FiscalYearOutputKey;
-export const ENGINE_OUTPUT_KEYS: readonly EngineOutputKey[] = [...CATALOG_KEYS, ...FISCAL_YEAR_OUTPUT_KEYS];
+export type EngineOutputKey = typeof CATALOG_KEYS[number] | FiscalYearOutputKey | AnnualYearOutputKey;
+export const ENGINE_OUTPUT_KEYS: readonly EngineOutputKey[] = [...CATALOG_KEYS, ...FISCAL_YEAR_OUTPUT_KEYS, ...ANNUAL_YEAR_OUTPUT_KEYS];
 export type EngineOutputs = Partial<Record<EngineOutputKey, number | string>>;
 
 export type EngineOutputRun = {
@@ -453,6 +470,17 @@ export function engineOutputsFor(input: PropertyReturnsInputs): EngineOutputRun 
     outputs.forwardCommercialNetOperatingIncome = roundCents(forward.reduce((total, month) => total + month.commercialNetOperatingIncome, 0));
     outputs.forwardResidentialNetOperatingIncome = roundCents(forward.reduce((total, month) => total + month.residentialNetOperatingIncome, 0));
     if (sale.valueSplit) outputs.commercialSaleValue = sale.valueSplit.commercialValue;
+  }
+
+  const annual = run.result.annualCashFlow;
+  if (annual) {
+    outputs.annualHardCost = annual.analysis_year.totals.hardCost;
+    const operating = annual.operating_year?.years.filter(({ kind, monthCount }) => kind === "year" && monthCount === 12) ?? [];
+    operating.slice(0, MAX_ANNUAL_OUTPUT_YEARS).forEach((year, index) => {
+      outputs[`annualNetOperatingIncomeYear${index + 1}`] = year.lines.netOperatingIncome;
+      if (year.debtServiceCoverage !== null) outputs[`annualDebtServiceCoverageYear${index + 1}`] = year.debtServiceCoverage;
+      if (year.debtYield !== null) outputs[`annualDebtYieldYear${index + 1}`] = year.debtYield;
+    });
   }
 
   const firstStabilizedMonth = operations.result.firstStabilizedMonth;

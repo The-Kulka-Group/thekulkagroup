@@ -20,8 +20,9 @@ const BEFORE_LA_1870 = {
   retailAbatementPlusValue: "5f7cd23ce3adeb4543b3a35ad5fb566a6462dfb1f712baf5380319d0f83c9d7b",
 };
 
+// LA-1872 added `annualCashFlow` to the run result, so the digest leaves that key out too.
 const withoutPaths = (value: unknown) =>
-  JSON.stringify(value, (key, item) => (key === "inputPaths" ? undefined : item));
+  JSON.stringify(value, (key, item) => (key === "inputPaths" || key === "annualCashFlow" ? undefined : item));
 const digest = (value: unknown) => createHash("sha256").update(withoutPaths(value)).digest("hex");
 
 describe("runs with commercial space and no commercial cap", () => {

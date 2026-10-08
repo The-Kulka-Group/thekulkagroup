@@ -78,7 +78,7 @@ export type WorkbookCheckReport = {
 };
 
 // Read a formula's result from `cell.result`: exceljs's `value` getter drops a result of 0.
-function numericValue(cell: ExcelJS.Cell | undefined): number | string | null {
+export function numericValue(cell: ExcelJS.Cell | undefined): number | string | null {
   if (!cell) return null;
   const value = cell.formula ? cell.result : cell.value;
   if (typeof value === "number") return value;

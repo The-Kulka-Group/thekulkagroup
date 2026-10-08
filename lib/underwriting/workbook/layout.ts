@@ -1,82 +1,44 @@
 import {
   ANNUAL_SECTION_LABELS,
   ANNUAL_YEAR_BASIS_LABELS,
+  scheduleOtherSources,
   type AnnualCashFlowYears,
   type AnnualYearBasisKind,
   type DevelopmentCapitalTotals,
   type MonthlyDevelopmentCapital,
+  type OtherFundingSource,
+  type PropertyReturnsInputs,
   type PropertyReturnsResult,
 } from "@kulka/engine";
+
+import { buildCostsSheets, costScheduleFor, type CostsBuild } from "./costs";
+import {
+  HEADER_ROWS,
+  SHEET_NAMES,
+  cellAddress,
+  columnLetter,
+  dateOfMonthText,
+  header,
+  monthCount,
+  sheetRef,
+  type CellFormat,
+  type LayoutCell,
+  type LayoutContext,
+  type LayoutRow,
+  type LayoutSheet,
+  type WorkbookLayout,
+  type WorkbookSource,
+} from "./frame";
+import { buildSourcesAndUsesSheet } from "./sources";
+
+export { SHEET_NAMES, cellAddress, columnLetter };
+export type { CellFormat, LayoutCell, LayoutRow, LayoutSheet, WorkbookLayout, WorkbookSource };
 
 // LA-1947. The workbook as plain data: sheets, rows and cells, with every
 // output cell carrying the engine's own value. The writer turns this into an
 // .xlsx, and the LibreOffice check reads the recalculated file back against
 // the same layout. LA-1949 to LA-1952 replace value cells with formulas here;
 // an output with a `formula` is live, one without is the engine's value.
-
-export type CellFormat = "money" | "rate" | "multiple" | "count" | "percent_number" | "basis_points" | "number" | "date" | "text";
-
-export type LayoutCell =
-  | { kind: "text"; text: string; role?: "title" | "subtitle" | "meta" | "section" | "column" | "label" | "note" }
-  | { kind: "input"; value: number | string | boolean; format: CellFormat; name?: string }
-  | { kind: "date"; value: string }
-  | { kind: "output"; id: string; format: CellFormat; engineValue: number; formula?: string };
-
-export type LayoutRow = { cells: Array<LayoutCell | null>; outlineLevel?: number };
-
-export type LayoutSheet = {
-  name: string;
-  columnWidths: number[];
-  /** Rows and columns frozen at the top left. */
-  frozen: { rows: number; columns: number };
-  rows: LayoutRow[];
-};
-
-export type WorkbookLayout = { sheets: LayoutSheet[]; names: Array<{ name: string; sheet: string; address: string }> };
-
-export type WorkbookSource = {
-  caseName: string;
-  caseNumber: number;
-  sheetNumber: string;
-  address: string;
-  caseRevision: number;
-  runId: string;
-  runCreatedAt: string;
-  formulaVersion: string;
-  inputs: unknown;
-  result: PropertyReturnsResult;
-};
-
-export const SHEET_NAMES = { assumptions: "Assumptions", monthly: "Monthly", annual: "Annual", returns: "Returns" } as const;
-
-/** Rows 1 to 4 are the Kulka header on every sheet, row 5 is blank, and content starts on row 6. */
-const HEADER_ROWS = 5;
-
-export function columnLetter(index: number): string {
-  let n = index + 1;
-  let letters = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    letters = String.fromCharCode(65 + rem) + letters;
-    n = Math.floor((n - 1) / 26);
-  }
-  return letters;
-}
-
-export function cellAddress(rowIndex: number, columnIndex: number) {
-  return `${columnLetter(columnIndex)}${rowIndex + 1}`;
-}
-
-function header(source: WorkbookSource, sheetTitle: string): LayoutRow[] {
-  const ran = new Date(source.runCreatedAt).toISOString().slice(0, 10);
-  return [
-    { cells: [{ kind: "text", text: `Kulka  |  ${sheetTitle}`, role: "title" }] },
-    { cells: [{ kind: "text", text: `${source.caseName}, Case ${source.caseNumber} (Sheet ${source.sheetNumber})`, role: "subtitle" }] },
-    { cells: [{ kind: "text", text: `Run ${source.runId} on ${ran}, revision ${source.caseRevision}, formula version ${source.formulaVersion}`, role: "meta" }] },
-    { cells: [{ kind: "text", text: "Blue figures are inputs. Black figures are live formulas. Gray figures are the engine's saved values and are not yet formulas.", role: "note" }] },
-    { cells: [] },
-  ];
-}
 
 // ---------------------------------------------------------------- Assumptions
 
@@ -119,7 +81,7 @@ function nameFor(path: string[], used: Set<string>) {
   return name;
 }
 
-function assumptionsSheet(source: WorkbookSource, names: WorkbookLayout["names"]): LayoutSheet {
+function assumptionsSheet(source: WorkbookSource, names: WorkbookLayout["names"], inputNames: Map<string, string>): LayoutSheet {
   const rows = header(source, "Assumptions");
   rows.push({ cells: [{ kind: "text", text: "Input", role: "column" }, { kind: "text", text: "Value", role: "column" }, { kind: "text", text: "Path", role: "column" }] });
   const used = new Set<string>();
@@ -131,6 +93,7 @@ function assumptionsSheet(source: WorkbookSource, names: WorkbookLayout["names"]
       rows.push({ cells: [{ kind: "text", text: words(top), role: "section" }] });
     }
     const name = nameFor(leaf.path, used);
+    inputNames.set(leaf.path.join("."), name);
     names.push({ name, sheet: SHEET_NAMES.assumptions, address: `$B$${rows.length + 1}` });
     rows.push({
       outlineLevel: 1,
@@ -146,6 +109,19 @@ function assumptionsSheet(source: WorkbookSource, names: WorkbookLayout["names"]
 
 // -------------------------------------------------------------------- Monthly
 
+type PropertyRow = PropertyReturnsResult["propertyReturns"]["months"][number];
+
+/** One month's column, for a line's formula to read the other rows of the same month. */
+type MonthAt = {
+  position: number;
+  /** The month's heading date, with its row anchored. */
+  date: string;
+  /** The cell for a row key in this month's column. */
+  cell: (key: string) => string;
+  /** The same row one month earlier, or null in the first month. */
+  prior: (key: string) => string | null;
+};
+
 type MonthlyLine = {
   key: string;
   label: string;
@@ -153,33 +129,62 @@ type MonthlyLine = {
   read: (month: MonthlyDevelopmentCapital, property: PropertyRow | undefined) => number;
   /** A flow sums to a Total; a balance or rate has none. */
   total: false | { engineTotal: (totals: DevelopmentCapitalTotals, result: PropertyReturnsResult) => number | undefined };
+  /** Makes the month cells live. A line without one holds the engine's values. */
+  formula?: (at: MonthAt) => string;
+  /** A working row the engine has no figure for, such as one draw of a grant. */
+  working?: boolean;
 };
 
-type PropertyRow = PropertyReturnsResult["propertyReturns"]["months"][number];
+type MonthlyEntry = { section: string } | { line: MonthlyLine };
 
 const flow = (engineTotal: (totals: DevelopmentCapitalTotals, result: PropertyReturnsResult) => number | undefined = () => undefined) => ({ engineTotal });
 
-const CAPITAL_LINES: MonthlyLine[] = [
-  { key: "projectCosts", label: "Project Costs", format: "money", read: (m) => m.projectCosts, total: flow((t) => t.projectCosts) },
-  { key: "operatingCashFlow", label: "Operating Cash Flow", format: "money", read: (m) => m.operatingCashFlow, total: flow() },
-  { key: "loanFee", label: "Loan Fees", format: "money", read: (m) => m.loanFee, total: flow((t) => t.loanFees) },
-  { key: "grossInterest", label: "Gross Interest", format: "money", read: (m) => m.grossInterest, total: flow((t) => t.grossInterest) },
-  { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", format: "money", read: (m) => m.operatingCashAppliedToInterest, total: flow((t) => t.operatingCashAppliedToInterest) },
-  { key: "capitalizedInterest", label: "Capitalized Interest", format: "money", read: (m) => m.capitalizedInterest, total: flow((t) => t.capitalizedInterest) },
-  { key: "equityContribution", label: "Equity", format: "money", read: (m) => m.equityContribution, total: flow((t) => t.equity) },
-  { key: "debtBeforeReservesDraw", label: "Debt Before Reserves", format: "money", read: (m) => m.debtBeforeReservesDraw, total: flow((t) => t.debtBeforeReserves) },
-  { key: "interestReserveDraw", label: "Interest Reserve", format: "money", read: (m) => m.interestReserveDraw, total: flow((t) => t.interestReserve) },
-  { key: "operatingShortfallReserveDraw", label: "Operating Shortfall Reserve", format: "money", read: (m) => m.operatingShortfallReserveDraw, total: flow((t) => t.operatingShortfallReserve) },
-  { key: "totalDebtDraw", label: "Total Debt Draw", format: "money", read: (m) => m.totalDebtDraw, total: flow((t) => t.totalDebt) },
-  { key: "otherSourcesApplied", label: "Grants and Soft Loans Applied", format: "money", read: (m) => m.otherSourcesApplied, total: flow((t) => t.otherSourcesApplied) },
-  { key: "softLoanRepayment", label: "Soft Loan Repayment", format: "money", read: (m) => m.softLoanRepayment, total: flow((t) => t.softLoanRepayment) },
-  { key: "totalSources", label: "Total Sources", format: "money", read: (m) => m.totalSources, total: flow((t) => t.totalSources) },
-  { key: "totalUses", label: "Total Uses", format: "money", read: (m) => m.totalUses, total: flow((t) => t.totalUses) },
-  { key: "repayment", label: "Construction Loan Repayment", format: "money", read: (m) => m.repayment, total: flow() },
-  { key: "annualRatePercent", label: "Annual Rate", format: "percent_number", read: (m) => m.annualRatePercent, total: false },
-  { key: "openingDebtBalance", label: "Opening Debt Balance", format: "money", read: (m) => m.openingDebtBalance, total: false },
-  { key: "closingDebtBalance", label: "Closing Debt Balance", format: "money", read: (m) => m.closingDebtBalance, total: false },
-];
+/** The funding rows. Project costs, sources, uses and soft loan repayment are live; the loan rows wait for LA-1951. */
+function capitalLines(costs: CostsBuild["refs"], softLoanRepayments: string[]): MonthlyLine[] {
+  return [
+    { key: "projectCosts", label: "Project Costs", format: "money", read: (m) => m.projectCosts, total: flow((t) => t.projectCosts), formula: (at) => costs.monthTotal(at.position) },
+    { key: "operatingCashFlow", label: "Operating Cash Flow", format: "money", read: (m) => m.operatingCashFlow, total: flow() },
+    { key: "operatingShortfall", label: "Operating Shortfall", format: "money", read: (m) => m.operatingShortfall, total: flow((t) => t.operatingShortfall) },
+    { key: "loanFee", label: "Loan Fees", format: "money", read: (m) => m.loanFee, total: flow((t) => t.loanFees) },
+    { key: "grossInterest", label: "Gross Interest", format: "money", read: (m) => m.grossInterest, total: flow((t) => t.grossInterest) },
+    { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", format: "money", read: (m) => m.operatingCashAppliedToInterest, total: flow((t) => t.operatingCashAppliedToInterest) },
+    { key: "capitalizedInterest", label: "Capitalized Interest", format: "money", read: (m) => m.capitalizedInterest, total: flow((t) => t.capitalizedInterest) },
+    { key: "equityContribution", label: "Equity", format: "money", read: (m) => m.equityContribution, total: flow((t) => t.equity) },
+    { key: "debtBeforeReservesDraw", label: "Debt Before Reserves", format: "money", read: (m) => m.debtBeforeReservesDraw, total: flow((t) => t.debtBeforeReserves) },
+    { key: "interestReserveDraw", label: "Interest Reserve", format: "money", read: (m) => m.interestReserveDraw, total: flow((t) => t.interestReserve) },
+    { key: "operatingShortfallReserveDraw", label: "Operating Shortfall Reserve", format: "money", read: (m) => m.operatingShortfallReserveDraw, total: flow((t) => t.operatingShortfallReserve) },
+    { key: "totalDebtDraw", label: "Total Debt Draw", format: "money", read: (m) => m.totalDebtDraw, total: flow((t) => t.totalDebt) },
+    { key: "otherSourcesApplied", label: "Grants and Soft Loans Applied", format: "money", read: (m) => m.otherSourcesApplied, total: flow((t) => t.otherSourcesApplied) },
+    {
+      key: "softLoanRepayment",
+      label: "Soft Loan Repayment",
+      format: "money",
+      read: (m) => m.softLoanRepayment,
+      total: flow((t) => t.softLoanRepayment),
+      formula: (at) => softLoanRepayments.length === 0 ? "0" : softLoanRepayments.map((key) => at.cell(key)).join("+"),
+    },
+    {
+      key: "totalSources",
+      label: "Total Sources",
+      format: "money",
+      read: (m) => m.totalSources,
+      total: flow((t) => t.totalSources),
+      formula: (at) => `${at.cell("equityContribution")}+${at.cell("totalDebtDraw")}+${at.cell("otherSourcesApplied")}`,
+    },
+    {
+      key: "totalUses",
+      label: "Total Uses",
+      format: "money",
+      read: (m) => m.totalUses,
+      total: flow((t) => t.totalUses),
+      formula: (at) => `${at.cell("projectCosts")}+${at.cell("loanFee")}+${at.cell("operatingShortfall")}+${at.cell("capitalizedInterest")}`,
+    },
+    { key: "repayment", label: "Construction Loan Repayment", format: "money", read: (m) => m.repayment, total: flow() },
+    { key: "annualRatePercent", label: "Annual Rate", format: "percent_number", read: (m) => m.annualRatePercent, total: false },
+    { key: "openingDebtBalance", label: "Opening Debt Balance", format: "money", read: (m) => m.openingDebtBalance, total: false },
+    { key: "closingDebtBalance", label: "Closing Debt Balance", format: "money", read: (m) => m.closingDebtBalance, total: false },
+  ];
+}
 
 const PERMANENT_LINES: MonthlyLine[] = [
   { key: "permanentLoanProceeds", label: "Permanent Loan Proceeds", format: "money", read: (_, p) => p?.permanentLoanProceeds ?? 0, total: flow() },
@@ -194,19 +199,128 @@ const PROPERTY_LINES: MonthlyLine[] = [
   { key: "leveredCashFlow", label: "Levered Cash Flow", format: "money", read: (_, p) => p?.leveredCashFlow ?? 0, total: flow((_, r) => r.propertyReturns.returns.levered.netProfit) },
 ];
 
+/**
+ * LA-1949, other-sources.ts line for line: a draw lands in its month, a soft loan accrues
+ * interest on the opening balance (rounded to the cent) and repays balance, draws and
+ * interest in the repayment month. A grant has draws only.
+ */
+function otherSourceLines(ctx: LayoutContext, sources: OtherFundingSource[], monthKeys: string[]) {
+  const schedule = scheduleOtherSources(sources, monthKeys);
+  const lines: MonthlyLine[] = [];
+  const repaymentKeys: string[] = [];
+  const draws = new Map<string, string>();
+  const dollars = (cents: number) => cents / 100;
+  const monthPosition = (month: string) => monthKeys.indexOf(month);
+  sources.forEach((entry, sourceIndex) => {
+    const s = sourceIndex + 1;
+    const input = (path: string) => ctx.input(`otherSources.${s}.${path}`);
+    const months = schedule[sourceIndex].months;
+    const at = (month: MonthlyDevelopmentCapital) => months[monthPosition(month.month)];
+    const drawKeys = entry.draws.map((_, drawIndex) => `other.${s}.draw.${drawIndex + 1}`);
+    const keys = { draws: `other.${s}.draws`, interest: `other.${s}.interest`, repayment: `other.${s}.repayment`, balance: `other.${s}.balance` };
+    const isLoan = entry.kind === "soft_loan";
+    entry.draws.forEach((_, drawIndex) => {
+      const d = drawIndex + 1;
+      lines.push({
+        key: drawKeys[drawIndex],
+        label: `${entry.name}: Draw ${d}`,
+        format: "money",
+        read: () => 0,
+        total: false,
+        working: true,
+        formula: (month) => `IF(${monthCount(month.date)}=${monthCount(dateOfMonthText(input(`draws.${d}.month`)))},${input(`draws.${d}.amount`)},0)`,
+      });
+    });
+    draws.set(entry.id, keys.draws);
+    lines.push({
+      key: keys.draws,
+      label: `${entry.name}: ${isLoan ? "Soft Loan" : "Grant"} Draws`,
+      format: "money",
+      read: (month) => dollars(at(month).drawCents),
+      total: flow(),
+      formula: (month) => `SUM(${month.cell(drawKeys[0])}:${month.cell(drawKeys[drawKeys.length - 1])})`,
+    });
+    if (!isLoan) return;
+    repaymentKeys.push(keys.repayment);
+    lines.push(
+      {
+        key: keys.interest,
+        label: `${entry.name}: Interest Accrued`,
+        format: "money",
+        read: (month) => dollars(at(month).interestCents),
+        total: flow(),
+        formula: (month) => {
+          const prior = month.prior(keys.balance);
+          return prior === null ? "0" : `ROUND(${prior}*${input("annualInterestRatePercent")}/12/100,2)`;
+        },
+      },
+      {
+        key: keys.repayment,
+        label: `${entry.name}: Repayment`,
+        format: "money",
+        read: (month) => dollars(at(month).repaymentCents),
+        total: flow(),
+        formula: (month) => {
+          const prior = month.prior(keys.balance) ?? "0";
+          return `IF(${monthCount(month.date)}=${monthCount(dateOfMonthText(input("repaymentMonth")))},${prior}+${month.cell(keys.draws)}+${month.cell(keys.interest)},0)`;
+        },
+      },
+      {
+        key: keys.balance,
+        label: `${entry.name}: Closing Balance`,
+        format: "money",
+        read: (month) => dollars(at(month).closingBalanceCents),
+        total: false,
+        formula: (month) => `${month.prior(keys.balance) ?? "0"}+${month.cell(keys.draws)}+${month.cell(keys.interest)}-${month.cell(keys.repayment)}`,
+      },
+    );
+  });
+  return { lines, repaymentKeys, draws };
+}
+
 /** Engine values are whole cents; the sum of a month row is rounded the same way. */
 function centsSum(values: number[]) {
   return values.reduce((sum, value) => sum + Math.round(value * 100), 0) / 100;
 }
 
-function monthlySheet(source: WorkbookSource): LayoutSheet {
+type MonthlyBuild = {
+  sheet: LayoutSheet;
+  /** The Total column of a funding row, for the sources and uses sheet. */
+  total: (key: string) => string;
+  otherSourceDraws: (sourceId: string) => string;
+};
+
+function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"]): MonthlyBuild {
+  const { source } = ctx;
   const { developmentCapital, propertyReturns } = source.result;
   const months = developmentCapital.months;
+  const monthKeys = months.map(({ month }) => month);
   const property = new Map(propertyReturns.months.map((row) => [row.month, row]));
   const firstMonthColumn = 2;
   const lastMonthColumn = firstMonthColumn + months.length - 1;
-  const rows = header(source, "Monthly Cash Flow");
+  const sources = (source.inputs as PropertyReturnsInputs).otherSources ?? [];
+  const other = otherSourceLines(ctx, sources, monthKeys);
 
+  const entries: MonthlyEntry[] = [
+    { section: "Development Costs and Funding" },
+    ...capitalLines(costs, other.repaymentKeys).map((line): MonthlyEntry => ({ line })),
+    ...(other.lines.length > 0 ? [{ section: "Grants and Soft Loans" } as MonthlyEntry, ...other.lines.map((line): MonthlyEntry => ({ line }))] : []),
+    ...(developmentCapital.permanentLoan ? [{ section: "Permanent Loan" } as MonthlyEntry, ...PERMANENT_LINES.map((line): MonthlyEntry => ({ line }))] : []),
+    { section: "Property Cash Flow" },
+    ...PROPERTY_LINES.map((line): MonthlyEntry => ({ line })),
+  ];
+  const headingRow = HEADER_ROWS;
+  const rowIndexOf = new Map<string, number>();
+  entries.forEach((entry, index) => {
+    if ("line" in entry) rowIndexOf.set(entry.line.key, headingRow + 1 + index);
+  });
+  const rowOf = (key: string) => {
+    const row = rowIndexOf.get(key);
+    if (row === undefined) throw new Error(`The Monthly sheet has no row ${key}.`);
+    return row + 1;
+  };
+
+  const rows = header(source, "Monthly Cash Flow");
   rows.push({
     cells: [
       { kind: "text", text: "Line", role: "column" },
@@ -215,40 +329,61 @@ function monthlySheet(source: WorkbookSource): LayoutSheet {
     ],
   });
 
-  const section = (title: string, lines: MonthlyLine[]) => {
-    rows.push({ cells: [{ kind: "text", text: title, role: "section" }] });
-    for (const line of lines) {
-      const rowIndex = rows.length;
-      const values = months.map((month) => line.read(month, property.get(month.month)));
-      const total: LayoutCell | null = line.total
-        ? {
-          kind: "output",
-          id: `monthly.${line.key}.total`,
-          format: line.format,
-          engineValue: line.total.engineTotal(developmentCapital.totals, source.result) ?? centsSum(values),
-          formula: `SUM(${cellAddress(rowIndex, firstMonthColumn)}:${cellAddress(rowIndex, lastMonthColumn)})`,
-        }
-        : null;
-      rows.push({
-        outlineLevel: 1,
-        cells: [
-          { kind: "text", text: line.label, role: "label" },
-          total,
-          ...values.map((engineValue, index): LayoutCell => ({ kind: "output", id: `monthly.${line.key}.${months[index].month}`, format: line.format, engineValue })),
-        ],
-      });
+  for (const entry of entries) {
+    if ("section" in entry) {
+      rows.push({ cells: [{ kind: "text", text: entry.section, role: "section" }] });
+      continue;
     }
-  };
+    const { line } = entry;
+    const rowIndex = rows.length;
+    const values = months.map((month) => line.read(month, property.get(month.month)));
+    const at = (position: number): MonthAt => {
+      const letter = columnLetter(firstMonthColumn + position);
+      const previous = position === 0 ? null : columnLetter(firstMonthColumn + position - 1);
+      return {
+        position,
+        date: `${letter}$${headingRow + 1}`,
+        cell: (key) => `${letter}${rowOf(key)}`,
+        prior: (key) => (previous === null ? null : `${previous}${rowOf(key)}`),
+      };
+    };
+    const total: LayoutCell | null = line.total && !line.working
+      ? {
+        kind: "output",
+        id: `monthly.${line.key}.total`,
+        format: line.format,
+        engineValue: line.total.engineTotal(developmentCapital.totals, source.result) ?? centsSum(values),
+        formula: `SUM(${cellAddress(rowIndex, firstMonthColumn)}:${cellAddress(rowIndex, lastMonthColumn)})`,
+      }
+      : null;
+    rows.push({
+      outlineLevel: line.working ? 2 : 1,
+      cells: [
+        { kind: "text", text: line.label, role: "label" },
+        total,
+        ...values.map((engineValue, index): LayoutCell => {
+          const formula = line.formula?.(at(index));
+          if (line.working) return { kind: "calc", format: line.format, formula: formula! };
+          return { kind: "output", id: `monthly.${line.key}.${months[index].month}`, format: line.format, engineValue, ...(formula ? { formula } : {}) };
+        }),
+      ],
+    });
+  }
 
-  section("Development Costs and Funding", CAPITAL_LINES);
-  if (developmentCapital.permanentLoan) section("Permanent Loan", PERMANENT_LINES);
-  section("Property Cash Flow", PROPERTY_LINES);
-
-  return {
+  const sheet: LayoutSheet = {
     name: SHEET_NAMES.monthly,
     columnWidths: [36, 16, ...months.map(() => 13)],
     frozen: { rows: HEADER_ROWS + 1, columns: 2 },
     rows,
+  };
+  return {
+    sheet,
+    total: (key) => sheetRef(SHEET_NAMES.monthly, `B${rowOf(key)}`),
+    otherSourceDraws: (sourceId) => {
+      const key = other.draws.get(sourceId);
+      if (!key) throw new Error(`The Monthly sheet has no schedule for the source ${sourceId}.`);
+      return sheetRef(SHEET_NAMES.monthly, `B${rowOf(key)}`);
+    },
   };
 }
 
@@ -356,8 +491,37 @@ function returnsSheet(source: WorkbookSource): LayoutSheet {
 
 export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayout {
   const names: WorkbookLayout["names"] = [];
-  const assumptions = assumptionsSheet(source, names);
-  return { sheets: [returnsSheet(source), monthlySheet(source), annualSheet(source), assumptions], names };
+  const inputNames = new Map<string, string>();
+  const assumptions = assumptionsSheet(source, names, inputNames);
+  const ctx: LayoutContext = {
+    source,
+    input: (path) => {
+      const name = inputNames.get(path);
+      if (!name) throw new Error(`The Assumptions sheet holds no input at ${path}.`);
+      return name;
+    },
+    has: (path) => inputNames.has(path),
+  };
+  const costs = buildCostsSheets(ctx, costScheduleFor(ctx));
+  const monthly = monthlySheet(ctx, costs.refs);
+  costs.refs.linkFinancing(`${monthly.total("loanFee")}+${monthly.total("operatingShortfall")}+${monthly.total("capitalizedInterest")}`);
+  const sourcesAndUses = buildSourcesAndUsesSheet(ctx, {
+    costs: costs.refs,
+    monthlyTotal: monthly.total,
+    otherSourceDraws: monthly.otherSourceDraws,
+  });
+  return {
+    sheets: [
+      returnsSheet(source),
+      sourcesAndUses,
+      monthly.sheet,
+      costs.costs,
+      ...(costs.settling ? [costs.settling] : []),
+      annualSheet(source),
+      assumptions,
+    ],
+    names,
+  };
 }
 
 export type LayoutOutput = { sheet: string; address: string; cell: Extract<LayoutCell, { kind: "output" }> };

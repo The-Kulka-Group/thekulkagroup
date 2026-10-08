@@ -32,8 +32,15 @@ const V2_98 = sourceFor("v2.98 Public Sample", APARTMENT_DEVELOPMENT_V2_98_SCORE
 describe("underwriting workbook layout", () => {
   const layout = underwritingWorkbookLayout(V2_98);
 
-  it("lays out the four tabs", () => {
-    expect(layout.sheets.map(({ name }) => name)).toEqual([SHEET_NAMES.returns, SHEET_NAMES.monthly, SHEET_NAMES.annual, SHEET_NAMES.assumptions]);
+  it("lays out the tabs, with Percent Settling only when a percent of total line needs it", () => {
+    expect(layout.sheets.map(({ name }) => name)).toEqual([
+      SHEET_NAMES.returns,
+      SHEET_NAMES.sourcesAndUses,
+      SHEET_NAMES.monthly,
+      SHEET_NAMES.costs,
+      SHEET_NAMES.annual,
+      SHEET_NAMES.assumptions,
+    ]);
   });
 
   it("gives every output a finite engine value and a unique id", () => {

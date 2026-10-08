@@ -30,6 +30,13 @@ import {
   type PeakEquity,
 } from "./partnership-waterfall";
 import { abatementValueAtSale, propertyTaxScheduleEndMonth, type PropertyTaxResult } from "./property-tax";
+import {
+  residualLandLineIssues,
+  solveResidualLand,
+  validateResidualLandPlan,
+  type ResidualLandPlan,
+  type ResidualLandResult,
+} from "./residual-land";
 import { commercialTaxSharePercentFor, splitNoiByUse, valueByUse, type UseSplit } from "./use-split";
 import { xirr, xnpv, yearsFrom, type XirrResult } from "./xirr";
 
@@ -116,6 +123,8 @@ export type PropertyReturnsPlan = {
   saleTax?: SaleTaxPlan;
   /** LP and GP funding and the distribution waterfall on levered cash flow (LA-1863). Absent runs no waterfall. */
   partnership?: PartnershipPlan;
+  /** The land price that meets a target return, solved on copies of the inputs (LA-1975). Absent runs no solve. */
+  residualLand?: ResidualLandPlan;
 };
 
 export type PropertyReturnsInputs = DevelopmentCapitalInputs & PropertyReturnsPlan;
@@ -187,7 +196,8 @@ export type PropertyReturnsIssueCode =
   | "missing_sale_tax_basis"
   | "invalid_commercial_cap"
   | "invalid_partnership"
-  | "partnership_outside_timeline";
+  | "partnership_outside_timeline"
+  | "invalid_residual_land";
 
 export type PropertyReturnsIssue = {
   path: string;
@@ -289,6 +299,11 @@ export type PropertyReturnsResult = {
    * earlier read it as null and show no annual view.
    */
   annualCashFlow: AnnualCashFlowViews | null;
+  /**
+   * The land price that meets the case's target return (LA-1975). Present only when the case states a
+   * target, so runs without one keep their exact shape. The stated run above never changes.
+   */
+  residualLand?: ResidualLandResult;
 };
 
 export type PropertyReturnsRun = {
@@ -314,6 +329,11 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
   }
   const capIssues = commercialCapIssuesFor(inputSnapshot);
   if (capIssues.length > 0) return failedFull(inputSnapshot, capIssues);
+  if (inputSnapshot.residualLand !== undefined) {
+    const residualIssues = validateResidualLandPlan(inputSnapshot.residualLand);
+    const lineIssues = residualIssues.length > 0 ? [] : residualLandLineIssues(inputSnapshot);
+    if (residualIssues.length > 0 || lineIssues.length > 0) return failedFull(inputSnapshot, [...residualIssues, ...lineIssues]);
+  }
   const firstCapitalRun = computeDevelopmentCapital(inputSnapshot);
   if (firstCapitalRun.status === "failed" || !firstCapitalRun.result) {
     return failedFull(inputSnapshot, firstCapitalRun.issues);
@@ -472,7 +492,7 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
     .some((view) => view && annualCashFlowChecks(view).some(({ status }) => status === "fail"))) {
     return failedFull(inputSnapshot, [{ path: "annualCashFlow", code: "derived_results", message: "The annual cash flow did not add up to the monthly results within one cent." }]);
   }
-  return {
+  const statedRun: PropertyReturnsRun = {
     formulaVersion: PROPERTY_RETURNS_FORMULA_VERSION,
     inputSnapshot,
     status: "complete",
@@ -490,6 +510,21 @@ export function computePropertyReturns(input: PropertyReturnsInputs): PropertyRe
       annualCashFlow: annual.views,
     },
     reconciliations: [...capitalRun.reconciliations, ...calculation.reconciliations, ...sizingChecks, ...valueSplitChecks, ...(partnershipRun?.reconciliations ?? [])],
+  };
+  if (inputSnapshot.residualLand === undefined) return statedRun;
+  /*
+   * LA-1975: the solve reruns this function on copies of the inputs with only the land line changed, so
+   * every loop above settles inside each trial. A solve that cannot find a price still leaves the stated
+   * run complete; only a residual check that fails fails the run, because that means the engine is wrong.
+   */
+  const residualLand = solveResidualLand(inputSnapshot, statedRun, computePropertyReturns);
+  if (residualLand.reconciliations.some(({ status }) => status === "fail")) {
+    return failedFull(inputSnapshot, [{ path: "residualLand", code: "derived_results", message: "The residual land price did not settle on the target within one cent." }]);
+  }
+  return {
+    ...statedRun,
+    result: { ...statedRun.result!, residualLand },
+    reconciliations: [...statedRun.reconciliations, ...residualLand.reconciliations],
   };
 }
 
@@ -655,6 +690,7 @@ export function validatePropertyReturnsPlan(plan: PropertyReturnsPlan): Property
   if (plan.lenderTests !== undefined) issues.push(...validateLenderTestPlan(plan.lenderTests));
   if (plan.saleTax !== undefined) issues.push(...validateSaleTaxPlan(plan.saleTax));
   if (plan.partnership !== undefined) issues.push(...validatePartnershipPlan(plan.partnership));
+  if (plan.residualLand !== undefined) issues.push(...validateResidualLandPlan(plan.residualLand));
   return issues;
 }
 

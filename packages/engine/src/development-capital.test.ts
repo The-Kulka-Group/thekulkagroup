@@ -13,6 +13,7 @@ import {
   type MonthlyDevelopmentCashFlow,
 } from "./development-capital";
 import { APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE } from "./fixtures/apartment-development-model-v2.98-capital";
+import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "./fixtures/apartment-development-model-v2.98-scorecard";
 
 const evidence = {
   targetDebtSharePercent: { sourceLabel: "Capital plan", sourceDate: "2026-08-01", reviewState: "done" as const },
@@ -195,6 +196,15 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     expect(run.status).toBe("complete");
     expect(run.result?.reconciliations.every(({ status }) => status === "pass")).toBe(true);
     expect(run.result?.months.at(-1)?.closingDebtBalance).toBe(0);
+  });
+
+  it("settles an equity commitment the cent rounding leaves bouncing between two amounts", () => {
+    // LA-1975: at this land price the iteration bounced between two commitments two cents apart and the run failed with funding_solution.
+    const input = structuredClone(APARTMENT_DEVELOPMENT_V2_98_SCORECARD.engineInputs);
+    input.costLines.find(({ id }) => id === "land-costs")!.amount = 10_903_804.42;
+    const run = computeDevelopmentCapital(input);
+    expect(run.status).toBe("complete");
+    expect(run.reconciliations.every(({ status }) => status === "pass")).toBe(true);
   });
 
   it("does not allow a loan fee draw after the payoff month", () => {

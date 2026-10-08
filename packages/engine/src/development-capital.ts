@@ -308,6 +308,8 @@ export type DevelopmentCapitalRun = {
 };
 
 export const MAX_FINANCING_ROUNDS = 100;
+/** The widest rounding cycle in the equity solve, in cents, whose cents are each tried before the solve gives up. */
+export const MAX_EQUITY_CYCLE_SPAN_CENTS = 100;
 
 export function computeDevelopmentCapital(input: DevelopmentCapitalInputs, options: DevelopmentCapitalOptions = {}): DevelopmentCapitalRun {
   const inputSnapshot = structuredClone(input);
@@ -744,14 +746,33 @@ function solveEquityCommitment(
       + (takeoutIndex !== null && monthIndex(month.month)! > takeoutIndex ? 0 : Math.max(-cents(month.operatingCashFlow), 0)),
     loanFeeCents,
   );
+  const equityNeedFor = (equity: number) => {
+    const simulation = simulate(months, plan, loanFeeCents, equity, schedule, takeout);
+    const totalUsesCents = simulation.months.reduce((sum, month) => sum + cents(month.totalUses), 0);
+    return totalUsesCents - targetDebtCents(totalUsesCents) - otherTotalCents;
+  };
   let equityCents = Math.max(baseCents - targetDebtCents(baseCents) - otherTotalCents, 0);
+  let previousCents: number | null = null;
   const seen = new Set<number>();
   for (let iteration = 0; iteration < 200; iteration += 1) {
-    if (seen.has(equityCents)) return { kind: "unsettled" };
+    if (seen.has(equityCents)) {
+      /*
+       * LA-1975: rounding to the cent can leave the iteration bouncing between two amounts a few cents
+       * apart, with the true commitment between them. Each cent between the two is tried in turn.
+       */
+      if (previousCents === null) return { kind: "unsettled" };
+      const low = Math.min(equityCents, previousCents);
+      const high = Math.max(equityCents, previousCents);
+      if (high - low > MAX_EQUITY_CYCLE_SPAN_CENTS) return { kind: "unsettled" };
+      for (let candidate = low; candidate <= high; candidate += 1) {
+        const need = equityNeedFor(candidate);
+        if (need >= -1 && Math.abs(Math.max(need, 0) - candidate) <= 1) return { kind: "solved", cents: candidate };
+      }
+      return { kind: "unsettled" };
+    }
     seen.add(equityCents);
-    const simulation = simulate(months, plan, loanFeeCents, equityCents, schedule, takeout);
-    const totalUsesCents = simulation.months.reduce((sum, month) => sum + cents(month.totalUses), 0);
-    const nextEquityCents = totalUsesCents - targetDebtCents(totalUsesCents) - otherTotalCents;
+    previousCents = equityCents;
+    const nextEquityCents = equityNeedFor(equityCents);
     if (nextEquityCents < -1) {
       if (equityCents === 0) return { kind: "negative" };
       equityCents = 0;

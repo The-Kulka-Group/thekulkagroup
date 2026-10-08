@@ -403,6 +403,28 @@ describe("lender DSCR with a permanent loan", () => {
     expect(plain.developmentCapital.permanentLoan).toBeUndefined();
   });
 
+  it("needs no stated debt service when the permanent loan supplies it (LA-1944)", () => {
+    const unstated = lenderTests();
+    delete unstated.annualDebtService;
+    const { result, loan: permanent } = complete(withLoan(loan(), { lenderTests: unstated }));
+    expect(result.lenderTests!.debtServiceSource).toBe("permanent_loan");
+    expect(dscr(result).value).toBeCloseTo(result.lenderTests!.stabilizedNoi / permanent.annualDebtService, 12);
+    expect(result.lenderTests!.issues).toEqual([]);
+  });
+
+  it("reports no DSCR and says what to enter when neither a stated figure nor a permanent loan exists (LA-1944)", () => {
+    const unstated = lenderTests();
+    delete unstated.annualDebtService;
+    const plain = complete(withLoan(undefined, { lenderTests: unstated })).result;
+    expect(dscr(plain).value).toBeNull();
+    expect(plain.lenderTests!.metrics.find(({ key }) => key === "loanToValue")!.value).not.toBeNull();
+    expect(plain.lenderTests!.issues).toEqual([expect.objectContaining({
+      path: "lenderTests.annualDebtService",
+      code: "zero_debt_service",
+      message: "No annual debt service is stated, so DSCR is not reported. Enter one or add a permanent loan.",
+    })]);
+  });
+
   it("works beside construction loan sizing caps", () => {
     const tests = { ...lenderTests(), loanSizing: { noiTaxBasis: "full_tax" as const, maxLoanToValuePercent: 50, evidence } };
     const { result, loan: permanent } = complete(withLoan(loan(), { lenderTests: tests }));

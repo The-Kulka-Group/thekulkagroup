@@ -7,6 +7,7 @@ import {
   type PropertyReturnsIssue,
   type PropertyReturnsPlan,
 } from "@kulka/engine";
+import { saveMessage } from "./save-message";
 
 export type PropertyReturnsDraft = PropertyReturnsPlan;
 
@@ -28,7 +29,7 @@ function knownLenderTestFields(value: unknown) {
     lenderTestInputVersion: plan.lenderTestInputVersion,
     valuationMonth: plan.valuationMonth,
     asStabilizedCapRatePercent: plan.asStabilizedCapRatePercent,
-    annualDebtService: plan.annualDebtService,
+    ...(plan.annualDebtService === undefined || plan.annualDebtService === null || plan.annualDebtService === "" ? {} : { annualDebtService: plan.annualDebtService }),
     noiBasis: plan.noiBasis,
     ...(plan.commercialCapRatePercent === undefined || plan.commercialCapRatePercent === null ? {} : { commercialCapRatePercent: plan.commercialCapRatePercent }),
     ...(plan.debtServiceBasis === undefined || plan.debtServiceBasis === null ? {} : { debtServiceBasis: plan.debtServiceBasis }),
@@ -145,7 +146,7 @@ export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
   const issues = validatePropertyReturnsPlan(draft);
   if (issues.length > 0) {
     throw new InvalidPropertyReturns(
-      "Review the property sale and returns fields.",
+      saveMessage("Review the property sale and returns fields.", issues),
       issues,
       Object.fromEntries(issues.map((issue) => [issue.path, issue.message])),
     );

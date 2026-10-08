@@ -155,6 +155,12 @@ describe("lender test plan validation", () => {
     expect(codes(lenderPlan({ annualDebtService: 10.005 }))).toEqual(["lenderTests.annualDebtService:invalid_amount"]);
   });
 
+  it("accepts a plan with no stated debt service (LA-1944)", () => {
+    const unstated = lenderPlan();
+    delete unstated.annualDebtService;
+    expect(codes(unstated)).toEqual([]);
+  });
+
   it("rejects a bad month, basis, version and missing evidence", () => {
     expect(codes(lenderPlan({ valuationMonth: "2028-13" }))).toEqual(["lenderTests.valuationMonth:invalid_month"]);
     expect(codes(lenderPlan({ noiBasis: "gross" as LenderTestPlan["noiBasis"] }))).toEqual(["lenderTests.noiBasis:invalid_noi_basis"]);

@@ -5,6 +5,7 @@ import {
   type DevelopmentCapitalIssue,
   type DevelopmentCapitalPlan,
 } from "@kulka/engine";
+import { saveMessage } from "./save-message";
 
 export type DevelopmentCapitalDraft = DevelopmentCapitalPlan;
 
@@ -48,7 +49,7 @@ export function parseDevelopmentCapital(
       "path" in issue && !isOperationsPath(issue.path),
     );
     throw new InvalidDevelopmentCapital(
-      "Review the development capital fields.",
+      saveMessage("Review the development capital fields.", issues),
       issues,
       Object.fromEntries(issues.map((issue) => [issue.path, issue.message])),
     );

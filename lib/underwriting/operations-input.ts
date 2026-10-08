@@ -6,6 +6,7 @@ import {
   type ApartmentOperationsIssue,
   type MonthlyCostScheduleInputs,
 } from "@kulka/engine";
+import { saveMessage } from "./save-message";
 
 export type ApartmentOperationsDraft = Omit<ApartmentOperationsInputs,
   "analysisStartMonth" | "saleMonth" | "costLines">;
@@ -169,7 +170,7 @@ export function parseApartmentOperations(
       && !item.path.startsWith("milestones") && item.path !== "saleAnchor"
       && item.path !== "analysisStartMonth" && item.path !== "saleMonth");
     throw new InvalidApartmentOperations(
-      "Review the apartment operations fields.",
+      saveMessage("Review the apartment operations fields.", issues),
       issues,
       Object.fromEntries(issues.map((item) => [item.path, item.message])),
     );

@@ -3,12 +3,16 @@ import {
   APARTMENT_OPERATIONS_ASSUMPTION_KEYS,
   type ApartmentOperationsAssumptionKey,
   type ApartmentOperationsInputs,
+  type CommercialOperations,
+  type CommercialSpace,
   DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS,
   type DevelopmentCapitalAssumptionKey,
   type DevelopmentCapitalPlan,
   LENDER_TEST_ASSUMPTION_KEYS,
   LENDER_TEST_COMMERCIAL_CAP_KEY,
+  leaseStartMonthFor,
   type LenderTestPlan,
+  type Milestone,
   PARTNERSHIP_ASSUMPTION_KEYS,
   type PartnershipAssumptionKey,
   type PartnershipPlan,
@@ -308,11 +312,28 @@ function withCurrentAnchoredMonths(
     payoffMonth: capital?.payoffMonth,
   };
   resolveMilestoneAnchors(target);
+  const withMonths = operations && target.operationStartMonth !== undefined && target.growthStartMonth !== undefined
+    ? { ...operations, operationStartMonth: target.operationStartMonth, growthStartMonth: target.growthStartMonth }
+    : operations;
   return {
-    operations: operations && target.operationStartMonth !== undefined && target.growthStartMonth !== undefined
-      ? { ...operations, operationStartMonth: target.operationStartMonth, growthStartMonth: target.growthStartMonth }
-      : operations,
+    operations: withMonths?.commercial ? withCurrentLeaseStarts(withMonths, costSchedule.milestones) : withMonths,
     capital: capital && target.payoffMonth !== undefined ? { ...capital, payoffMonth: target.payoffMonth } : capital,
+  };
+}
+
+/** A commercial space anchored to a milestone reads the anchor's current month, the same as the engine does on a run. */
+function withCurrentLeaseStarts(operations: SavedApartmentOperations, milestones: Milestone[]): SavedApartmentOperations {
+  const commercial = operations.commercial!;
+  return {
+    ...operations,
+    commercial: {
+      ...commercial,
+      spaces: commercial.spaces.map((space) => {
+        if (space.leaseStartAnchor === undefined) return space;
+        const month = leaseStartMonthFor(space, milestones);
+        return month === null ? space : { ...space, leaseStartMonth: month };
+      }),
+    },
   };
 }
 
@@ -1156,7 +1177,19 @@ function reconcileOperationsReview(
     ...(draft.stabilizationRule ? { stabilizationRule: reconcileBlockReview(existing?.stabilizationRule, draft.stabilizationRule) } : {}),
     ...(draft.leaseTurnover ? { leaseTurnover: reconcileBlockReview(existing?.leaseTurnover, draft.leaseTurnover) } : {}),
     ...(draft.categoryGrowth ? { categoryGrowth: reconcileBlockReview(existing?.categoryGrowth, draft.categoryGrowth) } : {}),
+    ...(draft.commercial ? { commercial: reconcileCommercialReview(existing?.commercial, draft.commercial) } : {}),
   };
+}
+
+/**
+ * Each space keeps its own review state, and the block's own terms (commercial vacancy and credit
+ * loss) keep another, so editing one space never sends the others or the block back to Working on It.
+ */
+function reconcileCommercialReview(existing: CommercialOperations | undefined, draft: CommercialOperations): CommercialOperations {
+  const { spaces: existingSpaces, ...existingBlock } = existing ?? { spaces: [] as CommercialSpace[] };
+  const { spaces: draftSpaces, ...draftBlock } = draft;
+  const block = existing ? reconcileBlockReview(existingBlock as Omit<CommercialOperations, "spaces">, draftBlock) : draftBlock;
+  return { ...block, spaces: reconcileLineReview(existing ? existingSpaces : undefined, draftSpaces) };
 }
 
 /** An optional block whose values or source change goes back to Working on It. */

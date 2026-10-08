@@ -1721,6 +1721,17 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-money-lines { min-width: 1120px; }
 .underwriting-money-lines--ramp { min-width: 1400px; }
 .underwriting-seasonal-factors { min-width: 1080px; }
+.underwriting-commercial-spaces { min-width: 1900px; }
+.underwriting-commercial-recoveries { min-width: 900px; }
+.underwriting-commercial-results { min-width: 1500px; }
+.underwriting-recovery-lines {
+  display: grid;
+  gap: var(--s1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.underwriting-recovery-lines .underwriting-checkbox { margin-bottom: 0; }
 .underwriting-operations-results { min-width: 2500px; }
 .underwriting-operations-table th,
 .underwriting-operations-table td {

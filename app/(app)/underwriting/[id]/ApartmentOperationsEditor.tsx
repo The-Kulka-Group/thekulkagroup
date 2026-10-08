@@ -15,6 +15,7 @@ import {
   type ApartmentOperationsAssumptionKey,
   type CapitalExpenditureLine,
   type CategoryGrowth,
+  type CommercialOperations,
   type LeaseTurnover,
   type LeaseUpConcession,
   type OccupancyCap,
@@ -28,6 +29,7 @@ import {
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 
+import { CommercialSection } from "./CommercialSection";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 import { GrowthSection } from "./GrowthSection";
 import { LeaseUpSection } from "./LeaseUpSection";
@@ -64,6 +66,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [stabilizationRule, setStabilizationRule] = useState<StabilizationRule | undefined>(saved?.stabilizationRule);
   const [leaseTurnover, setLeaseTurnover] = useState<LeaseTurnover | undefined>(saved?.leaseTurnover);
   const [categoryGrowth, setCategoryGrowth] = useState<CategoryGrowth | undefined>(saved?.categoryGrowth);
+  const [commercial, setCommercial] = useState<CommercialOperations | undefined>(saved?.commercial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -117,6 +120,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
           ...(stabilizationRule ? { stabilizationRule } : {}),
           ...(leaseTurnover ? { leaseTurnover } : {}),
           ...(categoryGrowth ? { categoryGrowth } : {}),
+          ...(commercial ? { commercial } : {}),
         }),
       });
       const body = await responseBody(response);
@@ -242,10 +246,19 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       <MoneyLineSection title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" canAdd={canAddLine} lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_occupied_unit_month", "USD per Occupied Unit per Month"],
       ]} fieldErrors={fieldErrors} />
-      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate. Variable share scales a line with leased units during lease-up; lead months start it before operation start at its fixed share." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" ramp="variable_and_lead" units={[
+      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate. Variable share scales a line with leased units during lease-up; lead months start it before operation start at its fixed share. A line that applies to the commercial spaces starts its lead months before the first commercial lease, takes no per-unit amount and no variable share, and as a percent of revenue reads commercial effective gross revenue." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" ramp="variable_and_lead" appliesTo units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"], ["percent_effective_gross_revenue", "Percent of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
       <PropertyTaxSection plan={propertyTax} setPlan={setPropertyTax} fieldErrors={fieldErrors} />
+      <CommercialSection
+        commercial={commercial}
+        setCommercial={setCommercial}
+        expenseLines={operatingExpenseLines}
+        hasPropertyTax={Boolean(propertyTax)}
+        milestones={milestones}
+        defaultMonth={operationStartMonth}
+        fieldErrors={fieldErrors}
+      />
       <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow. Variable share scales a line with leased units during lease-up." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" ramp="variable" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"],
       ]} fieldErrors={fieldErrors} />
@@ -317,9 +330,11 @@ function LineSection({ title, description, addLabel, canAdd, onAdd, children }: 
   return <section className="underwriting-line-section"><div className="underwriting-section-head"><div><h4>{title}</h4><p className="t-meta">{description}</p></div><button className="btn btn--secondary" type="button" onClick={onAdd} disabled={!canAdd}>{addLabel}</button></div>{children}</section>;
 }
 
-function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors, ramp }: {
+function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors, ramp, appliesTo = false }: {
   /** Lease-up ramp columns: variable share, and for operating expenses lead months too. */
   ramp?: "variable" | "variable_and_lead";
+  /** Adds the Applies To choice, Residential or Commercial (LA-1871). Operating expenses only. */
+  appliesTo?: boolean;
   title: string;
   description: string;
   addLabel: string;
@@ -334,14 +349,20 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, c
     <LineSection title={title} description={description} addLabel={addLabel} canAdd={canAdd} onAdd={() => setLines((current) => [...current, blankMoneyLine(units[0][0]) as T])}>
       <div className="underwriting-edit-table-wrap">
         <table className={`underwriting-operations-table underwriting-money-lines${ramp ? " underwriting-money-lines--ramp" : ""}`}>
-          <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th>{ramp ? <th className="right">Variable Share</th> : null}{ramp === "variable_and_lead" ? <th className="right">Lead Months</th> : null}<th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
+          <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th>{appliesTo ? <th>Applies To</th> : null}{ramp ? <th className="right">Variable Share</th> : null}{ramp === "variable_and_lead" ? <th className="right">Lead Months</th> : null}<th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
           <tbody>{lines.map((line, index) => {
             const linePath = `${path}.${index}`;
             const unit = controlProps(`${linePath}.unit`, fieldErrors[`${linePath}.unit`]);
+            const commercialLine = (line as OperatingExpenseLine).appliesTo === "commercial";
+            const unitChoices = commercialLine ? units.filter(([value]) => value !== "usd_per_unit_year") : units;
+            const appliesToControl = controlProps(`${linePath}.appliesTo`, fieldErrors[`${linePath}.appliesTo`]);
             return <tr key={line.id}>
               <td><TextInput path={`${linePath}.name`} label={`${title} line ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setLines, index, { name } as Partial<T>)} error={fieldErrors[`${linePath}.name`]} /></td>
               <td><NumberInput path={`${linePath}.amount`} label={`${line.name || `${title} line ${index + 1}`} amount`} value={line.amount} onChange={(amount) => updateAt(setLines, index, { amount } as Partial<T>)} error={fieldErrors[`${linePath}.amount`]} min="0" step="0.01" /></td>
-              <td><select {...unit.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, (event.target.value === "percent_effective_gross_revenue" ? { unit: event.target.value, variablePercent: undefined, leadMonths: undefined } : { unit: event.target.value }) as Partial<T>)}>{units.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select><FieldError id={unit.errorId} error={fieldErrors[`${linePath}.unit`]} /></td>
+              <td><select {...unit.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, (event.target.value === "percent_effective_gross_revenue" ? { unit: event.target.value, variablePercent: undefined, leadMonths: undefined } : { unit: event.target.value }) as Partial<T>)}>{unitChoices.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select><FieldError id={unit.errorId} error={fieldErrors[`${linePath}.unit`]} /></td>
+              {appliesTo ? <td><select {...appliesToControl.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} applies to`} value={commercialLine ? "commercial" : "residential"} onChange={(event) => updateAt(setLines, index, (event.target.value === "commercial"
+                ? { appliesTo: "commercial", variablePercent: undefined, ...((line as OperatingExpenseLine).unit === "usd_per_unit_year" ? { unit: "usd_per_year" } : {}) }
+                : { appliesTo: undefined }) as unknown as Partial<T>)}><option value="residential">Residential</option><option value="commercial">Commercial</option></select><FieldError id={appliesToControl.errorId} error={fieldErrors[`${linePath}.appliesTo`]} /></td> : null}
               {ramp ? <RampCells line={line as OperatingExpenseLine} linePath={linePath} label={line.name || `${title} line ${index + 1}`} withLead={ramp === "variable_and_lead"} fieldErrors={fieldErrors} onChange={(update) => updateAt(setLines, index, update as Partial<T>)} /> : null}
               <EvidenceCells path={linePath} line={line} fieldErrors={fieldErrors} onChange={(update) => updateAt(setLines, index, update as Partial<T>)} />
               <td><RemoveButton onClick={() => removeAt(setLines, index)} /></td>
@@ -365,7 +386,7 @@ function RampCells({ line, linePath, label, withLead, fieldErrors, onChange }: {
     return <><td><span className="t-meta">Moves with Revenue</span></td>{withLead ? <td><span className="t-meta">None</span></td> : null}</>;
   }
   return <>
-    <td><NumberInput path={`${linePath}.variablePercent`} label={`${label} variable share`} value={line.variablePercent ?? 0} onChange={(value) => onChange({ variablePercent: value === 0 ? undefined : value })} error={fieldErrors[`${linePath}.variablePercent`]} min="0" max="100" step="1" suffix="%" /></td>
+    <td>{line.appliesTo === "commercial" ? <span className="t-meta">None</span> : <NumberInput path={`${linePath}.variablePercent`} label={`${label} variable share`} value={line.variablePercent ?? 0} onChange={(value) => onChange({ variablePercent: value === 0 ? undefined : value })} error={fieldErrors[`${linePath}.variablePercent`]} min="0" max="100" step="1" suffix="%" />}</td>
     {withLead ? <td><NumberInput path={`${linePath}.leadMonths`} label={`${label} lead months`} value={line.leadMonths ?? 0} onChange={(value) => onChange({ leadMonths: value === 0 ? undefined : value })} error={fieldErrors[`${linePath}.leadMonths`]} min="0" step="1" /></td> : null}
   </>;
 }

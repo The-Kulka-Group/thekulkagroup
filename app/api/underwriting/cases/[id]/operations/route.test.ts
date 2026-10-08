@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
-import { createUnderwritingCase, saveUnderwritingCostSchedule } from "@/lib/underwriting/cases";
+import { createUnderwritingCase, getUnderwritingCase, saveUnderwritingCostSchedule } from "@/lib/underwriting/cases";
 import { seededDatabase } from "@/test/database";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
@@ -108,6 +108,63 @@ describe("/api/underwriting/cases/:id/operations", () => {
       fieldErrors: { vacancyPercent: expect.stringMatching(/0 to 100/) },
       issues: [expect.objectContaining({ code: "invalid_percent" })],
     });
+  });
+
+  const retail = {
+    id: "retail",
+    name: "Ground Floor Retail",
+    areaSf: 2_500,
+    annualRentPerSf: 36,
+    leaseStartMonth: "2026-04",
+    freeRentMonths: 2,
+    recoveries: [{ basis: { kind: "expense_lines", lineIds: ["cam"] }, sharePercent: 20 }],
+    tenantImprovementPerSf: 40,
+    leasingCommissionPercent: 4,
+    leaseTermMonths: 120,
+    sourceLabel: "Broker opinion",
+    sourceDate: "2026-10-01",
+    reviewState: "working",
+  };
+  const withRetail = {
+    ...operations,
+    operatingExpenseLines: [{ id: "cam", name: "Common Area Maintenance", amount: 30_000, unit: "usd_per_year", appliesTo: "commercial", reviewState: "working" }],
+    commercial: { spaces: [retail], vacancyPercent: 10, creditLossPercent: 1, reviewState: "working" },
+  };
+
+  it("saves commercial spaces inside the operations input", async () => {
+    const savedCase = await scheduledCase();
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      body: JSON.stringify({ expectedRevision: savedCase!.caseRevision, ...withRetail }),
+    }), context(savedCase!.id));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).case.apartmentOperations).toMatchObject({
+      commercial: withRetail.commercial,
+      operatingExpenseLines: [expect.objectContaining({ appliesTo: "commercial" })],
+    });
+  });
+
+  it("returns each bad commercial field under its own path without changing the case", async () => {
+    const savedCase = await scheduledCase();
+    const response = await PUT(new Request("http://localhost", {
+      method: "PUT",
+      body: JSON.stringify({
+        expectedRevision: savedCase!.caseRevision,
+        ...withRetail,
+        commercial: { ...withRetail.commercial, creditLossPercent: 140, spaces: [{ ...retail, areaSf: 0, annualRentPerSf: -4 }] },
+      }),
+    }), context(savedCase!.id));
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(Object.keys(body.fieldErrors).sort()).toEqual([
+      "commercial.creditLossPercent",
+      "commercial.spaces.0.annualRentPerSf",
+      "commercial.spaces.0.areaSf",
+    ]);
+    const reopened = await getUnderwritingCase(db, savedCase!.id);
+    expect(reopened!.apartmentOperations).toBeUndefined();
   });
 
   it.each([

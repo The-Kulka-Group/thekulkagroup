@@ -274,6 +274,32 @@ describe("underwriting form accessibility contract", () => {
     expect(runPage).toContain("PERMANENT_LOAN_ASSUMPTION_KEYS");
   });
 
+  it("takes commercial spaces with their own sources, the Applies To choice and commercial rent growth, and shows commercial income in saved runs", async () => {
+    const editor = await source("app/(app)/underwriting/[id]/ApartmentOperationsEditor.tsx");
+    const section = await source("app/(app)/underwriting/[id]/CommercialSection.tsx");
+    const growth = await source("app/(app)/underwriting/[id]/GrowthSection.tsx");
+    const results = await source("app/(app)/underwriting/[id]/CommercialResults.tsx");
+    const returns = await source("app/(app)/underwriting/[id]/PropertyReturnsResults.tsx");
+    const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
+    expect(editor).toContain("<CommercialSection");
+    expect(editor).toContain("...(commercial ? { commercial } : {})");
+    expect(editor).toContain("<th>Applies To</th>");
+    for (const label of ["Add Commercial Spaces", "Commercial Vacancy", "Commercial Credit Loss", "Annual Rent per SF", "Tenant Improvement per SF", "Leasing Commission", "Lease Term Months", "Free Rent Months", "Add Recovery for"]) {
+      expect(section).toContain(label);
+    }
+    expect(section).toContain("<MilestoneAnchorField");
+    expect(section).toContain("maxLength={MAX_OPERATION_SOURCE_LABEL_LENGTH}");
+    expect(section).toContain("fieldErrors[`${path}.areaSf`]");
+    expect(growth).not.toContain("SHOWN_CATEGORIES");
+    expect(growth).toContain("commercialRentPercent: [incomePercent]");
+    for (const label of ["Commercial Net Operating Income", "Residential Net Operating Income", "Commercial Costs in the Cost Schedule", "Commercial Recoveries"]) {
+      expect(results).toContain(label);
+    }
+    expect(returns).toContain("<CommercialResults");
+    expect(runPage).toContain("<CommercialResults");
+    expect(runPage).toContain("Saved Commercial Input");
+  });
+
   it("links every scenario control to field errors and renders scenario evidence in saved runs", async () => {
     const editor = await source("app/(app)/underwriting/[id]/ScenarioComparisonEditor.tsx");
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");

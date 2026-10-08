@@ -136,11 +136,13 @@ export function buildUnderwritingReviewItems(
     }
   }
 
+  const commercial = savedCase.apartmentOperations?.commercial;
   const operationLines = savedCase.apartmentOperations ? [
     ...savedCase.apartmentOperations.residentialUnitTypes,
     ...savedCase.apartmentOperations.otherIncomeLines,
     ...savedCase.apartmentOperations.operatingExpenseLines,
     ...savedCase.apartmentOperations.capitalExpenditureLines,
+    ...(commercial ? [{ ...commercial, id: "commercial", name: "Commercial Vacancy and Credit Loss" }, ...commercial.spaces] : []),
   ] : [];
   for (const line of operationLines) {
     if (!line.sourceLabel?.trim()) {

@@ -1,5 +1,6 @@
 import {
   LENDER_TEST_ASSUMPTION_KEYS,
+  LENDER_TEST_COMMERCIAL_CAP_KEY,
   PARTNERSHIP_ASSUMPTION_KEYS,
   SALE_TAX_ASSUMPTION_KEYS,
   validatePropertyReturnsPlan,
@@ -29,12 +30,16 @@ function knownLenderTestFields(value: unknown) {
     asStabilizedCapRatePercent: plan.asStabilizedCapRatePercent,
     annualDebtService: plan.annualDebtService,
     noiBasis: plan.noiBasis,
+    ...(plan.commercialCapRatePercent === undefined || plan.commercialCapRatePercent === null ? {} : { commercialCapRatePercent: plan.commercialCapRatePercent }),
+    ...(plan.debtServiceBasis === undefined || plan.debtServiceBasis === null ? {} : { debtServiceBasis: plan.debtServiceBasis }),
     lenderTestEvidence: evidence && typeof evidence === "object" && !Array.isArray(evidence)
-      ? Object.fromEntries(LENDER_TEST_ASSUMPTION_KEYS.map((key) => {
+      ? Object.fromEntries([...LENDER_TEST_ASSUMPTION_KEYS, LENDER_TEST_COMMERCIAL_CAP_KEY].flatMap((key) => {
         const item = (evidence as Record<string, unknown>)[key];
-        if (!item || typeof item !== "object" || Array.isArray(item)) return [key, item];
+        // The commercial cap carries evidence only when the plan states a cap.
+        if (item === undefined && key === LENDER_TEST_COMMERCIAL_CAP_KEY) return [];
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [[key, item]];
         const { sourceLabel, sourceDate, reviewState } = item as Record<string, unknown>;
-        return [key, { sourceLabel, sourceDate, reviewState }];
+        return [[key, { sourceLabel, sourceDate, reviewState }]];
       }))
       : evidence,
     ...(plan.loanSizing === undefined ? {} : { loanSizing: knownLoanSizingFields(plan.loanSizing) }),
@@ -127,6 +132,7 @@ export function parsePropertyReturns(body: unknown): PropertyReturnsDraft {
   const draft = {
     saleInputVersion: candidate.saleInputVersion,
     terminalCapRatePercent: candidate.terminalCapRatePercent,
+    ...(candidate.commercialTerminalCapRatePercent === undefined || candidate.commercialTerminalCapRatePercent === null ? {} : { commercialTerminalCapRatePercent: candidate.commercialTerminalCapRatePercent }),
     sellingCostPercent: candidate.sellingCostPercent,
     forwardNoiConvention: candidate.forwardNoiConvention,
     cashFlowDateConvention: candidate.cashFlowDateConvention,

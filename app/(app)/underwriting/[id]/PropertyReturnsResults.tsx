@@ -39,7 +39,7 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
       {result.propertyReturns.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatMetric(metric.value, metric.unit)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
     <SourcesAndUsesSection capital={result.developmentCapital} />
-    {result.saleTax ? <SaleTax report={result.saleTax} /> : null}
+    {result.saleTax ? <SaleTax report={result.saleTax} byUse={Boolean(sale.valueSplit)} /> : null}
     {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}
     {result.propertyTax ? <PropertyTaxByYear tax={result.propertyTax} /> : null}
     {result.partnership ? <PartnershipResults result={result.partnership} /> : null}
@@ -66,6 +66,10 @@ function LenderTests({ tests }: { tests: LenderTestsResult }) {
       {tests.metrics.map((metric) => {
         const full = fullMetric(metric.key);
         return <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatLender(metric)}</td>{fullTax ? <td className="num right">{full ? formatLender(full) : formatLender(metric)}</td> : null}<td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>;
+      })}
+      {tests.valueSplit?.lines.map((line) => {
+        const full = fullTax?.valueSplit?.lines.find((item) => item.key === line.key);
+        return <tr key={line.key}><th scope="row">{line.label}</th><td className="num right">{MONEY.format(line.value)}</td>{fullTax ? <td className="num right">{full ? MONEY.format(full.value) : "Not Reported"}</td> : null}<td>{line.formula}</td><td className="t-meta">{line.inputPaths.join(", ")}</td></tr>;
       })}
     </tbody></table></div>
     {tests.issues.length > 0 ? <ul className="underwriting-issues">{tests.issues.map((issue) => <li key={issue.code}>{issue.message}</li>)}</ul> : null}
@@ -94,13 +98,13 @@ const SALE_TAX_BASIS: Record<SaleTaxResult["valueBasis"], string> = {
   full_tax_plus_abatement_value: "Full Tax Plus Abatement Value",
 };
 
-function SaleTax({ report }: { report: SaleTaxResult }) {
+function SaleTax({ report, byUse }: { report: SaleTaxResult; byUse: boolean }) {
   return <>
     <h4>Sale on Scheduled Tax and Full Tax</h4>
     <p className="t-meta">The sale prices {SALE_TAX_BASIS[report.valueBasis]}. The abatement ends {report.abatementEndMonth}.{report.abatementDiscountRatePercent !== null ? ` Saved tax after the sale is discounted at ${NUMBER.format(report.abatementDiscountRatePercent)}% a year.` : ""}</p>
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Sale Result</th><th className="right">Scheduled Tax</th><th className="right">Full Tax</th></tr></thead><tbody>
       <tr><th scope="row">Forward 12-Month NOI</th><td className="num right">{MONEY.format(report.scheduledTaxForwardNoi)}</td><td className="num right">{MONEY.format(report.fullTaxForwardNoi)}</td></tr>
-      <tr><th scope="row">Value at Terminal Cap Rate</th><td className="num right">{MONEY.format(report.scheduledTaxValue)}</td><td className="num right">{MONEY.format(report.fullTaxValue)}</td></tr>
+      <tr><th scope="row">{byUse ? "Value at Terminal and Commercial Cap Rates" : "Value at Terminal Cap Rate"}</th><td className="num right">{MONEY.format(report.scheduledTaxValue)}</td><td className="num right">{MONEY.format(report.fullTaxValue)}</td></tr>
       {report.abatementValue !== null ? <tr><th scope="row">Plus Abatement Value at Sale</th><td className="num right">Not Used</td><td className="num right">{MONEY.format(report.abatementValue)}</td></tr> : null}
     </tbody></table></div>
   </>;

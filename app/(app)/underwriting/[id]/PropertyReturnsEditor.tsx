@@ -4,16 +4,20 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   FORWARD_TWELVE_MONTH_NOI_VERSION,
+  LENDER_DEBT_SERVICE_BASES,
   LENDER_TEST_ASSUMPTION_KEYS,
+  LENDER_TEST_COMMERCIAL_CAP_KEY,
   LENDER_TESTS_INPUT_VERSION,
   MAX_LENDER_TEST_SOURCE_LABEL_LENGTH,
   MONTH_END_CASH_FLOW_DATES_VERSION,
   MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH,
   PROPERTY_RETURNS_ASSUMPTION_KEYS,
+  PROPERTY_RETURNS_COMMERCIAL_CAP_KEY,
   PROPERTY_RETURNS_INPUT_VERSION,
   SALE_TAX_ASSUMPTION_KEYS,
   SALE_TAX_INPUT_VERSION,
   XIRR_ACTUAL_365_VERSION,
+  type LenderDebtServiceBasis,
   type LenderTestAssumptionKey,
   type LenderTestEvidence,
   type LenderTestNoiBasis,
@@ -33,6 +37,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   const router = useRouter();
   const saved = savedCase.propertyReturns;
   const [terminalCapRatePercent, setTerminalCapRatePercent] = useState<number | "">(saved?.terminalCapRatePercent ?? "");
+  const [commercialTerminalCapRatePercent, setCommercialTerminalCapRatePercent] = useState<number | "">(saved?.commercialTerminalCapRatePercent ?? "");
   const [sellingCostPercent, setSellingCostPercent] = useState<number | "">(saved?.sellingCostPercent ?? "");
   const [saleAssumptionEvidence, setSaleAssumptionEvidence] = useState(saved?.saleAssumptionEvidence ?? blankEvidence());
   const savedLender = saved?.lenderTests;
@@ -41,6 +46,8 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   const [asStabilizedCapRatePercent, setAsStabilizedCapRatePercent] = useState<number | "">(savedLender?.asStabilizedCapRatePercent ?? "");
   const [annualDebtService, setAnnualDebtService] = useState<number | "">(savedLender?.annualDebtService ?? "");
   const [noiBasis, setNoiBasis] = useState<LenderTestNoiBasis>(savedLender?.noiBasis ?? "noi_before_reserves");
+  const [commercialCapRatePercent, setCommercialCapRatePercent] = useState<number | "">(savedLender?.commercialCapRatePercent ?? "");
+  const [debtServiceBasis, setDebtServiceBasis] = useState<LenderDebtServiceBasis | "">(savedLender?.debtServiceBasis ?? "");
   const [lenderTestEvidence, setLenderTestEvidence] = useState(savedLender?.lenderTestEvidence ?? blankLenderEvidence());
   const savedSizing = savedLender?.loanSizing;
   const [sizingEnabled, setSizingEnabled] = useState(Boolean(savedSizing));
@@ -65,6 +72,15 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   }
 
   const hasAbatement = savedCase.apartmentOperations.propertyTax?.mode === "abatement";
+  // A commercial cap prices commercial NOI, so its fields show when the case has commercial spaces or already carries a cap.
+  const hasCommercial = Boolean(savedCase.apartmentOperations.commercial);
+  const showSaleCommercialCap = hasCommercial || commercialTerminalCapRatePercent !== "";
+  const showLenderCommercialCap = hasCommercial || commercialCapRatePercent !== "";
+  // With a permanent loan, DSCR reads its debt service unless the stated figure overrides it.
+  const hasPermanentLoan = Boolean(savedCase.developmentCapital.permanentLoan);
+  const showDebtServiceBasis = hasPermanentLoan || debtServiceBasis !== "";
+  const saleEvidenceKeys: SaleEvidenceKey[] = commercialTerminalCapRatePercent === "" ? [...PROPERTY_RETURNS_ASSUMPTION_KEYS] : [...PROPERTY_RETURNS_ASSUMPTION_KEYS, PROPERTY_RETURNS_COMMERCIAL_CAP_KEY];
+  const lenderEvidenceKeys: LenderEvidenceKey[] = commercialCapRatePercent === "" ? [...LENDER_TEST_ASSUMPTION_KEYS] : [...LENDER_TEST_ASSUMPTION_KEYS, LENDER_TEST_COMMERCIAL_CAP_KEY];
   const usesDiscountRate = saleTaxBasis === "full_tax_plus_abatement_value";
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -80,11 +96,12 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
           expectedRevision: savedCase.caseRevision,
           saleInputVersion: PROPERTY_RETURNS_INPUT_VERSION,
           terminalCapRatePercent,
+          ...(commercialTerminalCapRatePercent === "" ? {} : { commercialTerminalCapRatePercent }),
           sellingCostPercent,
           forwardNoiConvention: FORWARD_TWELVE_MONTH_NOI_VERSION,
           cashFlowDateConvention: MONTH_END_CASH_FLOW_DATES_VERSION,
           xirrConvention: XIRR_ACTUAL_365_VERSION,
-          saleAssumptionEvidence,
+          saleAssumptionEvidence: Object.fromEntries(saleEvidenceKeys.map((key) => [key, saleAssumptionEvidence[key] ?? { reviewState: "working" }])),
           ...(lenderEnabled ? {
             lenderTests: {
               lenderTestInputVersion: LENDER_TESTS_INPUT_VERSION,
@@ -92,7 +109,9 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
               asStabilizedCapRatePercent,
               annualDebtService,
               noiBasis,
-              lenderTestEvidence,
+              ...(commercialCapRatePercent === "" ? {} : { commercialCapRatePercent }),
+              ...(showDebtServiceBasis && debtServiceBasis !== "" ? { debtServiceBasis } : {}),
+              lenderTestEvidence: Object.fromEntries(lenderEvidenceKeys.map((key) => [key, lenderTestEvidence[key] ?? { reviewState: "working" }])),
               ...(sizingEnabled ? {
                 loanSizing: {
                   noiTaxBasis,
@@ -135,14 +154,14 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     }
   }
 
-  const updateEvidence = (key: PropertyReturnsAssumptionKey, update: Partial<PropertyReturnsEvidence>) => {
-    setSaleAssumptionEvidence((current) => ({ ...current, [key]: { ...current[key], ...update } }));
+  const updateEvidence = (key: SaleEvidenceKey, update: Partial<PropertyReturnsEvidence>) => {
+    setSaleAssumptionEvidence((current) => ({ ...current, [key]: { reviewState: "working" as const, ...current[key], ...update } }));
   };
 
-  const updateLenderEvidence = (key: LenderTestAssumptionKey, update: Partial<LenderTestEvidence>) => {
-    setLenderTestEvidence((current) => ({ ...current, [key]: { ...current[key], ...update } }));
+  const updateLenderEvidence = (key: LenderEvidenceKey, update: Partial<LenderTestEvidence>) => {
+    setLenderTestEvidence((current) => ({ ...current, [key]: { reviewState: "working" as const, ...current[key], ...update } }));
   };
-  const lenderError = (key: LenderTestAssumptionKey) => fieldErrors[`lenderTests.${key}`];
+  const lenderError = (key: LenderEvidenceKey | "debtServiceBasis") => fieldErrors[`lenderTests.${key}`];
   const updateSaleTaxEvidence = (key: SaleTaxAssumptionKey, update: Partial<PropertyReturnsEvidence>) => {
     setSaleTaxEvidence((current) => ({ ...current, [key]: { ...current[key], ...update } }));
   };
@@ -151,6 +170,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     <div className="underwriting-section-head"><div><h3 id="property-returns-heading">Property Sale and Returns</h3><p className="t-meta">The model values the sale from forward twelve-month NOI, pays off construction debt, and calculates dated property returns.</p></div></div>
     <div className="underwriting-form-grid underwriting-capital-controls">
       <NumberField id="returns-terminal-cap-rate" label="Terminal Cap Rate" value={terminalCapRatePercent} onChange={setTerminalCapRatePercent} error={fieldErrors.terminalCapRatePercent} />
+      {showSaleCommercialCap ? <NumberField id="returns-commercial-terminal-cap-rate" label="Commercial Terminal Cap Rate" value={commercialTerminalCapRatePercent} onChange={setCommercialTerminalCapRatePercent} error={fieldErrors.commercialTerminalCapRatePercent} /> : null}
       <NumberField id="returns-selling-cost" label="Selling Costs" value={sellingCostPercent} onChange={setSellingCostPercent} error={fieldErrors.sellingCostPercent} />
       <ReadOnlyField label="Sale Month" value={savedCase.costSchedule.saleMonth} />
       <ReadOnlyField label="Forward NOI Period" value="Sale Month and Next 11 Months" />
@@ -161,14 +181,15 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
       <h4>Sale Assumption Sources</h4>
       <p className="t-meta">Each sale term and formula choice keeps its source, date, and review state.</p>
       <div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Assumption</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>
-        {PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => {
+        {saleEvidenceKeys.map((key) => {
+          const evidence = saleAssumptionEvidence[key] ?? { reviewState: "working" as const };
           const labelPath = `saleAssumptionEvidence.${key}.sourceLabel`;
           const datePath = `saleAssumptionEvidence.${key}.sourceDate`;
           const statePath = `saleAssumptionEvidence.${key}.reviewState`;
           const labelId = `returns-evidence-${key}-source-label`;
           const dateId = `returns-evidence-${key}-source-date`;
           const stateId = `returns-evidence-${key}-review-state`;
-          return <tr key={key}><th scope="row">{LABELS[key]}</th><td><input className="input" id={labelId} aria-label={`${LABELS[key]} source label`} maxLength={MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH} value={saleAssumptionEvidence[key].sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[labelPath])} aria-describedby={fieldErrors[labelPath] ? `${labelId}-error` : undefined} /><FieldError id={`${labelId}-error`} error={fieldErrors[labelPath]} /></td><td><input className="input" id={dateId} type="date" aria-label={`${LABELS[key]} source date`} value={saleAssumptionEvidence[key].sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[datePath])} aria-describedby={fieldErrors[datePath] ? `${dateId}-error` : undefined} /><FieldError id={`${dateId}-error`} error={fieldErrors[datePath]} /></td><td><select className="input" id={stateId} aria-label={`${LABELS[key]} review state`} value={saleAssumptionEvidence[key].reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(fieldErrors[statePath])} aria-describedby={fieldErrors[statePath] ? `${stateId}-error` : undefined}><option value="working">Working on It</option><option value="done">Done</option></select><FieldError id={`${stateId}-error`} error={fieldErrors[statePath]} /></td></tr>;
+          return <tr key={key}><th scope="row">{LABELS[key]}</th><td><input className="input" id={labelId} aria-label={`${LABELS[key]} source label`} maxLength={MAX_PROPERTY_RETURNS_SOURCE_LABEL_LENGTH} value={evidence.sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[labelPath])} aria-describedby={fieldErrors[labelPath] ? `${labelId}-error` : undefined} /><FieldError id={`${labelId}-error`} error={fieldErrors[labelPath]} /></td><td><input className="input" id={dateId} type="date" aria-label={`${LABELS[key]} source date`} value={evidence.sourceDate ?? ""} onChange={(event) => updateEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[datePath])} aria-describedby={fieldErrors[datePath] ? `${dateId}-error` : undefined} /><FieldError id={`${dateId}-error`} error={fieldErrors[datePath]} /></td><td><select className="input" id={stateId} aria-label={`${LABELS[key]} review state`} value={evidence.reviewState} onChange={(event) => updateEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(fieldErrors[statePath])} aria-describedby={fieldErrors[statePath] ? `${stateId}-error` : undefined}><option value="working">Working on It</option><option value="done">Done</option></select><FieldError id={`${stateId}-error`} error={fieldErrors[statePath]} /></td></tr>;
         })}
       </tbody></table></div>
     </section>
@@ -197,18 +218,21 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
           <MonthField id="lender-valuation-month" label="Valuation Year Starts" value={valuationMonth} onChange={setValuationMonth} error={lenderError("valuationMonth")} />
           <NumberField id="lender-cap-rate" label="As-Stabilized Cap Rate" value={asStabilizedCapRatePercent} onChange={setAsStabilizedCapRatePercent} error={lenderError("asStabilizedCapRatePercent")} />
           <MoneyField id="lender-debt-service" label="Annual Debt Service" value={annualDebtService} onChange={setAnnualDebtService} error={lenderError("annualDebtService")} />
+          {showLenderCommercialCap ? <NumberField id="lender-commercial-cap-rate" label="Commercial Cap Rate" value={commercialCapRatePercent} onChange={setCommercialCapRatePercent} error={lenderError("commercialCapRatePercent")} /> : null}
           <label className="field-label t-label" htmlFor="lender-noi-basis">NOI Basis<select id="lender-noi-basis" className="input" value={noiBasis} onChange={(event) => setNoiBasis(event.target.value as LenderTestNoiBasis)} aria-invalid={Boolean(lenderError("noiBasis"))} aria-describedby={lenderError("noiBasis") ? "lender-noi-basis-error" : undefined}><option value="noi_before_reserves">NOI Before Reserves</option><option value="noi_after_reserves">NOI After Reserves</option></select><FieldError id="lender-noi-basis-error" error={lenderError("noiBasis")} /></label>
+          {showDebtServiceBasis ? <label className="field-label t-label" htmlFor="lender-debt-service-basis">Debt Service Basis<select id="lender-debt-service-basis" className="input" value={debtServiceBasis === "" ? "permanent_loan" : debtServiceBasis} onChange={(event) => setDebtServiceBasis(event.target.value as LenderDebtServiceBasis)} aria-invalid={Boolean(lenderError("debtServiceBasis"))} aria-describedby={lenderError("debtServiceBasis") ? "lender-debt-service-basis-error" : undefined}>{LENDER_DEBT_SERVICE_BASES.map((basis) => <option key={basis} value={basis}>{DEBT_SERVICE_BASIS_LABELS[basis]}</option>)}</select><FieldError id="lender-debt-service-basis-error" error={lenderError("debtServiceBasis")} /></label> : null}
         </div>
         <h4>Lender Test Sources</h4>
         <div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Lender Input</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>
-          {LENDER_TEST_ASSUMPTION_KEYS.map((key) => {
+          {lenderEvidenceKeys.map((key) => {
+            const evidence = lenderTestEvidence[key] ?? { reviewState: "working" as const };
             const labelPath = `lenderTests.lenderTestEvidence.${key}.sourceLabel`;
             const datePath = `lenderTests.lenderTestEvidence.${key}.sourceDate`;
             const statePath = `lenderTests.lenderTestEvidence.${key}.reviewState`;
             const labelId = `lender-evidence-${key}-source-label`;
             const dateId = `lender-evidence-${key}-source-date`;
             const stateId = `lender-evidence-${key}-review-state`;
-            return <tr key={key}><th scope="row">{LENDER_LABELS[key]}</th><td><input className="input" id={labelId} aria-label={`${LENDER_LABELS[key]} source label`} maxLength={MAX_LENDER_TEST_SOURCE_LABEL_LENGTH} value={lenderTestEvidence[key].sourceLabel ?? ""} onChange={(event) => updateLenderEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[labelPath])} aria-describedby={fieldErrors[labelPath] ? `${labelId}-error` : undefined} /><FieldError id={`${labelId}-error`} error={fieldErrors[labelPath]} /></td><td><input className="input" id={dateId} type="date" aria-label={`${LENDER_LABELS[key]} source date`} value={lenderTestEvidence[key].sourceDate ?? ""} onChange={(event) => updateLenderEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[datePath])} aria-describedby={fieldErrors[datePath] ? `${dateId}-error` : undefined} /><FieldError id={`${dateId}-error`} error={fieldErrors[datePath]} /></td><td><select className="input" id={stateId} aria-label={`${LENDER_LABELS[key]} review state`} value={lenderTestEvidence[key].reviewState} onChange={(event) => updateLenderEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(fieldErrors[statePath])} aria-describedby={fieldErrors[statePath] ? `${stateId}-error` : undefined}><option value="working">Working on It</option><option value="done">Done</option></select><FieldError id={`${stateId}-error`} error={fieldErrors[statePath]} /></td></tr>;
+            return <tr key={key}><th scope="row">{LENDER_LABELS[key]}</th><td><input className="input" id={labelId} aria-label={`${LENDER_LABELS[key]} source label`} maxLength={MAX_LENDER_TEST_SOURCE_LABEL_LENGTH} value={evidence.sourceLabel ?? ""} onChange={(event) => updateLenderEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[labelPath])} aria-describedby={fieldErrors[labelPath] ? `${labelId}-error` : undefined} /><FieldError id={`${labelId}-error`} error={fieldErrors[labelPath]} /></td><td><input className="input" id={dateId} type="date" aria-label={`${LENDER_LABELS[key]} source date`} value={evidence.sourceDate ?? ""} onChange={(event) => updateLenderEvidence(key, { sourceDate: event.target.value || undefined })} aria-invalid={Boolean(fieldErrors[datePath])} aria-describedby={fieldErrors[datePath] ? `${dateId}-error` : undefined} /><FieldError id={`${dateId}-error`} error={fieldErrors[datePath]} /></td><td><select className="input" id={stateId} aria-label={`${LENDER_LABELS[key]} review state`} value={evidence.reviewState} onChange={(event) => updateLenderEvidence(key, { reviewState: event.target.value as "working" | "done" })} aria-invalid={Boolean(fieldErrors[statePath])} aria-describedby={fieldErrors[statePath] ? `${stateId}-error` : undefined}><option value="working">Working on It</option><option value="done">Done</option></select><FieldError id={`${stateId}-error`} error={fieldErrors[statePath]} /></td></tr>;
           })}
         </tbody></table></div>
         {fieldErrors["lenderTests.lenderTestEvidence"] ? <p className="input-error" role="alert">{fieldErrors["lenderTests.lenderTestEvidence"]}</p> : null}
@@ -239,7 +263,16 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
   </form>;
 }
 
-const LABELS: Record<PropertyReturnsAssumptionKey, string> = {
+type SaleEvidenceKey = PropertyReturnsAssumptionKey | typeof PROPERTY_RETURNS_COMMERCIAL_CAP_KEY;
+type LenderEvidenceKey = LenderTestAssumptionKey | typeof LENDER_TEST_COMMERCIAL_CAP_KEY;
+
+const DEBT_SERVICE_BASIS_LABELS: Record<LenderDebtServiceBasis, string> = {
+  stated: "Stated",
+  permanent_loan: "Permanent Loan",
+};
+
+const LABELS: Record<SaleEvidenceKey, string> = {
+  commercialTerminalCapRatePercent: "Commercial Terminal Cap Rate",
   saleMonth: "Sale Month",
   terminalCapRatePercent: "Terminal Cap Rate",
   sellingCostPercent: "Selling Costs",
@@ -258,7 +291,8 @@ const SALE_TAX_LABELS: Record<SaleTaxAssumptionKey, string> = {
   abatementDiscountRatePercent: "Abatement Discount Rate",
 };
 
-const LENDER_LABELS: Record<LenderTestAssumptionKey, string> = {
+const LENDER_LABELS: Record<LenderEvidenceKey, string> = {
+  commercialCapRatePercent: "Commercial Cap Rate",
   valuationMonth: "Valuation Year Starts",
   asStabilizedCapRatePercent: "As-Stabilized Cap Rate",
   annualDebtService: "Annual Debt Service",
@@ -284,7 +318,7 @@ function FieldError({ id, error }: { id?: string; error?: string }) {
 }
 
 function blankEvidence() {
-  return Object.fromEntries(PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence>;
+  return Object.fromEntries(PROPERTY_RETURNS_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as Record<PropertyReturnsAssumptionKey, PropertyReturnsEvidence> & { commercialTerminalCapRatePercent?: PropertyReturnsEvidence };
 }
 
 function blankSaleTaxEvidence() {
@@ -292,7 +326,7 @@ function blankSaleTaxEvidence() {
 }
 
 function blankLenderEvidence() {
-  return Object.fromEntries(LENDER_TEST_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as Record<LenderTestAssumptionKey, LenderTestEvidence>;
+  return Object.fromEntries(LENDER_TEST_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as Record<LenderTestAssumptionKey, LenderTestEvidence> & { commercialCapRatePercent?: LenderTestEvidence };
 }
 
 async function responseBody(response: Response) {

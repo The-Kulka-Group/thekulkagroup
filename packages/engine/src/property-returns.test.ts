@@ -264,7 +264,7 @@ describe("computePropertyReturns", () => {
 });
 
 function allUsdResultsAreCentRounded(result: NonNullable<ReturnType<typeof calculatePropertyReturns>["result"]>) {
-  const saleValues = Object.values(result.sale);
+  const saleValues = Object.values(result.sale).flatMap((value) => typeof value === "number" ? [value] : Object.values(value));
   const monthlyValues = result.months.flatMap((month) => [
     month.projectCosts, month.loanFee, month.grossInterest, month.totalDebtDraw,
     month.operatingCashFlow, month.repayment, month.netSaleProceeds,

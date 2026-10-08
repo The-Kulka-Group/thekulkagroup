@@ -1,4 +1,5 @@
 import { resolveMilestoneAnchors } from "./milestones";
+import { commercialTaxSharePercentFor } from "./use-split";
 import {
   computeApartmentOperations,
   projectApartmentOperationsThrough,
@@ -437,7 +438,8 @@ function permanentLoanFor(
     months: capital.months.map(({ month, operatingCashFlow }) => ({ month, operatingCashFlow })),
     operations: projectApartmentOperationsThrough(input, projectionEnd),
     analysisStartMonth: input.analysisStartMonth,
-    operationPaths: input.propertyTax ? [...PERMANENT_LOAN_OPERATION_PATHS, "propertyTax"] : PERMANENT_LOAN_OPERATION_PATHS,
+    operationPaths: [...PERMANENT_LOAN_OPERATION_PATHS, ...(input.propertyTax ? ["propertyTax"] : []), ...(input.commercial ? ["commercial"] : [])],
+    ...(input.commercial ? { commercialTaxSharePercent: commercialTaxSharePercentFor(input) } : {}),
   });
   if ("code" in loan) return loan;
   const checks = [

@@ -1119,6 +1119,7 @@ const PERMANENT_LOAN_EVIDENCE_FIELDS: Record<PermanentLoanAssumptionKey | Perman
   cashOut: ["cashOut"],
   maxLoanToValuePercent: ["maxLoanToValuePercent"],
   valuationCapRatePercent: ["valuationCapRatePercent"],
+  commercialValuationCapRatePercent: ["commercialValuationCapRatePercent"],
   minDebtServiceCoverage: ["minDebtServiceCoverage"],
   minDebtYieldPercent: ["minDebtYieldPercent"],
 };

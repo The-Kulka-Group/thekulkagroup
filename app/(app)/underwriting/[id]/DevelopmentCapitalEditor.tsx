@@ -165,6 +165,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
         setPermanentLoan={setPermanentLoan}
         milestones={savedCase.costSchedule.milestones ?? []}
         defaultMonth={payoffMonth}
+        hasCommercial={Boolean(savedCase.apartmentOperations.commercial?.spaces.length)}
         fieldErrors={fieldErrors}
       />
 

@@ -454,3 +454,65 @@ describe("permanent loan validation", () => {
     expect(calculation.issues.map(({ code }) => code)).toContain("sale_payoff_mismatch");
   });
 });
+
+describe("permanent loan commercial valuation cap rate (LA-1869)", () => {
+  const commercial: CommercialOperations = {
+    spaces: [{
+      id: "retail-a", name: "Retail A", areaSf: 10_000, annualRentPerSf: 30, leaseStartMonth: "2027-07", freeRentMonths: 0,
+      recoveries: [], tenantImprovementPerSf: 40, leasingCommissionPercent: 5, leaseTermMonths: 120, ...evidence,
+    }],
+    vacancyPercent: 5,
+    creditLossPercent: 1,
+    ...evidence,
+  };
+  const ltvPlan = (overrides: Partial<PermanentLoanPlan> = {}) => loan({
+    sizingMode: "lesser_of_tests",
+    sizingNoiWindow: { kind: "forward_twelve" },
+    maxLoanToValuePercent: 65,
+    valuationCapRatePercent: 5.5,
+    evidence: { ...loan().evidence, maxLoanToValuePercent: evidence, valuationCapRatePercent: evidence, commercialValuationCapRatePercent: evidence },
+    ...overrides,
+  });
+
+  it("values the residential and commercial NOI at their own caps in the LTV cap", () => {
+    const plan = ltvPlan({ commercialValuationCapRatePercent: 7.5 });
+    const input = withLoan(plan, { commercial });
+    const { loan: result } = complete(input);
+    const first = result.fundingMonth;
+    const window = projectApartmentOperationsThrough(input, addMonths(first, 11)).filter(({ month }) => month >= first);
+    const commercialCents = window.reduce((total, month) => total + Math.round(month.commercialNetOperatingIncome * 100), 0);
+    const totalCents = Math.round(result.sizingNoi * 100);
+    expect(commercialCents).toBeGreaterThan(0);
+    const cap = result.caps.find(({ key }) => key === "loanToValue")!;
+    const valueCents = Math.round((totalCents - commercialCents) / 0.055) + Math.round(commercialCents / 0.075);
+    expect(cap.amount).toBe(Math.floor(valueCents * 0.65) / 100);
+    expect(cap.inputPaths).toContain("permanentLoan.commercialValuationCapRatePercent");
+    const single = complete(withLoan(ltvPlan(), { commercial })).loan.caps.find(({ key }) => key === "loanToValue")!;
+    expect(cap.amount).toBeLessThan(single.amount);
+  });
+
+  it("leaves a case without the rate unchanged", () => {
+    const plain = complete(withLoan(ltvPlan(), { commercial })).loan;
+    const cap = plain.caps.find(({ key }) => key === "loanToValue")!;
+    expect(cap.amount).toBe(Math.floor(Math.round(plain.sizingNoi * 100) / 0.055 * 0.65) / 100);
+    expect(cap.inputPaths).not.toContain("permanentLoan.commercialValuationCapRatePercent");
+    expect(JSON.stringify(complete(withLoan(ltvPlan())).loan)).not.toContain("commercialValuationCapRatePercent");
+  });
+
+  it("names the issue when the case has no commercial spaces", () => {
+    const run = computePropertyReturns(withLoan(ltvPlan({ commercialValuationCapRatePercent: 7.5 })));
+    expect(run.status).toBe("failed");
+    expect(run.issues.map(({ path, code }) => [path, code])).toEqual([["permanentLoan.commercialValuationCapRatePercent", "permanent_loan_commercial_unavailable"]]);
+  });
+
+  it("needs an LTV cap, a valid rate and its own evidence", () => {
+    const noLtv = validatePermanentLoanPlan(ltvPlan({ commercialValuationCapRatePercent: 7.5, maxLoanToValuePercent: undefined, minDebtYieldPercent: 9 }));
+    expect(noLtv.map(({ path }) => path)).toContain("permanentLoan.commercialValuationCapRatePercent");
+    const badRate = validatePermanentLoanPlan(ltvPlan({ commercialValuationCapRatePercent: 0 }));
+    expect(badRate.map(({ path }) => path)).toContain("permanentLoan.commercialValuationCapRatePercent");
+    const { commercialValuationCapRatePercent: _dropped, ...evidenceWithout } = ltvPlan().evidence;
+    void _dropped;
+    const missing = validatePermanentLoanPlan({ ...ltvPlan({ commercialValuationCapRatePercent: 7.5 }), evidence: evidenceWithout });
+    expect(missing.map(({ path, code }) => [path, code])).toContainEqual(["permanentLoan.evidence.commercialValuationCapRatePercent", "missing_evidence"]);
+  });
+});

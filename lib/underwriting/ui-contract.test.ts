@@ -260,7 +260,7 @@ describe("underwriting form accessibility contract", () => {
     const runPage = await source("app/(app)/underwriting/[id]/runs/[runId]/page.tsx");
     expect(editor).toContain("<PermanentLoanSection");
     expect(editor).toContain("permanentLoan: permanentLoan ?? null");
-    for (const label of ["Add Permanent Loan", "Funding Month", "First Stabilized Month", "Sizing Mode", "Sizing NOI Window", "Maximum Loan to Value", "Minimum Debt Service Coverage", "Interest-Only Months", "Closing Costs", "Proceeds Above Payoff", "Permanent Loan Sources"]) {
+    for (const label of ["Add Permanent Loan", "Funding Month", "First Stabilized Month", "Sizing Mode", "Sizing NOI Window", "Maximum Loan to Value", "Commercial Valuation Cap Rate", "Minimum Debt Service Coverage", "Interest-Only Months", "Closing Costs", "Proceeds Above Payoff", "Permanent Loan Sources"]) {
       expect(section).toContain(label);
     }
     expect(section).toContain("maxLength={MAX_PERMANENT_LOAN_SOURCE_LABEL_LENGTH}");

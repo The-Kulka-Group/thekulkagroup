@@ -27,11 +27,13 @@ const TYPED = "__typed";
  * sends it with the capital plan, so a save and a run read one set of terms. Each term keeps its own
  * source and review state.
  */
-export function PermanentLoanSection({ permanentLoan, setPermanentLoan, milestones, defaultMonth, fieldErrors }: {
+export function PermanentLoanSection({ permanentLoan, setPermanentLoan, milestones, defaultMonth, hasCommercial = false, fieldErrors }: {
   permanentLoan?: PermanentLoanPlan;
   setPermanentLoan: (plan?: PermanentLoanPlan) => void;
   milestones: Milestone[];
   defaultMonth: string;
+  /** The case has commercial spaces, so the LTV cap can value them at their own cap rate. */
+  hasCommercial?: boolean;
   fieldErrors: Record<string, string>;
 }) {
   const error = (path: string) => fieldErrors[`permanentLoan.${path}`];
@@ -67,10 +69,13 @@ export function PermanentLoanSection({ permanentLoan, setPermanentLoan, mileston
         <label className="field-label t-label" htmlFor="permanent-loan-tax-basis">Size On<select id="permanent-loan-tax-basis" className="input" value={permanentLoan.noiTaxBasis} onChange={(event) => update({ noiTaxBasis: event.target.value as PermanentLoanPlan["noiTaxBasis"] })} aria-invalid={Boolean(error("noiTaxBasis"))}><option value="full_tax">Full Tax</option><option value="abated">Abated Tax</option></select><FieldError error={error("noiTaxBasis")} /></label>
         <label className="field-label t-label" htmlFor="permanent-loan-cash-out">Proceeds Above Payoff<select id="permanent-loan-cash-out" className="input" value={permanentLoan.cashOut} onChange={(event) => update({ cashOut: event.target.value as PermanentLoanCashOut })} aria-invalid={Boolean(error("cashOut"))}><option value="distribute">Distribute to Equity Holders</option><option value="limit_to_payoff">Cut the Loan to Payoff</option></select><FieldError error={error("cashOut")} /></label>
       </div>
-      <p className="t-meta">Leave a cap empty to skip it. Lesser of the tests takes the smallest cap that is set, so it needs at least one. A shortfall against the construction payoff is an equity paydown.</p>
+      <p className="t-meta">Leave a cap empty to skip it. A commercial valuation cap rate values the commercial spaces separately in the loan-to-value test. Lesser of the tests takes the smallest cap that is set, so it needs at least one. A shortfall against the construction payoff is an equity paydown.</p>
       <div className="underwriting-form-grid underwriting-capital-controls">
         <OptionalField id="permanent-loan-max-ltv" label="Maximum Loan to Value" value={permanentLoan.maxLoanToValuePercent} onChange={(value) => setCap("maxLoanToValuePercent", value)} error={error("maxLoanToValuePercent")} suffix="%" max={100} />
         <OptionalField id="permanent-loan-valuation-cap" label="Valuation Cap Rate" value={permanentLoan.valuationCapRatePercent} onChange={(value) => setCap("valuationCapRatePercent", value)} error={error("valuationCapRatePercent")} suffix="%" max={100} />
+        {hasCommercial || permanentLoan.commercialValuationCapRatePercent !== undefined
+          ? <OptionalField id="permanent-loan-commercial-cap" label="Commercial Valuation Cap Rate" value={permanentLoan.commercialValuationCapRatePercent} onChange={(value) => setCap("commercialValuationCapRatePercent", value)} error={error("commercialValuationCapRatePercent")} suffix="%" max={100} />
+          : null}
         <OptionalField id="permanent-loan-min-dscr" label="Minimum Debt Service Coverage" value={permanentLoan.minDebtServiceCoverage} onChange={(value) => setCap("minDebtServiceCoverage", value)} error={error("minDebtServiceCoverage")} suffix="x" max={10} />
         <OptionalField id="permanent-loan-min-debt-yield" label="Minimum Debt Yield" value={permanentLoan.minDebtYieldPercent} onChange={(value) => setCap("minDebtYieldPercent", value)} error={error("minDebtYieldPercent")} suffix="%" max={100} />
       </div>

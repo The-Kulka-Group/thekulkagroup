@@ -19,6 +19,7 @@ export const PERMANENT_LOAN_EVIDENCE_LABELS: Record<PermanentLoanAssumptionKey |
   cashOut: "Proceeds Above Payoff",
   maxLoanToValuePercent: "Maximum Loan to Value",
   valuationCapRatePercent: "Valuation Cap Rate",
+  commercialValuationCapRatePercent: "Commercial Valuation Cap Rate",
   minDebtServiceCoverage: "Minimum Debt Service Coverage",
   minDebtYieldPercent: "Minimum Debt Yield",
 };

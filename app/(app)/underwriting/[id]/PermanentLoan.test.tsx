@@ -81,6 +81,15 @@ describe("permanent loan views", () => {
     expect(html).not.toContain("Minimum Debt Yield source label");
   });
 
+  it("offers the commercial valuation cap rate only on a case with commercial spaces or a saved rate", () => {
+    const section = (permanentLoan: PermanentLoanPlan, hasCommercial: boolean) => renderToStaticMarkup(<PermanentLoanSection permanentLoan={permanentLoan} setPermanentLoan={() => undefined} milestones={[]} defaultMonth="" hasCommercial={hasCommercial} fieldErrors={{}} />);
+    expect(section(plan, false)).not.toContain("Commercial Valuation Cap Rate");
+    expect(section(plan, true)).toContain("Commercial Valuation Cap Rate");
+    const withRate = { ...plan, commercialValuationCapRatePercent: 7.5, evidence: { ...plan.evidence, commercialValuationCapRatePercent: evidence } };
+    const html = section(withRate, false);
+    expect(html).toContain("Commercial Valuation Cap Rate source label");
+  });
+
   it("shows only the switch when the case has no permanent loan", () => {
     const html = renderToStaticMarkup(<PermanentLoanSection permanentLoan={undefined} setPermanentLoan={() => undefined} milestones={[]} defaultMonth="" fieldErrors={{}} />);
     expect(html).toContain("Add Permanent Loan");

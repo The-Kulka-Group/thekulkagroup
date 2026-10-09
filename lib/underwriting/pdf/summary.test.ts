@@ -173,6 +173,45 @@ describe("deal summary HTML", () => {
   });
 });
 
+describe("loan wording and permanent loan terms (LA-2097)", () => {
+  const section = (html: string, id: string) => {
+    const start = html.indexOf(`data-page="${id}"`);
+    const next = html.indexOf("<section", start);
+    return html.slice(start, next === -1 ? undefined : next);
+  };
+  const permanent = GOLDEN.find(([name]) => name === "permanent loan")![1];
+
+  it.each(GOLDEN)("calls the reached share Loan to Cost, never Debt Share, for %s", (_name, source) => {
+    const html = renderSummaryHtml(source);
+    expect(html).not.toContain("Debt Share");
+    expect(section(html, "sources-and-uses")).toContain(">Loan to Cost<");
+    expect(section(html, "debt")).toContain("Loan to Cost, % of Total Uses");
+  });
+
+  it("lists the permanent loan terms in the assumptions of a run that has one", () => {
+    const html = section(renderSummaryHtml(permanent), "assumptions");
+    const row = (label: string, value: string) => expect(html).toMatch(new RegExp(`${label}</th><td class="[^"]*">${value}</td>`));
+    row("Permanent Loan Rate", "6%");
+    row("Permanent Loan Interest-Only Months", "24");
+    row("Permanent Loan Amortization", "30 Years");
+    row("Permanent Loan Term", "10 Years");
+    row("Permanent Loan Fee", "0%");
+    row("Permanent Loan Sizing", "Construction Loan Balance");
+  });
+
+  it("says interest only for the term when the loan never amortizes", () => {
+    const inputs = permanent.inputs as PropertyReturnsInputs;
+    const source = { ...permanent, inputs: { ...inputs, permanentLoan: { ...inputs.permanentLoan!, amortizationYears: 0 } } };
+    expect(section(renderSummaryHtml(source), "assumptions")).toContain("Interest Only for the Term");
+  });
+
+  it("adds no permanent loan rows to a run without one", () => {
+    for (const [name, source] of GOLDEN.filter(([name]) => name !== "permanent loan")) {
+      expect(section(renderSummaryHtml(source), "assumptions"), name).not.toContain("Permanent Loan");
+    }
+  });
+});
+
 // Needs a Chromium: Playwright's own, KULKA_CHROMIUM_PATH, or Chrome. Without one the audit has nothing to print with.
 const chromium = await import("../../rom/pdf-renderer").then(async ({ launchChromium }) => {
   try {

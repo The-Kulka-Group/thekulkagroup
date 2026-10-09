@@ -13,6 +13,7 @@ import {
 } from "@kulka/engine";
 
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
+import type { CommonSource } from "@/lib/underwriting/intake-seed";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
 type Evidence = { sourceLabel?: string; sourceDate?: string; reviewState: "working" | "done" };
@@ -26,7 +27,7 @@ const EXPENSE_LINES = "expense_lines";
  * and review state, and the block keeps one for commercial vacancy and credit loss. A space is never
  * a unit, so it joins no unit count.
  */
-export function CommercialSection({ commercial, setCommercial, expenseLines, hasPropertyTax, milestones, defaultMonth, fieldErrors }: {
+export function CommercialSection({ commercial, setCommercial, expenseLines, hasPropertyTax, milestones, defaultMonth, source = {}, fieldErrors }: {
   commercial?: CommercialOperations;
   setCommercial: (value?: CommercialOperations) => void;
   /** The operating expense lines a tenant can reimburse. */
@@ -35,6 +36,8 @@ export function CommercialSection({ commercial, setCommercial, expenseLines, has
   milestones: Milestone[];
   /** The month a new space's lease starts until the user chooses another. */
   defaultMonth: string;
+  /** The common intake source each new line or evidence row starts with. */
+  source?: CommonSource;
   fieldErrors: Record<string, string>;
 }) {
   const spaces = commercial?.spaces ?? [];
@@ -51,7 +54,7 @@ export function CommercialSection({ commercial, setCommercial, expenseLines, has
     <section className="underwriting-line-section" aria-labelledby="commercial-heading">
       <h4 id="commercial-heading">Commercial Spaces</h4>
       <p className="t-meta">Ground-floor and in-line space, each with its own lease start, rent, recoveries and first-generation costs. Commercial income carries its own vacancy and credit loss, and commercial net operating income joins the property total. Tenant improvements and leasing commissions are development cost paid in the lease start month. A space is never a unit. Leave it off for a case with no commercial space.</p>
-      <label className="field-label t-label underwriting-checkbox"><input id="commercial-use" type="checkbox" checked={Boolean(commercial)} onChange={(event) => setCommercial(event.target.checked ? blankCommercial(defaultMonth) : undefined)} /> Add Commercial Spaces</label>
+      <label className="field-label t-label underwriting-checkbox"><input id="commercial-use" type="checkbox" checked={Boolean(commercial)} onChange={(event) => setCommercial(event.target.checked ? blankCommercial(defaultMonth, source) : undefined)} /> Add Commercial Spaces</label>
       {fieldErrors.commercial ? <FieldError error={fieldErrors.commercial} /> : null}
       {commercial ? <>
         <div className="underwriting-form-grid underwriting-operations-controls">
@@ -65,7 +68,7 @@ export function CommercialSection({ commercial, setCommercial, expenseLines, has
             <h5>Spaces</h5>
             <p className="t-meta">Rent starts at the lease start month and runs to the end of the model. Free rent forgives base rent only. The lease term sets the leasing commission, which is a percent of the base rent the lease schedules over that term.</p>
           </div>
-          <button className="btn btn--secondary" type="button" disabled={spaces.length >= MAX_COMMERCIAL_SPACES} onClick={() => update({ spaces: [...spaces, blankSpace(defaultMonth)] })}>Add Commercial Space</button>
+          <button className="btn btn--secondary" type="button" disabled={spaces.length >= MAX_COMMERCIAL_SPACES} onClick={() => update({ spaces: [...spaces, blankSpace(defaultMonth, source)] })}>Add Commercial Space</button>
         </div>
         {fieldErrors["commercial.spaces"] ? <FieldError error={fieldErrors["commercial.spaces"]} /> : null}
         <div className="underwriting-edit-table-wrap">
@@ -170,11 +173,11 @@ export function CommercialSection({ commercial, setCommercial, expenseLines, has
   );
 }
 
-function blankCommercial(defaultMonth: string): CommercialOperations {
-  return { spaces: [blankSpace(defaultMonth)], vacancyPercent: 0, creditLossPercent: 0, reviewState: "working" };
+function blankCommercial(defaultMonth: string, source: CommonSource): CommercialOperations {
+  return { spaces: [blankSpace(defaultMonth, source)], vacancyPercent: 0, creditLossPercent: 0, ...source, reviewState: "working" };
 }
 
-function blankSpace(defaultMonth: string): CommercialSpace {
+function blankSpace(defaultMonth: string, source: CommonSource): CommercialSpace {
   return {
     id: crypto.randomUUID(),
     name: "",
@@ -186,6 +189,7 @@ function blankSpace(defaultMonth: string): CommercialSpace {
     tenantImprovementPerSf: 0,
     leasingCommissionPercent: 0,
     leaseTermMonths: 120,
+    ...source,
     reviewState: "working",
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
+import type { CommonSource } from "@/lib/underwriting/intake-seed";
 import {
   MAX_PROPERTY_TAX_FISCAL_YEARS,
   MAX_PROPERTY_TAX_SOURCE_LABEL_LENGTH,
@@ -28,9 +29,11 @@ const RATE_UNITS: Array<[PropertyTaxRateUnit, string]> = [
   ["percent_of_assessed_value", "Percent of Assessed Value"],
 ];
 
-export function PropertyTaxSection({ plan, setPlan, fieldErrors }: {
+export function PropertyTaxSection({ plan, setPlan, source = {}, fieldErrors }: {
   plan?: PropertyTaxPlan;
   setPlan: (plan?: PropertyTaxPlan) => void;
+  /** The common intake source each new line or evidence row starts with. */
+  source?: CommonSource;
   fieldErrors: Record<string, string>;
 }) {
   const update = (change: Partial<PropertyTaxPlan>) => plan && setPlan({ ...plan, ...change });
@@ -47,7 +50,7 @@ export function PropertyTaxSection({ plan, setPlan, fieldErrors }: {
     <section className="underwriting-line-section" aria-labelledby="property-tax-heading">
       <h4 id="property-tax-heading">Property Tax Schedule</h4>
       <p className="t-meta">A dated tax line by tax fiscal year. It replaces a flat tax expense line, so remove that line when you add the schedule. Under an abatement, each run reports NOI, value and lender tests on scheduled tax and on full tax. On the income basis, Two Cap Rates uses a separate cap rate until the first stabilized month, as some assessors do during lease-up. Leave it off to use one cap rate for the whole hold.</p>
-      <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(plan)} onChange={(event) => setPlan(event.target.checked ? blankPlan() : undefined)} /> Add Property Tax Schedule</label>
+      <label className="field-label t-label underwriting-checkbox"><input type="checkbox" checked={Boolean(plan)} onChange={(event) => setPlan(event.target.checked ? blankPlan(source) : undefined)} /> Add Property Tax Schedule</label>
       {plan ? <>
         <div className="underwriting-form-grid underwriting-operations-controls">
           <SelectField path="mode" label="Tax Mode" value={plan.mode} options={[["full_tax", "Full Tax"], ["abatement", "Abatement"]]} onChange={(mode) => update({
@@ -148,7 +151,7 @@ function fiscalYearStart(firstMonth: string, index: number) {
   return `${Math.floor(start / 12)}-${String(start % 12 + 1).padStart(2, "0")}`;
 }
 
-function blankPlan(): PropertyTaxPlan {
+function blankPlan(source: CommonSource): PropertyTaxPlan {
   return {
     taxInputVersion: PROPERTY_TAX_INPUT_VERSION,
     mode: "full_tax",
@@ -157,6 +160,6 @@ function blankPlan(): PropertyTaxPlan {
     rateUnit: "mills",
     fiscalYears: [{ rate: 0, exemptionPercent: 0 }],
     annualRateGrowthPercent: 0,
-    taxEvidence: Object.fromEntries(PROPERTY_TAX_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as PropertyTaxPlan["taxEvidence"],
+    taxEvidence: Object.fromEntries(PROPERTY_TAX_ASSUMPTION_KEYS.map((key) => [key, { ...source, reviewState: "working" as const }])) as PropertyTaxPlan["taxEvidence"],
   };
 }

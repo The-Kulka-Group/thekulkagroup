@@ -1,6 +1,7 @@
 "use client";
 
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
+import type { CommonSource } from "@/lib/underwriting/intake-seed";
 import {
   MAX_OTHER_SOURCES,
   MAX_OTHER_SOURCE_DRAWS,
@@ -14,17 +15,19 @@ import {
  * Grants, soft loans and credited land beside equity and the senior loan (LA-1813). The parent
  * keeps the state and sends it with the capital plan, so a save and a run read one set of values.
  */
-export function OtherSourcesSection({ sources, setSources, creditedLand, setCreditedLand, defaultMonth, fieldErrors }: {
+export function OtherSourcesSection({ sources, setSources, creditedLand, setCreditedLand, defaultMonth, source = {}, fieldErrors }: {
   sources: OtherFundingSource[];
   setSources: (sources: OtherFundingSource[]) => void;
   creditedLand?: CreditedLandPlan;
   setCreditedLand: (land?: CreditedLandPlan) => void;
   defaultMonth: string;
+  /** The common intake source each new line or evidence row starts with. */
+  source?: CommonSource;
   fieldErrors: Record<string, string>;
 }) {
   const update = (index: number, change: Partial<OtherFundingSource>) =>
     setSources(sources.map((source, position) => position === index ? { ...source, ...change } : source));
-  const add = (kind: OtherSourceKind) => setSources([...sources, blankSource(kind, sources, defaultMonth)]);
+  const add = (kind: OtherSourceKind) => setSources([...sources, blankSource(kind, sources, defaultMonth, source)]);
 
   return (
     <section className="underwriting-line-section" aria-labelledby="other-sources-heading">
@@ -85,7 +88,7 @@ export function OtherSourcesSection({ sources, setSources, creditedLand, setCred
           <p className="t-meta">The land value the deal credits, kept apart from the cash land cost in the cost schedule. It is never cash spent. It counts as sponsor equity only if the deal counts it. Loan to cost shows on both bases.</p>
         </div>
       </div>
-      <label className="field-label t-label underwriting-checkbox"><input id="credited-land-use" type="checkbox" checked={Boolean(creditedLand)} onChange={(event) => setCreditedLand(event.target.checked ? { creditedValue: 0, countsAsSponsorEquity: false, reviewState: "working" } : undefined)} /> Add Credited Land</label>
+      <label className="field-label t-label underwriting-checkbox"><input id="credited-land-use" type="checkbox" checked={Boolean(creditedLand)} onChange={(event) => setCreditedLand(event.target.checked ? { creditedValue: 0, countsAsSponsorEquity: false, ...source, reviewState: "working" } : undefined)} /> Add Credited Land</label>
       {creditedLand ? <>
         <div className="underwriting-form-grid underwriting-capital-controls">
           <label className="field-label t-label" htmlFor="credited-land-value">Credited Land Value<span className="underwriting-money-input"><GroupedNumberInput id="credited-land-value" className="input num" value={creditedLand.creditedValue} onValueChange={(plain) => setCreditedLand({ ...creditedLand, creditedValue: toNumber(plain) })} aria-invalid={Boolean(fieldErrors["creditedLand.creditedValue"])} /><span>USD</span></span><FieldError error={fieldErrors["creditedLand.creditedValue"]} /></label>
@@ -120,7 +123,7 @@ function toNumber(value: string) {
   return (value === "" ? "" : Number(value)) as number;
 }
 
-function blankSource(kind: OtherSourceKind, existing: OtherFundingSource[], month: string): OtherFundingSource {
+function blankSource(kind: OtherSourceKind, existing: OtherFundingSource[], month: string, source: CommonSource): OtherFundingSource {
   let n = existing.length + 1;
   while (existing.some(({ id }) => id === `source-${n}`)) n += 1;
   return {
@@ -129,6 +132,7 @@ function blankSource(kind: OtherSourceKind, existing: OtherFundingSource[], mont
     kind,
     draws: [{ month, amount: 0 }],
     ...(kind === "soft_loan" ? { annualInterestRatePercent: 0, repaymentMonth: month } : {}),
+    ...source,
     reviewState: "working",
   };
 }

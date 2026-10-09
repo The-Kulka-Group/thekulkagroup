@@ -18,6 +18,7 @@ import {
 } from "@kulka/engine";
 
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
+import type { CommonSource } from "@/lib/underwriting/intake-seed";
 import { PERMANENT_LOAN_EVIDENCE_LABELS as EVIDENCE_LABELS } from "./PermanentLoanResults";
 
 const STABILIZATION = "__stabilization";
@@ -28,19 +29,21 @@ const TYPED = "__typed";
  * sends it with the capital plan, so a save and a run read one set of terms. Each term keeps its own
  * source and review state.
  */
-export function PermanentLoanSection({ permanentLoan, setPermanentLoan, milestones, defaultMonth, hasCommercial = false, fieldErrors }: {
+export function PermanentLoanSection({ permanentLoan, setPermanentLoan, milestones, defaultMonth, hasCommercial = false, source = {}, fieldErrors }: {
   permanentLoan?: PermanentLoanPlan;
   setPermanentLoan: (plan?: PermanentLoanPlan) => void;
   milestones: Milestone[];
   defaultMonth: string;
   /** The case has commercial spaces, so the LTV cap can value them at their own cap rate. */
   hasCommercial?: boolean;
+  /** The common intake source each new line or evidence row starts with. */
+  source?: CommonSource;
   fieldErrors: Record<string, string>;
 }) {
   const error = (path: string) => fieldErrors[`permanentLoan.${path}`];
   const update = (change: Partial<PermanentLoanPlan>) => permanentLoan && setPermanentLoan({ ...permanentLoan, ...change });
   const updateEvidence = (key: PermanentLoanAssumptionKey | PermanentLoanCapKey, change: Partial<DevelopmentCapitalEvidence>) => permanentLoan && update({
-    evidence: { ...permanentLoan.evidence, [key]: { ...(permanentLoan.evidence[key] ?? { reviewState: "working" }), ...change } },
+    evidence: { ...permanentLoan.evidence, [key]: { ...(permanentLoan.evidence[key] ?? { ...source, reviewState: "working" }), ...change } },
   });
   /** A cap that is set carries evidence; a cap that is cleared drops it. */
   const setCap = (key: PermanentLoanCapKey, value: number | undefined) => {
@@ -51,13 +54,13 @@ export function PermanentLoanSection({ permanentLoan, setPermanentLoan, mileston
     void _old;
     setPermanentLoan(value === undefined
       ? { ...rest, evidence } as PermanentLoanPlan
-      : { ...rest, [key]: value, evidence: { ...evidence, [key]: permanentLoan.evidence[key] ?? { reviewState: "working" } } } as PermanentLoanPlan);
+      : { ...rest, [key]: value, evidence: { ...evidence, [key]: permanentLoan.evidence[key] ?? { ...source, reviewState: "working" } } } as PermanentLoanPlan);
   };
 
   return <section className="underwriting-line-section" aria-labelledby="permanent-loan-heading">
     <h4 id="permanent-loan-heading">Permanent Loan</h4>
     <p className="t-meta">A permanent loan takes out the construction loan in its funding month instead of the sale month. The construction loan repays then, the permanent loan funds, and debt service runs monthly from operating cash. The balance repays at sale, which must fall on or before maturity. Without one, the construction loan repays in the payoff month.</p>
-    <label className="field-label t-label underwriting-checkbox"><input id="permanent-loan-use" type="checkbox" checked={Boolean(permanentLoan)} onChange={(event) => setPermanentLoan(event.target.checked ? blankPlan() : undefined)} /> Add Permanent Loan</label>
+    <label className="field-label t-label underwriting-checkbox"><input id="permanent-loan-use" type="checkbox" checked={Boolean(permanentLoan)} onChange={(event) => setPermanentLoan(event.target.checked ? blankPlan(source) : undefined)} /> Add Permanent Loan</label>
     {permanentLoan ? <>
       <h4>Funding and Sizing</h4>
       <div className="underwriting-form-grid underwriting-capital-controls">
@@ -93,7 +96,7 @@ export function PermanentLoanSection({ permanentLoan, setPermanentLoan, mileston
       <h4>Permanent Loan Sources</h4>
       <div className="underwriting-edit-table-wrap"><table className="underwriting-operations-table underwriting-assumption-evidence"><thead><tr><th>Permanent Loan Terms</th><th>Source Label</th><th>Source Date</th><th>Review State</th></tr></thead><tbody>
         {[...PERMANENT_LOAN_ASSUMPTION_KEYS, ...PERMANENT_LOAN_CAP_KEYS.filter((key) => permanentLoan[key] !== undefined)].map((key) => {
-          const item = permanentLoan.evidence[key] ?? { reviewState: "working" as const };
+          const item = permanentLoan.evidence[key] ?? { ...source, reviewState: "working" as const };
           const path = `evidence.${key}`;
           return <tr key={key}><th scope="row">{EVIDENCE_LABELS[key]}</th>
             <td><input className="input" aria-label={`${EVIDENCE_LABELS[key]} source label`} maxLength={MAX_PERMANENT_LOAN_SOURCE_LABEL_LENGTH} value={item.sourceLabel ?? ""} onChange={(event) => updateEvidence(key, { sourceLabel: event.target.value || undefined })} aria-invalid={Boolean(error(`${path}.sourceLabel`))} /><FieldError error={error(`${path}.sourceLabel`) ?? error(path)} /></td>
@@ -107,7 +110,7 @@ export function PermanentLoanSection({ permanentLoan, setPermanentLoan, mileston
   </section>;
 }
 
-function blankPlan(): PermanentLoanPlan {
+function blankPlan(source: CommonSource): PermanentLoanPlan {
   return {
     permanentLoanInputVersion: PERMANENT_LOAN_INPUT_VERSION,
     fundingAnchor: { kind: "stabilization", offsetMonths: 0 },
@@ -121,7 +124,7 @@ function blankPlan(): PermanentLoanPlan {
     feePercent: blank(),
     closingCosts: blank(),
     cashOut: "distribute",
-    evidence: Object.fromEntries(PERMANENT_LOAN_ASSUMPTION_KEYS.map((key) => [key, { reviewState: "working" as const }])) as PermanentLoanPlan["evidence"],
+    evidence: Object.fromEntries(PERMANENT_LOAN_ASSUMPTION_KEYS.map((key) => [key, { ...source, reviewState: "working" as const }])) as PermanentLoanPlan["evidence"],
   };
 }
 

@@ -193,7 +193,7 @@ export default async function UnderwritingCasePage({
                 <div><span className="t-label">Interest Reserve</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.interestReserve)}</strong></div>
                 <div><span className="t-label">Operating Shortfall Reserve</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.operatingShortfallReserve)}</strong></div>
                 <div><span className="t-label">Total Debt</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.totalDebt)}</strong></div>
-                <div><span className="t-label">Debt Share</span><strong className="num">{NUMBER.format(currentRun.developmentCapitalResult.capital.totals.debtSharePercent)}%</strong></div>
+                <div><span className="t-label">Loan to Cost</span><strong className="num">{NUMBER.format(currentRun.developmentCapitalResult.capital.totals.debtSharePercent)}%</strong></div>
                 <div><span className="t-label">Capitalized Interest</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.capitalizedInterest)}</strong></div>
                 {currentRun.developmentCapitalResult.capital.otherSources.length > 0 ? <div><span className="t-label">Grants and Soft Loans</span><strong className="num">{MONEY.format(currentRun.developmentCapitalResult.capital.totals.otherSourcesApplied)}</strong></div> : null}
               </div>

@@ -6,6 +6,7 @@ import {
   type AffordabilityTier,
   type AnnualCashFlowYears,
   type AnnualYearBasisKind,
+  type PermanentLoanSizingMode,
   type PropertyReturnsInputs,
   type PropertyReturnsResult,
   type SourcesAndUsesBasis,
@@ -160,7 +161,7 @@ function sourcesAndUsesPage(source: WorkbookSource): string {
   const capital = source.result.developmentCapital;
   const breakoutFor = (basis: SourcesAndUsesBasis) => usesBreakout(source.result, basis);
   const { sourcesAndUses, totals, creditedLand } = capital;
-  const stats = `<div class="facts">${stat("Total Uses", money(totals.totalUses))}${stat("Equity", money(totals.sponsorEquity))}${stat("Construction Debt", money(totals.totalDebt))}${stat("Debt Share", `${NUMBER.format(totals.debtSharePercent)}%`)}</div>`;
+  const stats = `<div class="facts">${stat("Total Uses", money(totals.totalUses))}${stat("Equity", money(totals.sponsorEquity))}${stat("Construction Debt", money(totals.totalDebt))}${stat("Loan to Cost", `${NUMBER.format(totals.debtSharePercent)}%`)}</div>`;
   let body = stats + basisTable(sourcesAndUses.cashBasis, "Sources and Uses with Land at Cash Cost", breakoutFor(sourcesAndUses.cashBasis));
   if (sourcesAndUses.creditedBasis) {
     body += h3("With Land at Credited Value") + basisTable(sourcesAndUses.creditedBasis, "Sources and Uses with Land at Credited Value", breakoutFor(sourcesAndUses.creditedBasis));
@@ -256,7 +257,7 @@ function debtPage(result: PropertyReturnsResult): string {
   let body = permanentLoan ? h3("Construction Loan") : "";
   const construction: Cell[][] = [
     ["Debt Funded", money(totals.totalDebt)],
-    ["Debt Share of Total Uses", `${NUMBER.format(totals.debtSharePercent)}%`],
+    ["Loan to Cost, % of Total Uses", `${NUMBER.format(totals.debtSharePercent)}%`],
     ["Loan Fees", money(totals.loanFees)],
     ["Gross Interest", money(totals.grossInterest)],
     ["Capitalized Interest", money(totals.capitalizedInterest)],
@@ -336,6 +337,11 @@ export const MODEL_LIMITS = [
   "This summary does not record a finance or sale approval, and it is not an appraisal or a lender commitment.",
 ] as const;
 
+const PERMANENT_LOAN_SIZING_LABELS: Record<PermanentLoanSizingMode, string> = {
+  construction_balance: "Construction Loan Balance",
+  lesser_of_tests: "Lesser of the Lender Tests",
+};
+
 function assumptionsPage(source: WorkbookSource): string {
   const inputs = (source.inputs ?? {}) as Partial<PropertyReturnsInputs>;
   const months = source.result.developmentCapital.months;
@@ -355,6 +361,15 @@ function assumptionsPage(source: WorkbookSource): string {
   add("Loan Fee", pct(inputs.loanFeePercent));
   add("Interest Treatment", inputs.interestTreatment ? inputs.interestTreatment.replace(/\.v\d+$/, "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : null);
   add("Lender Valuation Cap Rate", pct(inputs.lenderTests?.asStabilizedCapRatePercent));
+  const loan = inputs.permanentLoan;
+  if (loan) {
+    add("Permanent Loan Rate", pct(loan.annualRatePercent));
+    add("Permanent Loan Interest-Only Months", NUMBER.format(loan.interestOnlyMonths));
+    add("Permanent Loan Amortization", loan.amortizationYears === 0 ? "Interest Only for the Term" : `${NUMBER.format(loan.amortizationYears)} Years`);
+    add("Permanent Loan Term", `${NUMBER.format(loan.termYears)} Years`);
+    add("Permanent Loan Fee", pct(loan.feePercent));
+    add("Permanent Loan Sizing", PERMANENT_LOAN_SIZING_LABELS[loan.sizingMode]);
+  }
   const table_ = table({ head: ["Assumption", "Value"], rows });
   const limits = `<ul class="limits">${MODEL_LIMITS.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`;
   return page("assumptions", 7, "Assumptions and Model Limits", "The headline assumptions behind this run. The full input set travels with the Excel workbook.", table_ + h3("Model Limits") + limits);

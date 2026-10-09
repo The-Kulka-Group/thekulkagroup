@@ -16,6 +16,7 @@ import {
   type MonthlyCostLine,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import { commonSource, seededCostLineMonths, seedFromIntake } from "@/lib/underwriting/intake-seed";
 
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
@@ -80,6 +81,17 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   const [saleAnchor, setSaleAnchor] = useState<MilestoneAnchor | undefined>(savedCase.costSchedule?.saleAnchor);
   const [milestones, setMilestones] = useState<Milestone[]>(savedCase.costSchedule?.milestones ?? []);
   const [lines, setLines] = useState<EditableLine[]>(() => editableLines(savedCase));
+  const source = commonSource(savedCase);
+  const constructionMonths = savedCase.assumptions?.find((assumption) => assumption.name === "constructionMonths")?.value;
+
+  /** Until the schedule is first saved, the lines seeded from intake follow the analysis start month. */
+  function changeAnalysisStartMonth(month: string) {
+    setAnalysisStartMonth(month);
+    if (savedCase.costSchedule) return;
+    setLines((current) => current.map((line) => line.id.startsWith("intake-")
+      ? { ...line, ...seededCostLineMonths(line.id, month, constructionMonths) }
+      : line));
+  }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -99,6 +111,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
       endMonth: analysisStartMonth,
       distributionMethod: "straight_line",
       distributionVersion: STRAIGHT_LINE_DISTRIBUTION_VERSION,
+      ...source,
       reviewState: "working",
     }]);
   }
@@ -184,7 +197,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
             min={`${MIN_MODEL_YEAR}-01`}
             max={`${MAX_MODEL_YEAR}-12`}
             value={analysisStartMonth}
-            onChange={(event) => setAnalysisStartMonth(event.target.value)}
+            onChange={(event) => changeAnalysisStartMonth(event.target.value)}
             aria-invalid={Boolean(fieldErrors.analysisStartMonth)}
             aria-describedby={fieldErrors.analysisStartMonth ? "cost-schedule-analysis-start-month-error" : undefined}
           />
@@ -441,12 +454,13 @@ async function responseBody(response: Response): Promise<{
   }
 }
 
+/** A schedule that has never been saved starts from the land, hard and soft cost lines intake supplies. */
 function editableLines(savedCase: UnderwritingCase): EditableLine[] {
   return savedCase.costSchedule?.costLines.map((savedLine) => {
     const { lastChangedAt, ...line } = savedLine;
     void lastChangedAt;
     return line;
-  }) ?? [];
+  }) ?? seedFromIntake(savedCase).costLines;
 }
 
 function hydrationSubscription() {

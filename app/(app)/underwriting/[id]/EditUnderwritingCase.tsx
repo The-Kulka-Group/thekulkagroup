@@ -9,6 +9,7 @@ import type {
   FactName,
   UnderwritingCase,
 } from "@/lib/underwriting/cases";
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { ownedAssumptions } from "@/lib/underwriting/intake-seed";
 
 const ASSUMPTION_FIELDS: Array<{
@@ -19,10 +20,11 @@ const ASSUMPTION_FIELDS: Array<{
   max?: number;
   step: string;
   recordOnly?: boolean;
+  grouped?: boolean;
 }> = [
-  { name: "purchasePrice", label: "Purchase Price", unit: "USD", min: 0, step: "any" },
-  { name: "monthlyRent", label: "Average Monthly Rent", unit: "USD/month", min: 0, step: "any" },
-  { name: "hardCostPerGrossSquareFoot", label: "Hard Cost", unit: "USD/GSF", min: 0, step: "any" },
+  { name: "purchasePrice", label: "Purchase Price", unit: "USD", min: 0, step: "any", grouped: true },
+  { name: "monthlyRent", label: "Average Monthly Rent", unit: "USD/month", min: 0, step: "any", grouped: true },
+  { name: "hardCostPerGrossSquareFoot", label: "Hard Cost", unit: "USD/GSF", min: 0, step: "any", grouped: true },
   { name: "softCostPercent", label: "Soft Cost", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "contingencyPercent", label: "Contingency", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "vacancyPercent", label: "Vacancy", unit: "percent", min: 0, max: 100, step: "any" },
@@ -40,10 +42,11 @@ const FACT_FIELDS: Array<{
   unit: string;
   min: number;
   step: string;
+  grouped?: boolean;
 }> = [
-  { name: "proposedUnits", label: "Proposed Units", unit: "units", min: 1, step: "1" },
-  { name: "averageUnitSquareFeet", label: "Average Unit Size", unit: "SF", min: 0, step: "any" },
-  { name: "grossBuildingSquareFeet", label: "Gross Building Area", unit: "GSF", min: 0, step: "any" },
+  { name: "proposedUnits", label: "Proposed Units", unit: "units", min: 1, step: "1", grouped: true },
+  { name: "averageUnitSquareFeet", label: "Average Unit Size", unit: "SF", min: 0, step: "any", grouped: true },
+  { name: "grossBuildingSquareFeet", label: "Gross Building Area", unit: "GSF", min: 0, step: "any", grouped: true },
 ];
 
 function numberValue(form: FormData, name: string) {
@@ -214,6 +217,7 @@ export function EditUnderwritingCase({
                       <InlineInput
                         name={`assumptions.${field.name}`}
                         type="number"
+                        grouped={field.grouped}
                         min={field.min}
                         max={field.max}
                         step={field.step}
@@ -304,6 +308,7 @@ function EvidenceTable({
                   <InlineInput
                     name={field.name}
                     type="number"
+                    grouped={field.grouped}
                     min={field.min}
                     step={field.step}
                     defaultValue={value(field.name)}
@@ -386,22 +391,35 @@ function Field({ label, unit, error, ...input }: {
   );
 }
 
-function InlineInput({ error, label, ...input }: {
+function InlineInput({ error, label, grouped, ...input }: {
   error?: string;
   label: string;
+  grouped?: boolean;
 } & InputHTMLAttributes<HTMLInputElement>) {
   const id = input.id ?? controlId(String(input.name));
   const errorId = `${id}-error`;
   return (
     <>
-      <input
-        id={id}
-        className="input"
-        aria-label={label}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
-        {...input}
-      />
+      {grouped ? (
+        <GroupedNumberInput
+          id={id}
+          className="input"
+          aria-label={label}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          name={input.name}
+          defaultValue={input.defaultValue as number | string | undefined}
+        />
+      ) : (
+        <input
+          id={id}
+          className="input"
+          aria-label={label}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          {...input}
+        />
+      )}
       <FieldError id={errorId} error={error} />
     </>
   );

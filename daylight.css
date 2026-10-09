@@ -1817,7 +1817,7 @@ textarea.input { border-radius: var(--r-lg); }
   border-collapse: separate;
   border-spacing: 0;
 }
-.underwriting-cost-lines { min-width: 2000px; }
+.underwriting-cost-lines { min-width: 2110px; }
 .underwriting-monthly-table { min-width: 920px; }
 .underwriting-cost-lines th,
 .underwriting-cost-lines td,
@@ -1842,8 +1842,9 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-monthly-table th.right,
 .underwriting-monthly-table td.right { text-align: right; }
 .underwriting-cost-lines td { min-width: 150px; }
-.underwriting-cost-lines td:first-child,
 .underwriting-cost-lines td:nth-child(7) { min-width: 210px; }
+/* LA-2068: a cost line name needs the room of a full name, so it does not clip at 800px. */
+.underwriting-cost-lines td:first-child { min-width: 320px; }
 .underwriting-cost-lines td:last-child { min-width: 100px; }
 .underwriting-cost-lines td:nth-child(5),
 .underwriting-cost-lines td:nth-child(6) { min-width: 230px; }

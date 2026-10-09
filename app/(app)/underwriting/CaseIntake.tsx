@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
+
 function numberValue(form: FormData, name: string) {
   const value = form.get(name);
   return typeof value === "string" && value !== "" ? Number(value) : undefined;
@@ -75,14 +77,14 @@ export function CaseIntake() {
       <div className="underwriting-form-grid">
         <Field name="name" label="Project Name" required />
         <Field name="address" label="Property Address" required />
-        <Field name="proposedUnits" label="Proposed Units" type="number" min="1" step="1" />
-        <Field name="averageUnitSquareFeet" label="Average Unit Size" unit="SF" type="number" min="0" step="any" />
-        <Field name="grossBuildingSquareFeet" label="Gross Building Area" unit="GSF" type="number" min="0" step="any" />
+        <Field name="proposedUnits" label="Proposed Units" grouped />
+        <Field name="averageUnitSquareFeet" label="Average Unit Size" unit="SF" grouped />
+        <Field name="grossBuildingSquareFeet" label="Gross Building Area" unit="GSF" grouped />
         <Field name="commonSourceLabel" label="Common Source Label" note="Optional. This source applies to each value entered on this screen and to new lines added later." />
         <Field name="commonSourceDate" label="Common Source Date" note="Optional. Leave both source fields blank when evidence is not available." type="date" />
-        <Field name="purchasePrice" label="Purchase Price" unit="USD" type="number" min="0" step="any" />
-        <Field name="monthlyRent" label="Average Monthly Rent" unit="USD/month" type="number" min="0" step="any" />
-        <Field name="hardCostPerGrossSquareFoot" label="Hard Cost" unit="USD/GSF" type="number" min="0" step="any" />
+        <Field name="purchasePrice" label="Purchase Price" unit="USD" grouped />
+        <Field name="monthlyRent" label="Average Monthly Rent" unit="USD/month" grouped />
+        <Field name="hardCostPerGrossSquareFoot" label="Hard Cost" unit="USD/GSF" grouped />
         <Field name="softCostPercent" label="Soft Cost" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="contingencyPercent" label="Contingency" unit="percent" type="number" min="0" max="100" step="any" />
         <Field name="vacancyPercent" label="Vacancy" unit="percent" type="number" min="0" max="100" step="any" />
@@ -115,19 +117,27 @@ function Field({
   label,
   unit,
   note,
+  grouped,
   ...input
 }: {
   label: string;
   unit?: string;
   note?: string;
+  grouped?: boolean;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const id = `intake-${input.name}`;
+  const noteId = note ? `${id}-note` : undefined;
   return (
-    <label>
-      <span className="field-label t-label">
-        {label}{unit ? <span className="underwriting-unit">{unit}</span> : null}
-      </span>
-      <input className="input" {...input} />
-      {note ? <span className="t-meta underwriting-field-note">{note}</span> : null}
-    </label>
+    <div>
+      <label className="field-label t-label" htmlFor={id}>
+        {label}{unit ? <>{" "}<span className="underwriting-unit">{unit}</span></> : null}
+      </label>
+      {grouped ? (
+        <GroupedNumberInput id={id} className="input" aria-describedby={noteId} name={input.name} />
+      ) : (
+        <input id={id} className="input" aria-describedby={noteId} {...input} />
+      )}
+      {note ? <span id={noteId} className="t-meta underwriting-field-note">{note}</span> : null}
+    </div>
   );
 }

@@ -33,6 +33,7 @@ import {
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 import { seedFromIntake } from "@/lib/underwriting/intake-seed";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { PartnershipSection } from "./PartnershipSection";
 import { ResidualLandSection } from "./ResidualLandSection";
 
@@ -317,7 +318,7 @@ function MonthField({ id, label, value, onChange, error }: { id: string; label: 
 
 function MoneyField({ id, label, value, onChange, error }: { id: string; label: string; value: number | ""; onChange: (value: number | "") => void; error?: string }) {
   const errorId = `${id}-error`;
-  return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><input id={id} className="input num" type="number" min="0" step="0.01" value={value} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} /><span>USD</span></span><FieldError id={errorId} error={error} /></label>;
+  return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><GroupedNumberInput id={id} className="input num" value={value} onValueChange={(plain) => onChange(plain === "" ? "" : Number(plain))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} /><span>USD</span></span><FieldError id={errorId} error={error} /></label>;
 }
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {

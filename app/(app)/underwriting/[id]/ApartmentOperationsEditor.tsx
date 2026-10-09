@@ -30,6 +30,7 @@ import {
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
 import { commonSource, seedFromIntake, type CommonSource } from "@/lib/underwriting/intake-seed";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { CommercialSection } from "./CommercialSection";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 import { GrowthSection } from "./GrowthSection";
@@ -190,8 +191,8 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
             errors={[fieldErrors.growthStartMonth, fieldErrors.growthStartAnchor, fieldErrors["growthStartAnchor.milestoneId"], fieldErrors["growthStartAnchor.offsetMonths"]]}
           />
         </div>
-        <NumberField path="preleasedUnits" label="Pre-leased units" value={preleasedUnits} onChange={(value) => setPreleasedUnits(Number(value))} error={fieldErrors.preleasedUnits} min="0" step="1" />
-        <NumberField path="leaseUpUnitsPerMonth" label="Lease-up units per month" value={leaseUpUnitsPerMonth} onChange={(value) => setLeaseUpUnitsPerMonth(Number(value))} error={fieldErrors.leaseUpUnitsPerMonth} min="1" step="1" />
+        <NumberField path="preleasedUnits" label="Pre-leased units" value={preleasedUnits} onChange={(value) => setPreleasedUnits(Number(value))} error={fieldErrors.preleasedUnits} grouped />
+        <NumberField path="leaseUpUnitsPerMonth" label="Lease-up units per month" value={leaseUpUnitsPerMonth} onChange={(value) => setLeaseUpUnitsPerMonth(Number(value))} error={fieldErrors.leaseUpUnitsPerMonth} grouped />
         <NumberField path="annualIncomeGrowthPercent" label="Annual Income Growth" value={annualIncomeGrowthPercent} onChange={(value) => setAnnualIncomeGrowthPercent(Number(value))} error={fieldErrors.annualIncomeGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
         <NumberField path="annualExpenseGrowthPercent" label="Annual Expense Growth" value={annualExpenseGrowthPercent} onChange={(value) => setAnnualExpenseGrowthPercent(Number(value))} error={fieldErrors.annualExpenseGrowthPercent} min="0" max="100" step="0.01" suffix="%" />
         <NumberField path="rentAdjustmentLossPercent" label="Rent Adjustment Loss" value={rentAdjustmentLossPercent} onChange={(value) => setRentAdjustmentLossPercent(Number(value))} error={fieldErrors.rentAdjustmentLossPercent} min="0" max="100" step="0.01" suffix="%" />
@@ -236,10 +237,10 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
             <tbody>{residentialUnitTypes.map((line, index) => (
               <tr key={line.id}>
                 <td><TextInput path={`residentialUnitTypes.${index}.name`} label={`Unit type ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setResidentialUnitTypes, index, { name })} error={fieldErrors[`residentialUnitTypes.${index}.name`]} /></td>
-                <td><NumberInput path={`residentialUnitTypes.${index}.units`} label={`${line.name || `Unit type ${index + 1}`} units`} value={line.units} onChange={(units) => updateAt(setResidentialUnitTypes, index, { units })} error={fieldErrors[`residentialUnitTypes.${index}.units`]} min="1" step="1" /></td>
-                <td><NumberInput path={`residentialUnitTypes.${index}.averageAreaSf`} label={`${line.name || `Unit type ${index + 1}`} average area`} value={line.averageAreaSf} onChange={(averageAreaSf) => updateAt(setResidentialUnitTypes, index, { averageAreaSf })} error={fieldErrors[`residentialUnitTypes.${index}.averageAreaSf`]} min="1" step="0.01" suffix="SF" /></td>
-                <td><NumberInput path={`residentialUnitTypes.${index}.nonRevenueUnits`} label={`${line.name || `Unit type ${index + 1}`} non-revenue units`} value={line.nonRevenueUnits} onChange={(nonRevenueUnits) => updateAt(setResidentialUnitTypes, index, { nonRevenueUnits })} error={fieldErrors[`residentialUnitTypes.${index}.nonRevenueUnits`]} min="0" step="1" /></td>
-                <td><NumberInput path={`residentialUnitTypes.${index}.monthlyMarketRent`} label={`${line.name || `Unit type ${index + 1}`} monthly market rent`} value={line.monthlyMarketRent} onChange={(monthlyMarketRent) => updateAt(setResidentialUnitTypes, index, { monthlyMarketRent })} error={fieldErrors[`residentialUnitTypes.${index}.monthlyMarketRent`]} min="0.01" step="0.01" suffix="USD" /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.units`} label={`${line.name || `Unit type ${index + 1}`} units`} value={line.units} onChange={(units) => updateAt(setResidentialUnitTypes, index, { units })} error={fieldErrors[`residentialUnitTypes.${index}.units`]} grouped /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.averageAreaSf`} label={`${line.name || `Unit type ${index + 1}`} average area`} value={line.averageAreaSf} onChange={(averageAreaSf) => updateAt(setResidentialUnitTypes, index, { averageAreaSf })} error={fieldErrors[`residentialUnitTypes.${index}.averageAreaSf`]} suffix="SF" grouped /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.nonRevenueUnits`} label={`${line.name || `Unit type ${index + 1}`} non-revenue units`} value={line.nonRevenueUnits} onChange={(nonRevenueUnits) => updateAt(setResidentialUnitTypes, index, { nonRevenueUnits })} error={fieldErrors[`residentialUnitTypes.${index}.nonRevenueUnits`]} grouped /></td>
+                <td><NumberInput path={`residentialUnitTypes.${index}.monthlyMarketRent`} label={`${line.name || `Unit type ${index + 1}`} monthly market rent`} value={line.monthlyMarketRent} onChange={(monthlyMarketRent) => updateAt(setResidentialUnitTypes, index, { monthlyMarketRent })} error={fieldErrors[`residentialUnitTypes.${index}.monthlyMarketRent`]} suffix="USD" grouped /></td>
                 <td><select className="input" aria-label={`${line.name || `Unit type ${index + 1}`} affordability tier`} value={line.affordabilityTier ?? "market"} onChange={(event) => updateAt(setResidentialUnitTypes, index, event.target.value === "market" ? { affordabilityTier: undefined, amiPercent: undefined } : { affordabilityTier: event.target.value as AffordabilityTier })}>{AFFORDABILITY_TIERS.map((tier) => <option key={tier} value={tier}>{TIER_LABELS[tier]}</option>)}</select></td>
                 <td>{(line.affordabilityTier ?? "market") === "market" ? null : <><input className="input num right" type="number" min="1" max="200" step="1" aria-label={`${line.name || `Unit type ${index + 1}`} AMI percent`} value={line.amiPercent ?? ""} onChange={(event) => updateAt(setResidentialUnitTypes, index, { amiPercent: event.target.value === "" ? undefined : Number(event.target.value) })} aria-invalid={Boolean(fieldErrors[`residentialUnitTypes.${index}.amiPercent`])} /><FieldError id={`residentialUnitTypes-${index}-amiPercent-error`} error={fieldErrors[`residentialUnitTypes.${index}.amiPercent`]} /></>}</td>
                 <EvidenceCells path={`residentialUnitTypes.${index}`} line={line} fieldErrors={fieldErrors} onChange={(update) => updateAt(setResidentialUnitTypes, index, update)} />
@@ -367,7 +368,7 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, c
             const appliesToControl = controlProps(`${linePath}.appliesTo`, fieldErrors[`${linePath}.appliesTo`]);
             return <tr key={line.id}>
               <td><TextInput path={`${linePath}.name`} label={`${title} line ${index + 1} name`} value={line.name} onChange={(name) => updateAt(setLines, index, { name } as Partial<T>)} error={fieldErrors[`${linePath}.name`]} /></td>
-              <td><NumberInput path={`${linePath}.amount`} label={`${line.name || `${title} line ${index + 1}`} amount`} value={line.amount} onChange={(amount) => updateAt(setLines, index, { amount } as Partial<T>)} error={fieldErrors[`${linePath}.amount`]} min="0" step="0.01" /></td>
+              <td><NumberInput path={`${linePath}.amount`} label={`${line.name || `${title} line ${index + 1}`} amount`} value={line.amount} onChange={(amount) => updateAt(setLines, index, { amount } as Partial<T>)} error={fieldErrors[`${linePath}.amount`]} grouped /></td>
               <td><select {...unit.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} unit`} value={line.unit} onChange={(event) => updateAt(setLines, index, (event.target.value === "percent_effective_gross_revenue" ? { unit: event.target.value, variablePercent: undefined, leadMonths: undefined } : { unit: event.target.value }) as Partial<T>)}>{unitChoices.map(([value, label]) => <option key={String(value)} value={String(value)}>{label}</option>)}</select><FieldError id={unit.errorId} error={fieldErrors[`${linePath}.unit`]} /></td>
               {appliesTo ? <td><select {...appliesToControl.input} className="input" aria-label={`${line.name || `${title} line ${index + 1}`} applies to`} value={commercialLine ? "commercial" : "residential"} onChange={(event) => updateAt(setLines, index, (event.target.value === "commercial"
                 ? { appliesTo: "commercial", variablePercent: undefined, ...((line as OperatingExpenseLine).unit === "usd_per_unit_year" ? { unit: "usd_per_year" } : {}) }
@@ -411,9 +412,9 @@ function EvidenceCells({ path, line, fieldErrors, onChange }: { path: string; li
   </>;
 }
 
-function NumberField({ path, label, value, onChange, error, type = "number", suffix, ...input }: { path: string; label: string; value: string | number; onChange: (value: string) => void; error?: string; type?: "number" | "month"; suffix?: string; min?: string; max?: string; step?: string }) {
+function NumberField({ path, label, value, onChange, error, type = "number", suffix, grouped, ...input }: { path: string; label: string; value: string | number; onChange: (value: string) => void; error?: string; type?: "number" | "month"; suffix?: string; grouped?: boolean; min?: string; max?: string; step?: string }) {
   const control = controlProps(path, error);
-  return <label className="field-label t-label" htmlFor={control.input.id}>{label}<span className={suffix ? "underwriting-money-input" : undefined}><input {...control.input} className="input num" type={type} value={value} onChange={(event) => onChange(event.target.value)} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError id={control.errorId} error={error} /></label>;
+  return <label className="field-label t-label" htmlFor={control.input.id}>{label}<span className={suffix ? "underwriting-money-input" : undefined}>{grouped ? <GroupedNumberInput {...control.input} className="input num" value={value} onValueChange={onChange} /> : <input {...control.input} className="input num" type={type} value={value} onChange={(event) => onChange(event.target.value)} {...input} />}{suffix ? <span>{suffix}</span> : null}</span><FieldError id={control.errorId} error={error} /></label>;
 }
 
 function TextInput({ path, label, value, onChange, error }: { path: string; label: string; value: string; onChange: (value: string) => void; error?: string }) {
@@ -421,9 +422,9 @@ function TextInput({ path, label, value, onChange, error }: { path: string; labe
   return <><input {...control.input} className="input" maxLength={MAX_OPERATION_LINE_NAME_LENGTH} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /><FieldError id={control.errorId} error={error} /></>;
 }
 
-function NumberInput({ path, label, value, onChange, error, suffix, ...input }: { path: string; label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; min?: string; max?: string; step?: string }) {
+function NumberInput({ path, label, value, onChange, error, suffix, grouped, ...input }: { path: string; label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; grouped?: boolean; min?: string; max?: string; step?: string }) {
   const control = controlProps(path, error);
-  return <><span className={suffix ? "underwriting-money-input" : undefined}><input {...control.input} className="input num right" type="number" aria-label={label} value={value} onChange={(event) => onChange(Number(event.target.value))} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError id={control.errorId} error={error} /></>;
+  return <><span className={suffix ? "underwriting-money-input" : undefined}>{grouped ? <GroupedNumberInput {...control.input} className="input num right" aria-label={label} value={value} onValueChange={(plain) => onChange(Number(plain))} /> : <input {...control.input} className="input num right" type="number" aria-label={label} value={value} onChange={(event) => onChange(Number(event.target.value))} {...input} />}{suffix ? <span>{suffix}</span> : null}</span><FieldError id={control.errorId} error={error} /></>;
 }
 
 function RemoveButton({ onClick }: { onClick: () => void }) {

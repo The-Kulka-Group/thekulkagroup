@@ -52,6 +52,7 @@ export const SHEET_NAMES = {
   sourcesAndUses: "Sources and Uses",
   monthly: "Monthly",
   loan: "Loan",
+  waterfall: "Waterfall",
   operations: "Operations",
   costs: "Costs",
   leaseTerms: "Lease Terms",
@@ -94,7 +95,7 @@ export function header(source: WorkbookSource, sheetTitle: string): LayoutRow[] 
     { cells: [{ kind: "text", text: `Kulka  |  ${sheetTitle}`, role: "title" }] },
     { cells: [{ kind: "text", text: `${source.caseName}, Case ${source.caseNumber} (Sheet ${source.sheetNumber})`, role: "subtitle" }] },
     { cells: [{ kind: "text", text: `Run ${source.runId} on ${ran}, revision ${source.caseRevision}, formula version ${source.formulaVersion}`, role: "meta" }] },
-    { cells: [{ kind: "text", text: "Blue figures are inputs. Black figures are live formulas. Gray figures are the engine's saved values and are not yet formulas.", role: "note" }] },
+    { cells: [{ kind: "text", text: "Blue figures are inputs. Black figures are live formulas.", role: "note" }] },
     { cells: [] },
   ];
 }

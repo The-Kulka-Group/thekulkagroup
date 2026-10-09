@@ -6,9 +6,11 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
+import type { PartnershipCashFlowMonth, PartnershipPlan, PartnershipResult, PropertyReturnsResult } from "@kulka/engine";
 import ExcelJS from "exceljs";
 
-import { layoutOutputs, type CellFormat, type WorkbookLayout } from "./layout";
+import { assumptionsFor, layoutOutputs, type CellFormat, type WorkbookLayout } from "./layout";
+import { buildWaterfallSheet } from "./waterfall";
 import { writeUnderwritingWorkbook } from "./write";
 
 // LA-1947. The check that keeps the workbook's formulas honest. It writes the
@@ -114,4 +116,31 @@ export function compareWorkbookOutputs(layout: WorkbookLayout, recalculated: Exc
 export async function checkWorkbook(layout: WorkbookLayout, soffice: string): Promise<WorkbookCheckReport> {
   const xlsx = await writeUnderwritingWorkbook(layout, { cachedResults: false });
   return compareWorkbookOutputs(layout, await recalculateWithLibreOffice(xlsx, soffice));
+}
+
+/**
+ * A workbook of the waterfall alone, fed by stated monthly levered cash flow and equity rather than a
+ * property run, so an audited waterfall replay checks the waterfall formulas apart from the property cash
+ * flow (LA-1952). The Assumptions sheet holds the partnership terms and the replayed months.
+ */
+export function waterfallReplayLayout(name: string, months: PartnershipCashFlowMonth[], plan: PartnershipPlan, result: PartnershipResult): WorkbookLayout {
+  const { sheet, names, ctx } = assumptionsFor({
+    caseName: name,
+    caseNumber: 1,
+    sheetNumber: "Replay",
+    address: "",
+    caseRevision: 1,
+    runId: "waterfall-replay",
+    runCreatedAt: "2026-10-08T12:00:00.000Z",
+    formulaVersion: "partnership_waterfall_replay",
+    inputs: { partnership: plan, replay: months.map(({ month, leveredCashFlow, equityContribution }) => ({ month, leveredCashFlow, equityContribution })) },
+    // A replay has no property run. The header and the Assumptions sheet never read one.
+    result: null as unknown as PropertyReturnsResult,
+  });
+  const waterfall = buildWaterfallSheet(ctx, plan, result, {
+    months: months.map(({ month }) => month),
+    levered: (position) => ctx.input(`replay.${position + 1}.leveredCashFlow`),
+    equity: (position) => ctx.input(`replay.${position + 1}.equityContribution`),
+  });
+  return { sheets: [waterfall.sheet, sheet], names };
 }

@@ -84,6 +84,11 @@ export type DevelopmentCapitalRatePath = {
 
 export type DevelopmentCapitalPlan = {
   capitalInputVersion: typeof DEVELOPMENT_CAPITAL_INPUT_VERSION;
+  /**
+   * The construction loan as a percent of total uses, where total uses include loan fees, the operating
+   * shortfall and capitalized interest. The engine solves the loan to this share, so enter the target
+   * (65 for 65% loan to cost), not a workbook's Goal Seek result. A lender NOI cap below it still wins.
+   */
   targetDebtSharePercent: number;
   annualInterestRatePercent: number;
   loanFeePercent: number;

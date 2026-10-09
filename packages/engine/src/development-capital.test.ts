@@ -14,6 +14,7 @@ import {
 } from "./development-capital";
 import { APARTMENT_DEVELOPMENT_V2_98_CAPITAL_FIXTURE } from "./fixtures/apartment-development-model-v2.98-capital";
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "./fixtures/apartment-development-model-v2.98-scorecard";
+import { scorecardFor } from "./model-scorecard";
 
 const evidence = {
   targetDebtSharePercent: { sourceLabel: "Capital plan", sourceDate: "2026-08-01", reviewState: "done" as const },
@@ -205,6 +206,52 @@ describe("fundMonthlyDevelopmentCashFlow", () => {
     const run = computeDevelopmentCapital(input);
     expect(run.status).toBe("complete");
     expect(run.reconciliations.every(({ status }) => status === "pass")).toBe(true);
+  });
+
+  describe("target loan to cost (LA-2057)", () => {
+    const shareOfUsesCents = (totalUses: number, percent: number) => Math.round(Math.round(totalUses * 100) * percent / 100);
+
+    it("solves the loan to 65% of total uses, including fees, the operating shortfall and capitalized interest", () => {
+      const run = fundMonthlyDevelopmentCashFlow(cashFlow, { ...plan, targetDebtSharePercent: 65 });
+      expect(run.status).toBe("complete");
+      const totals = run.result!.totals;
+      expect(totals.loanFees).toBeGreaterThan(0);
+      expect(totals.operatingShortfall).toBeGreaterThan(0);
+      expect(totals.capitalizedInterest).toBeGreaterThan(0);
+      expect(Math.round(totals.totalDebt * 100)).toBe(shareOfUsesCents(totals.totalUses, 65));
+      expect(run.reconciliations.find(({ id }) => id === "target-debt-share")?.status).toBe("pass");
+    });
+
+    it("keeps the lesser of the solved loan and a lower lender NOI cap", () => {
+      const solved = fundMonthlyDevelopmentCashFlow(cashFlow, { ...plan, targetDebtSharePercent: 65 });
+      const cap = Math.floor(solved.result!.totals.totalDebt * 0.8);
+      const capped = fundMonthlyDevelopmentCashFlow(cashFlow, { ...plan, targetDebtSharePercent: 65 }, 0, cap);
+      expect(capped.status).toBe("complete");
+      expect(capped.result?.totals.totalDebt).toBe(cap);
+      expect(capped.reconciliations.find(({ id }) => id === "debt-ceiling")?.status).toBe("pass");
+
+      const loose = fundMonthlyDevelopmentCashFlow(cashFlow, { ...plan, targetDebtSharePercent: 65 }, 0, solved.result!.totals.totalDebt * 2);
+      expect(loose.result?.totals.totalDebt).toBe(solved.result?.totals.totalDebt);
+    });
+
+    it("runs the v2.98 sample at the stated 65% target in place of the Goal Seek share and scores the same", () => {
+      const typed = APARTMENT_DEVELOPMENT_V2_98_SCORECARD;
+      const target = { ...typed, engineInputs: { ...typed.engineInputs, targetDebtSharePercent: 65 } };
+      const typedCard = scorecardFor(typed);
+      const targetCard = scorecardFor(target);
+      expect(targetCard.run.status).toBe("complete");
+
+      const { totalDebt, totalUses } = targetCard.run.outputs as { totalDebt: number; totalUses: number };
+      expect(Math.round(totalDebt * 100)).toBe(shareOfUsesCents(totalUses, 65));
+
+      expect(targetCard.rows.map(({ id, status }) => [id, status])).toEqual(typedCard.rows.map(({ id, status }) => [id, status]));
+      // The typed share is the Goal Seek result for 65%, so no scored row moves by more than a thousandth of a percentage point.
+      targetCard.rows.forEach((row, index) => {
+        const before = typedCard.rows[index].percentOff;
+        if (before === null || row.percentOff === null) return;
+        expect(Math.abs(row.percentOff - before), row.id).toBeLessThan(0.001);
+      });
+    });
   });
 
   it("does not allow a loan fee draw after the payoff month", () => {

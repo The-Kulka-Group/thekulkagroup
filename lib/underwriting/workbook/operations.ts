@@ -64,6 +64,10 @@ export type OperationsBuild = {
   scalar: (key: string) => string;
   /** The commercial rent growth factor for a cell holding years elapsed since the growth start. */
   commercialGrowth: (periods: string) => string;
+  /** A row across every month column, absolute, for a sum or a lookup on another sheet. */
+  range: (key: string) => string;
+  /** The month heading dates across every month column, absolute. */
+  dates: () => string;
 };
 
 export const alloc = (annual: string, position: string) => `(IF(${position}=11,${annual},ROUND(${annual}*(${position}+1)/12,0))-ROUND(${annual}*${position}/12,0))`;
@@ -380,6 +384,20 @@ export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOp
     }
   }
 
+  // The tax the commercial use carries on the full-tax basis, for the lender caps that value the two uses apart (LA-1951, use-split.ts).
+  const lenderCommercialCap = inputs.lenderTests?.commercialCapRatePercent !== undefined || inputs.permanentLoan?.commercialValuationCapRatePercent !== undefined;
+  if (commercial && lenderCommercialCap) {
+    blank();
+    section("Commercial Share of Property Tax for the Lender Caps");
+    const taxShares = spaces.flatMap((space, s) => space.recoveries.flatMap((recovery, r) => (recovery.basis.kind === "property_tax" ? [{ s: s + 1, r: r + 1 }] : [])));
+    row("commercialTaxShare", "Commercial Share of Property Tax (Percent)", "percent_number", (c) => (taxShares.length === 0
+      ? "0"
+      : `MIN(100,${sum(taxShares.map(({ s, r }) => `IF(${c.cell("count")}>=${c.S(`s.leaseStart.${s}`)},${c.S(`s.share.${s}.${r}`)},0)`))})`));
+    row("commercialAddedTax", "Commercial Part of the Added Tax With No Abatement (Cents)", "number", (c) => (tax
+      ? `ROUND((${cents(c.cell("fullPropertyTax"))}-${cents(c.cell("propertyTax"))})*${c.cell("commercialTaxShare")}/100,0)`
+      : "0"));
+  }
+
   // ------------------------------------------------------------ expense lines
   blank();
   section("Operating Expense Lines");
@@ -510,5 +528,7 @@ export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOp
     cell: (key, position) => sheetRef(SHEET_NAMES.operations, `${columnLetter(FIRST_MONTH_COLUMN + position)}${rowNumber(key)}`),
     scalar: (key) => sheetRef(SHEET_NAMES.operations, `$B$${rowNumber(key)}`),
     commercialGrowth: (periods) => growthExpression(rates.commercial, periods),
+    range: (key) => sheetRef(SHEET_NAMES.operations, `$${columnLetter(FIRST_MONTH_COLUMN)}$${rowNumber(key)}:$${columnLetter(FIRST_MONTH_COLUMN + months.length - 1)}$${rowNumber(key)}`),
+    dates: () => sheetRef(SHEET_NAMES.operations, `$${columnLetter(FIRST_MONTH_COLUMN)}$${HEADING_ROW + 1}:$${columnLetter(FIRST_MONTH_COLUMN + months.length - 1)}$${HEADING_ROW + 1}`),
   };
 }

@@ -24,7 +24,15 @@ export type LayoutSheet = {
   rows: LayoutRow[];
 };
 
-export type WorkbookLayout = { sheets: LayoutSheet[]; names: Array<{ name: string; sheet: string; address: string }> };
+export type WorkbookLayout = {
+  sheets: LayoutSheet[];
+  names: Array<{ name: string; sheet: string; address: string }>;
+  /**
+   * The loan sizes its own equity share, and that share changes the interest the loan reserves. Excel
+   * has to repeat the calculation until the two settle, so the file is saved with iterative calculation on.
+   */
+  iterativeCalculation?: { maxIterations: number; maxChange: number };
+};
 
 export type WorkbookSource = {
   caseName: string;
@@ -43,6 +51,7 @@ export const SHEET_NAMES = {
   returns: "Returns",
   sourcesAndUses: "Sources and Uses",
   monthly: "Monthly",
+  loan: "Loan",
   operations: "Operations",
   costs: "Costs",
   leaseTerms: "Lease Terms",

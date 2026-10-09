@@ -5,8 +5,7 @@ import { HEADER_ROWS, SHEET_NAMES, header, type LayoutCell, type LayoutContext, 
 // LA-1949. The sources and uses summary as live formulas, one per line of the engine's
 // summary in sourcesAndUsesFor (development-capital.ts). Land and other project cost read
 // the Costs sheet; grants and soft loans read their own schedule on the Monthly sheet; the
-// funded lines (equity, debt, fees, shortfall, interest) read the Monthly totals, which the
-// loan issue (LA-1951) writes as formulas.
+// funded lines (equity, debt, fees, shortfall, interest) read the Monthly totals.
 
 export type SourcesAndUsesRefs = {
   /** The Costs sheet's project cost total and land total. */
@@ -80,16 +79,5 @@ export function buildSourcesAndUsesSheet(ctx: LayoutContext, refs: SourcesAndUse
     rows.push({ cells: [] });
     block("su.credited", "With Land at Credited Value (Non-Cash)", summary.creditedBasis);
   }
-  rows.push({ cells: [] });
-  rows.push({
-    cells: [
-      {
-        kind: "text",
-        text: "Equity, debt, loan fees, operating shortfall and capitalized interest are gray on the Monthly sheet until the loan issue (LA-1951) writes them as formulas.",
-        role: "note",
-      },
-    ],
-  });
-
   return { name: SHEET_NAMES.sourcesAndUses, columnWidths: [56, 20], frozen: { rows: HEADER_ROWS + 1, columns: 1 }, rows };
 }

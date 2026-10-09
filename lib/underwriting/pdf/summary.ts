@@ -16,14 +16,15 @@ import type { WorkbookSource } from "@/lib/underwriting/workbook/layout";
 
 import { OPEN_SANS_WOFF2_BASE64 } from "./open-sans";
 
-// LA-1948. The deal summary of one saved run as finished HTML: seven pages, one
-// `<section class="page">` each, for Devin or a lender. Pure. Nothing here
-// reaches the network, the database or the filesystem: the font travels inside
-// the page and the renderer in ./render.ts prints it from a private origin.
+// LA-1948. The deal summary of one saved run as finished HTML: seven numbered
+// sections, for Devin or a lender. Pure. Nothing here reaches the network, the
+// database or the filesystem: the font travels inside the page and the renderer
+// in ./render.ts prints it from a private origin.
 //
-// Every page has to fit inside one printed page, so no table or figure can
-// split across a page break. render.ts measures each page and refuses to print
-// one that overflows, and the tests check the same on the golden cases.
+// LA-2056. The sections flow one after another instead of one to a printed page,
+// and the cover shares page one with Sources and Uses. A heading stays with the
+// table under it and no table row splits across a page break (the CSS below).
+// render.ts counts the printed pages and refuses a summary that runs long.
 //
 // The page is client-facing. It carries the deal, never a past job's name or a
 // count of past jobs (LA-1483).
@@ -72,7 +73,7 @@ function table(options: { head: string[]; rows: Cell[][]; left?: number[]; total
 }
 
 function page(id: SummaryPageId, number: number, title: string, lede: string, body: string): string {
-  return `<section class="page" data-page="${id}"><header class="ph"><span class="pn">${String(number).padStart(2, "0")}</span><h2>${esc(title)}</h2></header>${lede ? `<p class="lede">${lede}</p>` : ""}${body}</section>`;
+  return `<section class="sec" data-page="${id}"><header class="ph"><span class="pn">${String(number).padStart(2, "0")}</span><h2>${esc(title)}</h2></header>${lede ? `<p class="lede">${lede}</p>` : ""}${body}</section>`;
 }
 
 const note = (text: string) => `<p class="note">${text}</p>`;
@@ -110,14 +111,40 @@ function coverPage(source: WorkbookSource): string {
       <span>Case ${esc(source.caseNumber)}, Sheet ${esc(source.sheetNumber)}, Revision ${esc(source.caseRevision)}</span>
       <span>Run ${esc(source.runId.slice(0, 8))}, Formula Version ${esc(source.formulaVersion)}</span>
     </footer>`;
-  return `<section class="page cover-page" data-page="cover">${body}</section>`;
+  return `<section class="sec cover-sec" data-page="cover">${body}</section>`;
 }
 
-function basisTable(basis: SourcesAndUsesBasis, caption: string): string {
-  const count = Math.max(basis.sources.length, basis.uses.length);
+/** Uses lines split out of "Other Project Costs": the cost schedule's totals by category, as the run saved them. */
+type UsesBreakout = Array<{ label: string; amount: number }>;
+
+const BREAKOUT_LINES = [
+  ["hardCost", "Hard Cost"],
+  ["softCost", "Soft Cost"],
+  ["developmentFee", "Development Fee"],
+  ["financingFeeCost", "Financing Fee"],
+] as const;
+
+/**
+ * The categories behind the "Other Project Costs" use, from the annual view's run totals. Only used when
+ * they add up to that line to the dollar, so a run saved without the annual view keeps the single line.
+ */
+function usesBreakout(result: PropertyReturnsResult, basis: SourcesAndUsesBasis): UsesBreakout | null {
+  const totals = result.annualCashFlow?.analysis_year.totals;
+  const other = basis.uses.find((use) => use.key === "otherProjectCosts");
+  if (!totals || !other) return null;
+  const lines = BREAKOUT_LINES.map(([key, label]) => ({ label, amount: totals[key] })).filter((line) => Math.round(line.amount) !== 0);
+  const sum = lines.reduce((total, line) => total + line.amount, 0);
+  return lines.length > 0 && Math.abs(sum - other.amount) < 1 ? lines : null;
+}
+
+function basisTable(basis: SourcesAndUsesBasis, caption: string, breakout: UsesBreakout | null): string {
+  const uses = breakout
+    ? basis.uses.flatMap((use) => (use.key === "otherProjectCosts" ? breakout : [use]))
+    : basis.uses;
+  const count = Math.max(basis.sources.length, uses.length);
   const rows: Cell[][] = Array.from({ length: count }, (_, index) => {
     const source = basis.sources[index];
-    const use = basis.uses[index];
+    const use = uses[index];
     return [source ? esc(source.label) : "", source ? money(source.amount) : "", { text: use ? esc(use.label) : "", className: "l" }, use ? money(use.amount) : ""];
   });
   return table({
@@ -131,11 +158,12 @@ function basisTable(basis: SourcesAndUsesBasis, caption: string): string {
 
 function sourcesAndUsesPage(source: WorkbookSource): string {
   const capital = source.result.developmentCapital;
+  const breakoutFor = (basis: SourcesAndUsesBasis) => usesBreakout(source.result, basis);
   const { sourcesAndUses, totals, creditedLand } = capital;
   const stats = `<div class="facts">${stat("Total Uses", money(totals.totalUses))}${stat("Equity", money(totals.sponsorEquity))}${stat("Construction Debt", money(totals.totalDebt))}${stat("Debt Share", `${NUMBER.format(totals.debtSharePercent)}%`)}</div>`;
-  let body = stats + basisTable(sourcesAndUses.cashBasis, "Sources and Uses with Land at Cash Cost");
+  let body = stats + basisTable(sourcesAndUses.cashBasis, "Sources and Uses with Land at Cash Cost", breakoutFor(sourcesAndUses.cashBasis));
   if (sourcesAndUses.creditedBasis) {
-    body += h3("With Land at Credited Value") + basisTable(sourcesAndUses.creditedBasis, "Sources and Uses with Land at Credited Value");
+    body += h3("With Land at Credited Value") + basisTable(sourcesAndUses.creditedBasis, "Sources and Uses with Land at Credited Value", breakoutFor(sourcesAndUses.creditedBasis));
     if (creditedLand) body += note(`Credited land: cash cost ${money(creditedLand.cashLandCost)}, credited value ${money(creditedLand.creditedValue)}, step-up ${money(creditedLand.stepUp)}. The step-up is a non-cash use and a non-cash equity source of the same amount.`);
   }
   return page("sources-and-uses", 2, "Sources and Uses", "Land is at cash cost. Total sources equal total uses.", body);
@@ -147,7 +175,7 @@ function unitTypesOf(inputs: unknown): PropertyReturnsInputs["residentialUnitTyp
 }
 
 function amiRange(min: number | null, max: number | null): string {
-  if (min === null || max === null) return "None";
+  if (min === null || max === null) return "";
   return min === max ? `${min}%` : `${min}% to ${max}%`;
 }
 
@@ -157,16 +185,17 @@ function unitMixPage(source: WorkbookSource): string {
     return page("unit-mix", 3, "Unit Mix by Tier", "", note("This run saved no apartment unit types."));
   }
   const report = affordabilityReport(unitTypes);
-  const tierRows: Cell[][] = AFFORDABILITY_TIERS.map((tier) => {
+  const tierRows: Cell[][] = AFFORDABILITY_TIERS.flatMap((tier): Cell[][] => {
     const row = report.tiers.find((item) => item.tier === tier)!;
-    return [
+    if (row.units === 0) return [];
+    return [[
       TIER_LABELS[tier],
       NUMBER.format(row.units),
       NUMBER.format(row.revenueUnits),
       NUMBER.format(row.rentableSf),
-      row.averageMonthlyRent === null ? "None" : money(row.averageMonthlyRent),
+      row.averageMonthlyRent === null ? "" : money(row.averageMonthlyRent),
       { text: amiRange(row.minAmiPercent, row.maxAmiPercent), className: "l" },
-    ];
+    ]];
   });
   const tiers = table({
     head: ["Tier", "Units", "Revenue Units", "Rentable SF", "Average Rent", "AMI"],
@@ -224,7 +253,7 @@ function annualPage(result: PropertyReturnsResult): string {
 
 function debtPage(result: PropertyReturnsResult): string {
   const { totals, permanentLoan, rateSchedule } = result.developmentCapital;
-  let body = h3("Construction Loan");
+  let body = permanentLoan ? h3("Construction Loan") : "";
   const construction: Cell[][] = [
     ["Debt Funded", money(totals.totalDebt)],
     ["Debt Share of Total Uses", `${NUMBER.format(totals.debtSharePercent)}%`],
@@ -263,7 +292,7 @@ function debtPage(result: PropertyReturnsResult): string {
     }
     body += note(`Valuation year ${esc(tests.valuationStartMonth)} to ${esc(tests.valuationEndMonth)}, NOI of ${money(tests.stabilizedNoi)}.`);
   }
-  return page("debt", 5, "Construction and Permanent Debt", "", body);
+  return page("debt", 5, permanentLoan ? "Construction and Permanent Debt" : "Construction Loan", "", body);
 }
 
 function partnershipPage(result: PropertyReturnsResult): string {
@@ -338,42 +367,41 @@ const CSS = `
 :root{--ink:#323338;--ink-2:#676879;--brand:#1D1D1F;--border:#D0D4E4;--border-light:#E6E9EF;--canvas:#F6F7FB;--primary:#0073EA;--primary-tint:#EAF3FE}
 *{box-sizing:border-box}
 html,body{margin:0;background:#fff;color:var(--ink);font-family:"Open Sans",Arial,sans-serif;font-size:11px;line-height:1.4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{height:915px;overflow:hidden;break-after:page;break-inside:avoid;page-break-after:always}
-.page:last-child{break-after:auto;page-break-after:auto}
+.sec{margin:0 0 14px}
+.ph,.lede,h3,caption{break-after:avoid;page-break-after:avoid}
 .ph{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--brand);padding-bottom:6px;margin-bottom:8px}
 .pn{font-size:11px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
 h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.012em;color:var(--brand)}
-h3{margin:14px 0 4px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
+h3{margin:10px 0 3px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
 .lede,.note{margin:0 0 8px;font-size:11px;color:var(--ink-2)}
 .note{margin-top:6px}
-table{width:100%;border-collapse:collapse;margin:0 0 10px;font-variant-numeric:tabular-nums;break-inside:avoid;page-break-inside:avoid}
+table{width:100%;border-collapse:collapse;margin:0 0 8px;font-variant-numeric:tabular-nums;break-inside:avoid;page-break-inside:avoid}
 caption{caption-side:top;text-align:left;font-size:11px;font-weight:700;color:var(--ink-2);padding:0 0 3px}
-th,td{padding:3px 6px;border-bottom:1px solid var(--border-light);font-size:11px;vertical-align:top}
+th,td{padding:2px 6px;border-bottom:1px solid var(--border-light);font-size:11px;vertical-align:top}
 thead th{background:var(--canvas);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
 tbody th{font-weight:400;text-align:left}
 tr{break-inside:avoid;page-break-inside:avoid}
 .l{text-align:left}.r{text-align:right}
 .total th,.total td{font-weight:700;border-top:1px solid var(--brand);border-bottom:0}
-table.annual th,table.annual td{font-size:9.5px;padding:2px 4px}
+table.annual th,table.annual td{font-size:9.5px;padding:1.5px 4px}
+table.annual{table-layout:fixed;margin-bottom:6px}
+table.annual th:first-child{width:25%}
 table.annual thead th{font-size:8.5px}
 .facts,.headline{display:flex;gap:10px;margin:0 0 10px}
 .stat{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:#fff}
 .stat .k{display:block;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
 .stat .v{display:block;margin-top:2px;font-size:16px;font-weight:700;color:var(--brand);font-variant-numeric:tabular-nums}
-.stat.big{padding:14px 14px;background:var(--canvas)}
+.stat.big{padding:10px 14px;background:var(--canvas)}
 .stat.big .v{font-size:30px;font-weight:800;letter-spacing:-.02em}
-.cover-page{display:flex;flex-direction:column;justify-content:space-between}
-.cover{padding-top:150px}
+.cover-sec{break-inside:avoid}
+.cover{padding-top:0}
 .eyebrow{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
 h1{margin:0;font-size:40px;line-height:46px;font-weight:800;letter-spacing:-.02em;color:var(--brand)}
 .addr{margin:6px 0 0;font-size:15px;color:var(--ink-2)}
-.when{margin:4px 0 40px;font-size:13px;color:var(--ink-2)}
-.cover-foot{display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;font-size:10px;color:var(--ink-2)}
+.when{margin:4px 0 16px;font-size:13px;color:var(--ink-2)}
+.cover-foot{display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;margin-bottom:6px;font-size:10px;color:var(--ink-2)}
 .limits{margin:0;padding-left:18px}.limits li{margin:0 0 4px}
 `;
-
-/** Where the page runs a second pass: a smaller type size, for a run with more years than the page was set for. */
-export const TIGHT_CLASS = "tight";
 
 export function renderSummaryHtml(source: WorkbookSource): string {
   const pages = [
@@ -385,7 +413,7 @@ export function renderSummaryHtml(source: WorkbookSource): string {
     partnershipPage(source.result),
     assumptionsPage(source),
   ].join("");
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(source.caseName)}, Underwriting Deal Summary</title><style>${CSS}.${TIGHT_CLASS} td,.${TIGHT_CLASS} th{padding:1px 4px!important;font-size:9px!important}</style></head><body>${pages}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(source.caseName)}, Underwriting Deal Summary</title><style>${CSS}</style></head><body>${pages}</body></html>`;
 }
 
 const HEADER_STYLE = "width:100%;font-family:'Open Sans',Arial,sans-serif;font-size:8px;color:#676879;padding:0 14mm;display:flex;justify-content:space-between;";

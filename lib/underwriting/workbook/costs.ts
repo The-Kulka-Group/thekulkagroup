@@ -409,15 +409,19 @@ export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostSchedu
   rows.push({ cells: [] });
   rows.push({ cells: [{ kind: "text", text: "By Category", role: "section" }] });
   for (const category of CATEGORIES) rows.push({ outlineLevel: 1, cells: pad(categoryCells.get(category)!) });
+  // LA-2022: the financing a percent of total line counts is the engine's figure, typed in, so the file has no circular reference.
   const financingCell: Extract<LayoutCell, { kind: "output" }> = { kind: "output", id: "costs.financing", format: "money", engineValue: financing };
+  const financingInput = absoluteAddress(financingRow, COLUMN.amount);
   if (financed) {
     rows.push({ cells: [] });
     rows.push({ cells: [{ kind: "text", text: "From the Funding Plan", role: "section" }] });
-    rows.push({ cells: [{ kind: "text", text: "Financing Counted in Percent of Total Lines", role: "label" }, null, null, null, financingCell] });
+    rows.push({ cells: [{ kind: "text", text: "Financing Counted in Percent of Total Lines", role: "label" }, null, null, null, { kind: "input", value: financing, format: "money" }] });
+    rows.push({ cells: [{ kind: "text", text: "Financing the Formulas Give", role: "label" }, null, null, null, financingCell] });
+    rows.push({ cells: [{ kind: "text", text: "Gap", role: "label" }, null, null, null, { kind: "calc", format: "money", formula: `ROUND(${financingInput}-${absoluteAddress(financingRow + 1, COLUMN.amount)},2)` }] });
   }
   const notes = [
     "Month figures follow the cost schedule: a line spreads its amount over its months by its curve, and the last month takes what is left after rounding.",
-    ...(financed ? ["Financing is the loan fees, operating shortfall and capitalized interest on the Monthly sheet. A percent of total line counts it, and the loan counts that line, so the two feed each other and Excel repeats the calculation until they agree. The file is saved with iterative calculation on."] : []),
+    ...(financed ? ["Financing is the loan fees, operating shortfall and capitalized interest on the Monthly sheet. A percent of total line counts it, and the loan counts that line, so the two feed each other. The blue figure is the engine's, so the file needs no circular calculation. When a change leaves a gap, run the case again, or type the figure the formulas give over the blue one until the gap is zero."] : []),
   ];
   rows.push({ cells: [] });
   for (const note of notes) rows.push({ cells: [{ kind: "text", text: note, role: "note" }] });

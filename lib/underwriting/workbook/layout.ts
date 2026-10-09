@@ -900,8 +900,6 @@ export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayo
       assumptions,
     ],
     names,
-    // Excel repeats the calculation until the equity the loan commits and the interest it reserves agree, and stops once no cell moves by more than a tenth of a cent.
-    iterativeCalculation: { maxIterations: 1000, maxChange: 0.001 },
   };
   assertFormulasFit(layout);
   return layout;

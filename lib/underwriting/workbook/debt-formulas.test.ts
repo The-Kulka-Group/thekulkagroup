@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "../../../packages/engine/src/fixtures/apartment-development-model-v2.98-scorecard";
 import { COMMERCIAL_CAP_EVIDENCE, lenderTestPlan, retailAbatementCase, retailBlock } from "../../../packages/engine/src/fixtures/commercial-cap-cases";
-import { checkWorkbook, closeCircularCells, findSoffice, numericValue, recalculateWithLibreOffice } from "./check";
+import { checkWorkbook, findSoffice, numericValue, recalculateWithLibreOffice } from "./check";
 import { layoutOutputs, SHEET_NAMES, underwritingWorkbookLayout, type WorkbookSource } from "./layout";
 import { writeUnderwritingWorkbook } from "./write";
 
@@ -135,13 +135,16 @@ describe("debt layout", () => {
     });
   }
 
-  it("saves the workbook with iterative calculation on", async () => {
-    const layout = underwritingWorkbookLayout(sourceFor("v2.98", base));
-    expect(layout.iterativeCalculation).toEqual({ maxIterations: 1000, maxChange: 0.001 });
-    const xlsx = await writeUnderwritingWorkbook(layout);
-    const { default: JSZip } = await import("jszip");
-    const xml = await (await JSZip.loadAsync(xlsx)).file("xl/workbook.xml")!.async("string");
-    expect(xml).toMatch(/<calcPr [^>]*iterate="1"[^>]*iterateCount="1000"[^>]*iterateDelta="0.001"/);
+  // LA-2022: Excel's iterative calculation did not settle the loop, so the equity commitment is the engine's figure, typed in.
+  it("holds the equity commitment as the engine's figure, with what the formulas give beside it", () => {
+    const source = sourceFor("v2.98", base);
+    const layout = underwritingWorkbookLayout(source);
+    const name = layout.names.find(({ name }) => name === "in_workbook_equity_commitment")!;
+    expect(name.sheet).toBe(SHEET_NAMES.loan);
+    const loanSheet = layout.sheets.find(({ name: sheet }) => sheet === SHEET_NAMES.loan)!;
+    const input = loanSheet.rows[Number(name.address.replace(/\D/g, "")) - 1].cells[1]!;
+    expect(input).toMatchObject({ kind: "input", value: source.result.developmentCapital.totals.equity });
+    expect(layoutOutputs(layout).find(({ cell }) => cell.id === "loan.equityCheck")!.cell.engineValue).toBe(source.result.developmentCapital.totals.equity);
   });
 
   it("holds the loan sizing in a Loan sheet after the Monthly sheet", () => {
@@ -150,11 +153,10 @@ describe("debt layout", () => {
   });
 });
 
-describe.skipIf(!SOFFICE)("debt in LibreOffice, with the circular cells closed at the engine's figures", () => {
+describe.skipIf(!SOFFICE)("debt in LibreOffice", () => {
   for (const [name, inputs] of Object.entries(CASES)) {
     it(`matches the engine on every output: ${name}`, async () => {
       const layout = underwritingWorkbookLayout(sourceFor(name, inputs));
-      closeCircularCells(layout);
       const check = await checkWorkbook(layout, SOFFICE!);
       expect(check.mismatches).toEqual([]);
     }, 180_000);
@@ -172,7 +174,6 @@ describe.skipIf(!SOFFICE)("debt in LibreOffice, with the circular cells closed a
 
     const layout = underwritingWorkbookLayout(sourceFor("Before", original));
     const expected = underwritingWorkbookLayout(sourceFor("After", changed));
-    closeCircularCells(layout);
     const edits: Record<string, number> = {
       "permanentLoan.annualRatePercent": 6.75,
       "permanentLoan.feePercent": 1.5,

@@ -6,7 +6,7 @@ import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "../../../packages/engine/src/fixtures/apartment-development-model-v2.98-scorecard";
-import { checkWorkbook, closeCircularCells, findSoffice } from "./check";
+import { checkWorkbook, findSoffice } from "./check";
 import { columnLetter, layoutOutputs, SHEET_NAMES, underwritingWorkbookLayout, type WorkbookLayout, type WorkbookSource } from "./layout";
 import { writeUnderwritingWorkbook } from "./write";
 
@@ -84,8 +84,7 @@ describe("underwriting workbook file", () => {
 
 /*
  * The LibreOffice check. It needs LibreOffice (`brew install --cask libreoffice`, or set
- * KULKA_SOFFICE_PATH) and skips without it. LibreOffice does not settle the loan's circular equity
- * loop, so each check closes it at the engine's own figures first (closeCircularCells). The three live deals read their inputs from Dropbox
+ * KULKA_SOFFICE_PATH) and skips without it. The three live deals read their inputs from Dropbox
  * through KULKA_MODEL_AUDIT_DIR, as the audited scorecard does, and skip without it.
  */
 const SOFFICE = findSoffice();
@@ -99,7 +98,6 @@ function report(name: string, check: Awaited<ReturnType<typeof checkWorkbook>>) 
 describe.skipIf(!SOFFICE)("LibreOffice recalculation check", () => {
   it("matches the engine on every output of the v2.98 sample", async () => {
     const layout = underwritingWorkbookLayout(V2_98);
-    closeCircularCells(layout);
     const check = await checkWorkbook(layout, SOFFICE!);
     report("v2.98", check);
     expect(check.mismatches).toEqual([]);
@@ -108,7 +106,6 @@ describe.skipIf(!SOFFICE)("LibreOffice recalculation check", () => {
 
   it("names the cell when a formula drifts from the engine", async () => {
     const layout: WorkbookLayout = underwritingWorkbookLayout(V2_98);
-    closeCircularCells(layout);
     const total = layoutOutputs(layout).find(({ cell }) => cell.id === "monthly.projectCosts.total")!;
     total.cell.formula = `${total.cell.formula}+5`;
     const check = await checkWorkbook(layout, SOFFICE!);
@@ -124,7 +121,6 @@ describe.skipIf(!SOFFICE)("LibreOffice recalculation check", () => {
         expect(existsSync(path), `${path} is missing`).toBe(true);
         const model = JSON.parse(readFileSync(path, "utf8")) as { engineInputs: PropertyReturnsInputs };
         const layout = underwritingWorkbookLayout(sourceFor(folder, model.engineInputs));
-        closeCircularCells(layout);
         const check = await checkWorkbook(layout, SOFFICE!);
         report(folder, check);
         expect(check.mismatches).toEqual([]);

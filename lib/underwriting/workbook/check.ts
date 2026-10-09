@@ -89,18 +89,6 @@ export function numericValue(cell: ExcelJS.Cell | undefined): number | string | 
   return String(value);
 }
 
-/**
- * The loan sizes its own equity and a percent-of-total cost line counts the financing the loan funds, so the
- * workbook is circular and Excel repeats the calculation until it settles. LibreOffice does not settle a
- * loop this size, so this check sets the two cells that close the loop to the engine's own figures and has
- * LibreOffice calculate everything else. Every other debt formula is still calculated from the inputs.
- */
-export function closeCircularCells(layout: WorkbookLayout) {
-  for (const { cell } of layoutOutputs(layout)) {
-    if (cell.id === "loan.equity" || cell.id === "costs.financing") cell.formula = String(cell.engineValue);
-  }
-}
-
 export function compareWorkbookOutputs(layout: WorkbookLayout, recalculated: ExcelJS.Workbook): WorkbookCheckReport {
   const outputs = layoutOutputs(layout);
   const mismatches: WorkbookMismatch[] = [];

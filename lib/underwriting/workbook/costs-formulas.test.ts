@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "../../../packages/engine/src/fixtures/apartment-development-model-v2.98-scorecard";
 import { retailCase } from "../../../packages/engine/src/fixtures/commercial-cap-cases";
-import { checkWorkbook, closeCircularCells, findSoffice, numericValue, recalculateWithLibreOffice } from "./check";
+import { checkWorkbook, findSoffice, numericValue, recalculateWithLibreOffice } from "./check";
 import { layoutOutputs, SHEET_NAMES, underwritingWorkbookLayout, type WorkbookLayout, type WorkbookSource } from "./layout";
 import { writeUnderwritingWorkbook } from "./write";
 
@@ -181,7 +181,6 @@ describe("a run whose saved inputs no longer calculate", () => {
 describe.skipIf(!SOFFICE)("cost schedule and sources and uses in LibreOffice", () => {
   it("matches the engine on every output when every cost basis, curve and anchor is in use", async () => {
     const layout = underwritingWorkbookLayout(EVERY_FEATURE);
-    closeCircularCells(layout);
     const check = await checkWorkbook(layout, SOFFICE!);
     expect(check.mismatches).toEqual([]);
     expect(check.live).toBeGreaterThan(1000);
@@ -189,7 +188,6 @@ describe.skipIf(!SOFFICE)("cost schedule and sources and uses in LibreOffice", (
 
   it("matches the engine on a deal with commercial space", async () => {
     const layout = underwritingWorkbookLayout(sourceFor("Retail", retailCase()));
-    closeCircularCells(layout);
     const check = await checkWorkbook(layout, SOFFICE!);
     expect(check.mismatches).toEqual([]);
   }, 180_000);
@@ -209,7 +207,6 @@ describe.skipIf(!SOFFICE)("cost schedule and sources and uses in LibreOffice", (
 
     const layout: WorkbookLayout = underwritingWorkbookLayout(sourceFor("Before", original));
     const expected = underwritingWorkbookLayout(sourceFor("After", changed));
-    closeCircularCells(layout);
 
     // The edits an estimator makes on the Assumptions sheet.
     const edits: Record<string, number | string> = {

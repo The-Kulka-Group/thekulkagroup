@@ -8,6 +8,7 @@ import {
   header,
   monthCount,
   sheetRef,
+  xirrFromFirstFlow,
   type CellFormat,
   type LayoutCell,
   type LayoutContext,
@@ -109,8 +110,8 @@ export function buildWaterfallSheet(ctx: LayoutContext, plan: PartnershipPlan, r
   usd("gpDistributions", "GP Distributions", () => T("gpDistribution"));
   usd("lpNetProfit", "LP Net Profit", () => `${T("lpDistribution")}-${T("lpContribution")}`);
   usd("gpNetProfit", "GP Net Profit", () => `${T("gpDistribution")}-${T("gpContribution")}`);
-  scalar("m.lpXirr", "LP XIRR", "rate", () => `XIRR(${rowRange("lpNetCashFlow")},${rowRange("cashFlowDate")})`, metric("lpXirr"));
-  scalar("m.gpXirr", "GP XIRR", "rate", () => `XIRR(${rowRange("gpNetCashFlow")},${rowRange("cashFlowDate")})`, metric("gpXirr"));
+  scalar("m.lpXirr", "LP XIRR", "rate", () => xirrFromFirstFlow(rowRange("lpNetCashFlow"), rowRange("cashFlowDate")), metric("lpXirr"));
+  scalar("m.gpXirr", "GP XIRR", "rate", () => xirrFromFirstFlow(rowRange("gpNetCashFlow"), rowRange("cashFlowDate")), metric("gpXirr"));
   scalar("m.lpEquityMultiple", "LP Equity Multiple", "multiple", () => `${T("lpDistribution")}/${T("lpContribution")}`, metric("lpEquityMultiple"));
   scalar("m.gpEquityMultiple", "GP Equity Multiple", "multiple", () => `${T("gpDistribution")}/${T("gpContribution")}`, metric("gpEquityMultiple"));
   usd("lpPeakEquity", "LP Peak Equity", () => `MAX(0,MAX(${rowRange("lpOut")}))/100`);

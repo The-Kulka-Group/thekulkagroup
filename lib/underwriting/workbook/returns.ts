@@ -7,6 +7,7 @@ import {
   header,
   monthCount,
   sheetRef,
+  xirrFromFirstFlow,
   type CellFormat,
   type LayoutCell,
   type LayoutContext,
@@ -116,7 +117,7 @@ export function createReturns(ctx: LayoutContext, operations: OperationsBuild): 
 
   // --------------------------------------------------------------- metrics
   const stream = (row: string) => ({
-    xirr: (m: MonthlyReturnsAccess) => `XIRR(${m.range(row)},${m.range("w.cashFlowDate")})`,
+    xirr: (m: MonthlyReturnsAccess) => xirrFromFirstFlow(m.range(row), m.range("w.cashFlowDate")),
     multiple: (m: MonthlyReturnsAccess) => `SUMIF(${m.range(row)},">0")/-SUMIF(${m.range(row)},"<0")`,
     profit: (m: MonthlyReturnsAccess) => `SUM(${m.range(row)})`,
   });

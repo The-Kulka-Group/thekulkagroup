@@ -27,11 +27,6 @@ export type LayoutSheet = {
 export type WorkbookLayout = {
   sheets: LayoutSheet[];
   names: Array<{ name: string; sheet: string; address: string }>;
-  /**
-   * The loan sizes its own equity share, and that share changes the interest the loan reserves. Excel
-   * has to repeat the calculation until the two settle, so the file is saved with iterative calculation on.
-   */
-  iterativeCalculation?: { maxIterations: number; maxChange: number };
 };
 
 export type WorkbookSource = {
@@ -151,4 +146,20 @@ export function assertFormulasFit(layout: WorkbookLayout) {
       });
     });
   }
+}
+
+/**
+ * XIRR from the first month whose cash flow is not zero. Excel's XIRR returns about zero when a flow opens
+ * with zero months (LA-2022). Leading zeros add nothing to the present value, so the rate is the same.
+ */
+export function xirrFromFirstFlow(values: string, dates: string) {
+  const first = `MATCH(TRUE,INDEX(${values}<>0,0),0)`;
+  return `XIRR(INDEX(${values},${first}):${rangeEnd(values)},INDEX(${dates},${first}):${rangeEnd(dates)})`;
+}
+
+/** The last cell of a range such as `'Monthly'!$C$9:$AV$9`, with its sheet. */
+function rangeEnd(range: string) {
+  const match = /^(.*!)?[^!:]+:([^!:]+)$/.exec(range);
+  if (!match) throw new Error(`${range} is not a range.`);
+  return `${match[1] ?? ""}${match[2]}`;
 }

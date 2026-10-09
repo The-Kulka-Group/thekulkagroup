@@ -41,6 +41,7 @@ export async function GET(request: Request, context: Context) {
       },
     });
   } catch (error) {
+    if (!(error instanceof SummaryLayoutError)) console.error("The deal summary could not be printed.", error);
     const message = error instanceof SummaryLayoutError ? error.message : "The deal summary could not be printed.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

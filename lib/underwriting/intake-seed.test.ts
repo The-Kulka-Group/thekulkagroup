@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { AssumptionName, UnderwritingAssumption, UnderwritingCase } from "./cases";
 import {
   addMonths,
+  blankEvidenceRows,
   commonSource,
   detachesFromAnalysisStart,
   followAnalysisStart,
@@ -131,6 +132,19 @@ describe("commonSource", () => {
     const savedCase = intakeCase();
     savedCase.assumptions.push(assumption("contingencyPercent", 5, { sourceLabel: "GC budget" }));
     expect(commonSource(savedCase)).toEqual({});
+  });
+});
+
+describe("blankEvidenceRows", () => {
+  it("gives each key a working row that carries the common source", () => {
+    expect(blankEvidenceRows(["a", "b"], SOURCE)).toEqual({
+      a: { ...SOURCE, reviewState: "working" },
+      b: { ...SOURCE, reviewState: "working" },
+    });
+  });
+
+  it("gives a bare working row when there is no common source", () => {
+    expect(blankEvidenceRows(["a"], {})).toEqual({ a: { reviewState: "working" } });
   });
 });
 

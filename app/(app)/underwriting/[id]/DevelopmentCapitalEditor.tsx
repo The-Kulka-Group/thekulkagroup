@@ -20,7 +20,7 @@ import {
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
-import { commonSource, seedFromIntake } from "@/lib/underwriting/intake-seed";
+import { blankEvidenceRows, commonSource, seedFromIntake } from "@/lib/underwriting/intake-seed";
 
 import { OtherSourcesSection } from "./OtherSourcesSection";
 import { PermanentLoanSection } from "./PermanentLoanSection";
@@ -48,7 +48,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   const [creditedLand, setCreditedLand] = useState<CreditedLandPlan | undefined>(saved?.creditedLand);
   const [permanentLoan, setPermanentLoan] = useState<PermanentLoanPlan | undefined>(saved?.permanentLoan);
   const [capitalAssumptionEvidence, setCapitalAssumptionEvidence] = useState(saved?.capitalAssumptionEvidence ?? {
-    ...blankEvidence(),
+    ...blankEvidenceRows(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS, source),
     ...(seed?.targetDebtSharePercent ? { targetDebtSharePercent: seed.targetDebtSharePercent.evidence } : {}),
     ...(seed?.annualInterestRatePercent ? { annualInterestRatePercent: seed.annualInterestRatePercent.evidence } : {}),
   });
@@ -263,13 +263,6 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function FieldError({ id, error }: { id?: string; error?: string }) {
   return error ? <span id={id} className="input-error" role="alert">{error}</span> : null;
-}
-
-function blankEvidence() {
-  return Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [
-    key,
-    { reviewState: "working" as const },
-  ])) as Record<DevelopmentCapitalAssumptionKey, DevelopmentCapitalEvidence>;
 }
 
 async function responseBody(response: Response) {

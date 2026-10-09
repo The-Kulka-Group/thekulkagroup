@@ -1,12 +1,18 @@
 import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { CommercialOperations, OtherFundingSource, PermanentLoanPlan, PropertyTaxPlan } from "@kulka/engine";
+import { APARTMENT_OPERATIONS_ASSUMPTION_KEYS, DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS, type CommercialOperations, type OtherFundingSource, type PermanentLoanPlan, type PropertyTaxPlan } from "@kulka/engine";
 
+import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import { ApartmentOperationsEditor } from "./ApartmentOperationsEditor";
 import { CommercialSection } from "./CommercialSection";
+import { DevelopmentCapitalEditor } from "./DevelopmentCapitalEditor";
 import { OtherSourcesSection } from "./OtherSourcesSection";
 import { PermanentLoanSection } from "./PermanentLoanSection";
 import { PropertyTaxSection } from "./PropertyTaxSection";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 
 const common = { sourceLabel: "Intake Memo", sourceDate: "2026-10-01" };
 const stamp = { ...common, reviewState: "working" };
@@ -149,6 +155,75 @@ describe("common source on new lines and evidence rows (LA-2081)", () => {
       const { tree, set } = render(none);
       check(tree);
       for (const row of Object.values((set.mock.calls[0][0] as PropertyTaxPlan).taxEvidence)) expect(row).toEqual(working);
+    });
+  });
+});
+
+describe("common source on assumption source rows (LA-2082)", () => {
+  const assumption = (name: string, source: object) => ({ name, value: 1, unit: "usd", reviewState: "working", ...source });
+  const costSchedule = { analysisStartMonth: "2027-01", saleMonth: "2029-01", milestones: [], costLines: [] };
+  const intake = (source: object) => ({
+    id: "case-1",
+    caseRevision: 1,
+    assumptions: [assumption("purchasePrice", source), assumption("monthlyRent", source)],
+    factMetadata: {},
+    costSchedule,
+  });
+
+  /** The source label and source date inputs inside the assumption source table, in row order. */
+  const evidenceInputs = (html: string) => {
+    const table = /<table[^>]*underwriting-assumption-evidence[^>]*>[\s\S]*?<\/table>/.exec(html)![0];
+    const inputs = [...table.matchAll(/<input[^>]*>/g)].map((match) => match[0]);
+    return {
+      labels: inputs.filter((input) => /aria-label="[^"]* source label"/.test(input)),
+      dates: inputs.filter((input) => /aria-label="[^"]* source date"/.test(input)),
+    };
+  };
+
+  const operations = (savedCase: object) => evidenceInputs(renderToStaticMarkup(<ApartmentOperationsEditor savedCase={savedCase as UnderwritingCase} />));
+  const capital = (savedCase: object) => evidenceInputs(renderToStaticMarkup(<DevelopmentCapitalEditor savedCase={{ apartmentOperations: {}, ...savedCase } as UnderwritingCase} />));
+
+  describe("apartment operations", () => {
+    it("opens every source row with the common source while the section is unsaved", () => {
+      const { labels, dates } = operations(intake(common));
+      expect(labels).toHaveLength(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.length);
+      expect(dates).toHaveLength(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.length);
+      for (const input of labels) expect(input).toContain('value="Intake Memo"');
+      for (const input of dates) expect(input).toContain('value="2026-10-01"');
+    });
+
+    it("leaves the rows blank when the case has no common source", () => {
+      const { labels, dates } = operations(intake(none));
+      for (const input of [...labels, ...dates]) expect(input).toContain('value=""');
+    });
+
+    it("leaves a saved section as saved", () => {
+      const evidence = Object.fromEntries(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => [key, { sourceLabel: "Broker", reviewState: "done" }]));
+      const { labels, dates } = operations({ ...intake(common), apartmentOperations: { assumptionEvidence: evidence, residentialUnitTypes: [], otherIncomeLines: [], operatingExpenseLines: [], capitalExpenditureLines: [] } });
+      for (const input of labels) expect(input).toContain('value="Broker"');
+      for (const input of dates) expect(input).toContain('value=""');
+    });
+  });
+
+  describe("development capital", () => {
+    it("opens every source row with the common source while the section is unsaved", () => {
+      const { labels, dates } = capital(intake(common));
+      expect(labels).toHaveLength(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.length);
+      expect(dates).toHaveLength(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.length);
+      for (const input of labels) expect(input).toContain('value="Intake Memo"');
+      for (const input of dates) expect(input).toContain('value="2026-10-01"');
+    });
+
+    it("leaves the rows blank when the case has no common source", () => {
+      const { labels, dates } = capital(intake(none));
+      for (const input of [...labels, ...dates]) expect(input).toContain('value=""');
+    });
+
+    it("leaves a saved section as saved", () => {
+      const evidence = Object.fromEntries(DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS.map((key) => [key, { sourceLabel: "Term Sheet", reviewState: "done" }]));
+      const { labels, dates } = capital({ ...intake(common), developmentCapital: { capitalAssumptionEvidence: evidence } });
+      for (const input of labels) expect(input).toContain('value="Term Sheet"');
+      for (const input of dates) expect(input).toContain('value=""');
     });
   });
 });

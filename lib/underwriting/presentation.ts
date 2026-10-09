@@ -35,43 +35,106 @@ export const UNDERWRITING_LIMITATIONS = [
   "These preliminary results do not record a finance approval.",
 ] as const;
 
+export type ReviewSectionKey =
+  | "facts"
+  | "assumptions"
+  | "costs"
+  | "operations"
+  | "capital"
+  | "returns"
+  | "scenarios";
+
+// LA-2054. Sections in page order. The title is what the list shows over each group.
+export const REVIEW_SECTIONS: ReadonlyArray<{ key: ReviewSectionKey; title: string }> = [
+  { key: "facts", title: "Project Facts" },
+  { key: "assumptions", title: "Financial Assumptions" },
+  { key: "costs", title: "Development Cost Schedule" },
+  { key: "operations", title: "Apartment Operations" },
+  { key: "capital", title: "Development Capital" },
+  { key: "returns", title: "Property Sale and Returns" },
+  { key: "scenarios", title: "Scenario Comparison" },
+];
+
+export type ReviewGap = "Missing" | "No Source Label" | "No Source Date" | "Working on It";
+
+/** One input with everything still open on it. */
+export type UnderwritingReviewRow = {
+  id: string;
+  label: string;
+  gaps: ReviewGap[];
+  /** The row text, for example "Payroll: No Source Date, Working on It". */
+  message: string;
+};
+
+export type UnderwritingReviewGroup = {
+  key: ReviewSectionKey;
+  title: string;
+  rows: UnderwritingReviewRow[];
+  /** Rows still Working on It, which is what Mark Section Done clears. */
+  workingCount: number;
+};
+
+/** A calculation problem. These stay apart from the input rows and sit above them. */
 export type UnderwritingReviewItem = {
   id: string;
   message: string;
   severity: "waiting" | "stuck";
 };
 
-export function buildUnderwritingReviewItems(
+export type UnderwritingReview = {
+  calculation: UnderwritingReviewItem[];
+  groups: UnderwritingReviewGroup[];
+  /** Calculation items plus input rows. */
+  count: number;
+};
+
+export function titleCase(text: string): string {
+  return text.replace(/\b([a-z])([a-z]*)/g, (word, first: string, rest: string) =>
+    /^(and|of|on|in|per|to|for|the|a)$/.test(word) ? word : first.toUpperCase() + rest);
+}
+
+function humanKey(key: string): string {
+  return titleCase(key.replace(/([A-Z])/g, " $1").trim());
+}
+
+export function buildUnderwritingReview(
   savedCase: UnderwritingCase,
   currentRun: SavedUnderwritingRun | undefined,
   hasRunHistory: boolean,
-): UnderwritingReviewItem[] {
-  const items: UnderwritingReviewItem[] = [];
-  const facts = [
-    ["proposedUnits", "Proposed units", savedCase.proposedUnits],
-    ["averageUnitSquareFeet", "Average unit size", savedCase.averageUnitSquareFeet],
-    ["grossBuildingSquareFeet", "Gross building area", savedCase.grossBuildingSquareFeet],
-  ] as const;
+): UnderwritingReview {
+  const calculation: UnderwritingReviewItem[] = [];
+  const bySection = new Map<ReviewSectionKey, UnderwritingReviewRow[]>();
 
+  function addRow(section: ReviewSectionKey, id: string, label: string, gaps: ReviewGap[]) {
+    if (gaps.length === 0) return;
+    const rows = bySection.get(section) ?? [];
+    rows.push({ id, label, gaps, message: `${label}: ${gaps.join(", ")}` });
+    bySection.set(section, rows);
+  }
+
+  function evidenceGaps(evidence: { sourceLabel?: unknown; sourceDate?: unknown; reviewState?: unknown } | undefined): ReviewGap[] {
+    const gaps: ReviewGap[] = [];
+    if (typeof evidence?.sourceLabel !== "string" || !evidence.sourceLabel.trim()) gaps.push("No Source Label");
+    if (typeof evidence?.sourceDate !== "string" || !evidence.sourceDate.trim()) gaps.push("No Source Date");
+    if (!evidence || evidence.reviewState === "working") gaps.push("Working on It");
+    return gaps;
+  }
+
+  const facts = [
+    ["proposedUnits", "Proposed Units", savedCase.proposedUnits],
+    ["averageUnitSquareFeet", "Average Unit Size", savedCase.averageUnitSquareFeet],
+    ["grossBuildingSquareFeet", "Gross Building Area", savedCase.grossBuildingSquareFeet],
+  ] as const;
   for (const [id, label, value] of facts) {
     if (value === undefined) {
-      items.push({ id: `fact-${id}`, message: `${label} is missing.`, severity: "waiting" });
+      addRow("facts", `fact-${id}`, label, ["Missing"]);
       continue;
     }
-    const metadata = savedCase.factMetadata[id];
-    if (!metadata?.sourceLabel?.trim()) {
-      items.push({ id: `fact-source-label-${id}`, message: `${label} needs a source label.`, severity: "waiting" });
-    }
-    if (!metadata?.sourceDate?.trim()) {
-      items.push({ id: `fact-source-date-${id}`, message: `${label} needs a source date.`, severity: "waiting" });
-    }
-    if (!metadata || metadata.reviewState === "working") {
-      items.push({ id: `fact-review-state-${id}`, message: `${label} is still Working on It.`, severity: "waiting" });
-    }
+    addRow("facts", `fact-${id}`, label, evidenceGaps(savedCase.factMetadata[id]));
   }
 
   if (!currentRun) {
-    items.push({
+    calculation.push({
       id: "calculation-current-revision",
       message: hasRunHistory
         ? "The project changed after the latest calculation. Recalculate this revision before reviewing results."
@@ -80,7 +143,7 @@ export function buildUnderwritingReviewItems(
     });
   } else {
     for (const issue of currentRun.issues) {
-      items.push({
+      calculation.push({
         id: `calculation-${"inputKey" in issue ? issue.inputKey : issue.path}-${issue.code}`,
         message: issue.message,
         severity: "stuck",
@@ -89,51 +152,11 @@ export function buildUnderwritingReviewItems(
   }
 
   for (const assumption of savedCase.assumptions) {
-    if (!assumption.sourceLabel?.trim()) {
-      items.push({
-        id: `source-label-${assumption.name}`,
-        message: `${assumption.label} needs a source label.`,
-        severity: "waiting",
-      });
-    }
-    if (!assumption.sourceDate?.trim()) {
-      items.push({
-        id: `source-date-${assumption.name}`,
-        message: `${assumption.label} needs a source date.`,
-        severity: "waiting",
-      });
-    }
-    if (assumption.reviewState === "working") {
-      items.push({
-        id: `review-state-${assumption.name}`,
-        message: `${assumption.label} is still Working on It.`,
-        severity: "waiting",
-      });
-    }
+    addRow("assumptions", `assumption-${assumption.name}`, titleCase(assumption.label), evidenceGaps(assumption));
   }
 
   for (const line of savedCase.costSchedule?.costLines ?? []) {
-    if (!line.sourceLabel?.trim()) {
-      items.push({
-        id: `cost-source-label-${line.id}`,
-        message: `${line.name} needs a source label.`,
-        severity: "waiting",
-      });
-    }
-    if (!line.sourceDate?.trim()) {
-      items.push({
-        id: `cost-source-date-${line.id}`,
-        message: `${line.name} needs a source date.`,
-        severity: "waiting",
-      });
-    }
-    if (line.reviewState === "working") {
-      items.push({
-        id: `cost-review-state-${line.id}`,
-        message: `${line.name} is still Working on It.`,
-        severity: "waiting",
-      });
-    }
+    addRow("costs", `cost-${line.id}`, titleCase(line.name), evidenceGaps(line));
   }
 
   const commercial = savedCase.apartmentOperations?.commercial;
@@ -145,58 +168,18 @@ export function buildUnderwritingReviewItems(
     ...(commercial ? [{ ...commercial, id: "commercial", name: "Commercial Vacancy and Credit Loss" }, ...commercial.spaces] : []),
   ] : [];
   for (const line of operationLines) {
-    if (!line.sourceLabel?.trim()) {
-      items.push({
-        id: `operations-source-label-${line.id}`,
-        message: `${line.name} needs a source label.`,
-        severity: "waiting",
-      });
-    }
-    if (!line.sourceDate?.trim()) {
-      items.push({
-        id: `operations-source-date-${line.id}`,
-        message: `${line.name} needs a source date.`,
-        severity: "waiting",
-      });
-    }
-    if (line.reviewState === "working") {
-      items.push({
-        id: `operations-review-state-${line.id}`,
-        message: `${line.name} is still Working on It.`,
-        severity: "waiting",
-      });
-    }
+    addRow("operations", `operations-${line.id}`, titleCase(line.name), evidenceGaps(line));
   }
 
   if (savedCase.apartmentOperations) {
     for (const key of APARTMENT_OPERATIONS_ASSUMPTION_KEYS) {
-      const evidence = savedCase.apartmentOperations.assumptionEvidence[key];
-      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
-      if (!evidence.sourceLabel?.trim()) {
-        items.push({ id: `operations-assumption-source-label-${key}`, message: `${label} needs a source label.`, severity: "waiting" });
-      }
-      if (!evidence.sourceDate?.trim()) {
-        items.push({ id: `operations-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
-      }
-      if (evidence.reviewState === "working") {
-        items.push({ id: `operations-assumption-review-state-${key}`, message: `${label} is still Working on It.`, severity: "waiting" });
-      }
+      addRow("operations", `operations-assumption-${key}`, humanKey(key), evidenceGaps(savedCase.apartmentOperations.assumptionEvidence[key]));
     }
   }
 
   if (savedCase.developmentCapital) {
     for (const key of DEVELOPMENT_CAPITAL_ASSUMPTION_KEYS) {
-      const evidence = savedCase.developmentCapital.capitalAssumptionEvidence[key];
-      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
-      if (!evidence.sourceLabel?.trim()) {
-        items.push({ id: `capital-assumption-source-label-${key}`, message: `${label} needs a source label.`, severity: "waiting" });
-      }
-      if (!evidence.sourceDate?.trim()) {
-        items.push({ id: `capital-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
-      }
-      if (evidence.reviewState === "working") {
-        items.push({ id: `capital-assumption-review-state-${key}`, message: `${label} is still Working on It.`, severity: "waiting" });
-      }
+      addRow("capital", `capital-assumption-${key}`, humanKey(key), evidenceGaps(savedCase.developmentCapital.capitalAssumptionEvidence[key]));
     }
   }
 
@@ -205,28 +188,21 @@ export function buildUnderwritingReviewItems(
       ? [...PROPERTY_RETURNS_ASSUMPTION_KEYS]
       : [...PROPERTY_RETURNS_ASSUMPTION_KEYS, PROPERTY_RETURNS_COMMERCIAL_CAP_KEY];
     for (const key of saleKeys) {
-      const evidence = savedCase.propertyReturns.saleAssumptionEvidence[key]!;
-      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
-      if (!evidence.sourceLabel?.trim()) {
-        items.push({ id: `returns-assumption-source-label-${key}`, message: `${label} needs a source label.`, severity: "waiting" });
-      }
-      if (!evidence.sourceDate?.trim()) {
-        items.push({ id: `returns-assumption-source-date-${key}`, message: `${label} needs a source date.`, severity: "waiting" });
-      }
-      if (evidence.reviewState === "working") {
-        items.push({ id: `returns-assumption-review-state-${key}`, message: `${label} is still Working on It.`, severity: "waiting" });
-      }
+      addRow("returns", `returns-assumption-${key}`, humanKey(key), evidenceGaps(savedCase.propertyReturns.saleAssumptionEvidence[key]!));
     }
   }
 
   for (const scenario of savedCase.scenarios ?? []) {
     for (const [key, evidence] of Object.entries(scenario.evidence)) {
-      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase());
-      if (typeof evidence?.sourceLabel !== "string" || !evidence.sourceLabel.trim()) items.push({ id: `scenario-source-label-${scenario.id}-${key}`, message: `${scenario.name} ${label} needs a source label.`, severity: "waiting" });
-      if (typeof evidence?.sourceDate !== "string" || !evidence.sourceDate.trim()) items.push({ id: `scenario-source-date-${scenario.id}-${key}`, message: `${scenario.name} ${label} needs a source date.`, severity: "waiting" });
-      if (evidence?.reviewState === "working") items.push({ id: `scenario-review-state-${scenario.id}-${key}`, message: `${scenario.name} ${label} is still Working on It.`, severity: "waiting" });
+      addRow("scenarios", `scenario-${scenario.id}-${key}`, `${titleCase(scenario.name)} ${humanKey(key)}`, evidenceGaps(evidence));
     }
   }
 
-  return items;
+  const groups = REVIEW_SECTIONS.flatMap(({ key, title }) => {
+    const rows = bySection.get(key);
+    if (!rows?.length) return [];
+    return [{ key, title, rows, workingCount: rows.filter((row) => row.gaps.includes("Working on It")).length }];
+  });
+  const count = calculation.length + groups.reduce((total, group) => total + group.rows.length, 0);
+  return { calculation, groups, count };
 }

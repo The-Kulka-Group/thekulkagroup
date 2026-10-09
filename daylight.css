@@ -1710,6 +1710,14 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-results td:nth-child(3) { max-width: 280px; }
 .underwriting-results td:nth-child(4) { max-width: 340px; white-space: normal; }
 .underwriting-issues { display: flex; flex-direction: column; gap: var(--s2); }
+.underwriting-review-groups { display: flex; flex-direction: column; gap: var(--s2); }
+.underwriting-review-group { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+.underwriting-review-group > details { flex: 1; min-width: 0; }
+.underwriting-review-group > .btn { flex-shrink: 0; }
+.underwriting-review-group summary { display: flex; align-items: center; gap: var(--s3); min-height: 40px; cursor: pointer; }
+.underwriting-review-group summary:focus-visible { outline: none; border-radius: 4px; box-shadow: 0 0 0 3px var(--primary-tint); }
+.underwriting-review-title { font-weight: 600; }
+.underwriting-review-group details[open] > .underwriting-issues { margin: var(--s2) 0 var(--s3); }
 .underwriting-issue {
   display: grid;
   grid-template-columns: 17px minmax(0, 1fr);

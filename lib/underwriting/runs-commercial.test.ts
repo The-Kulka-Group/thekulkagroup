@@ -8,7 +8,7 @@ import {
   type CaseDraft,
 } from "./cases";
 import { parseApartmentOperations } from "./operations-input";
-import { buildUnderwritingReviewItems } from "./presentation";
+import { buildUnderwritingReview } from "./presentation";
 import { monthlyInputsFor, getUnderwritingRun, runUnderwritingCase } from "./runs";
 import { parseCostSchedule } from "./schedule-input";
 
@@ -139,13 +139,13 @@ describe("running a case with commercial spaces", () => {
 
   it("lists each commercial space and the block as an open item until it has a source and is done", async () => {
     const saved = await savedCase(true);
-    const items = buildUnderwritingReviewItems(saved, undefined, false).map(({ id }) => id);
-    expect(items).toContain("operations-review-state-retail");
-    expect(items).not.toContain("operations-source-label-retail");
-    expect(items).not.toContain("operations-review-state-commercial");
+    const rows = (value: typeof saved) => new Map(buildUnderwritingReview(value, undefined, false).groups.flatMap((group) => group.rows).map((row) => [row.id, row.gaps]));
+    const open = rows(saved);
+    expect(open.get("operations-retail")).toEqual(["Working on It"]);
+    expect(open.has("operations-commercial")).toBe(false);
     const unsourced = await savedCase(true);
     const block = { ...unsourced.apartmentOperations!.commercial!, sourceLabel: undefined, reviewState: "working" as const };
-    const ids = buildUnderwritingReviewItems({ ...unsourced, apartmentOperations: { ...unsourced.apartmentOperations!, commercial: block } }, undefined, false).map(({ id }) => id);
-    expect(ids).toEqual(expect.arrayContaining(["operations-source-label-commercial", "operations-review-state-commercial"]));
+    const gaps = rows({ ...unsourced, apartmentOperations: { ...unsourced.apartmentOperations!, commercial: block } }).get("operations-commercial");
+    expect(gaps).toEqual(expect.arrayContaining(["No Source Label", "Working on It"]));
   });
 });

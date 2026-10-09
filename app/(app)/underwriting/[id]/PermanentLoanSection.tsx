@@ -157,7 +157,7 @@ function FundingField({ plan, update, milestones, defaultMonth, errors }: {
         {anchor && !known && !("kind" in anchor) ? <option value={anchor.milestoneId}>Missing Milestone</option> : null}
       </select>
       {anchor
-        ? <><input className="input num right" type="number" step="1" min={-MAX_PERMANENT_LOAN_FUNDING_OFFSET_MONTHS} max={MAX_PERMANENT_LOAN_FUNDING_OFFSET_MONTHS} aria-label="Funding month offset in months" value={Number.isFinite(anchor.offsetMonths) ? anchor.offsetMonths : ""} onChange={(event) => setOffset(event.target.value === "" ? blank() : Number(event.target.value))} aria-invalid={Boolean(error)} /><span className="t-meta">Months From the Start Point</span></>
+        ? <span className="underwriting-money-input"><input className="input num right" type="number" step="1" min={-MAX_PERMANENT_LOAN_FUNDING_OFFSET_MONTHS} max={MAX_PERMANENT_LOAN_FUNDING_OFFSET_MONTHS} aria-label="Funding month offset, in months after the start point" value={Number.isFinite(anchor.offsetMonths) ? anchor.offsetMonths : ""} onChange={(event) => setOffset(event.target.value === "" ? blank() : Number(event.target.value))} aria-invalid={Boolean(error)} /><span>Months</span></span>
         : <input className="input num" type="month" aria-label="Funding month" value={plan.fundingMonth ?? ""} onChange={(event) => update({ fundingMonth: event.target.value })} aria-invalid={Boolean(error)} />}
     </div>
     <FieldError id="permanent-loan-funding-error" error={error} />

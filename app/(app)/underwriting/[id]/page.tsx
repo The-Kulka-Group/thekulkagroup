@@ -6,7 +6,7 @@ import { Chip } from "@/components/Status";
 import { getDb } from "@/lib/db";
 import { getUnderwritingCase } from "@/lib/underwriting/cases";
 import {
-  buildUnderwritingReviewItems,
+  buildUnderwritingReview,
 } from "@/lib/underwriting/presentation";
 import {
   countUnderwritingRuns,
@@ -26,6 +26,7 @@ import { PropertyReturnsResults } from "./PropertyReturnsResults";
 import { ScenarioComparisonEditor } from "./ScenarioComparisonEditor";
 import { ScenarioComparisonResults } from "./ScenarioComparisonResults";
 import { RunUnderwriting } from "./RunUnderwriting";
+import { ReviewList } from "./ReviewList";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { formatMultiple } from "./format-multiple";
 
@@ -64,7 +65,7 @@ export default async function UnderwritingCasePage({
   const runs = await listUnderwritingRuns(getDb(), id, RUNS_PER_PAGE, (runPage - 1) * RUNS_PER_PAGE);
   const currentRun = latestRun?.caseRevision === savedCase.caseRevision ? latestRun : undefined;
   const resultsTitle = savedCase.scenarios?.length === 2 ? "Apartment scenario comparison" : savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : "Monthly development cost results";
-  const reviewItems = buildUnderwritingReviewItems(savedCase, currentRun, runCount > 0);
+  const review = buildUnderwritingReview(savedCase, currentRun, runCount > 0);
 
   return (
     <Sheet
@@ -80,7 +81,7 @@ export default async function UnderwritingCasePage({
           <span className="num">Updated {DATE.format(new Date(savedCase.updatedAt))}</span>
         </>
       }
-      needsReview={reviewItems.length}
+      needsReview={review.count}
       reviewLabel="items need review"
     >
       <div className="record underwriting-record">
@@ -94,7 +95,7 @@ export default async function UnderwritingCasePage({
           <Chip status={savedCase.status} />
         </div>
 
-        {reviewItems.length > 0 ? (
+        {review.count > 0 ? (
           <>
             <div className="margin" />
             <section className="col-field underwriting-attention" aria-labelledby="underwriting-review-heading">
@@ -103,16 +104,9 @@ export default async function UnderwritingCasePage({
                   <h3 id="underwriting-review-heading">Needs Your Review</h3>
                   <p className="t-meta">This list includes case facts, calculation issues, source gaps, and working assumptions.</p>
                 </div>
-                <span className="chip chip--neutral"><span className="dot" /><span className="num">{reviewItems.length}</span> need review</span>
+                <span className="chip chip--neutral"><span className="dot" /><span className="num">{review.count}</span> need review</span>
               </div>
-              <div className="underwriting-issues">
-                {reviewItems.map((item) => (
-                  <div className={`underwriting-issue underwriting-issue--${item.severity}`} key={item.id}>
-                    <span className="dot" aria-hidden="true" />
-                    <span>{item.message}</span>
-                  </div>
-                ))}
-              </div>
+              <ReviewList caseId={savedCase.id} caseRevision={savedCase.caseRevision} review={review} />
             </section>
           </>
         ) : null}

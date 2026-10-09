@@ -9,6 +9,7 @@ const routes = [
   "underwriting/cases/[id]/capital/route.ts",
   "underwriting/cases/[id]/operations/route.ts",
   "underwriting/cases/[id]/returns/route.ts",
+  "underwriting/cases/[id]/review/route.ts",
   "underwriting/cases/[id]/runs/route.ts",
   "underwriting/cases/[id]/runs/[runId]/workbook/route.ts",
   "underwriting/cases/[id]/runs/[runId]/summary-pdf/route.ts",

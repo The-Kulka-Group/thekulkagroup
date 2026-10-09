@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { UnderwritingCase } from "./cases";
 import type { SavedUnderwritingRun } from "./runs";
-import { buildUnderwritingReviewItems, UNDERWRITING_LIMITATIONS } from "./presentation";
+import { buildUnderwritingReview, UNDERWRITING_LIMITATIONS } from "./presentation";
 
 const savedCase: UnderwritingCase = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -45,19 +45,46 @@ const savedCase: UnderwritingCase = {
   }],
 };
 
-describe("buildUnderwritingReviewItems", () => {
+const rowsOf = (review: ReturnType<typeof buildUnderwritingReview>) => review.groups.flatMap((group) => group.rows);
+
+describe("buildUnderwritingReview", () => {
   it("combines missing facts, stale calculations, source gaps, and working assumptions", () => {
-    const items = buildUnderwritingReviewItems(savedCase, undefined, true);
-    expect(items.map((item) => item.id)).toEqual([
-      "fact-source-label-proposedUnits",
-      "fact-source-date-proposedUnits",
-      "fact-averageUnitSquareFeet",
-      "fact-review-state-grossBuildingSquareFeet",
-      "calculation-current-revision",
-      "source-label-purchasePrice",
-      "source-date-purchasePrice",
-      "review-state-purchasePrice",
+    const review = buildUnderwritingReview(savedCase, undefined, true);
+    expect(review.calculation.map((item) => item.id)).toEqual(["calculation-current-revision"]);
+    expect(review.groups.map((group) => [group.title, group.rows.map((row) => row.message)])).toEqual([
+      ["Project Facts", [
+        "Proposed Units: No Source Label, No Source Date",
+        "Average Unit Size: Missing",
+        "Gross Building Area: Working on It",
+      ]],
+      ["Financial Assumptions", ["Purchase Price: No Source Label, No Source Date, Working on It"]],
     ]);
+    expect(review.count).toBe(5);
+  });
+
+  it("emits one row per input however many things are open on it", () => {
+    const rows = rowsOf(buildUnderwritingReview(savedCase, undefined, true));
+    const ids = rows.map((row) => row.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("counts calculation issues apart from input rows and leaves them out of the groups", () => {
+    const run = { caseRevision: 2, issues: [{ inputKey: "monthlyRent", code: "missing", message: "Average monthly rent is required." }] } as SavedUnderwritingRun;
+    const review = buildUnderwritingReview(savedCase, run, true);
+    expect(review.calculation).toHaveLength(1);
+    expect(rowsOf(review).every((row) => !row.id.startsWith("calculation"))).toBe(true);
+    expect(review.count).toBe(1 + rowsOf(review).length);
+  });
+
+  it("counts only Working on It rows for Mark Section Done", () => {
+    const [facts, assumptions] = buildUnderwritingReview(savedCase, undefined, true).groups;
+    expect(facts!.workingCount).toBe(1);
+    expect(assumptions!.workingCount).toBe(1);
+  });
+
+  it("leaves a section out once nothing is open in it", () => {
+    const done = { ...savedCase, assumptions: savedCase.assumptions.map((a) => ({ ...a, sourceLabel: "Memo", sourceDate: "2026-09-01", reviewState: "done" as const })) };
+    expect(buildUnderwritingReview(done, undefined, true).groups.map((group) => group.key)).toEqual(["facts"]);
   });
 
   it("includes every calculation issue from the current revision", () => {
@@ -68,12 +95,12 @@ describe("buildUnderwritingReviewItems", () => {
         { inputKey: "exitCapRatePercent", code: "must_be_positive", message: "Exit cap rate must be greater than zero." },
       ],
     } as SavedUnderwritingRun;
-    const items = buildUnderwritingReviewItems({ ...savedCase, averageUnitSquareFeet: 800 }, run, true);
-    expect(items.filter((item) => item.severity === "stuck")).toHaveLength(2);
+    const review = buildUnderwritingReview({ ...savedCase, averageUnitSquareFeet: 800 }, run, true);
+    expect(review.calculation.filter((item) => item.severity === "stuck")).toHaveLength(2);
   });
 
   it("shows source and review gaps for saved monthly cost lines", () => {
-    const items = buildUnderwritingReviewItems({
+    const items = rowsOf(buildUnderwritingReview({
       ...savedCase,
       costSchedule: {
         analysisStartMonth: "2026-01",
@@ -92,17 +119,13 @@ describe("buildUnderwritingReviewItems", () => {
           lastChangedAt: "2026-09-02T00:00:00.000Z",
         }],
       },
-    }, undefined, false);
+    }, undefined, false));
 
-    expect(items.map(({ id }) => id)).toEqual(expect.arrayContaining([
-      "cost-source-label-hard",
-      "cost-source-date-hard",
-      "cost-review-state-hard",
-    ]));
+    expect(items.find(({ id }) => id === "cost-hard")?.message).toBe("Hard Cost: No Source Label, No Source Date, Working on It");
   });
 
   it("shows source and review gaps for apartment operation lines", () => {
-    const items = buildUnderwritingReviewItems({
+    const items = rowsOf(buildUnderwritingReview({
       ...savedCase,
       apartmentOperations: {
         inputVersion: "apartment_operations_inputs.v1",
@@ -127,18 +150,16 @@ describe("buildUnderwritingReviewItems", () => {
         capitalExpenditureLines: [],
         lastChangedAt: "2026-09-02T00:00:00.000Z",
       },
-    }, undefined, false);
+    }, undefined, false));
 
-    expect(items.map(({ id }) => id).filter((id) => id.includes("studio"))).toEqual([
-      "operations-source-label-studio",
-      "operations-source-date-studio",
-      "operations-review-state-studio",
+    expect(items.filter(({ id }) => id.includes("studio")).map(({ message }) => message)).toEqual([
+      "Studio: No Source Label, No Source Date, Working on It",
     ]);
   });
 
   it("shows source and review gaps for capital assumptions", () => {
     const item = () => ({ reviewState: "working" as const });
-    const items = buildUnderwritingReviewItems({
+    const items = rowsOf(buildUnderwritingReview({
       ...savedCase,
       developmentCapital: {
         capitalInputVersion: "development_capital_inputs.v1",
@@ -156,14 +177,14 @@ describe("buildUnderwritingReviewItems", () => {
         },
         lastChangedAt: "2026-09-02T00:00:00.000Z",
       },
-    }, undefined, false);
+    }, undefined, false));
 
-    expect(items.filter(({ id }) => id.startsWith("capital-assumption-"))).toHaveLength(24);
+    expect(items.filter(({ id }) => id.startsWith("capital-assumption-"))).toHaveLength(8);
   });
 
   it("shows source and review gaps for sale assumptions", () => {
     const item = () => ({ reviewState: "working" as const });
-    const items = buildUnderwritingReviewItems({
+    const items = rowsOf(buildUnderwritingReview({
       ...savedCase,
       propertyReturns: {
         saleInputVersion: "property_returns_inputs.v1",
@@ -178,25 +199,21 @@ describe("buildUnderwritingReviewItems", () => {
         },
         lastChangedAt: "2026-09-02T00:00:00.000Z",
       },
-    }, undefined, false);
+    }, undefined, false));
 
-    expect(items.filter(({ id }) => id.startsWith("returns-assumption-"))).toHaveLength(18);
+    expect(items.filter(({ id }) => id.startsWith("returns-assumption-"))).toHaveLength(6);
   });
 
   it("shows the scenario source label gap without assuming a valid string", () => {
-    const items = buildUnderwritingReviewItems({
+    const items = rowsOf(buildUnderwritingReview({
       ...savedCase,
       scenarios: [{
         id: "higher-vacancy", role: "downside", name: "Higher Vacancy", inputVersion: "apartment_scenario_delta.v1",
         delta: { vacancyPercent: 8 }, evidence: { vacancyPercent: { sourceLabel: 42 as unknown as string, reviewState: "working" } },
         lastChangedAt: "2026-09-02T00:00:00.000Z",
       }],
-    }, undefined, false);
-    expect(items.map(({ id }) => id)).toEqual(expect.arrayContaining([
-      "scenario-source-label-higher-vacancy-vacancyPercent",
-      "scenario-source-date-higher-vacancy-vacancyPercent",
-      "scenario-review-state-higher-vacancy-vacancyPercent",
-    ]));
+    }, undefined, false));
+    expect(items.find(({ id }) => id === "scenario-higher-vacancy-vacancyPercent")?.gaps).toEqual(["No Source Label", "No Source Date", "Working on It"]);
   });
 });
 

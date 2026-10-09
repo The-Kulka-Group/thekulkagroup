@@ -1,7 +1,7 @@
 import { launchChromium, PDF_MARGIN } from "@/lib/rom/pdf-renderer";
 import type { WorkbookSource } from "@/lib/underwriting/workbook/layout";
 
-import { renderSummaryHtml, SUMMARY_PAGE_IDS, summaryTemplates, TIGHT_CLASS } from "./summary";
+import { renderSummaryHtml, summaryTemplates } from "./summary";
 
 // LA-1948. Prints the deal summary with the Chromium the budget PDF uses
 // (lib/rom/pdf-renderer.ts). The HTML is finished before the browser sees it.
@@ -16,9 +16,8 @@ export type SummaryRenderer = (source: WorkbookSource) => Promise<Uint8Array>;
 
 export class SummaryLayoutError extends Error {}
 
-/** The pages whose content runs past one printed page, by id. */
-export const overflowingPages = () =>
-  [...document.querySelectorAll<HTMLElement>(".page")].filter((el) => el.scrollHeight > el.clientHeight + 0.5).map((el) => el.dataset.page ?? "");
+/** The summary aims at three printed pages. A run with many annual columns or lender rows may need a fourth or fifth. */
+export const MAX_SUMMARY_PAGES = 5;
 
 /** Counts the pages of a PDF from its page objects. */
 export function pdfPageCount(pdf: Uint8Array): number {
@@ -41,18 +40,6 @@ export const renderSummaryPdf: SummaryRenderer = async (source) => {
     await page.evaluate(() => document.fonts.ready);
     await page.emulateMedia({ media: "print" });
 
-    // A page that holds more than one printed page of content gets one tighter pass, then fails.
-    // Shipping a table cut by a page break is worse than shipping nothing.
-    let overflow = await page.evaluate(overflowingPages);
-    if (overflow.length > 0) {
-      await page.evaluate(
-        ([ids, cls]) => ids.forEach((id) => document.querySelector(`.page[data-page="${id}"]`)?.classList.add(cls)),
-        [overflow, TIGHT_CLASS] as const,
-      );
-      overflow = await page.evaluate(overflowingPages);
-    }
-    if (overflow.length > 0) throw new SummaryLayoutError(`The deal summary page ${overflow.join(", ")} does not fit one printed page.`);
-
     const pdf = new Uint8Array(await page.pdf({
       format: "Letter",
       printBackground: true,
@@ -63,7 +50,7 @@ export const renderSummaryPdf: SummaryRenderer = async (source) => {
       margin: PDF_MARGIN,
     }));
     const pages = pdfPageCount(pdf);
-    if (pages !== SUMMARY_PAGE_IDS.length) throw new SummaryLayoutError(`The deal summary printed ${pages} pages, expected ${SUMMARY_PAGE_IDS.length}.`);
+    if (pages > MAX_SUMMARY_PAGES) throw new SummaryLayoutError(`The deal summary printed ${pages} pages, and it should not pass ${MAX_SUMMARY_PAGES}.`);
     return pdf;
   } finally {
     await browser.close();

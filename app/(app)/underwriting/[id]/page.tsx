@@ -28,6 +28,7 @@ import { PropertyReturnsResults } from "./PropertyReturnsResults";
 import { ScenarioComparisonEditor } from "./ScenarioComparisonEditor";
 import { ScenarioComparisonResults } from "./ScenarioComparisonResults";
 import { RunUnderwriting } from "./RunUnderwriting";
+import { CollapsibleSection } from "./CollapsibleSection";
 import { formatMultiple } from "./format-multiple";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,7 @@ export default async function UnderwritingCasePage({
   const runPage = Math.min(requestedPage, pageCount);
   const runs = await listUnderwritingRuns(getDb(), id, RUNS_PER_PAGE, (runPage - 1) * RUNS_PER_PAGE);
   const currentRun = latestRun?.caseRevision === savedCase.caseRevision ? latestRun : undefined;
+  const resultsTitle = savedCase.scenarios?.length === 2 ? "Apartment scenario comparison" : savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results";
   const reviewItems = buildUnderwritingReviewItems(savedCase, currentRun, runCount > 0);
 
   return (
@@ -117,42 +119,35 @@ export default async function UnderwritingCasePage({
           </>
         ) : null}
 
-        <div className="margin" />
-        <div className="col-field">
+        <CollapsibleSection storage="facts" title="Project Facts and Financial Assumptions">
           <EditUnderwritingCase savedCase={savedCase} />
-        </div>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section">
+        <CollapsibleSection storage="costs" title="Development Cost Schedule" className="record-section">
           <CostScheduleEditor savedCase={savedCase} />
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section">
+        <CollapsibleSection storage="operations" title="Apartment Operations" className="record-section">
           <ApartmentOperationsEditor savedCase={savedCase} />
           {savedCase.apartmentOperations ? <UnitMixByTier unitTypes={savedCase.apartmentOperations.residentialUnitTypes} result={currentRun?.apartmentOperationsResult ?? currentRun?.developmentCapitalResult?.apartmentOperations} /> : null}
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section">
+        <CollapsibleSection storage="capital" title="Development Capital" className="record-section">
           <DevelopmentCapitalEditor savedCase={savedCase} />
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section">
+        <CollapsibleSection storage="returns" title="Property Sale and Returns" className="record-section">
           <PropertyReturnsEditor savedCase={savedCase} />
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section">
+        <CollapsibleSection storage="scenarios" title="Apartment Scenarios" className="record-section">
           <ScenarioComparisonEditor savedCase={savedCase} />
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <div className="col-field record-section underwriting-results-section">
+        <CollapsibleSection storage="results" title={resultsTitle} className="record-section underwriting-results-section">
           <div className="underwriting-section-head">
             <div>
-              <h3>{savedCase.scenarios?.length === 2 ? "Apartment scenario comparison" : savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results"}</h3>
+              <h3>{resultsTitle}</h3>
               <p className="t-meta">
                 {currentRun
                   ? `${currentRun.formulaVersion} · Run ${DATE.format(new Date(currentRun.createdAt))}`
@@ -343,12 +338,11 @@ export default async function UnderwritingCasePage({
               ] : UNDERWRITING_LIMITATIONS).map((limitation) => <li key={limitation}>{limitation}</li>)}
             </ul>
           </div>
-        </div>
+        </CollapsibleSection>
 
         {runCount > 0 ? (
           <>
-            <div className="margin" />
-            <div className="col-field record-section" id="calculation-history">
+            <CollapsibleSection storage="history" title="Calculation History" className="record-section" id="calculation-history">
               <h3>Calculation History</h3>
               <p className="t-meta underwriting-history-note">
                 Every saved run remains available. Open a run to inspect its full inputs, evidence, formulas, and issues.
@@ -393,7 +387,7 @@ export default async function UnderwritingCasePage({
                   {runPage < pageCount ? <Link href={`?runPage=${runPage + 1}#calculation-history`}>Older Runs</Link> : <span />}
                 </nav>
               ) : null}
-            </div>
+            </CollapsibleSection>
           </>
         ) : null}
       </div>

@@ -2,7 +2,15 @@ import { computeMonthlyCostSchedule } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
 import type { AssumptionName, UnderwritingAssumption, UnderwritingCase } from "./cases";
-import { addMonths, commonSource, ownedAssumptions, seedFromIntake } from "./intake-seed";
+import {
+  addMonths,
+  commonSource,
+  detachesFromAnalysisStart,
+  followAnalysisStart,
+  INTAKE_LINE_IDS,
+  ownedAssumptions,
+  seedFromIntake,
+} from "./intake-seed";
 
 const SOURCE = { sourceLabel: "Broker OM", sourceDate: "2026-10-01" };
 
@@ -137,5 +145,29 @@ describe("addMonths", () => {
   it("rolls across years and rejects a blank month", () => {
     expect(addMonths("2027-12", 1)).toBe("2028-01");
     expect(addMonths("", 1)).toBe("");
+  });
+});
+
+describe("following the analysis start", () => {
+  it("stops a seeded line the user retimed or recategorized from following", () => {
+    expect(detachesFromAnalysisStart({ startMonth: "2026-01" })).toBe(true);
+    expect(detachesFromAnalysisStart({ endMonth: "2026-01" })).toBe(true);
+    expect(detachesFromAnalysisStart({ category: "land" })).toBe(true);
+    expect(detachesFromAnalysisStart({ basis: { type: "per_unit", rate: 1 } })).toBe(true);
+    expect(detachesFromAnalysisStart({ name: "Closing Costs" })).toBe(false);
+    expect(detachesFromAnalysisStart({ sourceLabel: "GC" })).toBe(false);
+  });
+
+  it("keeps months the user typed on a seeded line when the analysis start changes", () => {
+    const seeded = seedFromIntake(intakeCase()).costLines;
+    // The repro: the user turns the seeded Hard Cost row into a fixed land line in 2026-01.
+    const edited = seeded.map((line) => line.id === INTAKE_LINE_IDS.hardCost
+      ? { ...line, name: "Closing Costs", category: "land" as const, basis: undefined, amount: 240_000, startMonth: "2026-01", endMonth: "2026-01" }
+      : line);
+    const following = new Set([INTAKE_LINE_IDS.land, INTAKE_LINE_IDS.softCost]);
+    const moved = followAnalysisStart(edited, following, "2026-01", 18);
+    expect(moved.find((line) => line.id === INTAKE_LINE_IDS.hardCost)).toMatchObject({ startMonth: "2026-01", endMonth: "2026-01" });
+    expect(moved.find((line) => line.id === INTAKE_LINE_IDS.softCost)).toMatchObject({ startMonth: "2026-02", endMonth: "2027-07" });
+    expect(moved.find((line) => line.id === INTAKE_LINE_IDS.land)).toMatchObject({ startMonth: "2026-01", endMonth: "2026-01" });
   });
 });

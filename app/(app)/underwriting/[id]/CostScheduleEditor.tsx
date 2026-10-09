@@ -16,7 +16,13 @@ import {
   type MonthlyCostLine,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
-import { commonSource, seededCostLineMonths, seedFromIntake } from "@/lib/underwriting/intake-seed";
+import {
+  commonSource,
+  detachesFromAnalysisStart,
+  followAnalysisStart,
+  INTAKE_LINE_IDS,
+  seedFromIntake,
+} from "@/lib/underwriting/intake-seed";
 
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
@@ -84,13 +90,16 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   const source = commonSource(savedCase);
   const constructionMonths = savedCase.assumptions?.find((assumption) => assumption.name === "constructionMonths")?.value;
 
-  /** Until the schedule is first saved, the lines seeded from intake follow the analysis start month. */
+  // Seeded lines the user has not retimed or recategorized. Only these follow the analysis start month.
+  const [following, setFollowing] = useState<ReadonlySet<string>>(
+    () => new Set(savedCase.costSchedule ? [] : Object.values(INTAKE_LINE_IDS)),
+  );
+
+  /** Until the schedule is first saved, untouched seeded lines follow the analysis start month. */
   function changeAnalysisStartMonth(month: string) {
     setAnalysisStartMonth(month);
     if (savedCase.costSchedule) return;
-    setLines((current) => current.map((line) => line.id.startsWith("intake-")
-      ? { ...line, ...seededCostLineMonths(line.id, month, constructionMonths) }
-      : line));
+    setLines((current) => followAnalysisStart(current, following, month, constructionMonths));
   }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -125,6 +134,10 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   }
 
   function updateLine(index: number, update: Partial<EditableLine>, replace = false) {
+    const id = lines[index]?.id;
+    if (id && following.has(id) && detachesFromAnalysisStart(update)) {
+      setFollowing((current) => new Set([...current].filter((item) => item !== id)));
+    }
     setLines((current) => current.map((line, position) => position === index ? (replace ? update as EditableLine : { ...line, ...update }) : line));
   }
 

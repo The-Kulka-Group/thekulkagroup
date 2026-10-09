@@ -90,6 +90,25 @@ export function seededCostLineMonths(id: string, analysisStartMonth: string, con
   return { startMonth, endMonth: addMonths(startMonth, constructionMonths - 1) };
 }
 
+/** Editing any of these on a seeded line means the user set its timing or nature, so it stops following the analysis start. */
+const DETACHING_FIELDS = ["startMonth", "endMonth", "startAnchor", "endAnchor", "category", "basis"] as const;
+
+export function detachesFromAnalysisStart(update: Partial<MonthlyCostLine>) {
+  return DETACHING_FIELDS.some((field) => field in update);
+}
+
+/** Moves only the seeded lines still in `following` to the months a new analysis start gives them. */
+export function followAnalysisStart<T extends MonthlyCostLine>(
+  lines: T[],
+  following: ReadonlySet<string>,
+  analysisStartMonth: string,
+  constructionMonths?: number,
+): T[] {
+  return lines.map((line) => following.has(line.id)
+    ? { ...line, ...seededCostLineMonths(line.id, analysisStartMonth, constructionMonths) }
+    : line);
+}
+
 export function seedFromIntake(savedCase: IntakeCase, analysisStartMonth = ""): IntakeSeed {
   const byName = new Map((savedCase.assumptions ?? []).map((assumption) => [assumption.name, assumption]));
   const value = (name: AssumptionName) => byName.get(name)?.value;

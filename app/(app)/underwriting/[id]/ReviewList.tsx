@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
+import { bumpReviewEpoch } from "./review-epoch";
 import type { ReviewSectionKey, UnderwritingReview } from "@/lib/underwriting/presentation";
 
 // LA-2054. The Needs Your Review list: calculation issues on top, then one row per input, grouped by section.
@@ -12,6 +13,16 @@ export function ReviewList({ caseId, caseRevision, review }: { caseId: string; c
   const router = useRouter();
   const [saving, setSaving] = useState<ReviewSectionKey | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [refreshing, startRefresh] = useTransition();
+  const awaiting = useRef<ReviewSectionKey | undefined>(undefined);
+
+  // The refreshed page has arrived when the transition ends. Only then do the editors mount again.
+  useEffect(() => {
+    if (!refreshing && awaiting.current) {
+      bumpReviewEpoch(awaiting.current);
+      awaiting.current = undefined;
+    }
+  }, [refreshing]);
 
   async function markDone(section: ReviewSectionKey) {
     setSaving(section);
@@ -29,7 +40,8 @@ export function ReviewList({ caseId, caseRevision, review }: { caseId: string; c
           : body?.error ?? "The section could not be marked done.");
         return;
       }
-      router.refresh();
+      awaiting.current = section;
+      startRefresh(() => router.refresh());
     } catch {
       setError("The section could not be marked done. Check the connection and try again.");
     } finally {

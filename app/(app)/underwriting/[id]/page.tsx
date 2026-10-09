@@ -27,6 +27,7 @@ import { ScenarioComparisonEditor } from "./ScenarioComparisonEditor";
 import { ScenarioComparisonResults } from "./ScenarioComparisonResults";
 import { RunUnderwriting } from "./RunUnderwriting";
 import { ReviewList } from "./ReviewList";
+import { RemountOnReviewDone } from "./review-epoch";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { formatMultiple } from "./format-multiple";
 
@@ -112,28 +113,28 @@ export default async function UnderwritingCasePage({
         ) : null}
 
         <CollapsibleSection storage="facts" title="Project Facts and Financial Assumptions">
-          <EditUnderwritingCase savedCase={savedCase} />
+          <RemountOnReviewDone sections={["facts", "assumptions"]}><EditUnderwritingCase savedCase={savedCase} /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="costs" title="Development Cost Schedule" className="record-section">
-          <CostScheduleEditor savedCase={savedCase} />
+          <RemountOnReviewDone sections={["costs"]}><CostScheduleEditor savedCase={savedCase} /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="operations" title="Apartment Operations" className="record-section">
-          <ApartmentOperationsEditor savedCase={savedCase} />
+          <RemountOnReviewDone sections={["operations"]}><ApartmentOperationsEditor savedCase={savedCase} /></RemountOnReviewDone>
           {savedCase.apartmentOperations ? <UnitMixByTier unitTypes={savedCase.apartmentOperations.residentialUnitTypes} result={currentRun?.apartmentOperationsResult ?? currentRun?.developmentCapitalResult?.apartmentOperations} /> : null}
         </CollapsibleSection>
 
         <CollapsibleSection storage="capital" title="Development Capital" className="record-section">
-          <DevelopmentCapitalEditor savedCase={savedCase} />
+          <RemountOnReviewDone sections={["capital"]}><DevelopmentCapitalEditor savedCase={savedCase} /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="returns" title="Property Sale and Returns" className="record-section">
-          <PropertyReturnsEditor savedCase={savedCase} />
+          <RemountOnReviewDone sections={["returns"]}><PropertyReturnsEditor savedCase={savedCase} /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="scenarios" title="Apartment Scenarios" className="record-section">
-          <ScenarioComparisonEditor savedCase={savedCase} />
+          <RemountOnReviewDone sections={["scenarios"]}><ScenarioComparisonEditor savedCase={savedCase} /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="results" title={resultsTitle} className="record-section underwriting-results-section">

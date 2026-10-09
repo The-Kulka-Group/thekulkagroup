@@ -1,5 +1,4 @@
 import ExcelJS from "exceljs";
-import JSZip from "jszip";
 
 import type { CellFormat, LayoutCell, WorkbookLayout } from "./layout";
 
@@ -123,22 +122,5 @@ export async function writeUnderwritingWorkbook(layout: WorkbookLayout, options:
     workbook.definedNames.add(`'${sheet}'!${address}`, name);
   }
 
-  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
-  return layout.iterativeCalculation ? withIterativeCalculation(buffer, layout.iterativeCalculation) : buffer;
-}
-
-/**
- * exceljs writes only `fullCalcOnLoad` into the workbook's calculation settings, so the iteration
- * settings are added to the saved file's `calcPr` element.
- */
-async function withIterativeCalculation(xlsx: Buffer, settings: { maxIterations: number; maxChange: number }): Promise<Buffer> {
-  const zip = await JSZip.loadAsync(xlsx);
-  const file = zip.file("xl/workbook.xml");
-  if (!file) throw new Error("The workbook file has no xl/workbook.xml to set iterative calculation on.");
-  const xml = await file.async("string");
-  const attributes = `iterate="1" iterateCount="${settings.maxIterations}" iterateDelta="${settings.maxChange}"`;
-  const patched = xml.replace(/<calcPr\b/, `<calcPr ${attributes}`);
-  if (patched === xml) throw new Error("The workbook file has no calcPr element to set iterative calculation on.");
-  zip.file("xl/workbook.xml", patched);
-  return Buffer.from(await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
+  return Buffer.from(await workbook.xlsx.writeBuffer());
 }

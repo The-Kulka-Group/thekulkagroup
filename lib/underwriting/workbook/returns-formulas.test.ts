@@ -16,7 +16,7 @@ import { APARTMENT_DEVELOPMENT_V2_98_PARTNERSHIP } from "../../../packages/engin
 import { APARTMENT_DEVELOPMENT_V2_98_RETURNS_FIXTURE } from "../../../packages/engine/src/fixtures/apartment-development-model-v2.98-returns";
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "../../../packages/engine/src/fixtures/apartment-development-model-v2.98-scorecard";
 import { COMMERCIAL_CAP_EVIDENCE, COMMERCIAL_CAP_PROPERTY_TAX, retailAbatementCase } from "../../../packages/engine/src/fixtures/commercial-cap-cases";
-import { checkWorkbook, closeCircularCells, findSoffice, numericValue, recalculateWithLibreOffice, waterfallReplayLayout } from "./check";
+import { checkWorkbook, findSoffice, numericValue, recalculateWithLibreOffice, waterfallReplayLayout } from "./check";
 import { layoutOutputs, SHEET_NAMES, underwritingWorkbookLayout, type WorkbookSource } from "./layout";
 import { writeUnderwritingWorkbook } from "./write";
 
@@ -109,11 +109,10 @@ describe("returns layout", () => {
   });
 });
 
-describe.skipIf(!SOFFICE)("returns in LibreOffice, with the circular cells closed at the engine's figures", () => {
+describe.skipIf(!SOFFICE)("returns in LibreOffice", () => {
   for (const [name, inputs] of Object.entries(CASES)) {
     it(`matches the engine on every output, every one live: ${name}`, async () => {
       const layout = underwritingWorkbookLayout(sourceFor(name, inputs));
-      closeCircularCells(layout);
       const check = await checkWorkbook(layout, SOFFICE!);
       expect(check.mismatches).toEqual([]);
       expect(check.liveShare).toBe(1);
@@ -124,7 +123,6 @@ describe.skipIf(!SOFFICE)("returns in LibreOffice, with the circular cells close
     const changed = { ...base, terminalCapRatePercent: 6.25 };
     const layout = underwritingWorkbookLayout(sourceFor("Before", base));
     const expected = underwritingWorkbookLayout(sourceFor("After", changed));
-    closeCircularCells(layout);
     const assumptions = layout.sheets.find(({ name }) => name === SHEET_NAMES.assumptions)!;
     const row = assumptions.rows.find(({ cells }) => cells[2]?.kind === "text" && cells[2].text === "terminalCapRatePercent")!;
     const input = row.cells[1]!;

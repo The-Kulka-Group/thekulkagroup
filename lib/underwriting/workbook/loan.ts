@@ -23,8 +23,9 @@ import type { OperationsBuild } from "./operations";
 //
 // The equity commitment is the one circular figure. It is total uses less the target debt less
 // grants and soft loans, and total uses include the interest the loan reserves, which depends on
-// how much equity went in first. The engine repeats that until it settles (solveEquityCommitment),
-// so the workbook is saved with iterative calculation on and this cell is where the loop closes.
+// how much equity went in first. The engine repeats that until it settles (solveEquityCommitment).
+// Excel's iterative calculation did not settle it (LA-2022), so the commitment is the engine's figure
+// as a blue input, and the row under it shows what the formulas give and the gap.
 
 /** How the Monthly sheet reads the Loan sheet. */
 export type LoanBuild = {
@@ -47,7 +48,7 @@ type Entry =
   | { kind: "scalar"; key: string; label: string; format: CellFormat; formula: (R: (key: string) => string, m: MonthlyAccess) => string; engine?: number; note?: string }
   | { kind: "input"; key: string; label: string; format: CellFormat; value: number; name: string; note?: string };
 
-const CIRCULAR_SWITCH_NAME = "in_workbook_circular_switch";
+const EQUITY_NAME = "in_workbook_equity_commitment";
 
 export function createLoan(ctx: LayoutContext, operations: OperationsBuild, names: WorkbookLayout["names"]): LoanBuild {
   const { source } = ctx;
@@ -160,12 +161,12 @@ export function createLoan(ctx: LayoutContext, operations: OperationsBuild, name
   section("Equity the Loan Commits");
   entries.push({
     kind: "input",
-    key: "circularSwitch",
-    label: "Circular Calculation (1 = On, 0 = Off)",
-    format: "number",
-    value: 1,
-    name: CIRCULAR_SWITCH_NAME,
-    note: "Set to 0 to clear an error, then back to 1.",
+    key: "equity",
+    label: "Equity Commitment",
+    format: "money",
+    value: capital.totals.equity,
+    name: EQUITY_NAME,
+    note: "The engine's figure. When a change leaves a gap below, run the case again, or type the figure the formulas give here until the gap is zero.",
   });
   const otherDrawKeys = (inputs.otherSources ?? []).map((_, index) => `other.${index + 1}.draws`);
   scalar("otherSourceCents", "Grants and Soft Loans Drawn", "number", (_, m) => (otherDrawKeys.length === 0 ? "0" : `ROUND((${otherDrawKeys.map((key) => m.total(key)).join("+")})*100,0)`));
@@ -175,13 +176,14 @@ export function createLoan(ctx: LayoutContext, operations: OperationsBuild, name
     return hasCeiling && sizing ? `MIN(${target},${R("maxLoanCents")})` : target;
   });
   scalar(
-    "equity",
-    "Equity Commitment",
+    "equityCheck",
+    "Equity Commitment the Formulas Give",
     "money",
-    (R) => `IF(${R("circularSwitch")}=1,MAX(ROUND((${R("usesCents")}-${R("targetDebtCents")}-${R("otherSourceCents")})/100,2),0),0)`,
+    (R) => `MAX(ROUND((${R("usesCents")}-${R("targetDebtCents")}-${R("otherSourceCents")})/100,2),0)`,
     capital.totals.equity,
-    "Total uses less target debt less grants and soft loans. It reads total uses, which read the interest it leaves to the loan, so Excel repeats the calculation until the two agree.",
+    "Total uses less target debt less grants and soft loans. Total uses include the interest the loan reserves, which depends on the equity above.",
   );
+  scalar("equityGap", "Gap", "money", (R) => `ROUND(${R("equity")}-${R("equityCheck")},2)`);
 
   // ----------------------------------------------------------- permanent loan
   const loanResult = capital.permanentLoan;

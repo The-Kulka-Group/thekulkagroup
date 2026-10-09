@@ -350,7 +350,7 @@ function assumptionsPage(source: WorkbookSource): string {
   add("Exit Cap Rate", pct(inputs.terminalCapRatePercent));
   add("Commercial Exit Cap Rate", pct(inputs.commercialTerminalCapRatePercent));
   add("Selling Costs", pct(inputs.sellingCostPercent));
-  add("Target Debt Share", pct(inputs.targetDebtSharePercent));
+  add("Loan to Cost, % of Total Uses", pct(inputs.targetDebtSharePercent));
   add("Construction Loan Rate", pct(inputs.annualInterestRatePercent));
   add("Loan Fee", pct(inputs.loanFeePercent));
   add("Interest Treatment", inputs.interestTreatment ? inputs.interestTreatment.replace(/\.v\d+$/, "").replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : null);

@@ -149,7 +149,7 @@ export function createLoan(ctx: LayoutContext, operations: OperationsBuild, name
   blank();
   section("Loan Amount and Fee (Cents)");
   scalar("projectCostCents", "Project Costs", "number", (_, m) => `ROUND(${m.total("projectCosts")}*100,0)`);
-  scalar("committedLoanCents", "Loan the Target Debt Share Commits", "number", (R) => `ROUND(${R("projectCostCents")}*${share}/100,0)`);
+  scalar("committedLoanCents", "Loan the Loan to Cost Commits", "number", (R) => `ROUND(${R("projectCostCents")}*${share}/100,0)`);
   scalar("loanFeeCents", "Loan Fee", "number", (R) => {
     const uncapped = `ROUND(${R("projectCostCents")}*(${share}*${feePercent}/100)/100,0)`;
     return hasCeiling && sizing ? `IF(${R("maxLoanCents")}<${R("committedLoanCents")},ROUND(${R("maxLoanCents")}*${feePercent}/100,0),${uncapped})` : uncapped;

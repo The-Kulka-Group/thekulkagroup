@@ -31,6 +31,7 @@ import {
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import { seedFromIntake } from "@/lib/underwriting/intake-seed";
 
 import { PartnershipSection } from "./PartnershipSection";
 import { ResidualLandSection } from "./ResidualLandSection";
@@ -38,10 +39,15 @@ import { ResidualLandSection } from "./ResidualLandSection";
 export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
   const saved = savedCase.propertyReturns;
-  const [terminalCapRatePercent, setTerminalCapRatePercent] = useState<number | "">(saved?.terminalCapRatePercent ?? "");
+  // An unsaved section starts from the exit cap rate intake supplies.
+  const seed = saved ? undefined : seedFromIntake(savedCase);
+  const [terminalCapRatePercent, setTerminalCapRatePercent] = useState<number | "">(saved?.terminalCapRatePercent ?? seed?.terminalCapRatePercent?.value ?? "");
   const [commercialTerminalCapRatePercent, setCommercialTerminalCapRatePercent] = useState<number | "">(saved?.commercialTerminalCapRatePercent ?? "");
   const [sellingCostPercent, setSellingCostPercent] = useState<number | "">(saved?.sellingCostPercent ?? "");
-  const [saleAssumptionEvidence, setSaleAssumptionEvidence] = useState(saved?.saleAssumptionEvidence ?? blankEvidence());
+  const [saleAssumptionEvidence, setSaleAssumptionEvidence] = useState(saved?.saleAssumptionEvidence ?? {
+    ...blankEvidence(),
+    ...(seed?.terminalCapRatePercent ? { terminalCapRatePercent: seed.terminalCapRatePercent.evidence } : {}),
+  });
   const savedLender = saved?.lenderTests;
   const [lenderEnabled, setLenderEnabled] = useState(Boolean(savedLender));
   const [valuationMonth, setValuationMonth] = useState(savedLender?.valuationMonth ?? "");

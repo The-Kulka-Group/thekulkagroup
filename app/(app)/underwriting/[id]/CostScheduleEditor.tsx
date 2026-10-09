@@ -16,6 +16,13 @@ import {
   type MonthlyCostLine,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import {
+  commonSource,
+  detachesFromAnalysisStart,
+  followAnalysisStart,
+  INTAKE_LINE_IDS,
+  seedFromIntake,
+} from "@/lib/underwriting/intake-seed";
 
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
@@ -80,6 +87,20 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   const [saleAnchor, setSaleAnchor] = useState<MilestoneAnchor | undefined>(savedCase.costSchedule?.saleAnchor);
   const [milestones, setMilestones] = useState<Milestone[]>(savedCase.costSchedule?.milestones ?? []);
   const [lines, setLines] = useState<EditableLine[]>(() => editableLines(savedCase));
+  const source = commonSource(savedCase);
+  const constructionMonths = savedCase.assumptions?.find((assumption) => assumption.name === "constructionMonths")?.value;
+
+  // Seeded lines the user has not retimed or recategorized. Only these follow the analysis start month.
+  const [following, setFollowing] = useState<ReadonlySet<string>>(
+    () => new Set(savedCase.costSchedule ? [] : Object.values(INTAKE_LINE_IDS)),
+  );
+
+  /** Until the schedule is first saved, untouched seeded lines follow the analysis start month. */
+  function changeAnalysisStartMonth(month: string) {
+    setAnalysisStartMonth(month);
+    if (savedCase.costSchedule) return;
+    setLines((current) => followAnalysisStart(current, following, month, constructionMonths));
+  }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -99,6 +120,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
       endMonth: analysisStartMonth,
       distributionMethod: "straight_line",
       distributionVersion: STRAIGHT_LINE_DISTRIBUTION_VERSION,
+      ...source,
       reviewState: "working",
     }]);
   }
@@ -112,6 +134,10 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
   }
 
   function updateLine(index: number, update: Partial<EditableLine>, replace = false) {
+    const id = lines[index]?.id;
+    if (id && following.has(id) && detachesFromAnalysisStart(update)) {
+      setFollowing((current) => new Set([...current].filter((item) => item !== id)));
+    }
     setLines((current) => current.map((line, position) => position === index ? (replace ? update as EditableLine : { ...line, ...update }) : line));
   }
 
@@ -184,7 +210,7 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
             min={`${MIN_MODEL_YEAR}-01`}
             max={`${MAX_MODEL_YEAR}-12`}
             value={analysisStartMonth}
-            onChange={(event) => setAnalysisStartMonth(event.target.value)}
+            onChange={(event) => changeAnalysisStartMonth(event.target.value)}
             aria-invalid={Boolean(fieldErrors.analysisStartMonth)}
             aria-describedby={fieldErrors.analysisStartMonth ? "cost-schedule-analysis-start-month-error" : undefined}
           />
@@ -441,12 +467,13 @@ async function responseBody(response: Response): Promise<{
   }
 }
 
+/** A schedule that has never been saved starts from the land, hard and soft cost lines intake supplies. */
 function editableLines(savedCase: UnderwritingCase): EditableLine[] {
   return savedCase.costSchedule?.costLines.map((savedLine) => {
     const { lastChangedAt, ...line } = savedLine;
     void lastChangedAt;
     return line;
-  }) ?? [];
+  }) ?? seedFromIntake(savedCase).costLines;
 }
 
 function hydrationSubscription() {

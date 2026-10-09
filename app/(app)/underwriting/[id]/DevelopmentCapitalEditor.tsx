@@ -20,6 +20,7 @@ import {
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import { seedFromIntake } from "@/lib/underwriting/intake-seed";
 
 import { OtherSourcesSection } from "./OtherSourcesSection";
 import { PermanentLoanSection } from "./PermanentLoanSection";
@@ -27,8 +28,10 @@ import { PermanentLoanSection } from "./PermanentLoanSection";
 export function DevelopmentCapitalEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
   const saved = savedCase.developmentCapital;
-  const [targetDebtSharePercent, setTargetDebtSharePercent] = useState<number | "">(saved?.targetDebtSharePercent ?? "");
-  const [annualInterestRatePercent, setAnnualInterestRatePercent] = useState<number | "">(saved?.annualInterestRatePercent ?? "");
+  // An unsaved section starts from the debt share and interest rate intake supplies.
+  const seed = saved ? undefined : seedFromIntake(savedCase);
+  const [targetDebtSharePercent, setTargetDebtSharePercent] = useState<number | "">(saved?.targetDebtSharePercent ?? seed?.targetDebtSharePercent?.value ?? "");
+  const [annualInterestRatePercent, setAnnualInterestRatePercent] = useState<number | "">(saved?.annualInterestRatePercent ?? seed?.annualInterestRatePercent?.value ?? "");
   const [loanFeePercent, setLoanFeePercent] = useState<number | "">(saved?.loanFeePercent ?? "");
   const [feeMonth, setFeeMonth] = useState(saved?.feeMonth ?? savedCase.costSchedule?.analysisStartMonth ?? "");
   const [payoffMonth, setPayoffMonth] = useState(saved?.payoffMonth ?? savedCase.costSchedule?.saleMonth ?? "");
@@ -43,7 +46,11 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   const [otherSources, setOtherSources] = useState<OtherFundingSource[]>(saved?.otherSources ?? []);
   const [creditedLand, setCreditedLand] = useState<CreditedLandPlan | undefined>(saved?.creditedLand);
   const [permanentLoan, setPermanentLoan] = useState<PermanentLoanPlan | undefined>(saved?.permanentLoan);
-  const [capitalAssumptionEvidence, setCapitalAssumptionEvidence] = useState(saved?.capitalAssumptionEvidence ?? blankEvidence());
+  const [capitalAssumptionEvidence, setCapitalAssumptionEvidence] = useState(saved?.capitalAssumptionEvidence ?? {
+    ...blankEvidence(),
+    ...(seed?.targetDebtSharePercent ? { targetDebtSharePercent: seed.targetDebtSharePercent.evidence } : {}),
+    ...(seed?.annualInterestRatePercent ? { annualInterestRatePercent: seed.annualInterestRatePercent.evidence } : {}),
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});

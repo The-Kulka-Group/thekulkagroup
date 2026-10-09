@@ -9,6 +9,7 @@ import type {
   FactName,
   UnderwritingCase,
 } from "@/lib/underwriting/cases";
+import { ownedAssumptions } from "@/lib/underwriting/intake-seed";
 
 const ASSUMPTION_FIELDS: Array<{
   name: AssumptionName;
@@ -26,7 +27,7 @@ const ASSUMPTION_FIELDS: Array<{
   { name: "contingencyPercent", label: "Contingency", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "vacancyPercent", label: "Vacancy", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "operatingExpensePercent", label: "Operating Expenses", unit: "percent", min: 0, max: 100, step: "any" },
-  { name: "constructionMonths", label: "Construction Duration", unit: "months", min: 1, step: "1", recordOnly: true },
+  { name: "constructionMonths", label: "Construction Duration", unit: "months", min: 1, step: "1" },
   { name: "debtPercent", label: "Expected Debt", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "interestRatePercent", label: "Expected Interest Rate", unit: "percent", min: 0, max: 100, step: "any" },
   { name: "exitCapRatePercent", label: "Exit Cap Rate", unit: "percent", min: 0, max: 100, step: "any" },
@@ -60,6 +61,11 @@ export function EditUnderwritingCase({
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const assumptions = new Map(savedCase.assumptions.map((assumption) => [assumption.name, assumption]));
+  // A saved section owns the values intake seeded into it, so this table shows no second copy to edit.
+  // Hold Period is no longer asked for; an older case that recorded one still shows it.
+  const owned = ownedAssumptions(savedCase);
+  const shownFields = ASSUMPTION_FIELDS.filter((field) => !owned.has(field.name)
+    && (field.name !== "holdYears" || assumptions.has("holdYears")));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,6 +78,19 @@ export function EditUnderwritingCase({
     const factMetadata: Record<string, object> = {};
 
     for (const field of ASSUMPTION_FIELDS) {
+      if (!shownFields.includes(field)) {
+        // A hidden value keeps what is saved, so this save never clears it.
+        const kept = assumptions.get(field.name);
+        assumptionValues[field.name] = kept?.value;
+        if (kept) {
+          assumptionMetadata[field.name] = {
+            sourceLabel: kept.sourceLabel,
+            sourceDate: kept.sourceDate,
+            reviewState: kept.reviewState,
+          };
+        }
+        continue;
+      }
       const value = numberValue(form, `assumptions.${field.name}`);
       assumptionValues[field.name] = value;
       if (value !== undefined) {
@@ -166,7 +185,7 @@ export function EditUnderwritingCase({
         <div className="underwriting-section-head">
           <div>
             <h3>Financial Assumptions</h3>
-            <p className="t-meta">Each supplied value keeps its source date and review state.</p>
+            <p className="t-meta">Each supplied value keeps its source date and review state. Once a section below is saved, it holds the values it took from here.</p>
           </div>
           <span className="chip chip--neutral"><span className="dot" />User Supplied</span>
         </div>
@@ -182,7 +201,7 @@ export function EditUnderwritingCase({
               </tr>
             </thead>
             <tbody>
-              {ASSUMPTION_FIELDS.map((field) => {
+              {shownFields.map((field) => {
                 const assumption = assumptions.get(field.name);
                 return (
                   <tr key={field.name}>

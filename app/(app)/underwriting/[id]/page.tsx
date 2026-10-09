@@ -7,8 +7,6 @@ import { getDb } from "@/lib/db";
 import { getUnderwritingCase } from "@/lib/underwriting/cases";
 import {
   buildUnderwritingReviewItems,
-  UNDERWRITING_INPUT_LABELS,
-  UNDERWRITING_LIMITATIONS,
 } from "@/lib/underwriting/presentation";
 import {
   countUnderwritingRuns,
@@ -65,7 +63,7 @@ export default async function UnderwritingCasePage({
   const runPage = Math.min(requestedPage, pageCount);
   const runs = await listUnderwritingRuns(getDb(), id, RUNS_PER_PAGE, (runPage - 1) * RUNS_PER_PAGE);
   const currentRun = latestRun?.caseRevision === savedCase.caseRevision ? latestRun : undefined;
-  const resultsTitle = savedCase.scenarios?.length === 2 ? "Apartment scenario comparison" : savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : savedCase.costSchedule ? "Monthly development cost results" : "Preliminary annual results";
+  const resultsTitle = savedCase.scenarios?.length === 2 ? "Apartment scenario comparison" : savedCase.propertyReturns ? "Property sale and return results" : savedCase.developmentCapital ? "Monthly development capital results" : savedCase.apartmentOperations ? "Monthly apartment operations results" : "Monthly development cost results";
   const reviewItems = buildUnderwritingReviewItems(savedCase, currentRun, runCount > 0);
 
   return (
@@ -156,14 +154,21 @@ export default async function UnderwritingCasePage({
                     : "The deterministic model has not run for this project."}
               </p>
             </div>
-            <RunUnderwriting
-              caseId={savedCase.id}
-              caseRevision={savedCase.caseRevision}
-              hasRun={Boolean(currentRun)}
-            />
+            {savedCase.costSchedule ? (
+              <RunUnderwriting
+                caseId={savedCase.id}
+                caseRevision={savedCase.caseRevision}
+                hasRun={Boolean(currentRun)}
+              />
+            ) : null}
           </div>
 
-          {!currentRun ? (
+          {!savedCase.costSchedule ? (
+            // Intake values seed each section, so the run waits for the saved schedule rather than a preliminary model.
+            <div className="empty empty--inline">
+              <p>Save the Development Cost Schedule to run the monthly model. Intake values already fill each section above.</p>
+            </div>
+          ) : !currentRun ? (
             <div className="empty empty--inline">
               <p>{runCount > 0
                 ? "Recalculate this project revision before reviewing financial results. Prior runs remain in the history."
@@ -296,27 +301,9 @@ export default async function UnderwritingCasePage({
                 </table>
               </div>
             </div>
-          ) : (
-            <div className="underwriting-results-wrap">
-              <table className="underwriting-results">
-                <thead>
-                  <tr><th>Result</th><th className="right">Value</th><th>Formula Trace</th><th>Inputs Used</th></tr>
-                </thead>
-                <tbody>
-                  {currentRun.results.map((result) => (
-                    <tr key={result.key}>
-                      <td>{result.label}</td>
-                      <td className="num right">{formatResult(result.value, result.unit)}</td>
-                      <td>{result.formula}</td>
-                      <td className="t-meta">{result.inputKeys.map(inputLabel).join(", ")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          ) : null}
 
-          <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
+          {savedCase.costSchedule ? <div className="underwriting-limitations" aria-labelledby="underwriting-limitations-heading">
             <h4 id="underwriting-limitations-heading">Model Limits</h4>
             <ul>
               {(savedCase.propertyReturns ? [
@@ -331,13 +318,13 @@ export default async function UnderwritingCasePage({
                 "This formula version models apartment lease-up and property operations before debt funding.",
                 "Debt funding, sale proceeds, and property returns follow in later formula versions.",
                 "These results do not record a finance approval.",
-              ] : savedCase.costSchedule ? [
+              ] : [
                 "This formula version schedules development costs only.",
                 "Lease-up, operating cash flow, debt funding, sale proceeds, and property returns follow in later formula versions.",
                 "These results do not record a finance approval.",
-              ] : UNDERWRITING_LIMITATIONS).map((limitation) => <li key={limitation}>{limitation}</li>)}
+              ]).map((limitation) => <li key={limitation}>{limitation}</li>)}
             </ul>
-          </div>
+          </div> : null}
         </CollapsibleSection>
 
         {runCount > 0 ? (
@@ -409,10 +396,6 @@ function decisionDetail(status: "complete" | "failed" | undefined, hasRunHistory
   return "No financial result exists until the deterministic calculation runs.";
 }
 
-function formatResult(value: number, unit: "usd" | "decimal") {
-  return unit === "usd" ? MONEY.format(value) : `${NUMBER.format(value * 100)}%`;
-}
-
 function formatReconciliationValue(value: number, unit: "usd" | "count" | "sf" | "ratio" | "multiple" | "basis_points" | undefined) {
   if (unit === "count") return NUMBER.format(value);
   if (unit === "sf") return `${NUMBER.format(value)} SF`;
@@ -455,10 +438,6 @@ function costCategoryLabel(category: string) {
     development_fee: "Development Fee",
     financing_fee: "Financing Fee",
   } as Record<string, string>)[category] ?? category;
-}
-
-function inputLabel(key: keyof typeof UNDERWRITING_INPUT_LABELS) {
-  return UNDERWRITING_INPUT_LABELS[key] ?? key;
 }
 
 function pageNumber(value: string | string[] | undefined) {

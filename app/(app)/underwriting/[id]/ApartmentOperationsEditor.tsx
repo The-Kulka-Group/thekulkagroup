@@ -28,6 +28,7 @@ import {
   type StabilizationRule,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import { commonSource, seedFromIntake, type CommonSource } from "@/lib/underwriting/intake-seed";
 
 import { CommercialSection } from "./CommercialSection";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
@@ -41,6 +42,9 @@ type MoneyLine = OtherIncomeLine | OperatingExpenseLine | CapitalExpenditureLine
 export function ApartmentOperationsEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
   const saved = savedCase.apartmentOperations;
+  // An unsaved section starts from the unit type and vacancy intake supplies.
+  const seed = saved ? undefined : seedFromIntake(savedCase);
+  const source = commonSource(savedCase);
   const milestones = savedCase.costSchedule?.milestones ?? [];
   const [operationStartMonth, setOperationStartMonth] = useState(saved?.operationStartMonth ?? "");
   const [operationStartAnchor, setOperationStartAnchor] = useState<MilestoneAnchor | undefined>(saved?.operationStartAnchor);
@@ -52,10 +56,13 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [annualExpenseGrowthPercent, setAnnualExpenseGrowthPercent] = useState(saved?.annualExpenseGrowthPercent ?? 0);
   const [rentAdjustmentLossPercent, setRentAdjustmentLossPercent] = useState(saved?.rentAdjustmentLossPercent ?? 0);
   const [freeRentPercent, setFreeRentPercent] = useState(saved?.freeRentPercent ?? 0);
-  const [vacancyPercent, setVacancyPercent] = useState(saved?.vacancyPercent ?? 0);
+  const [vacancyPercent, setVacancyPercent] = useState(saved?.vacancyPercent ?? seed?.vacancyPercent?.value ?? 0);
   const [creditLossPercent, setCreditLossPercent] = useState(saved?.creditLossPercent ?? 0);
-  const [assumptionEvidence, setAssumptionEvidence] = useState(saved?.assumptionEvidence ?? blankAssumptionEvidence());
-  const [residentialUnitTypes, setResidentialUnitTypes] = useState<ResidentialUnitType[]>(saved?.residentialUnitTypes ?? []);
+  const [assumptionEvidence, setAssumptionEvidence] = useState(saved?.assumptionEvidence ?? {
+    ...blankAssumptionEvidence(),
+    ...(seed?.vacancyPercent ? { vacancyPercent: seed.vacancyPercent.evidence } : {}),
+  });
+  const [residentialUnitTypes, setResidentialUnitTypes] = useState<ResidentialUnitType[]>(saved?.residentialUnitTypes ?? seed?.residentialUnitTypes ?? []);
   const [otherIncomeLines, setOtherIncomeLines] = useState<OtherIncomeLine[]>(saved?.otherIncomeLines ?? []);
   const [operatingExpenseLines, setOperatingExpenseLines] = useState<OperatingExpenseLine[]>(saved?.operatingExpenseLines ?? []);
   const [capitalExpenditureLines, setCapitalExpenditureLines] = useState<CapitalExpenditureLine[]>(saved?.capitalExpenditureLines ?? []);
@@ -221,7 +228,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         description="Gross rent and non-revenue units remain visible before lease-up and rent losses."
         addLabel="Add Unit Type"
         canAdd={canAddLine}
-        onAdd={() => setResidentialUnitTypes((lines) => [...lines, blankUnitType()])}
+        onAdd={() => setResidentialUnitTypes((lines) => [...lines, blankUnitType(source)])}
       >
         <div className="underwriting-edit-table-wrap">
           <table className="underwriting-operations-table underwriting-unit-types">
@@ -243,10 +250,10 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         </div>
       </LineSection>
 
-      <MoneyLineSection title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" canAdd={canAddLine} lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
+      <MoneyLineSection source={source} title="Other Income" description="Each line states whether it is annual or tied to occupied units." addLabel="Add Other Income" canAdd={canAddLine} lines={otherIncomeLines} setLines={setOtherIncomeLines} path="otherIncomeLines" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_occupied_unit_month", "USD per Occupied Unit per Month"],
       ]} fieldErrors={fieldErrors} />
-      <MoneyLineSection title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate. Variable share scales a line with leased units during lease-up; lead months start it before operation start at its fixed share. A line that applies to the commercial spaces starts its lead months before the first commercial lease, takes no per-unit amount and no variable share, and as a percent of revenue reads commercial effective gross revenue." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" ramp="variable_and_lead" appliesTo units={[
+      <MoneyLineSection source={source} title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate. Variable share scales a line with leased units during lease-up; lead months start it before operation start at its fixed share. A line that applies to the commercial spaces starts its lead months before the first commercial lease, takes no per-unit amount and no variable share, and as a percent of revenue reads commercial effective gross revenue." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" ramp="variable_and_lead" appliesTo units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"], ["percent_effective_gross_revenue", "Percent of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
       <PropertyTaxSection plan={propertyTax} setPlan={setPropertyTax} fieldErrors={fieldErrors} />
@@ -259,7 +266,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         defaultMonth={operationStartMonth}
         fieldErrors={fieldErrors}
       />
-      <MoneyLineSection title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow. Variable share scales a line with leased units during lease-up." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" ramp="variable" units={[
+      <MoneyLineSection source={source} title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow. Variable share scales a line with leased units during lease-up." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" ramp="variable" units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"],
       ]} fieldErrors={fieldErrors} />
 
@@ -330,7 +337,9 @@ function LineSection({ title, description, addLabel, canAdd, onAdd, children }: 
   return <section className="underwriting-line-section"><div className="underwriting-section-head"><div><h4>{title}</h4><p className="t-meta">{description}</p></div><button className="btn btn--secondary" type="button" onClick={onAdd} disabled={!canAdd}>{addLabel}</button></div>{children}</section>;
 }
 
-function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors, ramp, appliesTo = false }: {
+function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, canAdd, lines, setLines, path, units, fieldErrors, ramp, appliesTo = false, source }: {
+  /** The common intake source each new line starts with. */
+  source: CommonSource;
   /** Lease-up ramp columns: variable share, and for operating expenses lead months too. */
   ramp?: "variable" | "variable_and_lead";
   /** Adds the Applies To choice, Residential or Commercial (LA-1871). Operating expenses only. */
@@ -346,7 +355,7 @@ function MoneyLineSection<T extends MoneyLine>({ title, description, addLabel, c
   fieldErrors: Record<string, string>;
 }) {
   return (
-    <LineSection title={title} description={description} addLabel={addLabel} canAdd={canAdd} onAdd={() => setLines((current) => [...current, blankMoneyLine(units[0][0]) as T])}>
+    <LineSection title={title} description={description} addLabel={addLabel} canAdd={canAdd} onAdd={() => setLines((current) => [...current, blankMoneyLine(units[0][0], source) as T])}>
       <div className="underwriting-edit-table-wrap">
         <table className={`underwriting-operations-table underwriting-money-lines${ramp ? " underwriting-money-lines--ramp" : ""}`}>
           <thead><tr><th>Line</th><th className="right">Amount</th><th>Unit</th>{appliesTo ? <th>Applies To</th> : null}{ramp ? <th className="right">Variable Share</th> : null}{ramp === "variable_and_lead" ? <th className="right">Lead Months</th> : null}<th>Source Label</th><th>Source Date</th><th>Review State</th><th>Action</th></tr></thead>
@@ -438,8 +447,8 @@ function controlProps(path: string, error?: string) {
   };
 }
 
-function blankUnitType(): ResidentialUnitType {
-  return { id: crypto.randomUUID(), name: "", units: 0, nonRevenueUnits: 0, averageAreaSf: 0, monthlyMarketRent: 0, reviewState: "working" };
+function blankUnitType(source: CommonSource): ResidentialUnitType {
+  return { id: crypto.randomUUID(), name: "", units: 0, nonRevenueUnits: 0, averageAreaSf: 0, monthlyMarketRent: 0, ...source, reviewState: "working" };
 }
 
 function blankAssumptionEvidence() {
@@ -449,8 +458,8 @@ function blankAssumptionEvidence() {
   ])) as Record<ApartmentOperationsAssumptionKey, ApartmentOperationsAssumptionEvidence>;
 }
 
-function blankMoneyLine(unit: string): MoneyLine {
-  return { id: crypto.randomUUID(), name: "", amount: 0, unit, reviewState: "working" } as MoneyLine;
+function blankMoneyLine(unit: string, source: CommonSource): MoneyLine {
+  return { id: crypto.randomUUID(), name: "", amount: 0, unit, ...source, reviewState: "working" } as MoneyLine;
 }
 
 function updateAt<T>(setLines: React.Dispatch<React.SetStateAction<T[]>>, index: number, update: Partial<T>) {

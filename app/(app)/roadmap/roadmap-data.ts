@@ -23,7 +23,7 @@ export type Workstream = {
   items: RoadmapItem[];
 };
 
-export const ROADMAP_AS_OF = "2026-10-07";
+export const ROADMAP_AS_OF = "2026-10-09";
 
 export const STATUS_LABEL: Record<RoadmapStatus, string> = {
   built: "Built",
@@ -125,8 +125,17 @@ export const WORKSTREAMS: Workstream[] = [
       // LA-1841: steps 10 and 11 of docs/underwriting-model-audit/build-order.md and the spec's later modules.
       b("2026-10-07", "LA-1863", "Report peak equity and split cash flow between LP and GP partners"),
       b("2026-10-07", "LA-1866", "Commercial tenants, permanent debt with a refinance, and an annual view"),
+      b("2026-10-08", "LA-1930", "Let the construction loan reserve its full gross interest"),
+      b("2026-10-08", "LA-1979", "Work out residual land value for a target return, and save the target on a case"),
+      b("2026-10-08", "LA-1947", "Download a run as an Excel workbook"),
+      b("2026-10-08", "LA-1948", "Print a run as a branded PDF deal summary"),
+      { date: "2026-10-09", ticket: "LA-1949", title: "Write the workbook as live Excel formulas, from costs through returns", status: "built", note: "Covers LA-1950 to LA-1952. LA-2022 then fixed the equity loop and the return calculation so the download calculates in Excel." },
+      b("2026-10-09", "LA-2053", "Fill the detailed sections from the intake answers so nothing is asked twice"),
+      b("2026-10-09", "LA-2055", "Run page leads with the answers, with the checks folded behind one line"),
+      b("2026-10-09", "LA-2056", "Fit the PDF summary on three pages"),
+      b("2026-10-09", "LA-2057", "Solve the construction loan to a target loan to cost"),
+      b("2026-10-09", "LA-2082", "Start every source row and new line with the case's common source"),
       { date: null, title: "Soft loans that a buyer assumes at sale or that repay after the sale", status: "waiting", note: "Today a soft loan repays in one month within the model's timeline." },
-      { date: null, ticket: "LA-1979", title: "Work out residual land value", status: "planning", note: "Shows what a site is worth given the planned building and a target return. The engine can solve it; saving a target on a case and showing the answer is next." },
       { date: null, title: "Let capital plan dates, source draws and tax years follow named milestones", status: "waiting", note: "Cost lines already move with milestones. These dates are still typed in." },
     ],
   },

@@ -105,6 +105,7 @@ describe("deal summary HTML", () => {
     expect(html).not.toMatch(/\.page\{|height:915px|break-after:page/);
     expect(html).toMatch(/\.ph,\.lede,h3,caption\{break-after:avoid/);
     expect(html).toMatch(/tr\{break-inside:avoid/);
+    expect(html).toMatch(/\.limits\{[^}]*break-inside:avoid/);
     expect(html).toContain('class="sec cover-sec" data-page="cover"');
   });
 
@@ -189,5 +190,12 @@ describe.skipIf(!chromium)("deal summary PDF", () => {
     expect(new TextDecoder().decode(pdf.slice(0, 5))).toBe("%PDF-");
     expect(pdfPageCount(pdf)).toBeLessThanOrEqual(MAX_SUMMARY_PAGES);
     expect(pdfPageCount(pdf)).toBeGreaterThanOrEqual(2);
+  }, 60_000);
+
+  it("prints a run with a partnership and no permanent loan in three pages, Model Limits whole", async () => {
+    const source = GOLDEN[0][1];
+    expect(source.result.partnership).not.toBeNull();
+    expect(source.result.developmentCapital.permanentLoan).toBeFalsy();
+    expect(pdfPageCount(await renderSummaryPdf(source))).toBe(3);
   }, 60_000);
 });

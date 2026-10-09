@@ -367,13 +367,13 @@ const CSS = `
 :root{--ink:#323338;--ink-2:#676879;--brand:#1D1D1F;--border:#D0D4E4;--border-light:#E6E9EF;--canvas:#F6F7FB;--primary:#0073EA;--primary-tint:#EAF3FE}
 *{box-sizing:border-box}
 html,body{margin:0;background:#fff;color:var(--ink);font-family:"Open Sans",Arial,sans-serif;font-size:11px;line-height:1.4;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.sec{margin:0 0 14px}
+.sec{margin:0 0 8px}
 .ph,.lede,h3,caption{break-after:avoid;page-break-after:avoid}
-.ph{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--brand);padding-bottom:6px;margin-bottom:8px}
+.ph{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--brand);padding-bottom:4px;margin-bottom:6px}
 .pn{font-size:11px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
 h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.012em;color:var(--brand)}
 h3{margin:10px 0 3px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2)}
-.lede,.note{margin:0 0 8px;font-size:11px;color:var(--ink-2)}
+.lede,.note{margin:0 0 6px;font-size:11px;color:var(--ink-2)}
 .note{margin-top:6px}
 table{width:100%;border-collapse:collapse;margin:0 0 8px;font-variant-numeric:tabular-nums;break-inside:avoid;page-break-inside:avoid}
 caption{caption-side:top;text-align:left;font-size:11px;font-weight:700;color:var(--ink-2);padding:0 0 3px}
@@ -400,7 +400,7 @@ h1{margin:0;font-size:40px;line-height:46px;font-weight:800;letter-spacing:-.02e
 .addr{margin:6px 0 0;font-size:15px;color:var(--ink-2)}
 .when{margin:4px 0 16px;font-size:13px;color:var(--ink-2)}
 .cover-foot{display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;margin-bottom:6px;font-size:10px;color:var(--ink-2)}
-.limits{margin:0;padding-left:18px}.limits li{margin:0 0 4px}
+.limits{margin:0;padding-left:18px;break-inside:avoid;page-break-inside:avoid}.limits li{margin:0 0 2px}
 `;
 
 export function renderSummaryHtml(source: WorkbookSource): string {

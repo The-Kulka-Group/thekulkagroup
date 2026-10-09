@@ -96,6 +96,10 @@ export type CostsBuild = {
     monthTotal: (monthPosition: number) => string;
     total: string;
     land: string;
+    /** One category's uses across the month columns, absolute, for the annual view (LA-1952). */
+    categoryRange: (category: CostCategory) => string;
+    /** The month heading dates across the month columns, absolute. */
+    dates: string;
     /** The funding plan's financing, once the Monthly sheet exists to read it from. No-op for a case without a financed percent line. */
     linkFinancing: (formula: string) => void;
   };
@@ -482,6 +486,8 @@ export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostSchedu
   }
 
   const monthTotalRow = rowNumber(totalRow);
+  const monthRange = (row: number) =>
+    sheetRef(SHEET_NAMES.costs, `$${columnLetter(COLUMN.firstMonth)}$${row}:$${columnLetter(COLUMN.firstMonth + monthKeys.length - 1)}$${row}`);
   return {
     costs,
     settling,
@@ -490,6 +496,8 @@ export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostSchedu
       monthTotal: (monthPosition) => sheetRef(SHEET_NAMES.costs, `${columnLetter(COLUMN.firstMonth + monthPosition)}${monthTotalRow}`),
       total: sheetRef(SHEET_NAMES.costs, `${columnLetter(COLUMN.total)}${monthTotalRow}`),
       land: sheetRef(SHEET_NAMES.costs, `${columnLetter(COLUMN.total)}${rowNumber(categoryRow("land"))}`),
+      categoryRange: (category) => monthRange(rowNumber(categoryRow(category))),
+      dates: monthRange(rowNumber(HEADING_ROW)),
       linkFinancing: (formula) => {
         if (financed) financingCell.formula = formula;
       },

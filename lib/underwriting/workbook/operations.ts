@@ -62,12 +62,18 @@ export type OperationsBuild = {
   cell: (key: string, monthPosition: number) => string;
   /** A scalar on the sheet, absolute, for another sheet to read. */
   scalar: (key: string) => string;
+  /** Whether the sheet has a row or scalar, since some exist only for commercial spaces or a tax schedule. */
+  has: (key: string) => boolean;
   /** The commercial rent growth factor for a cell holding years elapsed since the growth start. */
   commercialGrowth: (periods: string) => string;
-  /** A row across every month column, absolute, for a sum or a lookup on another sheet. */
+  /** A row across the model's month columns, absolute, for a sum or a lookup on another sheet. */
   range: (key: string) => string;
-  /** The month heading dates across every month column, absolute. */
+  /** The month heading dates across the model's month columns, absolute. */
   dates: () => string;
+  /** A row across every month column, the months projected past the sale included (LA-1952). */
+  projectedRange: (key: string) => string;
+  /** The month heading dates across every month column, the projected months included. */
+  projectedDates: () => string;
 };
 
 export const alloc = (annual: string, position: string) => `(IF(${position}=11,${annual},ROUND(${annual}*(${position}+1)/12,0))-ROUND(${annual}*${position}/12,0))`;
@@ -82,10 +88,16 @@ function growthExpression(rates: string[], periods: string) {
   return [...listed, `(1+${rates[last]}/100)^(${periods}-MIN(${periods},${last}))`].join("*");
 }
 
-export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOperationsResult): OperationsBuild {
+/**
+ * `projected` are the months after the sale the engine projects to price it (LA-1952): the forward twelve
+ * months, or through the end of the tax schedule when the sale adds the abatement's value. They follow the
+ * model's months as more columns, and the Total column leaves them out.
+ */
+export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOperationsResult, projected: MonthlyApartmentOperations[] = []): OperationsBuild {
   const { source } = ctx;
   const inputs = source.inputs as PropertyReturnsInputs;
-  const months = operations.months;
+  const modelMonths = operations.months.length;
+  const months = [...operations.months, ...projected];
   const n = (path: string) => ctx.input(path);
   const optional = (path: string, otherwise: string) => (ctx.has(path) ? ctx.input(path) : otherwise);
   const defs: Def[] = [];
@@ -384,11 +396,13 @@ export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOp
     }
   }
 
-  // The tax the commercial use carries on the full-tax basis, for the lender caps that value the two uses apart (LA-1951, use-split.ts).
-  const lenderCommercialCap = inputs.lenderTests?.commercialCapRatePercent !== undefined || inputs.permanentLoan?.commercialValuationCapRatePercent !== undefined;
-  if (commercial && lenderCommercialCap) {
+  // The tax the commercial use carries on the full-tax basis, for the lender caps and the sale that value the two uses apart (LA-1951, LA-1952, use-split.ts).
+  const valuesUsesApart = inputs.lenderTests?.commercialCapRatePercent !== undefined
+    || inputs.permanentLoan?.commercialValuationCapRatePercent !== undefined
+    || inputs.commercialTerminalCapRatePercent !== undefined;
+  if (commercial && valuesUsesApart) {
     blank();
-    section("Commercial Share of Property Tax for the Lender Caps");
+    section("Commercial Share of Property Tax for Valuing the Uses Apart");
     const taxShares = spaces.flatMap((space, s) => space.recoveries.flatMap((recovery, r) => (recovery.basis.kind === "property_tax" ? [{ s: s + 1, r: r + 1 }] : [])));
     row("commercialTaxShare", "Commercial Share of Property Tax (Percent)", "percent_number", (c) => (taxShares.length === 0
       ? "0"
@@ -510,14 +524,16 @@ export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOp
           kind: "output",
           id: `ops.${def.key}.total`,
           format: def.format,
-          engineValue: operations.totals[def.key as "netOperatingIncome"] ?? months.reduce((acc, month) => acc + def.engine!(month), 0),
-          formula: `SUM(${columnLetter(FIRST_MONTH_COLUMN)}${rowIndex + 1}:${columnLetter(FIRST_MONTH_COLUMN + months.length - 1)}${rowIndex + 1})`,
+          engineValue: operations.totals[def.key as "netOperatingIncome"] ?? operations.months.reduce((acc, month) => acc + def.engine!(month), 0),
+          formula: `SUM(${columnLetter(FIRST_MONTH_COLUMN)}${rowIndex + 1}:${columnLetter(FIRST_MONTH_COLUMN + modelMonths - 1)}${rowIndex + 1})`,
         }
         : null;
       rows.push({ outlineLevel: def.engine ? 1 : 2, cells: [{ kind: "text", text: def.label, role: "label" }, total, ...cells] });
     }
   }
 
+  const rowRange = (row: number, columns: number) =>
+    sheetRef(SHEET_NAMES.operations, `$${columnLetter(FIRST_MONTH_COLUMN)}$${row}:$${columnLetter(FIRST_MONTH_COLUMN + columns - 1)}$${row}`);
   return {
     sheet: {
       name: SHEET_NAMES.operations,
@@ -527,8 +543,11 @@ export function buildOperationsSheet(ctx: LayoutContext, operations: ApartmentOp
     },
     cell: (key, position) => sheetRef(SHEET_NAMES.operations, `${columnLetter(FIRST_MONTH_COLUMN + position)}${rowNumber(key)}`),
     scalar: (key) => sheetRef(SHEET_NAMES.operations, `$B$${rowNumber(key)}`),
+    has: (key) => rowNumbers.has(key),
     commercialGrowth: (periods) => growthExpression(rates.commercial, periods),
-    range: (key) => sheetRef(SHEET_NAMES.operations, `$${columnLetter(FIRST_MONTH_COLUMN)}$${rowNumber(key)}:$${columnLetter(FIRST_MONTH_COLUMN + months.length - 1)}$${rowNumber(key)}`),
-    dates: () => sheetRef(SHEET_NAMES.operations, `$${columnLetter(FIRST_MONTH_COLUMN)}$${HEADING_ROW + 1}:$${columnLetter(FIRST_MONTH_COLUMN + months.length - 1)}$${HEADING_ROW + 1}`),
+    range: (key) => rowRange(rowNumber(key), modelMonths),
+    dates: () => rowRange(HEADING_ROW + 1, modelMonths),
+    projectedRange: (key) => rowRange(rowNumber(key), months.length),
+    projectedDates: () => rowRange(HEADING_ROW + 1, months.length),
   };
 }

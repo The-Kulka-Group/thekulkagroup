@@ -2,7 +2,7 @@
 <!-- Kulka AI weekly report shell. Locked design, panel-scored 95 on 2026-08-28.
      Fill the {{TOKENS}}, follow the comment rules, do not restyle.
      The design contract lives in SKILL.md next to this file. -->
-<title>Kulka AI Weekly 06</title>
+<title>Kulka AI Weekly 07</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -160,24 +160,24 @@
 <header class="mast">
   <div class="mast-in">
     <div class="wordmark">BLDG&nbsp;<span class="labs">LABS</span></div>
-    <div class="mast-meta"><strong>KULKA AI · WEEKLY 06</strong><br>Sep 26 to Oct 2, 2026</div>
+    <div class="mast-meta"><strong>KULKA AI · WEEKLY 07</strong><br>Oct 3 to Oct 9, 2026</div>
   </div>
 </header>
 
 <main class="wrap">
   <p class="eyebrow">For Kulka leadership</p>
-  <h1>A live rough budget landed within two dollars a square&nbsp;foot.</h1>
-  <p class="lede"><strong>Monday we ran the rough budget tool live with Devin, Rob, and Gina.</strong> On a 48,000 SF wood-frame test job the tool came in about $272 per SF against Rob's independent about $270 per SF, with about sixteen questions answered. The same week we shipped a publish path so a budget can freeze as a shareable link, locked the client budget page frames, and started pricing General Conditions and General Requirements from allocated resources. The cost library still has only two comparable jobs, so the two asks at the bottom matter before Monday's weekly.</p>
+  <h1>Underwriting Tool Hits 11 of 11 Steps With Excel&nbsp;Export</h1>
+  <p class="lede"><strong>The underwriting tool now runs all eleven steps, from the cost schedule and loans through the partner waterfall.</strong> On Wednesday Rob set Friday as the target for a working tool and Monday for the Excel export, and both landed Thursday. A run now downloads as an Excel workbook with live formulas and prints as a branded PDF deal summary. The client budget page also gained its drill-down, a comment layer, and the Design and Engineering layers Rob picked. Three asks at the bottom cover the closeout start, the kulka.ai DNS, and the ProEst confidence ratings.</p>
 
   <section class="section">
     <hr class="rule">
     <h2>Where the build stands</h2>
-    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, more ProEst data. Last step: in your hands.</p>
+    <p class="sr-only">Progress: step 4 of 5. Done: decision, setup, sample budget. Now: your costs, rating ProEst jobs. Last step: in your hands.</p>
     <div class="steps" aria-hidden="true">
       <div class="step done"><div class="step-bar"></div><div class="step-name">Decision</div></div>
       <div class="step done"><div class="step-bar"></div><div class="step-name">Setup</div></div>
       <div class="step done"><div class="step-bar"></div><div class="step-name">Sample budget</div></div>
-      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">More ProEst data</span></div></div>
+      <div class="step now"><div class="step-bar"></div><div class="step-name">Your costs<span class="due">Rate ProEst jobs</span></div></div>
       <div class="step"><div class="step-bar"></div><div class="step-name">In your hands</div></div>
     </div>
   </section>
@@ -186,10 +186,10 @@
     <hr class="rule">
     <h2>What we counted</h2>
     <div class="stats">
-      <div class="stat"><div class="stat-n">227</div><div class="stat-l">Code changes shipped</div></div>
-      <div class="stat"><div class="stat-n">110</div><div class="stat-l">Tickets closed</div></div>
+      <div class="stat"><div class="stat-n">163</div><div class="stat-l">Code changes shipped</div></div>
+      <div class="stat"><div class="stat-n">88</div><div class="stat-l">Tickets closed</div></div>
       <div class="stat"><div class="stat-n">1</div><div class="stat-l">Live demos held</div></div>
-      <div class="stat"><div class="stat-n">3</div><div class="stat-l">Meetings held</div></div>
+      <div class="stat"><div class="stat-n">2</div><div class="stat-l">Meetings held</div></div>
     </div>
   </section>
 
@@ -197,12 +197,13 @@
     <hr class="rule">
     <h2>Done this week</h2>
     <ul class="done-list">
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Ran the rough budget live on Monday with Devin, Rob, and Gina.</strong> <span class="sub">The tool priced about $272 per SF on a 48,000 SF, 45-unit wood-frame test against Rob's independent about $270 per SF.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Shipped a publish path for a frozen budget link.</strong> <span class="sub">A saved run can publish with a version, open at a shareable page outside sign-in, and print a stored PDF when it publishes.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Locked the client budget page frames and started the build.</strong> <span class="sub">The approved Ledger Opened frames are the target for the shareable page. The page build is in progress on the GitHub account you own.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Started pricing General Conditions and General Requirements from allocated resources.</strong> <span class="sub">Rates load from a completed job sheet. Quantities follow the project's facts and schedule. Lines switch on or off from the answers.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Rebuilt New Budget as one question at a time with a live scope preview.</strong> <span class="sub">Design and Engineering answers play on a stage. Elevators, service size, and HVAC tonnage derive from the project's facts before a run finishes.</span></div></li>
-      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Held three sessions with Kulka this week.</strong> <span class="sub">Monday weekly with Devin, Rob, and Gina. Tuesday one-on-one with Devin. Friday sync with Rob and Devin on the client budget drill-down and a five-contact pilot review.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Finished the last underwriting steps.</strong> <span class="sub">Peak equity, the LP and GP waterfall, commercial space with a permanent loan, and an annual cash flow view all went in this week.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Added an Excel download and a PDF deal summary to every underwriting run.</strong> <span class="sub">The workbook writes live formulas instead of pasted numbers, and we checked it against the tool's own math so the two agree.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Scored the underwriting math against four audited development models.</strong> <span class="sub">Three of the four joined the check this week, and every change to the math now runs against all four.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Stopped the underwriting form from asking for the same value twice.</strong> <span class="sub">The detailed sections now start from the intake answers, and three snags from Devin's walkthrough are fixed.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Built the drill-down and comment layer on the client budget page.</strong> <span class="sub">A reader can open a trade, then a line item, leave a comment in place, and see Design and Engineering open in layers the way Rob picked.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Added a Roadmap page to Kulka AI.</strong> <span class="sub">It sits in the left menu and shows what is built, what is planned, and what is waiting.</span></div></li>
+      <li><span class="check" aria-hidden="true"><svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5.2L4.4 8.4L11 1.4" stroke="#0B0C09" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/></svg></span><div class="t"><strong>Held two sessions with Kulka this week.</strong> <span class="sub">Monday's weekly with Devin, Rob, and Gina agreed the order of four tools, starting with the conceptual budget, and Wednesday's session with Rob covered underwriting, a project-first front door, and design direction.</span></div></li>
     </ul>
   </section>
 
@@ -210,22 +211,25 @@
     <hr class="rule">
     <h2>Coming up</h2>
     <ul class="ahead-list">
-      <li><span class="when">Mon Oct 5</span><div class="t">BLDG and Kulka weekly meeting (10:00am ET on the Labs calendar).</div></li>
-      <li><span class="when">Mon Oct 5</span><div class="t">Deliver the <strong>ROM workflow visual</strong> still owed from Sep 21 (project start through design and engineering with pricing inside the blocks).</div></li>
-      <li><span class="when">Mon Oct 5</span><div class="t">Keep the <strong>client budget page</strong> build on the locked Ledger Opened frames toward pilot-review readiness.</div></li>
-      <li><span class="when">After Mon Oct 5</span><div class="t">Rob schedules pilot-review sessions with about five construction-savvy contacts once the page is ready (from the Fri Oct 2 sync).</div></li>
+      <li><span class="when">Mon Oct 12</span><div class="t">BLDG and Kulka weekly meeting (10:00am ET on the Labs calendar).</div></li>
+      <li><span class="when">Mon Oct 12</span><div class="t">Walk through the finished <strong>underwriting tool</strong> and its Excel download with Devin and Rob.</div></li>
+      <li><span class="when">After Mon Oct 12</span><div class="t">Decide how much of Kulka AI becomes the company's home base and how much stays a dashboard over the tools you already use, as agreed with Rob on Wed Oct 7.</div></li>
     </ul>
   </section>
 
   <section class="asks">
-    <h2>We need two things from your team</h2>
+    <h2>We need three things from your team</h2>
     <div class="ask">
       <span class="who">ROB</span>
-      <div class="t"><strong>Email more ProEst historical cost exports to Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 5. <span class="why">The library still has only two comparable jobs, so General Requirements and General Conditions stay light.</span></div>
+      <div class="t"><strong>Send Matt the SharePoint link to a past closeout package</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 12. <span class="why">JFK or a similar job becomes the starting example for the closeout tool, third in the order agreed on Oct 5.</span></div>
     </div>
     <div class="ask">
       <span class="who">ROB</span>
-      <div class="t"><strong>Share the cleaned Python slab takeoff program with Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 5. <span class="why">You offered it on Sep 28 before a wider rollout.</span></div>
+      <div class="t"><strong>Get the kulka.ai DNS figured out and tell Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 12. <span class="why">The site and login need the domain pointed the right way.</span></div>
+    </div>
+    <div class="ask">
+      <span class="who">JESSE</span>
+      <div class="t"><strong>Rate the ProEst projects 1 to 10 with Liam and send the scores to Matt</strong> at <a href="mailto:matt@bldglabs.ai">matt@bldglabs.ai</a> before Mon Oct 12. <span class="why">Those scores show which jobs the conceptual budget can trust.</span></div>
     </div>
   </section>
 

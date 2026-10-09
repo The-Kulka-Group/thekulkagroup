@@ -30,6 +30,7 @@ import { ReviewList } from "./ReviewList";
 import { RemountOnReviewDone } from "./review-epoch";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { formatMultiple } from "./format-multiple";
+import { snapshotSummary } from "./snapshot-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -398,27 +399,6 @@ function formatReconciliationValue(value: number, unit: "usd" | "count" | "sf" |
   if (unit === "multiple") return formatMultiple(value);
   if (unit === "basis_points") return `${NUMBER.format(value)} bps`;
   return MONEY.format(value);
-}
-
-function snapshotSummary(snapshot: {
-  grossBuildingSquareFeet?: number;
-  proposedUnits?: number;
-  purchasePrice?: number;
-  monthlyRent?: number;
-  analysisStartMonth?: string;
-  saleMonth?: string;
-  costLines?: unknown[];
-}) {
-  if (snapshot.analysisStartMonth && snapshot.saleMonth) {
-    return `${snapshot.costLines?.length ?? 0} cost lines · ${snapshot.analysisStartMonth} to ${snapshot.saleMonth}`;
-  }
-  const parts = [
-    snapshot.grossBuildingSquareFeet === undefined ? null : `${NUMBER.format(snapshot.grossBuildingSquareFeet)} GSF`,
-    snapshot.proposedUnits === undefined ? null : `${NUMBER.format(snapshot.proposedUnits)} units`,
-    snapshot.purchasePrice === undefined ? null : `${MONEY.format(snapshot.purchasePrice)} purchase`,
-    snapshot.monthlyRent === undefined ? null : `${MONEY.format(snapshot.monthlyRent)}/month rent`,
-  ].filter((part): part is string => part !== null);
-  return parts.length > 0 ? parts.join(" · ") : "No calculation inputs were supplied.";
 }
 
 function issuePath(issue: { inputKey?: string; path?: string }) {

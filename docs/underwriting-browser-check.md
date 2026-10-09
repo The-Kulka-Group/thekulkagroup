@@ -12,7 +12,7 @@ Use a 1440 by 900 viewport.
 
 1. Open the new-project screen.
 2. Confirm that the form starts empty and contains no suggested names, addresses, dates, sources, or financial values.
-3. Confirm that construction duration and hold period say that they are record only.
+3. Confirm that the construction duration note says it sets the hard and soft cost months once the schedule has an analysis start.
 4. If an authorized live project exists, open it without changing its values.
 5. Confirm that each project fact and financial assumption shows its stored source evidence and review state.
 6. Confirm that the result table and model limits match the saved formula version.

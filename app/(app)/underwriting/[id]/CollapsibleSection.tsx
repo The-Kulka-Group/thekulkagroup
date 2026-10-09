@@ -14,21 +14,21 @@ const collapsedInMemory = new Map<string, boolean>();
 const listeners = new Set<() => void>();
 const storageKey = (key: string) => `kulka.underwriting.collapsed.${key}`;
 
-function readCollapsed(key: string): boolean {
+function readCollapsed(key: string, defaultCollapsed: boolean): boolean {
   const remembered = collapsedInMemory.get(key);
   if (remembered !== undefined) return remembered;
   try {
-    return window.localStorage.getItem(storageKey(key)) === "1";
+    const stored = window.localStorage.getItem(storageKey(key));
+    return stored === null ? defaultCollapsed : stored === "1";
   } catch {
-    return false;
+    return defaultCollapsed;
   }
 }
 
 function writeCollapsed(key: string, collapsed: boolean) {
   collapsedInMemory.set(key, collapsed);
   try {
-    if (collapsed) window.localStorage.setItem(storageKey(key), "1");
-    else window.localStorage.removeItem(storageKey(key));
+    window.localStorage.setItem(storageKey(key), collapsed ? "1" : "0");
   } catch {
     // The in-memory choice still holds for this visit.
   }
@@ -42,9 +42,10 @@ function subscribe(listener: () => void) {
   };
 }
 
-export function CollapsibleSection({ storage, title, className, id, children }: { storage: string; title: string; className?: string; id?: string; children: ReactNode }) {
-  const collapsed = useSyncExternalStore(subscribe, () => readCollapsed(storage), () => false);
-  const toggle = useCallback(() => writeCollapsed(storage, !readCollapsed(storage)), [storage]);
+/** `defaultCollapsed` starts the section folded until the viewer opens it once (LA-2055). */
+export function CollapsibleSection({ storage, title, className, id, defaultCollapsed = false, children }: { storage: string; title: string; className?: string; id?: string; defaultCollapsed?: boolean; children: ReactNode }) {
+  const collapsed = useSyncExternalStore(subscribe, () => readCollapsed(storage, defaultCollapsed), () => defaultCollapsed);
+  const toggle = useCallback(() => writeCollapsed(storage, !readCollapsed(storage, defaultCollapsed)), [storage, defaultCollapsed]);
   const bodyId = useId();
   const open = !collapsed;
 

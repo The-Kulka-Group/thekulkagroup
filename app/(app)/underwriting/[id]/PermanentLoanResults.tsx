@@ -1,5 +1,6 @@
 import type { PermanentLoanAssumptionKey, PermanentLoanBindingKey, PermanentLoanCapKey, PermanentLoanResult } from "@kulka/engine";
 import { formatMultiple } from "./format-multiple";
+import { TraceFold } from "./TraceFold";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -105,11 +106,12 @@ export function PermanentLoanResults({ loan }: { loan: PermanentLoanResult }) {
       </table></div>
     </> : null}
 
-    <h4>Permanent Loan Formula Traces</h4>
+    <TraceFold title="Permanent Loan Formula Traces">
     <div className="underwriting-results-wrap"><table className="underwriting-results">
       <thead><tr><th>Result</th><th>Formula</th><th>Inputs Used</th></tr></thead>
       <tbody>{loan.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
     </table></div>
+    </TraceFold>
   </>;
 }
 

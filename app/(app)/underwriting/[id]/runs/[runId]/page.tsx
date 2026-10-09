@@ -30,7 +30,9 @@ import {
 } from "@/lib/underwriting/presentation";
 import { getUnderwritingRun } from "@/lib/underwriting/runs";
 import { isUuid } from "@/lib/uuid";
+import { CollapsibleSection } from "../../CollapsibleSection";
 import { CommercialResults } from "../../CommercialResults";
+import { TraceFold } from "../../TraceFold";
 import { PERMANENT_LOAN_EVIDENCE_LABELS } from "../../PermanentLoanResults";
 import { PropertyReturnsResults } from "../../PropertyReturnsResults";
 import { ScenarioComparisonResults } from "../../ScenarioComparisonResults";
@@ -147,12 +149,14 @@ export default async function UnderwritingRunPage({
                   <tbody>{run.developmentCapitalResult.capital.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{MONEY.format(month.projectCosts)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td><td className="num right">{MONEY.format(month.openingDebtBalance)}</td><td className="num right">{month.annualRatePercent}%</td><td>{RATE_BASIS[month.rateSource]}</td><td className="num right">{MONEY.format(month.otherSourcesApplied)}</td><td className="num right">{MONEY.format(month.equityContribution)}</td><td className="num right">{MONEY.format(month.debtBeforeReservesDraw)}</td><td className="num right">{MONEY.format(month.operatingShortfallReserveDraw)}</td><td className="num right">{MONEY.format(month.grossInterest)}</td><td className="num right">{MONEY.format(month.operatingCashAppliedToInterest)}</td><td className="num right">{MONEY.format(month.interestReserveDraw)}</td><td className="num right">{MONEY.format(month.totalSources)}</td><td className="num right">{MONEY.format(month.totalUses)}</td><td className="num right">{MONEY.format(month.repayment)}</td><td className="num right">{MONEY.format(month.closingDebtBalance)}</td></tr>)}</tbody>
                 </table>
               </div>
-              <div className="underwriting-results-wrap">
+              <TraceFold title="Formula Traces">
+                <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Result</th><th>Formula Trace</th><th>Inputs Used</th></tr></thead>
                   <tbody>{run.developmentCapitalResult.capital.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
-              </div>
+                </div>
+              </TraceFold>
               {run.developmentCapitalResult.apartmentOperations.commercial ? <CommercialResults months={run.developmentCapitalResult.apartmentOperations.months} commercial={run.developmentCapitalResult.apartmentOperations.commercial} totals={run.developmentCapitalResult.apartmentOperations.totals} costSchedule={run.developmentCapitalResult.apartmentOperations.costSchedule} /> : null}
               <ReconciliationTable checks={run.reconciliations} />
             </>
@@ -175,12 +179,14 @@ export default async function UnderwritingRunPage({
                   <tbody>{run.apartmentOperationsResult.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num right">{NUMBER.format(month.leasedUnits)} / {NUMBER.format(month.revenueUnits)}</td><td className="num right">{NUMBER.format(month.turnedUnits)}</td><td className="num right">{MONEY.format(month.residentialGrossRent)}</td><td className="num right">{MONEY.format(month.leaseUpLoss)}</td><td className="num right">{MONEY.format(month.nonRevenueRentAdjustment)}</td><td className="num right">{MONEY.format(month.rentAdjustmentLoss)}</td><td className="num right">{MONEY.format(month.freeRentLoss)}</td><td className="num right">{MONEY.format(month.leaseUpConcessionLoss)}</td><td className="num right">{MONEY.format(month.totalResidentialRent)}</td><td className="num right">{MONEY.format(month.otherIncome)}</td><td className="num right">{MONEY.format(month.vacancyLoss)}</td><td className="num right">{MONEY.format(month.creditLoss)}</td><td className="num right">{MONEY.format(month.effectiveGrossRevenue)}</td><td className="num right">{MONEY.format(month.operatingExpenses)}</td><td className="num right">{MONEY.format(month.netOperatingIncome)}</td><td className="num right">{MONEY.format(month.capitalExpenditures)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td></tr>)}</tbody>
                 </table>
               </div>
-              <div className="underwriting-results-wrap">
+              <TraceFold title="Formula Traces">
+                <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Result</th><th>Formula Trace</th><th>Inputs Used</th></tr></thead>
                   <tbody>{run.apartmentOperationsResult.formulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
-              </div>
+                </div>
+              </TraceFold>
               {run.apartmentOperationsResult.commercial ? <CommercialResults months={run.apartmentOperationsResult.months} commercial={run.apartmentOperationsResult.commercial} totals={run.apartmentOperationsResult.totals} costSchedule={run.apartmentOperationsResult.costSchedule} /> : null}
               <ReconciliationTable checks={run.reconciliations} />
             </>
@@ -196,18 +202,22 @@ export default async function UnderwritingRunPage({
                   <tbody>{run.monthlyCostResult.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th>{run.monthlyCostResult!.costLineSchedules.map((line) => <td className="num right" key={line.lineId}>{MONEY.format(month.lineAmounts[line.lineId])}</td>)}<td className="num right">{MONEY.format(month.totalUses)}</td></tr>)}</tbody>
                 </table>
               </div>
-              <div className="underwriting-results-wrap">
+              <TraceFold title="Cost Line Formula Traces">
+                <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Cost Line</th><th>Formula Trace</th><th>Inputs Used</th></tr></thead>
                   <tbody>{run.monthlyCostResult.costLineSchedules.map((line) => <tr key={line.lineId}><th scope="row">{line.name}</th><td>{line.formulaTrace}</td><td className="t-meta">{line.inputPaths.join(", ")}</td></tr>)}</tbody>
                 </table>
-              </div>
-              <div className="underwriting-results-wrap">
+                </div>
+              </TraceFold>
+              <TraceFold title="Aggregate Formula Traces">
+                <div className="underwriting-results-wrap">
                 <table className="underwriting-results">
                   <thead><tr><th>Aggregate Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead>
                   <tbody>{run.monthlyCostResult.aggregateFormulaTraces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td className="num right">{MONEY.format(trace.value)}</td><td>{trace.formulaTrace}</td><td className="t-meta">{trace.inputPaths.join(", ") || "No cost lines in this period"}</td></tr>)}</tbody>
                 </table>
-              </div>
+                </div>
+              </TraceFold>
               <ReconciliationTable checks={run.reconciliations} />
             </>
           ) : run.results.length > 0 ? (
@@ -233,11 +243,11 @@ export default async function UnderwritingRunPage({
             <h4 id="run-limitations-heading">Model Limits</h4>
             <ul>{(run.scenarioComparisonResult ? [
               "This formula version changes only the four named apartment sensitivity inputs.",
-              "It does not model permanent debt, investor waterfalls, or income taxes.",
+              "It does not model income taxes.",
               "This run does not record a finance or sale approval.",
             ] : run.propertyReturnsResult ? [
               "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
-              "It does not model permanent debt, investor waterfalls, income taxes, or sensitivity cases.",
+              "It does not model income taxes.",
               "This run does not record a finance or sale approval.",
             ] : run.developmentCapitalResult ? [
               "This formula version funds monthly development costs and operating shortfalls with equity and construction debt.",
@@ -255,8 +265,7 @@ export default async function UnderwritingRunPage({
           </div>
         </section>
 
-        <div className="margin" />
-        <section className="col-field record-section" aria-labelledby="run-inputs-heading">
+        <CollapsibleSection storage="run-snapshot" title="Full Calculation Input Snapshot" className="record-section" defaultCollapsed>
           <h3 id="run-inputs-heading">Full Calculation Input Snapshot</h3>
           {isScenarioSnapshot(run.inputSnapshot) ? (
             <>
@@ -317,10 +326,9 @@ export default async function UnderwritingRunPage({
               </tbody>
             </table>
           </div>}
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section" aria-labelledby="run-evidence-heading">
+        <CollapsibleSection storage="run-evidence" title="Saved Evidence Snapshot" className="record-section" defaultCollapsed>
           <h3 id="run-evidence-heading">Saved Evidence Snapshot</h3>
           <dl className="underwriting-evidence-facts">
             <div><dt>Case record ID</dt><dd className="num">{run.evidenceSnapshot.caseId}</dd></div>
@@ -521,10 +529,9 @@ export default async function UnderwritingRunPage({
               </tbody>
             </table>
           </div>
-        </section>
+        </CollapsibleSection>
 
-        <div className="margin" />
-        <section className="col-field record-section" aria-labelledby="run-issues-heading">
+        <CollapsibleSection storage="run-issues" title="Saved Calculation Issues" className="record-section" defaultCollapsed>
           <h3 id="run-issues-heading">Saved Calculation Issues</h3>
           {run.issues.length > 0 ? (
             <div className="underwriting-issues">
@@ -536,7 +543,7 @@ export default async function UnderwritingRunPage({
               ))}
             </div>
           ) : <p className="t-meta underwriting-history-note">This run saved no calculation issues.</p>}
-        </section>
+        </CollapsibleSection>
       </div>
     </Sheet>
   );

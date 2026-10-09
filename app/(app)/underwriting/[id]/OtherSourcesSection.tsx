@@ -1,5 +1,6 @@
 "use client";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import {
   MAX_OTHER_SOURCES,
   MAX_OTHER_SOURCE_DRAWS,
@@ -63,7 +64,7 @@ export function OtherSourcesSection({ sources, setSources, creditedLand, setCred
                 const drawPath = `${path}.draws.${drawIndex}`;
                 return <tr key={drawIndex}>
                   <td><input className="input num" type="month" aria-label={`${source.name || "Source"} draw ${drawIndex + 1} month`} value={draw.month} onChange={(event) => updateDraw(drawIndex, { month: event.target.value })} aria-invalid={Boolean(fieldErrors[`${drawPath}.month`])} /><FieldError error={fieldErrors[`${drawPath}.month`]} /></td>
-                  <td className="right"><span className="underwriting-money-input"><input className="input num" type="number" min="0" step="0.01" aria-label={`${source.name || "Source"} draw ${drawIndex + 1} amount`} value={draw.amount} onChange={(event) => updateDraw(drawIndex, { amount: toNumber(event.target.value) })} aria-invalid={Boolean(fieldErrors[`${drawPath}.amount`])} /><span>USD</span></span><FieldError error={fieldErrors[`${drawPath}.amount`]} /></td>
+                  <td className="right"><span className="underwriting-money-input"><GroupedNumberInput className="input num" aria-label={`${source.name || "Source"} draw ${drawIndex + 1} amount`} value={draw.amount} onValueChange={(plain) => updateDraw(drawIndex, { amount: toNumber(plain) })} aria-invalid={Boolean(fieldErrors[`${drawPath}.amount`])} /><span>USD</span></span><FieldError error={fieldErrors[`${drawPath}.amount`]} /></td>
                   <td><button className="btn" type="button" disabled={source.draws.length <= 1} onClick={() => update(index, { draws: source.draws.filter((_, at) => at !== drawIndex) })}>Remove Draw</button></td>
                 </tr>;
               })}</tbody>
@@ -87,7 +88,7 @@ export function OtherSourcesSection({ sources, setSources, creditedLand, setCred
       <label className="field-label t-label underwriting-checkbox"><input id="credited-land-use" type="checkbox" checked={Boolean(creditedLand)} onChange={(event) => setCreditedLand(event.target.checked ? { creditedValue: 0, countsAsSponsorEquity: false, reviewState: "working" } : undefined)} /> Add Credited Land</label>
       {creditedLand ? <>
         <div className="underwriting-form-grid underwriting-capital-controls">
-          <label className="field-label t-label" htmlFor="credited-land-value">Credited Land Value<span className="underwriting-money-input"><input id="credited-land-value" className="input num" type="number" min="0" step="0.01" value={creditedLand.creditedValue} onChange={(event) => setCreditedLand({ ...creditedLand, creditedValue: toNumber(event.target.value) })} aria-invalid={Boolean(fieldErrors["creditedLand.creditedValue"])} /><span>USD</span></span><FieldError error={fieldErrors["creditedLand.creditedValue"]} /></label>
+          <label className="field-label t-label" htmlFor="credited-land-value">Credited Land Value<span className="underwriting-money-input"><GroupedNumberInput id="credited-land-value" className="input num" value={creditedLand.creditedValue} onValueChange={(plain) => setCreditedLand({ ...creditedLand, creditedValue: toNumber(plain) })} aria-invalid={Boolean(fieldErrors["creditedLand.creditedValue"])} /><span>USD</span></span><FieldError error={fieldErrors["creditedLand.creditedValue"]} /></label>
           <label className="field-label t-label" htmlFor="credited-land-equity">Counts as Sponsor Equity<select id="credited-land-equity" className="input" value={creditedLand.countsAsSponsorEquity ? "yes" : "no"} onChange={(event) => setCreditedLand({ ...creditedLand, countsAsSponsorEquity: event.target.value === "yes" })}><option value="no">No</option><option value="yes">Yes</option></select><FieldError error={fieldErrors["creditedLand.countsAsSponsorEquity"]} /></label>
         </div>
         <EvidenceFields id="credited-land" path="creditedLand" item={creditedLand} fieldErrors={fieldErrors} onChange={(change) => setCreditedLand({ ...creditedLand, ...change })} />

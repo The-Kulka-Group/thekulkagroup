@@ -17,6 +17,7 @@ import {
   type PermanentLoanSizingMode,
 } from "@kulka/engine";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { PERMANENT_LOAN_EVIDENCE_LABELS as EVIDENCE_LABELS } from "./PermanentLoanResults";
 
 const STABILIZATION = "__stabilization";
@@ -86,7 +87,7 @@ export function PermanentLoanSection({ permanentLoan, setPermanentLoan, mileston
         <NumberField id="permanent-loan-amortization" label="Amortization" value={permanentLoan.amortizationYears} onChange={(value) => update({ amortizationYears: value })} error={error("amortizationYears")} suffix="Years" step="1" max={40} />
         <NumberField id="permanent-loan-term" label="Term" value={permanentLoan.termYears} onChange={(value) => update({ termYears: value })} error={error("termYears")} suffix="Years" step="1" max={40} />
         <NumberField id="permanent-loan-fee" label="Loan Fee" value={permanentLoan.feePercent} onChange={(value) => update({ feePercent: value })} error={error("feePercent")} suffix="%" max={99.999999} />
-        <label className="field-label t-label" htmlFor="permanent-loan-closing-costs">Closing Costs<span className="underwriting-money-input"><input id="permanent-loan-closing-costs" className="input num" type="number" min="0" step="0.01" value={permanentLoan.closingCosts} onChange={(event) => update({ closingCosts: event.target.value === "" ? blank() : Number(event.target.value) })} aria-invalid={Boolean(error("closingCosts"))} aria-describedby={error("closingCosts") ? "permanent-loan-closing-costs-error" : undefined} /><span>USD</span></span><FieldError id="permanent-loan-closing-costs-error" error={error("closingCosts")} /></label>
+        <label className="field-label t-label" htmlFor="permanent-loan-closing-costs">Closing Costs<span className="underwriting-money-input"><GroupedNumberInput id="permanent-loan-closing-costs" className="input num" value={permanentLoan.closingCosts} onValueChange={(plain) => update({ closingCosts: plain === "" ? blank() : Number(plain) })} aria-invalid={Boolean(error("closingCosts"))} aria-describedby={error("closingCosts") ? "permanent-loan-closing-costs-error" : undefined} /><span>USD</span></span><FieldError id="permanent-loan-closing-costs-error" error={error("closingCosts")} /></label>
       </div>
       <p className="t-meta">Zero amortization years is interest only for the whole term. The fee is a percent of the loan amount and the closing costs are fixed. Both come out of proceeds.</p>
       <h4>Permanent Loan Sources</h4>

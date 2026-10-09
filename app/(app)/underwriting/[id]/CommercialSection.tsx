@@ -12,6 +12,7 @@ import {
   type OperatingExpenseLine,
 } from "@kulka/engine";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
 type Evidence = { sourceLabel?: string; sourceDate?: string; reviewState: "working" | "done" };
@@ -75,8 +76,8 @@ export function CommercialSection({ commercial, setCommercial, expenseLines, has
               const label = space.name || `Space ${index + 1}`;
               return <tr key={space.id}>
                 <td><TextInput path={`${path}.name`} label={`Space ${index + 1} name`} value={space.name} onChange={(name) => updateSpace(index, { name })} error={fieldErrors[`${path}.name`]} /></td>
-                <td><NumberInput path={`${path}.areaSf`} label={`${label} area`} value={space.areaSf} onChange={(areaSf) => updateSpace(index, { areaSf })} error={fieldErrors[`${path}.areaSf`]} min="0" step="0.01" suffix="SF" /></td>
-                <td><NumberInput path={`${path}.annualRentPerSf`} label={`${label} annual rent per square foot`} value={space.annualRentPerSf} onChange={(annualRentPerSf) => updateSpace(index, { annualRentPerSf })} error={fieldErrors[`${path}.annualRentPerSf`]} min="0" step="0.01" suffix="USD" /></td>
+                <td><NumberInput path={`${path}.areaSf`} label={`${label} area`} value={space.areaSf} onChange={(areaSf) => updateSpace(index, { areaSf })} error={fieldErrors[`${path}.areaSf`]} suffix="SF" grouped /></td>
+                <td><NumberInput path={`${path}.annualRentPerSf`} label={`${label} annual rent per square foot`} value={space.annualRentPerSf} onChange={(annualRentPerSf) => updateSpace(index, { annualRentPerSf })} error={fieldErrors[`${path}.annualRentPerSf`]} suffix="USD" grouped /></td>
                 <td>
                   <MilestoneAnchorField
                     id={controlId(`${path}.leaseStartMonth`)}
@@ -91,7 +92,7 @@ export function CommercialSection({ commercial, setCommercial, expenseLines, has
                   />
                 </td>
                 <td><NumberInput path={`${path}.freeRentMonths`} label={`${label} free rent months`} value={space.freeRentMonths} onChange={(freeRentMonths) => updateSpace(index, { freeRentMonths })} error={fieldErrors[`${path}.freeRentMonths`]} min="0" step="1" /></td>
-                <td><NumberInput path={`${path}.tenantImprovementPerSf`} label={`${label} tenant improvement per square foot`} value={space.tenantImprovementPerSf} onChange={(tenantImprovementPerSf) => updateSpace(index, { tenantImprovementPerSf })} error={fieldErrors[`${path}.tenantImprovementPerSf`]} min="0" step="0.01" suffix="USD" /></td>
+                <td><NumberInput path={`${path}.tenantImprovementPerSf`} label={`${label} tenant improvement per square foot`} value={space.tenantImprovementPerSf} onChange={(tenantImprovementPerSf) => updateSpace(index, { tenantImprovementPerSf })} error={fieldErrors[`${path}.tenantImprovementPerSf`]} suffix="USD" grouped /></td>
                 <td><NumberInput path={`${path}.leasingCommissionPercent`} label={`${label} leasing commission percent`} value={space.leasingCommissionPercent} onChange={(leasingCommissionPercent) => updateSpace(index, { leasingCommissionPercent })} error={fieldErrors[`${path}.leasingCommissionPercent`]} min="0" max="100" step="0.01" suffix="%" /></td>
                 <td><NumberInput path={`${path}.leaseTermMonths`} label={`${label} lease term months`} value={space.leaseTermMonths} onChange={(leaseTermMonths) => updateSpace(index, { leaseTermMonths })} error={fieldErrors[`${path}.leaseTermMonths`]} min="1" step="1" /></td>
                 <EvidenceCells path={path} label={label} item={space} onChange={(change) => updateSpace(index, change)} fieldErrors={fieldErrors} />
@@ -215,8 +216,8 @@ function NumberField({ path, label, value, onChange, error, suffix, ...input }: 
   return <label className="field-label t-label" htmlFor={controlId(path)}>{label}<span className={suffix ? "underwriting-money-input" : undefined}><input id={controlId(path)} className="input num" type="number" value={value} onChange={(event) => onChange(Number(event.target.value))} aria-invalid={Boolean(error)} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError error={error} /></label>;
 }
 
-function NumberInput({ path, label, value, onChange, error, suffix, ...input }: { path: string; label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; min?: string; max?: string; step?: string }) {
-  return <><span className={suffix ? "underwriting-money-input" : undefined}><input id={controlId(path)} className="input num right" type="number" aria-label={label} value={value} onChange={(event) => onChange(Number(event.target.value))} aria-invalid={Boolean(error)} {...input} />{suffix ? <span>{suffix}</span> : null}</span><FieldError error={error} /></>;
+function NumberInput({ path, label, value, onChange, error, suffix, grouped, ...input }: { path: string; label: string; value: number; onChange: (value: number) => void; error?: string; suffix?: string; grouped?: boolean; min?: string; max?: string; step?: string }) {
+  return <><span className={suffix ? "underwriting-money-input" : undefined}>{grouped ? <GroupedNumberInput id={controlId(path)} className="input num right" aria-label={label} value={value} onValueChange={(plain) => onChange(Number(plain))} aria-invalid={Boolean(error)} /> : <input id={controlId(path)} className="input num right" type="number" aria-label={label} value={value} onChange={(event) => onChange(Number(event.target.value))} aria-invalid={Boolean(error)} {...input} />}{suffix ? <span>{suffix}</span> : null}</span><FieldError error={error} /></>;
 }
 
 function TextInput({ path, label, value, onChange, error }: { path: string; label: string; value: string; onChange: (value: string) => void; error?: string }) {

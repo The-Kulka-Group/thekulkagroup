@@ -24,6 +24,7 @@ import {
   seedFromIntake,
 } from "@/lib/underwriting/intake-seed";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 
 type EditableLine = MonthlyCostLine;
@@ -323,9 +324,9 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                 <td>
                   {!line.basis || line.basis.type === "fixed" ? (
                     <div className="underwriting-money-input">
-                      <input {...amount.controlProps} className="input num right" type="number" min="0.01" step="0.01"
+                      <GroupedNumberInput {...amount.controlProps} className="input num right"
                         aria-label={`${label} amount in USD`} value={line.amount || ""}
-                        onChange={(event) => updateLine(index, { amount: Number(event.target.value) })} />
+                        onValueChange={(plain) => updateLine(index, { amount: Number(plain) })} />
                       <span>USD</span>
                     </div>
                   ) : line.basis.type === "percent_of_total" ? (
@@ -353,9 +354,9 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
                     </div>
                   ) : (
                     <div className="underwriting-money-input">
-                      <input id={`cost-line-${index}-basis-rate`} className="input num right" type="number" min="0.0001" step="0.0001"
+                      <GroupedNumberInput id={`cost-line-${index}-basis-rate`} className="input num right"
                         aria-label={`${label} rate in USD ${line.basis.type === "per_unit" ? "per unit" : "per gross square foot"}`} value={line.basis.rate || ""}
-                        onChange={(event) => updateLine(index, { basis: { ...line.basis as Extract<CostLineBasis, { type: "per_unit" | "per_gross_square_foot" }>, rate: Number(event.target.value) } })} />
+                        onValueChange={(plain) => updateLine(index, { basis: { ...line.basis as Extract<CostLineBasis, { type: "per_unit" | "per_gross_square_foot" }>, rate: Number(plain) } })} />
                       <span>{line.basis.type === "per_unit" ? "USD/Unit" : "USD/GSF"}</span>
                     </div>
                   )}

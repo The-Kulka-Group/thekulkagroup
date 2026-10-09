@@ -1,5 +1,6 @@
 "use client";
 
+import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import {
   MAX_PROPERTY_TAX_FISCAL_YEARS,
   MAX_PROPERTY_TAX_SOURCE_LABEL_LENGTH,
@@ -120,12 +121,12 @@ function SelectField({ path, label, value, options, onChange, error }: { path: s
 
 function InputField({ path, label, value, onChange, error, type = "number", suffix, step }: { path: string; label: string; value: string | number; onChange: (value: string) => void; error?: string; type?: "number" | "month"; suffix?: string; step?: string }) {
   const id = controlId(path);
-  return <label className="field-label t-label" htmlFor={id}>{label}<span className={suffix ? "underwriting-money-input" : undefined}><input id={id} className="input num" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} />{suffix ? <span>{suffix}</span> : null}</span><FieldError id={`${id}-error`} error={error} /></label>;
+  return <label className="field-label t-label" htmlFor={id}>{label}<span className={suffix ? "underwriting-money-input" : undefined}>{suffix === "USD" ? <GroupedNumberInput id={id} className="input num" value={value} onValueChange={onChange} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} /> : <input id={id} className="input num" type={type} min={type === "number" ? "0" : undefined} step={step} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} />}{suffix ? <span>{suffix}</span> : null}</span><FieldError id={`${id}-error`} error={error} /></label>;
 }
 
 function CellInput({ path, label, value, onChange, error, suffix, step }: { path: string; label: string; value: string | number; onChange: (value: string) => void; error?: string; suffix?: string; step?: string }) {
   const id = controlId(path);
-  return <><span className={suffix ? "underwriting-money-input" : undefined}><input id={id} className="input num right" type="number" min="0" step={step} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} />{suffix ? <span>{suffix}</span> : null}</span><FieldError id={`${id}-error`} error={error} /></>;
+  return <><span className={suffix ? "underwriting-money-input" : undefined}>{suffix === "USD" ? <GroupedNumberInput id={id} className="input num right" aria-label={label} value={value} onValueChange={onChange} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} /> : <input id={id} className="input num right" type="number" min="0" step={step} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} />}{suffix ? <span>{suffix}</span> : null}</span><FieldError id={`${id}-error`} error={error} /></>;
 }
 
 function FieldError({ id, error }: { id?: string; error?: string }) {

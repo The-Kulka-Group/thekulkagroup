@@ -121,7 +121,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
       </div>
 
       <div className="underwriting-form-grid underwriting-capital-controls">
-        <NumberField id="capital-target-debt-share" label="Target Debt Share of Total Uses" value={targetDebtSharePercent} onChange={setTargetDebtSharePercent} error={fieldErrors.targetDebtSharePercent} suffix="%" />
+        <NumberField id="capital-target-debt-share" label="Loan to Cost, % of Total Uses" hint="The engine solves the loan to this share of total uses, including interest, fees and operating shortfall. A lower lender NOI cap wins." value={targetDebtSharePercent} onChange={setTargetDebtSharePercent} error={fieldErrors.targetDebtSharePercent} suffix="%" />
         <NumberField id="capital-annual-interest-rate" label="Annual Construction Interest Rate" value={annualInterestRatePercent} onChange={setAnnualInterestRatePercent} error={fieldErrors.annualInterestRatePercent} suffix="%" />
         <NumberField id="capital-loan-fee" label="Loan Fee on Planned Project-Cost Debt" value={loanFeePercent} onChange={setLoanFeePercent} error={fieldErrors.loanFeePercent} suffix="%" />
         <MonthField id="capital-fee-month" label="Fee Month" value={feeMonth} onChange={setFeeMonth} error={fieldErrors.feeMonth} />
@@ -217,7 +217,7 @@ const INTEREST_TREATMENT_LABELS: Record<InterestTreatment, string> = {
 };
 
 const LABELS: Record<DevelopmentCapitalAssumptionKey, string> = {
-  targetDebtSharePercent: "Target Debt Share",
+  targetDebtSharePercent: "Loan to Cost, % of Total Uses",
   annualInterestRatePercent: "Annual Interest Rate",
   loanFeePercent: "Loan Fee",
   fundingOrder: "Funding Order",
@@ -227,9 +227,10 @@ const LABELS: Record<DevelopmentCapitalAssumptionKey, string> = {
   payoffMonth: "Payoff Month",
 };
 
-function NumberField({ id, label, value, onChange, error, suffix }: { id: string; label: string; value: number | ""; onChange: (value: number | "") => void; error?: string; suffix: string }) {
+function NumberField({ id, label, hint, value, onChange, error, suffix }: { id: string; label: string; hint?: string; value: number | ""; onChange: (value: number | "") => void; error?: string; suffix: string }) {
   const errorId = `${id}-error`;
-  return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><input id={id} className="input num" type="number" min="0" max="100" step="0.000001" value={value} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} /><span>{suffix}</span></span><FieldError id={errorId} error={error} /></label>;
+  const hintId = `${id}-hint`;
+  return <label className="field-label t-label" htmlFor={id}>{label}<span className="underwriting-money-input"><input id={id} className="input num" type="number" min="0" max="100" step="0.000001" value={value} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} aria-invalid={Boolean(error)} aria-describedby={[hint ? hintId : "", error ? errorId : ""].filter(Boolean).join(" ") || undefined} /><span>{suffix}</span></span>{hint ? <span id={hintId} className="t-meta">{hint}</span> : null}<FieldError id={errorId} error={error} /></label>;
 }
 
 function MonthField({ id, label, value, onChange, error }: { id: string; label: string; value: string; onChange: (value: string) => void; error?: string }) {

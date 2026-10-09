@@ -16,7 +16,6 @@ import {
   type DevelopmentCapitalInputs,
   type MonthlyCostScheduleInputs,
   type PropertyReturnsInputs,
-  type ReconciliationCheck,
 } from "@kulka/engine";
 
 import { Sheet, Sep } from "@/components/Sheet";
@@ -33,6 +32,7 @@ import { isUuid } from "@/lib/uuid";
 import { CollapsibleSection } from "../../CollapsibleSection";
 import { CommercialResults } from "../../CommercialResults";
 import { TraceFold } from "../../TraceFold";
+import { ReconciliationChecks } from "../../ReconciliationChecks";
 import { PERMANENT_LOAN_EVIDENCE_LABELS } from "../../PermanentLoanResults";
 import { PropertyReturnsResults } from "../../PropertyReturnsResults";
 import { ScenarioComparisonResults } from "../../ScenarioComparisonResults";
@@ -158,7 +158,7 @@ export default async function UnderwritingRunPage({
                 </div>
               </TraceFold>
               {run.developmentCapitalResult.apartmentOperations.commercial ? <CommercialResults months={run.developmentCapitalResult.apartmentOperations.months} commercial={run.developmentCapitalResult.apartmentOperations.commercial} totals={run.developmentCapitalResult.apartmentOperations.totals} costSchedule={run.developmentCapitalResult.apartmentOperations.costSchedule} /> : null}
-              <ReconciliationTable checks={run.reconciliations} />
+              <ReconciliationChecks checks={run.reconciliations} />
             </>
           ) : run.apartmentOperationsResult ? (
             <>
@@ -188,7 +188,7 @@ export default async function UnderwritingRunPage({
                 </div>
               </TraceFold>
               {run.apartmentOperationsResult.commercial ? <CommercialResults months={run.apartmentOperationsResult.months} commercial={run.apartmentOperationsResult.commercial} totals={run.apartmentOperationsResult.totals} costSchedule={run.apartmentOperationsResult.costSchedule} /> : null}
-              <ReconciliationTable checks={run.reconciliations} />
+              <ReconciliationChecks checks={run.reconciliations} />
             </>
           ) : run.monthlyCostResult ? (
             <>
@@ -218,7 +218,7 @@ export default async function UnderwritingRunPage({
                 </table>
                 </div>
               </TraceFold>
-              <ReconciliationTable checks={run.reconciliations} />
+              <ReconciliationChecks checks={run.reconciliations} />
             </>
           ) : run.results.length > 0 ? (
             <div className="underwriting-results-wrap">
@@ -575,16 +575,6 @@ function isPropertyReturnsSnapshot(snapshot: unknown): snapshot is PropertyRetur
 
 function isScenarioSnapshot(snapshot: unknown): snapshot is { base: PropertyReturnsInputs; scenarios: Array<{ id: string; role: string; name: string; inputVersion: string; delta: Record<string, number> }> } {
   return Boolean(snapshot && typeof snapshot === "object" && "base" in snapshot && "scenarios" in snapshot && Array.isArray((snapshot as { scenarios?: unknown }).scenarios));
-}
-
-function ReconciliationTable({ checks }: { checks: ReconciliationCheck[] }) {
-  return <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead><tbody>{checks.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatReconciliationValue(check.expected, check.unit)}</td><td className="num right">{formatReconciliationValue(check.actual, check.unit)}</td><td className="num right">{formatReconciliationValue(check.difference, check.unit)}</td></tr>)}</tbody></table></div>;
-}
-
-function formatReconciliationValue(value: number, unit: ReconciliationCheck["unit"]) {
-  if (unit === "count") return NUMBER.format(value);
-  if (unit === "sf") return `${NUMBER.format(value)} SF`;
-  return MONEY.format(value);
 }
 
 function OperationsInputTables({ input }: { input: ApartmentOperationsInputs }) {

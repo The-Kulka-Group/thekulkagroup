@@ -1,5 +1,6 @@
 import {
   ANNUAL_SECTION_LABELS,
+  CAPITALIZED_GROSS_INTEREST_VERSION,
   ANNUAL_YEAR_BASIS_LABELS,
   scheduleOtherSources,
   type AnnualCashFlowYears,
@@ -7,12 +8,14 @@ import {
   type DevelopmentCapitalTotals,
   type MonthlyDevelopmentCapital,
   type OtherFundingSource,
+  type PermanentLoanResult,
   type PropertyReturnsInputs,
   type PropertyReturnsResult,
 } from "@kulka/engine";
 
 import { buildCostsSheets, operationsFor, type CostsBuild } from "./costs";
 import { buildLeaseTermsSheet } from "./lease-terms";
+import { createLoan, type LoanBuild } from "./loan";
 import { buildOperationsSheet, type OperationsBuild } from "./operations";
 import {
   HEADER_ROWS,
@@ -143,22 +146,120 @@ type MonthlyEntry = { section: string } | { line: MonthlyLine };
 
 const flow = (engineTotal: (totals: DevelopmentCapitalTotals, result: PropertyReturnsResult) => number | undefined = () => undefined) => ({ engineTotal });
 
-/** The funding rows. Project costs, sources, uses and soft loan repayment are live; the loan rows wait for LA-1951. */
-function capitalLines(costs: CostsBuild["refs"], operations: OperationsBuild, softLoanRepayments: string[]): MonthlyLine[] {
+type CapitalDeps = {
+  ctx: LayoutContext;
+  costs: CostsBuild["refs"];
+  operations: OperationsBuild;
+  loan: LoanBuild;
+  softLoanRepayments: string[];
+  /** The Monthly rows that total each grant's and soft loan's draws. */
+  otherDrawKeys: string[];
+  hasPermanentLoan: boolean;
+  hasRatePath: boolean;
+};
+
+/**
+ * LA-1951, development-capital.ts `simulate` line for line. Each month funds its project costs and
+ * loan fee, then its operating shortfall, then its capitalized interest, and each takes grant and
+ * soft loan cash first, then the equity left, then the loan.
+ */
+function capitalLines(deps: CapitalDeps): MonthlyLine[] {
+  const { ctx, costs, operations, loan, softLoanRepayments, hasPermanentLoan, hasRatePath } = deps;
+  const monthIs = (at: MonthAt, dateRef: string) => `${monthCount(at.date)}=${monthCount(dateRef)}`;
   return [
     { key: "projectCosts", label: "Project Costs", format: "money", read: (m) => m.projectCosts, total: flow((t) => t.projectCosts), formula: (at) => costs.monthTotal(at.position) },
     { key: "operatingCashFlow", label: "Operating Cash Flow", format: "money", read: (m) => m.operatingCashFlow, total: flow(), formula: (at) => operations.cell("operatingCashFlow", at.position) },
-    { key: "operatingShortfall", label: "Operating Shortfall", format: "money", read: (m) => m.operatingShortfall, total: flow((t) => t.operatingShortfall) },
-    { key: "loanFee", label: "Loan Fees", format: "money", read: (m) => m.loanFee, total: flow((t) => t.loanFees) },
-    { key: "grossInterest", label: "Gross Interest", format: "money", read: (m) => m.grossInterest, total: flow((t) => t.grossInterest) },
-    { key: "operatingCashAppliedToInterest", label: "Operating Cash Applied to Interest", format: "money", read: (m) => m.operatingCashAppliedToInterest, total: flow((t) => t.operatingCashAppliedToInterest) },
-    { key: "capitalizedInterest", label: "Capitalized Interest", format: "money", read: (m) => m.capitalizedInterest, total: flow((t) => t.capitalizedInterest) },
-    { key: "equityContribution", label: "Equity", format: "money", read: (m) => m.equityContribution, total: flow((t) => t.equity) },
-    { key: "debtBeforeReservesDraw", label: "Debt Before Reserves", format: "money", read: (m) => m.debtBeforeReservesDraw, total: flow((t) => t.debtBeforeReserves) },
-    { key: "interestReserveDraw", label: "Interest Reserve", format: "money", read: (m) => m.interestReserveDraw, total: flow((t) => t.interestReserve) },
-    { key: "operatingShortfallReserveDraw", label: "Operating Shortfall Reserve", format: "money", read: (m) => m.operatingShortfallReserveDraw, total: flow((t) => t.operatingShortfallReserve) },
-    { key: "totalDebtDraw", label: "Total Debt Draw", format: "money", read: (m) => m.totalDebtDraw, total: flow((t) => t.totalDebt) },
-    { key: "otherSourcesApplied", label: "Grants and Soft Loans Applied", format: "money", read: (m) => m.otherSourcesApplied, total: flow((t) => t.otherSourcesApplied) },
+    {
+      key: "operatingShortfall",
+      label: "Operating Shortfall",
+      format: "money",
+      read: (m) => m.operatingShortfall,
+      total: flow((t) => t.operatingShortfall),
+      // After a permanent loan takes out the construction loan, a shortfall is an equity call on the permanent loan schedule.
+      formula: (at) => hasPermanentLoan
+        ? `IF(${monthCount(at.date)}>${monthCount(loan.ref("takeoutDate"))},0,MAX(-${at.cell("operatingCashFlow")},0))`
+        : `MAX(-${at.cell("operatingCashFlow")},0)`,
+    },
+    {
+      key: "loanFee",
+      label: "Loan Fees",
+      format: "money",
+      read: (m) => m.loanFee,
+      total: flow((t) => t.loanFees),
+      formula: (at) => `IF(${monthIs(at, loan.ref("feeDate"))},${loan.ref("loanFee")},0)`,
+    },
+    {
+      key: "grossInterest",
+      label: "Gross Interest",
+      format: "money",
+      read: (m) => m.grossInterest,
+      total: flow((t) => t.grossInterest),
+      formula: (at) => `ROUND(ROUND(${at.cell("openingDebtBalance")}*100,0)*(${at.cell("annualRatePercent")}/12)/100,0)/100`,
+    },
+    {
+      key: "operatingCashAppliedToInterest",
+      label: "Operating Cash Applied to Interest",
+      format: "money",
+      read: (m) => m.operatingCashAppliedToInterest,
+      total: flow((t) => t.operatingCashAppliedToInterest),
+      formula: (at) => `IF(${ctx.input("interestTreatment")}="${CAPITALIZED_GROSS_INTEREST_VERSION}",0,MIN(MAX(${at.cell("operatingCashFlow")},0),${at.cell("grossInterest")}))`,
+    },
+    {
+      key: "capitalizedInterest",
+      label: "Capitalized Interest",
+      format: "money",
+      read: (m) => m.capitalizedInterest,
+      total: flow((t) => t.capitalizedInterest),
+      formula: (at) => `ROUND(${at.cell("grossInterest")}-${at.cell("operatingCashAppliedToInterest")},2)`,
+    },
+    {
+      key: "equityContribution",
+      label: "Equity",
+      format: "money",
+      read: (m) => m.equityContribution,
+      total: flow((t) => t.equity),
+      formula: (at) => `ROUND(${at.cell("w.projectEquity")}+${at.cell("w.shortfallEquity")}+${at.cell("w.interestEquity")},2)`,
+    },
+    {
+      key: "debtBeforeReservesDraw",
+      label: "Debt Before Reserves",
+      format: "money",
+      read: (m) => m.debtBeforeReservesDraw,
+      total: flow((t) => t.debtBeforeReserves),
+      formula: (at) => `ROUND(${at.cell("projectCosts")}+${at.cell("loanFee")}-${at.cell("w.otherProject")}-${at.cell("w.projectEquity")},2)`,
+    },
+    {
+      key: "interestReserveDraw",
+      label: "Interest Reserve",
+      format: "money",
+      read: (m) => m.interestReserveDraw,
+      total: flow((t) => t.interestReserve),
+      formula: (at) => `ROUND(${at.cell("capitalizedInterest")}-${at.cell("w.otherInterest")}-${at.cell("w.interestEquity")},2)`,
+    },
+    {
+      key: "operatingShortfallReserveDraw",
+      label: "Operating Shortfall Reserve",
+      format: "money",
+      read: (m) => m.operatingShortfallReserveDraw,
+      total: flow((t) => t.operatingShortfallReserve),
+      formula: (at) => `ROUND(${at.cell("operatingShortfall")}-${at.cell("w.otherShortfall")}-${at.cell("w.shortfallEquity")},2)`,
+    },
+    {
+      key: "totalDebtDraw",
+      label: "Total Debt Draw",
+      format: "money",
+      read: (m) => m.totalDebtDraw,
+      total: flow((t) => t.totalDebt),
+      formula: (at) => `ROUND(${at.cell("debtBeforeReservesDraw")}+${at.cell("interestReserveDraw")}+${at.cell("operatingShortfallReserveDraw")},2)`,
+    },
+    {
+      key: "otherSourcesApplied",
+      label: "Grants and Soft Loans Applied",
+      format: "money",
+      read: (m) => m.otherSourcesApplied,
+      total: flow((t) => t.otherSourcesApplied),
+      formula: (at) => `ROUND(${at.cell("w.otherProject")}+${at.cell("w.otherShortfall")}+${at.cell("w.otherInterest")},2)`,
+    },
     {
       key: "softLoanRepayment",
       label: "Soft Loan Repayment",
@@ -183,19 +284,94 @@ function capitalLines(costs: CostsBuild["refs"], operations: OperationsBuild, so
       total: flow((t) => t.totalUses),
       formula: (at) => `${at.cell("projectCosts")}+${at.cell("loanFee")}+${at.cell("operatingShortfall")}+${at.cell("capitalizedInterest")}`,
     },
-    { key: "repayment", label: "Construction Loan Repayment", format: "money", read: (m) => m.repayment, total: flow() },
-    { key: "annualRatePercent", label: "Annual Rate", format: "percent_number", read: (m) => m.annualRatePercent, total: false },
-    { key: "openingDebtBalance", label: "Opening Debt Balance", format: "money", read: (m) => m.openingDebtBalance, total: false },
-    { key: "closingDebtBalance", label: "Closing Debt Balance", format: "money", read: (m) => m.closingDebtBalance, total: false },
+    {
+      key: "repayment",
+      label: "Construction Loan Repayment",
+      format: "money",
+      read: (m) => m.repayment,
+      total: flow(),
+      formula: (at) => `IF(${monthIs(at, loan.ref("repayDate"))},ROUND(${at.cell("openingDebtBalance")}+${at.cell("totalDebtDraw")},2),0)`,
+    },
+    {
+      key: "annualRatePercent",
+      label: "Annual Rate",
+      format: "percent_number",
+      read: (m) => m.annualRatePercent,
+      total: false,
+      formula: (at) => hasRatePath
+        ? `ROUND(${at.cell("w.baseRate")}+${loan.ref("spread")},8)`
+        : ctx.input("annualInterestRatePercent"),
+    },
+    {
+      key: "openingDebtBalance",
+      label: "Opening Debt Balance",
+      format: "money",
+      read: (m) => m.openingDebtBalance,
+      total: false,
+      formula: (at) => at.prior("closingDebtBalance") ?? "0",
+    },
+    {
+      key: "closingDebtBalance",
+      label: "Closing Debt Balance",
+      format: "money",
+      read: (m) => m.closingDebtBalance,
+      total: false,
+      formula: (at) => `ROUND(${at.cell("openingDebtBalance")}+${at.cell("totalDebtDraw")}-${at.cell("repayment")},2)`,
+    },
   ];
 }
 
-const PERMANENT_LINES: MonthlyLine[] = [
-  { key: "permanentLoanProceeds", label: "Permanent Loan Proceeds", format: "money", read: (_, p) => p?.permanentLoanProceeds ?? 0, total: flow() },
-  { key: "refinanceCosts", label: "Refinance Costs", format: "money", read: (_, p) => p?.refinanceCosts ?? 0, total: flow() },
-  { key: "permanentDebtService", label: "Permanent Debt Service", format: "money", read: (_, p) => p?.permanentDebtService ?? 0, total: flow() },
-  { key: "permanentLoanPayoff", label: "Permanent Loan Payoff", format: "money", read: (_, p) => p?.permanentLoanPayoff ?? 0, total: flow() },
-];
+/** The steps of the funding order that the engine does not report: what each pool covers before the loan does. */
+function fundingWorkingLines(deps: CapitalDeps): MonthlyLine[] {
+  const { loan, otherDrawKeys, hasRatePath } = deps;
+  const working = (key: string, label: string, formula: (at: MonthAt) => string): MonthlyLine => ({ key, label, format: "money", read: () => 0, total: false, working: true, formula });
+  return [
+    ...(hasRatePath ? [working("w.baseRate", "Base Rate From the Curve (Percent)", (at) => loan.baseRate(at.date))] : []),
+    working("w.otherDraws", "Grant and Soft Loan Cash Arriving", (at) => (otherDrawKeys.length === 0 ? "0" : otherDrawKeys.map((key) => at.cell(key)).join("+"))),
+    working("w.otherStart", "Grant and Soft Loan Cash Available", (at) => `ROUND(${at.prior("w.otherEnd") ?? "0"}+${at.cell("w.otherDraws")},2)`),
+    working("w.otherProject", "Grant and Soft Loan Cash Applied to Costs and Fee", (at) => `MIN(${at.cell("w.otherStart")},ROUND(${at.cell("projectCosts")}+${at.cell("loanFee")},2))`),
+    working("w.otherShortfall", "Grant and Soft Loan Cash Applied to Shortfall", (at) => `MIN(ROUND(${at.cell("w.otherStart")}-${at.cell("w.otherProject")},2),${at.cell("operatingShortfall")})`),
+    working("w.otherInterest", "Grant and Soft Loan Cash Applied to Interest", (at) => `MIN(ROUND(${at.cell("w.otherStart")}-${at.cell("w.otherProject")}-${at.cell("w.otherShortfall")},2),${at.cell("capitalizedInterest")})`),
+    working("w.otherEnd", "Grant and Soft Loan Cash Left", (at) => `ROUND(${at.cell("w.otherStart")}-${at.cell("w.otherProject")}-${at.cell("w.otherShortfall")}-${at.cell("w.otherInterest")},2)`),
+    working("w.equityStart", "Equity Left at the Start of the Month", (at) => at.prior("w.equityEnd") ?? loan.ref("equity")),
+    working("w.projectEquity", "Equity Funding Costs and Fee", (at) => `MIN(${at.cell("w.equityStart")},ROUND(${at.cell("projectCosts")}+${at.cell("loanFee")}-${at.cell("w.otherProject")},2))`),
+    working("w.shortfallEquity", "Equity Funding Shortfall", (at) => `MIN(ROUND(${at.cell("w.equityStart")}-${at.cell("w.projectEquity")},2),ROUND(${at.cell("operatingShortfall")}-${at.cell("w.otherShortfall")},2))`),
+    working("w.interestEquity", "Equity Funding Interest", (at) => `MIN(ROUND(${at.cell("w.equityStart")}-${at.cell("w.projectEquity")}-${at.cell("w.shortfallEquity")},2),ROUND(${at.cell("capitalizedInterest")}-${at.cell("w.otherInterest")},2))`),
+    working("w.equityEnd", "Equity Left at the End of the Month", (at) => `ROUND(${at.cell("w.equityStart")}-${at.cell("equityContribution")},2)`),
+  ];
+}
+
+/**
+ * LA-1951, permanent-loan.ts `schedulePermanentLoan` line for line. The loan funds in the takeout month
+ * the construction loan repays, charges interest on the opening balance from the month after, pays a level
+ * payment once the interest-only months pass, and repays its balance at the sale.
+ */
+function permanentLines(deps: CapitalDeps, loan: PermanentLoanResult): MonthlyLine[] {
+  const { ctx, loan: sheet } = deps;
+  const byMonth = new Map(loan.months.map((row) => [row.month, row]));
+  const working = (key: string, label: string, formula: (at: MonthAt) => string): MonthlyLine => ({ key, label, format: "money", read: () => 0, total: false, working: true, formula });
+  const funding = (at: MonthAt) => at.cell("pl.offset");
+  const line = (key: string, label: string, read: (row: PermanentLoanResult["months"][number] | undefined) => number, formula: (at: MonthAt) => string): MonthlyLine =>
+    ({ key, label, format: "money", read: (m) => read(byMonth.get(m.month)), total: flow(), formula });
+  return [
+    working("pl.offset", "Months Since the Permanent Loan Funded", (at) => `${monthCount(at.date)}-${monthCount(sheet.ref("takeoutDate"))}`),
+    working("pl.opening", "Permanent Loan Opening Balance", (at) => (at.prior("pl.closing") === null ? "0" : `IF(${funding(at)}<=0,0,${at.prior("pl.closing")})`)),
+    working("pl.interest", "Permanent Loan Interest", (at) => `ROUND(ROUND(${at.cell("pl.opening")}*100,0)*${sheet.ref("pRate")},0)/100`),
+    working("pl.principal", "Permanent Loan Principal", (at) =>
+      `IF(AND(${funding(at)}>0,${ctx.input("permanentLoan.amortizationYears")}>0,${funding(at)}>${ctx.input("permanentLoan.interestOnlyMonths")}),MIN(MAX(ROUND(${sheet.ref("pPaymentCents")}/100-${at.cell("pl.interest")},2),0),${at.cell("pl.opening")}),0)`),
+    line("permanentLoanProceeds", "Permanent Loan Proceeds", (row) => row?.proceeds ?? 0, (at) => `IF(${funding(at)}=0,${sheet.ref("pLoan")},0)`),
+    line("refinanceCosts", "Refinance Costs", (row) => (row ? (Math.round(row.fee * 100) + Math.round(row.closingCosts * 100)) / 100 : 0), (at) => `IF(${funding(at)}=0,(${sheet.ref("pFeeCents")}+${sheet.ref("pClosingCents")})/100,0)`),
+    line("permanentDebtService", "Permanent Debt Service", (row) => row?.debtService ?? 0, (at) => `ROUND(${at.cell("pl.interest")}+${at.cell("pl.principal")},2)`),
+    working("pl.balance", "Permanent Loan Balance Before Payoff", (at) => `ROUND(${at.cell("pl.opening")}+${at.cell("permanentLoanProceeds")}-${at.cell("pl.principal")},2)`),
+    line("permanentLoanPayoff", "Permanent Loan Payoff", (row) => row?.payoff ?? 0, (at) =>
+      `IF(${monthCount(at.date)}=${monthCount(dateOfMonthText(ctx.input("saleMonth")))},${at.cell("pl.balance")},0)`),
+    working("pl.closing", "Permanent Loan Closing Balance", (at) => `ROUND(${at.cell("pl.balance")}-${at.cell("permanentLoanPayoff")},2)`),
+    line("permanentCashOut", "Cash-Out to the Equity Holders", (row) => row?.cashOut ?? 0, (at) => `IF(${funding(at)}=0,${sheet.ref("pCashOut")},0)`),
+    line("permanentEquityPaydown", "Equity Paydown at Takeout", (row) => row?.equityPaydown ?? 0, (at) => `IF(${funding(at)}=0,${sheet.ref("pPaydown")},0)`),
+    line("permanentEquityCall", "Equity Call for Debt Service and Shortfall", (row) => row?.equityCall ?? 0, (at) =>
+      `IF(${funding(at)}<=0,0,MAX(ROUND(${at.cell("permanentDebtService")}-${at.cell("operatingCashFlow")},2),0))`),
+  ];
+}
 
 const PROPERTY_LINES: MonthlyLine[] = [
   { key: "netSaleProceeds", label: "Net Sale Proceeds", format: "money", read: (_, p) => p?.netSaleProceeds ?? 0, total: flow((_, r) => r.propertyReturns.sale.netSaleProceeds) },
@@ -294,7 +470,7 @@ type MonthlyBuild = {
   otherSourceDraws: (sourceId: string) => string;
 };
 
-function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"], operations: OperationsBuild): MonthlyBuild {
+function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"], operations: OperationsBuild, loan: LoanBuild): MonthlyBuild {
   const { source } = ctx;
   const { developmentCapital, propertyReturns } = source.result;
   const months = developmentCapital.months;
@@ -305,11 +481,24 @@ function monthlySheet(ctx: LayoutContext, costs: CostsBuild["refs"], operations:
   const sources = (source.inputs as PropertyReturnsInputs).otherSources ?? [];
   const other = otherSourceLines(ctx, sources, monthKeys);
 
+  const inputs = ctx.source.inputs as PropertyReturnsInputs;
+  const deps: CapitalDeps = {
+    ctx,
+    costs,
+    operations,
+    loan,
+    softLoanRepayments: other.repaymentKeys,
+    otherDrawKeys: [...other.draws.values()],
+    hasPermanentLoan: inputs.permanentLoan !== undefined,
+    hasRatePath: inputs.ratePath !== undefined,
+  };
   const entries: MonthlyEntry[] = [
     { section: "Development Costs and Funding" },
-    ...capitalLines(costs, operations, other.repaymentKeys).map((line): MonthlyEntry => ({ line })),
+    ...capitalLines(deps).map((line): MonthlyEntry => ({ line })),
+    { section: "Funding Working" },
+    ...fundingWorkingLines(deps).map((line): MonthlyEntry => ({ line })),
     ...(other.lines.length > 0 ? [{ section: "Grants and Soft Loans" } as MonthlyEntry, ...other.lines.map((line): MonthlyEntry => ({ line }))] : []),
-    ...(developmentCapital.permanentLoan ? [{ section: "Permanent Loan" } as MonthlyEntry, ...PERMANENT_LINES.map((line): MonthlyEntry => ({ line }))] : []),
+    ...(developmentCapital.permanentLoan ? [{ section: "Permanent Loan" } as MonthlyEntry, ...permanentLines(deps, developmentCapital.permanentLoan).map((line): MonthlyEntry => ({ line }))] : []),
     { section: "Property Cash Flow" },
     ...PROPERTY_LINES.map((line): MonthlyEntry => ({ line })),
   ];
@@ -510,7 +699,9 @@ export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayo
   const operations = buildOperationsSheet(ctx, run);
   const leaseTerms = buildLeaseTermsSheet(ctx, run, operations);
   const costs = buildCostsSheets(ctx, run.costSchedule, leaseTerms?.commission);
-  const monthly = monthlySheet(ctx, costs.refs, operations);
+  const loan = createLoan(ctx, operations, names);
+  const monthly = monthlySheet(ctx, costs.refs, operations, loan);
+  const loanSheet = loan.finish({ total: monthly.total });
   costs.refs.linkFinancing(`${monthly.total("loanFee")}+${monthly.total("operatingShortfall")}+${monthly.total("capitalizedInterest")}`);
   const sourcesAndUses = buildSourcesAndUsesSheet(ctx, {
     costs: costs.refs,
@@ -522,6 +713,7 @@ export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayo
       returnsSheet(source),
       sourcesAndUses,
       monthly.sheet,
+      loanSheet,
       operations.sheet,
       ...(leaseTerms ? [leaseTerms.sheet] : []),
       costs.costs,
@@ -530,6 +722,8 @@ export function underwritingWorkbookLayout(source: WorkbookSource): WorkbookLayo
       assumptions,
     ],
     names,
+    // Excel repeats the calculation until the equity the loan commits and the interest it reserves agree, and stops once no cell moves by more than a tenth of a cent.
+    iterativeCalculation: { maxIterations: 1000, maxChange: 0.001 },
   };
   assertFormulasFit(layout);
   return layout;

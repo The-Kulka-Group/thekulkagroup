@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { APARTMENT_DEVELOPMENT_V2_98_SCORECARD } from "../../../packages/engine/src/fixtures/apartment-development-model-v2.98-scorecard";
 import { COMMERCIAL_CAP_EVIDENCE, COMMERCIAL_CAP_PROPERTY_TAX, retailBlock, saleTaxPlan } from "../../../packages/engine/src/fixtures/commercial-cap-cases";
-import { checkWorkbook, findSoffice, numericValue, recalculateWithLibreOffice } from "./check";
+import { checkWorkbook, closeCircularCells, findSoffice, numericValue, recalculateWithLibreOffice } from "./check";
 import { layoutOutputs, SHEET_NAMES, underwritingWorkbookLayout, type WorkbookSource } from "./layout";
 import { writeUnderwritingWorkbook } from "./write";
 
@@ -199,13 +199,17 @@ describe("operations as live formulas", () => {
 
 describe.skipIf(!SOFFICE)("operations in LibreOffice", () => {
   it("matches the engine on every output of the v2.98 sample", async () => {
-    const check = await checkWorkbook(underwritingWorkbookLayout(sourceFor("v2.98", base())), SOFFICE!);
+    const layout = underwritingWorkbookLayout(sourceFor("v2.98", base()));
+    closeCircularCells(layout);
+    const check = await checkWorkbook(layout, SOFFICE!);
     expect(check.mismatches).toEqual([]);
   }, 180_000);
 
   for (const [name, inputs] of CASES) {
     it(`matches the engine on every output with ${name}`, async () => {
-      const check = await checkWorkbook(underwritingWorkbookLayout(sourceFor(name, inputs())), SOFFICE!);
+      const layout = underwritingWorkbookLayout(sourceFor(name, inputs()));
+      closeCircularCells(layout);
+      const check = await checkWorkbook(layout, SOFFICE!);
       expect(check.mismatches).toEqual([]);
     }, 180_000);
   }
@@ -214,6 +218,7 @@ describe.skipIf(!SOFFICE)("operations in LibreOffice", () => {
   async function movesLikeANewRun(original: PropertyReturnsInputs, changed: PropertyReturnsInputs, edits: Record<string, number | string>) {
     const layout = underwritingWorkbookLayout(sourceFor("Before", original));
     const expected = underwritingWorkbookLayout(sourceFor("After", changed));
+    closeCircularCells(layout);
     const assumptions = layout.sheets.find(({ name }) => name === SHEET_NAMES.assumptions)!;
     let edited = 0;
     for (const row of assumptions.rows) {

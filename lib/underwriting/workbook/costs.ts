@@ -413,7 +413,7 @@ export function buildCostsSheets(ctx: LayoutContext, schedule: MonthlyCostSchedu
   }
   const notes = [
     "Month figures follow the cost schedule: a line spreads its amount over its months by its curve, and the last month takes what is left after rounding.",
-    ...(financed ? ["Financing is the loan fees, operating shortfall and capitalized interest on the Monthly sheet. A percent of total line counts it, and the loan counts that line, so a loan written as formulas (LA-1951) closes a circle that Excel must iterate."] : []),
+    ...(financed ? ["Financing is the loan fees, operating shortfall and capitalized interest on the Monthly sheet. A percent of total line counts it, and the loan counts that line, so the two feed each other and Excel repeats the calculation until they agree. The file is saved with iterative calculation on."] : []),
   ];
   rows.push({ cells: [] });
   for (const note of notes) rows.push({ cells: [{ kind: "text", text: note, role: "note" }] });

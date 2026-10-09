@@ -28,7 +28,7 @@ import {
   type StabilizationRule,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
-import { commonSource, seedFromIntake, type CommonSource } from "@/lib/underwriting/intake-seed";
+import { blankEvidenceRows, commonSource, seedFromIntake, type CommonSource } from "@/lib/underwriting/intake-seed";
 
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { CommercialSection } from "./CommercialSection";
@@ -60,7 +60,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   const [vacancyPercent, setVacancyPercent] = useState(saved?.vacancyPercent ?? seed?.vacancyPercent?.value ?? 0);
   const [creditLossPercent, setCreditLossPercent] = useState(saved?.creditLossPercent ?? 0);
   const [assumptionEvidence, setAssumptionEvidence] = useState(saved?.assumptionEvidence ?? {
-    ...blankAssumptionEvidence(),
+    ...blankEvidenceRows(APARTMENT_OPERATIONS_ASSUMPTION_KEYS, source),
     ...(seed?.vacancyPercent ? { vacancyPercent: seed.vacancyPercent.evidence } : {}),
   });
   const [residentialUnitTypes, setResidentialUnitTypes] = useState<ResidentialUnitType[]>(saved?.residentialUnitTypes ?? seed?.residentialUnitTypes ?? []);
@@ -451,13 +451,6 @@ function controlProps(path: string, error?: string) {
 
 function blankUnitType(source: CommonSource): ResidentialUnitType {
   return { id: crypto.randomUUID(), name: "", units: 0, nonRevenueUnits: 0, averageAreaSf: 0, monthlyMarketRent: 0, ...source, reviewState: "working" };
-}
-
-function blankAssumptionEvidence() {
-  return Object.fromEntries(APARTMENT_OPERATIONS_ASSUMPTION_KEYS.map((key) => [
-    key,
-    { reviewState: "working" as const },
-  ])) as Record<ApartmentOperationsAssumptionKey, ApartmentOperationsAssumptionEvidence>;
 }
 
 function blankMoneyLine(unit: string, source: CommonSource): MoneyLine {

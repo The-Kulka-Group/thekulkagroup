@@ -70,6 +70,11 @@ export function commonSource(savedCase: Pick<UnderwritingCase, "assumptions" | "
   };
 }
 
+/** One evidence row per key, each starting as a working row with the common source. */
+export function blankEvidenceRows<K extends string>(keys: readonly K[], source: CommonSource) {
+  return Object.fromEntries(keys.map((key) => [key, { ...source, reviewState: "working" as const }])) as Record<K, SeededEvidence>;
+}
+
 /** Adds months to a YYYY-MM month. Returns "" for a blank or malformed month. */
 export function addMonths(month: string, count: number) {
   const match = /^(\d{4})-(\d{2})$/.exec(month);

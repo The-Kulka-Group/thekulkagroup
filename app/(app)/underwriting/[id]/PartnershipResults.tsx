@@ -1,5 +1,6 @@
 import type { PartnerReturns, PartnershipMetric, PartnershipResult } from "@kulka/engine";
 import { formatMultiple } from "./format-multiple";
+import { TraceFold } from "./TraceFold";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,10 +43,11 @@ export function PartnershipResults({ result }: { result: PartnershipResult }) {
       {result.tiers.map((tier, index) => <tr key={index}><th scope="row">Tier {index + 1}</th><td className="num right">{NUMBER.format(tier.lpIrrHurdlePercent)}%</td><td className="num right">{MONEY.format(tier.lp)}</td><td className="num right">{MONEY.format(tier.gpBase)}</td><td className="num right">{MONEY.format(tier.promote)}</td><td className="num right">{MONEY.format(tier.total)}</td></tr>)}
       <tr><th scope="row">Final Split</th><td className="num right" /><td className="num right">{MONEY.format(result.finalSplit.lp)}</td><td className="num right">{MONEY.format(result.finalSplit.gpBase)}</td><td className="num right">{MONEY.format(result.finalSplit.promote)}</td><td className="num right">{MONEY.format(result.finalSplit.total)}</td></tr>
     </tbody></table></div>
-    <h4>Partnership Formula Traces</h4>
+    <TraceFold title="Partnership Formula Traces">
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {result.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatMetric(metric)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
+    </TraceFold>
     {result.issues.length > 0 ? <ul className="underwriting-issues">{result.issues.map((issue) => <li key={issue.code}>{issue.message}</li>)}</ul> : null}
     <h4>Monthly LP and GP Cash Flow</h4>
     <p className="t-meta">Months with a contribution or a distribution. LP plus GP net cash flow equals levered cash flow in every month; the checks below confirm it.</p>

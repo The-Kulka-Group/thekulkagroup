@@ -72,7 +72,7 @@ export default async function UnderwritingCasePage({
     <Sheet
       number={savedCase.sheetNumber}
       title={savedCase.name}
-      actions={<Link className="btn btn--secondary" href="/underwriting">All Cases</Link>}
+      actions={<Link className="btn btn--secondary" href="/underwriting">All Projects</Link>}
       meta={
         <>
           <span>{savedCase.address}</span>
@@ -321,7 +321,7 @@ export default async function UnderwritingCasePage({
             <ul>
               {(savedCase.propertyReturns ? [
                 "This formula version values the property from forward twelve-month NOI and a direct terminal cap.",
-                "It does not model permanent debt, investor waterfalls, income taxes, or sensitivity cases.",
+                "It does not model income taxes.",
                 "These results do not record a finance or sale approval.",
               ] : savedCase.developmentCapital ? [
                 "This formula version funds monthly project costs, operating shortfalls, and capitalized interest with equity and construction debt.",

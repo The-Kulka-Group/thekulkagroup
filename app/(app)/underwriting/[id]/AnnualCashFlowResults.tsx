@@ -17,6 +17,8 @@ import {
 import { Chip } from "@/components/Status";
 import { formatMultiple } from "./format-multiple";
 
+import { TraceFold } from "./TraceFold";
+
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PERCENT = new Intl.NumberFormat("en-US", { style: "percent", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
@@ -76,10 +78,11 @@ export function AnnualCashFlowView({ views, basis, onBasis }: { views: AnnualCas
       <tr><th scope="row">Debt Yield</th>{view.years.map((year) => <td key={year.key} className="num right">{year.debtYield === null ? "Not Reported" : PERCENT.format(year.debtYield)}</td>)}</tr>
     </tbody></table></div>
     <p className="t-meta">Coverage and debt yield show for each full operating year. A part year or the development period shows Not Reported.</p>
-    <h4>Annual Cash Flow Formula Traces</h4>
+    <TraceFold title="Annual Cash Flow Formula Traces">
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Line</th><th>Section</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {views.traces.map((trace) => <tr key={trace.key}><th scope="row">{trace.label}</th><td>{ANNUAL_SECTION_LABELS[trace.section]}</td><td>{trace.formula}</td><td className="t-meta">{trace.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
+    </TraceFold>
     <h4>Annual Cash Flow Checks</h4>
     <p className="t-meta">{failing.length === 0 ? `All ${checks.length} checks pass. Each year's lines add up to its months, and the years add up to the monthly totals.` : `${failing.length} of ${checks.length} checks fail.`}</p>
     <details>

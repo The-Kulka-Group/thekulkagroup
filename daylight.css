@@ -2133,3 +2133,9 @@ textarea.input { border-radius: var(--r-lg); }
 .hc-reply textarea.input { min-height: 72px; resize: vertical; font: inherit; }
 .hc-acts { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .hc-error { margin: 0; color: var(--stuck); font-size: var(--meta-size); }
+
+/* LA-2055. A formula trace folded under its answers. */
+.underwriting-trace-fold { margin: 12px 0; }
+.underwriting-trace-fold > summary { cursor: pointer; font-weight: 600; color: var(--ink); padding: 4px 0; }
+.underwriting-trace-fold > summary:hover { color: var(--primary); }
+.underwriting-trace-fold > summary:focus-visible { outline: none; border-radius: 4px; box-shadow: 0 0 0 3px var(--primary-tint); }

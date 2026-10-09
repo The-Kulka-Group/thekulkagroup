@@ -153,7 +153,8 @@ describe("underwriting form accessibility contract", () => {
     expect(results).toContain("Return Metrics and Formula Traces");
     expect(casePage).toContain("PropertyReturnsEditor");
     expect(runPage).toContain("PROPERTY_RETURNS_ASSUMPTION_KEYS");
-    expect(runPage).toContain("It does not model permanent debt, investor waterfalls, income taxes, or sensitivity cases.");
+    expect(runPage).toContain("It does not model income taxes.");
+    expect(runPage).not.toContain("investor waterfalls");
   });
 
   it("takes a dated tax schedule and sale tax basis, and shows NOI, value and lender tests on both tax bases", async () => {

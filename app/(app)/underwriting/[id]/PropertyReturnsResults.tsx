@@ -1,12 +1,12 @@
 import type { LenderTestMetric, LenderTestsResult, PropertyReturnsResult, PropertyTaxResult, ReconciliationCheck, SaleTaxResult } from "@kulka/engine";
 
-import { Chip } from "@/components/Status";
-
 import { AnnualCashFlowResults } from "./AnnualCashFlowResults";
 import { CommercialResults, hasCommercialMonths } from "./CommercialResults";
 import { PartnershipResults } from "./PartnershipResults";
+import { ReconciliationChecks } from "./ReconciliationChecks";
 import { ResidualLandResults } from "./ResidualLandResults";
 import { SourcesAndUsesSection } from "./SourcesAndUsesSection";
+import { TraceFold } from "./TraceFold";
 import { formatMultiple } from "./format-multiple";
 
 const MONEY = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -18,6 +18,19 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
   const returns = result.propertyReturns.returns;
   const peak = result.propertyReturns.peakEquity;
   return <div className="underwriting-monthly-results">
+    <div className="underwriting-summary-band" aria-label="Headline Results">
+      <Summary label="Total Project Cost" value={MONEY.format(result.developmentCapital.totals.totalUses)} />
+      <Summary label="Equity" value={MONEY.format(result.developmentCapital.totals.sponsorEquity)} />
+      <Summary label="Construction Loan" value={MONEY.format(result.developmentCapital.totals.totalDebt)} />
+      <Summary label="Levered XIRR" value={PERCENT.format(returns.levered.xirr)} />
+      <Summary label="Levered Equity Multiple" value={formatMultiple(returns.levered.equityMultiple)} />
+      {result.partnership ? <Summary label="LP XIRR" value={formatRatio(result.partnership.lp.xirr)} /> : null}
+      {result.partnership ? <Summary label="GP XIRR" value={formatRatio(result.partnership.gp.xirr)} /> : null}
+    </div>
+    <SourcesAndUsesSection capital={result.developmentCapital} />
+    {result.partnership ? <PartnershipResults result={result.partnership} /> : null}
+    <AnnualCashFlowResults views={result.annualCashFlow} />
+    <h4>Sale and Returns</h4>
     <div className="underwriting-summary-band">
       <Summary label="Forward 12-Month NOI" value={MONEY.format(sale.forwardNetOperatingIncome)} />
       <Summary label="Gross Sale Value" value={MONEY.format(sale.grossSaleValue)} />
@@ -34,26 +47,21 @@ export function PropertyReturnsResults({ result, reconciliations }: { result: Pr
       {peak ? <Summary label="Peak Equity" value={MONEY.format(peak.amount)} /> : null}
       {peak?.month ? <Summary label="Peak Equity Month" value={peak.month} /> : null}
     </div>
-    <AnnualCashFlowResults views={result.annualCashFlow} />
     <h4>Dated Monthly Property Cash Flow</h4>
     <div className="underwriting-results-wrap"><table className="underwriting-monthly-table underwriting-property-cash-flow"><thead><tr><th>Month</th><th>Date</th><th className="right">Project Costs</th><th className="right">Operating Cash Flow</th><th className="right">Gross Interest</th><th className="right">Debt Draws</th><th className="right">Debt Payoff</th><th className="right">Net Sale Proceeds</th><th className="right">Unlevered Cash Flow</th><th className="right">Levered Cash Flow</th></tr></thead><tbody>
       {result.propertyReturns.months.map((month) => <tr key={month.month}><th scope="row" className="num">{month.month}</th><td className="num">{month.date}</td><td className="num right">{MONEY.format(month.projectCosts)}</td><td className="num right">{MONEY.format(month.operatingCashFlow)}</td><td className="num right">{MONEY.format(month.grossInterest)}</td><td className="num right">{MONEY.format(month.totalDebtDraw)}</td><td className="num right">{MONEY.format(month.repayment)}</td><td className="num right">{MONEY.format(month.netSaleProceeds)}</td><td className="num right">{MONEY.format(month.unleveredCashFlow)}</td><td className="num right">{MONEY.format(month.leveredCashFlow)}</td></tr>)}
     </tbody></table></div>
-    <h4>Return Metrics and Formula Traces</h4>
+    <TraceFold title="Return Metrics and Formula Traces">
     <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Result</th><th className="right">Value</th><th>Formula</th><th>Inputs Used</th></tr></thead><tbody>
       {result.propertyReturns.metrics.map((metric) => <tr key={metric.key}><th scope="row">{metric.label}</th><td className="num right">{formatMetric(metric.value, metric.unit)}</td><td>{metric.formula}</td><td className="t-meta">{metric.inputPaths.join(", ")}</td></tr>)}
     </tbody></table></div>
+    </TraceFold>
     {hasCommercialMonths(result.forwardOperations.months) ? <CommercialResults months={result.forwardOperations.months} heading="Forward Commercial and Residential Net Operating Income" /> : null}
-    <SourcesAndUsesSection capital={result.developmentCapital} />
     {result.saleTax ? <SaleTax report={result.saleTax} byUse={Boolean(sale.valueSplit)} /> : null}
     {result.lenderTests ? <LenderTests tests={result.lenderTests} /> : null}
     {result.propertyTax ? <PropertyTaxByYear tax={result.propertyTax} /> : null}
-    {result.partnership ? <PartnershipResults result={result.partnership} /> : null}
     {result.residualLand ? <ResidualLandResults result={result} residual={result.residualLand} /> : null}
-    <h4>Reconciliation Checks</h4>
-    <div className="underwriting-results-wrap"><table className="underwriting-results"><thead><tr><th>Check</th><th>Status</th><th className="right">Expected</th><th className="right">Actual</th><th className="right">Difference</th></tr></thead><tbody>
-      {reconciliations.map((check) => <tr key={check.id}><th scope="row">{check.label}</th><td><Chip status={check.status === "pass" ? "done" : "stuck"} /></td><td className="num right">{formatCheck(check.expected, check.unit)}</td><td className="num right">{formatCheck(check.actual, check.unit)}</td><td className="num right">{formatCheck(check.difference, check.unit)}</td></tr>)}
-    </tbody></table></div>
+    <ReconciliationChecks checks={reconciliations} />
   </div>;
 }
 
@@ -132,6 +140,10 @@ function Summary({ label, value }: { label: string; value: string }) {
   return <div><span className="t-label">{label}</span><strong className="num">{value}</strong></div>;
 }
 
+function formatRatio(value: number | null) {
+  return value === null ? "Not Reported" : PERCENT.format(value);
+}
+
 function formatMetric(value: number, unit: "usd" | "ratio" | "multiple" | "basis_points") {
   if (unit === "usd") return MONEY.format(value);
   if (unit === "ratio") return PERCENT.format(value);
@@ -139,6 +151,3 @@ function formatMetric(value: number, unit: "usd" | "ratio" | "multiple" | "basis
   return `${NUMBER.format(value)} bps`;
 }
 
-function formatCheck(value: number, unit: ReconciliationCheck["unit"]) {
-  return unit === "usd" ? MONEY.format(value) : NUMBER.format(value);
-}

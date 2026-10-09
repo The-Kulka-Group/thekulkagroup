@@ -257,7 +257,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
       <MoneyLineSection source={source} title="Operating Expenses" description="Fixed, per-unit, and percent-of-revenue expenses remain separate. Variable share scales a line with leased units during lease-up; lead months start it before operation start at its fixed share. A line that applies to the commercial spaces starts its lead months before the first commercial lease, takes no per-unit amount and no variable share, and as a percent of revenue reads commercial effective gross revenue." addLabel="Add Operating Expense" canAdd={canAddLine} lines={operatingExpenseLines} setLines={setOperatingExpenseLines} path="operatingExpenseLines" ramp="variable_and_lead" appliesTo units={[
         ["usd_per_year", "USD per Year"], ["usd_per_unit_year", "USD per Unit per Year"], ["percent_effective_gross_revenue", "Percent of Effective Gross Revenue"],
       ]} fieldErrors={fieldErrors} />
-      <PropertyTaxSection plan={propertyTax} setPlan={setPropertyTax} fieldErrors={fieldErrors} />
+      <PropertyTaxSection plan={propertyTax} setPlan={setPropertyTax} source={source} fieldErrors={fieldErrors} />
       <CommercialSection
         commercial={commercial}
         setCommercial={setCommercial}
@@ -265,6 +265,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
         hasPropertyTax={Boolean(propertyTax)}
         milestones={milestones}
         defaultMonth={operationStartMonth}
+        source={source}
         fieldErrors={fieldErrors}
       />
       <MoneyLineSection source={source} title="Capital Expenditures" description="Capital costs stay below net operating income in operating cash flow. Variable share scales a line with leased units during lease-up." addLabel="Add Capital Expenditure" canAdd={canAddLine} lines={capitalExpenditureLines} setLines={setCapitalExpenditureLines} path="capitalExpenditureLines" ramp="variable" units={[

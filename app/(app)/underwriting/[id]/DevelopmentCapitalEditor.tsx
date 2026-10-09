@@ -20,7 +20,7 @@ import {
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
-import { seedFromIntake } from "@/lib/underwriting/intake-seed";
+import { commonSource, seedFromIntake } from "@/lib/underwriting/intake-seed";
 
 import { OtherSourcesSection } from "./OtherSourcesSection";
 import { PermanentLoanSection } from "./PermanentLoanSection";
@@ -30,6 +30,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   const saved = savedCase.developmentCapital;
   // An unsaved section starts from the debt share and interest rate intake supplies.
   const seed = saved ? undefined : seedFromIntake(savedCase);
+  const source = commonSource(savedCase);
   const [targetDebtSharePercent, setTargetDebtSharePercent] = useState<number | "">(saved?.targetDebtSharePercent ?? seed?.targetDebtSharePercent?.value ?? "");
   const [annualInterestRatePercent, setAnnualInterestRatePercent] = useState<number | "">(saved?.annualInterestRatePercent ?? seed?.annualInterestRatePercent?.value ?? "");
   const [loanFeePercent, setLoanFeePercent] = useState<number | "">(saved?.loanFeePercent ?? "");
@@ -169,6 +170,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
         creditedLand={creditedLand}
         setCreditedLand={setCreditedLand}
         defaultMonth={feeMonth}
+        source={source}
         fieldErrors={fieldErrors}
       />
 
@@ -178,6 +180,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
         milestones={savedCase.costSchedule.milestones ?? []}
         defaultMonth={payoffMonth}
         hasCommercial={Boolean(savedCase.apartmentOperations.commercial?.spaces.length)}
+        source={source}
         fieldErrors={fieldErrors}
       />
 

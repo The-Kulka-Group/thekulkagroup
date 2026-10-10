@@ -1,14 +1,16 @@
 import type { NextConfig } from "next";
 import { AUTH_ROUTES, AUTH_SECURITY_HEADERS } from "./lib/auth/routes";
 
-// The compressed Chromium build @sparticuz/chromium unpacks at run time. It is
-// found by relative path, so tracing does not see it on its own: every route
-// that prints a PDF lists these files.
-const CHROMIUM_BUNDLE = [
+// What every route that prints a PDF must ship. @sparticuz/chromium unpacks a
+// compressed Chromium build at run time, and playwright-core reads its own
+// browsers.json. Both are found by path at run time, so tracing does not see
+// them on its own.
+const PDF_RENDERER_BUNDLE = [
   "./node_modules/@sparticuz/chromium/bin/chromium.br",
   "./node_modules/@sparticuz/chromium/bin/fonts.tar.br",
   "./node_modules/@sparticuz/chromium/bin/al2023.tar.br",
   "./node_modules/@sparticuz/chromium/bin/swiftshader.tar.br",
+  "./node_modules/playwright-core/browsers.json",
 ];
 
 const nextConfig: NextConfig = {
@@ -31,11 +33,11 @@ const nextConfig: NextConfig = {
       "./public/scrollcraft/budget-page.css",
       "./public/scrollcraft/drill-down.css",
       "./public/scrollcraft/budget-page.js",
-      ...CHROMIUM_BUNDLE,
+      ...PDF_RENDERER_BUNDLE,
     ],
     // LA-2109. The underwriting deal summary prints with the same Chromium. It
     // loads no files of its own: the font travels inside the page.
-    "/api/underwriting/cases/*/runs/*/summary-pdf": CHROMIUM_BUNDLE,
+    "/api/underwriting/cases/*/runs/*/summary-pdf": PDF_RENDERER_BUNDLE,
     // LA-1503. A draft of an item's Inclusions and Exclusions reads Kulka's
     // definition of the item from the work item list at run time.
     "/api/rom/projects/*/scope-entries/draft": ["./docs/precon/canonical-work-items.md"],

@@ -191,8 +191,53 @@
       "prompt": "Do the units have balconies?",
       "kind": "branch_gate",
       "required": true,
+      "opens": ["balcony_type"],
       "level": 3,
       "mapsTo": { "target": "branch_gate", "section": "balconies" }
+    },
+    {
+      "id": "balcony_type",
+      "prompt": "What kind of balconies do the units have?",
+      "help": "A full balcony has a deck to stand on. A Juliet balcony is a rail across a door.",
+      "kind": "choice",
+      "required": true,
+      "choices": [
+        {
+          "value": "full",
+          "label": "Full",
+          "opens": ["balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"]
+        },
+        { "value": "juliet", "label": "Juliet" }
+      ],
+      "level": 3,
+      "mapsTo": { "target": "intake_field", "name": "balconyType" }
+    },
+    {
+      "id": "balcony_count",
+      "prompt": "Balcony Count",
+      "help": "How many full balconies, across every building.",
+      "kind": "number",
+      "required": false,
+      "level": 3,
+      "mapsTo": { "target": "intake_field", "name": "balconyCount" }
+    },
+    {
+      "id": "balcony_deck_square_feet",
+      "prompt": "Deck Area per Balcony",
+      "help": "Square feet of deck on one balcony.",
+      "kind": "number",
+      "required": false,
+      "level": 3,
+      "mapsTo": { "target": "intake_field", "name": "balconyDeckSquareFeet" }
+    },
+    {
+      "id": "balcony_rail_linear_feet",
+      "prompt": "Rail per Balcony",
+      "help": "Linear feet of posts and rail along one balcony.",
+      "kind": "number",
+      "required": false,
+      "level": 3,
+      "mapsTo": { "target": "intake_field", "name": "balconyRailLinearFeet" }
     },
     {
       "id": "radio_amplifier",

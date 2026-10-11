@@ -28,7 +28,12 @@ export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates" | "
 
 export type QuestionKind = "choice" | "number" | "branch_gate" | "text";
 
-export type ChoiceOption = { value: string; label: string };
+/**
+ * One answer a choice question offers. LA-2219: a choice may open follow-ups
+ * of its own, the way a branch gate opens on yes, so Full balconies ask the
+ * balcony facts and Juliet balconies ask what LA-2220 adds.
+ */
+export type ChoiceOption = { value: string; label: string; opens?: string[] };
 
 export type Mapping =
   | { target: "engine_input"; name: EngineInputName }
@@ -259,15 +264,19 @@ function parseQuestion(value: unknown, index: number): Question {
     }
     parsedChoices = choices.map((choice) => {
       if (!isRecord(choice)) throw new FlowDefinitionInvalid(`Question "${id}" has a bad choice.`);
-      requireKnownKeys(choice, new Set(["value", "label"]), `Question "${id}" choice`);
-      const { value: choiceValue, label } = choice;
+      requireKnownKeys(choice, new Set(["value", "label", "opens"]), `Question "${id}" choice`);
+      const { value: choiceValue, label, opens: choiceOpens } = choice;
       if (typeof choiceValue !== "string" || choiceValue.length === 0) {
         throw new FlowDefinitionInvalid(`Question "${id}" has a choice with no value.`);
       }
       if (typeof label !== "string" || label.length === 0) {
         throw new FlowDefinitionInvalid(`Question "${id}" has a choice with no label.`);
       }
-      return { value: choiceValue, label };
+      if (choiceOpens === undefined) return { value: choiceValue, label };
+      if (!Array.isArray(choiceOpens) || choiceOpens.length === 0 || choiceOpens.some((one) => typeof one !== "string")) {
+        throw new FlowDefinitionInvalid(`Question "${id}" has a choice with a bad opens list.`);
+      }
+      return { value: choiceValue, label, opens: choiceOpens as string[] };
     });
   } else if (choices !== undefined) {
     throw new FlowDefinitionInvalid(`Question "${id}" lists choices but is not a choice question.`);
@@ -407,7 +416,7 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
 
   const openedBy = new Map<string, string>();
   for (const question of parsed) {
-    for (const opened of question.opens ?? []) {
+    for (const opened of allOpens(question)) {
       if (!seen.has(opened)) {
         throw new FlowDefinitionInvalid(`Question "${question.id}" opens "${opened}", which is not there.`);
       }
@@ -489,6 +498,11 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
   return definition;
 }
 
+/** Every question a question can open: its own `opens`, and each choice's (LA-2219). */
+function allOpens(question: Question): string[] {
+  return [...(question.opens ?? []), ...(question.choices ?? []).flatMap((choice) => choice.opens ?? [])];
+}
+
 let tier1: FlowDefinition | undefined;
 
 /** The tier-1 flow the site and every other surface runs. */
@@ -507,11 +521,16 @@ function gateAnswerFor(gateId: string, responses: Responses): BranchGateAnswer |
 /**
  * Whether a gate question's own answer opens whatever it gates: a branch
  * gate opens on "yes"; a number question with an `opensWhen` condition opens
- * once its answer meets that condition. Anything else (a number question
- * with no `opensWhen`, which parsing already refuses if it also has
+ * once its answer meets that condition; a choice question opens what the
+ * chosen answer's own `opens` lists (LA-2219). Anything else (a number
+ * question with no `opensWhen`, which parsing already refuses if it also has
  * `opens`) never opens anything.
  */
-function gateSatisfied(gate: Question, responses: Responses): boolean {
+function gateSatisfied(gate: Question, responses: Responses, opened: string): boolean {
+  if (gate.kind === "choice") {
+    const chosen = gate.choices?.find((choice) => choice.value === responses[gate.id]);
+    return chosen?.opens?.includes(opened) ?? false;
+  }
   if (gate.kind === "branch_gate") {
     return gateAnswerFor(gate.id, responses) === "yes";
   }
@@ -533,7 +552,7 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
   const byId = new Map(definition.questions.map((question) => [question.id, question]));
   const gateOf = new Map<string, string>();
   for (const question of definition.questions) {
-    for (const opened of question.opens ?? []) gateOf.set(opened, question.id);
+    for (const opened of allOpens(question)) gateOf.set(opened, question.id);
   }
 
   // Every gate above a question has to be open, not just the one directly
@@ -548,7 +567,7 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
     visiting.add(id);
     const gateId = gateOf.get(id);
     const gate = gateId ? byId.get(gateId) : undefined;
-    const result = !gateId || !gate ? true : isOpen(gateId, visiting) && gateSatisfied(gate, responses);
+    const result = !gateId || !gate ? true : isOpen(gateId, visiting) && gateSatisfied(gate, responses, id);
     visiting.delete(id);
 
     open.set(id, result);

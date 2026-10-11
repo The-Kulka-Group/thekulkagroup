@@ -495,6 +495,70 @@ describe("a definition this code will not run", () => {
   });
 });
 
+describe("balconies: the gate, then Full or Juliet (LA-2219)", () => {
+  const shown = (responses: Record<string, string>) => visibleQuestions(tier1Flow(), responses).map((q) => q.id);
+  const FACTS = ["balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"];
+
+  it("asks Full or Juliet only once the units have balconies", () => {
+    expect(shown({ balconies: "no" })).not.toContain("balcony_type");
+    expect(shown({ balconies: "dont_know" })).not.toContain("balcony_type");
+    expect(shown({ balconies: "yes" })).toContain("balcony_type");
+    const type = tier1Flow().questions.find((q) => q.id === "balcony_type")!;
+    expect(type.choices?.map((choice) => choice.label)).toEqual(["Full", "Juliet"]);
+  });
+
+  it("asks the three balcony facts only for full balconies", () => {
+    expect(shown({ balconies: "yes" })).not.toContain("balcony_count");
+    for (const id of FACTS) expect(shown({ balconies: "yes", balcony_type: "full" })).toContain(id);
+    for (const id of FACTS) expect(shown({ balconies: "yes", balcony_type: "juliet" })).not.toContain(id);
+    // Closing the gate closes the branch under it, whatever the follow-up said.
+    for (const id of FACTS) expect(shown({ balconies: "no", balcony_type: "full" })).not.toContain(id);
+  });
+
+  it("lands the type and the facts on the engine's facts under their own names", () => {
+    const definition = tier1Flow();
+    const base: Record<string, string> = {};
+    for (const q of visibleQuestions(definition, {})) {
+      if (q.kind === "branch_gate") base[q.id] = "no";
+    }
+    const { answers } = readFlowAnswers(definition, {
+      ...base,
+      project_type: "multifamily",
+      construction_kind: "new",
+      gross_square_feet: "100000",
+      stories_above_grade: "5",
+      unit_count: "100",
+      parking_type: "none",
+      balconies: "yes",
+      balcony_type: "full",
+      balcony_count: "25",
+      balcony_deck_square_feet: "110",
+      balcony_rail_linear_feet: "26",
+    });
+    expect(answers.facts).toMatchObject({
+      balconies: "yes",
+      balconyType: "full",
+      balconyCount: 25,
+      balconyDeckSquareFeet: 110,
+      balconyRailLinearFeet: 26,
+    });
+  });
+
+  it("refuses a choice that opens a question another question already opens", () => {
+    const file = shippedFile();
+    const type = questionsOf(file).find((one) => one.id === "balcony_type")!;
+    (type.choices as { value: string; opens?: string[] }[])[1].opens = ["balcony_count"];
+    expect(() => parseFlowDefinition(file)).toThrow(/opened by both/);
+  });
+
+  it("refuses opens on a choice of a question that is not a choice question", () => {
+    const file = shippedFile();
+    const gate = questionsOf(file).find((one) => one.id === "balconies")!;
+    gate.choices = [{ value: "a", label: "A", opens: ["balcony_type"] }, { value: "b", label: "B" }];
+    expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+});
+
 describe("question levels (LA-2218)", () => {
   const ids = (level: 1 | 2 | 3, responses: Record<string, string> = {}) =>
     questionsAtLevel(tier1Flow(), responses, level).map((q) => q.id);
@@ -563,6 +627,13 @@ describe("question levels (LA-2218)", () => {
       questionsOf(file)[0].level = bad;
       expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
     }
+  });
+
+  it("keeps the balcony follow-up and the balcony facts at Level 3 (LA-2219)", () => {
+    const full = { balconies: "yes", balcony_type: "full" };
+    expect(ids(2, full)).not.toContain("balcony_type");
+    expect(ids(3, full)).toEqual(expect.arrayContaining(["balcony_type", "balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"]));
+    expect(lockedLevels(tier1Flow(), full, 1).find((l) => l.level === 3)?.added).toBe(5);
   });
 
   it("refuses a follow-up that appears at a lower level than its gate", () => {

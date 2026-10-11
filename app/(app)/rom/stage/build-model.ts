@@ -59,6 +59,8 @@ export type StageController = {
   setFocus: (part: StagePart | null) => void;
   /** LA-2211: draws these parts faint, edged in a dashed working orange: nothing prices them. */
   setUnpriced: (parts: readonly StagePart[]) => void;
+  /** LA-2212: washes these parts toward a colour (a CSS hex) for the list's price level. Empty shows the model's own colours. */
+  setTints: (tints: Partial<Record<StagePart, string>>) => void;
   /** LA-1325: CSS pixels at the top and bottom that controls cover, so the building frames between them. */
   setInsets: (top: number, bottom: number) => void;
   dispose: () => void;
@@ -70,6 +72,8 @@ const WORKING = 0xff9500;
 /** How much of a part shows while another part is picked, and while nothing prices it. */
 const FADED = 0.12;
 const UNPRICED_FILL = 0.4;
+/** LA-2212: how far a price level's tint moves a part's colour, so its shading still reads. */
+const TINT_MIX = 0.75;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
 const outBack = (p: number) => 1 + 2.5 * Math.pow(p - 1, 3) + 1.5 * Math.pow(p - 1, 2);
@@ -259,6 +263,10 @@ export function createStage(
   let lit = new Set<StagePart>();
   let focus: StagePart | null = null;
   let unpriced = new Set<StagePart>();
+  // LA-2212: the price level's tint per part, and the tinted copies of the
+  // building's materials, made as a tint first needs them and dropped with the building.
+  let tintOf = new Map<StagePart, THREE.Color>();
+  let washed = new Map<string, Map<THREE.Material, THREE.Material>>();
   // LA-2211: see-through copies of the building's materials, made as a fade
   // first needs them and dropped with the building.
   let see: Map<THREE.Material, THREE.Material>[] = [new Map(), new Map()];
@@ -785,9 +793,27 @@ export function createStage(
     outlines = [];
   }
 
+  /** LA-2212: a copy of `base` washed toward `tint`, following its opacity as it changes. */
+  function tinted(base: THREE.Material, tint: THREE.Color): THREE.Material {
+    const key = tint.getHexString();
+    const cache = washed.get(key) ?? new Map<THREE.Material, THREE.Material>();
+    washed.set(key, cache);
+    let copy = cache.get(base);
+    if (!copy) {
+      copy = base.clone();
+      cache.set(base, copy);
+    }
+    const color = (base as THREE.MeshBasicMaterial).color;
+    if (color) (copy as THREE.MeshBasicMaterial).color.copy(color).lerp(tint, TINT_MIX);
+    copy.opacity = base.opacity;
+    return copy;
+  }
+
   function dropLooks() {
     for (const cache of see) cache.forEach((copy) => copy.dispose());
     see = [new Map(), new Map()];
+    washed.forEach((cache) => cache.forEach((copy) => copy.dispose()));
+    washed = new Map();
     clearOutlines();
   }
 
@@ -818,7 +844,9 @@ export function createStage(
         return;
       }
       if (!(obj instanceof THREE.Mesh)) return;
-      const base = (obj.userData.base ??= obj.material) as THREE.Material;
+      const own = (obj.userData.base ??= obj.material) as THREE.Material;
+      const tint = part !== null && !obj.userData.poche ? tintOf.get(part) : undefined;
+      const base = tint ? tinted(own, tint) : own;
       obj.userData.cast ??= obj.castShadow;
       const faint = part !== null && unpriced.has(part);
       obj.material = away ? seeThrough(base, 0) : faint ? seeThrough(base, 1) : base;
@@ -940,6 +968,13 @@ export function createStage(
       if ([...next].join() === [...unpriced].join()) return;
       unpriced = next;
       drawOutlines();
+      applyLooks();
+    },
+    setTints: (tints) => {
+      const next = new Map(Object.entries(tints).map(([part, css]) => [part as StagePart, new THREE.Color(css)]));
+      const same = next.size === tintOf.size && [...next].every(([part, color]) => tintOf.get(part)?.equals(color));
+      if (same) return;
+      tintOf = next;
       applyLooks();
     },
     dispose: () => {

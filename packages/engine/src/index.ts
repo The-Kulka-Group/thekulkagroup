@@ -77,6 +77,18 @@ export {
   PODIUM_GARAGE_LEVELS,
   garageArea,
 } from "./garage";
+export {
+  BALCONY_DECK_COST_CODE,
+  BALCONY_RAIL_COST_CODE,
+  SLIDING_DOOR_COST_CODE,
+  balconyDeckArea,
+  balconyDoorCount,
+  railLength,
+  readBalconyFacts,
+  slidingDoorSpanLine,
+  type BalconyFacts,
+  type BalconyType,
+} from "./balconies";
 export { PER_UNIT_COST_CODES, readUnitCount, scaleRowsToUnits, type PerUnitLine } from "./rom-per-unit";
 
 export {

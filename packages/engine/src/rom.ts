@@ -47,6 +47,7 @@ import {
   type DerivedQuantities,
 } from "./rom-units";
 import { GARAGE_SHARE_OF, garageArea } from "./garage";
+import { balconyDeckArea, balconyDoorCount, railLength, SLIDING_DOOR_COST_CODE, slidingDoorSpanLine } from "./balconies";
 import {
   ELEVATOR_BULKHEAD_COST_CODE,
   ELEVATOR_COST_CODE,
@@ -623,7 +624,13 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
 
   // LA-2216: the derived quantities a unit reads (GLOSSARY.md: Derived
   // quantity), once per run. A garage row prices only on a known garage area.
-  const derived: DerivedQuantities = { garageArea: garageArea(answers.facts, answers.grossSquareFeet) };
+  const derived: DerivedQuantities = {
+    garageArea: garageArea(answers.facts, answers.grossSquareFeet),
+    // LA-2219: full balconies' deck, rail and doors.
+    balconyDeckArea: balconyDeckArea(answers.facts),
+    railLength: railLength(answers.facts),
+    balconyDoors: balconyDoorCount(answers.facts),
+  };
   const knownGarageArea = derived.garageArea.ok ? derived.garageArea.value : null;
 
   const blendOne = (costCode: string, rows: Benchmark[], area: number = answers.grossSquareFeet) =>
@@ -638,7 +645,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       elevatorStops,
       elevatorFacts.elevatorCount,
       elevatorFacts.machineRooms,
-      knownGarageArea,
+      derived,
     );
 
   // LA-1323: the unit count a per-unit trade prices against, read once per run.
@@ -698,6 +705,10 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       }
       if (costCode === ELEVATOR_BULKHEAD_COST_CODE) {
         return priceElevatorBulkhead(rows, elevatorFacts.elevatorCount, (kept) => blend(costCode, kept));
+      }
+      // LA-2219: sliding doors on a door count span the range on record.
+      if (costCode === SLIDING_DOOR_COST_CODE && rows[0].unit === "usd_each_balcony_door" && derived.balconyDoors.ok) {
+        return slidingDoorSpanLine(rows, derived.balconyDoors.value, (kept) => blend(costCode, kept));
       }
       if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows, areaFor(costCode));
       return blendFramingLine(
@@ -1034,7 +1045,7 @@ function blendLine(
   elevatorStops: number | null = null,
   elevatorCount: number | null = null,
   machineRooms: number | null = null,
-  garageArea: number | null = null,
+  derived: DerivedQuantities | null = null,
 ): RomLine {
   const ranked = rows
     .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
@@ -1055,7 +1066,7 @@ function blendLine(
   // (the same cost code always prices on one basis), so the lead row's is
   // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
   // as every ROM computed before this ticket did.
-  const quantity = quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount, machineRooms, garageArea);
+  const quantity = quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount, machineRooms, derived);
   const midpoint = judgment.rate * quantity;
 
   return {

@@ -185,8 +185,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   const basement = facts.belowGrade || facts.parkingType === "underground";
 
   const system = text(by("S-1")) ?? "Spread Footings";
-  // LA-2214: poor soil, or S-1 landing on deep foundations, puts piles under the building.
-  const piles = facts.poorSoil === true || system === "Deep Foundations";
+  // LA-2214, LA-2209 review S3: only poor soil puts piles under the building, as the spec says.
+  const piles = facts.poorSoil === true;
 
   const cars = facts.elevatorCount ?? 0;
   let elevators: StageBuilding["elevators"] = null;

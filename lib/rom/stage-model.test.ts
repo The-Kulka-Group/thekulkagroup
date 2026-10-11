@@ -44,7 +44,7 @@ const harborView = [
 
 describe("stageBuilding", () => {
   it("draws Harbor View: a podium, five frame floors, piles, two hydraulic cars", () => {
-    const b = stageBuilding(facts(), harborView)!;
+    const b = stageBuilding(facts({ poorSoil: true }), harborView)!;
     expect(b.levels.map((l) => l.kind)).toEqual(["podium", "frame", "frame", "frame", "frame", "frame"]);
     expect(b.height).toBe(62);
     expect(b.width * b.depth).toBeCloseTo(118_000 / 6, 0);
@@ -138,7 +138,7 @@ describe("Juliet balconies on the stage (LA-2220)", () => {
 
 describe("partsOf (LA-1325)", () => {
   it("names the parts the building has, the ground first (LA-2211)", () => {
-    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual([
+    expect(partsOf(stageBuilding(facts({ poorSoil: true }), harborView)!)).toEqual([
       "site",
       "foundation",
       "piles",
@@ -186,6 +186,14 @@ describe("partsOf (LA-1325)", () => {
     const good = stageBuilding(facts({ poorSoil: false, parkingType: "surface" }), [])!;
     expect(good.piles).toBe(false);
     expect(partsOf(good)).not.toContain("piles");
+  });
+
+  // LA-2209 review S3: piles appear only for poor soil.
+  it("draws no piles on good soil, even when S-1 lands on deep foundations", () => {
+    const good = stageBuilding(facts({ poorSoil: false }), harborView)!;
+    expect(good.piles).toBe(false);
+    expect(partsOf(good)).not.toContain("piles");
+    expect(good.foundation).toEqual({ system: "Deep Foundations", depth: 40 });
   });
 
   it("reads poor soil off the Site Conditions answer", () => {

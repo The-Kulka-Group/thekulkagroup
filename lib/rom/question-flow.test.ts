@@ -594,6 +594,25 @@ describe("question levels (LA-2218)", () => {
     expect(visibleQuestions(tier1Flow(), responses).map((q) => q.id)).toContain("site_conditions");
   });
 
+  // LA-2209 review S2
+  it("reads a required gate the level does not ask as TBD, and keeps it unanswered", () => {
+    const level1 = { ...COMPLETE };
+    delete (level1 as Partial<typeof COMPLETE>).site_conditions;
+    delete (level1 as Partial<typeof COMPLETE>).balconies;
+    expect(() => readFlowAnswers(tier1Flow(), level1)).toThrow(FlowAnswersInvalid);
+
+    const { answers, recorded } = readFlowAnswers(tier1Flow(), level1, 1);
+    expect(answers.branchGates).toMatchObject({ site_conditions: "dont_know", balconies: "dont_know" });
+    const flow = (recorded as { flow: { responses: Record<string, string>; tbdSections: string[] } }).flow;
+    expect(flow.responses).not.toHaveProperty("site_conditions");
+    expect(flow.tbdSections).toEqual(expect.arrayContaining(["site_conditions", "balconies"]));
+  });
+
+  it("keeps an answer given above the level", () => {
+    const { answers } = readFlowAnswers(tier1Flow(), { ...COMPLETE, site_conditions: "yes" }, 1);
+    expect(answers.branchGates.site_conditions).toBe("yes");
+  });
+
   it("counts what each locked level adds", () => {
     expect(lockedLevels(tier1Flow(), {}, 1)).toEqual([
       { level: 2, added: 1 },

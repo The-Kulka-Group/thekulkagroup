@@ -35,8 +35,9 @@ export async function POST(request: Request) {
   let markups: unknown;
   let gates: unknown;
   let framingSystem: unknown;
+  let level: unknown;
   try {
-    ({ projectId, responses, markups, gates, framingSystem } = await request.json());
+    ({ projectId, responses, markups, gates, framingSystem, level } = await request.json());
   } catch {
     return NextResponse.json({ error: "Send a JSON body." }, { status: 400 });
   }
@@ -52,6 +53,11 @@ export async function POST(request: Request) {
       { error: "Send responses as text keyed by question id." },
       { status: 400 },
     );
+  }
+
+  // LA-2209 review S2: the price level New Budget asked at. Absent is Level 3, every question.
+  if (level !== undefined && level !== 1 && level !== 2 && level !== 3) {
+    return NextResponse.json({ error: "Send level as 1, 2 or 3." }, { status: 400 });
   }
 
   const db = getDb();
@@ -95,6 +101,7 @@ export async function POST(request: Request) {
       parsed.choices,
       gates === undefined ? undefined : parsedGates.gates,
       parsedFraming.framing,
+      level,
     );
     return NextResponse.json({ runId, rom });
   } catch (cause) {

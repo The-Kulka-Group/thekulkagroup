@@ -105,7 +105,10 @@ export type FlowRecord = {
   version: number;
   responses: Responses;
   branchGates: Record<string, BranchGateAnswer>;
-  /** Sections answered "don't know". They show TBD and stay out of the total. */
+  /**
+   * Sections answered "don't know", plus (LA-2209 review S2) required gates the
+   * budget's level does not ask. They show TBD and stay out of the total.
+   */
   tbdSections: string[];
   tbdCount?: number;
   intakeFields: Record<string, string | number>;
@@ -666,8 +669,13 @@ export function isQuestionRequired(question: Question, responses: Responses): bo
  *
  * Nothing here knows which question feeds which input. The definition says so,
  * and this walks it.
+ *
+ * LA-2209 review S2: a question above the budget's price `level` was never
+ * asked, so leaving it blank is not a missing answer even when it is required.
+ * The record keeps it unanswered, and a gate among them reads as TBD, the same
+ * as a "don't know", so its items stay out of the total.
  */
-export function readFlowAnswers(definition: FlowDefinition, responses: Responses): FlowAnswers {
+export function readFlowAnswers(definition: FlowDefinition, responses: Responses, level: PriceLevel = 3): FlowAnswers {
   const asked = visibleQuestions(definition, responses);
   const engineInputs: Partial<Record<EngineInputName, string | number>> = {};
   const branchGates: Record<string, BranchGateAnswer> = {};
@@ -678,6 +686,14 @@ export function readFlowAnswers(definition: FlowDefinition, responses: Responses
   for (const question of asked) {
     const raw = responses[question.id];
     if (raw === undefined || raw === "") {
+      if (question.level > level) {
+        if (question.kind === "branch_gate" && isQuestionRequired(question, responses)) {
+          const section = (question.mapsTo as { target: "branch_gate"; section: string }).section;
+          branchGates[section] = "dont_know";
+          tbdSections.push(section);
+        }
+        continue;
+      }
       if (isQuestionRequired(question, responses)) {
         throw new FlowAnswersInvalid(`"${question.prompt}" was not answered.`);
       }

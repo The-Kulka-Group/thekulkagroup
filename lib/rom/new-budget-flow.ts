@@ -80,10 +80,15 @@ export function requiredAnswered(questions: Question[], responses: Responses): b
  * answering the nine questions twice. Only a currently visible branch gate
  * counts. a stale "yes" left behind on a closed gate is closed by
  * `visibleQuestions` itself.
+ *
+ * LA-2209 review S2: a required gate above `level` was never asked. It saves
+ * as "don't know", the TBD the run gives it (readFlowAnswers), so a later run
+ * off the project record keeps its items out of the total too.
  */
 export function gatesFromResponses(
   definition: FlowDefinition,
   responses: Responses,
+  level: PriceLevel = 3,
 ): Record<string, BranchGateAnswer> {
   const gates: Record<string, BranchGateAnswer> = {};
   for (const question of visibleQuestions(definition, responses)) {
@@ -91,26 +96,9 @@ export function gatesFromResponses(
     const value = responses[question.id];
     if (value === "yes" || value === "no" || value === "dont_know") {
       gates[question.mapsTo.section] = value;
+    } else if (question.level > level && isQuestionRequired(question, responses)) {
+      gates[question.mapsTo.section] = "dont_know";
     }
   }
   return gates;
-}
-
-/**
- * LA-2218: the required questions a lower level hides and nobody has answered.
- * The run needs every required answer, so the flow holds the last step open
- * until these are answered at a higher level.
- */
-export function unansweredAboveLevel(
-  definition: FlowDefinition,
-  responses: Responses,
-  level: PriceLevel,
-): Question[] {
-  const shown = new Set(questionsAtLevel(definition, responses, level).map((question) => question.id));
-  return visibleQuestions(definition, responses).filter(
-    (question) =>
-      !shown.has(question.id) &&
-      isQuestionRequired(question, responses) &&
-      (responses[question.id] === undefined || responses[question.id] === ""),
-  );
 }

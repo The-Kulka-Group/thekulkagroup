@@ -38,6 +38,7 @@ import { describeRom, readScopeEntries } from "@/lib/rom/line-details";
 import { readApprovedJudgmentRules } from "@/lib/rom/judgment";
 import { readFieldOfficeRates, readMarkupHistory, readStaffingRates } from "@/lib/rom/markup";
 import { readProjectRates, withProjectRates } from "@/lib/rom/project-rates";
+import type { PriceLevel } from "@/lib/rom/part-prices";
 import { readFlowAnswers, tier1Flow, type Responses } from "@/lib/rom/question-flow";
 
 // The run: load a snapshot, hand it to the engine, write down what happened.
@@ -263,6 +264,9 @@ type RelationshipRow = {
  * reads the project record's own column; null means the estimator cleared it
  * for this run. It applies on every path, with or without `responses`, because
  * the tier-1 flow asks no framing question.
+ *
+ * `level` is the price level New Budget asked the `responses` at (LA-2209
+ * review S2). A question above it was never asked, so it does not block.
  */
 export async function runRom(
   db: Db,
@@ -271,6 +275,7 @@ export async function runRom(
   markups?: MarkupChoices,
   gates?: Partial<Record<string, BranchGateAnswer>>,
   framing?: FramingSystem | null,
+  level: PriceLevel = 3,
 ): Promise<RunResult> {
   const project = await readProject(db, projectId);
   const runId = await openRun(db, projectId);
@@ -281,7 +286,7 @@ export async function runRom(
       // The tier-1 questions come from `config/rom/tier1-flow.json` (LA-20).
       // The definition says which answer feeds which engine input, so nothing
       // here wires a question to a field.
-      if (responses) return readFlowAnswers(tier1Flow(), responses);
+      if (responses) return readFlowAnswers(tier1Flow(), responses, level);
       const fromProject = answersFromProject(project, gates);
       return { answers: fromProject, recorded: fromProject as Record<string, unknown> };
     });

@@ -167,6 +167,7 @@ const EXPECTED_DIVISIONS: Record<string, string> = {
   "6": "04",
   "7": "05",
   "7a": "05",
+  "7b": "05", // LA-2220, Matt 2026-10-11: Juliet rail.
   "8": "06",
   "8a": "06",
   "9": "06",

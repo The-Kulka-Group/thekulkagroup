@@ -89,6 +89,7 @@ describe("stageFactsFromResponses", () => {
       belowGrade: false,
       balconies: true,
       retail: false,
+      poorSoil: false,
     });
   });
 

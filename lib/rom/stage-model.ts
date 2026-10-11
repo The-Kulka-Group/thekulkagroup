@@ -205,6 +205,9 @@ export function partsOf(b: StageBuilding): StagePart[] {
     glass: true,
     balconies: b.balconies,
     elevators: b.elevators !== null,
+    // LA-2215: the derived type (V-1) picks which the building draws.
+    elevatorJack: b.elevators?.hydraulic === true,
+    elevatorMachine: b.elevators?.hydraulic === false,
     units: b.rooftopUnits > 0,
     service: b.serviceAmps !== null,
   };

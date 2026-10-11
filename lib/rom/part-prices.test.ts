@@ -97,7 +97,8 @@ describe("partPrices", () => {
       foundation: ["2"],
       massing: ["8", "XX-2"],
       glass: ["16a"],
-      elevators: ["26"],
+      elevators: [],
+      elevatorJack: ["26"],
     });
 
     // No elevators drawn: item 26 sits on the building's body, so the total still adds up.
@@ -175,7 +176,7 @@ describe("partPrices", () => {
 
     it("reads level 1 as one block over every drawn part", () => {
       expect(at(1).rows).toEqual([
-        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "glass", "elevators"] },
+        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "glass", "elevators", "elevatorJack"] },
       ]);
     });
 
@@ -206,5 +207,50 @@ describe("partPrices", () => {
     expect(at("podium")).toEqual(["3"]);
     expect(at("massing")).toEqual(["3a"]);
     expect(at("elevators")).toEqual(["26a", "26g"]);
+  });
+
+  describe("the derived elevator type (V-1, LA-2215)", () => {
+    const type = (text: string) => [{ code: "V-1", value: { kind: "spec" as const, text }, steps: [], correction: null }];
+    const elevatorLine = line({
+      costCode: "26",
+      label: "Elevators",
+      low: 560_000,
+      high: 560_000,
+      comparableCount: 0,
+      comparables: [{ ...job, kind: "stated", rate: 35_000 }],
+      quantity: { amount: 16, unit: "usd_per_stop" },
+    });
+    const map = (text: string | null) => {
+      const f = facts({ elevatorCount: 2, stories: 7 });
+      return partPrices({ rom: rom([elevatorLine, line({ costCode: "26a", low: 100, high: 100 })]), facts: f, building: stageBuilding(f, text ? type(text) : []) });
+    };
+    const part = (m: ReturnType<typeof map>, name: string) => m.parts.find((p) => p.part === name);
+
+    it("puts the elevator line on the jack when the type is hydraulic, and the bulkhead stays on the elevators", () => {
+      const m = map("Hydraulic");
+      expect(part(m, "elevatorJack")?.lines.map((l) => l.costCode)).toEqual(["26"]);
+      expect(part(m, "elevatorJack")?.name).toBe("Elevator Jack");
+      expect(part(m, "elevators")?.lines.map((l) => l.costCode)).toEqual(["26a"]);
+      expect(part(m, "elevatorMachine")).toBeUndefined();
+    });
+
+    it("puts the elevator line on the machine when the type is traction", () => {
+      const m = map("Traction");
+      expect(part(m, "elevatorMachine")?.lines.map((l) => l.costCode)).toEqual(["26"]);
+      expect(part(m, "elevatorMachine")?.name).toBe("Elevator Machine");
+      expect(part(m, "elevatorJack")).toBeUndefined();
+    });
+
+    it("reads hydraulic when no type has been derived yet", () => {
+      expect(part(map(null), "elevatorJack")?.lines).toHaveLength(1);
+    });
+
+    it("shows cars x stops x the rate on the elevator part", () => {
+      expect(part(map("Hydraulic"), "elevatorJack")?.math).toEqual(["Elevators: 2 Cars x 8 Stops x $35,000 per Stop (Stated Rate)"]);
+      const traction = elevatorLine.quantity && { ...elevatorLine, low: 724_800, high: 724_800, comparables: [{ ...job, kind: "stated" as const, rate: 45_300 }] };
+      const f = facts({ elevatorCount: 2, stories: 7 });
+      const m = partPrices({ rom: rom([traction!]), facts: f, building: stageBuilding(f, type("Traction")) });
+      expect(part(m, "elevatorMachine")?.math).toEqual(["Elevators: 2 Cars x 8 Stops x $45,300 per Stop (Stated Rate)"]);
+    });
   });
 });

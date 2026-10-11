@@ -115,8 +115,34 @@ describe("stageBuilding's plan (LA-1325)", () => {
 
 describe("partsOf (LA-1325)", () => {
   it("names the parts the building has, the ground first (LA-2211)", () => {
-    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual(["site", "foundation", "podium", "massing", "glass", "balconies", "elevators", "units", "service"]);
+    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual([
+      "site",
+      "foundation",
+      "podium",
+      "podiumDeck",
+      "garageCoating",
+      "garageWaterproofing",
+      "garageElectrical",
+      "garageSprinklers",
+      "garageDrySprinklers",
+      "massing",
+      "glass",
+      "balconies",
+      "elevators",
+      "units",
+      "service",
+    ]);
     const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
-    expect(partsOf(plain)).toEqual(["site", "foundation", "basement", "massing", "glass"]);
+    expect(partsOf(plain)).toEqual(["site", "surfaceLot", "foundation", "basement", "massing", "glass"]);
+  });
+
+  it("draws the garage only under a podium that structured parking gives (LA-2216)", () => {
+    expect(stageBuilding(facts(), [])).toMatchObject({ garage: true, surfaceLot: false });
+    expect(stageBuilding(facts({ parkingType: "surface" }), [])).toMatchObject({ garage: false, surfaceLot: true });
+    // A retail podium with no structured parking has no garage under it.
+    expect(stageBuilding(facts({ parkingType: "none", retail: true }), [spec("A-1", "Type IIIA over Type IA Podium")])).toMatchObject({
+      podiumLevels: 1,
+      garage: false,
+    });
   });
 });

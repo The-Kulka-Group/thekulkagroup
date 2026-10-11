@@ -21,14 +21,31 @@ export type StagePart =
   | "glass"
   | "balconies"
   | "units"
-  | "service";
+  | "service"
+  /** LA-2216: the podium garage's priced parts, VA's rates on the garage area. */
+  | "podiumDeck"
+  | "garageElectrical"
+  | "garageSprinklers"
+  /** LA-2216: the podium garage's parts with no rate yet, drawn dashed. */
+  | "garageCoating"
+  | "garageWaterproofing"
+  | "garageDrySprinklers"
+  /** LA-2216: a surface lot's striped parking beside the building. */
+  | "surfaceLot";
 
 /** Every part, in the order the saved budget's assembly builds them. */
 export const STAGE_PARTS: readonly StagePart[] = [
   "site",
+  "surfaceLot",
   "foundation",
   "basement",
   "podium",
+  "podiumDeck",
+  "garageCoating",
+  "garageWaterproofing",
+  "garageElectrical",
+  "garageSprinklers",
+  "garageDrySprinklers",
   "massing",
   "glass",
   "balconies",
@@ -96,6 +113,13 @@ const PART_CARDS: Record<StagePart, readonly string[]> = {
   elevators: ["V-1", "V-2", "V-3"],
   units: ["M-1"],
   service: ["E-1"],
+  podiumDeck: ["A-1"],
+  garageElectrical: [],
+  garageSprinklers: [],
+  garageCoating: [],
+  garageWaterproofing: [],
+  garageDrySprinklers: [],
+  surfaceLot: [],
 };
 
 /** The card a part opens, from the cards the budget has. None when no card decided it. */
@@ -142,8 +166,21 @@ const ANSWER_TAG: Record<string, string> = {
 };
 
 /** What an answer builds, when the answer puts something on the model. */
+/** LA-2216: the parts a podium garage draws under its deck, priced or not. */
+const GARAGE_PARTS: StagePart[] = [
+  "podiumDeck",
+  "garageCoating",
+  "garageWaterproofing",
+  "garageElectrical",
+  "garageSprinklers",
+  "garageDrySprinklers",
+];
+
 function answerParts(questionId: string, value: string): StagePart[] {
-  if (questionId === "parking_type") return value === "structured" ? ["podium"] : [];
+  if (questionId === "parking_type") {
+    if (value === "surface") return ["surfaceLot"];
+    return value === "structured" ? ["podium", ...GARAGE_PARTS] : [];
+  }
   if (questionId === "levels_below_grade") return value === "yes" ? ["basement"] : [];
   if (questionId === "retail_storefronts") return value === "yes" ? ["podium"] : [];
   if (questionId === "balconies") return value === "yes" ? ["balconies"] : [];

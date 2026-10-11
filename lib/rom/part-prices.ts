@@ -49,6 +49,13 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   elevators: "Elevators",
   units: "Rooftop Units",
   service: "Electrical Service",
+  podiumDeck: "Podium Deck",
+  garageElectrical: "Garage Electrical",
+  garageSprinklers: "Garage Sprinklers",
+  garageCoating: "Traffic Coating",
+  garageWaterproofing: "Garage Waterproofing",
+  garageDrySprinklers: "Dry Sprinklers",
+  surfaceLot: "Surface Lot",
 };
 
 export type PartPriceMap = {
@@ -86,6 +93,29 @@ export type PartPriceInput = {
 };
 
 /**
+ * LA-2216: a podium garage's parts with no rate yet (spec LA-2209). They are
+ * not canonical items and nothing prices them, so the run never names them;
+ * the map adds them whenever parking is structured, so the surface-lot
+ * saving never reads as the whole garage cost.
+ */
+const GARAGE_WATERPROOFING: UnpricedItem = { costCode: "garage-waterproofing", label: "Garage Waterproofing" };
+const TRAFFIC_COATING: UnpricedItem = { costCode: "garage-traffic-coating", label: "Vehicular Traffic Coating" };
+const DRY_SPRINKLERS: UnpricedItem = { costCode: "garage-dry-sprinklers", label: "Dry Sprinkler System" };
+const GARAGE_UNPRICED: readonly UnpricedItem[] = [GARAGE_WATERPROOFING, TRAFFIC_COATING, DRY_SPRINKLERS];
+
+/** The run as the building draws it: a podium garage adds its parts with no rate yet. */
+function withGarageParts(rom: Rom, facts: StageFacts): Rom {
+  if (facts.parkingType !== "structured") return rom;
+  return { ...rom, unpricedItems: [...rom.unpricedItems, ...GARAGE_UNPRICED] };
+}
+
+/** "Garage Electrical: No Rate Yet", or for a named blank, the facts its quantity needs. */
+function unpricedMath(item: UnpricedItem): string {
+  const name = titleCase(item.label);
+  return item.missing ? `${name}: No Quantity Yet, Needs ${item.missing.join(" and ")}` : `${name}: No Rate Yet`;
+}
+
+/**
  * Each canonical work item's part, first choice first. An item goes to the
  * first part on its list that the building draws, so a line never sits on a
  * part that is not there. The section's layer map (lib/rom/section.ts LAYERS)
@@ -97,7 +127,13 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   "34a": ["foundation"],
   "34": ["basement", "site"],
   // The podium: its deck, its garage doors and its storefront.
-  "3": ["podium", "massing"],
+  "3": ["podiumDeck", "podium", "massing"],
+  // LA-2216: the garage under the deck, and the garage parts with no rate yet.
+  "31g": ["garageElectrical", "podium", "massing"],
+  "27a": ["garageSprinklers", "podium", "massing"],
+  [GARAGE_WATERPROOFING.costCode]: ["garageWaterproofing", "podium", "massing"],
+  [TRAFFIC_COATING.costCode]: ["garageCoating", "podium", "massing"],
+  [DRY_SPRINKLERS.costCode]: ["garageDrySprinklers", "podium", "massing"],
   "15a": ["podium", "massing"],
   "16": ["podium", "glass"],
   // The skin's openings and what hangs off it.
@@ -120,7 +156,8 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   "36": ["site"],
   "36a": ["site"],
   "37": ["site"],
-  "38": ["site"],
+  // LA-2216: paving is the striped lot when parking is a surface lot.
+  "38": ["surfaceLot", "site"],
   "39": ["site"],
 };
 
@@ -236,7 +273,8 @@ function levelView(
 }
 
 export function partPrices(input: PartPriceInput): PartPriceMap {
-  const { rom, building } = input;
+  const { building } = input;
+  const rom = withGarageParts(input.rom, input.facts);
   const gsf = input.facts.grossSquareFeet;
   const drawn = drawnParts(building);
   const has = new Set(drawn);
@@ -265,7 +303,7 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
       total,
       perGsf: total !== null && gsf ? total / gsf : null,
       source: weakest(lines.map((line) => clientSource(sourceOf(line).text))),
-      math: [...lines.map(mathOf), ...unpricedItems.map((item) => `${titleCase(item.label)}: No Rate Yet`)],
+      math: [...lines.map(mathOf), ...unpricedItems.map(unpricedMath)],
       unpriced: total === null,
     };
   });

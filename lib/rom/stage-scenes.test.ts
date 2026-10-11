@@ -25,10 +25,10 @@ describe("answerMoment", () => {
       tag: "Parking",
       title: "Parking",
       answer: "Structured",
-      parts: ["podium"],
+      parts: ["podium", "podiumDeck", "garageCoating", "garageWaterproofing", "garageElectrical", "garageSprinklers", "garageDrySprinklers"],
     });
-    // Surface parking puts nothing on the model, so it plays as a caption only.
-    expect(answerMoment(parking, "surface")?.parts).toEqual([]);
+    // LA-2216: surface parking lays the striped lot beside the building.
+    expect(answerMoment(parking, "surface")?.parts).toEqual(["surfaceLot"]);
   });
 
   it("builds what a Yes adds to the building, and nothing for a No", () => {

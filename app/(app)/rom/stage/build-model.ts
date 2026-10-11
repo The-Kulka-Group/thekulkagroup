@@ -10,6 +10,7 @@ import type { StageBuilding } from "@/lib/rom/stage-model";
 import { STAGE_PARTS, type StagePart } from "@/lib/rom/stage-scenes";
 
 import { PILE_RADIUS, PILE_SLAB_THICKNESS, pileSpots } from "./parts-piles";
+import { type Cutaway, cutawayOf, inCutaway, layerOf, liftOf, partitionsOf, type Run, risersOf, stretchOf } from "./views";
 
 // LA-1317, LA-1318: the Design and Engineering stage's 3D model. A white
 // architectural model of the project's building, sitting on a site base that
@@ -61,6 +62,13 @@ export type StageController = {
   setFocus: (part: StagePart | null) => void;
   /** LA-2211: draws these parts faint, edged in a dashed working orange: nothing prices them. */
   setUnpriced: (parts: readonly StagePart[]) => void;
+  /**
+   * LA-2217: how open the building is, 0 Assembled (a ground plane over what
+   * is below grade, the top floor's corner cut away) to 1 Opened (the stories
+   * lifted apart, the risers running through them). Any part, drawn now or
+   * added later, follows by where it rests; nothing here names a part.
+   */
+  setOpened: (opened: number) => void;
   /** LA-2213: lights these parts blue by `amount`, 0 to 1, over any highlight. The stage sweeps it up and back once per answer. */
   setPulse: (parts: readonly StagePart[], amount: number) => void;
   /** LA-1325: CSS pixels at the top and bottom that controls cover, so the building frames between them. */
@@ -74,6 +82,8 @@ const WORKING = 0xff9500;
 /** How much of a part shows while another part is picked, and while nothing prices it. */
 const FADED = 0.12;
 const UNPRICED_FILL = 0.4;
+/** LA-2217: how much the Assembled view's ground plane hides of what is below grade. */
+const GROUND = 0.8;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
 const outBack = (p: number) => 1 + 2.5 * Math.pow(p - 1, 3) + 1.5 * Math.pow(p - 1, 2);
@@ -163,6 +173,8 @@ export function createStage(
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
+  // LA-2217: the Assembled view's corner cutaway clips materials one by one.
+  renderer.localClippingEnabled = true;
 
   const scene = new THREE.Scene();
   // Neutral tone mapping tops out below white, so the background is set over-bright to land on it.
@@ -182,6 +194,11 @@ export function createStage(
     // drawn section does; a room's volume cuts a light gray.
     poche: new THREE.MeshBasicMaterial({ color: 0x1c1b19, side: THREE.BackSide }),
     pocheLight: new THREE.MeshBasicMaterial({ color: 0xd9d6ce, side: THREE.BackSide }),
+    // LA-2217: the unit walls the cutaway shows, the risers, and the ground
+    // plane the Assembled view lays over what is below grade.
+    partition: new THREE.MeshStandardMaterial({ color: 0xfbfaf7, roughness: 0.9 }),
+    riser: new THREE.MeshStandardMaterial({ color: 0x5f7d99, roughness: 0.5, metalness: 0.2 }),
+    ground: new THREE.MeshStandardMaterial({ color: 0xf7f7f5, roughness: 0.95, transparent: true, opacity: GROUND, depthWrite: false }),
   };
   const lasting: { dispose: () => void }[] = [env, pmrem, ...Object.values(M)];
 
@@ -277,6 +294,18 @@ export function createStage(
   let span = 0;
   const cutPlane = new THREE.Plane();
   let cut: StageCut = { kind: "none" };
+  // LA-2217: the two views. Every object straight under a building (or the
+  // scene) rests on a layer and lifts with it; an object with a run stretches
+  // across the layers it spans.
+  let opened = 0;
+  let layered: { obj: THREE.Object3D; layer: number }[] = [];
+  let runs: { obj: THREE.Object3D; run: Run }[] = [];
+  let lifted = new Map<THREE.Object3D, number>();
+  let ground: THREE.Mesh | null = null;
+  let cutaway: Cutaway | null = null;
+  let goalTop = 0;
+  const cornerPlanes = [new THREE.Plane(), new THREE.Plane(), new THREE.Plane()];
+  let cornerCopies = new Map<THREE.Material, THREE.Material>();
 
   function build(next: StageBuilding) {
     spec = next;
@@ -366,6 +395,19 @@ export function createStage(
       addBox(faces, xCut - SX0, siteDepth - 0.3, 0.4, (SX0 + xCut) / 2, -siteDepth / 2, zCut + 0.21);
       tag(mesh(faces, M.cut, content, false, null), "site");
       nextAnchors.site = new THREE.Vector3(SX0 + 30, 0, zCut - 20);
+      // LA-2217: the ground plane, closing the cut over what is below grade
+      // out to the building line. Nothing picks it, so a pile under it still picks.
+      const lid: THREE.BufferGeometry[] = [];
+      const edgeX = lastX + hw, edgeZ = hd;
+      for (const [x0, x1, z0, z1] of [[xCut, edgeX, SZ0, edgeZ], [SX0, xCut, zCut, edgeZ]]) {
+        const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0);
+        g.rotateX(-Math.PI / 2);
+        g.translate((x0 + x1) / 2, 0.05, (z0 + z1) / 2);
+        lid.push(g);
+      }
+      ground = mesh(lid, M.ground, content, false, null);
+      ground.raycast = () => {};
+      ground.userData.ground = true;
     }
 
     // The service at grade, out in front of the first building's corner (E-1).
@@ -413,6 +455,8 @@ export function createStage(
     offsets.forEach((ox, bi) => {
       const root = new THREE.Group();
       root.position.x = ox;
+      // LA-2217: what this building holds lifts layer by layer in the Opened view.
+      root.userData.building = true;
       content.add(root);
       const exposed = bi === count - 1;
       const foundationTop = -below - 1.6;
@@ -507,6 +551,7 @@ export function createStage(
         if (reaching.length === 0) return;
         const g = tag(new THREE.Group(), "massing");
         const slab: THREE.BufferGeometry[] = [], skin: THREE.BufferGeometry[] = [], panes: THREE.BufferGeometry[] = [], inner: THREE.BufferGeometry[] = [];
+        const walls: THREE.BufferGeometry[] = [];
         const T = 1.4, h = lv.height, wh = big ? 7.2 : 6.4, sill = big ? 1.6 : 2.2, head = 1 + sill + wh, pier = big ? 2.2 : 3;
         /** A wall running along x at z, facing s (+1 faces +z), from x0 for len. */
         const faceX = (x0: number, len: number, z: number, s: number) => {
@@ -534,6 +579,10 @@ export function createStage(
           faceZ(w.z0, wd, w.x1, 1);
           faceZ(w.z0, wd, w.x0, -1);
           addBox(inner, ww - 2 * T - 0.8, h - 1, wd - 2 * T - 0.8, cx, 1 + (h - 1) / 2, cz);
+          // LA-2217: a wing's top story holds its unit walls, for the Assembled view's cutaway.
+          if (li === Math.min(w.stories, levels.length) - 1) {
+            for (const p of partitionsOf(w, h, bay)) addBox(walls, p.w, p.h, p.d, p.x, p.y, p.z);
+          }
           if (next.balconies) {
             // On the wing's outward long face, built out from the wall so they
             // can grow outward when they arrive.
@@ -566,6 +615,7 @@ export function createStage(
         mesh(slab, slabMat, g);
         mesh(skin, skinMat, g);
         mesh(inner, M.inner, g, false, "light");
+        if (walls.length) mesh(walls, M.partition, g, false).userData.keep = true;
         const pane = glassMat("glass");
         const paneMesh = tag(mesh(panes, pane, g, false, null), "glass");
         paneMesh.visible = false;
@@ -620,6 +670,27 @@ export function createStage(
         root.add(bulk);
         bulkheads.push(bulk);
         if (bi === 0) nextAnchors.elevators = new THREE.Vector3(ox + bx, wingTop(w) + 10, bz);
+      }
+      {
+        // LA-2217: the MEP risers, a bundle in the tallest wing's front units,
+        // close enough to the face that the Opened view's gaps show them, from
+        // the podium's top to the roof. A unit tall, so the views stretch them
+        // across the stories they run through.
+        const w = tallest, x = alongX(w);
+        const ww = w.x1 - w.x0, wd = w.z1 - w.z0;
+        const rx = x ? (w.x0 + w.x1) / 2 - ww * 0.12 : w.x1 - 9;
+        const rz = x ? w.z1 - 9 : (w.z0 + w.z1) / 2 - wd * 0.12;
+        const risers = tag(new THREE.Group(), "massing");
+        risers.position.set(rx, 0, rz);
+        const r: THREE.BufferGeometry[] = [];
+        for (let i = 0; i < 4; i++) {
+          const pipe = new THREE.CylinderGeometry(0.9, 0.9, 1, 12);
+          pipe.translate(x ? (i - 1.5) * 2.2 : 0, 0.5, x ? 0 : (i - 1.5) * 2.2);
+          r.push(pipe);
+        }
+        mesh(r, M.riser, risers, true, null);
+        risers.userData.run = risersOf(next);
+        root.add(risers);
       }
       if (next.rooftopUnits > 0) {
         // Down the wings' roofs, tallest first, two rows to a wing.
@@ -744,6 +815,23 @@ export function createStage(
     anchors = nextAnchors;
     glows = nextGlows;
 
+    // LA-2217: each object's layer, read where it rests now, before any pose
+    // moves it. The ground and the site never lift.
+    lifted = new Map();
+    layered = [];
+    runs = [];
+    const holders = content.children.flatMap((c) => (c.userData.building ? c.children : [c]));
+    for (const obj of holders) {
+      if (obj.userData.run) runs.push({ obj, run: obj.userData.run as Run });
+      else if (!obj.userData.ground && partOfObject(obj) !== "site") layered.push({ obj, layer: layerOf(obj.position.y, levels) });
+    }
+    cutaway = cutawayOf(form.wings, levels, lastX);
+    if (cutaway) {
+      cornerPlanes[0].set(new THREE.Vector3(-1, 0, 0), cutaway.x);
+      cornerPlanes[1].set(new THREE.Vector3(0, 0, -1), cutaway.z);
+      cornerPlanes[2].set(new THREE.Vector3(0, -1, 0), cutaway.y);
+    }
+
     // Sun and camera follow the building's size.
     const reach = Math.max(span, D) * 1.6 + 120;
     sun.position.set(-reach * 0.5, reach, reach);
@@ -753,6 +841,8 @@ export function createStage(
       new THREE.Vector3(-span / 2 - 16, -siteDepth * 0.6, -hd - 16),
       new THREE.Vector3(span / 2 + 16, next.height + 14, hd + 16),
     );
+    goalTop = cam.goal.max.y;
+    cam.goal.max.y = goalTop + liftOf(levels.length, opened);
     if (!cam.set) {
       cam.box.copy(cam.goal);
       cam.set = true;
@@ -794,6 +884,8 @@ export function createStage(
   function dropLooks() {
     for (const cache of see) cache.forEach((copy) => copy.dispose());
     see = [new Map(), new Map()];
+    cornerCopies.forEach((copy) => copy.dispose());
+    cornerCopies = new Map();
     clearOutlines();
   }
 
@@ -820,21 +912,79 @@ export function createStage(
       const part = partOfObject(obj);
       const away = focus !== null && part !== focus;
       if (obj instanceof THREE.LineSegments) {
-        obj.material = away ? dashFaded : dash;
+        const line = away ? dashFaded : dash;
+        // LA-2217: an edge goes with its solid when the cutaway takes it.
+        obj.material = cutawayOn() && !kept(obj.parent ?? obj) ? cornerCut(line) : line;
         return;
       }
-      if (!(obj instanceof THREE.Mesh)) return;
+      if (!(obj instanceof THREE.Mesh) || obj.userData.ground) return;
       const base = (obj.userData.base ??= obj.material) as THREE.Material;
       obj.userData.cast ??= obj.castShadow;
       const faint = part !== null && unpriced.has(part);
-      obj.material = away ? seeThrough(base, 0) : faint ? seeThrough(base, 1) : base;
+      const look = away ? seeThrough(base, 0) : faint ? seeThrough(base, 1) : base;
+      obj.material = cutawayOn() && !kept(obj) ? cornerCut(look) : look;
       obj.castShadow = away || faint ? false : (obj.userData.cast as boolean);
     });
   }
 
+  /** LA-2217: the unit walls (and their cut faces) stand inside the cutaway; everything else is cut by it. */
+  function kept(obj: THREE.Object3D): boolean {
+    return Boolean(obj.userData.keep || obj.parent?.userData.keep);
+  }
+
+  /** LA-2217: a copy of `look` with the top floor's corner clipped away, following its colour, glow and opacity. */
+  function cornerCut(look: THREE.Material): THREE.Material {
+    let copy = cornerCopies.get(look);
+    if (!copy) {
+      copy = look.clone();
+      copy.clippingPlanes = cornerPlanes;
+      copy.clipIntersection = true;
+      cornerCopies.set(look, copy);
+    }
+    const from = look as THREE.MeshStandardMaterial, to = copy as THREE.MeshStandardMaterial;
+    to.color?.copy(from.color);
+    if (from.emissive && to.emissive) {
+      to.emissive.copy(from.emissive);
+      to.emissiveIntensity = from.emissiveIntensity;
+    }
+    to.opacity = from.opacity;
+    return copy;
+  }
+
+  /** LA-2217: the Assembled cutaway is on while the building is less than half open. */
+  const cutawayOn = () => cutaway !== null && opened < 0.5;
+
+  /**
+   * LA-2217: lays the posed building out for the view. A part's applier poses
+   * it where it rests; this lifts it by its layer on top, so the two never
+   * need to know of each other. The last lift comes off before the appliers
+   * run, so an object no applier moves does not climb pose after pose.
+   */
+  function layout() {
+    if (!spec) return;
+    for (const { obj, layer } of layered) {
+      const dy = liftOf(layer, opened);
+      obj.position.y += dy;
+      lifted.set(obj, dy);
+    }
+    for (const { obj, run } of runs) {
+      const { y, height } = stretchOf(run, opened, spec.levels);
+      obj.position.y = y;
+      obj.scale.y = Math.max(0.0001, height);
+      const part = partOfObject(obj);
+      // A run shows once the part it belongs to has arrived.
+      obj.visible = height > 0.5 && (part === null || (current[part]?.arrive ?? 0) >= 0.999);
+    }
+    M.ground.opacity = GROUND * (1 - opened);
+    if (ground) ground.visible = opened < 0.99;
+  }
+
   function pose(states: PartStates) {
     current = states;
+    for (const [obj, dy] of lifted) obj.position.y -= dy;
+    lifted.clear();
     for (const part of STAGE_PARTS) appliers[part]?.(states[part] ?? { arrive: 0, tint: 1 });
+    layout();
     applyGlows();
     applyLooks();
   }
@@ -857,7 +1007,9 @@ export function createStage(
     if (cut.kind === "plan") {
       const lv = spec.levels[Math.max(0, Math.min(spec.levels.length - 1, cut.level))];
       // Through the windows, the way a floor plan is cut.
-      cutPlane.set(new THREE.Vector3(0, -1, 0), lv.base + Math.min(5, lv.height * 0.5));
+      // LA-2217: an opened story has lifted, and the cut goes with it.
+      const level = Math.max(0, Math.min(spec.levels.length - 1, cut.level));
+      cutPlane.set(new THREE.Vector3(0, -1, 0), lv.base + Math.min(5, lv.height * 0.5) + liftOf(level, opened));
     } else {
       cutPlane.set(new THREE.Vector3(-1, 0, 0), -span / 2 + clamp(cut.at) * span);
     }
@@ -897,7 +1049,9 @@ export function createStage(
       const at = anchors[part];
       if (!at) return null;
       place();
-      const v = at.clone().project(camera);
+      const v = at.clone();
+      if (spec) v.y += liftOf(layerOf(at.y, spec.levels), opened);
+      v.project(camera);
       const w = canvas.clientWidth, h = canvas.clientHeight;
       return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
     },
@@ -926,6 +1080,8 @@ export function createStage(
       for (const hit of raycaster.intersectObject(content, true)) {
         if (!shown(hit.object)) continue;
         if (clipped && cutPlane.distanceToPoint(hit.point) < 0) continue;
+        // LA-2217: what the Assembled cutaway has taken away is not there to pick.
+        if (cutawayOn() && !kept(hit.object) && inCutaway(cutaway, hit.point)) continue;
         for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
           if (o.userData.part) return o.userData.part as StagePart;
         }
@@ -933,6 +1089,12 @@ export function createStage(
         return null;
       }
       return null;
+    },
+    setOpened: (next) => {
+      opened = clamp(next);
+      cam.goal.max.y = goalTop + (spec ? liftOf(spec.levels.length, opened) : 0);
+      applyCut();
+      pose(current);
     },
     setInsets: (top, bottom) => {
       cam.insetTop = top;
@@ -946,6 +1108,8 @@ export function createStage(
       pulsed = new Set(parts);
       pulseAmount = clamp(amount);
       applyGlows();
+      // LA-2217: the cutaway's clipped copies take the glow from their materials.
+      if (cutawayOn()) applyLooks();
     },
     setFocus: (part) => {
       focus = part;

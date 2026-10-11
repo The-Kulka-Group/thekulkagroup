@@ -156,7 +156,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   const cars = facts.elevatorCount ?? 0;
   let elevators: StageBuilding["elevators"] = null;
   if (cars > 0) {
-    const hydraulic = (text(by("V-1")) ?? "Hydraulic") === "Hydraulic";
+    // The type leads the card's text, so "Hydraulic, 2 Cars" still reads hydraulic.
+    const hydraulic = !/^traction/i.test(text(by("V-1")) ?? "");
     const jackText = text(by("V-2"));
     const jack = hydraulic && jackText ? jackText : null;
     const travel = levels[levels.length - 1].base + (basement ? BASEMENT_FT : 0);

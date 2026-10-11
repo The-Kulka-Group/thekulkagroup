@@ -146,9 +146,24 @@ describe("partPrices", () => {
     expect(at("balconies")).toMatchObject({ total: null, perGsf: null, source: "No Rate Yet", unpriced: true, lines: [], math: ["Balcony Deck: No Rate Yet"] });
     expect(at("balconies").unpricedItems.map((u) => u.costCode)).toEqual(["11"]);
     expect(at("site").unpricedItems.map((u) => u.costCode)).toEqual(["31f"]);
-    // E-1 draws the service, but no line prices it.
-    expect(at("service")).toMatchObject({ total: null, source: "No Rate Yet", unpriced: true, math: [] });
-    expect(at("massing").unpriced).toBe(false);
+    expect(at("balconies").empty).toBe(false);
+    expect(at("massing")).toMatchObject({ unpriced: false, empty: false });
+  });
+
+  // LA-2209 review S4: only a part whose lines have no rate is Not Priced.
+  it("draws a part with no lines and no items normally, and says it has none in this budget", () => {
+    const f = facts();
+    const service = [{ code: "E-1", value: { kind: "quantity" as const, amount: 2000, unit: "A" }, steps: [], correction: null }];
+    const map = partPrices({ rom: rom([line({ costCode: "8", low: 100, high: 100 })]), facts: f, building: stageBuilding(f, service) });
+    // E-1 draws the service, but nothing in this budget sits on it.
+    expect(map.parts.find((p) => p.part === "service")).toMatchObject({
+      total: null,
+      unpriced: false,
+      empty: true,
+      lines: [],
+      unpricedItems: [],
+      math: [],
+    });
   });
 
   describe("the list rows at each level", () => {

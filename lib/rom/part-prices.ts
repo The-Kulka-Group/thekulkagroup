@@ -34,8 +34,13 @@ export type PricedPart = {
   source: ClientSource;
   /** One sentence a line, then one per unpriced item: quantity, unit, rate and where the rate came from. */
   math: string[];
-  /** True when nothing prices the part. The stage draws it dashed in the working orange and it reads "Not Priced", never $0. */
+  /**
+   * True when the part has lines or items and none of them has a rate. The
+   * stage draws it dashed in the working orange and it reads "Not Priced", never $0.
+   */
   unpriced: boolean;
+  /** LA-2209 review S4: no line or item sits on the part. It draws normally and reads "No Items in This Budget". */
+  empty: boolean;
 };
 
 /** The part's name on screen. */
@@ -370,6 +375,8 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
     const lines = linesOf.get(part)!;
     const unpricedItems = unpricedOf.get(part)!;
     const total = lines.length > 0 ? lines.reduce((sum, line) => sum + midpoint(line), 0) : null;
+    const sources = lines.map((line) => clientSource(sourceOf(line).text));
+    const empty = lines.length === 0 && unpricedItems.length === 0;
     return {
       part,
       name: PART_NAMES[part],
@@ -377,14 +384,15 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
       unpricedItems,
       total,
       perGsf: total !== null && gsf ? total / gsf : null,
-      source: weakest(lines.map((line) => clientSource(sourceOf(line).text))),
+      source: weakest(sources),
       math: [
         ...lines.map(
           (line) => elevatorMath(line, input.facts.elevatorCount) ?? balconyMath(line, input.facts.balconyCount) ?? mathOf(line),
         ),
         ...unpricedItems.map(unpricedMath),
       ],
-      unpriced: total === null,
+      unpriced: !empty && sources.every((source) => source === "No Rate Yet"),
+      empty,
     };
   });
   const view = levelView(input.level ?? 3, rom, drawn, partOf, input.classifications ?? []);

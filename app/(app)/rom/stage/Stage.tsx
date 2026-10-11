@@ -843,7 +843,7 @@ export function Stage(props: Props) {
                   onBlur={() => setHover([])}
                 >
                   {one.name}
-                  <span className="stg-part-p num">{one.total === null ? "Not Priced" : usd(one.total)}</span>
+                  <span className="stg-part-p num">{one.unpriced ? "Not Priced" : one.empty ? "No Items" : usd(one.total ?? 0)}</span>
                 </button>
               ))}
             </div>
@@ -974,27 +974,30 @@ function PickedPart({
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
-      {part.total === null ? (
+      {part.unpriced ? (
         <span className="stg-pick-total stg-pick-total--none">Not Priced</span>
+      ) : part.empty ? (
+        // LA-2209 review S4: nothing in this budget sits on the part, so it has no price to show, not $0.
+        <span className="stg-pick-total stg-pick-total--none">No Items in This Budget</span>
       ) : (
-        <span className="stg-pick-total num">{usd(part.total)}</span>
+        <span className="stg-pick-total num">{usd(part.total ?? 0)}</span>
       )}
-      <div className="stg-pick-meta">
-        {part.perGsf !== null ? <span className="stg-pick-psf num">{rateUsd(part.perGsf)} per GSF</span> : null}
-        <span className={`chip chip--${SOURCE_TONE[part.source]}`}>
-          <span className="dot" aria-hidden="true" />
-          {part.source}
-        </span>
-      </div>
+      {part.empty ? null : (
+        <div className="stg-pick-meta">
+          {part.perGsf !== null ? <span className="stg-pick-psf num">{rateUsd(part.perGsf)} per GSF</span> : null}
+          <span className={`chip chip--${SOURCE_TONE[part.source]}`}>
+            <span className="dot" aria-hidden="true" />
+            {part.source}
+          </span>
+        </div>
+      )}
       {part.math.length > 0 ? (
         <ul className="stg-pick-math">
           {part.math.map((sentence) => (
             <li key={sentence}>{sentence}</li>
           ))}
         </ul>
-      ) : (
-        <p className="stg-pick-none">No line in this budget prices this part yet.</p>
-      )}
+      ) : null}
       {card ? (
         <button type="button" className="stg-pill stg-part" onClick={(e) => onOpenCard(card, e.currentTarget)}>
           <span className="stg-part-c num">{card}</span>

@@ -33,7 +33,9 @@ async function pickOnModel(page: Page, map: PartPriceMap) {
   const expected = map.parts.find((one) => one.part === name);
   expect(expected, `picked ${name}`).toBeDefined();
   await expect(picked.locator(".stg-pick-name")).toHaveText(expected!.name);
-  await expect(picked.locator(".stg-pick-total")).toHaveText(expected!.total === null ? "Not Priced" : usd(expected!.total));
+  await expect(picked.locator(".stg-pick-total")).toHaveText(
+    expected!.unpriced ? "Not Priced" : expected!.empty ? "No Items in This Budget" : usd(expected!.total!),
+  );
   // Clear it for the next pick.
   await picked.getByRole("button", { name: "Clear the picked part" }).click();
   await expect(picked).toHaveCount(0);

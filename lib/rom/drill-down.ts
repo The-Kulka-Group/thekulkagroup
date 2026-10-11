@@ -141,6 +141,10 @@ export const UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
   usd_per_stop: "Stops",
   usd_each_elevator: "Elevators",
   usd_each_machine_room: "Machine Rooms",
+  usd_per_sf_of_garage: "SF of Garage",
+  usd_per_sf_of_balcony: "SF of Balcony Deck",
+  usd_per_lf_of_rail: "LF of Rail",
+  usd_each_balcony_door: "Doors",
 };
 
 /** One of a quantity's unit, after "per": $50.69 per SF. Null for a lump sum. */
@@ -152,6 +156,10 @@ export const PER_UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
   usd_per_stop: "Stop",
   usd_each_elevator: "Elevator",
   usd_each_machine_room: "Machine Room",
+  usd_per_sf_of_garage: "SF of Garage",
+  usd_per_sf_of_balcony: "SF",
+  usd_per_lf_of_rail: "LF",
+  usd_each_balcony_door: "Door",
 };
 
 /**

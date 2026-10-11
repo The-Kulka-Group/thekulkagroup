@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { tier1Flow } from "./question-flow";
 
-import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } from "./new-budget-flow";
+import {
+  factsQuestions,
+  gatesFromResponses,
+  requiredAnswered,
+  scopeQuestions,
+  unansweredAboveLevel,
+} from "./new-budget-flow";
 
 // LA-1141. The guided New budget flow's step split and its gate map, tested
 // against the real tier1-flow.json the site reads everywhere else, so a
@@ -182,5 +188,27 @@ describe("gatesFromResponses", () => {
   it("does not map a closed follow-up, because it is not a branch gate", () => {
     const gates = gatesFromResponses(tier1Flow(), { demolition: "yes", demolition_structure_count: "3" });
     expect(gates.demolition_structure_count).toBeUndefined();
+  });
+});
+
+describe("the steps at a price level (LA-2218)", () => {
+  it("asks parking at Level 1, adds soil at Level 2 and balconies at Level 3", () => {
+    const scope = (level: 1 | 2 | 3) => scopeQuestions(tier1Flow(), {}, level).map((q) => q.id);
+    expect(factsQuestions(tier1Flow(), {}, 1).map((q) => q.id)).toContain("parking_type");
+    expect(scope(1)).not.toContain("site_conditions");
+    expect(scope(2)).toContain("site_conditions");
+    expect(scope(2)).not.toContain("balconies");
+    expect(scope(3)).toContain("balconies");
+  });
+
+  it("shows everything when no level is given", () => {
+    expect(scopeQuestions(tier1Flow(), {}).map((q) => q.id)).toContain("balconies");
+  });
+
+  it("names the required questions a lower level leaves unanswered", () => {
+    expect(unansweredAboveLevel(tier1Flow(), {}, 1).map((q) => q.id)).toEqual(["site_conditions", "balconies"]);
+    expect(unansweredAboveLevel(tier1Flow(), { site_conditions: "no" }, 2).map((q) => q.id)).toEqual(["balconies"]);
+    expect(unansweredAboveLevel(tier1Flow(), { site_conditions: "no", balconies: "no" }, 1)).toEqual([]);
+    expect(unansweredAboveLevel(tier1Flow(), {}, 3)).toEqual([]);
   });
 });

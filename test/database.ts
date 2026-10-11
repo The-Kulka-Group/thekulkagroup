@@ -18,7 +18,13 @@ const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
  * network, and no state shared between test files.
  */
 export async function seededDatabase(
-  options: { statedRates?: boolean; elevatorRates?: boolean; pileRates?: boolean } = {},
+  options: {
+    statedRates?: boolean;
+    elevatorRates?: boolean;
+    pileRates?: boolean;
+    garageRates?: boolean;
+    balconyRates?: boolean;
+  } = {},
 ): Promise<Db & { close: () => Promise<void> }> {
   const pg = new PGlite();
 
@@ -48,6 +54,22 @@ export async function seededDatabase(
   // a test that reads it passes `pileRates: true`.
   if (!options.pileRates) {
     await pg.query(`delete from benchmarks where cost_code = '34a'`);
+  }
+
+  // 20261011110000_podium_garage_rates.sql records VA's podium deck, garage
+  // electrical and garage sprinkler rates (LA-2216). Same reasoning: dropped
+  // by default, and a test that reads them passes `garageRates: true`.
+  if (!options.garageRates) {
+    await pg.query(`delete from benchmarks where unit = 'usd_per_sf_of_garage'`);
+  }
+
+  // 20261011120000_balcony_rates.sql records VA's balcony deck and rail rates
+  // and the sliding door range (LA-2219). Same reasoning: dropped by default,
+  // and a test that reads them passes `balconyRates: true`.
+  if (!options.balconyRates) {
+    await pg.query(
+      `delete from benchmarks where unit in ('usd_per_sf_of_balcony', 'usd_per_lf_of_rail', 'usd_each_balcony_door')`,
+    );
   }
 
   // Production migrations contain schema only. Synthetic inputs stay inside

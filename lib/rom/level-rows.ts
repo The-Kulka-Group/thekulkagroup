@@ -1,0 +1,67 @@
+import { type LevelRow, type LevelView, type PartPriceInput, partPrices, type PriceLevel } from "./part-prices";
+import type { StagePart } from "./stage-scenes";
+
+// LA-2212 (spec LA-2209): the price levels. The Building View reads one run
+// three ways, following ADR 0002: level 1 the whole run as one block, level 2
+// the element rollup, level 3 the canonical work items. The level changes the
+// list and the stage's tint, never the number.
+
+/** The run's list at every price level, with the gross area its $/GSF reads against. */
+export type PriceLevels = {
+  views: Record<PriceLevel, LevelView>;
+  grossSquareFeet: number | null;
+};
+
+export const PRICE_LEVELS: readonly PriceLevel[] = [1, 2, 3];
+
+/** Level 1's one colour: the whole building reads as a single block. */
+export const BLOCK_TINT = "#A9B1C6";
+
+/**
+ * Level 2's colour for each ADR 0002 element (the block_classification
+ * element list), from daylight.css's avatar hues. None is the stage's blue
+ * highlight or the working orange of a part nothing prices.
+ */
+export const ELEMENT_TINTS: Readonly<Record<string, string>> = {
+  Elevator: "#7C4DFF",
+  Demolition: "#00C7BE",
+  Balcony: "#00A8E8",
+  Kitchen: "#FFCB00",
+  Bathroom: "#1F3A8F",
+};
+
+/** The colour a row tints its parts at its level, or null when it tints nothing. */
+export function rowTint(level: PriceLevel, row: LevelRow): string | null {
+  if (level === 1) return BLOCK_TINT;
+  if (level === 2 && row.key.startsWith("element:")) return ELEMENT_TINTS[row.key.slice("element:".length)] ?? null;
+  return null;
+}
+
+/** Each tinted part's colour at this level. The first row that tints a part wins. */
+export function partTints(view: LevelView): Partial<Record<StagePart, string>> {
+  const tints: Partial<Record<StagePart, string>> = {};
+  for (const row of view.rows) {
+    const tint = rowTint(view.level, row);
+    if (!tint) continue;
+    for (const part of row.parts) tints[part] ??= tint;
+  }
+  return tints;
+}
+
+/** The keys of the rows a part sits in, in the list's order: a picked part lights these rows. */
+export function rowsHolding(view: LevelView, part: StagePart): string[] {
+  return view.rows.filter((row) => row.parts.includes(part)).map((row) => row.key);
+}
+
+/** A row's total over the gross area, or null when either is unknown. */
+export function rowPerGsf(row: LevelRow, grossSquareFeet: number | null): number | null {
+  return row.total !== null && grossSquareFeet ? row.total / grossSquareFeet : null;
+}
+
+export function priceLevels(input: Omit<PartPriceInput, "level">): PriceLevels {
+  const at = (level: PriceLevel) => partPrices({ ...input, level }).view;
+  return {
+    views: { 1: at(1), 2: at(2), 3: at(3) },
+    grossSquareFeet: input.facts.grossSquareFeet || null,
+  };
+}

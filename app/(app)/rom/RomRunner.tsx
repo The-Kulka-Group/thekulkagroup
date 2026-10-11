@@ -14,6 +14,8 @@ import type { CanonicalItemDivision } from "@/lib/rom/run";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 import { holdBack } from "@/lib/rom/design-holds";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
+import { priceLevels } from "@/lib/rom/level-rows";
+import type { PriceLevel } from "@/lib/rom/part-prices";
 import { partPrices } from "@/lib/rom/part-prices";
 import { type StageFacts, stageBuilding, stageFactsFromResponses } from "@/lib/rom/stage-model";
 import type { StageEvent } from "@/lib/rom/stage-scenes";
@@ -384,6 +386,21 @@ export function RomRunner({
         : null,
     [run, stageFacts, stageSpec, classifications],
   );
+  // LA-2218: one price level for the Building View's list and the New Budget questions.
+  const [priceLevel, setPriceLevel] = useState<PriceLevel>(3);
+  // LA-2212: the same run at every price level, for the Building View's list.
+  const stageLevels = useMemo(
+    () =>
+      run && stageFacts
+        ? priceLevels({
+            rom: run.rom,
+            facts: { ...stageFacts, grossSquareFeet: run.grossSquareFeet ?? stageFacts.grossSquareFeet },
+            building: stageSpec,
+            classifications,
+          })
+        : null,
+    [run, stageFacts, stageSpec, classifications],
+  );
   // LA-1325: the codes the Building View's parts open.
   const criterionCodes = useMemo(() => criteria.items.map((item) => item.code), [criteria.items]);
   const [ping, setPing] = useState<Ping>(null);
@@ -647,6 +664,9 @@ export function RomRunner({
       openCode={openCriterion?.code ?? null}
       onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
       prices={stagePrices}
+      levels={stageLevels}
+      level={priceLevel}
+      onLevel={setPriceLevel}
     />
   ) : null;
   const budgetField = (
@@ -1190,6 +1210,8 @@ export function RomRunner({
                 onDraft={setDraft}
                 onStageEvent={newStage.onStageEvent}
                 onCriteria={newStage.onCriteria}
+                level={priceLevel}
+                onLevel={setPriceLevel}
                 landedCards={newStage.landedCards}
                 onCreated={(id) => {
                   // The viewer just watched it go up, so the saved budget opens on the finished building.

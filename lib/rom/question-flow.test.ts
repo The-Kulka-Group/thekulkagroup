@@ -7,7 +7,9 @@ import {
   FLOW_FILE,
   FlowAnswersInvalid,
   FlowDefinitionInvalid,
+  lockedLevels,
   parseFlowDefinition,
+  questionsAtLevel,
   readFlowAnswers,
   tier1Flow,
   visibleQuestions,
@@ -42,7 +44,10 @@ describe("the shipped tier-1 definition", () => {
     const walk = (value: unknown) => {
       if (typeof value === "number") numbers.push(value);
       else if (Array.isArray(value)) value.forEach(walk);
-      else if (value && typeof value === "object") Object.values(value).forEach(walk);
+      else if (value && typeof value === "object") {
+        // LA-2218: a question's level (1, 2 or 3) says when it appears, not what it costs.
+        for (const [key, one] of Object.entries(value)) if (key !== "level") walk(one);
+      }
     };
     walk({ ...file, version: undefined });
     expect(numbers).toEqual([]);
@@ -487,5 +492,158 @@ describe("a definition this code will not run", () => {
       mapsTo: { target: "intake_field", name: "demolition" },
     });
     expect(() => parseFlowDefinition(file)).toThrow(/demolition/);
+  });
+});
+
+describe("balconies: the gate, then Full or Juliet (LA-2219)", () => {
+  const shown = (responses: Record<string, string>) => visibleQuestions(tier1Flow(), responses).map((q) => q.id);
+  const FACTS = ["balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"];
+
+  it("asks Full or Juliet only once the units have balconies", () => {
+    expect(shown({ balconies: "no" })).not.toContain("balcony_type");
+    expect(shown({ balconies: "dont_know" })).not.toContain("balcony_type");
+    expect(shown({ balconies: "yes" })).toContain("balcony_type");
+    const type = tier1Flow().questions.find((q) => q.id === "balcony_type")!;
+    expect(type.choices?.map((choice) => choice.label)).toEqual(["Full", "Juliet"]);
+  });
+
+  it("asks the three balcony facts only for full balconies", () => {
+    expect(shown({ balconies: "yes" })).not.toContain("balcony_count");
+    for (const id of FACTS) expect(shown({ balconies: "yes", balcony_type: "full" })).toContain(id);
+    for (const id of FACTS) expect(shown({ balconies: "yes", balcony_type: "juliet" })).not.toContain(id);
+    // Closing the gate closes the branch under it, whatever the follow-up said.
+    for (const id of FACTS) expect(shown({ balconies: "no", balcony_type: "full" })).not.toContain(id);
+  });
+
+  it("lands the type and the facts on the engine's facts under their own names", () => {
+    const definition = tier1Flow();
+    const base: Record<string, string> = {};
+    for (const q of visibleQuestions(definition, {})) {
+      if (q.kind === "branch_gate") base[q.id] = "no";
+    }
+    const { answers } = readFlowAnswers(definition, {
+      ...base,
+      project_type: "multifamily",
+      construction_kind: "new",
+      gross_square_feet: "100000",
+      stories_above_grade: "5",
+      unit_count: "100",
+      parking_type: "none",
+      balconies: "yes",
+      balcony_type: "full",
+      balcony_count: "25",
+      balcony_deck_square_feet: "110",
+      balcony_rail_linear_feet: "26",
+    });
+    expect(answers.facts).toMatchObject({
+      balconies: "yes",
+      balconyType: "full",
+      balconyCount: 25,
+      balconyDeckSquareFeet: 110,
+      balconyRailLinearFeet: 26,
+    });
+  });
+
+  it("refuses a choice that opens a question another question already opens", () => {
+    const file = shippedFile();
+    const type = questionsOf(file).find((one) => one.id === "balcony_type")!;
+    (type.choices as { value: string; opens?: string[] }[])[1].opens = ["balcony_count"];
+    expect(() => parseFlowDefinition(file)).toThrow(/opened by both/);
+  });
+
+  it("refuses opens on a choice of a question that is not a choice question", () => {
+    const file = shippedFile();
+    const gate = questionsOf(file).find((one) => one.id === "balconies")!;
+    gate.choices = [{ value: "a", label: "A", opens: ["balcony_type"] }, { value: "b", label: "B" }];
+    expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+  });
+});
+
+describe("question levels (LA-2218)", () => {
+  const ids = (level: 1 | 2 | 3, responses: Record<string, string> = {}) =>
+    questionsAtLevel(tier1Flow(), responses, level).map((q) => q.id);
+
+  it("shows soil only from Level 2 and balconies only at Level 3", () => {
+    expect(ids(1)).toContain("parking_type");
+    expect(ids(1)).not.toContain("site_conditions");
+    expect(ids(1)).not.toContain("balconies");
+    expect(ids(2)).toContain("site_conditions");
+    expect(ids(2)).not.toContain("balconies");
+    expect(ids(3)).toContain("site_conditions");
+    expect(ids(3)).toContain("balconies");
+  });
+
+  it("keeps every other question at Level 1, so lower levels never lose a question", () => {
+    const all = visibleQuestions(tier1Flow(), {}).map((q) => q.id);
+    expect(ids(3)).toEqual(all);
+    expect(ids(1)).toEqual(all.filter((id) => id !== "site_conditions" && id !== "balconies"));
+  });
+
+  it("combines the level with the gate rules", () => {
+    expect(ids(1, { demolition: "yes" })).toContain("demolition_structure_count");
+    expect(ids(1)).not.toContain("demolition_structure_count");
+  });
+
+  it("leaves answers alone when the level changes", () => {
+    const responses = { site_conditions: "yes", balconies: "no" };
+    const before = { ...responses };
+    ids(1, responses);
+    ids(3, responses);
+    expect(responses).toEqual(before);
+    // The run still reads a hidden answer, so moving down never drops one.
+    expect(visibleQuestions(tier1Flow(), responses).map((q) => q.id)).toContain("site_conditions");
+  });
+
+  it("counts what each locked level adds", () => {
+    expect(lockedLevels(tier1Flow(), {}, 1)).toEqual([
+      { level: 2, added: 1 },
+      { level: 3, added: 1 },
+    ]);
+    expect(lockedLevels(tier1Flow(), {}, 2)).toEqual([{ level: 3, added: 1 }]);
+    expect(lockedLevels(tier1Flow(), {}, 3)).toEqual([]);
+  });
+
+  it("counts a locked follow-up only once its gate is open", () => {
+    const file = shippedFile();
+    questionsOf(file).push({
+      id: "soil_depth",
+      prompt: "How deep is the poor soil?",
+      kind: "number",
+      required: false,
+      level: 3,
+      mapsTo: { target: "intake_field", name: "soilDepth" },
+    });
+    const soil = questionsOf(file).find((one) => one.id === "site_conditions");
+    if (!soil) throw new Error("The shipped file no longer asks about soil.");
+    soil.opens = ["soil_depth"];
+    const definition = parseFlowDefinition(file);
+    expect(lockedLevels(definition, { site_conditions: "no" }, 1).find((l) => l.level === 3)?.added).toBe(1);
+    expect(lockedLevels(definition, { site_conditions: "yes" }, 1).find((l) => l.level === 3)?.added).toBe(2);
+  });
+
+  it("refuses a level that is not 1, 2 or 3", () => {
+    for (const bad of [0, 4, "2", 1.5]) {
+      const file = shippedFile();
+      questionsOf(file)[0].level = bad;
+      expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+    }
+  });
+
+  it("keeps the balcony follow-up and the balcony facts at Level 3 (LA-2219)", () => {
+    const full = { balconies: "yes", balcony_type: "full" };
+    expect(ids(2, full)).not.toContain("balcony_type");
+    expect(ids(3, full)).toEqual(expect.arrayContaining(["balcony_type", "balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"]));
+    expect(lockedLevels(tier1Flow(), full, 1).find((l) => l.level === 3)?.added).toBe(5);
+  });
+
+  it("refuses a follow-up that appears at a lower level than its gate", () => {
+    const file = shippedFile();
+    const count = questionsOf(file).find((one) => one.id === "demolition_structure_count");
+    if (!count) throw new Error("The shipped file no longer asks the structure count.");
+    count.level = 1;
+    const gate = questionsOf(file).find((one) => one.id === "demolition");
+    if (!gate) throw new Error("The shipped file no longer gates demolition.");
+    gate.level = 2;
+    expect(() => parseFlowDefinition(file)).toThrow(/level/i);
   });
 });

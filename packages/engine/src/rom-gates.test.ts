@@ -156,6 +156,20 @@ describe("resolveGateItems: several rules", () => {
     expect(resolved.get("25")?.status).toBe("priced");
   });
 
+  it("keeps an item in only as far as every rule on it lets it in (LA-2219)", () => {
+    const deck = [
+      rule({ costCode: "11", section: "balconies" }),
+      rule({ costCode: "11", section: "balconyType", closesOn: ["juliet"] }),
+    ];
+    const status = (answers: Record<string, string>) => resolveGateItems(deck, answers).get("11")?.status;
+    expect(status({ balconies: "yes", balconyType: "full" })).toBe("priced");
+    expect(status({ balconies: "yes", balconyType: "juliet" })).toBe("not_in_job");
+    expect(status({ balconies: "no" })).toBe("not_in_job");
+    expect(status({ balconies: "dont_know" })).toBe("tbd");
+    expect(status({ balconies: "yes" })).toBe("assumed_present");
+    expect(resolveGateItems(deck, { balconies: "yes", balconyType: "juliet" }).get("11")?.sections).toEqual(["balconyType"]);
+  });
+
   it("leaves a cost code with no rule unresolved", () => {
     const resolved = resolveGateItems([rule({ costCode: "1" })], { demolition: "no" });
     expect(resolved.has("2")).toBe(false);

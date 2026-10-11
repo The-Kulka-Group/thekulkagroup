@@ -36,6 +36,7 @@ import { type PerUnitLine, readUnitCount, scaleRowsToUnits } from "./rom-per-uni
 import { bringInSupportingItems, type ScopeRelationship } from "./rom-relationships";
 import {
   hasStructureDemolitionScope,
+  pickDerivedRows,
   priceStructureDemolition,
   quantityFor,
   readDemolitionFacts,
@@ -43,7 +44,10 @@ import {
   UNIT_INPUTS,
   type BenchmarkUnit,
   type DemolitionFacts,
+  type DerivedQuantities,
 } from "./rom-units";
+import { GARAGE_SHARE_OF, garageArea } from "./garage";
+import { balconyDeckArea, balconyDoorCount, railLength, SLIDING_DOOR_COST_CODE, slidingDoorSpanLine } from "./balconies";
 import {
   ELEVATOR_BULKHEAD_COST_CODE,
   ELEVATOR_COST_CODE,
@@ -334,6 +338,12 @@ export type UnpricedItem = {
   /** LA-1502: set by the run, the same way as `RomLine.includes`. */
   includes?: ScopeEntry[];
   excludes?: ScopeEntry[];
+  /**
+   * LA-2216: present when the item has a rate but its quantity is a named
+   * blank (GLOSSARY.md: Derived quantity): the project facts it lacks, such
+   * as "Stories Above Grade". Absent when the item lacks a rate instead.
+   */
+  missing?: string[];
 };
 
 /**
@@ -612,10 +622,21 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   const elevatorFacts = readElevatorFacts(answers.facts);
   const elevatorStops = totalElevatorStops(elevatorFacts);
 
-  const blendOne = (costCode: string, rows: Benchmark[]) =>
+  // LA-2216: the derived quantities a unit reads (GLOSSARY.md: Derived
+  // quantity), once per run. A garage row prices only on a known garage area.
+  const derived: DerivedQuantities = {
+    garageArea: garageArea(answers.facts, answers.grossSquareFeet),
+    // LA-2219: full balconies' deck, rail and doors.
+    balconyDeckArea: balconyDeckArea(answers.facts),
+    railLength: railLength(answers.facts),
+    balconyDoors: balconyDoorCount(answers.facts),
+  };
+  const knownGarageArea = derived.garageArea.ok ? derived.garageArea.value : null;
+
+  const blendOne = (costCode: string, rows: Benchmark[], area: number = answers.grossSquareFeet) =>
     blendLine(
       rows,
-      answers.grossSquareFeet,
+      area,
       demolitionFacts,
       snapshot.parameters,
       tiers,
@@ -624,14 +645,15 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       elevatorStops,
       elevatorFacts.elevatorCount,
       elevatorFacts.machineRooms,
+      derived,
     );
 
   // LA-1323: the unit count a per-unit trade prices against, read once per run.
   const unitCount = readUnitCount(answers.facts);
 
-  const blend = (costCode: string, rows: Benchmark[]) => {
+  const blend = (costCode: string, rows: Benchmark[], area: number = answers.grossSquareFeet) => {
     const scaled = scaleRowsToUnits(costCode, rows, unitCount, answers.grossSquareFeet);
-    const line = blendOne(costCode, scaled ?? rows);
+    const line = blendOne(costCode, scaled ?? rows, area);
     if (!scaled || unitCount === null) return line;
     return {
       ...line,
@@ -643,10 +665,28 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     };
   };
 
+  // LA-2216: an item whose quantity the facts cannot give yet becomes a named
+  // blank, never a line priced at zero.
+  const blanks: UnpricedItem[] = [];
+
+  // LA-2216: the garage area leaves a whole-building item once its garage
+  // item has a rate to price that area on, so the garage is priced once.
+  const areaFor = (costCode: string) => {
+    const garageItem = GARAGE_SHARE_OF[costCode];
+    if (garageItem === undefined || !knownGarageArea || !byCostCode.has(garageItem)) return answers.grossSquareFeet;
+    return answers.grossSquareFeet - knownGarageArea;
+  };
+
   const blended = [...byCostCode.keys()]
     .sort((a, b) => a.localeCompare(b))
     .map((costCode) => {
-      const rows = byCostCode.get(costCode)!;
+      const picked = pickDerivedRows(byCostCode.get(costCode)!, derived);
+      if ("blank" in picked) {
+        const lead = byCostCode.get(costCode)![0];
+        blanks.push({ costCode, label: lead.label, missing: picked.blank.missing });
+        return null;
+      }
+      const rows = picked.rows;
       if (costCode === STRUCTURE_DEMOLITION_COST_CODE) {
         // LA-1156, corrected 2026-09-27: no square footage of structure yet
         // (the count was never answered, or it was answered zero) means item
@@ -666,7 +706,11 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       if (costCode === ELEVATOR_BULKHEAD_COST_CODE) {
         return priceElevatorBulkhead(rows, elevatorFacts.elevatorCount, (kept) => blend(costCode, kept));
       }
-      if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows);
+      // LA-2219: sliding doors on a door count span the range on record.
+      if (costCode === SLIDING_DOOR_COST_CODE && rows[0].unit === "usd_each_balcony_door" && derived.balconyDoors.ok) {
+        return slidingDoorSpanLine(rows, derived.balconyDoors.value, (kept) => blend(costCode, kept));
+      }
+      if (!FRAMING_ITEM_CODES.has(costCode)) return blend(costCode, rows, areaFor(costCode));
       return blendFramingLine(
         rows,
         answers.framingSystem ?? null,
@@ -701,10 +745,23 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
 
   // LA-1154, ADR 0006: a driver in the ROM brings in its supporting items,
   // which follow its gate status and add to the total in their own right.
+  // LA-2216: a named blank follows its gate like a line. Off or TBD, it is
+  // named there; in scope, it arrives unpriced with the facts it lacks.
+  const blankStatus = (item: UnpricedItem) => gateResolutions.get(item.costCode)?.status;
+  const gatedBlanks = (status: GateLineStatus): GateItemSummary[] =>
+    blanks
+      .filter((item) => blankStatus(item) === status)
+      .map((item) => ({
+        costCode: item.costCode,
+        label: item.label,
+        question: sectionWords(gateResolutions.get(item.costCode)!.sections.join(" and ")),
+      }));
+  const blanksInScope = blanks.filter((item) => blankStatus(item) !== "not_in_job" && blankStatus(item) !== "tbd");
+
   const supporting = bringInSupportingItems(
     gatedLines,
     snapshot.scopeRelationships ?? [],
-    snapshot.unpricedInScopeItems ?? [],
+    [...(snapshot.unpricedInScopeItems ?? []), ...blanksInScope],
     gateResolutions,
     factsAsText,
   );
@@ -722,8 +779,8 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
         label: l.label,
         question: sectionWords(gateResolutions.get(l.costCode)!.sections.join(" and ")),
       }));
-  const notInThisJob = gateSummary("not_in_job");
-  const tbdGateItems = [...gateSummary("tbd"), ...supporting.tbdItems].sort((a, b) =>
+  const notInThisJob = [...gateSummary("not_in_job"), ...gatedBlanks("not_in_job")];
+  const tbdGateItems = [...gateSummary("tbd"), ...gatedBlanks("tbd"), ...supporting.tbdItems].sort((a, b) =>
     a.costCode.localeCompare(b.costCode),
   );
   const assumedPresentItems = gateSummary("assumed_present");
@@ -988,6 +1045,7 @@ function blendLine(
   elevatorStops: number | null = null,
   elevatorCount: number | null = null,
   machineRooms: number | null = null,
+  derived: DerivedQuantities | null = null,
 ): RomLine {
   const ranked = rows
     .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
@@ -1008,7 +1066,7 @@ function blendLine(
   // (the same cost code always prices on one basis), so the lead row's is
   // the line's. `usd_per_gsf` keeps multiplying by gross square feet, exactly
   // as every ROM computed before this ticket did.
-  const quantity = quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount, machineRooms);
+  const quantity = quantityFor(lead.unit, grossSquareFeet, demolitionFacts, elevatorStops, elevatorCount, machineRooms, derived);
   const midpoint = judgment.rate * quantity;
 
   return {
@@ -1288,9 +1346,22 @@ function assumptionsFor(
 
   // LA-1153, ADR 0006: named here whether or not any line priced, since an
   // item can be in scope with nothing else priced yet either.
-  if (unpricedItems.length > 0) {
+  const noRate = unpricedItems.filter((i) => i.missing === undefined);
+  if (noRate.length > 0) {
     assumptions.push(
-      `${countWords(unpricedItems.length, "item")} ${unpricedItems.length === 1 ? "is" : "are"} in scope with no rate yet: ${unpricedItems.map((i) => i.label).join(", ")}.`,
+      `${countWords(noRate.length, "item")} ${noRate.length === 1 ? "is" : "are"} in scope with no rate yet: ${noRate.map((i) => i.label).join(", ")}.`,
+    );
+  }
+  // LA-2216: a named blank says which facts it lacks, grouped by those facts.
+  const byMissing = new Map<string, UnpricedItem[]>();
+  for (const item of unpricedItems) {
+    if (item.missing === undefined) continue;
+    const key = item.missing.map((fact) => fact.toLowerCase()).join(" or ");
+    byMissing.set(key, [...(byMissing.get(key) ?? []), item]);
+  }
+  for (const [facts, items] of byMissing) {
+    assumptions.push(
+      `${countWords(items.length, "item")} ${items.length === 1 ? "has" : "have"} a rate but no quantity yet, because the project has no ${facts}: ${items.map((i) => i.label).join(", ")}.`,
     );
   }
 

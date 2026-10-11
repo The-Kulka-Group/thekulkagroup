@@ -200,6 +200,75 @@
   .stg-pick { animation: none; }
 }
 
+/* LA-2212: the run at one price level, over the view's right side. A row
+   picked here lights its parts; a row holding the picked part is marked. */
+.stg-rows {
+  position: absolute;
+  right: 16px;
+  top: calc(var(--stg-bar-bottom, 68px) + 10px);
+  width: min(300px, calc(100% - 48px));
+  max-height: calc(var(--stg-row-top, 100%) - var(--stg-bar-bottom, 68px) - 20px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-raised);
+}
+.stg-rows-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); }
+.stg-rows-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+.stg-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--s2);
+  padding: 6px var(--s2);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms var(--ease), border-color 150ms var(--ease);
+}
+.stg-row:hover { background: var(--hover); }
+.stg-row:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.stg-row[aria-current="true"] { background: var(--selected); }
+.stg-row[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-tint); }
+.stg-row-sw { width: 10px; height: 10px; border-radius: var(--r-pill); }
+.stg-row-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stg-row-p { font-weight: 700; }
+.stg-row-psf { grid-column: 2 / -1; color: var(--ink-2); font-size: 12px; }
+.stg-row--unpriced .stg-row-p { color: var(--approximate-ink); }
+.stg-row--unpriced .stg-row-sw { border: 1px dashed var(--working); }
+/* Too narrow for the list beside the building: it sits under the tools,
+   short, and the building frames below it. */
+.stg[data-tight="true"] .stg-rows { left: 14px; right: 14px; width: auto; max-height: min(200px, 30%); }
+/* LA-2219: folded, the list is its level switch alone. The picked part's
+   panel sits under it, so neither covers the other or the building. */
+.stg-rows[data-folded="true"] { grid-template-rows: auto; }
+.stg[data-tight="true"] .stg-pick {
+  left: 14px;
+  right: 14px;
+  width: auto;
+  top: calc(var(--stg-list-bottom, var(--stg-bar-bottom, 68px)) + 8px);
+  max-height: calc(var(--stg-row-top, 100%) - var(--stg-list-bottom, var(--stg-bar-bottom, 68px)) - 16px);
+}
+
 @media (max-width: 860px) {
   .stg--card { min-height: 180px; }
   .stg-pick { left: 14px; right: 14px; width: auto; }

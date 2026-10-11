@@ -200,6 +200,14 @@ the engine's single calibration and never changes the data behind it. Its positi
 stated on the face of every ROM.
 _Avoid_: setting, mode, scenario, risk level, fudge factor
 
+**Price level**:
+How finely the Building View reads one run. Level 1 is the whole run as one block at a
+single $/GSF, Level 2 is the element rollup of ADR 0002, and Level 3 is the canonical work
+items. Every level totals the same run. The price level changes the list and the stage's
+tint and never the number, so it is not the Dial. It is also not a line's detail level in
+the engine, and not a story of the building.
+_Avoid_: dial, detail level, zoom, tier
+
 **Closing comparison**:
 A scored record of predicted trade cost from an issued ROM against actual trade cost from
 an imported project, run automatically whenever actuals are imported for a project the

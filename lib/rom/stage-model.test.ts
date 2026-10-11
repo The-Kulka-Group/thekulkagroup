@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { partsOf, type StageFacts, stageBuilding } from "./stage-model";
+import { partsOf, type StageFacts, stageBuilding, stageFactsFromResponses } from "./stage-model";
 
 // LA-1317: the stage's building comes only from the project's facts and its
 // Design and Engineering cards.
@@ -118,6 +118,7 @@ describe("partsOf (LA-1325)", () => {
     expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual([
       "site",
       "foundation",
+      "piles",
       "podium",
       "podiumDeck",
       "garageCoating",
@@ -144,5 +145,22 @@ describe("partsOf (LA-1325)", () => {
       podiumLevels: 1,
       garage: false,
     });
+  });
+
+  // LA-2214
+  it("swaps the footings for piles when the soil is poor, and back when it is good", () => {
+    const poor = stageBuilding(facts({ poorSoil: true, parkingType: "surface" }), [])!;
+    expect(poor.piles).toBe(true);
+    expect(poor.foundation.depth).toBe(40);
+    expect(partsOf(poor)).toContain("piles");
+    const good = stageBuilding(facts({ poorSoil: false, parkingType: "surface" }), [])!;
+    expect(good.piles).toBe(false);
+    expect(partsOf(good)).not.toContain("piles");
+  });
+
+  it("reads poor soil off the Site Conditions answer", () => {
+    expect(stageFactsFromResponses({ site_conditions: "yes" }).poorSoil).toBe(true);
+    expect(stageFactsFromResponses({ site_conditions: "no" }).poorSoil).toBe(false);
+    expect(stageFactsFromResponses({}).poorSoil).toBe(false);
   });
 });

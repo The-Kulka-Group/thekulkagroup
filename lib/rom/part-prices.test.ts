@@ -210,12 +210,12 @@ describe("partPrices", () => {
 
   // LA-2216: the podium garage, priced from VA's stated rates on the garage area.
   describe("the podium garage", () => {
-    const stated = (exportLabel: string): Comparable => ({ kind: "reviewed_judgment", rate: 0, weight: 1, sourceProjectIds: [], exportLabel, ...recorded });
+    const stated = (exportLabel: string): Comparable => ({ kind: "reviewed_judgment", rate: 0, weight: 1, sourceProjectIds: [], exportLabel: `Source job: ${exportLabel}. Synthetic.`, ...recorded });
     const garage = (amount: number) => ({ amount, unit: "usd_per_sf_of_garage" as const });
     const garageRun = rom([
-      line({ costCode: "3", label: "Podium Deck", low: 682_600, high: 682_600, comparables: [stated("VA")], quantity: garage(20_000) }),
-      line({ costCode: "31g", label: "Garage Electrical", low: 360_000, high: 360_000, comparables: [stated("VA")], quantity: garage(20_000) }),
-      line({ costCode: "27a", label: "Garage Sprinklers", low: 120_000, high: 120_000, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "3", label: "Podium Deck", low: 682_600, high: 682_600, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "31g", label: "Garage Electrical", low: 360_000, high: 360_000, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "27a", label: "Garage Sprinklers", low: 120_000, high: 120_000, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
       line({ costCode: "38", label: "Paving and base courses", low: 200_000, high: 200_000, scopeSide: "site" }),
       line({ costCode: "8", label: "Wood framing", low: 3_000_000, high: 3_000_000 }),
     ]);
@@ -231,7 +231,7 @@ describe("partPrices", () => {
       expect(part(map, "garageElectrical")?.lines.map((l) => l.costCode)).toEqual(["31g"]);
       expect(part(map, "garageSprinklers")?.lines.map((l) => l.costCode)).toEqual(["27a"]);
       expect(part(map, "podiumDeck")).toMatchObject({ name: "Podium Deck", total: 682_600, unpriced: false });
-      expect(part(map, "podiumDeck")?.math[0]).toMatch(/^Podium Deck: 20,000 SF of Garage x \$34\.13 per SF of Garage/);
+      expect(part(map, "podiumDeck")?.math[0]).toBe("Podium Deck: 20,000 SF of Garage x $34.13 per SF of Garage (Stated Rate, VA)");
     });
 
     it("draws garage waterproofing, traffic coating and a dry sprinkler system as unpriced parts", () => {
@@ -270,5 +270,28 @@ describe("partPrices", () => {
       expect(math).toContain("Garage Electrical: No Quantity Yet, Needs Stories Above Grade");
       expect(map.view.rows.find((r) => r.key === "unpriced:31g")?.total).toBeNull();
     });
+  });
+
+  // LA-2214: a stated rate names the job it came from, once, for every item.
+  it("names the source job beside a stated rate, from the export label's first words", () => {
+    const f = facts();
+    const stated = (label: string | null) => ({ ...job, kind: "reviewed_judgment" as const, exportLabel: label });
+    const stub = rom([
+      line({ costCode: "38", label: "Paving", low: 100, high: 100, scopeSide: "site", comparableCount: 0, comparables: [stated("Source job: VA. Synthetic note.")], quantity: { amount: 1, unit: "usd_lump_sum" } }),
+      line({ costCode: "39", label: "Site concrete", low: 100, high: 100, scopeSide: "site", comparableCount: 0, comparables: [stated("Matt said so, 2026-10-11.")], quantity: { amount: 1, unit: "usd_lump_sum" } }),
+    ]);
+    const site = partPrices({ rom: stub, facts: f, building: stageBuilding(f, []) }).parts.find((p) => p.part === "site")!;
+    expect(site.math).toEqual(["Paving: $100 Lump Sum (Stated Rate, VA)", "Site Concrete: $100 Lump Sum (Stated Rate)"]);
+  });
+
+  it("draws item 34a on the piles when the soil is poor and on the foundation when the building has none", () => {
+    const run = rom([line({ costCode: "34a", label: "Deep foundations, piles, and shoring", low: 350_000, high: 350_000, comparableCount: 0, comparables: [{ ...job, kind: "reviewed_judgment", exportLabel: "Source job: WS. Synthetic." }], quantity: { amount: 1, unit: "usd_lump_sum" } })]);
+    const poor = facts({ poorSoil: true });
+    const piles = partPrices({ rom: run, facts: poor, building: stageBuilding(poor, []) }).parts.find((p) => p.part === "piles")!;
+    expect(piles).toMatchObject({ name: "Piles", total: 350_000, math: ["Deep Foundations, Piles, and Shoring: $350,000 Lump Sum (Stated Rate, WS)"] });
+    const good = facts();
+    const map = partPrices({ rom: run, facts: good, building: stageBuilding(good, []) });
+    expect(map.parts.some((p) => p.part === "piles")).toBe(false);
+    expect(map.parts.find((p) => p.part === "foundation")!.total).toBe(350_000);
   });
 });

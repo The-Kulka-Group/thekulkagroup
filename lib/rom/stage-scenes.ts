@@ -17,6 +17,7 @@ export type StagePart =
   | "podium"
   | "basement"
   | "foundation"
+  | "piles"
   | "elevators"
   | "glass"
   | "balconies"
@@ -38,6 +39,7 @@ export const STAGE_PARTS: readonly StagePart[] = [
   "site",
   "surfaceLot",
   "foundation",
+  "piles",
   "basement",
   "podium",
   "podiumDeck",
@@ -105,6 +107,7 @@ const CARD_PART: Record<CardCode, StagePart> = {
 const PART_CARDS: Record<StagePart, readonly string[]> = {
   site: [],
   foundation: ["S-1"],
+  piles: ["S-1"],
   basement: ["S-1"],
   podium: ["A-1"],
   massing: ["A-2", "A-1"],

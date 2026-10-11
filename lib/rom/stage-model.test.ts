@@ -114,9 +114,9 @@ describe("stageBuilding's plan (LA-1325)", () => {
 });
 
 describe("partsOf (LA-1325)", () => {
-  it("names the parts the building has", () => {
-    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual(["foundation", "podium", "massing", "glass", "balconies", "elevators", "units", "service"]);
+  it("names the parts the building has, the ground first (LA-2211)", () => {
+    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual(["site", "foundation", "podium", "massing", "glass", "balconies", "elevators", "units", "service"]);
     const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
-    expect(partsOf(plain)).toEqual(["foundation", "basement", "massing", "glass"]);
+    expect(partsOf(plain)).toEqual(["site", "foundation", "basement", "massing", "glass"]);
   });
 });

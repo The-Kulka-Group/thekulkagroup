@@ -133,7 +133,7 @@ export type ProjectBasis = {
  */
 const FILED_UNDER_33: ReadonlySet<string> = new Set(["28a", "28b", "31f", "36a"]);
 
-const UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
+export const UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
   usd_per_gsf: "SF",
   usd_lump_sum: null,
   usd_per_sf_of_structure: "SF of Structure",
@@ -144,7 +144,7 @@ const UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
 };
 
 /** One of a quantity's unit, after "per": $50.69 per SF. Null for a lump sum. */
-const PER_UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
+export const PER_UNIT_WORDS: Record<BenchmarkUnit, string | null> = {
   usd_per_gsf: "SF",
   usd_lump_sum: null,
   usd_per_sf_of_structure: "SF of Structure",

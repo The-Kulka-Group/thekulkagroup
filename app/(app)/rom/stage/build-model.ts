@@ -109,6 +109,8 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
   const massingStart = 0.2 + piles + 0.6;
   const massingEnd = massingStart + Math.max(0.6, frames * 0.2 + 0.5);
   const windows: Record<StagePart, [number, number]> = {
+    // LA-2211: the ground is there from the start; nothing builds it.
+    site: [0, 0.2],
     foundation: [0.2, 0.2 + piles],
     basement: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
     podium: [0.2 + piles, massingStart],
@@ -328,11 +330,12 @@ export function createStage(
     {
       const top: THREE.BufferGeometry[] = [];
       addBox(top, xCut - SX0, siteDepth, zCut - SZ0, (SX0 + xCut) / 2, -siteDepth / 2, (SZ0 + zCut) / 2);
-      mesh(top, M.site, content, false);
+      tag(mesh(top, M.site, content, false), "site");
       const faces: THREE.BufferGeometry[] = [];
       addBox(faces, 0.4, siteDepth - 0.3, zCut - SZ0, xCut + 0.21, -siteDepth / 2, (SZ0 + zCut) / 2);
       addBox(faces, xCut - SX0, siteDepth - 0.3, 0.4, (SX0 + xCut) / 2, -siteDepth / 2, zCut + 0.21);
-      mesh(faces, M.cut, content, false, null);
+      tag(mesh(faces, M.cut, content, false, null), "site");
+      nextAnchors.site = new THREE.Vector3(SX0 + 30, 0, zCut - 20);
     }
 
     // The service at grade, out in front of the first building's corner (E-1).
@@ -820,7 +823,7 @@ export function createStage(
         for (let o: THREE.Object3D | null = hit.object; o; o = o.parent) {
           if (o.userData.part) return o.userData.part as StagePart;
         }
-        // The site: nothing to pick, and it hides what is behind it.
+        // Nothing tagged: nothing to pick, and it hides what is behind it.
         return null;
       }
       return null;

@@ -1,7 +1,7 @@
 import type { DerivedAssumption } from "@kulka/engine";
 
 import { buildingForm, type FormShape, type FormWing, shapeFromText } from "./building-form";
-import type { StagePart } from "./stage-scenes";
+import { STAGE_PARTS, type StagePart } from "./stage-scenes";
 
 
 // LA-1317: the Design and Engineering stage's building, as plain numbers.
@@ -197,6 +197,7 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
 /** LA-1325: the parts this building has, in assembly order, so the open view lists only what it draws. */
 export function partsOf(b: StageBuilding): StagePart[] {
   const has: Record<StagePart, boolean> = {
+    site: true,
     foundation: true,
     basement: b.basement,
     podium: b.podiumLevels > 0,
@@ -207,5 +208,5 @@ export function partsOf(b: StageBuilding): StagePart[] {
     units: b.rooftopUnits > 0,
     service: b.serviceAmps !== null,
   };
-  return (["foundation", "basement", "podium", "massing", "glass", "balconies", "elevators", "units", "service"] as const).filter((p) => has[p]);
+  return STAGE_PARTS.filter((p) => has[p]);
 }

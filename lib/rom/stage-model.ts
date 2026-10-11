@@ -1,4 +1,4 @@
-import type { DerivedAssumption } from "@kulka/engine";
+import type { BalconyType, DerivedAssumption } from "@kulka/engine";
 
 import { buildingForm, type FormShape, type FormWing, shapeFromText } from "./building-form";
 import { STAGE_PARTS, type StagePart } from "./stage-scenes";
@@ -22,6 +22,10 @@ export type StageFacts = {
   retail: boolean;
   /** LA-2214: the soil answer is yes, "known groundwater or poor soil". Absent reads as good soil. */
   poorSoil?: boolean;
+  /** LA-2219: the Full or Juliet follow-up. Absent, balconies draw as full. */
+  balconyType?: BalconyType | null;
+  /** LA-2219: how many full balconies, for the rate math. Absent when not answered. */
+  balconyCount?: number | null;
 };
 
 /**
@@ -46,6 +50,8 @@ export function stageFactsFromResponses(responses: Readonly<Record<string, strin
     balconies: responses.balconies === "yes",
     retail: responses.retail_storefronts === "yes",
     poorSoil: responses.site_conditions === "yes",
+    balconyType: responses.balcony_type === "full" || responses.balcony_type === "juliet" ? responses.balcony_type : null,
+    balconyCount: count("balcony_count") || null,
   };
 }
 
@@ -74,6 +80,8 @@ export type StageBuilding = {
   elevators: { cars: number; hydraulic: boolean; jack: string | null; wellDepth: number; rooms: number } | null;
   glazing: "standard" | "elevated";
   balconies: boolean;
+  /** LA-2219: full balconies have a slab and a rail; a Juliet balcony has neither. Null draws as full. */
+  balconyType: BalconyType | null;
   retail: boolean;
   rooftopUnits: number;
   serviceAmps: number | null;
@@ -202,6 +210,7 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
     elevators,
     glazing: glazingText.toLowerCase().startsWith("elevated") ? "elevated" : "standard",
     balconies: facts.balconies,
+    balconyType: facts.balconyType ?? null,
     retail: facts.retail,
     rooftopUnits: tons ? Math.min(12, Math.max(1, Math.ceil(tons / buildings / TONS_PER_UNIT))) : 0,
     serviceAmps: amps,
@@ -219,7 +228,9 @@ export function partsOf(b: StageBuilding): StagePart[] {
     podium: b.podiumLevels > 0,
     massing: true,
     glass: true,
-    balconies: b.balconies,
+    balconies: b.balconies && b.balconyType !== "juliet",
+    balconyRail: b.balconies && b.balconyType !== "juliet",
+    balconyDoors: b.balconies,
     elevators: b.elevators !== null,
     // LA-2215: the derived type (V-1) picks which the building draws.
     elevatorJack: b.elevators?.hydraulic === true,

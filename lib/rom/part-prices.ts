@@ -46,7 +46,9 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   podium: "Podium",
   massing: "Building",
   glass: "Windows",
-  balconies: "Balconies",
+  balconies: "Balcony Decks",
+  balconyRail: "Balcony Rail",
+  balconyDoors: "Sliding Doors",
   elevators: "Elevators",
   elevatorJack: "Elevator Jack",
   elevatorMachine: "Elevator Machine",
@@ -142,6 +144,9 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   // The skin's openings and what hangs off it.
   "16a": ["glass"],
   "11": ["balconies", "massing"],
+  // LA-2219: the full balconies' posts and rail, and the doors on the wall behind them.
+  "11a": ["balconyRail", "balconies", "massing"],
+  "15b": ["balconyDoors", "glass", "massing"],
   // The elevator line sits on the jack (hydraulic) or the machine (traction) the derived
   // type (V-1) draws. Its sub-items (26a bulkhead and the rest) stay on the elevators.
   "26": ["elevatorJack", "elevatorMachine", "elevators", "massing"],
@@ -220,10 +225,41 @@ function elevatorMath(line: RomLine, cars: number | null | undefined): string | 
  */
 export function sourceJobOf(line: RomLine): string | null {
   for (const comparable of line.comparables) {
-    const match = /^Source job: ([A-Za-z0-9]{1,8})\b/.exec(comparable.exportLabel ?? "");
+    const match = SOURCE_JOB.exec(comparable.exportLabel ?? "");
     if (match) return match[1];
   }
   return null;
+}
+
+/**
+ * "Source job: WS." or, for a range across jobs (LA-2219's sliding doors),
+ * "Source jobs: VA, V64, VR."
+ */
+const SOURCE_JOB = /^Source jobs?: ([A-Za-z0-9]{1,8}(?:, [A-Za-z0-9]{1,8})*)\./;
+
+/**
+ * LA-2219: full balconies' math reads per balcony, "25 Balconies x 26 LF x
+ * $300 per LF", and the sliding doors read their low and high each. Null
+ * when the stage has no balcony count or the quantity does not divide by it;
+ * the generic sentence then stands.
+ */
+function balconyMath(line: RomLine, balconies: number | null | undefined): string | null {
+  const quantity = line.quantity;
+  if (!quantity || quantity.amount <= 0) return null;
+  const name = titleCase(line.label);
+  const job = sourceJobOf(line);
+  const from = `(${sourceOf(line).text}${job ? `, ${job}` : ""})`;
+  if (quantity.unit === "usd_each_balcony_door") {
+    const doors = wholeNumber(quantity.amount);
+    const each = line.low === line.high ? rateUsd(line.low / quantity.amount) : `${rateUsd(line.low / quantity.amount)} to ${rateUsd(line.high / quantity.amount)}`;
+    return `${name}: ${doors} ${quantity.amount === 1 ? "Door" : "Doors"} x ${each} per Door ${from}`;
+  }
+  const unit = quantity.unit === "usd_per_sf_of_balcony" ? "SF" : quantity.unit === "usd_per_lf_of_rail" ? "LF" : null;
+  if (unit === null || !balconies || balconies <= 0) return null;
+  const each = quantity.amount / balconies;
+  if (!Number.isInteger(each * 100)) return null;
+  const rate = rateUsd(midpoint(line) / quantity.amount);
+  return `${name}: ${wholeNumber(balconies)} ${balconies === 1 ? "Balcony" : "Balconies"} x ${each.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${unit} x ${rate} per ${unit} ${from}`;
 }
 
 /** "Foundations: 100,000 SF x $20.00 per SF (1 Kulka Job)", "Piles: $350,000 Lump Sum (Stated Rate, WS)". */
@@ -337,7 +373,12 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
       total,
       perGsf: total !== null && gsf ? total / gsf : null,
       source: weakest(lines.map((line) => clientSource(sourceOf(line).text))),
-      math: [...lines.map((line) => elevatorMath(line, input.facts.elevatorCount) ?? mathOf(line)), ...unpricedItems.map(unpricedMath)],
+      math: [
+        ...lines.map(
+          (line) => elevatorMath(line, input.facts.elevatorCount) ?? balconyMath(line, input.facts.balconyCount) ?? mathOf(line),
+        ),
+        ...unpricedItems.map(unpricedMath),
+      ],
       unpriced: total === null,
     };
   });

@@ -35,7 +35,25 @@ describe("answerMoment", () => {
     const below = gate("levels_below_grade", "Does the new building go below grade?");
     expect(answerMoment(below, "yes")).toMatchObject({ tag: "Below Grade", answer: "Yes", parts: ["basement"] });
     expect(answerMoment(below, "no")).toMatchObject({ answer: "No", parts: [] });
-    expect(answerMoment(gate("balconies", "Do the units have balconies?"), "yes")?.parts).toEqual(["balconies"]);
+    // LA-2219: a balcony draws as full, with its rail and door, until Full or Juliet says otherwise.
+    expect(answerMoment(gate("balconies", "Do the units have balconies?"), "yes")?.parts).toEqual(["balconies", "balconyRail", "balconyDoors"]);
+  });
+
+  it("draws the slabs, rails and doors for full balconies, and the doors alone for Juliet (LA-2219)", () => {
+    const type: Question = {
+      id: "balcony_type",
+      prompt: "What kind of balconies do the units have?",
+      kind: "choice",
+      required: true,
+      level: 3,
+      choices: [
+        { value: "full", label: "Full" },
+        { value: "juliet", label: "Juliet" },
+      ],
+      mapsTo: { target: "intake_field", name: "balconyType" },
+    };
+    expect(answerMoment(type, "full")).toMatchObject({ tag: "Balcony Type", answer: "Full", parts: ["balconies", "balconyRail", "balconyDoors"] });
+    expect(answerMoment(type, "juliet")?.parts).toEqual(["balconyDoors"]);
   });
 
   it("formats a number and plays nothing for a skipped one", () => {
@@ -78,6 +96,8 @@ describe("stageFactsFromResponses", () => {
         elevator_count: "2",
         levels_below_grade: "no",
         balconies: "yes",
+        balcony_type: "full",
+        balcony_count: "25",
       }),
     ).toEqual({
       grossSquareFeet: 118000,
@@ -90,6 +110,8 @@ describe("stageFactsFromResponses", () => {
       balconies: true,
       retail: false,
       poorSoil: false,
+      balconyType: "full",
+      balconyCount: 25,
     });
   });
 

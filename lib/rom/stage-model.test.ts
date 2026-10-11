@@ -129,6 +129,8 @@ describe("partsOf (LA-1325)", () => {
       "massing",
       "glass",
       "balconies",
+      "balconyRail",
+      "balconyDoors",
       "elevators",
       "elevatorJack",
       "units",

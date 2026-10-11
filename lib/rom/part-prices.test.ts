@@ -341,3 +341,81 @@ describe("partPrices", () => {
     expect(map.parts.find((p) => p.part === "foundation")!.total).toBe(350_000);
   });
 });
+
+// LA-2219: full balconies. 25 balconies, 110 SF of deck and 26 LF of rail each,
+// at the stated rates the migration seeds.
+describe("full balconies", () => {
+  const stated = (label: string): Comparable => ({ ...job, kind: "reviewed_judgment", exportLabel: label });
+  const deck = line({
+    costCode: "11",
+    label: "Balcony Deck",
+    low: 165_000,
+    high: 165_000,
+    comparableCount: 0,
+    comparables: [stated("Source job: VA. Synthetic.")],
+    quantity: { amount: 2_750, unit: "usd_per_sf_of_balcony" },
+  });
+  const rail = line({
+    costCode: "11a",
+    label: "Balcony Posts and Rail",
+    low: 195_000,
+    high: 195_000,
+    comparableCount: 0,
+    comparables: [stated("Source job: VA. Synthetic.")],
+    quantity: { amount: 650, unit: "usd_per_lf_of_rail" },
+  });
+  const doors = line({
+    costCode: "15b",
+    label: "Sliding Doors",
+    low: 45_000,
+    high: 63_425,
+    comparableCount: 0,
+    comparables: [stated("Source jobs: VA, V64, VR. Low."), stated("Source jobs: VA, V64, VR. High.")],
+    quantity: { amount: 25, unit: "usd_each_balcony_door" },
+  });
+  const full = facts({ balconies: true, balconyType: "full", balconyCount: 25 });
+  const mapOf = (run: Rom, f: StageFacts = full) => partPrices({ rom: run, facts: f, building: stageBuilding(f, []) });
+  const at = (map: ReturnType<typeof partPrices>, part: string) => map.parts.find((p) => p.part === part);
+
+  it("puts the deck on the slabs, the rail on its own part and the doors on the wall behind them", () => {
+    const map = mapOf(rom([deck, rail, doors]));
+    expect(at(map, "balconies")?.lines.map((l) => l.costCode)).toEqual(["11"]);
+    expect(at(map, "balconyRail")?.lines.map((l) => l.costCode)).toEqual(["11a"]);
+    expect(at(map, "balconyDoors")?.lines.map((l) => l.costCode)).toEqual(["15b"]);
+    expect([at(map, "balconies")?.name, at(map, "balconyRail")?.name, at(map, "balconyDoors")?.name]).toEqual([
+      "Balcony Decks",
+      "Balcony Rail",
+      "Sliding Doors",
+    ]);
+  });
+
+  it("shows the rate math per balcony, and the doors' low and high", () => {
+    const map = mapOf(rom([deck, rail, doors]));
+    expect(at(map, "balconies")?.math).toEqual(["Balcony Deck: 25 Balconies x 110 SF x $60.00 per SF (Stated Rate, VA)"]);
+    expect(at(map, "balconyRail")?.math).toEqual(["Balcony Posts and Rail: 25 Balconies x 26 LF x $300 per LF (Stated Rate, VA)"]);
+    expect(at(map, "balconyDoors")?.math).toEqual(["Sliding Doors: 25 Doors x $1,800 to $2,537 per Door (Stated Rate, VA, V64, VR)"]);
+    expect(at(map, "balconyDoors")?.total).toBe(54_212.5);
+  });
+
+  it("words the quantity whole when the balcony count is not on the stage", () => {
+    const map = mapOf(rom([rail]), facts({ balconies: true, balconyType: "full" }));
+    expect(at(map, "balconyRail")?.math).toEqual(["Balcony Posts and Rail: 650 LF of Rail x $300 per LF (Stated Rate, VA)"]);
+  });
+
+  it("leaves a part whose fact is missing unpriced, and names the fact", () => {
+    const map = mapOf(rom([deck, doors], [{ costCode: "11a", label: "Balcony Posts and Rail", missing: ["Rail per Balcony"] }]));
+    expect(at(map, "balconyRail")).toMatchObject({
+      total: null,
+      unpriced: true,
+      math: ["Balcony Posts and Rail: No Quantity Yet, Needs Rail per Balcony"],
+    });
+  });
+
+  it("draws no deck or rail for Juliet balconies, which LA-2220 prices, and keeps the doors", () => {
+    const juliet = facts({ balconies: true, balconyType: "juliet" });
+    const parts = mapOf(rom([]), juliet).parts.map((p) => p.part);
+    expect(parts).not.toContain("balconies");
+    expect(parts).not.toContain("balconyRail");
+    expect(parts).toContain("balconyDoors");
+  });
+});

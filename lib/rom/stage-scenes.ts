@@ -22,7 +22,12 @@ export type StagePart =
   | "elevatorJack"
   | "elevatorMachine"
   | "glass"
+  /** The balcony slabs, item 11's deck. */
   | "balconies"
+  /** LA-2219: the full balconies' posts and rail (11a). */
+  | "balconyRail"
+  /** LA-2219: the sliding doors on the wall behind each balcony (15b). */
+  | "balconyDoors"
   | "units"
   | "service"
   /** LA-2216: the podium garage's priced parts, VA's rates on the garage area. */
@@ -53,6 +58,8 @@ export const STAGE_PARTS: readonly StagePart[] = [
   "massing",
   "glass",
   "balconies",
+  "balconyRail",
+  "balconyDoors",
   "elevators",
   "elevatorJack",
   "elevatorMachine",
@@ -117,6 +124,8 @@ const PART_CARDS: Record<StagePart, readonly string[]> = {
   massing: ["A-2", "A-1"],
   glass: ["M-0"],
   balconies: [],
+  balconyRail: [],
+  balconyDoors: [],
   elevators: ["V-1", "V-2", "V-3"],
   elevatorJack: ["V-2", "V-1"],
   elevatorMachine: ["V-1", "V-3"],
@@ -171,6 +180,10 @@ const ANSWER_TAG: Record<string, string> = {
   elevator_count: "Elevators",
   retail_storefronts: "Retail",
   balconies: "Balconies",
+  balcony_type: "Balcony Type",
+  balcony_count: "Balcony Count",
+  balcony_deck_square_feet: "Deck Area",
+  balcony_rail_linear_feet: "Balcony Rail",
   radio_amplifier: "Radio Amplifier",
 };
 
@@ -185,6 +198,8 @@ const GARAGE_PARTS: StagePart[] = [
   "garageDrySprinklers",
 ];
 
+const FULL_BALCONY_PARTS: StagePart[] = ["balconies", "balconyRail", "balconyDoors"];
+
 function answerParts(questionId: string, value: string): StagePart[] {
   if (questionId === "parking_type") {
     if (value === "surface") return ["surfaceLot"];
@@ -192,7 +207,10 @@ function answerParts(questionId: string, value: string): StagePart[] {
   }
   if (questionId === "levels_below_grade") return value === "yes" ? ["basement"] : [];
   if (questionId === "retail_storefronts") return value === "yes" ? ["podium"] : [];
-  if (questionId === "balconies") return value === "yes" ? ["balconies"] : [];
+  if (questionId === "balconies") return value === "yes" ? FULL_BALCONY_PARTS : [];
+  // LA-2219: full balconies draw the slab, its rail and the door behind it;
+  // a Juliet balcony draws its door (LA-2220 adds its rail).
+  if (questionId === "balcony_type") return value === "full" ? FULL_BALCONY_PARTS : value === "juliet" ? ["balconyDoors"] : [];
   return [];
 }
 

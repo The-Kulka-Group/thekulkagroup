@@ -5,6 +5,8 @@ import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
 import { buildField, divisionFor, divisionRank, orderField, statedDivisions } from "@/app/(app)/rom/field-order";
 import flow from "@/config/rom/tier1-flow.json";
 import { titleCase } from "@/lib/format/title-case";
+import { rateUsd, usd, wholeNumber } from "@/lib/format/usd";
+import { clientSource } from "@/lib/rom/client-source";
 import { currentWording } from "@/lib/rom/criterion-wording";
 import { publicWording } from "@/lib/rom/derived-assumptions";
 import { ITEM_DIVISION_MAP, compareItemCodes } from "@/lib/rom/masterformat-item-divisions";
@@ -292,19 +294,8 @@ export type PresentableSnapshot = PublishedBudgetSnapshot;
 
 // --- Formatting shared with the renderer -------------------------------------
 
-export function usd(n: number): string {
-  return `$${Math.round(n).toLocaleString("en-US")}`;
-}
-
-/** A rate per SF or per unit: to the cent under $100, where whole dollars would print $0.14 as $0, and whole dollars above. */
-export function rateUsd(n: number): string {
-  const cents = Math.round(n * 100) / 100;
-  return cents < 100 ? `$${cents.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : usd(n);
-}
-
-export function wholeNumber(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
-}
+export { rateUsd, usd, wholeNumber } from "@/lib/format/usd";
+export { clientSource, type ClientSource } from "@/lib/rom/client-source";
 
 export function percentOf(share: number): string {
   return `${Math.round(share * 1000) / 10}%`;
@@ -420,23 +411,6 @@ const CLIENT_NAMES: Readonly<Record<string, string>> = {
 
 export function lineName(costCode: string, label: string): string {
   return CLIENT_NAMES[costCode] ?? titleCase(label.replace(/\s*&\s*/g, " and "));
-}
-
-/**
- * ledger.ts's source labels are written for the estimator. The client reads
- * Kulka Rate, or Placeholder Rate for a figure the model proposed. A figure
- * built from past jobs reads Kulka Rate too: the client sees no job or job
- * count (LA-1483). "No Rate Yet" reads the same to both.
- * A label with no mapping reads "Kulka Figure" rather than failing, because a
- * frozen page must keep opening; presentation.test.ts checks every label
- * ledger.ts gives today is mapped.
- */
-export function clientSource(internal: string): string {
-  if (internal === "AI Figure" || internal.startsWith("AI,")) return "Placeholder Rate";
-  if (internal === "This Budget Only" || internal === "Stated Rate") return "Kulka Rate";
-  if (/^\d+ Kulka Jobs?(, Judgment)?$/.test(internal)) return "Kulka Rate";
-  if (internal === "No Rate Yet") return internal;
-  return "Kulka Figure";
 }
 
 /**

@@ -14,6 +14,7 @@ import type { CanonicalItemDivision } from "@/lib/rom/run";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 import { holdBack } from "@/lib/rom/design-holds";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
+import { partPrices } from "@/lib/rom/part-prices";
 import { type StageFacts, stageBuilding } from "@/lib/rom/stage-model";
 import type { StageEvent } from "@/lib/rom/stage-scenes";
 
@@ -348,6 +349,20 @@ export function RomRunner({
     () => (stageFacts ? stageBuilding(stageFacts, criteria.items) : null),
     [stageFacts, criteria.items],
   );
+  // LA-2211: what each part of that building costs in the saved run, at the
+  // run's own gross area so the $/GSF agrees with the header's.
+  const stagePrices = useMemo(
+    () =>
+      run && stageFacts
+        ? partPrices({
+            rom: run.rom,
+            facts: { ...stageFacts, grossSquareFeet: run.grossSquareFeet ?? stageFacts.grossSquareFeet },
+            building: stageSpec,
+            classifications,
+          })
+        : null,
+    [run, stageFacts, stageSpec, classifications],
+  );
   // LA-1325: the codes the Building View's parts open.
   const criterionCodes = useMemo(() => criteria.items.map((item) => item.code), [criteria.items]);
   const [ping, setPing] = useState<Ping>(null);
@@ -610,6 +625,7 @@ export function RomRunner({
       cards={criterionCodes}
       openCode={openCriterion?.code ?? null}
       onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
+      prices={stagePrices}
     />
   ) : null;
   const budgetField = (

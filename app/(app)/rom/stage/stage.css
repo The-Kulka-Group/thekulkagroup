@@ -139,8 +139,70 @@
 .stg-part { display: inline-flex; align-items: center; gap: 6px; }
 .stg-part-c { color: var(--primary); font-weight: 700; }
 .stg-part[aria-pressed="true"] .stg-part-c { color: #9cc8ff; }
+/* LA-2211: a part's price on the row, and a part nothing prices, edged in
+   the working orange the model draws it in. */
+.stg-part-p { color: var(--ink); font-weight: 700; }
+.stg-part[aria-pressed="true"] .stg-part-p { color: #ffffff; }
+.stg-part--unpriced { border-style: dashed; border-color: var(--working); }
+.stg-part--unpriced .stg-part-p { color: var(--approximate-ink); }
+.stg-part--unpriced[aria-pressed="true"] .stg-part-p { color: var(--working-tint); }
+
+/* LA-2211: the picked part's price, over the view's left side. */
+.stg-pick {
+  position: absolute;
+  left: 24px;
+  top: calc(var(--stg-bar-bottom, 68px) + 10px);
+  width: min(340px, calc(100% - 48px));
+  max-height: calc(var(--stg-row-top, 100%) - var(--stg-bar-bottom, 68px) - 20px);
+  overflow-y: auto;
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s4);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-raised);
+  animation: stg-cap-in 200ms var(--ease) both;
+}
+.stg-pick-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.stg-pick-name { color: var(--ink-2); font-size: 13px; font-weight: 700; }
+.stg-pick-x {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.stg-pick-x:hover { background: var(--hover); color: var(--ink); }
+.stg-pick-x:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.stg-pick-total { color: var(--ink); font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.stg-pick-total--none { color: var(--approximate-ink); }
+.stg-pick-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.stg-pick-psf { color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.stg-pick-math {
+  margin: 0;
+  padding: var(--s2) 0 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--border-light);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.stg-pick-none { margin: 0; color: var(--ink-2); font-size: 12px; }
+.stg-pick .stg-part { justify-self: start; }
+@media (prefers-reduced-motion: reduce) {
+  .stg-pick { animation: none; }
+}
+
 @media (max-width: 860px) {
   .stg--card { min-height: 180px; }
+  .stg-pick { left: 14px; right: 14px; width: auto; }
   .stg--open { height: 78vh; }
   .stg-bar { left: 14px; right: 12px; top: 12px; }
   .stg-parts { left: 14px; right: 12px; bottom: 10px; }

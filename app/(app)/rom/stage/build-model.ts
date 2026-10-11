@@ -55,12 +55,21 @@ export type StageController = {
   pick: (x: number, y: number) => StagePart | null;
   /** LA-1325: lights these parts blue until set again. */
   setHighlight: (parts: readonly StagePart[]) => void;
+  /** LA-2211: fades every part but this one, so a picked part reads against the rest. Null shows them all. */
+  setFocus: (part: StagePart | null) => void;
+  /** LA-2211: draws these parts faint, edged in a dashed working orange: nothing prices them. */
+  setUnpriced: (parts: readonly StagePart[]) => void;
   /** LA-1325: CSS pixels at the top and bottom that controls cover, so the building frames between them. */
   setInsets: (top: number, bottom: number) => void;
   dispose: () => void;
 };
 
 const BLUE = new THREE.Color(0x0073ea);
+/** daylight.css --working, the colour of what is not priced yet. */
+const WORKING = 0xff9500;
+/** How much of a part shows while another part is picked, and while nothing prices it. */
+const FADED = 0.12;
+const UNPRICED_FILL = 0.4;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
 const outBack = (p: number) => 1 + 2.5 * Math.pow(p - 1, 3) + 1.5 * Math.pow(p - 1, 2);
@@ -248,6 +257,15 @@ export function createStage(
   let glows: Partial<Record<StagePart, (THREE.MeshStandardMaterial | THREE.MeshPhysicalMaterial)[]>> = {};
   let current: PartStates = {};
   let lit = new Set<StagePart>();
+  let focus: StagePart | null = null;
+  let unpriced = new Set<StagePart>();
+  // LA-2211: see-through copies of the building's materials, made as a fade
+  // first needs them and dropped with the building.
+  let see: Map<THREE.Material, THREE.Material>[] = [new Map(), new Map()];
+  let outlines: THREE.LineSegments[] = [];
+  const dash = new THREE.LineDashedMaterial({ color: WORKING, dashSize: 2.4, gapSize: 1.6 });
+  const dashFaded = new THREE.LineDashedMaterial({ color: WORKING, dashSize: 2.4, gapSize: 1.6, transparent: true, opacity: 0.3 });
+  lasting.push(dash, dashFaded);
   let spec: StageBuilding | null = null;
   let span = 0;
   const cutPlane = new THREE.Plane();
@@ -257,6 +275,7 @@ export function createStage(
     spec = next;
     scene.remove(content);
     built.disposables.forEach((d) => d.dispose());
+    dropLooks();
     content = new THREE.Group();
     scene.add(content);
     const disposables: { dispose: () => void }[] = [];
@@ -291,7 +310,11 @@ export function createStage(
       parent.add(m);
       disposables.push(m.geometry);
       geos.forEach((g) => g.dispose());
-      if (poche) m.add(new THREE.Mesh(m.geometry, poche === "dark" ? M.poche : M.pocheLight));
+      if (poche) {
+        const inside = new THREE.Mesh(m.geometry, poche === "dark" ? M.poche : M.pocheLight);
+        inside.userData.poche = true;
+        m.add(inside);
+      }
       return m;
     };
     const applyTint = (part: StagePart, tint: number) => {
@@ -729,7 +752,78 @@ export function createStage(
       cam.set = true;
     }
     applyCut();
+    drawOutlines();
     pose(current);
+  }
+
+  /** The part an object belongs to, from the nearest tagged ancestor. */
+  function partOfObject(obj: THREE.Object3D): StagePart | null {
+    for (let o: THREE.Object3D | null = obj; o; o = o.parent) if (o.userData.part) return o.userData.part as StagePart;
+    return null;
+  }
+
+  /** A see-through copy of `base` at `level` (0 faded, 1 unpriced fill), following its colour and opacity as they change. */
+  function seeThrough(base: THREE.Material, level: 0 | 1): THREE.Material {
+    const cache = see[level];
+    let copy = cache.get(base);
+    if (!copy) {
+      copy = base.clone();
+      copy.transparent = true;
+      copy.depthWrite = false;
+      cache.set(base, copy);
+    }
+    (copy as THREE.MeshBasicMaterial).color.copy((base as THREE.MeshBasicMaterial).color);
+    copy.opacity = (level === 0 ? FADED : UNPRICED_FILL) * base.opacity;
+    return copy;
+  }
+
+  function clearOutlines() {
+    outlines.forEach((line) => {
+      line.removeFromParent();
+      line.geometry.dispose();
+    });
+    outlines = [];
+  }
+
+  function dropLooks() {
+    for (const cache of see) cache.forEach((copy) => copy.dispose());
+    see = [new Map(), new Map()];
+    clearOutlines();
+  }
+
+  /** LA-2211: a dashed working-orange edge on every solid of an unpriced part. */
+  function drawOutlines() {
+    clearOutlines();
+    const solids: THREE.Mesh[] = [];
+    content.traverse((obj) => {
+      if (!(obj instanceof THREE.Mesh) || obj.userData.poche) return;
+      const part = partOfObject(obj);
+      if (part && unpriced.has(part)) solids.push(obj);
+    });
+    for (const solid of solids) {
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(solid.geometry, 25), dash);
+      edge.computeLineDistances();
+      solid.add(edge);
+      outlines.push(edge);
+    }
+  }
+
+  /** LA-2211: the picked part shows whole; every other part fades, and an unpriced part stays faint. */
+  function applyLooks() {
+    content.traverse((obj) => {
+      const part = partOfObject(obj);
+      const away = focus !== null && part !== focus;
+      if (obj instanceof THREE.LineSegments) {
+        obj.material = away ? dashFaded : dash;
+        return;
+      }
+      if (!(obj instanceof THREE.Mesh)) return;
+      const base = (obj.userData.base ??= obj.material) as THREE.Material;
+      obj.userData.cast ??= obj.castShadow;
+      const faint = part !== null && unpriced.has(part);
+      obj.material = away ? seeThrough(base, 0) : faint ? seeThrough(base, 1) : base;
+      obj.castShadow = away || faint ? false : (obj.userData.cast as boolean);
+    });
   }
 
   function pose(states: PartStates) {
@@ -741,6 +835,7 @@ export function createStage(
         mat.emissiveIntensity = lit.has(part) ? 0.45 : 0;
       }
     }
+    applyLooks();
   }
 
   function applyCut() {
@@ -836,8 +931,20 @@ export function createStage(
       lit = new Set(parts);
       pose(current);
     },
+    setFocus: (part) => {
+      focus = part;
+      applyLooks();
+    },
+    setUnpriced: (parts) => {
+      const next = new Set(parts);
+      if ([...next].join() === [...unpriced].join()) return;
+      unpriced = next;
+      drawOutlines();
+      applyLooks();
+    },
     dispose: () => {
       built.disposables.forEach((d) => d.dispose());
+      dropLooks();
       lasting.forEach((d) => d.dispose());
       composer.dispose();
       renderer.dispose();

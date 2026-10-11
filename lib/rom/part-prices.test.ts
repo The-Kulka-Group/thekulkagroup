@@ -411,11 +411,66 @@ describe("full balconies", () => {
     });
   });
 
-  it("draws no deck or rail for Juliet balconies, which LA-2220 prices, and keeps the doors", () => {
+  it("draws no deck or full rail for Juliet balconies, and keeps the doors", () => {
     const juliet = facts({ balconies: true, balconyType: "juliet" });
     const parts = mapOf(rom([]), juliet).parts.map((p) => p.part);
     expect(parts).not.toContain("balconies");
     expect(parts).not.toContain("balconyRail");
     expect(parts).toContain("balconyDoors");
+  });
+});
+
+// LA-2220: 40 Juliet balconies with 6 LF of rail each, at $225 per LF.
+describe("Juliet balconies", () => {
+  const stated = (label: string): Comparable => ({ ...job, kind: "reviewed_judgment", exportLabel: label });
+  const julietRail = line({
+    costCode: "7b",
+    label: "Juliet Rail",
+    low: 54_000,
+    high: 54_000,
+    comparableCount: 0,
+    comparables: [stated("Source jobs: V64, VA. Synthetic.")],
+    quantity: { amount: 240, unit: "usd_per_lf_of_rail" },
+  });
+  const doors = line({
+    costCode: "15b",
+    label: "Sliding Doors",
+    low: 72_000,
+    high: 101_480,
+    comparableCount: 0,
+    comparables: [stated("Source jobs: VA, V64, VR. Low."), stated("Source jobs: VA, V64, VR. High.")],
+    quantity: { amount: 40, unit: "usd_each_balcony_door" },
+  });
+  const juliet = facts({ balconies: true, balconyType: "juliet", balconyCount: 40 });
+  const mapOf = (run: Rom, f: StageFacts = juliet) => partPrices({ rom: run, facts: f, building: stageBuilding(f, []) });
+  const at = (map: ReturnType<typeof partPrices>, part: string) => map.parts.find((p) => p.part === part);
+
+  it("puts the Juliet rail on its own part and the doors on the wall, with no slab", () => {
+    const map = mapOf(rom([julietRail, doors]));
+    expect(at(map, "julietRail")).toMatchObject({ name: "Juliet Rail", total: 54_000 });
+    expect(at(map, "julietRail")?.lines.map((l) => l.costCode)).toEqual(["7b"]);
+    expect(at(map, "balconyDoors")?.lines.map((l) => l.costCode)).toEqual(["15b"]);
+    expect(at(map, "balconies")).toBeUndefined();
+    expect(at(map, "balconyRail")).toBeUndefined();
+  });
+
+  it("shows the rate math per Juliet, and the doors' low and high", () => {
+    const map = mapOf(rom([julietRail, doors]));
+    expect(at(map, "julietRail")?.math).toEqual(["Juliet Rail: 40 Juliets x 6 LF x $225 per LF (Stated Rate, V64, VA)"]);
+    expect(at(map, "balconyDoors")?.math).toEqual(["Sliding Doors: 40 Doors x $1,800 to $2,537 per Door (Stated Rate, VA, V64, VR)"]);
+  });
+
+  it("leaves the rail unpriced and names the fact when the rail per Juliet is missing", () => {
+    const map = mapOf(rom([doors], [{ costCode: "7b", label: "Juliet Rail", missing: ["Rail per Juliet"] }]));
+    expect(at(map, "julietRail")).toMatchObject({
+      total: null,
+      unpriced: true,
+      math: ["Juliet Rail: No Quantity Yet, Needs Rail per Juliet"],
+    });
+  });
+
+  it("totals the Juliet parts to the run total", () => {
+    const map = mapOf(rom([julietRail, doors]));
+    expect(map.parts.reduce((sum, p) => sum + (p.total ?? 0), 0)).toBeCloseTo(map.total);
   });
 });

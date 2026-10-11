@@ -82,8 +82,10 @@ test("saves, runs, reloads, and reopens monthly apartment operations", async ({ 
   const savedOperationsBody = await savedOperations.json();
   expect(savedOperations.status(), JSON.stringify(savedOperationsBody)).toBe(200);
 
-  await expect(page.getByText("One Bedroom needs a source label.")).toBeVisible();
-  await expect(page.getByText("Vacancy Percent needs a source label.")).toBeVisible();
+  // LA-2054: the review list holds one collapsed row per input, so open the group first.
+  await page.locator(".underwriting-review-group").filter({ hasText: "Apartment Operations" }).locator("summary").click();
+  await expect(page.getByText("One Bedroom: No Source Label", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("Vacancy Percent: No Source Label", { exact: false }).first()).toBeVisible();
   const runResponse = page.waitForResponse((response) =>
     response.request().method() === "POST"
     && response.url().endsWith(`/api/underwriting/cases/${createdCase.id}/runs`));
@@ -104,10 +106,15 @@ test("saves, runs, reloads, and reopens monthly apartment operations", async ({ 
   await expect(page.getByRole("spinbutton", { name: "Free Rent %", exact: true })).toHaveValue("0");
   await expect(page.getByLabel("One Bedroom non-revenue units", { exact: true })).toHaveValue("0");
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
-  await expect(page.getByText("One Bedroom needs a source label.")).toBeVisible();
+  await page.locator(".underwriting-review-group").filter({ hasText: "Apartment Operations" }).locator("summary").click();
+  await expect(page.getByText("One Bedroom: No Source Label", { exact: false }).first()).toBeVisible();
 
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
+  // LA-2055: the run page folds the input and evidence snapshots until the viewer opens them.
+  await page.getByRole("button", { name: "Expand Full Calculation Input Snapshot" }).click();
+  await page.getByRole("button", { name: "Expand Saved Evidence Snapshot" }).click();
+  await page.locator("summary", { hasText: "Formula Traces" }).click();
   await expect(page.getByText("Total Potential Income", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Saved Evidence Snapshot" })).toBeVisible();
   await expect(page.getByText("Missing").first()).toBeVisible();

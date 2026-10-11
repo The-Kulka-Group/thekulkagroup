@@ -634,6 +634,41 @@ describe("question levels (LA-2218)", () => {
     expect(ids(2, full)).not.toContain("balcony_type");
     expect(ids(3, full)).toEqual(expect.arrayContaining(["balcony_type", "balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"]));
     expect(lockedLevels(tier1Flow(), full, 1).find((l) => l.level === 3)?.added).toBe(5);
+    expect(lockedLevels(tier1Flow(), { balconies: "yes", balcony_type: "juliet" }, 1).find((l) => l.level === 3)?.added).toBe(4);
+  });
+
+  it("asks the Juliet count and the rail per Juliet only for Juliet balconies, at Level 3 (LA-2220)", () => {
+    const juliet = { balconies: "yes", balcony_type: "juliet" };
+    const facts = ["juliet_count", "juliet_rail_linear_feet"];
+    for (const id of facts) {
+      expect(ids(3, juliet)).toContain(id);
+      expect(ids(2, juliet)).not.toContain(id);
+      expect(ids(3, { balconies: "yes", balcony_type: "full" })).not.toContain(id);
+      expect(ids(3, { balconies: "no", balcony_type: "juliet" })).not.toContain(id);
+    }
+    for (const id of ["balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"]) expect(ids(3, juliet)).not.toContain(id);
+    const prompts = tier1Flow().questions.filter((q) => facts.includes(q.id)).map((q) => q.prompt);
+    expect(prompts).toEqual(["Juliet Count", "Rail per Juliet"]);
+  });
+
+  it("lands the Juliet facts on the engine's facts under their own names (LA-2220)", () => {
+    const definition = tier1Flow();
+    const base: Record<string, string> = {};
+    for (const q of visibleQuestions(definition, {})) if (q.kind === "branch_gate") base[q.id] = "no";
+    const { answers } = readFlowAnswers(definition, {
+      ...base,
+      project_type: "multifamily",
+      construction_kind: "new",
+      gross_square_feet: "100000",
+      stories_above_grade: "5",
+      unit_count: "100",
+      parking_type: "none",
+      balconies: "yes",
+      balcony_type: "juliet",
+      juliet_count: "40",
+      juliet_rail_linear_feet: "6",
+    });
+    expect(answers.facts).toMatchObject({ balconyType: "juliet", julietCount: 40, julietRailLinearFeet: 6 });
   });
 
   it("refuses a follow-up that appears at a lower level than its gate", () => {

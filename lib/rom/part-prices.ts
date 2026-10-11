@@ -1,3 +1,4 @@
+import { JULIET_RAIL_COST_CODE } from "@kulka/engine";
 import type { BlockClassification, Rom, RomLine, ScopeSide, UnpricedItem } from "@kulka/engine";
 
 import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
@@ -49,6 +50,7 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   balconies: "Balcony Decks",
   balconyRail: "Balcony Rail",
   balconyDoors: "Sliding Doors",
+  julietRail: "Juliet Rail",
   elevators: "Elevators",
   elevatorJack: "Elevator Jack",
   elevatorMachine: "Elevator Machine",
@@ -147,6 +149,8 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   // LA-2219: the full balconies' posts and rail, and the doors on the wall behind them.
   "11a": ["balconyRail", "balconies", "massing"],
   "15b": ["balconyDoors", "glass", "massing"],
+  // LA-2220: the Juliet balcony's rail across its door.
+  "7b": ["julietRail", "massing"],
   // The elevator line sits on the jack (hydraulic) or the machine (traction) the derived
   // type (V-1) draws. Its sub-items (26a bulkhead and the rest) stay on the elevators.
   "26": ["elevatorJack", "elevatorMachine", "elevators", "massing"],
@@ -259,7 +263,8 @@ function balconyMath(line: RomLine, balconies: number | null | undefined): strin
   const each = quantity.amount / balconies;
   if (!Number.isInteger(each * 100)) return null;
   const rate = rateUsd(midpoint(line) / quantity.amount);
-  return `${name}: ${wholeNumber(balconies)} ${balconies === 1 ? "Balcony" : "Balconies"} x ${each.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${unit} x ${rate} per ${unit} ${from}`;
+  const [one, many] = line.costCode === JULIET_RAIL_COST_CODE ? ["Juliet", "Juliets"] : ["Balcony", "Balconies"];
+  return `${name}: ${wholeNumber(balconies)} ${balconies === 1 ? one : many} x ${each.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${unit} x ${rate} per ${unit} ${from}`;
 }
 
 /** "Foundations: 100,000 SF x $20.00 per SF (1 Kulka Job)", "Piles: $350,000 Lump Sum (Stated Rate, WS)". */

@@ -24,7 +24,7 @@ export type StageFacts = {
   poorSoil?: boolean;
   /** LA-2219: the Full or Juliet follow-up. Absent, balconies draw as full. */
   balconyType?: BalconyType | null;
-  /** LA-2219: how many full balconies, for the rate math. Absent when not answered. */
+  /** LA-2219: how many balconies of the chosen type (LA-2220: Juliets when Juliet), for the rate math. Absent when not answered. */
   balconyCount?: number | null;
 };
 
@@ -51,7 +51,8 @@ export function stageFactsFromResponses(responses: Readonly<Record<string, strin
     retail: responses.retail_storefronts === "yes",
     poorSoil: responses.site_conditions === "yes",
     balconyType: responses.balcony_type === "full" || responses.balcony_type === "juliet" ? responses.balcony_type : null,
-    balconyCount: count("balcony_count") || null,
+    // LA-2220: the count of whichever type was chosen, so the rate math words it per balcony.
+    balconyCount: (responses.balcony_type === "juliet" ? count("juliet_count") : count("balcony_count")) || null,
   };
 }
 
@@ -230,6 +231,7 @@ export function partsOf(b: StageBuilding): StagePart[] {
     glass: true,
     balconies: b.balconies && b.balconyType !== "juliet",
     balconyRail: b.balconies && b.balconyType !== "juliet",
+    julietRail: b.balconies && b.balconyType === "juliet",
     balconyDoors: b.balconies,
     elevators: b.elevators !== null,
     // LA-2215: the derived type (V-1) picks which the building draws.

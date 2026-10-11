@@ -51,6 +51,7 @@ const BALCONY_RATES = [
   rate("11a", "Balcony Posts and Rail", "usd_per_lf_of_rail", 300),
   rate("15b", "Sliding Doors", "usd_each_balcony_door", 1800),
   rate("15b", "Sliding Doors", "usd_each_balcony_door", 2537),
+  rate("7b", "Juliet Rail", "usd_per_lf_of_rail", 225),
 ];
 
 const gate = (section: string, costCode: string, closesOn: string[]): BranchGateItemRule => ({
@@ -68,6 +69,8 @@ const GATES = [
   gate("balconies", "15b", ["no"]),
   gate("balconyType", "11", ["juliet"]),
   gate("balconyType", "11a", ["juliet"]),
+  gate("balconies", "7b", ["no"]),
+  gate("balconyType", "7b", ["full"]),
 ];
 
 function answers(facts: Record<string, string | number | boolean>): Answers {
@@ -137,21 +140,65 @@ describe("a balcony quantity the facts cannot give", () => {
 
   it("names the balcony type when the follow-up is not answered", () => {
     const rom = computeRom(answers({ balconies: "yes" }), snapshot(BALCONY_RATES));
-    expect(rom.unpricedItems.map((item) => item.missing)).toEqual([["Balcony Type"], ["Balcony Type"], ["Balcony Type"]]);
+    expect(rom.unpricedItems.map((item) => [item.costCode, item.missing]).sort()).toEqual([
+      ["11", ["Balcony Type"]],
+      ["11a", ["Balcony Type"]],
+      ["15b", ["Balcony Type"]],
+      ["7b", ["Balcony Type"]],
+    ]);
   });
 });
 
 describe("the balconies gate and the Full or Juliet follow-up", () => {
-  it("takes the deck, rail and doors out when the units have no balconies", () => {
+  it("takes the deck, rail, Juliet rail and doors out when the units have no balconies", () => {
     const rom = computeRom(answers({ balconies: "no" }), snapshot(BALCONY_RATES));
-    expect(rom.notInThisJob.map((item) => item.costCode).sort()).toEqual(["11", "11a", "15b"]);
+    expect(rom.notInThisJob.map((item) => item.costCode).sort()).toEqual(["11", "11a", "15b", "7b"]);
     expect(rom.unpricedItems).toEqual([]);
     expect(midpoint(rom.total)).toBe(0);
   });
 
-  it("takes the full balcony deck and rail out for Juliet balconies, which LA-2220 prices", () => {
+  it("takes the full balcony deck and rail out for Juliet balconies, and leaves the Juliet facts as named blanks", () => {
     const rom = computeRom(answers({ balconies: "yes", balconyType: "juliet", balconyCount: 25 }), snapshot(BALCONY_RATES));
     expect(rom.notInThisJob.map((item) => item.costCode).sort()).toEqual(["11", "11a"]);
     expect(midpoint(rom.total)).toBe(0);
+  });
+});
+
+// LA-2220: 40 Juliet balconies, each a rail 6 LF wide across its own door.
+const juliet = { balconies: "yes", balconyType: "juliet", julietCount: 40, julietRailLinearFeet: 6 };
+
+describe("Juliet balconies priced by their facts (LA-2220)", () => {
+  it("prices the Juliet rail per LF and one sliding door to each Juliet", () => {
+    const rom = computeRom(answers(juliet), snapshot(BALCONY_RATES));
+    expect(lineOf(rom, "7b")!.quantity).toEqual({ amount: 240, unit: "usd_per_lf_of_rail" });
+    expect(midpoint(lineOf(rom, "7b")!)).toBe(240 * 225);
+    const doors = lineOf(rom, "15b")!;
+    expect(doors.quantity).toEqual({ amount: 40, unit: "usd_each_balcony_door" });
+    expect({ low: doors.low, high: doors.high }).toEqual({ low: 40 * 1800, high: 40 * 2537 });
+    expect(rom.notInThisJob.map((item) => item.costCode).sort()).toEqual(["11", "11a"]);
+    expect(rom.unpricedItems).toEqual([]);
+  });
+
+  it("names Rail per Juliet when only the count is known, and still prices the doors", () => {
+    const rom = computeRom(answers({ balconies: "yes", balconyType: "juliet", julietCount: 40 }), snapshot(BALCONY_RATES));
+    expect(lineOf(rom, "7b")).toBeUndefined();
+    expect(rom.unpricedItems).toEqual([{ costCode: "7b", label: "Juliet Rail", missing: ["Rail per Juliet"] }]);
+    expect(midpoint(lineOf(rom, "15b")!)).toBe((40 * (1800 + 2537)) / 2);
+  });
+
+  it("names Juliet Count on the rail and the doors when it is missing", () => {
+    const rom = computeRom(answers({ balconies: "yes", balconyType: "juliet", julietRailLinearFeet: 6 }), snapshot(BALCONY_RATES));
+    expect(rom.lines.filter((line) => ["7b", "15b"].includes(line.costCode))).toEqual([]);
+    expect(rom.unpricedItems.map((item) => [item.costCode, item.missing]).sort()).toEqual([
+      ["15b", ["Juliet Count"]],
+      ["7b", ["Juliet Count"]],
+    ]);
+  });
+
+  it("takes the Juliet rail out for full balconies and for no balconies", () => {
+    const fullRom = computeRom(answers(full), snapshot(BALCONY_RATES));
+    expect(fullRom.notInThisJob.map((item) => item.costCode)).toEqual(["7b"]);
+    const none = computeRom(answers({ balconies: "no" }), snapshot(BALCONY_RATES));
+    expect(none.notInThisJob.map((item) => item.costCode).sort()).toEqual(["11", "11a", "15b", "7b"]);
   });
 });

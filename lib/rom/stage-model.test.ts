@@ -113,6 +113,28 @@ describe("stageBuilding's plan (LA-1325)", () => {
   });
 });
 
+describe("Juliet balconies on the stage (LA-2220)", () => {
+  it("draws the Juliet rail and the doors with no deck or full rail", () => {
+    const parts = partsOf(stageBuilding(facts({ balconies: true, balconyType: "juliet" }), harborView)!);
+    expect(parts).toContain("julietRail");
+    expect(parts).toContain("balconyDoors");
+    expect(parts).not.toContain("balconies");
+    expect(parts).not.toContain("balconyRail");
+  });
+
+  it("draws no Juliet rail for full balconies, for an unanswered type or for no balconies", () => {
+    for (const f of [facts({ balconyType: "full" }), facts({ balconyType: null }), facts({ balconies: false, balconyType: "juliet" })]) {
+      expect(partsOf(stageBuilding(f, harborView)!)).not.toContain("julietRail");
+    }
+  });
+
+  it("reads the Juliet count as the balcony count when the type is Juliet", () => {
+    const responses = { balconies: "yes", balcony_type: "juliet", balcony_count: "25", juliet_count: "40" };
+    expect(stageFactsFromResponses(responses)).toMatchObject({ balconyType: "juliet", balconyCount: 40 });
+    expect(stageFactsFromResponses({ ...responses, balcony_type: "full" })).toMatchObject({ balconyCount: 25 });
+  });
+});
+
 describe("partsOf (LA-1325)", () => {
   it("names the parts the building has, the ground first (LA-2211)", () => {
     expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual([

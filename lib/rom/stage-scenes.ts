@@ -28,6 +28,8 @@ export type StagePart =
   | "balconyRail"
   /** LA-2219: the sliding doors on the wall behind each balcony (15b). */
   | "balconyDoors"
+  /** LA-2220: a Juliet balcony's rail across its door (7b). It has no slab. */
+  | "julietRail"
   | "units"
   | "service"
   /** LA-2216: the podium garage's priced parts, VA's rates on the garage area. */
@@ -60,6 +62,7 @@ export const STAGE_PARTS: readonly StagePart[] = [
   "balconies",
   "balconyRail",
   "balconyDoors",
+  "julietRail",
   "elevators",
   "elevatorJack",
   "elevatorMachine",
@@ -126,6 +129,7 @@ const PART_CARDS: Record<StagePart, readonly string[]> = {
   balconies: [],
   balconyRail: [],
   balconyDoors: [],
+  julietRail: [],
   elevators: ["V-1", "V-2", "V-3"],
   elevatorJack: ["V-2", "V-1"],
   elevatorMachine: ["V-1", "V-3"],
@@ -184,6 +188,8 @@ const ANSWER_TAG: Record<string, string> = {
   balcony_count: "Balcony Count",
   balcony_deck_square_feet: "Deck Area",
   balcony_rail_linear_feet: "Balcony Rail",
+  juliet_count: "Juliet Count",
+  juliet_rail_linear_feet: "Juliet Rail",
   radio_amplifier: "Radio Amplifier",
 };
 
@@ -209,8 +215,8 @@ function answerParts(questionId: string, value: string): StagePart[] {
   if (questionId === "retail_storefronts") return value === "yes" ? ["podium"] : [];
   if (questionId === "balconies") return value === "yes" ? FULL_BALCONY_PARTS : [];
   // LA-2219: full balconies draw the slab, its rail and the door behind it;
-  // a Juliet balcony draws its door (LA-2220 adds its rail).
-  if (questionId === "balcony_type") return value === "full" ? FULL_BALCONY_PARTS : value === "juliet" ? ["balconyDoors"] : [];
+  // a Juliet balcony (LA-2220) draws its rail across the door, with no slab.
+  if (questionId === "balcony_type") return value === "full" ? FULL_BALCONY_PARTS : value === "juliet" ? ["julietRail", "balconyDoors"] : [];
   return [];
 }
 

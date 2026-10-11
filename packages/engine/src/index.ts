@@ -80,6 +80,7 @@ export {
 export {
   BALCONY_DECK_COST_CODE,
   BALCONY_RAIL_COST_CODE,
+  JULIET_RAIL_COST_CODE,
   SLIDING_DOOR_COST_CODE,
   balconyDeckArea,
   balconyDoorCount,

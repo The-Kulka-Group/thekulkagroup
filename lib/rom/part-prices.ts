@@ -41,6 +41,7 @@ export type PricedPart = {
 export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   site: "Site",
   foundation: "Foundation",
+  piles: "Piles",
   basement: "Basement",
   podium: "Podium",
   massing: "Building",
@@ -96,7 +97,7 @@ export type PartPriceInput = {
 const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   // Below grade and the ground.
   "2": ["foundation"],
-  "34a": ["foundation"],
+  "34a": ["piles", "foundation"],
   "34": ["basement", "site"],
   // The podium: its deck, its garage doors and its storefront.
   "3": ["podium", "massing"],
@@ -170,14 +171,30 @@ function elevatorMath(line: RomLine, cars: number | null | undefined): string | 
   const stops = quantity.amount / cars;
   if (!Number.isInteger(stops)) return null;
   const rate = rateUsd(midpoint(line) / quantity.amount);
-  return `${titleCase(line.label)}: ${wholeNumber(cars)} ${cars === 1 ? "Car" : "Cars"} x ${wholeNumber(stops)} ${stops === 1 ? "Stop" : "Stops"} x ${rate} per Stop (${sourceOf(line).text})`;
+  const job = sourceJobOf(line);
+  return `${titleCase(line.label)}: ${wholeNumber(cars)} ${cars === 1 ? "Car" : "Cars"} x ${wholeNumber(stops)} ${stops === 1 ? "Stop" : "Stops"} x ${rate} per Stop (${sourceOf(line).text}${job ? `, ${job}` : ""})`;
 }
 
-/** "Foundations: 100,000 SF x $20.00 per SF (1 Kulka Job)", "Piles: $350,000 Lump Sum (Stated Rate)". */
+/**
+ * LA-2214: the job a stated rate came from, "WS" or "VA". A stated rate's
+ * export label opens "Source job: WS." and every stated-rate migration that
+ * has a source job writes it that way, so the math names the job for all of
+ * them without a map of its own. Null when no comparable names one.
+ */
+export function sourceJobOf(line: RomLine): string | null {
+  for (const comparable of line.comparables) {
+    const match = /^Source job: ([A-Za-z0-9]{1,8})\b/.exec(comparable.exportLabel ?? "");
+    if (match) return match[1];
+  }
+  return null;
+}
+
+/** "Foundations: 100,000 SF x $20.00 per SF (1 Kulka Job)", "Piles: $350,000 Lump Sum (Stated Rate, WS)". */
 function mathOf(line: RomLine): string {
   const name = titleCase(line.label);
   const likely = midpoint(line);
-  const from = `(${sourceOf(line).text})`;
+  const job = sourceJobOf(line);
+  const from = `(${sourceOf(line).text}${job ? `, ${job}` : ""})`;
   const quantity = line.quantity;
   if (line.perUnit) {
     return `${name}: ${wholeNumber(line.perUnit.unitCount)} Units x ${usd(line.perUnit.usdPerUnit)} per Unit ${from}`;

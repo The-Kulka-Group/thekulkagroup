@@ -9,6 +9,8 @@ import { CARD_ORDER, cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, ty
 
 import { reducedMotion } from "../motion";
 import type { PartState, PartStates, StageController, StageCut } from "./build-model";
+import type { Pulse } from "./useAnswerFeedback";
+import { openedAt } from "./views";
 import "./stage.css";
 
 // LA-1317, LA-1318: the Design and Engineering stage across the top of the
@@ -42,6 +44,11 @@ import "./stage.css";
 // The row beneath lists the parts, so picking works from the keyboard too,
 // and a picked part's panel opens the card that decided it. A part nothing
 // prices draws faint with a dashed working-orange edge and reads Not Priced.
+//
+// LA-2217: the open view switches between Assembled (a ground plane over what
+// is below grade, the top floor's corner cut away to its units) and Opened
+// (the stories lift apart and the risers run through them). The switch
+// animates, reduced motion jumps to the end, and picking works in both.
 
 type Props = { building: StageBuilding | null } & (
   | {
@@ -64,6 +71,10 @@ type Props = { building: StageBuilding | null } & (
       onLand: (event: StageEvent, point: { x: number; y: number }) => void;
       /** LA-1324: the hero stage names each moment, so the model shows no caption of its own. */
       quiet?: boolean;
+      /** LA-2213: the live budget's part price map. With it, the building opens to pick a part, as the saved budget's does. */
+      prices?: PartPriceMap | null;
+      /** LA-2213: the parts the last answer changed. Each new pulse lights them once. */
+      pulse?: Pulse | null;
     }
 );
 
@@ -99,6 +110,12 @@ const CARD_CODES: ReadonlySet<string> = new Set(CARD_ORDER);
 type Scene = { event: StageEvent; start: number; land: number; end: number; build: StagePart[]; mark: StagePart[]; landed: boolean };
 type Caption = { event: StageEvent; landed: boolean };
 type CutKind = StageCut["kind"];
+type View = "assembled" | "opened";
+
+const VIEWS: { view: View; label: string }[] = [
+  { view: "assembled", label: "Assembled" },
+  { view: "opened", label: "Opened" },
+];
 
 const CUTS: { kind: CutKind; label: string }[] = [
   { kind: "none", label: "No Cut" },
@@ -108,6 +125,8 @@ const CUTS: { kind: CutKind; label: string }[] = [
 /** Radians a pixel of drag turns the view. */
 const TURN = 0.008;
 const EMPTY: readonly string[] = [];
+/** LA-2213: how long a changed part stays lit. */
+const PULSE_MS = 900;
 
 export function Stage(props: Props) {
   const { building } = props;
@@ -128,6 +147,9 @@ export function Stage(props: Props) {
   const [hover, setHover] = useState<readonly StagePart[]>([]);
   // LA-2211: the picked part, when the stage has the run's prices.
   const [picked, setPicked] = useState<StagePart | null>(null);
+  // LA-2217: the view, and how open the model is right now (0 to 1), which the switch animates.
+  const [view, setView] = useState<View>("assembled");
+  const opened = useRef(0);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const partsRef = useRef<HTMLDivElement>(null);
@@ -173,6 +195,7 @@ export function Stage(props: Props) {
         const spec = latest.current.building;
         if (!spec) return;
         c.setBuilding(spec);
+        c.setOpened(opened.current);
 
         const size = () => {
           const w = el.clientWidth, h = el.clientHeight;
@@ -352,8 +375,9 @@ export function Stage(props: Props) {
   const openCode = assemble?.openCode ?? null;
   const codes = useMemo(() => new Set(cards), [cards]);
   const decisions = useMemo(() => (building ? decisionsFor(partsOf(building), codes) : []), [building, codes]);
-  const openable = props.mode === "assemble" && !failed;
-  const prices = assemble?.prices ?? null;
+  const prices = props.prices ?? null;
+  const openable = !failed && (props.mode === "assemble" || prices !== null);
+  const pulse = props.mode === "live" ? (props.pulse ?? null) : null;
   const priceOf = useMemo(() => new Map((prices?.parts ?? []).map((one) => [one.part, one])), [prices]);
   const unpricedParts = useMemo(() => (prices?.parts ?? []).filter((one) => one.unpriced).map((one) => one.part), [prices]);
   // A picked part the building no longer draws is no longer picked.
@@ -375,6 +399,27 @@ export function Stage(props: Props) {
   );
   const focus = open ? (pick?.part ?? null) : null;
 
+  // LA-2213: an answer lights the parts it changed once, up and back. Under
+  // reduced motion there is no sweep; the figures still change.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!pulse || !c || !ready || reducedMotion()) return;
+    const start = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / PULSE_MS);
+      c.setPulse(pulse.parts, Math.sin(Math.PI * p));
+      c.render();
+      if (p < 1) raf = requestAnimationFrame(step);
+      else c.setPulse([], 0);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      c.setPulse([], 0);
+    };
+  }, [pulse, ready]);
+
   // Only the open view is cut; closing it puts the whole building back.
   useEffect(() => {
     const c = ctl.current;
@@ -385,6 +430,31 @@ export function Stage(props: Props) {
     c.setFocus(focus);
     c.render();
   }, [open, cut, lit, unpricedParts, focus, ready, key]);
+
+  // LA-2217: the switch eases the model from one view to the other; reduced motion jumps there.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!c) return;
+    const to = view === "opened" ? 1 : 0;
+    const from = opened.current;
+    const reduced = reducedMotion();
+    const t0 = performance.now();
+    let raf = 0;
+    let last = t0;
+    const frame = (now: number) => {
+      const at = openedAt(from, to, now - t0, reduced);
+      opened.current = at;
+      c.setOpened(at);
+      // How open the model is, for anything checking the switch landed.
+      wrap.current?.setAttribute("data-opened", String(Math.round(at * 100) / 100));
+      const moving = c.tick(reduced ? 10 : Math.min(0.05, Math.max(0, now - last) / 1000));
+      last = now;
+      c.render();
+      if (at !== to || (moving && !reduced)) raf = requestAnimationFrame(frame);
+    };
+    frame(t0);
+    return () => cancelAnimationFrame(raf);
+  }, [view, ready]);
 
   // The open view's controls cover its top and bottom, so the building frames between them.
   useEffect(() => {
@@ -539,6 +609,7 @@ export function Stage(props: Props) {
       className={`stg ${open ? "stg--open" : "stg--card"}${props.mode === "live" ? " stg--live" : ""}`}
       ref={wrap}
       aria-label="Building View"
+      data-view={view}
     >
       <canvas
         ref={canvas}
@@ -591,6 +662,19 @@ export function Stage(props: Props) {
               <span className="stg-head-s">{shapeLine}</span>
             </div>
             <div className="stg-tools">
+              <div className="stg-seg" role="group" aria-label="View">
+                {VIEWS.map((one) => (
+                  <button
+                    key={one.view}
+                    type="button"
+                    className="stg-pill"
+                    aria-pressed={view === one.view}
+                    onClick={() => setView(one.view)}
+                  >
+                    {one.label}
+                  </button>
+                ))}
+              </div>
               <div className="stg-seg" role="group" aria-label="Cut">
                 {CUTS.map((one) => (
                   <button
@@ -655,6 +739,7 @@ export function Stage(props: Props) {
                   setOpen(false);
                   setHover([]);
                   setPicked(null);
+                  setView("assembled");
                 }}
               >
                 Close

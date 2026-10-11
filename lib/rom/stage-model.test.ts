@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { partsOf, type StageFacts, stageBuilding } from "./stage-model";
+import { partsOf, type StageFacts, stageBuilding, stageFactsFromResponses } from "./stage-model";
 
 // LA-1317: the stage's building comes only from the project's facts and its
 // Design and Engineering cards.
@@ -115,11 +115,28 @@ describe("stageBuilding's plan (LA-1325)", () => {
 
 describe("partsOf (LA-1325)", () => {
   it("names the parts the building has, the ground first (LA-2211)", () => {
-    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual(["site", "foundation", "podium", "massing", "glass", "balconies", "elevators", "elevatorJack", "units", "service"]);
+    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual(["site", "foundation", "piles", "podium", "massing", "glass", "balconies", "elevators", "elevatorJack", "units", "service"]);
     // LA-2215: a traction type draws the machine in place of the jack.
     const traction = harborView.map((c) => (c.code === "V-1" ? spec("V-1", "Traction") : c));
-    expect(partsOf(stageBuilding(facts(), traction)!)).toEqual(["site", "foundation", "podium", "massing", "glass", "balconies", "elevators", "elevatorMachine", "units", "service"]);
+    expect(partsOf(stageBuilding(facts(), traction)!)).toEqual(["site", "foundation", "piles", "podium", "massing", "glass", "balconies", "elevators", "elevatorMachine", "units", "service"]);
     const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
     expect(partsOf(plain)).toEqual(["site", "foundation", "basement", "massing", "glass"]);
+  });
+
+  // LA-2214
+  it("swaps the footings for piles when the soil is poor, and back when it is good", () => {
+    const poor = stageBuilding(facts({ poorSoil: true, parkingType: "surface" }), [])!;
+    expect(poor.piles).toBe(true);
+    expect(poor.foundation.depth).toBe(40);
+    expect(partsOf(poor)).toContain("piles");
+    const good = stageBuilding(facts({ poorSoil: false, parkingType: "surface" }), [])!;
+    expect(good.piles).toBe(false);
+    expect(partsOf(good)).not.toContain("piles");
+  });
+
+  it("reads poor soil off the Site Conditions answer", () => {
+    expect(stageFactsFromResponses({ site_conditions: "yes" }).poorSoil).toBe(true);
+    expect(stageFactsFromResponses({ site_conditions: "no" }).poorSoil).toBe(false);
+    expect(stageFactsFromResponses({}).poorSoil).toBe(false);
   });
 });

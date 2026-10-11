@@ -30,6 +30,7 @@ import { useFieldFlip } from "./motion";
 import { PackageCard, UnpricedDot } from "./PackageCard";
 import { type FieldLink, ShareBar, ShareChip } from "./ShareBar";
 import { SpringMoney } from "./SpringMoney";
+import { answerChip, runningLine } from "./stage/answer-feedback";
 import type { RomView } from "./view-groups";
 
 // LA-1142. The budget builds behind the New budget panel while its questions
@@ -231,6 +232,9 @@ export function LiveTotal({
     sourceRef.current = source;
   });
   const previous = useRef<{ midpoint: number; area: number } | null>(null);
+  // LA-2213: the first total of the session, which the running line compares with.
+  const [started, setStarted] = useState<number | null>(null);
+  if (started === null && headline) setStarted(headline.midpoint);
 
   // LA-1153: named whether the area is known yet or not, the same way the
   // trays below already read `answered` regardless of phase.
@@ -302,9 +306,13 @@ export function LiveTotal({
       </span>
       {delta ? (
         <span key={delta.id} className={`lb-delta num lb-delta--${delta.amount > 0 ? "up" : "down"}`} aria-hidden="true">
-          {delta.amount > 0 ? "+" : "−"}
-          {shortMoney(Math.abs(delta.amount)).replace("-", "")}
+          {answerChip(delta.amount)}
           {delta.source ? <span className="lb-delta-src"> from {delta.source}</span> : null}
+        </span>
+      ) : null}
+      {started !== null ? (
+        <span className="lb-running num" data-testid="running-change">
+          {runningLine(started, headline.midpoint)}
         </span>
       ) : null}
       <span className="lb-tag">Live, Saves at the Last Answer</span>

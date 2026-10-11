@@ -610,7 +610,7 @@ describe("question levels (LA-2218)", () => {
 
   it("keeps an answer given above the level", () => {
     const { answers } = readFlowAnswers(tier1Flow(), { ...COMPLETE, site_conditions: "yes" }, 1);
-    expect(answers.branchGates.site_conditions).toBe("yes");
+    expect(answers.branchGates?.site_conditions).toBe("yes");
   });
 
   it("counts what each locked level adds", () => {

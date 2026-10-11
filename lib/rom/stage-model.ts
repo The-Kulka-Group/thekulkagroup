@@ -163,7 +163,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   const cars = facts.elevatorCount ?? 0;
   let elevators: StageBuilding["elevators"] = null;
   if (cars > 0) {
-    const hydraulic = (text(by("V-1")) ?? "Hydraulic") === "Hydraulic";
+    // The type leads the card's text, so "Hydraulic, 2 Cars" still reads hydraulic.
+    const hydraulic = !/^traction/i.test(text(by("V-1")) ?? "");
     const jackText = text(by("V-2"));
     const jack = hydraulic && jackText ? jackText : null;
     const travel = levels[levels.length - 1].base + (basement ? BASEMENT_FT : 0);
@@ -214,6 +215,9 @@ export function partsOf(b: StageBuilding): StagePart[] {
     glass: true,
     balconies: b.balconies,
     elevators: b.elevators !== null,
+    // LA-2215: the derived type (V-1) picks which the building draws.
+    elevatorJack: b.elevators?.hydraulic === true,
+    elevatorMachine: b.elevators?.hydraulic === false,
     units: b.rooftopUnits > 0,
     service: b.serviceAmps !== null,
   };

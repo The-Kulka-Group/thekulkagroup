@@ -5,10 +5,18 @@ import type { MarkupChoices } from "@kulka/engine";
 
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 import type { MarkupOptions } from "@/lib/rom/markup";
-import { factsQuestions, gatesFromResponses, requiredAnswered, scopeQuestions } from "@/lib/rom/new-budget-flow";
+import {
+  factsQuestions,
+  gatesFromResponses,
+  requiredAnswered,
+  scopeQuestions,
+  unansweredAboveLevel,
+} from "@/lib/rom/new-budget-flow";
+import type { PriceLevel } from "@/lib/rom/part-prices";
 import {
   BRANCH_GATE_ANSWERS,
   isQuestionRequired,
+  lockedLevels,
   numberAnswerIsValid,
   tier1Flow,
   type Question,
@@ -224,6 +232,8 @@ export function GuidedNewBudget({
   onStageEvent,
   onCriteria,
   landedCards = [],
+  level = 3,
+  onLevel,
 }: {
   /** Rate tables, fee and insurance parameters (LA-1016). Missing means the GRs/GCs questions are skipped and the run uses its recorded defaults. */
   markupOptions?: MarkupOptions;
@@ -240,12 +250,17 @@ export function GuidedNewBudget({
   onCriteria?: (criteria: Record<string, StoredDerivedAssumption>) => void;
   /** The cards whose moment has landed on the stage. Only these price the live budget, so the budget moves as each lands. */
   landedCards?: readonly string[];
+  /** LA-2218: the price level, shared with the Building View's list. Questions a higher level adds stay hidden until it is picked. */
+  level?: PriceLevel;
+  onLevel?: (level: PriceLevel) => void;
 }) {
   const definition = tier1Flow();
   // Setup stays open until the first answer creates the project, then
   // folds to one line with an Edit link (LA-1230).
   const [editingSetup, setEditingSetup] = useState(false);
   const [index, setIndex] = useState(0);
+  // LA-2218: every question this level shows is answered, but a hidden one is still required.
+  const [held, setHeld] = useState(false);
   const [name, setName] = useState("");
   const [framingSystem, setFramingSystem] = useState<"wood" | "metal" | "">("");
   const [responses, setResponses] = useState<Responses>({
@@ -290,10 +305,10 @@ export function GuidedNewBudget({
   const setup = factsQuestions(definition, responses).filter((q) => q.id !== "parking_type");
   const setupReady = name.trim() !== "" && requiredAnswered(setup, responses);
 
-  function slotsFor(current: Responses, form: MarkupForm): Slot[] {
+  function slotsFor(current: Responses, form: MarkupForm, at: PriceLevel = level): Slot[] {
     const flow = [
-      ...factsQuestions(definition, current).filter((q) => q.id === "parking_type"),
-      ...scopeQuestions(definition, current),
+      ...factsQuestions(definition, current, at).filter((q) => q.id === "parking_type"),
+      ...scopeQuestions(definition, current, at),
     ];
     const slots: Slot[] = [];
     for (const question of flow) {
@@ -487,7 +502,9 @@ export function GuidedNewBudget({
       void deriveEngineering(id, current);
     }
     if (nextIndex >= nextSlots.length) {
-      void finish(id, current, form);
+      // The run needs every required answer, so a question this level hides keeps the budget open.
+      if (unansweredAboveLevel(definition, current, level).length > 0) setHeld(true);
+      else void finish(id, current, form);
     } else {
       setIndex(nextIndex);
     }
@@ -660,8 +677,23 @@ export function GuidedNewBudget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupKey, onStageEvent]);
 
+  /** LA-2218: move the shared level. Going up lands on the first new question still unanswered. */
+  function chooseLevel(next: PriceLevel) {
+    if (busy || next === level) return;
+    onLevel?.(next);
+    setHeld(false);
+    setError(null);
+    if (next > level) {
+      const target = slotsFor(responses, markupForm, next).findIndex(
+        (one) => one.kind === "flow" && one.question.level > level && (responses[one.question.id] ?? "") === "",
+      );
+      if (target >= 0) setIndex(target);
+    }
+  }
+
   function back() {
     if (busy) return;
+    setHeld(false);
     setError(null);
     if (index > 0) setIndex(index - 1);
   }
@@ -915,6 +947,14 @@ export function GuidedNewBudget({
         ) : null}
       </section>
 
+      <LevelTiles
+        level={level}
+        locked={lockedLevels(definition, responses, level)}
+        held={held}
+        disabled={busy}
+        onLevel={chooseLevel}
+      />
+
       {error ? (
         <p className="rb-pp rb-pp--error" role="alert">
           {error}
@@ -936,6 +976,61 @@ export function GuidedNewBudget({
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * LA-2218: the price level and a dashed tile for each locked one, saying how
+ * many questions it adds. A tile moves the shared level up to that level.
+ */
+function LevelTiles({
+  level,
+  locked,
+  held,
+  disabled,
+  onLevel,
+}: {
+  level: PriceLevel;
+  locked: { level: PriceLevel; added: number }[];
+  held: boolean;
+  disabled: boolean;
+  onLevel: (level: PriceLevel) => void;
+}) {
+  const tiles = locked.filter((one) => one.added > 0);
+  return (
+    <div className="nb-levels">
+      <div className="nb-level-seg" role="group" aria-label="Price Level">
+        {([1, 2, 3] as const).map((one) => (
+          <button
+            key={one}
+            type="button"
+            className="nb-level-pill"
+            aria-pressed={level === one}
+            disabled={disabled}
+            onClick={() => onLevel(one)}
+          >
+            Level {one}
+          </button>
+        ))}
+      </div>
+      {held ? (
+        <p className="nb-help nb-level-held" role="status">
+          The budget is waiting on questions Level {level} does not ask. Open a locked level below to answer them.
+        </p>
+      ) : null}
+      {tiles.map((tile) => (
+        <button
+          key={tile.level}
+          type="button"
+          className="nb-lock"
+          data-level={tile.level}
+          disabled={disabled}
+          onClick={() => onLevel(tile.level)}
+        >
+          Level {tile.level} · {tile.added} More {tile.added === 1 ? "Question" : "Questions"}
+        </button>
+      ))}
     </div>
   );
 }

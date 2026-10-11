@@ -68,6 +68,9 @@ type Props = { building: StageBuilding | null } & (
       prices?: PartPriceMap | null;
       /** LA-2212: the run at every price level. With it, the open view lists the run at the level picked. */
       levels?: PriceLevels | null;
+      /** LA-2218: the price level, when the New Budget questions share it with this list. */
+      level?: PriceLevel;
+      onLevel?: (level: PriceLevel) => void;
     }
   | {
       mode: "live";
@@ -157,7 +160,7 @@ export function Stage(props: Props) {
   // LA-2211: the picked part, when the stage has the run's prices.
   const [picked, setPicked] = useState<StagePart | null>(null);
   // LA-2212: the price level the list reads, and the row picked in it.
-  const [priceLevel, setPriceLevel] = useState<PriceLevel>(3);
+  const [ownLevel, setOwnLevel] = useState<PriceLevel>(3);
   const [row, setRow] = useState<string | null>(null);
   // LA-2217: the view, and how open the model is right now (0 to 1), which the switch animates.
   const [view, setView] = useState<View>("assembled");
@@ -396,6 +399,8 @@ export function Stage(props: Props) {
   // A picked part the building no longer draws is no longer picked.
   const pick = picked && priceOf.has(picked) ? priceOf.get(picked)! : null;
   const levels = assemble?.levels ?? null;
+  // LA-2218: the level the questions use, when the parent holds it; else the stage keeps its own.
+  const priceLevel = assemble?.level ?? ownLevel;
   const levelView = levels?.views[priceLevel] ?? null;
   const rowParts = useMemo(() => levelView?.rows.find((one) => one.key === row)?.parts ?? [], [levelView, row]);
   const holding = useMemo(() => new Set(levelView && pick ? rowsHolding(levelView, pick.part) : []), [levelView, pick]);
@@ -798,7 +803,8 @@ export function Stage(props: Props) {
               row={row}
               holding={holding}
               onLevel={(level) => {
-                setPriceLevel(level);
+                setOwnLevel(level);
+                assemble?.onLevel?.(level);
                 setRow(null);
               }}
               onRow={pickRow}

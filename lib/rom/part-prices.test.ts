@@ -217,7 +217,7 @@ describe("partPrices", () => {
       low: 560_000,
       high: 560_000,
       comparableCount: 0,
-      comparables: [{ ...job, kind: "stated", rate: 35_000 }],
+      comparables: [{ ...job, kind: "reviewed_judgment", rate: 35_000 }],
       quantity: { amount: 16, unit: "usd_per_stop" },
     });
     const map = (text: string | null) => {
@@ -247,7 +247,7 @@ describe("partPrices", () => {
 
     it("shows cars x stops x the rate on the elevator part", () => {
       expect(part(map("Hydraulic"), "elevatorJack")?.math).toEqual(["Elevators: 2 Cars x 8 Stops x $35,000 per Stop (Stated Rate)"]);
-      const traction = elevatorLine.quantity && { ...elevatorLine, low: 724_800, high: 724_800, comparables: [{ ...job, kind: "stated" as const, rate: 45_300 }] };
+      const traction = elevatorLine.quantity && { ...elevatorLine, low: 724_800, high: 724_800, comparables: [{ ...job, kind: "reviewed_judgment" as const, rate: 45_300 }] };
       const f = facts({ elevatorCount: 2, stories: 7 });
       const m = partPrices({ rom: rom([traction!]), facts: f, building: stageBuilding(f, type("Traction")) });
       expect(part(m, "elevatorMachine")?.math).toEqual(["Elevators: 2 Cars x 8 Stops x $45,300 per Stop (Stated Rate)"]);

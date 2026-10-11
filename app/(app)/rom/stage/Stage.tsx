@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { rateUsd, usd } from "@/lib/format/usd";
+import type { PartPriceMap, PricedPart } from "@/lib/rom/part-prices";
 import { partsOf, type StageBuilding } from "@/lib/rom/stage-model";
 import { CARD_ORDER, cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, type StagePart } from "@/lib/rom/stage-scenes";
 
 import { reducedMotion } from "../motion";
 import type { PartState, PartStates, StageController, StageCut } from "./build-model";
+import type { Pulse } from "./useAnswerFeedback";
+import { openedAt } from "./views";
 import "./stage.css";
 
 // LA-1317, LA-1318: the Design and Engineering stage across the top of the
@@ -33,6 +37,18 @@ import "./stage.css";
 // open the Design and Engineering card that decided it in the side panel.
 // Nothing covers the page, so the panel opens beside the view as it does
 // for any card.
+//
+// LA-2211: given the run's part price map, a click on a part picks it
+// instead: the part's cost, $/GSF, source mark and rate math show over the
+// view, the rest of the building fades, and the same click again clears it.
+// The row beneath lists the parts, so picking works from the keyboard too,
+// and a picked part's panel opens the card that decided it. A part nothing
+// prices draws faint with a dashed working-orange edge and reads Not Priced.
+//
+// LA-2217: the open view switches between Assembled (a ground plane over what
+// is below grade, the top floor's corner cut away to its units) and Opened
+// (the stories lift apart and the risers run through them). The switch
+// animates, reduced motion jumps to the end, and picking works in both.
 
 type Props = { building: StageBuilding | null } & (
   | {
@@ -43,6 +59,8 @@ type Props = { building: StageBuilding | null } & (
       /** The card open in the side panel, whose parts stay lit. */
       openCode?: string | null;
       onOpenCard?: (code: string, from: HTMLElement) => void;
+      /** LA-2211: the run's part price map. With it, picking a part shows its price. */
+      prices?: PartPriceMap | null;
     }
   | {
       mode: "live";
@@ -53,6 +71,10 @@ type Props = { building: StageBuilding | null } & (
       onLand: (event: StageEvent, point: { x: number; y: number }) => void;
       /** LA-1324: the hero stage names each moment, so the model shows no caption of its own. */
       quiet?: boolean;
+      /** LA-2213: the live budget's part price map. With it, the building opens to pick a part, as the saved budget's does. */
+      prices?: PartPriceMap | null;
+      /** LA-2213: the parts the last answer changed. Each new pulse lights them once. */
+      pulse?: Pulse | null;
     }
 );
 
@@ -88,6 +110,12 @@ const CARD_CODES: ReadonlySet<string> = new Set(CARD_ORDER);
 type Scene = { event: StageEvent; start: number; land: number; end: number; build: StagePart[]; mark: StagePart[]; landed: boolean };
 type Caption = { event: StageEvent; landed: boolean };
 type CutKind = StageCut["kind"];
+type View = "assembled" | "opened";
+
+const VIEWS: { view: View; label: string }[] = [
+  { view: "assembled", label: "Assembled" },
+  { view: "opened", label: "Opened" },
+];
 
 const CUTS: { kind: CutKind; label: string }[] = [
   { kind: "none", label: "No Cut" },
@@ -97,6 +125,8 @@ const CUTS: { kind: CutKind; label: string }[] = [
 /** Radians a pixel of drag turns the view. */
 const TURN = 0.008;
 const EMPTY: readonly string[] = [];
+/** LA-2213: how long a changed part stays lit. */
+const PULSE_MS = 900;
 
 export function Stage(props: Props) {
   const { building } = props;
@@ -115,10 +145,16 @@ export function Stage(props: Props) {
   const [level, setLevel] = useState(0);
   const [across, setAcross] = useState(0.5);
   const [hover, setHover] = useState<readonly StagePart[]>([]);
+  // LA-2211: the picked part, when the stage has the run's prices.
+  const [picked, setPicked] = useState<StagePart | null>(null);
+  // LA-2217: the view, and how open the model is right now (0 to 1), which the switch animates.
+  const [view, setView] = useState<View>("assembled");
+  const opened = useRef(0);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const partsRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
+  const pickRef = useRef<HTMLElement>(null);
   const hoverFrame = useRef(0);
 
   // Live mode's working state, kept out of React so a frame never re-renders.
@@ -159,6 +195,7 @@ export function Stage(props: Props) {
         const spec = latest.current.building;
         if (!spec) return;
         c.setBuilding(spec);
+        c.setOpened(opened.current);
 
         const size = () => {
           const w = el.clientWidth, h = el.clientHeight;
@@ -338,7 +375,13 @@ export function Stage(props: Props) {
   const openCode = assemble?.openCode ?? null;
   const codes = useMemo(() => new Set(cards), [cards]);
   const decisions = useMemo(() => (building ? decisionsFor(partsOf(building), codes) : []), [building, codes]);
-  const openable = props.mode === "assemble" && !failed;
+  const prices = props.prices ?? null;
+  const openable = !failed && (props.mode === "assemble" || prices !== null);
+  const pulse = props.mode === "live" ? (props.pulse ?? null) : null;
+  const priceOf = useMemo(() => new Map((prices?.parts ?? []).map((one) => [one.part, one])), [prices]);
+  const unpricedParts = useMemo(() => (prices?.parts ?? []).filter((one) => one.unpriced).map((one) => one.part), [prices]);
+  // A picked part the building no longer draws is no longer picked.
+  const pick = picked && priceOf.has(picked) ? priceOf.get(picked)! : null;
   const stories = building?.levels.length ?? 0;
 
   const cut: StageCut = useMemo(
@@ -354,6 +397,28 @@ export function Stage(props: Props) {
     () => (hover.length > 0 ? hover : (decisions.find((d) => d.code === openCode)?.parts ?? [])),
     [hover, decisions, openCode],
   );
+  const focus = open ? (pick?.part ?? null) : null;
+
+  // LA-2213: an answer lights the parts it changed once, up and back. Under
+  // reduced motion there is no sweep; the figures still change.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!pulse || !c || !ready || reducedMotion()) return;
+    const start = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / PULSE_MS);
+      c.setPulse(pulse.parts, Math.sin(Math.PI * p));
+      c.render();
+      if (p < 1) raf = requestAnimationFrame(step);
+      else c.setPulse([], 0);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      c.setPulse([], 0);
+    };
+  }, [pulse, ready]);
 
   // Only the open view is cut; closing it puts the whole building back.
   useEffect(() => {
@@ -361,8 +426,35 @@ export function Stage(props: Props) {
     if (!c) return;
     c.setCut(open ? cut : { kind: "none" });
     c.setHighlight(lit);
+    c.setUnpriced(unpricedParts);
+    c.setFocus(focus);
     c.render();
-  }, [open, cut, lit, ready]);
+  }, [open, cut, lit, unpricedParts, focus, ready, key]);
+
+  // LA-2217: the switch eases the model from one view to the other; reduced motion jumps there.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!c) return;
+    const to = view === "opened" ? 1 : 0;
+    const from = opened.current;
+    const reduced = reducedMotion();
+    const t0 = performance.now();
+    let raf = 0;
+    let last = t0;
+    const frame = (now: number) => {
+      const at = openedAt(from, to, now - t0, reduced);
+      opened.current = at;
+      c.setOpened(at);
+      // How open the model is, for anything checking the switch landed.
+      wrap.current?.setAttribute("data-opened", String(Math.round(at * 100) / 100));
+      const moving = c.tick(reduced ? 10 : Math.min(0.05, Math.max(0, now - last) / 1000));
+      last = now;
+      c.render();
+      if (at !== to || (moving && !reduced)) raf = requestAnimationFrame(frame);
+    };
+    frame(t0);
+    return () => cancelAnimationFrame(raf);
+  }, [view, ready]);
 
   // The open view's controls cover its top and bottom, so the building frames between them.
   useEffect(() => {
@@ -374,14 +466,21 @@ export function Stage(props: Props) {
       // Open, the tools sit on top and the decisions below; closed, the card's label on top.
       const top = (open ? barRef.current : labelRef.current)?.getBoundingClientRect();
       const row = open ? partsRef.current?.getBoundingClientRect() : undefined;
-      c.setInsets(top ? top.bottom - box.top + 6 : 0, row ? box.bottom - row.top + 8 : 0);
+      // LA-2211: the picked part's panel sits under the tools. In a view too
+      // narrow to frame the building beside it, the building frames below it.
+      const panel = open ? pickRef.current?.getBoundingClientRect() : undefined;
+      if (top) el.style.setProperty("--stg-bar-bottom", `${top.bottom - box.top}px`);
+      el.style.setProperty("--stg-row-top", `${row ? row.top - box.top : box.height}px`);
+      const under = panel && panel.width * 2 > box.width ? panel.bottom : top?.bottom;
+      c.setInsets(under ? under - box.top + 6 : 0, row ? box.bottom - row.top + 8 : 0);
       c.render();
     };
     inset();
     const observer = new ResizeObserver(inset);
     observer.observe(el);
+    if (pickRef.current) observer.observe(pickRef.current);
     return () => observer.disconnect();
-  }, [open, ready, decisions.length]);
+  }, [open, ready, decisions.length, prices, pick?.part]);
 
   // Opening scrolls the view into sight; closing returns the camera to its framing.
   useEffect(() => {
@@ -428,6 +527,8 @@ export function Stage(props: Props) {
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
   const openCard = (code: string, from: HTMLElement) => assemble?.onOpenCard?.(code, from);
+  /** LA-2211: picks a part, or clears the pick when it is already picked or nothing is under the pointer. */
+  const pickPart = (part: StagePart | null) => setPicked((now) => (part === null || part === now ? null : part));
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!open || event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -453,6 +554,13 @@ export function Stage(props: Props) {
     cancelAnimationFrame(hoverFrame.current);
     hoverFrame.current = requestAnimationFrame(() => {
       const part = ctl.current?.pick(at.x, at.y) ?? null;
+      if (prices) {
+        // Priced, every part picks, and only the one under the pointer lights.
+        const parts = part && priceOf.has(part) ? [part] : [];
+        target.style.cursor = parts.length ? "pointer" : "grab";
+        setHover((now) => (now.join() === parts.join() ? now : parts));
+        return;
+      }
       const code = part ? cardForPart(part, codes) : null;
       target.style.cursor = code ? "pointer" : "grab";
       const parts = code ? (decisions.find((one) => one.code === code)?.parts ?? [part!]) : [];
@@ -465,12 +573,21 @@ export function Stage(props: Props) {
     if (!open || !d || d.id !== event.pointerId || d.moved) return;
     const at = pointAt(event);
     const part = ctl.current?.pick(at.x, at.y) ?? null;
+    if (prices) {
+      pickPart(part && priceOf.has(part) ? part : null);
+      return;
+    }
     const code = part ? cardForPart(part, codes) : null;
     if (code) openCard(code, event.currentTarget);
   };
   const onKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const c = ctl.current;
     if (!open || !c) return;
+    if (event.key === "Escape" && picked) {
+      event.preventDefault();
+      setPicked(null);
+      return;
+    }
     const moves: Record<string, () => void> = {
       ArrowLeft: () => c.orbit(0.12, 0),
       ArrowRight: () => c.orbit(-0.12, 0),
@@ -492,6 +609,7 @@ export function Stage(props: Props) {
       className={`stg ${open ? "stg--open" : "stg--card"}${props.mode === "live" ? " stg--live" : ""}`}
       ref={wrap}
       aria-label="Building View"
+      data-view={view}
     >
       <canvas
         ref={canvas}
@@ -544,6 +662,19 @@ export function Stage(props: Props) {
               <span className="stg-head-s">{shapeLine}</span>
             </div>
             <div className="stg-tools">
+              <div className="stg-seg" role="group" aria-label="View">
+                {VIEWS.map((one) => (
+                  <button
+                    key={one.view}
+                    type="button"
+                    className="stg-pill"
+                    aria-pressed={view === one.view}
+                    onClick={() => setView(one.view)}
+                  >
+                    {one.label}
+                  </button>
+                ))}
+              </div>
               <div className="stg-seg" role="group" aria-label="Cut">
                 {CUTS.map((one) => (
                   <button
@@ -607,13 +738,45 @@ export function Stage(props: Props) {
                 onClick={() => {
                   setOpen(false);
                   setHover([]);
+                  setPicked(null);
+                  setView("assembled");
                 }}
               >
                 Close
               </button>
             </div>
           </div>
-          {decisions.length > 0 ? (
+          {pick ? (
+            <PickedPart
+              panelRef={pickRef}
+              part={pick}
+              card={cardForPart(pick.part, codes)}
+              cardTitle={decisions.find((one) => one.parts.includes(pick.part))?.title ?? null}
+              onOpenCard={openCard}
+              onClear={() => setPicked(null)}
+            />
+          ) : null}
+          {prices ? (
+            <div className="stg-parts" ref={partsRef} role="group" aria-label="Parts of the building, with their prices">
+              {prices.parts.map((one) => (
+                <button
+                  key={one.part}
+                  type="button"
+                  className={`stg-pill stg-part${one.unpriced ? " stg-part--unpriced" : ""}`}
+                  aria-pressed={pick?.part === one.part}
+                  data-part={one.part}
+                  onClick={() => pickPart(one.part)}
+                  onPointerEnter={() => setHover([one.part])}
+                  onPointerLeave={() => setHover([])}
+                  onFocus={() => setHover([one.part])}
+                  onBlur={() => setHover([])}
+                >
+                  {one.name}
+                  <span className="stg-part-p num">{one.total === null ? "Not Priced" : usd(one.total)}</span>
+                </button>
+              ))}
+            </div>
+          ) : decisions.length > 0 ? (
             <div className="stg-parts" ref={partsRef} role="group" aria-label="Design and Engineering decisions in the model">
               {decisions.map((one) => (
                 <button
@@ -636,5 +799,68 @@ export function Stage(props: Props) {
         </>
       ) : null}
     </section>
+  );
+}
+
+/** "Kulka Rate" and the rest, as the chip tone each one wears. */
+const SOURCE_TONE: Record<PricedPart["source"], string> = {
+  "Kulka Rate": "done",
+  "Kulka Figure": "done",
+  "Placeholder Rate": "working",
+  "No Rate Yet": "neutral",
+};
+
+/** LA-2211: the picked part's price, over the open view. */
+function PickedPart({
+  part,
+  panelRef,
+  card,
+  cardTitle,
+  onOpenCard,
+  onClear,
+}: {
+  part: PricedPart;
+  panelRef: React.Ref<HTMLElement>;
+  card: string | null;
+  cardTitle: string | null;
+  onOpenCard: (code: string, from: HTMLElement) => void;
+  onClear: () => void;
+}) {
+  return (
+    <aside ref={panelRef} className="stg-pick" aria-label={`${part.name} price`} aria-live="polite" data-part={part.part}>
+      <div className="stg-pick-head">
+        <span className="stg-pick-name">{part.name}</span>
+        <button type="button" className="stg-pick-x" aria-label="Clear the picked part" onClick={onClear}>
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      {part.total === null ? (
+        <span className="stg-pick-total stg-pick-total--none">Not Priced</span>
+      ) : (
+        <span className="stg-pick-total num">{usd(part.total)}</span>
+      )}
+      <div className="stg-pick-meta">
+        {part.perGsf !== null ? <span className="stg-pick-psf num">{rateUsd(part.perGsf)} per GSF</span> : null}
+        <span className={`chip chip--${SOURCE_TONE[part.source]}`}>
+          <span className="dot" aria-hidden="true" />
+          {part.source}
+        </span>
+      </div>
+      {part.math.length > 0 ? (
+        <ul className="stg-pick-math">
+          {part.math.map((sentence) => (
+            <li key={sentence}>{sentence}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="stg-pick-none">No line in this budget prices this part yet.</p>
+      )}
+      {card ? (
+        <button type="button" className="stg-pill stg-part" onClick={(e) => onOpenCard(card, e.currentTarget)}>
+          <span className="stg-part-c num">{card}</span>
+          {cardTitle ?? "Open the Decision"}
+        </button>
+      ) : null}
+    </aside>
   );
 }

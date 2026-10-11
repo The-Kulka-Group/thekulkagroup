@@ -15,9 +15,11 @@ export async function readStageFacts(db: Db, projectId: string): Promise<StageFa
     levels_below_grade_gate: string | null;
     balconies_gate: string | null;
     retail_storefronts_gate: string | null;
+    site_conditions_gate: string | null;
   }>(
     `select gross_square_feet, stories_above_grade, unit_count, building_count, parking_type,
-            elevator_count, levels_below_grade_gate, balconies_gate, retail_storefronts_gate
+            elevator_count, levels_below_grade_gate, balconies_gate, retail_storefronts_gate,
+            site_conditions_gate
        from projects where id = $1`,
     [projectId],
   );
@@ -33,5 +35,6 @@ export async function readStageFacts(db: Db, projectId: string): Promise<StageFa
     belowGrade: r.levels_below_grade_gate === "yes",
     balconies: r.balconies_gate === "yes",
     retail: r.retail_storefronts_gate === "yes",
+    poorSoil: r.site_conditions_gate === "yes",
   };
 }

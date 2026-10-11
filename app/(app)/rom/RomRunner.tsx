@@ -14,7 +14,8 @@ import type { CanonicalItemDivision } from "@/lib/rom/run";
 import type { RunRecord, RunSummary } from "@/lib/rom/run-records";
 import { holdBack } from "@/lib/rom/design-holds";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
-import { type StageFacts, stageBuilding } from "@/lib/rom/stage-model";
+import { partPrices } from "@/lib/rom/part-prices";
+import { type StageFacts, stageBuilding, stageFactsFromResponses } from "@/lib/rom/stage-model";
 import type { StageEvent } from "@/lib/rom/stage-scenes";
 
 import {
@@ -77,6 +78,7 @@ import {
 } from "./view-switch";
 import { markStageBuilt, Stage } from "./stage/Stage";
 import { HeroStage } from "./stage/HeroStage";
+import { useAnswerFeedback } from "./stage/useAnswerFeedback";
 import { useNewBudgetStage } from "./stage/useNewBudgetStage";
 import "./rom-blocks.css";
 import "./ledger-rail.css";
@@ -312,6 +314,26 @@ export function RomRunner({
         : null,
     [heldLive, liveEntries, newStage.designing],
   );
+  // LA-2213: what each part of the building costs in the live budget, with
+  // the held-back cards left out like the total. The building lights the
+  // parts an answer changed, and a click picks a part to read its price.
+  const livePrices = useMemo(
+    () =>
+      panel?.kind === "new" && draft && heldLive.phase === "ready" && liveClassifications
+        ? partPrices({
+            rom: heldLive.rom,
+            facts: { ...stageFactsFromResponses(draft.responses), grossSquareFeet: heldLive.grossSquareFeet },
+            building: newStage.building,
+            classifications: liveClassifications,
+          })
+        : null,
+    [panel?.kind, draft, heldLive, liveClassifications, newStage.building],
+  );
+  const answerPulse = useAnswerFeedback(
+    panel?.kind === "new",
+    livePrices,
+    heldLive.phase === "ready" ? heldLive.grossSquareFeet : null,
+  );
   const heroRef = useRef<HTMLDivElement>(null);
   // A moment's price tag flies from the hero stage's answer, where it was decided.
   const onStageLand = useCallback(
@@ -347,6 +369,20 @@ export function RomRunner({
   const stageSpec = useMemo(
     () => (stageFacts ? stageBuilding(stageFacts, criteria.items) : null),
     [stageFacts, criteria.items],
+  );
+  // LA-2211: what each part of that building costs in the saved run, at the
+  // run's own gross area so the $/GSF agrees with the header's.
+  const stagePrices = useMemo(
+    () =>
+      run && stageFacts
+        ? partPrices({
+            rom: run.rom,
+            facts: { ...stageFacts, grossSquareFeet: run.grossSquareFeet ?? stageFacts.grossSquareFeet },
+            building: stageSpec,
+            classifications,
+          })
+        : null,
+    [run, stageFacts, stageSpec, classifications],
   );
   // LA-1325: the codes the Building View's parts open.
   const criterionCodes = useMemo(() => criteria.items.map((item) => item.code), [criteria.items]);
@@ -610,6 +646,7 @@ export function RomRunner({
       cards={criterionCodes}
       openCode={openCriterion?.code ?? null}
       onOpenCard={(code, el) => openPanel({ kind: "criterion", code }, el)}
+      prices={stagePrices}
     />
   ) : null;
   const budgetField = (
@@ -994,6 +1031,8 @@ export function RomRunner({
                   mode="live"
                   quiet
                   building={newStage.building}
+                  prices={livePrices}
+                  pulse={answerPulse}
                   events={newStage.events}
                   onStart={newStage.onStart}
                   onLand={onStageLand}

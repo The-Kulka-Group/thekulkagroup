@@ -5,12 +5,19 @@ import type { Question } from "./question-flow";
 // of the model it builds, what its caption reads, and the short name its price
 // tag and the box's source line carry. It knows nothing about 3D or timing.
 
-/** A piece of the model that a moment builds, or lights again once built. */
+/**
+ * A piece of the model that a moment builds, or lights again once built.
+ * LA-2211: "site" is the ground the building stands on. No moment builds it;
+ * it is a part so site work has somewhere to sit when the building is priced
+ * by part, and so picking the ground picks something.
+ */
 export type StagePart =
+  | "site"
   | "massing"
   | "podium"
   | "basement"
   | "foundation"
+  | "piles"
   | "elevators"
   | "glass"
   | "balconies"
@@ -19,7 +26,9 @@ export type StagePart =
 
 /** Every part, in the order the saved budget's assembly builds them. */
 export const STAGE_PARTS: readonly StagePart[] = [
+  "site",
   "foundation",
+  "piles",
   "basement",
   "podium",
   "massing",
@@ -79,7 +88,9 @@ const CARD_PART: Record<CardCode, StagePart> = {
  * type; the frame's shape is A-2's. Balconies are an answer, not a card.
  */
 const PART_CARDS: Record<StagePart, readonly string[]> = {
+  site: [],
   foundation: ["S-1"],
+  piles: ["S-1"],
   basement: ["S-1"],
   podium: ["A-1"],
   massing: ["A-2", "A-1"],

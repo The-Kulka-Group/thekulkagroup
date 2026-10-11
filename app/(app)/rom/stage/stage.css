@@ -314,3 +314,21 @@
 /* An element box carries its total top right, so its source line sits on
    the row beneath, beside its "Items Not Priced" count. */
 .lb-src--box { top: 58px; }
+
+/* LA-2213: New Budget's Building View opens in place to pick a part. It takes
+   the whole field, the stage's caption, picture and cards stand aside, and
+   Close puts them back. */
+.rb-fresh-note:has(.stg--live.stg--open) > :not(.hs) { display: none; }
+.rb.rb--fresh .rb-fresh-note:has(.stg--live.stg--open) > .hs {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  height: auto;
+  padding: 12px 16px;
+  border-right: 0;
+}
+.rb.rb--fresh .hs:has(.stg--live.stg--open) > :not(.hs-side) { display: none; }
+.rb.rb--fresh .hs:has(.stg--live.stg--open) > .hs-side { grid-column: 1; grid-row: 1; }
+
+/* LA-2213: the running change since the first total, under the total's chips. */
+.lb-running { color: var(--ink-2); font-size: 12px; font-weight: 600; }

@@ -164,8 +164,8 @@ export const UNIT_INPUTS: Readonly<Record<BenchmarkUnit, readonly string[]>> = {
   usd_each_machine_room: ["elevatorMachineRooms"],
   usd_per_sf_of_garage: ["grossSquareFeet", "parkingType", "storiesAboveGrade"],
   usd_per_sf_of_balcony: ["balconyType", "balconyCount", "balconyDeckSquareFeet"],
-  usd_per_lf_of_rail: ["balconyType", "balconyCount", "balconyRailLinearFeet"],
-  usd_each_balcony_door: ["balconyType", "balconyCount"],
+  usd_per_lf_of_rail: ["balconyType", "balconyCount", "balconyRailLinearFeet", "julietCount", "julietRailLinearFeet"],
+  usd_each_balcony_door: ["balconyType", "balconyCount", "julietCount"],
 };
 
 /**

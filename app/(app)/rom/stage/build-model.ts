@@ -6,6 +6,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
+import { jackBoxes, machineBoxes, PIT_FEET, type PartBox } from "./elevator-parts";
 import type { StageBuilding } from "@/lib/rom/stage-model";
 import { STAGE_PARTS, type StagePart } from "@/lib/rom/stage-scenes";
 
@@ -104,6 +105,13 @@ const addBox: Box = (arr, w, h, d, x, y, z) => {
   arr.push(g);
 };
 
+/** A box from the elevator parts module as geometry. */
+const boxGeometry = ({ w, h, d, x, y, z }: PartBox) => {
+  const g = new THREE.BoxGeometry(w, h, d);
+  g.translate(x, y, z);
+  return g;
+};
+
 type Wing = StageBuilding["form"]["wings"][number];
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
 
@@ -147,6 +155,8 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
     glass: [massingEnd - 0.3, massingEnd + 0.5],
     balconies: [massingEnd - 0.1, massingEnd + 0.5],
     elevators: [massingEnd, massingEnd + 0.5],
+    elevatorJack: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
+    elevatorMachine: [massingEnd + 0.1, massingEnd + 0.6],
     units: [massingEnd + 0.15, massingEnd + 0.65],
     service: [massingEnd + 0.3, massingEnd + 0.8],
     // LA-2216: the lot is laid with the ground; the garage floor with the
@@ -464,6 +474,8 @@ export function createStage(
     const basements: THREE.Mesh[] = [];
     const roofs: THREE.Group[] = [];
     const bulkheads: THREE.Group[] = [];
+    const jacks: THREE.Group[] = [];
+    const machines: THREE.Group[] = [];
     const unitGroups: THREE.Group[] = [];
 
     const skinMat = tinted("massing", 0xffffff, 0.9);
@@ -475,6 +487,8 @@ export function createStage(
     const pileMat = tinted("piles", 0xffffff, 0.6);
     const balconyMat = tinted("balconies", 0xffffff, 0.8);
     const bulkheadMat = tinted("elevators", 0xffffff, 0.9);
+    const jackMat = tinted("elevatorJack", 0xc9c6bd, 0.7);
+    const machineMat = tinted("elevatorMachine", 0xffffff, 0.6);
     const unitMat = tinted("units", 0xffffff, 0.9);
     const storefront = glassMat("podium");
     storefront.opacity = 1;
@@ -698,6 +712,26 @@ export function createStage(
         root.add(bulk);
         bulkheads.push(bulk);
         if (bi === 0) nextAnchors.elevators = new THREE.Vector3(ox + bx, wingTop(w) + 10, bz);
+        // LA-2215: the derived type (V-1) draws one more part. A hydraulic car
+        // shows its jack below grade, in front of the cut where the piles stand;
+        // a traction car shows its machine on top of the bulkhead.
+        if (next.elevators.hydraulic) {
+          if (exposed) {
+            const jack = tag(new THREE.Group(), "elevatorJack");
+            jack.position.set(bx, 0, hd - 3.5);
+            mesh(jackBoxes(next.elevators.wellDepth).map(boxGeometry), jackMat, jack);
+            root.add(jack);
+            jacks.push(jack);
+            nextAnchors.elevatorJack = new THREE.Vector3(ox + bx, -PIT_FEET / 2, hd - 3.5);
+          }
+        } else {
+          const machine = tag(new THREE.Group(), "elevatorMachine");
+          machine.position.set(bx, wingTop(w) + 12, bz);
+          mesh(machineBoxes(long, x).map(boxGeometry), machineMat, machine);
+          root.add(machine);
+          machines.push(machine);
+          if (bi === 0) nextAnchors.elevatorMachine = new THREE.Vector3(ox + bx, wingTop(w) + 18, bz);
+        }
       }
       {
         // LA-2217: the MEP risers, a bundle in the tallest wing's front units,
@@ -831,6 +865,20 @@ export function createStage(
         b.scale.y = Math.max(0.0001, arrive < 1 ? outBack(arrive) : 1);
       }
       applyTint("elevators", tint);
+    };
+    nextAppliers.elevatorJack = ({ arrive, tint }) => {
+      for (const j of jacks) {
+        j.visible = arrive > 0.001;
+        j.scale.y = Math.max(0.0001, outCubic(arrive));
+      }
+      applyTint("elevatorJack", tint);
+    };
+    nextAppliers.elevatorMachine = ({ arrive, tint }) => {
+      for (const m of machines) {
+        m.visible = arrive > 0.001;
+        m.scale.setScalar(Math.max(0.0001, arrive < 1 ? outBack(arrive) : 1));
+      }
+      applyTint("elevatorMachine", tint);
     };
     nextAppliers.units = ({ arrive, tint }) => {
       const all = unitGroups.flatMap((u) => u.children);

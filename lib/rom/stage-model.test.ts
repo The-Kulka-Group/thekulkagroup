@@ -130,9 +130,14 @@ describe("partsOf (LA-1325)", () => {
       "glass",
       "balconies",
       "elevators",
+      "elevatorJack",
       "units",
       "service",
     ]);
+    // LA-2215: a traction type draws the machine in place of the jack.
+    const traction = harborView.map((c) => (c.code === "V-1" ? spec("V-1", "Traction") : c));
+    expect(partsOf(stageBuilding(facts(), traction)!)).toContain("elevatorMachine");
+    expect(partsOf(stageBuilding(facts(), traction)!)).not.toContain("elevatorJack");
     const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
     expect(partsOf(plain)).toEqual(["site", "surfaceLot", "foundation", "basement", "massing", "glass"]);
   });

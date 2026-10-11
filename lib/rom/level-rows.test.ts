@@ -109,11 +109,14 @@ describe("partTints", () => {
   it("tints every drawn part one colour at level 1, the run as one block", () => {
     expect(partTints(levels.views[1])).toEqual({
       site: BLOCK_TINT, foundation: BLOCK_TINT, massing: BLOCK_TINT, glass: BLOCK_TINT, elevators: BLOCK_TINT,
+      elevatorJack: BLOCK_TINT,
     });
   });
 
   it("tints the parts each element sits on at level 2, and leaves the rest in the model's own colours", () => {
-    expect(partTints(levels.views[2])).toEqual({ elevators: ELEMENT_TINTS.Elevator, site: ELEMENT_TINTS.Demolition });
+    expect(partTints(levels.views[2])).toEqual({
+      elevators: ELEMENT_TINTS.Elevator, elevatorJack: ELEMENT_TINTS.Elevator, site: ELEMENT_TINTS.Demolition,
+    });
   });
 
   it("tints nothing at level 3", () => {

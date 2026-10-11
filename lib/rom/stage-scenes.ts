@@ -19,6 +19,8 @@ export type StagePart =
   | "foundation"
   | "piles"
   | "elevators"
+  | "elevatorJack"
+  | "elevatorMachine"
   | "glass"
   | "balconies"
   | "units"
@@ -52,6 +54,8 @@ export const STAGE_PARTS: readonly StagePart[] = [
   "glass",
   "balconies",
   "elevators",
+  "elevatorJack",
+  "elevatorMachine",
   "units",
   "service",
 ];
@@ -114,6 +118,8 @@ const PART_CARDS: Record<StagePart, readonly string[]> = {
   glass: ["M-0"],
   balconies: [],
   elevators: ["V-1", "V-2", "V-3"],
+  elevatorJack: ["V-2", "V-1"],
+  elevatorMachine: ["V-1", "V-3"],
   units: ["M-1"],
   service: ["E-1"],
   podiumDeck: ["A-1"],

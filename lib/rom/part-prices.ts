@@ -48,6 +48,8 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   glass: "Windows",
   balconies: "Balconies",
   elevators: "Elevators",
+  elevatorJack: "Elevator Jack",
+  elevatorMachine: "Elevator Machine",
   units: "Rooftop Units",
   service: "Electrical Service",
   podiumDeck: "Podium Deck",
@@ -140,8 +142,9 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   // The skin's openings and what hangs off it.
   "16a": ["glass"],
   "11": ["balconies", "massing"],
-  // The elevators, and every elevator sub-item (26a bulkhead and the rest) by its base number.
-  "26": ["elevators", "massing"],
+  // The elevator line sits on the jack (hydraulic) or the machine (traction) the derived
+  // type (V-1) draws. Its sub-items (26a bulkhead and the rest) stay on the elevators.
+  "26": ["elevatorJack", "elevatorMachine", "elevators", "massing"],
   // The rooftop units are M-1's HVAC; the service at grade is E-1's electrical.
   "30": ["units", "massing"],
   "31": ["service", "massing"],
@@ -169,13 +172,13 @@ function fallbackPart(side: ScopeSide | undefined): StagePart {
 
 /**
  * The elevator's sub-items (26a to 26i, LA-1205) are all the elevator, so they
- * take item 26's parts. No other lettered item follows its base number: 3a
+ * take the elevators' parts (the shaft and bulkhead, not the jack or machine). No other lettered item follows its base number: 3a
  * gypcrete is not the podium deck and 31a low voltage is not the service.
  */
 const ELEVATOR_SUB_ITEM = /^26[a-z]$/;
 
 function choicesFor(costCode: string): readonly StagePart[] {
-  return ITEM_PARTS[costCode] ?? (ELEVATOR_SUB_ITEM.test(costCode) ? ITEM_PARTS["26"] : []);
+  return ITEM_PARTS[costCode] ?? (ELEVATOR_SUB_ITEM.test(costCode) ? (["elevators", "massing"] as const) : []);
 }
 
 function partFor(costCode: string, side: ScopeSide | undefined, drawn: ReadonlySet<StagePart>): StagePart {
@@ -192,6 +195,21 @@ const SOURCE_RANK: readonly ClientSource[] = ["No Rate Yet", "Placeholder Rate",
 
 function weakest(sources: readonly ClientSource[]): ClientSource {
   return SOURCE_RANK.find((source) => sources.includes(source)) ?? "No Rate Yet";
+}
+
+/**
+ * LA-2215: item 26 is priced per stop, so its math reads cars x stops x the
+ * stated rate for the derived type. Null when the line has no per-stop
+ * quantity or the job states no car count; the generic sentence then stands.
+ */
+function elevatorMath(line: RomLine, cars: number | null | undefined): string | null {
+  const quantity = line.quantity;
+  if (line.costCode !== "26" || quantity?.unit !== "usd_per_stop" || !cars || cars <= 0 || quantity.amount <= 0) return null;
+  const stops = quantity.amount / cars;
+  if (!Number.isInteger(stops)) return null;
+  const rate = rateUsd(midpoint(line) / quantity.amount);
+  const job = sourceJobOf(line);
+  return `${titleCase(line.label)}: ${wholeNumber(cars)} ${cars === 1 ? "Car" : "Cars"} x ${wholeNumber(stops)} ${stops === 1 ? "Stop" : "Stops"} x ${rate} per Stop (${sourceOf(line).text}${job ? `, ${job}` : ""})`;
 }
 
 /**
@@ -319,7 +337,7 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
       total,
       perGsf: total !== null && gsf ? total / gsf : null,
       source: weakest(lines.map((line) => clientSource(sourceOf(line).text))),
-      math: [...lines.map(mathOf), ...unpricedItems.map(unpricedMath)],
+      math: [...lines.map((line) => elevatorMath(line, input.facts.elevatorCount) ?? mathOf(line)), ...unpricedItems.map(unpricedMath)],
       unpriced: total === null,
     };
   });

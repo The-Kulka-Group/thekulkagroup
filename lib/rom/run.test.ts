@@ -194,6 +194,7 @@ const EXPECTED_DIVISIONS: Record<string, string> = {
   "25": "13",
   "26": "14",
   "27": "21",
+  "27a": "21", // LA-2216, Matt 2026-10-11: garage-level fire sprinklers.
   "28": "22",
   "29": "22",
   "30": "23",
@@ -203,6 +204,7 @@ const EXPECTED_DIVISIONS: Record<string, string> = {
   "31c": "26",
   "31d": "26",
   "31e": "26",
+  "31g": "26", // LA-2216, Matt 2026-10-11: garage-level electrical.
   "32": "28",
   "32a": "28",
   "33": "31",

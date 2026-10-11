@@ -18,7 +18,7 @@ const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
  * network, and no state shared between test files.
  */
 export async function seededDatabase(
-  options: { statedRates?: boolean; elevatorRates?: boolean } = {},
+  options: { statedRates?: boolean; elevatorRates?: boolean; garageRates?: boolean } = {},
 ): Promise<Db & { close: () => Promise<void> }> {
   const pg = new PGlite();
 
@@ -41,6 +41,13 @@ export async function seededDatabase(
   // that reads the elevator rates passes `elevatorRates: true`.
   if (!options.elevatorRates) {
     await pg.query(`delete from benchmarks where cost_code in ('26', '26a')`);
+  }
+
+  // 20261011110000_podium_garage_rates.sql records VA's podium deck, garage
+  // electrical and garage sprinkler rates (LA-2216). Same reasoning: dropped
+  // by default, and a test that reads them passes `garageRates: true`.
+  if (!options.garageRates) {
+    await pg.query(`delete from benchmarks where unit = 'usd_per_sf_of_garage'`);
   }
 
   // Production migrations contain schema only. Synthetic inputs stay inside

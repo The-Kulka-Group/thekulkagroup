@@ -61,6 +61,8 @@ export type StageController = {
   setUnpriced: (parts: readonly StagePart[]) => void;
   /** LA-2212: washes these parts toward a colour (a CSS hex) for the list's price level. Empty shows the model's own colours. */
   setTints: (tints: Partial<Record<StagePart, string>>) => void;
+  /** LA-2213: lights these parts blue by `amount`, 0 to 1, over any highlight. The stage sweeps it up and back once per answer. */
+  setPulse: (parts: readonly StagePart[], amount: number) => void;
   /** LA-1325: CSS pixels at the top and bottom that controls cover, so the building frames between them. */
   setInsets: (top: number, bottom: number) => void;
   dispose: () => void;
@@ -267,6 +269,8 @@ export function createStage(
   // building's materials, made as a tint first needs them and dropped with the building.
   let tintOf = new Map<StagePart, THREE.Color>();
   let washed = new Map<string, Map<THREE.Material, THREE.Material>>();
+  let pulsed = new Set<StagePart>();
+  let pulseAmount = 0;
   // LA-2211: see-through copies of the building's materials, made as a fade
   // first needs them and dropped with the building.
   let see: Map<THREE.Material, THREE.Material>[] = [new Map(), new Map()];
@@ -857,13 +861,18 @@ export function createStage(
   function pose(states: PartStates) {
     current = states;
     for (const part of STAGE_PARTS) appliers[part]?.(states[part] ?? { arrive: 0, tint: 1 });
+    applyGlows();
+    applyLooks();
+  }
+
+  function applyGlows() {
     for (const part of STAGE_PARTS) {
+      const glow = Math.max(lit.has(part) ? 0.45 : 0, pulsed.has(part) ? 0.9 * pulseAmount : 0);
       for (const mat of glows[part] ?? []) {
         mat.emissive.copy(BLUE);
-        mat.emissiveIntensity = lit.has(part) ? 0.45 : 0;
+        mat.emissiveIntensity = glow;
       }
     }
-    applyLooks();
   }
 
   function applyCut() {
@@ -958,6 +967,11 @@ export function createStage(
     setHighlight: (parts) => {
       lit = new Set(parts);
       pose(current);
+    },
+    setPulse: (parts, amount) => {
+      pulsed = new Set(parts);
+      pulseAmount = clamp(amount);
+      applyGlows();
     },
     setFocus: (part) => {
       focus = part;

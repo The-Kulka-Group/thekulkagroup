@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { partsOf, type StageFacts, stageBuilding, stageFactsFromResponses } from "./stage-model";
+import { readFlowAnswers, tier1Flow } from "./question-flow";
+import { partsOf, type StageFacts, stageBuilding, stageFactsFromResponses, withRunFacts } from "./stage-model";
 
 // LA-1317: the stage's building comes only from the project's facts and its
 // Design and Engineering cards.
@@ -191,5 +192,51 @@ describe("partsOf (LA-1325)", () => {
     expect(stageFactsFromResponses({ site_conditions: "yes" }).poorSoil).toBe(true);
     expect(stageFactsFromResponses({ site_conditions: "no" }).poorSoil).toBe(false);
     expect(stageFactsFromResponses({}).poorSoil).toBe(false);
+  });
+});
+
+describe("a saved run's balconies (LA-2209 review S1)", () => {
+  // The project record keeps only the yes/no balcony gate. The Full or Juliet
+  // follow-up and its counts live in the run's recorded facts.
+  const responses = {
+    project_type: "multifamily",
+    construction_kind: "new",
+    gross_square_feet: "118000",
+    stories_above_grade: "6",
+    unit_count: "107",
+    parking_type: "structured",
+    demolition: "no",
+    levels_below_grade: "no",
+    existing_building_tie_in: "no",
+    site_conditions: "no",
+    amenity_scope: "no",
+    elevator: "yes",
+    elevator_count: "2",
+    retail_storefronts: "no",
+    radio_amplifier: "no",
+    balconies: "yes",
+    balcony_type: "juliet",
+    juliet_count: "40",
+    juliet_rail_linear_feet: "6",
+  };
+  const recorded = readFlowAnswers(tier1Flow(), responses).answers.facts;
+
+  it("draws the Juliet rail from the run's facts, the same parts the live answers draw", () => {
+    const saved = partsOf(stageBuilding(withRunFacts(facts(), recorded), harborView)!);
+    const live = partsOf(stageBuilding(stageFactsFromResponses(responses), harborView)!);
+    expect(saved).toContain("julietRail");
+    expect(saved).not.toContain("balconies");
+    expect(saved).not.toContain("balconyRail");
+    expect(saved).toEqual(live);
+  });
+
+  it("reads the count of the chosen type for the rate math", () => {
+    expect(withRunFacts(facts(), recorded)).toMatchObject({ balconyType: "juliet", balconyCount: 40 });
+    const full = readFlowAnswers(tier1Flow(), { ...responses, balcony_type: "full", balcony_count: "25" }).answers.facts;
+    expect(withRunFacts(facts(), full)).toMatchObject({ balconyType: "full", balconyCount: 25 });
+  });
+
+  it("leaves the project's facts as they are for a run with no balcony facts", () => {
+    expect(withRunFacts(facts(), undefined)).toEqual(facts());
   });
 });

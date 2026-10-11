@@ -1,4 +1,4 @@
-import type { BalconyType, DerivedAssumption } from "@kulka/engine";
+import { type BalconyType, type DerivedAssumption, readBalconyFacts } from "@kulka/engine";
 
 import { buildingForm, type FormShape, type FormWing, shapeFromText } from "./building-form";
 import { STAGE_PARTS, type StagePart } from "./stage-scenes";
@@ -53,6 +53,21 @@ export function stageFactsFromResponses(responses: Readonly<Record<string, strin
     balconyType: responses.balcony_type === "full" || responses.balcony_type === "juliet" ? responses.balcony_type : null,
     // LA-2220: the count of whichever type was chosen, so the rate math words it per balcony.
     balconyCount: (responses.balcony_type === "juliet" ? count("juliet_count") : count("balcony_count")) || null,
+  };
+}
+
+/**
+ * LA-2209 review S1: the project record keeps only the balcony gate. A saved
+ * run keeps the Full or Juliet answer and its counts in its recorded facts,
+ * so the saved Building View reads them there and draws what the live one drew.
+ */
+export function withRunFacts(project: StageFacts, recorded: Readonly<Record<string, string | number | boolean>> | undefined): StageFacts {
+  const balcony = readBalconyFacts(recorded);
+  if (balcony.type === null) return project;
+  return {
+    ...project,
+    balconyType: balcony.type,
+    balconyCount: balcony.type === "juliet" ? balcony.julietCount : balcony.count,
   };
 }
 

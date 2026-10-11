@@ -17,7 +17,7 @@ import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 import { priceLevels } from "@/lib/rom/level-rows";
 import type { PriceLevel } from "@/lib/rom/part-prices";
 import { partPrices } from "@/lib/rom/part-prices";
-import { type StageFacts, stageBuilding, stageFactsFromResponses } from "@/lib/rom/stage-model";
+import { type StageFacts, stageBuilding, stageFactsFromResponses, withRunFacts } from "@/lib/rom/stage-model";
 import type { StageEvent } from "@/lib/rom/stage-scenes";
 
 import {
@@ -368,38 +368,40 @@ export function RomRunner({
   const criteria = useDerivedCriteria(derivedAssumptions);
   const criterionHover = useHoverIntent();
   // LA-1317: the building the stage draws, from the project's facts and its cards.
+  // LA-2209 review S1: the balcony type and counts come from the run, since the project record keeps only the gate.
+  const savedFacts = useMemo(() => (stageFacts ? withRunFacts(stageFacts, run?.facts) : null), [stageFacts, run?.facts]);
   const stageSpec = useMemo(
-    () => (stageFacts ? stageBuilding(stageFacts, criteria.items) : null),
-    [stageFacts, criteria.items],
+    () => (savedFacts ? stageBuilding(savedFacts, criteria.items) : null),
+    [savedFacts, criteria.items],
   );
   // LA-2211: what each part of that building costs in the saved run, at the
   // run's own gross area so the $/GSF agrees with the header's.
   const stagePrices = useMemo(
     () =>
-      run && stageFacts
+      run && savedFacts
         ? partPrices({
             rom: run.rom,
-            facts: { ...stageFacts, grossSquareFeet: run.grossSquareFeet ?? stageFacts.grossSquareFeet },
+            facts: { ...savedFacts, grossSquareFeet: run.grossSquareFeet ?? savedFacts.grossSquareFeet },
             building: stageSpec,
             classifications,
           })
         : null,
-    [run, stageFacts, stageSpec, classifications],
+    [run, savedFacts, stageSpec, classifications],
   );
   // LA-2218: one price level for the Building View's list and the New Budget questions.
   const [priceLevel, setPriceLevel] = useState<PriceLevel>(3);
   // LA-2212: the same run at every price level, for the Building View's list.
   const stageLevels = useMemo(
     () =>
-      run && stageFacts
+      run && savedFacts
         ? priceLevels({
             rom: run.rom,
-            facts: { ...stageFacts, grossSquareFeet: run.grossSquareFeet ?? stageFacts.grossSquareFeet },
+            facts: { ...savedFacts, grossSquareFeet: run.grossSquareFeet ?? savedFacts.grossSquareFeet },
             building: stageSpec,
             classifications,
           })
         : null,
-    [run, stageFacts, stageSpec, classifications],
+    [run, savedFacts, stageSpec, classifications],
   );
   // LA-1325: the codes the Building View's parts open.
   const criterionCodes = useMemo(() => criteria.items.map((item) => item.code), [criteria.items]);

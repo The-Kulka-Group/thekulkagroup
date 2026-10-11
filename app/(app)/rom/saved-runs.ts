@@ -17,6 +17,8 @@ export type LoadedRun = {
   startedAt: string | null;
   /** How many questions the run's flow recorded, or null for a run with no flow. */
   answerCount: number | null;
+  /** LA-2209 review S1: the facts the run recorded, such as the balcony type the project record does not keep. */
+  facts?: Record<string, string | number | boolean>;
 };
 
 const STAMP = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
@@ -48,6 +50,7 @@ export function loadedRunFrom(record: RunRecord): LoadedRun | null {
     unitCount: readUnitCount(record.answers?.facts),
     startedAt: record.startedAt,
     answerCount: record.answerCount,
+    facts: record.answers?.facts,
   };
 }
 

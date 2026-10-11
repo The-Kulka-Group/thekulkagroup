@@ -9,6 +9,7 @@ import { CARD_ORDER, cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, ty
 
 import { reducedMotion } from "../motion";
 import type { PartState, PartStates, StageController, StageCut } from "./build-model";
+import type { Pulse } from "./useAnswerFeedback";
 import "./stage.css";
 
 // LA-1317, LA-1318: the Design and Engineering stage across the top of the
@@ -64,6 +65,10 @@ type Props = { building: StageBuilding | null } & (
       onLand: (event: StageEvent, point: { x: number; y: number }) => void;
       /** LA-1324: the hero stage names each moment, so the model shows no caption of its own. */
       quiet?: boolean;
+      /** LA-2213: the live budget's part price map. With it, the building opens to pick a part, as the saved budget's does. */
+      prices?: PartPriceMap | null;
+      /** LA-2213: the parts the last answer changed. Each new pulse lights them once. */
+      pulse?: Pulse | null;
     }
 );
 
@@ -108,6 +113,8 @@ const CUTS: { kind: CutKind; label: string }[] = [
 /** Radians a pixel of drag turns the view. */
 const TURN = 0.008;
 const EMPTY: readonly string[] = [];
+/** LA-2213: how long a changed part stays lit. */
+const PULSE_MS = 900;
 
 export function Stage(props: Props) {
   const { building } = props;
@@ -352,8 +359,9 @@ export function Stage(props: Props) {
   const openCode = assemble?.openCode ?? null;
   const codes = useMemo(() => new Set(cards), [cards]);
   const decisions = useMemo(() => (building ? decisionsFor(partsOf(building), codes) : []), [building, codes]);
-  const openable = props.mode === "assemble" && !failed;
-  const prices = assemble?.prices ?? null;
+  const prices = props.prices ?? null;
+  const openable = !failed && (props.mode === "assemble" || prices !== null);
+  const pulse = props.mode === "live" ? (props.pulse ?? null) : null;
   const priceOf = useMemo(() => new Map((prices?.parts ?? []).map((one) => [one.part, one])), [prices]);
   const unpricedParts = useMemo(() => (prices?.parts ?? []).filter((one) => one.unpriced).map((one) => one.part), [prices]);
   // A picked part the building no longer draws is no longer picked.
@@ -374,6 +382,27 @@ export function Stage(props: Props) {
     [hover, decisions, openCode],
   );
   const focus = open ? (pick?.part ?? null) : null;
+
+  // LA-2213: an answer lights the parts it changed once, up and back. Under
+  // reduced motion there is no sweep; the figures still change.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!pulse || !c || !ready || reducedMotion()) return;
+    const start = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / PULSE_MS);
+      c.setPulse(pulse.parts, Math.sin(Math.PI * p));
+      c.render();
+      if (p < 1) raf = requestAnimationFrame(step);
+      else c.setPulse([], 0);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      c.setPulse([], 0);
+    };
+  }, [pulse, ready]);
 
   // Only the open view is cut; closing it puts the whole building back.
   useEffect(() => {

@@ -207,4 +207,27 @@ describe("partPrices", () => {
     expect(at("massing")).toEqual(["3a"]);
     expect(at("elevators")).toEqual(["26a", "26g"]);
   });
+
+  // LA-2214: a stated rate names the job it came from, once, for every item.
+  it("names the source job beside a stated rate, from the export label's first words", () => {
+    const f = facts();
+    const stated = (label: string | null) => ({ ...job, kind: "reviewed_judgment" as const, exportLabel: label });
+    const stub = rom([
+      line({ costCode: "38", label: "Paving", low: 100, high: 100, scopeSide: "site", comparableCount: 0, comparables: [stated("Source job: VA. Synthetic note.")], quantity: { amount: 1, unit: "usd_lump_sum" } }),
+      line({ costCode: "39", label: "Site concrete", low: 100, high: 100, scopeSide: "site", comparableCount: 0, comparables: [stated("Matt said so, 2026-10-11.")], quantity: { amount: 1, unit: "usd_lump_sum" } }),
+    ]);
+    const site = partPrices({ rom: stub, facts: f, building: stageBuilding(f, []) }).parts.find((p) => p.part === "site")!;
+    expect(site.math).toEqual(["Paving: $100 Lump Sum (Stated Rate, VA)", "Site Concrete: $100 Lump Sum (Stated Rate)"]);
+  });
+
+  it("draws item 34a on the piles when the soil is poor and on the foundation when the building has none", () => {
+    const run = rom([line({ costCode: "34a", label: "Deep foundations, piles, and shoring", low: 350_000, high: 350_000, comparableCount: 0, comparables: [{ ...job, kind: "reviewed_judgment", exportLabel: "Source job: WS. Synthetic." }], quantity: { amount: 1, unit: "usd_lump_sum" } })]);
+    const poor = facts({ poorSoil: true });
+    const piles = partPrices({ rom: run, facts: poor, building: stageBuilding(poor, []) }).parts.find((p) => p.part === "piles")!;
+    expect(piles).toMatchObject({ name: "Piles", total: 350_000, math: ["Deep Foundations, Piles, and Shoring: $350,000 Lump Sum (Stated Rate, WS)"] });
+    const good = facts();
+    const map = partPrices({ rom: run, facts: good, building: stageBuilding(good, []) });
+    expect(map.parts.some((p) => p.part === "piles")).toBe(false);
+    expect(map.parts.find((p) => p.part === "foundation")!.total).toBe(350_000);
+  });
 });

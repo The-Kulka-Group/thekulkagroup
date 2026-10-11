@@ -20,6 +20,8 @@ export type StageFacts = {
   belowGrade: boolean;
   balconies: boolean;
   retail: boolean;
+  /** LA-2214: the soil answer is yes, "known groundwater or poor soil". Absent reads as good soil. */
+  poorSoil?: boolean;
 };
 
 /**
@@ -43,6 +45,7 @@ export function stageFactsFromResponses(responses: Readonly<Record<string, strin
     belowGrade: responses.levels_below_grade === "yes",
     balconies: responses.balconies === "yes",
     retail: responses.retail_storefronts === "yes",
+    poorSoil: responses.site_conditions === "yes",
   };
 }
 
@@ -62,6 +65,8 @@ export type StageBuilding = {
   podiumLevels: number;
   basement: boolean;
   foundation: { system: string; depth: number };
+  /** LA-2214: poor soil swaps the footings for piles. */
+  piles: boolean;
   elevators: { cars: number; hydraulic: boolean; jack: string | null; wellDepth: number; rooms: number } | null;
   glazing: "standard" | "elevated";
   balconies: boolean;
@@ -113,8 +118,8 @@ function podiumLevels(facts: StageFacts, a1: Card | undefined, stories: number):
   return Math.max(0, Math.min(p, stories - 1));
 }
 
-function foundationDepth(system: string, stories: number): number {
-  if (system === "Deep Foundations") return stories >= 7 ? 55 : 40;
+function foundationDepth(system: string, stories: number, piles: boolean): number {
+  if (piles || system === "Deep Foundations") return stories >= 7 ? 55 : 40;
   if (system === "Ground Improvement") return 20;
   return 0;
 }
@@ -152,6 +157,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   const basement = facts.belowGrade || facts.parkingType === "underground";
 
   const system = text(by("S-1")) ?? "Spread Footings";
+  // LA-2214: poor soil, or S-1 landing on deep foundations, puts piles under the building.
+  const piles = facts.poorSoil === true || system === "Deep Foundations";
 
   const cars = facts.elevatorCount ?? 0;
   let elevators: StageBuilding["elevators"] = null;
@@ -183,7 +190,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
     height: base,
     podiumLevels: podium,
     basement,
-    foundation: { system, depth: foundationDepth(system, stories) },
+    foundation: { system, depth: foundationDepth(system, stories, piles) },
+    piles,
     elevators,
     glazing: glazingText.toLowerCase().startsWith("elevated") ? "elevated" : "standard",
     balconies: facts.balconies,
@@ -199,6 +207,7 @@ export function partsOf(b: StageBuilding): StagePart[] {
   const has: Record<StagePart, boolean> = {
     site: true,
     foundation: true,
+    piles: b.piles,
     basement: b.basement,
     podium: b.podiumLevels > 0,
     massing: true,

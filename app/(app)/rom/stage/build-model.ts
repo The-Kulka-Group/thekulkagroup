@@ -9,6 +9,8 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import type { StageBuilding } from "@/lib/rom/stage-model";
 import { STAGE_PARTS, type StagePart } from "@/lib/rom/stage-scenes";
 
+import { PILE_RADIUS, PILE_SLAB_THICKNESS, pileSpots } from "./parts-piles";
+
 // LA-1317, LA-1318: the Design and Engineering stage's 3D model. A white
 // architectural model of the project's building, sitting on a site base that
 // is cut open through the building so the foundation shows against a black
@@ -121,6 +123,7 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
     // LA-2211: the ground is there from the start; nothing builds it.
     site: [0, 0.2],
     foundation: [0.2, 0.2 + piles],
+    piles: [0.2, 0.2 + piles],
     basement: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
     podium: [0.2 + piles, massingStart],
     massing: [massingStart, massingEnd],
@@ -396,7 +399,7 @@ export function createStage(
     // Cast-in-place gray, darker than the podium, so the basement reads as below grade.
     const concreteMat = tinted("basement", 0xa9a59b, 1);
     const footingMat = tinted("foundation", 0xd9d6ce, 1);
-    const pileMat = tinted("foundation", 0xffffff, 0.6);
+    const pileMat = tinted("piles", 0xffffff, 0.6);
     const balconyMat = tinted("balconies", 0xffffff, 0.8);
     const bulkheadMat = tinted("elevators", 0xffffff, 0.9);
     const unitMat = tinted("units", 0xffffff, 0.9);
@@ -419,33 +422,29 @@ export function createStage(
         basements.push(m);
       }
       const piles: THREE.Mesh[] = [];
-      if (next.foundation.depth > 0 && exposed) {
-        const deep = next.foundation.system === "Deep Foundations";
-        const r = deep ? 0.9 : 1.6;
-        const geo = new THREE.CylinderGeometry(r, r, next.foundation.depth, deep ? 14 : 10);
-        geo.translate(0, -next.foundation.depth / 2, 0);
-        disposables.push(geo);
-        const at = (x: number, z: number) => {
-          const p = tag(new THREE.Mesh(geo, pileMat), "foundation");
-          p.position.set(x, foundationTop, z);
-          p.castShadow = true;
-          root.add(p);
-          piles.push(p);
-        };
-        // Under the front and right walls, which every shape builds solid, where the cut shows them.
-        const nx = Math.max(4, Math.round(W / 20)), nz = Math.max(3, Math.round(D / 22));
-        for (let i = 0; i < nx; i++) at(-hw + 12 + i * ((W - 24) / (nx - 1)), hd - 3.5);
-        for (let i = 1; i < nz; i++) at(hw - 3.5, hd - 3.5 - i * ((D - 20) / (nz - 1)));
-        nextAnchors.foundation = new THREE.Vector3(ox + hw * 0.6, foundationTop - next.foundation.depth * 0.45, hd);
-      } else if (exposed) {
+      if (exposed) {
         // Spread footings or a mat: a thick concrete band under every wing, in the cut.
+        // LA-2214: with piles carrying the building it thins to a structural slab on top of them.
         const f: THREE.BufferGeometry[] = [];
-        const t = next.foundation.system === "Mat Foundation" ? 4 : 2.5;
+        const t = next.piles ? PILE_SLAB_THICKNESS : next.foundation.system === "Mat Foundation" ? 4 : 2.5;
         for (const w of form.wings) addBox(f, w.x1 - w.x0 + 2, t, w.z1 - w.z0 + 2, (w.x0 + w.x1) / 2, t / 2, (w.z0 + w.z1) / 2);
         const m = tag(mesh(f, footingMat, root), "foundation");
         m.position.y = foundationTop - t;
         footings.push(m);
         nextAnchors.foundation = new THREE.Vector3(ox + hw * 0.6, foundationTop - t / 2, hd);
+        if (next.piles) {
+          const geo = new THREE.CylinderGeometry(PILE_RADIUS, PILE_RADIUS, next.foundation.depth, 14);
+          geo.translate(0, -next.foundation.depth / 2, 0);
+          disposables.push(geo);
+          for (const { x, z } of pileSpots(W, D, hw, hd)) {
+            const p = tag(new THREE.Mesh(geo, pileMat), "piles");
+            p.position.set(x, foundationTop - t, z);
+            p.castShadow = true;
+            root.add(p);
+            piles.push(p);
+          }
+          nextAnchors.piles = new THREE.Vector3(ox + hw * 0.6, foundationTop - t - next.foundation.depth * 0.45, hd);
+        }
       }
       pilesAll.push(piles);
       if (exposed && below) nextAnchors.basement = new THREE.Vector3(ox + hw * 0.5, -below / 2, hd);
@@ -657,6 +656,13 @@ export function createStage(
 
     // --- How each part poses ---
     nextAppliers.foundation = ({ arrive, tint }) => {
+      for (const f of footings) {
+        f.visible = arrive > 0.001;
+        f.scale.y = Math.max(0.0001, outCubic(arrive));
+      }
+      applyTint("foundation", tint);
+    };
+    nextAppliers.piles = ({ arrive, tint }) => {
       for (const piles of pilesAll) {
         piles.forEach((p, i) => {
           const q = staggered(arrive, i, piles.length, 0.12);
@@ -664,11 +670,7 @@ export function createStage(
           p.scale.y = Math.max(0.0001, q < 1 ? outBack(q) : 1);
         });
       }
-      for (const f of footings) {
-        f.visible = arrive > 0.001;
-        f.scale.y = Math.max(0.0001, outCubic(arrive));
-      }
-      applyTint("foundation", tint);
+      applyTint("piles", tint);
     };
     nextAppliers.basement = ({ arrive, tint }) => {
       for (const b of basements) {

@@ -6,9 +6,11 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
+import { jackBoxes, machineBoxes, PIT_FEET, type PartBox } from "./elevator-parts";
 import type { StageBuilding } from "@/lib/rom/stage-model";
 import { STAGE_PARTS, type StagePart } from "@/lib/rom/stage-scenes";
 
+import { buildGarage, buildSurfaceLot, type GarageBuilt } from "./parts-garage";
 import { PILE_RADIUS, PILE_SLAB_THICKNESS, pileSpots } from "./parts-piles";
 import { type Cutaway, cutawayOf, inCutaway, layerOf, liftOf, partitionsOf, type Run, risersOf, stretchOf } from "./views";
 
@@ -62,6 +64,8 @@ export type StageController = {
   setFocus: (part: StagePart | null) => void;
   /** LA-2211: draws these parts faint, edged in a dashed working orange: nothing prices them. */
   setUnpriced: (parts: readonly StagePart[]) => void;
+  /** LA-2212: washes these parts toward a colour (a CSS hex) for the list's price level. Empty shows the model's own colours. */
+  setTints: (tints: Partial<Record<StagePart, string>>) => void;
   /**
    * LA-2217: how open the building is, 0 Assembled (a ground plane over what
    * is below grade, the top floor's corner cut away) to 1 Opened (the stories
@@ -82,6 +86,8 @@ const WORKING = 0xff9500;
 /** How much of a part shows while another part is picked, and while nothing prices it. */
 const FADED = 0.12;
 const UNPRICED_FILL = 0.4;
+/** LA-2212: how far a price level's tint moves a part's colour, so its shading still reads. */
+const TINT_MIX = 0.75;
 /** LA-2217: how much the Assembled view's ground plane hides of what is below grade. */
 const GROUND = 0.8;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
@@ -97,6 +103,13 @@ const addBox: Box = (arr, w, h, d, x, y, z) => {
   const g = new THREE.BoxGeometry(w, h, d);
   g.translate(x, y, z);
   arr.push(g);
+};
+
+/** A box from the elevator parts module as geometry. */
+const boxGeometry = ({ w, h, d, x, y, z }: PartBox) => {
+  const g = new THREE.BoxGeometry(w, h, d);
+  g.translate(x, y, z);
+  return g;
 };
 
 type Wing = StageBuilding["form"]["wings"][number];
@@ -141,9 +154,23 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
     massing: [massingStart, massingEnd],
     glass: [massingEnd - 0.3, massingEnd + 0.5],
     balconies: [massingEnd - 0.1, massingEnd + 0.5],
+    // LA-2219: the doors go in with the wall, the rail once the slab is out.
+    balconyDoors: [massingEnd - 0.2, massingEnd + 0.3],
+    balconyRail: [massingEnd + 0.1, massingEnd + 0.6],
     elevators: [massingEnd, massingEnd + 0.5],
+    elevatorJack: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
+    elevatorMachine: [massingEnd + 0.1, massingEnd + 0.6],
     units: [massingEnd + 0.15, massingEnd + 0.65],
     service: [massingEnd + 0.3, massingEnd + 0.8],
+    // LA-2216: the lot is laid with the ground; the garage floor with the
+    // podium, its deck as the podium tops out, its systems once it is closed in.
+    surfaceLot: [0, 0.4],
+    garageCoating: [0.2 + piles, massingStart],
+    garageWaterproofing: [0.2 + piles, massingStart],
+    podiumDeck: [massingStart - 0.3, massingStart + 0.1],
+    garageElectrical: [massingEnd, massingEnd + 0.5],
+    garageSprinklers: [massingEnd + 0.1, massingEnd + 0.6],
+    garageDrySprinklers: [massingEnd + 0.2, massingEnd + 0.7],
   };
   return { windows, duration: massingEnd + 0.8 + 0.6 };
 }
@@ -281,6 +308,10 @@ export function createStage(
   let lit = new Set<StagePart>();
   let focus: StagePart | null = null;
   let unpriced = new Set<StagePart>();
+  // LA-2212: the price level's tint per part, and the tinted copies of the
+  // building's materials, made as a tint first needs them and dropped with the building.
+  let tintOf = new Map<StagePart, THREE.Color>();
+  let washed = new Map<string, Map<THREE.Material, THREE.Material>>();
   let pulsed = new Set<StagePart>();
   let pulseAmount = 0;
   // LA-2211: see-through copies of the building's materials, made as a fade
@@ -410,6 +441,15 @@ export function createStage(
       ground.userData.ground = true;
     }
 
+    // LA-2216: the parking answer's parts (parts-garage.ts).
+    const tools = { tinted, mesh, tag, addBox, applyTint };
+    const wire = (made: GarageBuilt) => {
+      Object.assign(nextAppliers, made.appliers);
+      Object.assign(nextAnchors, made.anchors);
+    };
+    const garageRoots: { root: THREE.Group; ox: number }[] = [];
+    if (next.surfaceLot) wire(buildSurfaceLot(tools, content, { x: 0, z: -hd - 8, width: span }));
+
     // The service at grade, out in front of the first building's corner (E-1).
     if (next.serviceAmps) {
       const service = tag(new THREE.Group(), "service");
@@ -430,13 +470,17 @@ export function createStage(
 
     const floorsAll: { g: THREE.Group; base: number }[][] = [];
     const glassAll: { pane: THREE.Mesh; mat: THREE.MeshPhysicalMaterial }[][] = [];
-    const balconiesAll: { g: THREE.Group; axis: "x" | "z" }[][] = [];
+    /** LA-2219: each balcony's slab, rail and door, grown out from the wall as their own parts. */
+    type BalconyPiece = { g: THREE.Group; axis: "x" | "z"; part: "balconies" | "balconyRail" | "balconyDoors" };
+    const balconiesAll: BalconyPiece[][] = [];
     const pilesAll: THREE.Mesh[][] = [];
     const footings: THREE.Mesh[] = [];
     const podiums: THREE.Group[] = [];
     const basements: THREE.Mesh[] = [];
     const roofs: THREE.Group[] = [];
     const bulkheads: THREE.Group[] = [];
+    const jacks: THREE.Group[] = [];
+    const machines: THREE.Group[] = [];
     const unitGroups: THREE.Group[] = [];
 
     const skinMat = tinted("massing", 0xffffff, 0.9);
@@ -447,7 +491,11 @@ export function createStage(
     const footingMat = tinted("foundation", 0xd9d6ce, 1);
     const pileMat = tinted("piles", 0xffffff, 0.6);
     const balconyMat = tinted("balconies", 0xffffff, 0.8);
+    const railMat = tinted("balconyRail", 0xffffff, 0.6);
+    const doorMat = tinted("balconyDoors", 0xd5dde6, 0.35);
     const bulkheadMat = tinted("elevators", 0xffffff, 0.9);
+    const jackMat = tinted("elevatorJack", 0xc9c6bd, 0.7);
+    const machineMat = tinted("elevatorMachine", 0xffffff, 0.6);
     const unitMat = tinted("units", 0xffffff, 0.9);
     const storefront = glassMat("podium");
     storefront.opacity = 1;
@@ -538,12 +586,13 @@ export function createStage(
         }
       }
       podiums.push(podium);
+      garageRoots.push({ root, ox });
 
       // Frame floors: piers and bands around recessed glass, and balconies,
       // one group a level holding every wing that reaches it.
       const floors: { g: THREE.Group; base: number }[] = [];
       const glass: { pane: THREE.Mesh; mat: THREE.MeshPhysicalMaterial }[] = [];
-      const balconies: { g: THREE.Group; axis: "x" | "z" }[] = [];
+      const balconies: BalconyPiece[] = [];
       const big = next.glazing === "elevated";
       levels.forEach((lv, li) => {
         if (lv.kind !== "frame") return;
@@ -585,31 +634,44 @@ export function createStage(
           }
           if (next.balconies) {
             // On the wing's outward long face, built out from the wall so they
-            // can grow outward when they arrive.
+            // can grow outward when they arrive. LA-2219: the slab, its rail
+            // and the sliding door behind it are three parts, each priced on
+            // its own; a Juliet balcony (LA-2220) has the door alone here.
             const x = alongX(w);
             const len = x ? ww : wd;
             const s = x ? (cz >= 0 ? 1 : -1) : cx >= 0 ? 1 : -1;
-            const bg = tag(new THREE.Group(), "balconies");
-            if (x) bg.position.z = s > 0 ? w.z1 : w.z0;
-            else bg.position.x = s > 0 ? w.x1 : w.x0;
-            const bal: THREE.BufferGeometry[] = [];
+            const full = next.balconyType !== "juliet";
+            const slab: THREE.BufferGeometry[] = [], rail: THREE.BufferGeometry[] = [], door: THREE.BufferGeometry[] = [];
             const a0 = x ? w.x0 : w.z0;
             const cols = colsFor(len), pitch = len / cols;
-            const at = (p: number, wide: number, tall: number, deep: number, px: number, py: number, out: number) =>
-              x ? addBox(bal, wide, tall, deep, a0 + p + px, py, s * out) : addBox(bal, deep, tall, wide, s * out, py, a0 + p + px);
+            const at = (into: THREE.BufferGeometry[], p: number, wide: number, tall: number, deep: number, px: number, py: number, out: number) =>
+              x ? addBox(into, wide, tall, deep, a0 + p + px, py, s * out) : addBox(into, deep, tall, wide, s * out, py, a0 + p + px);
             // With bays, one on the middle window of every other bay; before
             // A-2, one every third column as LA-1317 drew them.
             for (let c = 1; c < cols; c += bay ? 6 : 3) {
               const p = bay ? pitch * (c + 0.5) : pitch * (c + 1);
               const bw = pitch * 1.6;
-              at(p, bw, 0.7, 5.5, 0, 1.35, 2.75);
-              at(p, bw, 0.25, 0.25, 0, 4.6, 5.4);
-              at(p, 0.25, 3.2, 0.25, -bw / 2 + 0.2, 3.1, 5.4);
-              at(p, 0.25, 3.2, 0.25, bw / 2 - 0.2, 3.1, 5.4);
+              if (full) {
+                at(slab, p, bw, 0.7, 5.5, 0, 1.35, 2.75);
+                at(rail, p, bw, 0.25, 0.25, 0, 4.6, 5.4);
+                at(rail, p, 0.25, 3.2, 0.25, -bw / 2 + 0.2, 3.1, 5.4);
+                at(rail, p, 0.25, 3.2, 0.25, bw / 2 - 0.2, 3.1, 5.4);
+              }
+              // The door stands proud of the wall face, over the window behind the balcony.
+              at(door, p, Math.min(bw * 0.55, 7), 6.8, 0.3, 0, 1 + 3.4 + 0.7, 0.2);
             }
-            if (bal.length) mesh(bal, balconyMat, bg);
-            g.add(bg);
-            balconies.push({ g: bg, axis: x ? "z" : "x" });
+            const piece = (geos: THREE.BufferGeometry[], mat: THREE.Material, part: BalconyPiece["part"]) => {
+              if (geos.length === 0) return;
+              const pg = tag(new THREE.Group(), part);
+              if (x) pg.position.z = s > 0 ? w.z1 : w.z0;
+              else pg.position.x = s > 0 ? w.x1 : w.x0;
+              mesh(geos, mat, pg);
+              g.add(pg);
+              balconies.push({ g: pg, axis: x ? "z" : "x", part });
+            };
+            piece(slab, balconyMat, "balconies");
+            piece(rail, railMat, "balconyRail");
+            piece(door, doorMat, "balconyDoors");
           }
         }
         mesh(slab, slabMat, g);
@@ -670,6 +732,26 @@ export function createStage(
         root.add(bulk);
         bulkheads.push(bulk);
         if (bi === 0) nextAnchors.elevators = new THREE.Vector3(ox + bx, wingTop(w) + 10, bz);
+        // LA-2215: the derived type (V-1) draws one more part. A hydraulic car
+        // shows its jack below grade, in front of the cut where the piles stand;
+        // a traction car shows its machine on top of the bulkhead.
+        if (next.elevators.hydraulic) {
+          if (exposed) {
+            const jack = tag(new THREE.Group(), "elevatorJack");
+            jack.position.set(bx, 0, hd - 3.5);
+            mesh(jackBoxes(next.elevators.wellDepth).map(boxGeometry), jackMat, jack);
+            root.add(jack);
+            jacks.push(jack);
+            nextAnchors.elevatorJack = new THREE.Vector3(ox + bx, -PIT_FEET / 2, hd - 3.5);
+          }
+        } else {
+          const machine = tag(new THREE.Group(), "elevatorMachine");
+          machine.position.set(bx, wingTop(w) + 12, bz);
+          mesh(machineBoxes(long, x).map(boxGeometry), machineMat, machine);
+          root.add(machine);
+          machines.push(machine);
+          if (bi === 0) nextAnchors.elevatorMachine = new THREE.Vector3(ox + bx, wingTop(w) + 18, bz);
+        }
       }
       {
         // LA-2217: the MEP risers, a bundle in the tallest wing's front units,
@@ -725,9 +807,15 @@ export function createStage(
       if (bi === 0) {
         nextAnchors.massing = new THREE.Vector3(ox, next.height * 0.55, hd);
         nextAnchors.glass = new THREE.Vector3(ox, next.height * 0.6, hd);
-        if (next.balconies) nextAnchors.balconies = new THREE.Vector3(ox, next.height * 0.5, hd + 5);
+        if (next.balconies) {
+          nextAnchors.balconies = new THREE.Vector3(ox, next.height * 0.5, hd + 5);
+          nextAnchors.balconyRail = new THREE.Vector3(ox, next.height * 0.5 + 3, hd + 5.5);
+          nextAnchors.balconyDoors = new THREE.Vector3(ox, next.height * 0.5 + 2, hd + 0.5);
+        }
       }
     });
+
+    if (next.garage) wire(buildGarage(tools, next, garageRoots, (w) => topOf(Math.min(P, w.stories))));
 
     // --- How each part poses ---
     nextAppliers.foundation = ({ arrive, tint }) => {
@@ -785,22 +873,42 @@ export function createStage(
         });
       }
     };
-    nextAppliers.balconies = ({ arrive, tint }) => {
-      for (const balconies of balconiesAll) {
-        balconies.forEach(({ g, axis }, i) => {
-          const q = staggered(arrive, i, balconies.length, 0.25);
-          g.visible = q > 0.001;
-          g.scale[axis] = Math.max(0.0001, outCubic(q));
-        });
-      }
-      applyTint("balconies", tint);
-    };
+    const balconyApplier =
+      (part: BalconyPiece["part"]) =>
+      ({ arrive, tint }: PartState) => {
+        for (const balconies of balconiesAll) {
+          const mine = balconies.filter((one) => one.part === part);
+          mine.forEach(({ g, axis }, i) => {
+            const q = staggered(arrive, i, mine.length, 0.25);
+            g.visible = q > 0.001;
+            g.scale[axis] = Math.max(0.0001, outCubic(q));
+          });
+        }
+        applyTint(part, tint);
+      };
+    nextAppliers.balconies = balconyApplier("balconies");
+    nextAppliers.balconyRail = balconyApplier("balconyRail");
+    nextAppliers.balconyDoors = balconyApplier("balconyDoors");
     nextAppliers.elevators = ({ arrive, tint }) => {
       for (const b of bulkheads) {
         b.visible = arrive > 0.001;
         b.scale.y = Math.max(0.0001, arrive < 1 ? outBack(arrive) : 1);
       }
       applyTint("elevators", tint);
+    };
+    nextAppliers.elevatorJack = ({ arrive, tint }) => {
+      for (const j of jacks) {
+        j.visible = arrive > 0.001;
+        j.scale.y = Math.max(0.0001, outCubic(arrive));
+      }
+      applyTint("elevatorJack", tint);
+    };
+    nextAppliers.elevatorMachine = ({ arrive, tint }) => {
+      for (const m of machines) {
+        m.visible = arrive > 0.001;
+        m.scale.setScalar(Math.max(0.0001, arrive < 1 ? outBack(arrive) : 1));
+      }
+      applyTint("elevatorMachine", tint);
     };
     nextAppliers.units = ({ arrive, tint }) => {
       const all = unitGroups.flatMap((u) => u.children);
@@ -881,9 +989,27 @@ export function createStage(
     outlines = [];
   }
 
+  /** LA-2212: a copy of `base` washed toward `tint`, following its opacity as it changes. */
+  function tinted(base: THREE.Material, tint: THREE.Color): THREE.Material {
+    const key = tint.getHexString();
+    const cache = washed.get(key) ?? new Map<THREE.Material, THREE.Material>();
+    washed.set(key, cache);
+    let copy = cache.get(base);
+    if (!copy) {
+      copy = base.clone();
+      cache.set(base, copy);
+    }
+    const color = (base as THREE.MeshBasicMaterial).color;
+    if (color) (copy as THREE.MeshBasicMaterial).color.copy(color).lerp(tint, TINT_MIX);
+    copy.opacity = base.opacity;
+    return copy;
+  }
+
   function dropLooks() {
     for (const cache of see) cache.forEach((copy) => copy.dispose());
     see = [new Map(), new Map()];
+    washed.forEach((cache) => cache.forEach((copy) => copy.dispose()));
+    washed = new Map();
     cornerCopies.forEach((copy) => copy.dispose());
     cornerCopies = new Map();
     clearOutlines();
@@ -918,7 +1044,9 @@ export function createStage(
         return;
       }
       if (!(obj instanceof THREE.Mesh) || obj.userData.ground) return;
-      const base = (obj.userData.base ??= obj.material) as THREE.Material;
+      const own = (obj.userData.base ??= obj.material) as THREE.Material;
+      const tint = part !== null && !obj.userData.poche ? tintOf.get(part) : undefined;
+      const base = tint ? tinted(own, tint) : own;
       obj.userData.cast ??= obj.castShadow;
       const faint = part !== null && unpriced.has(part);
       const look = away ? seeThrough(base, 0) : faint ? seeThrough(base, 1) : base;
@@ -1120,6 +1248,13 @@ export function createStage(
       if ([...next].join() === [...unpriced].join()) return;
       unpriced = next;
       drawOutlines();
+      applyLooks();
+    },
+    setTints: (tints) => {
+      const next = new Map(Object.entries(tints).map(([part, css]) => [part as StagePart, new THREE.Color(css)]));
+      const same = next.size === tintOf.size && [...next].every(([part, color]) => tintOf.get(part)?.equals(color));
+      if (same) return;
+      tintOf = next;
       applyLooks();
     },
     dispose: () => {

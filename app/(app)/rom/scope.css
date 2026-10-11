@@ -45,3 +45,18 @@
   }
   .scope-clear { margin-left: 0; }
 }
+
+/* LA-2218: the price level and the dashed tile for each locked one. */
+.nb-levels { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.nb-level-seg { display: inline-flex; gap: 4px; }
+.nb-level-pill {
+  padding: 4px 12px; border: 1px solid var(--border, #d0d4d9); border-radius: 999px;
+  background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer;
+}
+.nb-level-pill[aria-pressed="true"] { border-color: var(--primary, #0073ea); color: var(--primary, #0073ea); font-weight: 600; }
+.nb-lock {
+  padding: 12px 16px; border: 1px dashed var(--border, #d0d4d9); border-radius: 8px;
+  background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.nb-lock:hover:not(:disabled) { border-color: var(--primary, #0073ea); }
+.nb-level-pill:disabled, .nb-lock:disabled { cursor: default; opacity: 0.6; }

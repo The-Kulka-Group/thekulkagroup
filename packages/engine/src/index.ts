@@ -62,9 +62,33 @@ export {
   structureDemolitionRows,
   UNIT_INPUTS,
   structureDemolitionSpanLine,
+  derivedQuantityFor,
+  pickDerivedRows,
   type BenchmarkUnit,
   type DemolitionFacts,
+  type DerivedQuantities,
+  type NamedBlank,
 } from "./rom-units";
+export {
+  GARAGE_ELECTRICAL_COST_CODE,
+  GARAGE_SHARE_OF,
+  GARAGE_SPRINKLERS_COST_CODE,
+  PODIUM_DECK_COST_CODE,
+  PODIUM_GARAGE_LEVELS,
+  garageArea,
+} from "./garage";
+export {
+  BALCONY_DECK_COST_CODE,
+  BALCONY_RAIL_COST_CODE,
+  SLIDING_DOOR_COST_CODE,
+  balconyDeckArea,
+  balconyDoorCount,
+  railLength,
+  readBalconyFacts,
+  slidingDoorSpanLine,
+  type BalconyFacts,
+  type BalconyType,
+} from "./balconies";
 export { PER_UNIT_COST_CODES, readUnitCount, scaleRowsToUnits, type PerUnitLine } from "./rom-per-unit";
 
 export {

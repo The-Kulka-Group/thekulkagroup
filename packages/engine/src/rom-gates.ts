@@ -92,12 +92,22 @@ export function resolveGateItems(
   for (const rule of rules) {
     const sections = [rule.section, ...rule.requiresAllSections];
     const locals = sections.map((section) => localStatus(answers[section], rule.closesOn));
-    resolved.set(rule.costCode, {
-      costCode: rule.costCode,
-      status: combine(locals),
-      sections,
-      rule,
-    });
+    const next: GateResolution = { costCode: rule.costCode, status: combine(locals), sections, rule };
+    const earlier = resolved.get(rule.costCode);
+    resolved.set(rule.costCode, earlier ? stricter(earlier, next) : next);
   }
   return resolved;
+}
+
+/** Strongest first: an item any rule turns off is off, then TBD, then assumed. */
+const STRICTNESS: readonly GateLineStatus[] = ["not_in_job", "tbd", "assumed_present", "priced"];
+
+/**
+ * LA-2219: two rules on one item, from two questions (item 11 reads the
+ * balconies gate and the Full or Juliet follow-up). The item is in only as
+ * far as every rule lets it in, so the stricter resolution stands, with the
+ * sections that decided it.
+ */
+function stricter(a: GateResolution, b: GateResolution): GateResolution {
+  return STRICTNESS.indexOf(b.status) < STRICTNESS.indexOf(a.status) ? b : a;
 }

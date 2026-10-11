@@ -97,7 +97,8 @@ describe("partPrices", () => {
       foundation: ["2"],
       massing: ["8", "XX-2"],
       glass: ["16a"],
-      elevators: ["26"],
+      elevators: [],
+      elevatorJack: ["26"],
     });
 
     // No elevators drawn: item 26 sits on the building's body, so the total still adds up.
@@ -175,7 +176,7 @@ describe("partPrices", () => {
 
     it("reads level 1 as one block over every drawn part", () => {
       expect(at(1).rows).toEqual([
-        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "glass", "elevators"] },
+        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "glass", "elevators", "elevatorJack"] },
       ]);
     });
 
@@ -203,9 +204,118 @@ describe("partPrices", () => {
     ]);
     const map = partPrices({ rom: lettered, facts: f, building: stageBuilding(f, []) });
     const at = (part: string) => map.parts.find((p) => p.part === part)?.lines.map((l) => l.costCode);
-    expect(at("podium")).toEqual(["3"]);
+    expect(at("podiumDeck")).toEqual(["3"]);
     expect(at("massing")).toEqual(["3a"]);
     expect(at("elevators")).toEqual(["26a", "26g"]);
+  });
+
+  // LA-2216: the podium garage, priced from VA's stated rates on the garage area.
+  describe("the podium garage", () => {
+    const stated = (exportLabel: string): Comparable => ({ kind: "reviewed_judgment", rate: 0, weight: 1, sourceProjectIds: [], exportLabel: `Source job: ${exportLabel}. Synthetic.`, ...recorded });
+    const garage = (amount: number) => ({ amount, unit: "usd_per_sf_of_garage" as const });
+    const garageRun = rom([
+      line({ costCode: "3", label: "Podium Deck", low: 682_600, high: 682_600, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "31g", label: "Garage Electrical", low: 360_000, high: 360_000, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "27a", label: "Garage Sprinklers", low: 120_000, high: 120_000, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "38", label: "Paving and base courses", low: 200_000, high: 200_000, scopeSide: "site" }),
+      line({ costCode: "8", label: "Wood framing", low: 3_000_000, high: 3_000_000 }),
+    ]);
+    const priced = (parking: string) => {
+      const f = facts({ parkingType: parking });
+      return partPrices({ rom: garageRun, facts: f, building: stageBuilding(f, []) });
+    };
+    const part = (map: ReturnType<typeof partPrices>, name: string) => map.parts.find((p) => p.part === name);
+
+    it("puts the deck, garage electrical and garage sprinklers on their own parts", () => {
+      const map = priced("structured");
+      expect(part(map, "podiumDeck")?.lines.map((l) => l.costCode)).toEqual(["3"]);
+      expect(part(map, "garageElectrical")?.lines.map((l) => l.costCode)).toEqual(["31g"]);
+      expect(part(map, "garageSprinklers")?.lines.map((l) => l.costCode)).toEqual(["27a"]);
+      expect(part(map, "podiumDeck")).toMatchObject({ name: "Podium Deck", total: 682_600, unpriced: false });
+      expect(part(map, "podiumDeck")?.math[0]).toBe("Podium Deck: 20,000 SF of Garage x $34.13 per SF of Garage (Stated Rate, VA)");
+    });
+
+    it("draws garage waterproofing, traffic coating and a dry sprinkler system as unpriced parts", () => {
+      const map = priced("structured");
+      const unpriced = ["garageWaterproofing", "garageCoating", "garageDrySprinklers"].map((name) => part(map, name));
+      expect(unpriced.map((p) => [p?.name, p?.total, p?.unpriced, p?.math])).toEqual([
+        ["Garage Waterproofing", null, true, ["Garage Waterproofing: No Rate Yet"]],
+        ["Traffic Coating", null, true, ["Vehicular Traffic Coating: No Rate Yet"]],
+        ["Dry Sprinklers", null, true, ["Dry Sprinkler System: No Rate Yet"]],
+      ]);
+      expect(map.view.rows.filter((r) => r.total === null).map((r) => r.label)).toEqual([
+        "Garage Waterproofing",
+        "Vehicular Traffic Coating",
+        "Dry Sprinkler System",
+      ]);
+      expect(map.parts.reduce((s, p) => s + (p.total ?? 0), 0)).toBe(map.total);
+    });
+
+    it("draws a surface lot with no garage parts, and puts paving on the lot", () => {
+      const map = priced("surface");
+      const names = map.parts.map((p) => p.part);
+      expect(names).toContain("surfaceLot");
+      for (const garagePart of ["podium", "podiumDeck", "garageElectrical", "garageSprinklers", "garageWaterproofing", "garageCoating", "garageDrySprinklers"]) {
+        expect(names).not.toContain(garagePart);
+      }
+      expect(part(map, "surfaceLot")?.lines.map((l) => l.costCode)).toEqual(["38"]);
+    });
+
+    it("names the missing fact on a garage item whose quantity is blank", () => {
+      const f = facts({ parkingType: "structured", stories: null });
+      const blank = rom([line({ costCode: "8", low: 100, high: 100 })], [
+        { costCode: "31g", label: "Garage Electrical", missing: ["Stories Above Grade"] },
+      ]);
+      const map = partPrices({ rom: blank, facts: f, building: stageBuilding(f, []) });
+      const math = map.parts.flatMap((p) => p.math);
+      expect(math).toContain("Garage Electrical: No Quantity Yet, Needs Stories Above Grade");
+      expect(map.view.rows.find((r) => r.key === "unpriced:31g")?.total).toBeNull();
+    });
+  });
+
+  describe("the derived elevator type (V-1, LA-2215)", () => {
+    const type = (text: string) => [{ code: "V-1", value: { kind: "spec" as const, text }, steps: [], correction: null }];
+    const elevatorLine = line({
+      costCode: "26",
+      label: "Elevators",
+      low: 560_000,
+      high: 560_000,
+      comparableCount: 0,
+      comparables: [{ ...job, kind: "reviewed_judgment", rate: 35_000 }],
+      quantity: { amount: 16, unit: "usd_per_stop" },
+    });
+    const map = (text: string | null) => {
+      const f = facts({ elevatorCount: 2, stories: 7 });
+      return partPrices({ rom: rom([elevatorLine, line({ costCode: "26a", low: 100, high: 100 })]), facts: f, building: stageBuilding(f, text ? type(text) : []) });
+    };
+    const part = (m: ReturnType<typeof map>, name: string) => m.parts.find((p) => p.part === name);
+
+    it("puts the elevator line on the jack when the type is hydraulic, and the bulkhead stays on the elevators", () => {
+      const m = map("Hydraulic");
+      expect(part(m, "elevatorJack")?.lines.map((l) => l.costCode)).toEqual(["26"]);
+      expect(part(m, "elevatorJack")?.name).toBe("Elevator Jack");
+      expect(part(m, "elevators")?.lines.map((l) => l.costCode)).toEqual(["26a"]);
+      expect(part(m, "elevatorMachine")).toBeUndefined();
+    });
+
+    it("puts the elevator line on the machine when the type is traction", () => {
+      const m = map("Traction");
+      expect(part(m, "elevatorMachine")?.lines.map((l) => l.costCode)).toEqual(["26"]);
+      expect(part(m, "elevatorMachine")?.name).toBe("Elevator Machine");
+      expect(part(m, "elevatorJack")).toBeUndefined();
+    });
+
+    it("reads hydraulic when no type has been derived yet", () => {
+      expect(part(map(null), "elevatorJack")?.lines).toHaveLength(1);
+    });
+
+    it("shows cars x stops x the rate on the elevator part", () => {
+      expect(part(map("Hydraulic"), "elevatorJack")?.math).toEqual(["Elevators: 2 Cars x 8 Stops x $35,000 per Stop (Stated Rate)"]);
+      const traction = elevatorLine.quantity && { ...elevatorLine, low: 724_800, high: 724_800, comparables: [{ ...job, kind: "reviewed_judgment" as const, rate: 45_300 }] };
+      const f = facts({ elevatorCount: 2, stories: 7 });
+      const m = partPrices({ rom: rom([traction!]), facts: f, building: stageBuilding(f, type("Traction")) });
+      expect(part(m, "elevatorMachine")?.math).toEqual(["Elevators: 2 Cars x 8 Stops x $45,300 per Stop (Stated Rate)"]);
+    });
   });
 
   // LA-2214: a stated rate names the job it came from, once, for every item.
@@ -229,5 +339,83 @@ describe("partPrices", () => {
     const map = partPrices({ rom: run, facts: good, building: stageBuilding(good, []) });
     expect(map.parts.some((p) => p.part === "piles")).toBe(false);
     expect(map.parts.find((p) => p.part === "foundation")!.total).toBe(350_000);
+  });
+});
+
+// LA-2219: full balconies. 25 balconies, 110 SF of deck and 26 LF of rail each,
+// at the stated rates the migration seeds.
+describe("full balconies", () => {
+  const stated = (label: string): Comparable => ({ ...job, kind: "reviewed_judgment", exportLabel: label });
+  const deck = line({
+    costCode: "11",
+    label: "Balcony Deck",
+    low: 165_000,
+    high: 165_000,
+    comparableCount: 0,
+    comparables: [stated("Source job: VA. Synthetic.")],
+    quantity: { amount: 2_750, unit: "usd_per_sf_of_balcony" },
+  });
+  const rail = line({
+    costCode: "11a",
+    label: "Balcony Posts and Rail",
+    low: 195_000,
+    high: 195_000,
+    comparableCount: 0,
+    comparables: [stated("Source job: VA. Synthetic.")],
+    quantity: { amount: 650, unit: "usd_per_lf_of_rail" },
+  });
+  const doors = line({
+    costCode: "15b",
+    label: "Sliding Doors",
+    low: 45_000,
+    high: 63_425,
+    comparableCount: 0,
+    comparables: [stated("Source jobs: VA, V64, VR. Low."), stated("Source jobs: VA, V64, VR. High.")],
+    quantity: { amount: 25, unit: "usd_each_balcony_door" },
+  });
+  const full = facts({ balconies: true, balconyType: "full", balconyCount: 25 });
+  const mapOf = (run: Rom, f: StageFacts = full) => partPrices({ rom: run, facts: f, building: stageBuilding(f, []) });
+  const at = (map: ReturnType<typeof partPrices>, part: string) => map.parts.find((p) => p.part === part);
+
+  it("puts the deck on the slabs, the rail on its own part and the doors on the wall behind them", () => {
+    const map = mapOf(rom([deck, rail, doors]));
+    expect(at(map, "balconies")?.lines.map((l) => l.costCode)).toEqual(["11"]);
+    expect(at(map, "balconyRail")?.lines.map((l) => l.costCode)).toEqual(["11a"]);
+    expect(at(map, "balconyDoors")?.lines.map((l) => l.costCode)).toEqual(["15b"]);
+    expect([at(map, "balconies")?.name, at(map, "balconyRail")?.name, at(map, "balconyDoors")?.name]).toEqual([
+      "Balcony Decks",
+      "Balcony Rail",
+      "Sliding Doors",
+    ]);
+  });
+
+  it("shows the rate math per balcony, and the doors' low and high", () => {
+    const map = mapOf(rom([deck, rail, doors]));
+    expect(at(map, "balconies")?.math).toEqual(["Balcony Deck: 25 Balconies x 110 SF x $60.00 per SF (Stated Rate, VA)"]);
+    expect(at(map, "balconyRail")?.math).toEqual(["Balcony Posts and Rail: 25 Balconies x 26 LF x $300 per LF (Stated Rate, VA)"]);
+    expect(at(map, "balconyDoors")?.math).toEqual(["Sliding Doors: 25 Doors x $1,800 to $2,537 per Door (Stated Rate, VA, V64, VR)"]);
+    expect(at(map, "balconyDoors")?.total).toBe(54_212.5);
+  });
+
+  it("words the quantity whole when the balcony count is not on the stage", () => {
+    const map = mapOf(rom([rail]), facts({ balconies: true, balconyType: "full" }));
+    expect(at(map, "balconyRail")?.math).toEqual(["Balcony Posts and Rail: 650 LF of Rail x $300 per LF (Stated Rate, VA)"]);
+  });
+
+  it("leaves a part whose fact is missing unpriced, and names the fact", () => {
+    const map = mapOf(rom([deck, doors], [{ costCode: "11a", label: "Balcony Posts and Rail", missing: ["Rail per Balcony"] }]));
+    expect(at(map, "balconyRail")).toMatchObject({
+      total: null,
+      unpriced: true,
+      math: ["Balcony Posts and Rail: No Quantity Yet, Needs Rail per Balcony"],
+    });
+  });
+
+  it("draws no deck or rail for Juliet balconies, which LA-2220 prices, and keeps the doors", () => {
+    const juliet = facts({ balconies: true, balconyType: "juliet" });
+    const parts = mapOf(rom([]), juliet).parts.map((p) => p.part);
+    expect(parts).not.toContain("balconies");
+    expect(parts).not.toContain("balconyRail");
+    expect(parts).toContain("balconyDoors");
   });
 });

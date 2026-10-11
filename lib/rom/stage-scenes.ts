@@ -19,22 +19,50 @@ export type StagePart =
   | "foundation"
   | "piles"
   | "elevators"
+  | "elevatorJack"
+  | "elevatorMachine"
   | "glass"
+  /** The balcony slabs, item 11's deck. */
   | "balconies"
+  /** LA-2219: the full balconies' posts and rail (11a). */
+  | "balconyRail"
+  /** LA-2219: the sliding doors on the wall behind each balcony (15b). */
+  | "balconyDoors"
   | "units"
-  | "service";
+  | "service"
+  /** LA-2216: the podium garage's priced parts, VA's rates on the garage area. */
+  | "podiumDeck"
+  | "garageElectrical"
+  | "garageSprinklers"
+  /** LA-2216: the podium garage's parts with no rate yet, drawn dashed. */
+  | "garageCoating"
+  | "garageWaterproofing"
+  | "garageDrySprinklers"
+  /** LA-2216: a surface lot's striped parking beside the building. */
+  | "surfaceLot";
 
 /** Every part, in the order the saved budget's assembly builds them. */
 export const STAGE_PARTS: readonly StagePart[] = [
   "site",
+  "surfaceLot",
   "foundation",
   "piles",
   "basement",
   "podium",
+  "podiumDeck",
+  "garageCoating",
+  "garageWaterproofing",
+  "garageElectrical",
+  "garageSprinklers",
+  "garageDrySprinklers",
   "massing",
   "glass",
   "balconies",
+  "balconyRail",
+  "balconyDoors",
   "elevators",
+  "elevatorJack",
+  "elevatorMachine",
   "units",
   "service",
 ];
@@ -96,9 +124,20 @@ const PART_CARDS: Record<StagePart, readonly string[]> = {
   massing: ["A-2", "A-1"],
   glass: ["M-0"],
   balconies: [],
+  balconyRail: [],
+  balconyDoors: [],
   elevators: ["V-1", "V-2", "V-3"],
+  elevatorJack: ["V-2", "V-1"],
+  elevatorMachine: ["V-1", "V-3"],
   units: ["M-1"],
   service: ["E-1"],
+  podiumDeck: ["A-1"],
+  garageElectrical: [],
+  garageSprinklers: [],
+  garageCoating: [],
+  garageWaterproofing: [],
+  garageDrySprinklers: [],
+  surfaceLot: [],
 };
 
 /** The card a part opens, from the cards the budget has. None when no card decided it. */
@@ -141,15 +180,37 @@ const ANSWER_TAG: Record<string, string> = {
   elevator_count: "Elevators",
   retail_storefronts: "Retail",
   balconies: "Balconies",
+  balcony_type: "Balcony Type",
+  balcony_count: "Balcony Count",
+  balcony_deck_square_feet: "Deck Area",
+  balcony_rail_linear_feet: "Balcony Rail",
   radio_amplifier: "Radio Amplifier",
 };
 
 /** What an answer builds, when the answer puts something on the model. */
+/** LA-2216: the parts a podium garage draws under its deck, priced or not. */
+const GARAGE_PARTS: StagePart[] = [
+  "podiumDeck",
+  "garageCoating",
+  "garageWaterproofing",
+  "garageElectrical",
+  "garageSprinklers",
+  "garageDrySprinklers",
+];
+
+const FULL_BALCONY_PARTS: StagePart[] = ["balconies", "balconyRail", "balconyDoors"];
+
 function answerParts(questionId: string, value: string): StagePart[] {
-  if (questionId === "parking_type") return value === "structured" ? ["podium"] : [];
+  if (questionId === "parking_type") {
+    if (value === "surface") return ["surfaceLot"];
+    return value === "structured" ? ["podium", ...GARAGE_PARTS] : [];
+  }
   if (questionId === "levels_below_grade") return value === "yes" ? ["basement"] : [];
   if (questionId === "retail_storefronts") return value === "yes" ? ["podium"] : [];
-  if (questionId === "balconies") return value === "yes" ? ["balconies"] : [];
+  if (questionId === "balconies") return value === "yes" ? FULL_BALCONY_PARTS : [];
+  // LA-2219: full balconies draw the slab, its rail and the door behind it;
+  // a Juliet balcony draws its door (LA-2220 adds its rail).
+  if (questionId === "balcony_type") return value === "full" ? FULL_BALCONY_PARTS : value === "juliet" ? ["balconyDoors"] : [];
   return [];
 }
 

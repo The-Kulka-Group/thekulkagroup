@@ -46,10 +46,21 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   podium: "Podium",
   massing: "Building",
   glass: "Windows",
-  balconies: "Balconies",
+  balconies: "Balcony Decks",
+  balconyRail: "Balcony Rail",
+  balconyDoors: "Sliding Doors",
   elevators: "Elevators",
+  elevatorJack: "Elevator Jack",
+  elevatorMachine: "Elevator Machine",
   units: "Rooftop Units",
   service: "Electrical Service",
+  podiumDeck: "Podium Deck",
+  garageElectrical: "Garage Electrical",
+  garageSprinklers: "Garage Sprinklers",
+  garageCoating: "Traffic Coating",
+  garageWaterproofing: "Garage Waterproofing",
+  garageDrySprinklers: "Dry Sprinklers",
+  surfaceLot: "Surface Lot",
 };
 
 export type PartPriceMap = {
@@ -87,6 +98,29 @@ export type PartPriceInput = {
 };
 
 /**
+ * LA-2216: a podium garage's parts with no rate yet (spec LA-2209). They are
+ * not canonical items and nothing prices them, so the run never names them;
+ * the map adds them whenever parking is structured, so the surface-lot
+ * saving never reads as the whole garage cost.
+ */
+const GARAGE_WATERPROOFING: UnpricedItem = { costCode: "garage-waterproofing", label: "Garage Waterproofing" };
+const TRAFFIC_COATING: UnpricedItem = { costCode: "garage-traffic-coating", label: "Vehicular Traffic Coating" };
+const DRY_SPRINKLERS: UnpricedItem = { costCode: "garage-dry-sprinklers", label: "Dry Sprinkler System" };
+const GARAGE_UNPRICED: readonly UnpricedItem[] = [GARAGE_WATERPROOFING, TRAFFIC_COATING, DRY_SPRINKLERS];
+
+/** The run as the building draws it: a podium garage adds its parts with no rate yet. */
+function withGarageParts(rom: Rom, facts: StageFacts): Rom {
+  if (facts.parkingType !== "structured") return rom;
+  return { ...rom, unpricedItems: [...rom.unpricedItems, ...GARAGE_UNPRICED] };
+}
+
+/** "Garage Electrical: No Rate Yet", or for a named blank, the facts its quantity needs. */
+function unpricedMath(item: UnpricedItem): string {
+  const name = titleCase(item.label);
+  return item.missing ? `${name}: No Quantity Yet, Needs ${item.missing.join(" and ")}` : `${name}: No Rate Yet`;
+}
+
+/**
  * Each canonical work item's part, first choice first. An item goes to the
  * first part on its list that the building draws, so a line never sits on a
  * part that is not there. The section's layer map (lib/rom/section.ts LAYERS)
@@ -98,14 +132,24 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   "34a": ["piles", "foundation"],
   "34": ["basement", "site"],
   // The podium: its deck, its garage doors and its storefront.
-  "3": ["podium", "massing"],
+  "3": ["podiumDeck", "podium", "massing"],
+  // LA-2216: the garage under the deck, and the garage parts with no rate yet.
+  "31g": ["garageElectrical", "podium", "massing"],
+  "27a": ["garageSprinklers", "podium", "massing"],
+  [GARAGE_WATERPROOFING.costCode]: ["garageWaterproofing", "podium", "massing"],
+  [TRAFFIC_COATING.costCode]: ["garageCoating", "podium", "massing"],
+  [DRY_SPRINKLERS.costCode]: ["garageDrySprinklers", "podium", "massing"],
   "15a": ["podium", "massing"],
   "16": ["podium", "glass"],
   // The skin's openings and what hangs off it.
   "16a": ["glass"],
   "11": ["balconies", "massing"],
-  // The elevators, and every elevator sub-item (26a bulkhead and the rest) by its base number.
-  "26": ["elevators", "massing"],
+  // LA-2219: the full balconies' posts and rail, and the doors on the wall behind them.
+  "11a": ["balconyRail", "balconies", "massing"],
+  "15b": ["balconyDoors", "glass", "massing"],
+  // The elevator line sits on the jack (hydraulic) or the machine (traction) the derived
+  // type (V-1) draws. Its sub-items (26a bulkhead and the rest) stay on the elevators.
+  "26": ["elevatorJack", "elevatorMachine", "elevators", "massing"],
   // The rooftop units are M-1's HVAC; the service at grade is E-1's electrical.
   "30": ["units", "massing"],
   "31": ["service", "massing"],
@@ -121,7 +165,8 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   "36": ["site"],
   "36a": ["site"],
   "37": ["site"],
-  "38": ["site"],
+  // LA-2216: paving is the striped lot when parking is a surface lot.
+  "38": ["surfaceLot", "site"],
   "39": ["site"],
 };
 
@@ -132,13 +177,13 @@ function fallbackPart(side: ScopeSide | undefined): StagePart {
 
 /**
  * The elevator's sub-items (26a to 26i, LA-1205) are all the elevator, so they
- * take item 26's parts. No other lettered item follows its base number: 3a
+ * take the elevators' parts (the shaft and bulkhead, not the jack or machine). No other lettered item follows its base number: 3a
  * gypcrete is not the podium deck and 31a low voltage is not the service.
  */
 const ELEVATOR_SUB_ITEM = /^26[a-z]$/;
 
 function choicesFor(costCode: string): readonly StagePart[] {
-  return ITEM_PARTS[costCode] ?? (ELEVATOR_SUB_ITEM.test(costCode) ? ITEM_PARTS["26"] : []);
+  return ITEM_PARTS[costCode] ?? (ELEVATOR_SUB_ITEM.test(costCode) ? (["elevators", "massing"] as const) : []);
 }
 
 function partFor(costCode: string, side: ScopeSide | undefined, drawn: ReadonlySet<StagePart>): StagePart {
@@ -158,6 +203,21 @@ function weakest(sources: readonly ClientSource[]): ClientSource {
 }
 
 /**
+ * LA-2215: item 26 is priced per stop, so its math reads cars x stops x the
+ * stated rate for the derived type. Null when the line has no per-stop
+ * quantity or the job states no car count; the generic sentence then stands.
+ */
+function elevatorMath(line: RomLine, cars: number | null | undefined): string | null {
+  const quantity = line.quantity;
+  if (line.costCode !== "26" || quantity?.unit !== "usd_per_stop" || !cars || cars <= 0 || quantity.amount <= 0) return null;
+  const stops = quantity.amount / cars;
+  if (!Number.isInteger(stops)) return null;
+  const rate = rateUsd(midpoint(line) / quantity.amount);
+  const job = sourceJobOf(line);
+  return `${titleCase(line.label)}: ${wholeNumber(cars)} ${cars === 1 ? "Car" : "Cars"} x ${wholeNumber(stops)} ${stops === 1 ? "Stop" : "Stops"} x ${rate} per Stop (${sourceOf(line).text}${job ? `, ${job}` : ""})`;
+}
+
+/**
  * LA-2214: the job a stated rate came from, "WS" or "VA". A stated rate's
  * export label opens "Source job: WS." and every stated-rate migration that
  * has a source job writes it that way, so the math names the job for all of
@@ -165,10 +225,41 @@ function weakest(sources: readonly ClientSource[]): ClientSource {
  */
 export function sourceJobOf(line: RomLine): string | null {
   for (const comparable of line.comparables) {
-    const match = /^Source job: ([A-Za-z0-9]{1,8})\b/.exec(comparable.exportLabel ?? "");
+    const match = SOURCE_JOB.exec(comparable.exportLabel ?? "");
     if (match) return match[1];
   }
   return null;
+}
+
+/**
+ * "Source job: WS." or, for a range across jobs (LA-2219's sliding doors),
+ * "Source jobs: VA, V64, VR."
+ */
+const SOURCE_JOB = /^Source jobs?: ([A-Za-z0-9]{1,8}(?:, [A-Za-z0-9]{1,8})*)\./;
+
+/**
+ * LA-2219: full balconies' math reads per balcony, "25 Balconies x 26 LF x
+ * $300 per LF", and the sliding doors read their low and high each. Null
+ * when the stage has no balcony count or the quantity does not divide by it;
+ * the generic sentence then stands.
+ */
+function balconyMath(line: RomLine, balconies: number | null | undefined): string | null {
+  const quantity = line.quantity;
+  if (!quantity || quantity.amount <= 0) return null;
+  const name = titleCase(line.label);
+  const job = sourceJobOf(line);
+  const from = `(${sourceOf(line).text}${job ? `, ${job}` : ""})`;
+  if (quantity.unit === "usd_each_balcony_door") {
+    const doors = wholeNumber(quantity.amount);
+    const each = line.low === line.high ? rateUsd(line.low / quantity.amount) : `${rateUsd(line.low / quantity.amount)} to ${rateUsd(line.high / quantity.amount)}`;
+    return `${name}: ${doors} ${quantity.amount === 1 ? "Door" : "Doors"} x ${each} per Door ${from}`;
+  }
+  const unit = quantity.unit === "usd_per_sf_of_balcony" ? "SF" : quantity.unit === "usd_per_lf_of_rail" ? "LF" : null;
+  if (unit === null || !balconies || balconies <= 0) return null;
+  const each = quantity.amount / balconies;
+  if (!Number.isInteger(each * 100)) return null;
+  const rate = rateUsd(midpoint(line) / quantity.amount);
+  return `${name}: ${wholeNumber(balconies)} ${balconies === 1 ? "Balcony" : "Balconies"} x ${each.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${unit} x ${rate} per ${unit} ${from}`;
 }
 
 /** "Foundations: 100,000 SF x $20.00 per SF (1 Kulka Job)", "Piles: $350,000 Lump Sum (Stated Rate, WS)". */
@@ -252,7 +343,8 @@ function levelView(
 }
 
 export function partPrices(input: PartPriceInput): PartPriceMap {
-  const { rom, building } = input;
+  const { building } = input;
+  const rom = withGarageParts(input.rom, input.facts);
   const gsf = input.facts.grossSquareFeet;
   const drawn = drawnParts(building);
   const has = new Set(drawn);
@@ -281,7 +373,12 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
       total,
       perGsf: total !== null && gsf ? total / gsf : null,
       source: weakest(lines.map((line) => clientSource(sourceOf(line).text))),
-      math: [...lines.map(mathOf), ...unpricedItems.map((item) => `${titleCase(item.label)}: No Rate Yet`)],
+      math: [
+        ...lines.map(
+          (line) => elevatorMath(line, input.facts.elevatorCount) ?? balconyMath(line, input.facts.balconyCount) ?? mathOf(line),
+        ),
+        ...unpricedItems.map(unpricedMath),
+      ],
       unpriced: total === null,
     };
   });

@@ -2,6 +2,8 @@ import type { Answers, BranchGateAnswer } from "@kulka/engine";
 
 import rawTier1Flow from "@/config/rom/tier1-flow.json";
 
+import type { PriceLevel } from "./part-prices";
+
 // The tier-1 question flow lives in a data file, not in this module. Every
 // surface reads the same file: the site today, the Claude wrapper next
 // (LA-22). This module only parses it, decides which questions are visible,
@@ -26,7 +28,12 @@ export type EngineInputName = Exclude<keyof Answers, "facts" | "branchGates" | "
 
 export type QuestionKind = "choice" | "number" | "branch_gate" | "text";
 
-export type ChoiceOption = { value: string; label: string };
+/**
+ * One answer a choice question offers. LA-2219: a choice may open follow-ups
+ * of its own, the way a branch gate opens on yes, so Full balconies ask the
+ * balcony facts and Juliet balconies ask what LA-2220 adds.
+ */
+export type ChoiceOption = { value: string; label: string; opens?: string[] };
 
 export type Mapping =
   | { target: "engine_input"; name: EngineInputName }
@@ -72,6 +79,12 @@ export type Question = {
   pattern?: string;
   /** Makes a question required only when another question's answer matches. Illegal alongside `required: true`. */
   requiredWhen?: RequiredCondition;
+  /**
+   * LA-2218: the price level (Level 1, 2 or 3) at which the question first
+   * appears. A file that omits it asks the question from Level 1, so a question
+   * with no level is never hidden.
+   */
+  level: PriceLevel;
   mapsTo: Mapping;
 };
 
@@ -138,6 +151,7 @@ const QUESTION_KEYS = new Set([
   "opensWhen",
   "pattern",
   "requiredWhen",
+  "level",
   "mapsTo",
 ]);
 
@@ -226,7 +240,7 @@ function parseQuestion(value: unknown, index: number): Question {
   if (!isRecord(value)) throw new FlowDefinitionInvalid(`${where} is not an object.`);
   requireKnownKeys(value, QUESTION_KEYS, where);
 
-  const { id, prompt, help, kind, required, choices, opens, opensWhen, pattern, requiredWhen } = value;
+  const { id, prompt, help, kind, required, choices, opens, opensWhen, pattern, requiredWhen, level } = value;
   if (typeof id !== "string" || id.length === 0) {
     throw new FlowDefinitionInvalid(`${where} needs an id.`);
   }
@@ -250,15 +264,19 @@ function parseQuestion(value: unknown, index: number): Question {
     }
     parsedChoices = choices.map((choice) => {
       if (!isRecord(choice)) throw new FlowDefinitionInvalid(`Question "${id}" has a bad choice.`);
-      requireKnownKeys(choice, new Set(["value", "label"]), `Question "${id}" choice`);
-      const { value: choiceValue, label } = choice;
+      requireKnownKeys(choice, new Set(["value", "label", "opens"]), `Question "${id}" choice`);
+      const { value: choiceValue, label, opens: choiceOpens } = choice;
       if (typeof choiceValue !== "string" || choiceValue.length === 0) {
         throw new FlowDefinitionInvalid(`Question "${id}" has a choice with no value.`);
       }
       if (typeof label !== "string" || label.length === 0) {
         throw new FlowDefinitionInvalid(`Question "${id}" has a choice with no label.`);
       }
-      return { value: choiceValue, label };
+      if (choiceOpens === undefined) return { value: choiceValue, label };
+      if (!Array.isArray(choiceOpens) || choiceOpens.length === 0 || choiceOpens.some((one) => typeof one !== "string")) {
+        throw new FlowDefinitionInvalid(`Question "${id}" has a choice with a bad opens list.`);
+      }
+      return { value: choiceValue, label, opens: choiceOpens as string[] };
     });
   } else if (choices !== undefined) {
     throw new FlowDefinitionInvalid(`Question "${id}" lists choices but is not a choice question.`);
@@ -315,11 +333,16 @@ function parseQuestion(value: unknown, index: number): Question {
     parsedRequiredWhen = parseRequiredCondition(requiredWhen, `Question "${id}"`);
   }
 
+  if (level !== undefined && level !== 1 && level !== 2 && level !== 3) {
+    throw new FlowDefinitionInvalid(`Question "${id}" needs a level of 1, 2 or 3.`);
+  }
+
   const question: Question = {
     id,
     prompt,
     kind,
     required,
+    level: level ?? 1,
     mapsTo: parseMapping(value.mapsTo, `Question "${id}"`),
   };
   if (help !== undefined) question.help = help as string;
@@ -393,7 +416,7 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
 
   const openedBy = new Map<string, string>();
   for (const question of parsed) {
-    for (const opened of question.opens ?? []) {
+    for (const opened of allOpens(question)) {
       if (!seen.has(opened)) {
         throw new FlowDefinitionInvalid(`Question "${question.id}" opens "${opened}", which is not there.`);
       }
@@ -407,6 +430,16 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
         );
       }
       openedBy.set(opened, question.id);
+    }
+  }
+
+  // A follow-up never appears at a lower level than the gate that opens it.
+  const levelOf = new Map(parsed.map((question) => [question.id, question.level]));
+  for (const [opened, gate] of openedBy) {
+    if ((levelOf.get(opened) ?? 1) < (levelOf.get(gate) ?? 1)) {
+      throw new FlowDefinitionInvalid(
+        `Question "${opened}" is at a lower level than "${gate}", which opens it.`,
+      );
     }
   }
 
@@ -465,6 +498,11 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
   return definition;
 }
 
+/** Every question a question can open: its own `opens`, and each choice's (LA-2219). */
+function allOpens(question: Question): string[] {
+  return [...(question.opens ?? []), ...(question.choices ?? []).flatMap((choice) => choice.opens ?? [])];
+}
+
 let tier1: FlowDefinition | undefined;
 
 /** The tier-1 flow the site and every other surface runs. */
@@ -483,11 +521,16 @@ function gateAnswerFor(gateId: string, responses: Responses): BranchGateAnswer |
 /**
  * Whether a gate question's own answer opens whatever it gates: a branch
  * gate opens on "yes"; a number question with an `opensWhen` condition opens
- * once its answer meets that condition. Anything else (a number question
- * with no `opensWhen`, which parsing already refuses if it also has
+ * once its answer meets that condition; a choice question opens what the
+ * chosen answer's own `opens` lists (LA-2219). Anything else (a number
+ * question with no `opensWhen`, which parsing already refuses if it also has
  * `opens`) never opens anything.
  */
-function gateSatisfied(gate: Question, responses: Responses): boolean {
+function gateSatisfied(gate: Question, responses: Responses, opened: string): boolean {
+  if (gate.kind === "choice") {
+    const chosen = gate.choices?.find((choice) => choice.value === responses[gate.id]);
+    return chosen?.opens?.includes(opened) ?? false;
+  }
   if (gate.kind === "branch_gate") {
     return gateAnswerFor(gate.id, responses) === "yes";
   }
@@ -509,7 +552,7 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
   const byId = new Map(definition.questions.map((question) => [question.id, question]));
   const gateOf = new Map<string, string>();
   for (const question of definition.questions) {
-    for (const opened of question.opens ?? []) gateOf.set(opened, question.id);
+    for (const opened of allOpens(question)) gateOf.set(opened, question.id);
   }
 
   // Every gate above a question has to be open, not just the one directly
@@ -524,7 +567,7 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
     visiting.add(id);
     const gateId = gateOf.get(id);
     const gate = gateId ? byId.get(gateId) : undefined;
-    const result = !gateId || !gate ? true : isOpen(gateId, visiting) && gateSatisfied(gate, responses);
+    const result = !gateId || !gate ? true : isOpen(gateId, visiting) && gateSatisfied(gate, responses, id);
     visiting.delete(id);
 
     open.set(id, result);
@@ -532,6 +575,35 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
   };
 
   return definition.questions.filter((question) => isOpen(question.id, new Set()));
+}
+
+/**
+ * LA-2218: the visible questions that show at this price level. The gate rules
+ * decide what is open; the level then hides what a higher level adds. Hiding is
+ * all it does: an answer given at a higher level stays in the responses, and
+ * `visibleQuestions` (which the run reads) still counts it.
+ */
+export function questionsAtLevel(definition: FlowDefinition, responses: Responses, level: PriceLevel): Question[] {
+  return visibleQuestions(definition, responses).filter((question) => question.level <= level);
+}
+
+/**
+ * LA-2218: for each level above this one, how many open questions it adds. The
+ * New Budget panel shows one dashed tile per entry, such as "Level 2 · 2 More
+ * Questions". A follow-up counts only once the gate above it is open.
+ */
+export function lockedLevels(
+  definition: FlowDefinition,
+  responses: Responses,
+  level: PriceLevel,
+): { level: PriceLevel; added: number }[] {
+  const open = visibleQuestions(definition, responses);
+  const locked: { level: PriceLevel; added: number }[] = [];
+  for (const above of [2, 3] as const) {
+    if (above <= level) continue;
+    locked.push({ level: above, added: open.filter((question) => question.level === above).length });
+  }
+  return locked;
 }
 
 /**

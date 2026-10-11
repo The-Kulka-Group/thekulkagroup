@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { rateUsd, usd } from "@/lib/format/usd";
-import type { PartPriceMap, PricedPart } from "@/lib/rom/part-prices";
+import { partTints, PRICE_LEVELS, type PriceLevels, rowPerGsf, rowsHolding, rowTint } from "@/lib/rom/level-rows";
+import type { LevelView, PartPriceMap, PricedPart, PriceLevel } from "@/lib/rom/part-prices";
 import { partsOf, type StageBuilding } from "@/lib/rom/stage-model";
 import { CARD_ORDER, cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, type StagePart } from "@/lib/rom/stage-scenes";
 
@@ -45,6 +46,10 @@ import "./stage.css";
 // and a picked part's panel opens the card that decided it. A part nothing
 // prices draws faint with a dashed working-orange edge and reads Not Priced.
 //
+// LA-2212: given the run's price levels, a list beside the view reads the
+// same run at Level 1 (one block), Level 2 (the ADR 0002 elements) or Level 3
+// (the canonical work items), and the stage tints to match. Picking a row
+// lights its parts; picking a part marks the rows it sits in.
 // LA-2217: the open view switches between Assembled (a ground plane over what
 // is below grade, the top floor's corner cut away to its units) and Opened
 // (the stories lift apart and the risers run through them). The switch
@@ -61,6 +66,11 @@ type Props = { building: StageBuilding | null } & (
       onOpenCard?: (code: string, from: HTMLElement) => void;
       /** LA-2211: the run's part price map. With it, picking a part shows its price. */
       prices?: PartPriceMap | null;
+      /** LA-2212: the run at every price level. With it, the open view lists the run at the level picked. */
+      levels?: PriceLevels | null;
+      /** LA-2218: the price level, when the New Budget questions share it with this list. */
+      level?: PriceLevel;
+      onLevel?: (level: PriceLevel) => void;
     }
   | {
       mode: "live";
@@ -125,6 +135,8 @@ const CUTS: { kind: CutKind; label: string }[] = [
 /** Radians a pixel of drag turns the view. */
 const TURN = 0.008;
 const EMPTY: readonly string[] = [];
+/** LA-2212: below this width in CSS pixels, the open view has no room for the price list beside the building. */
+const TIGHT = 720;
 /** LA-2213: how long a changed part stays lit. */
 const PULSE_MS = 900;
 
@@ -147,14 +159,20 @@ export function Stage(props: Props) {
   const [hover, setHover] = useState<readonly StagePart[]>([]);
   // LA-2211: the picked part, when the stage has the run's prices.
   const [picked, setPicked] = useState<StagePart | null>(null);
+  // LA-2212: the price level the list reads, and the row picked in it.
+  const [ownLevel, setOwnLevel] = useState<PriceLevel>(3);
+  const [row, setRow] = useState<string | null>(null);
   // LA-2217: the view, and how open the model is right now (0 to 1), which the switch animates.
   const [view, setView] = useState<View>("assembled");
+  /** LA-2219: too narrow for the price list beside the building, so the list folds under the tools. */
+  const [tight, setTight] = useState(false);
   const opened = useRef(0);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const partsRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
   const pickRef = useRef<HTMLElement>(null);
+  const rowsRef = useRef<HTMLElement>(null);
   const hoverFrame = useRef(0);
 
   // Live mode's working state, kept out of React so a frame never re-renders.
@@ -382,6 +400,13 @@ export function Stage(props: Props) {
   const unpricedParts = useMemo(() => (prices?.parts ?? []).filter((one) => one.unpriced).map((one) => one.part), [prices]);
   // A picked part the building no longer draws is no longer picked.
   const pick = picked && priceOf.has(picked) ? priceOf.get(picked)! : null;
+  const levels = assemble?.levels ?? null;
+  // LA-2218: the level the questions use, when the parent holds it; else the stage keeps its own.
+  const priceLevel = assemble?.level ?? ownLevel;
+  const levelView = levels?.views[priceLevel] ?? null;
+  const rowParts = useMemo(() => levelView?.rows.find((one) => one.key === row)?.parts ?? [], [levelView, row]);
+  const holding = useMemo(() => new Set(levelView && pick ? rowsHolding(levelView, pick.part) : []), [levelView, pick]);
+  const tints = useMemo(() => (open && levelView ? partTints(levelView) : {}), [open, levelView]);
   const stories = building?.levels.length ?? 0;
 
   const cut: StageCut = useMemo(
@@ -394,8 +419,13 @@ export function Stage(props: Props) {
     [cutKind, level, across, stories],
   );
   const lit = useMemo(
-    () => (hover.length > 0 ? hover : (decisions.find((d) => d.code === openCode)?.parts ?? [])),
-    [hover, decisions, openCode],
+    () =>
+      hover.length > 0
+        ? hover
+        : rowParts.length > 0
+          ? rowParts
+          : (decisions.find((d) => d.code === openCode)?.parts ?? []),
+    [hover, rowParts, decisions, openCode],
   );
   const focus = open ? (pick?.part ?? null) : null;
 
@@ -428,8 +458,9 @@ export function Stage(props: Props) {
     c.setHighlight(lit);
     c.setUnpriced(unpricedParts);
     c.setFocus(focus);
+    c.setTints(tints);
     c.render();
-  }, [open, cut, lit, unpricedParts, focus, ready, key]);
+  }, [open, cut, lit, unpricedParts, focus, tints, ready, key]);
 
   // LA-2217: the switch eases the model from one view to the other; reduced motion jumps there.
   useEffect(() => {
@@ -471,7 +502,19 @@ export function Stage(props: Props) {
       const panel = open ? pickRef.current?.getBoundingClientRect() : undefined;
       if (top) el.style.setProperty("--stg-bar-bottom", `${top.bottom - box.top}px`);
       el.style.setProperty("--stg-row-top", `${row ? row.top - box.top : box.height}px`);
-      const under = panel && panel.width * 2 > box.width ? panel.bottom : top?.bottom;
+      // LA-2212: the price list sits beside the building, or, in a view too
+      // narrow for that, under the tools with the building framed below it.
+      const tight = box.width < TIGHT;
+      el.dataset.tight = String(tight);
+      setTight(tight);
+      const list = open && tight ? rowsRef.current?.getBoundingClientRect() : undefined;
+      // LA-2219: there, the picked part's panel sits under the list, never on it.
+      el.style.setProperty("--stg-list-bottom", `${list ? list.bottom - box.top : top ? top.bottom - box.top : 0}px`);
+      const under = Math.max(
+        top?.bottom ?? 0,
+        panel && panel.width * 2 > box.width ? panel.bottom : 0,
+        list ? list.bottom : 0,
+      );
       c.setInsets(under ? under - box.top + 6 : 0, row ? box.bottom - row.top + 8 : 0);
       c.render();
     };
@@ -479,8 +522,9 @@ export function Stage(props: Props) {
     const observer = new ResizeObserver(inset);
     observer.observe(el);
     if (pickRef.current) observer.observe(pickRef.current);
+    if (rowsRef.current) observer.observe(rowsRef.current);
     return () => observer.disconnect();
-  }, [open, ready, decisions.length, prices, pick?.part]);
+  }, [open, ready, decisions.length, prices, pick?.part, levelView]);
 
   // Opening scrolls the view into sight; closing returns the camera to its framing.
   useEffect(() => {
@@ -528,7 +572,15 @@ export function Stage(props: Props) {
   };
   const openCard = (code: string, from: HTMLElement) => assemble?.onOpenCard?.(code, from);
   /** LA-2211: picks a part, or clears the pick when it is already picked or nothing is under the pointer. */
-  const pickPart = (part: StagePart | null) => setPicked((now) => (part === null || part === now ? null : part));
+  const pickPart = (part: StagePart | null) => {
+    setPicked((now) => (part === null || part === now ? null : part));
+    setRow(null);
+  };
+  /** LA-2212: picks a row of the list, or clears it when it is already picked. A row and a part are never picked together. */
+  const pickRow = (key: string) => {
+    setRow((now) => (now === key ? null : key));
+    setPicked(null);
+  };
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!open || event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -583,9 +635,10 @@ export function Stage(props: Props) {
   const onKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
     const c = ctl.current;
     if (!open || !c) return;
-    if (event.key === "Escape" && picked) {
+    if (event.key === "Escape" && (picked || row)) {
       event.preventDefault();
       setPicked(null);
+      setRow(null);
       return;
     }
     const moves: Record<string, () => void> = {
@@ -739,6 +792,7 @@ export function Stage(props: Props) {
                   setOpen(false);
                   setHover([]);
                   setPicked(null);
+                  setRow(null);
                   setView("assembled");
                 }}
               >
@@ -746,6 +800,22 @@ export function Stage(props: Props) {
               </button>
             </div>
           </div>
+          {levels && levelView ? (
+            <LevelList
+              listRef={rowsRef}
+              view={levelView}
+              tight={tight}
+              grossSquareFeet={levels.grossSquareFeet}
+              row={row}
+              holding={holding}
+              onLevel={(level) => {
+                setOwnLevel(level);
+                assemble?.onLevel?.(level);
+                setRow(null);
+              }}
+              onRow={pickRow}
+            />
+          ) : null}
           {pick ? (
             <PickedPart
               panelRef={pickRef}
@@ -765,6 +835,7 @@ export function Stage(props: Props) {
                   className={`stg-pill stg-part${one.unpriced ? " stg-part--unpriced" : ""}`}
                   aria-pressed={pick?.part === one.part}
                   data-part={one.part}
+                  data-lit={lit.includes(one.part) ? "true" : undefined}
                   onClick={() => pickPart(one.part)}
                   onPointerEnter={() => setHover([one.part])}
                   onPointerLeave={() => setHover([])}
@@ -799,6 +870,75 @@ export function Stage(props: Props) {
         </>
       ) : null}
     </section>
+  );
+}
+
+/** LA-2212: the run at one price level, with the switch between levels. */
+function LevelList({
+  listRef,
+  view,
+  tight,
+  grossSquareFeet,
+  row,
+  holding,
+  onLevel,
+  onRow,
+}: {
+  listRef: React.Ref<HTMLElement>;
+  view: LevelView;
+  tight: boolean;
+  grossSquareFeet: number | null;
+  row: string | null;
+  holding: ReadonlySet<string>;
+  onLevel: (level: PriceLevel) => void;
+  onRow: (key: string) => void;
+}) {
+  // LA-2219: in a narrow view the list starts folded, so it never covers the
+  // building; the level switch stays in sight and one press shows the rows.
+  const [shown, setShown] = useState(false);
+  const folded = tight && !shown;
+  return (
+    <aside ref={listRef} className="stg-rows" aria-label="The budget at this price level" data-folded={folded ? "true" : undefined}>
+      <div className="stg-rows-head">
+        <div className="stg-seg" role="group" aria-label="Price Level">
+          {PRICE_LEVELS.map((level) => (
+            <button key={level} type="button" className="stg-pill" aria-pressed={view.level === level} onClick={() => onLevel(level)}>
+              Level {level}
+            </button>
+          ))}
+        </div>
+        {tight ? (
+          <button type="button" className="stg-pill" aria-expanded={shown} onClick={() => setShown(!shown)}>
+            {shown ? "Hide List" : "Show List"}
+          </button>
+        ) : null}
+      </div>
+      {folded ? null : (
+        <ol className="stg-rows-list">
+          {view.rows.map((one) => {
+            const tint = rowTint(view.level, one);
+            const perGsf = view.level === 1 ? rowPerGsf(one, grossSquareFeet) : null;
+            return (
+              <li key={one.key}>
+                <button
+                  type="button"
+                  className={`stg-row${one.total === null ? " stg-row--unpriced" : ""}`}
+                  data-row={one.key}
+                  aria-pressed={row === one.key}
+                  aria-current={holding.has(one.key) ? "true" : undefined}
+                  onClick={() => onRow(one.key)}
+                >
+                  <span className="stg-row-sw" style={tint ? { background: tint } : undefined} aria-hidden="true" />
+                  <span className="stg-row-l">{one.label}</span>
+                  <span className="stg-row-p num">{one.total === null ? "Not Priced" : usd(one.total)}</span>
+                  {perGsf !== null ? <span className="stg-row-psf num">{rateUsd(perGsf)} per GSF</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </aside>
   );
 }
 

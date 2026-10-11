@@ -178,6 +178,7 @@ const EXPECTED_DIVISIONS: Record<string, string> = {
   "14a": "07",
   "15": "08",
   "15a": "08",
+  "15b": "08", // LA-2219, Matt 2026-10-11: sliding glass doors.
   "16": "08",
   "16a": "08",
   "17": "09",

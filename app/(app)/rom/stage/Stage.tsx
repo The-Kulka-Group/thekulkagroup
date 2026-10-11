@@ -9,6 +9,7 @@ import { CARD_ORDER, cardForPart, decisionsFor, STAGE_PARTS, type StageEvent, ty
 
 import { reducedMotion } from "../motion";
 import type { PartState, PartStates, StageController, StageCut } from "./build-model";
+import { openedAt } from "./views";
 import "./stage.css";
 
 // LA-1317, LA-1318: the Design and Engineering stage across the top of the
@@ -42,6 +43,11 @@ import "./stage.css";
 // The row beneath lists the parts, so picking works from the keyboard too,
 // and a picked part's panel opens the card that decided it. A part nothing
 // prices draws faint with a dashed working-orange edge and reads Not Priced.
+//
+// LA-2217: the open view switches between Assembled (a ground plane over what
+// is below grade, the top floor's corner cut away to its units) and Opened
+// (the stories lift apart and the risers run through them). The switch
+// animates, reduced motion jumps to the end, and picking works in both.
 
 type Props = { building: StageBuilding | null } & (
   | {
@@ -99,6 +105,12 @@ const CARD_CODES: ReadonlySet<string> = new Set(CARD_ORDER);
 type Scene = { event: StageEvent; start: number; land: number; end: number; build: StagePart[]; mark: StagePart[]; landed: boolean };
 type Caption = { event: StageEvent; landed: boolean };
 type CutKind = StageCut["kind"];
+type View = "assembled" | "opened";
+
+const VIEWS: { view: View; label: string }[] = [
+  { view: "assembled", label: "Assembled" },
+  { view: "opened", label: "Opened" },
+];
 
 const CUTS: { kind: CutKind; label: string }[] = [
   { kind: "none", label: "No Cut" },
@@ -128,6 +140,9 @@ export function Stage(props: Props) {
   const [hover, setHover] = useState<readonly StagePart[]>([]);
   // LA-2211: the picked part, when the stage has the run's prices.
   const [picked, setPicked] = useState<StagePart | null>(null);
+  // LA-2217: the view, and how open the model is right now (0 to 1), which the switch animates.
+  const [view, setView] = useState<View>("assembled");
+  const opened = useRef(0);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const partsRef = useRef<HTMLDivElement>(null);
@@ -173,6 +188,7 @@ export function Stage(props: Props) {
         const spec = latest.current.building;
         if (!spec) return;
         c.setBuilding(spec);
+        c.setOpened(opened.current);
 
         const size = () => {
           const w = el.clientWidth, h = el.clientHeight;
@@ -386,6 +402,31 @@ export function Stage(props: Props) {
     c.render();
   }, [open, cut, lit, unpricedParts, focus, ready, key]);
 
+  // LA-2217: the switch eases the model from one view to the other; reduced motion jumps there.
+  useEffect(() => {
+    const c = ctl.current;
+    if (!c) return;
+    const to = view === "opened" ? 1 : 0;
+    const from = opened.current;
+    const reduced = reducedMotion();
+    const t0 = performance.now();
+    let raf = 0;
+    let last = t0;
+    const frame = (now: number) => {
+      const at = openedAt(from, to, now - t0, reduced);
+      opened.current = at;
+      c.setOpened(at);
+      // How open the model is, for anything checking the switch landed.
+      wrap.current?.setAttribute("data-opened", String(Math.round(at * 100) / 100));
+      const moving = c.tick(reduced ? 10 : Math.min(0.05, Math.max(0, now - last) / 1000));
+      last = now;
+      c.render();
+      if (at !== to || (moving && !reduced)) raf = requestAnimationFrame(frame);
+    };
+    frame(t0);
+    return () => cancelAnimationFrame(raf);
+  }, [view, ready]);
+
   // The open view's controls cover its top and bottom, so the building frames between them.
   useEffect(() => {
     const el = wrap.current;
@@ -539,6 +580,7 @@ export function Stage(props: Props) {
       className={`stg ${open ? "stg--open" : "stg--card"}${props.mode === "live" ? " stg--live" : ""}`}
       ref={wrap}
       aria-label="Building View"
+      data-view={view}
     >
       <canvas
         ref={canvas}
@@ -591,6 +633,19 @@ export function Stage(props: Props) {
               <span className="stg-head-s">{shapeLine}</span>
             </div>
             <div className="stg-tools">
+              <div className="stg-seg" role="group" aria-label="View">
+                {VIEWS.map((one) => (
+                  <button
+                    key={one.view}
+                    type="button"
+                    className="stg-pill"
+                    aria-pressed={view === one.view}
+                    onClick={() => setView(one.view)}
+                  >
+                    {one.label}
+                  </button>
+                ))}
+              </div>
               <div className="stg-seg" role="group" aria-label="Cut">
                 {CUTS.map((one) => (
                   <button
@@ -655,6 +710,7 @@ export function Stage(props: Props) {
                   setOpen(false);
                   setHover([]);
                   setPicked(null);
+                  setView("assembled");
                 }}
               >
                 Close

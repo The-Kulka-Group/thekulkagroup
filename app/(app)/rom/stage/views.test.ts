@@ -22,7 +22,7 @@ const facts = (over: Partial<StageFacts> = {}): StageFacts => ({
 });
 
 // One podium story of 12 ft, then five frame stories of 10 ft: tops at 12, 22, 32, 42, 52, 62.
-const building = stageBuilding(facts(), []);
+const building = stageBuilding(facts(), [])!;
 
 describe("layerOf", () => {
   it("reads the story an object stands on from where it rests", () => {
@@ -69,7 +69,7 @@ describe("risersOf and stretchOf", () => {
   });
 
   it("runs them from grade when there is no podium", () => {
-    expect(risersOf(stageBuilding(facts({ parkingType: "surface" }), []))).toEqual({ bottom: 0, top: 60 });
+    expect(risersOf(stageBuilding(facts({ parkingType: "surface" }), [])!)).toEqual({ bottom: 0, top: 60 });
   });
 
   it("stands as drawn while the building is assembled", () => {
@@ -91,7 +91,7 @@ describe("cutawayOf", () => {
   });
 
   it("follows the last building along the street", () => {
-    expect(cutawayOf(building.form.wings, building.levels, 220).x).toBe(220 + wing.x1 - 48);
+    expect(cutawayOf(building.form.wings, building.levels, 220)?.x).toBe(220 + wing.x1 - 48);
   });
 
   it("takes a smaller bite from a small wing", () => {

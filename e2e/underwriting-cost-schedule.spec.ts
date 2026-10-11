@@ -47,7 +47,9 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   const scheduleResponse = await savedResponse;
   const scheduleResponseBody = await scheduleResponse.json();
   expect(scheduleResponse.status(), JSON.stringify(scheduleResponseBody)).toBe(200);
-  await expect(page.getByText("Land needs a source label.")).toBeVisible();
+  // LA-2054: the review list holds one collapsed row per input, so open the group first.
+  await page.locator(".underwriting-review-group").filter({ hasText: "Development Cost Schedule" }).locator("summary").click();
+  await expect(page.getByText("Land: No Source Label, No Source Date, Working on It", { exact: true })).toBeVisible();
 
   const projectRevision = scheduleResponseBody.case.caseRevision + 1;
   await page.locator("#cost-line-1-amount").fill("2050000");
@@ -58,9 +60,9 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   const factsResponse = await savedFactsResponse;
   expect(factsResponse.status(), JSON.stringify(await factsResponse.json())).toBe(200);
   await expect(scheduleEditor).toHaveAttribute("data-expected-revision", String(projectRevision));
-  await expect(page.locator("#cost-line-1-amount")).toHaveValue("2050000");
+  await expect(page.locator("#cost-line-1-amount")).toHaveValue("2,050,000");
   await saveSchedule(page, savedCase.id);
-  await expect(page.locator("#cost-line-1-amount")).toHaveValue("2050000");
+  await expect(page.locator("#cost-line-1-amount")).toHaveValue("2,050,000");
 
   await page.locator("#cost-line-1-reviewState").selectOption("done");
   await saveSchedule(page, savedCase.id);
@@ -87,13 +89,20 @@ test("saves, calculates, reloads, and reopens a monthly cost schedule", async ({
   await expect(page.getByText("The saved results are ready for review.")).toBeVisible();
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
+  // LA-2055: the run page folds the input and evidence snapshots until the viewer opens them.
+  await page.getByRole("button", { name: "Expand Full Calculation Input Snapshot" }).click();
+  await page.getByRole("button", { name: "Expand Saved Evidence Snapshot" }).click();
+  // LA-2055: formula traces start folded, so open the aggregate trace before reading it.
+  await page.locator("summary", { hasText: "Aggregate Formula Traces" }).click();
   await expect(page.getByText("Aggregate Result")).toBeVisible();
   await expect(page.getByText("Missing").first()).toBeVisible();
 
   await page.goBack();
   await page.setViewportSize({ width: 375, height: 812 });
   await page.reload();
-  await expect(page.getByText("Land needs a source label.")).toBeVisible();
+  // LA-2054: the review list holds one collapsed row per input, so open the group first.
+  await page.locator(".underwriting-review-group").filter({ hasText: "Development Cost Schedule" }).locator("summary").click();
+  await expect(page.getByText("Land: No Source Label, No Source Date, Working on It", { exact: true })).toBeVisible();
   const narrowLayout = await page.evaluate(() => ({
     bodyWidth: document.body.scrollWidth,
     viewportWidth: document.documentElement.clientWidth,

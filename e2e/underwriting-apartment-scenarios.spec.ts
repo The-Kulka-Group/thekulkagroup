@@ -56,6 +56,9 @@ test("saves apartment scenario deltas and reopens the comparison run", async ({ 
   await expect(page.getByLabel("Downside Vacancy value")).toHaveValue("8");
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
+  // LA-2055: the run page folds the input and evidence snapshots until the viewer opens them.
+  await page.getByRole("button", { name: "Expand Full Calculation Input Snapshot" }).click();
+  await page.getByRole("button", { name: "Expand Saved Evidence Snapshot" }).click();
   await expect(page.getByText("vacancyPercent: 8")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Saved Scenario Evidence" })).toBeVisible();
   const evidenceRow = page.getByRole("row").filter({ hasText: "Higher Vacancy" }).filter({ hasText: "Market study" });

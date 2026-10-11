@@ -65,8 +65,13 @@ test("saves, calculates, reloads, and reopens property sale returns", async ({ p
   await expect(page.locator("#returns-selling-cost")).toHaveValue("1.5");
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
+  // LA-2055: the run page folds the input and evidence snapshots until the viewer opens them.
+  await page.getByRole("button", { name: "Expand Full Calculation Input Snapshot" }).click();
+  await page.getByRole("button", { name: "Expand Saved Evidence Snapshot" }).click();
   await expect(page.getByText("Sale Input Version")).toBeVisible();
   await expect(page.getByText("Saved Sale Assumption")).toBeVisible();
+  // The run saves two check tables, one for the operations and one for the sale, each folded.
+  for (const fold of await page.locator("summary", { hasText: "Show Every Check" }).all()) await fold.click();
   await expect(page.getByText("2026-12 unlevered cash flow equals operating cash and sale proceeds less project costs")).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 812 });

@@ -73,7 +73,8 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
   await page.locator("#capital-loan-fee").fill("1");
   await page.getByRole("button", { name: "Save Capital Plan" }).click();
   await expect(page.locator("#capital-target-debt-share")).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator("#capital-target-debt-share")).toHaveAttribute("aria-describedby", "capital-target-debt-share-error");
+  await expect(page.locator("#capital-target-debt-share")).toHaveAttribute("aria-describedby", "capital-target-debt-share-hint capital-target-debt-share-error");
+  await expect(page.locator("#capital-target-debt-share-hint")).toBeAttached();
   await expect(page.locator("#capital-target-debt-share-error")).toContainText("0 to 100");
 
   await page.locator("#capital-target-debt-share").fill("65");
@@ -109,9 +110,13 @@ test("saves, calculates, reloads, and reopens monthly development capital", asyn
   await expect(page.locator("#capital-interest-treatment")).toHaveValue("capitalized_gross_interest.v1");
   await page.getByRole("link", { name: "Current revision" }).click();
   await expect(page.getByText("Saved Results and Formulas", { exact: true })).toBeVisible();
+  // LA-2055: the run page folds the input and evidence snapshots until the viewer opens them.
+  await page.getByRole("button", { name: "Expand Full Calculation Input Snapshot" }).click();
+  await page.getByRole("button", { name: "Expand Saved Evidence Snapshot" }).click();
   await expect(page.getByText("Capital Input Version")).toBeVisible();
   await expect(page.getByText("Saved Capital Assumption")).toBeVisible();
   await expect(page.getByText("capitalized_gross_interest.v1").first()).toBeVisible();
+  await page.locator("summary", { hasText: "Show Every Check" }).click();
   await expect(page.getByText("Closing construction debt equals zero after the payoff month")).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 812 });

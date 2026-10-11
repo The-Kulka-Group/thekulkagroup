@@ -154,6 +154,7 @@
       "prompt": "Are there known groundwater or poor soil conditions?",
       "kind": "branch_gate",
       "required": true,
+      "level": 2,
       "mapsTo": { "target": "branch_gate", "section": "site_conditions" }
     },
     {
@@ -190,6 +191,7 @@
       "prompt": "Do the units have balconies?",
       "kind": "branch_gate",
       "required": true,
+      "level": 3,
       "mapsTo": { "target": "branch_gate", "section": "balconies" }
     },
     {

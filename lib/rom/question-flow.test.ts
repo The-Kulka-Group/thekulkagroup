@@ -7,7 +7,9 @@ import {
   FLOW_FILE,
   FlowAnswersInvalid,
   FlowDefinitionInvalid,
+  lockedLevels,
   parseFlowDefinition,
+  questionsAtLevel,
   readFlowAnswers,
   tier1Flow,
   visibleQuestions,
@@ -42,7 +44,10 @@ describe("the shipped tier-1 definition", () => {
     const walk = (value: unknown) => {
       if (typeof value === "number") numbers.push(value);
       else if (Array.isArray(value)) value.forEach(walk);
-      else if (value && typeof value === "object") Object.values(value).forEach(walk);
+      else if (value && typeof value === "object") {
+        // LA-2218: a question's level (1, 2 or 3) says when it appears, not what it costs.
+        for (const [key, one] of Object.entries(value)) if (key !== "level") walk(one);
+      }
     };
     walk({ ...file, version: undefined });
     expect(numbers).toEqual([]);
@@ -487,5 +492,87 @@ describe("a definition this code will not run", () => {
       mapsTo: { target: "intake_field", name: "demolition" },
     });
     expect(() => parseFlowDefinition(file)).toThrow(/demolition/);
+  });
+});
+
+describe("question levels (LA-2218)", () => {
+  const ids = (level: 1 | 2 | 3, responses: Record<string, string> = {}) =>
+    questionsAtLevel(tier1Flow(), responses, level).map((q) => q.id);
+
+  it("shows soil only from Level 2 and balconies only at Level 3", () => {
+    expect(ids(1)).toContain("parking_type");
+    expect(ids(1)).not.toContain("site_conditions");
+    expect(ids(1)).not.toContain("balconies");
+    expect(ids(2)).toContain("site_conditions");
+    expect(ids(2)).not.toContain("balconies");
+    expect(ids(3)).toContain("site_conditions");
+    expect(ids(3)).toContain("balconies");
+  });
+
+  it("keeps every other question at Level 1, so lower levels never lose a question", () => {
+    const all = visibleQuestions(tier1Flow(), {}).map((q) => q.id);
+    expect(ids(3)).toEqual(all);
+    expect(ids(1)).toEqual(all.filter((id) => id !== "site_conditions" && id !== "balconies"));
+  });
+
+  it("combines the level with the gate rules", () => {
+    expect(ids(1, { demolition: "yes" })).toContain("demolition_structure_count");
+    expect(ids(1)).not.toContain("demolition_structure_count");
+  });
+
+  it("leaves answers alone when the level changes", () => {
+    const responses = { site_conditions: "yes", balconies: "no" };
+    const before = { ...responses };
+    ids(1, responses);
+    ids(3, responses);
+    expect(responses).toEqual(before);
+    // The run still reads a hidden answer, so moving down never drops one.
+    expect(visibleQuestions(tier1Flow(), responses).map((q) => q.id)).toContain("site_conditions");
+  });
+
+  it("counts what each locked level adds", () => {
+    expect(lockedLevels(tier1Flow(), {}, 1)).toEqual([
+      { level: 2, added: 1 },
+      { level: 3, added: 1 },
+    ]);
+    expect(lockedLevels(tier1Flow(), {}, 2)).toEqual([{ level: 3, added: 1 }]);
+    expect(lockedLevels(tier1Flow(), {}, 3)).toEqual([]);
+  });
+
+  it("counts a locked follow-up only once its gate is open", () => {
+    const file = shippedFile();
+    questionsOf(file).push({
+      id: "soil_depth",
+      prompt: "How deep is the poor soil?",
+      kind: "number",
+      required: false,
+      level: 3,
+      mapsTo: { target: "intake_field", name: "soilDepth" },
+    });
+    const soil = questionsOf(file).find((one) => one.id === "site_conditions");
+    if (!soil) throw new Error("The shipped file no longer asks about soil.");
+    soil.opens = ["soil_depth"];
+    const definition = parseFlowDefinition(file);
+    expect(lockedLevels(definition, { site_conditions: "no" }, 1).find((l) => l.level === 3)?.added).toBe(1);
+    expect(lockedLevels(definition, { site_conditions: "yes" }, 1).find((l) => l.level === 3)?.added).toBe(2);
+  });
+
+  it("refuses a level that is not 1, 2 or 3", () => {
+    for (const bad of [0, 4, "2", 1.5]) {
+      const file = shippedFile();
+      questionsOf(file)[0].level = bad;
+      expect(() => parseFlowDefinition(file)).toThrow(FlowDefinitionInvalid);
+    }
+  });
+
+  it("refuses a follow-up that appears at a lower level than its gate", () => {
+    const file = shippedFile();
+    const count = questionsOf(file).find((one) => one.id === "demolition_structure_count");
+    if (!count) throw new Error("The shipped file no longer asks the structure count.");
+    count.level = 1;
+    const gate = questionsOf(file).find((one) => one.id === "demolition");
+    if (!gate) throw new Error("The shipped file no longer gates demolition.");
+    gate.level = 2;
+    expect(() => parseFlowDefinition(file)).toThrow(/level/i);
   });
 });

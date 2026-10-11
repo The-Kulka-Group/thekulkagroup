@@ -2,6 +2,8 @@ import type { Answers, BranchGateAnswer } from "@kulka/engine";
 
 import rawTier1Flow from "@/config/rom/tier1-flow.json";
 
+import type { PriceLevel } from "./part-prices";
+
 // The tier-1 question flow lives in a data file, not in this module. Every
 // surface reads the same file: the site today, the Claude wrapper next
 // (LA-22). This module only parses it, decides which questions are visible,
@@ -72,6 +74,12 @@ export type Question = {
   pattern?: string;
   /** Makes a question required only when another question's answer matches. Illegal alongside `required: true`. */
   requiredWhen?: RequiredCondition;
+  /**
+   * LA-2218: the price level (Level 1, 2 or 3) at which the question first
+   * appears. A file that omits it asks the question from Level 1, so a question
+   * with no level is never hidden.
+   */
+  level: PriceLevel;
   mapsTo: Mapping;
 };
 
@@ -138,6 +146,7 @@ const QUESTION_KEYS = new Set([
   "opensWhen",
   "pattern",
   "requiredWhen",
+  "level",
   "mapsTo",
 ]);
 
@@ -226,7 +235,7 @@ function parseQuestion(value: unknown, index: number): Question {
   if (!isRecord(value)) throw new FlowDefinitionInvalid(`${where} is not an object.`);
   requireKnownKeys(value, QUESTION_KEYS, where);
 
-  const { id, prompt, help, kind, required, choices, opens, opensWhen, pattern, requiredWhen } = value;
+  const { id, prompt, help, kind, required, choices, opens, opensWhen, pattern, requiredWhen, level } = value;
   if (typeof id !== "string" || id.length === 0) {
     throw new FlowDefinitionInvalid(`${where} needs an id.`);
   }
@@ -315,11 +324,16 @@ function parseQuestion(value: unknown, index: number): Question {
     parsedRequiredWhen = parseRequiredCondition(requiredWhen, `Question "${id}"`);
   }
 
+  if (level !== undefined && level !== 1 && level !== 2 && level !== 3) {
+    throw new FlowDefinitionInvalid(`Question "${id}" needs a level of 1, 2 or 3.`);
+  }
+
   const question: Question = {
     id,
     prompt,
     kind,
     required,
+    level: level ?? 1,
     mapsTo: parseMapping(value.mapsTo, `Question "${id}"`),
   };
   if (help !== undefined) question.help = help as string;
@@ -407,6 +421,16 @@ export function parseFlowDefinition(raw: unknown): FlowDefinition {
         );
       }
       openedBy.set(opened, question.id);
+    }
+  }
+
+  // A follow-up never appears at a lower level than the gate that opens it.
+  const levelOf = new Map(parsed.map((question) => [question.id, question.level]));
+  for (const [opened, gate] of openedBy) {
+    if ((levelOf.get(opened) ?? 1) < (levelOf.get(gate) ?? 1)) {
+      throw new FlowDefinitionInvalid(
+        `Question "${opened}" is at a lower level than "${gate}", which opens it.`,
+      );
     }
   }
 
@@ -532,6 +556,35 @@ export function visibleQuestions(definition: FlowDefinition, responses: Response
   };
 
   return definition.questions.filter((question) => isOpen(question.id, new Set()));
+}
+
+/**
+ * LA-2218: the visible questions that show at this price level. The gate rules
+ * decide what is open; the level then hides what a higher level adds. Hiding is
+ * all it does: an answer given at a higher level stays in the responses, and
+ * `visibleQuestions` (which the run reads) still counts it.
+ */
+export function questionsAtLevel(definition: FlowDefinition, responses: Responses, level: PriceLevel): Question[] {
+  return visibleQuestions(definition, responses).filter((question) => question.level <= level);
+}
+
+/**
+ * LA-2218: for each level above this one, how many open questions it adds. The
+ * New Budget panel shows one dashed tile per entry, such as "Level 2 · 2 More
+ * Questions". A follow-up counts only once the gate above it is open.
+ */
+export function lockedLevels(
+  definition: FlowDefinition,
+  responses: Responses,
+  level: PriceLevel,
+): { level: PriceLevel; added: number }[] {
+  const open = visibleQuestions(definition, responses);
+  const locked: { level: PriceLevel; added: number }[] = [];
+  for (const above of [2, 3] as const) {
+    if (above <= level) continue;
+    locked.push({ level: above, added: open.filter((question) => question.level === above).length });
+  }
+  return locked;
 }
 
 /**

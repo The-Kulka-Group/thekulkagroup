@@ -4,11 +4,13 @@ import {
   isQuestionRequired,
   numberAnswerIsValid,
   textAnswerIsValid,
+  questionsAtLevel,
   visibleQuestions,
   type FlowDefinition,
   type Question,
   type Responses,
 } from "./question-flow";
+import type { PriceLevel } from "./part-prices";
 
 // LA-1141: the guided New budget flow's Facts and Scope steps split the same
 // questions the intake flow always asked (config/rom/tier1-flow.json) across
@@ -39,8 +41,8 @@ const FACTS_IDS: ReadonlySet<string> = new Set([
 ]);
 
 /** The Facts step's questions, in the file's order, wording and choices unchanged. */
-export function factsQuestions(definition: FlowDefinition, responses: Responses): Question[] {
-  return visibleQuestions(definition, responses).filter((question) => FACTS_IDS.has(question.id));
+export function factsQuestions(definition: FlowDefinition, responses: Responses, level: PriceLevel = 3): Question[] {
+  return questionsAtLevel(definition, responses, level).filter((question) => FACTS_IDS.has(question.id));
 }
 
 /**
@@ -50,8 +52,8 @@ export function factsQuestions(definition: FlowDefinition, responses: Responses)
  * closes it otherwise). Adding a tenth gate to the file, or a second
  * follow-up, changes this step with no code change here.
  */
-export function scopeQuestions(definition: FlowDefinition, responses: Responses): Question[] {
-  return visibleQuestions(definition, responses).filter((question) => !FACTS_IDS.has(question.id));
+export function scopeQuestions(definition: FlowDefinition, responses: Responses, level: PriceLevel = 3): Question[] {
+  return questionsAtLevel(definition, responses, level).filter((question) => !FACTS_IDS.has(question.id));
 }
 
 /**
@@ -92,4 +94,23 @@ export function gatesFromResponses(
     }
   }
   return gates;
+}
+
+/**
+ * LA-2218: the required questions a lower level hides and nobody has answered.
+ * The run needs every required answer, so the flow holds the last step open
+ * until these are answered at a higher level.
+ */
+export function unansweredAboveLevel(
+  definition: FlowDefinition,
+  responses: Responses,
+  level: PriceLevel,
+): Question[] {
+  const shown = new Set(questionsAtLevel(definition, responses, level).map((question) => question.id));
+  return visibleQuestions(definition, responses).filter(
+    (question) =>
+      !shown.has(question.id) &&
+      isQuestionRequired(question, responses) &&
+      (responses[question.id] === undefined || responses[question.id] === ""),
+  );
 }

@@ -13,6 +13,7 @@
 // nobody knows yet. Pure functions only, same rule as rom.ts: nothing here
 // reads a clock, a network, or a database.
 
+import type { QuantityResult } from "./quantity-rules";
 import type { DemolitionStructureType } from "./rom-intake";
 import type { Benchmark, RomLine } from "./rom";
 
@@ -31,7 +32,9 @@ export type BenchmarkUnit =
   /** LA-1257: an Elevator element's supporting item, dollars for each elevator. */
   | "usd_each_elevator"
   /** LA-1269: dollars for each elevator machine room or controller space V-3 counts. */
-  | "usd_each_machine_room";
+  | "usd_each_machine_room"
+  /** LA-2216: dollars per SF of podium garage, a derived quantity (garage.ts). */
+  | "usd_per_sf_of_garage";
 
 /** Item 1a, Structure Demolition (ADR 0006, canonical-work-items.md). */
 export const STRUCTURE_DEMOLITION_COST_CODE = "1a";
@@ -105,6 +108,12 @@ export function quantityFor(
   elevatorCount: number | null = null,
   /** How many machine rooms need HVAC (LA-1269, V-3), or null before V-3 runs. */
   machineRooms: number | null = null,
+  /**
+   * LA-2216: the podium garage's SF, or null when it is not known. computeRom
+   * never blends a garage row without it; the line is a named blank instead
+   * (`pickDerivedRows`).
+   */
+  garageArea: number | null = null,
 ): number {
   switch (unit) {
     case "usd_per_gsf":
@@ -121,6 +130,8 @@ export function quantityFor(
       return elevatorCount ?? 0;
     case "usd_each_machine_room":
       return machineRooms ?? 0;
+    case "usd_per_sf_of_garage":
+      return garageArea ?? 0;
   }
 }
 
@@ -140,7 +151,47 @@ export const UNIT_INPUTS: Readonly<Record<BenchmarkUnit, readonly string[]>> = {
   usd_per_stop: ["elevatorCount", "storiesAboveGrade", "levels_below_grade", "elevatorType"],
   usd_each_elevator: ["elevatorCount"],
   usd_each_machine_room: ["elevatorMachineRooms"],
+  usd_per_sf_of_garage: ["grossSquareFeet", "parkingType", "storiesAboveGrade"],
 };
+
+/**
+ * LA-2216: the derived quantities (GLOSSARY.md: Derived quantity) a run reads
+ * off the project's facts, each worked out once. A later unit that reads a
+ * fact a project may lack (a balcony count, a Juliet count) adds its quantity
+ * here and its case to `derivedQuantityFor`.
+ */
+export type DerivedQuantities = {
+  garageArea: QuantityResult;
+};
+
+/** The derived quantity a unit multiplies by, or null for a unit that reads none. */
+export function derivedQuantityFor(unit: BenchmarkUnit, derived: DerivedQuantities): QuantityResult | null {
+  return unit === "usd_per_sf_of_garage" ? derived.garageArea : null;
+}
+
+/** A line whose quantity the project's facts cannot give yet: the facts it lacks, and why in words. */
+export type NamedBlank = { missing: string[]; words: string };
+
+/**
+ * Which rows of one cost code price, given the run's derived quantities. Rows
+ * on a derived unit price when the quantity is known. When it is not, rows on
+ * any other unit price the way they did before (the same fallback item 26
+ * keeps for a job without per-stop facts). With none, the line is a named
+ * blank: it names the facts the project lacks and never prices as zero.
+ */
+export function pickDerivedRows(
+  rows: readonly Benchmark[],
+  derived: DerivedQuantities,
+): { rows: Benchmark[] } | { blank: NamedBlank } {
+  const onDerived = rows.filter((row) => derivedQuantityFor(row.unit, derived) !== null);
+  if (onDerived.length === 0) return { rows: [...rows] };
+  const unit = onDerived[0].unit;
+  const quantity = derivedQuantityFor(unit, derived)!;
+  if (quantity.ok) return { rows: onDerived.filter((row) => row.unit === unit) };
+  const other = rows.filter((row) => derivedQuantityFor(row.unit, derived) === null);
+  if (other.length > 0) return { rows: other };
+  return { blank: { missing: quantity.missing, words: quantity.words } };
+}
 
 /** Whether item 1a prices the full span rather than one row's blend: no structure-type answer yet, or an explicit "Don't Know" (ADR 0006). */
 export function isFullSpan(

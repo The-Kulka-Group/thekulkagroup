@@ -10,6 +10,7 @@ import { jackBoxes, machineBoxes, PIT_FEET, type PartBox } from "./elevator-part
 import type { StageBuilding } from "@/lib/rom/stage-model";
 import { STAGE_PARTS, type StagePart } from "@/lib/rom/stage-scenes";
 
+import { buildGarage, buildSurfaceLot, type GarageBuilt } from "./parts-garage";
 import { PILE_RADIUS, PILE_SLAB_THICKNESS, pileSpots } from "./parts-piles";
 import { type Cutaway, cutawayOf, inCutaway, layerOf, liftOf, partitionsOf, type Run, risersOf, stretchOf } from "./views";
 
@@ -158,6 +159,15 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
     elevatorMachine: [massingEnd + 0.1, massingEnd + 0.6],
     units: [massingEnd + 0.15, massingEnd + 0.65],
     service: [massingEnd + 0.3, massingEnd + 0.8],
+    // LA-2216: the lot is laid with the ground; the garage floor with the
+    // podium, its deck as the podium tops out, its systems once it is closed in.
+    surfaceLot: [0, 0.4],
+    garageCoating: [0.2 + piles, massingStart],
+    garageWaterproofing: [0.2 + piles, massingStart],
+    podiumDeck: [massingStart - 0.3, massingStart + 0.1],
+    garageElectrical: [massingEnd, massingEnd + 0.5],
+    garageSprinklers: [massingEnd + 0.1, massingEnd + 0.6],
+    garageDrySprinklers: [massingEnd + 0.2, massingEnd + 0.7],
   };
   return { windows, duration: massingEnd + 0.8 + 0.6 };
 }
@@ -428,6 +438,15 @@ export function createStage(
       ground.userData.ground = true;
     }
 
+    // LA-2216: the parking answer's parts (parts-garage.ts).
+    const tools = { tinted, mesh, tag, addBox, applyTint };
+    const wire = (made: GarageBuilt) => {
+      Object.assign(nextAppliers, made.appliers);
+      Object.assign(nextAnchors, made.anchors);
+    };
+    const garageRoots: { root: THREE.Group; ox: number }[] = [];
+    if (next.surfaceLot) wire(buildSurfaceLot(tools, content, { x: 0, z: -hd - 8, width: span }));
+
     // The service at grade, out in front of the first building's corner (E-1).
     if (next.serviceAmps) {
       const service = tag(new THREE.Group(), "service");
@@ -560,6 +579,7 @@ export function createStage(
         }
       }
       podiums.push(podium);
+      garageRoots.push({ root, ox });
 
       // Frame floors: piers and bands around recessed glass, and balconies,
       // one group a level holding every wing that reaches it.
@@ -770,6 +790,8 @@ export function createStage(
         if (next.balconies) nextAnchors.balconies = new THREE.Vector3(ox, next.height * 0.5, hd + 5);
       }
     });
+
+    if (next.garage) wire(buildGarage(tools, next, garageRoots, (w) => topOf(Math.min(P, w.stories))));
 
     // --- How each part poses ---
     nextAppliers.foundation = ({ arrive, tint }) => {

@@ -63,6 +63,10 @@ export type StageBuilding = {
   levels: StageLevel[];
   height: number;
   podiumLevels: number;
+  /** LA-2216: a garage under the podium, from structured parking. A retail podium has none. */
+  garage: boolean;
+  /** LA-2216: a surface lot beside the building, on a slab on grade. */
+  surfaceLot: boolean;
   basement: boolean;
   foundation: { system: string; depth: number };
   /** LA-2214: poor soil swaps the footings for piles. */
@@ -190,6 +194,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
     levels,
     height: base,
     podiumLevels: podium,
+    garage: podium > 0 && facts.parkingType === "structured",
+    surfaceLot: facts.parkingType === "surface",
     basement,
     foundation: { system, depth: foundationDepth(system, stories, piles) },
     piles,
@@ -220,6 +226,13 @@ export function partsOf(b: StageBuilding): StagePart[] {
     elevatorMachine: b.elevators?.hydraulic === false,
     units: b.rooftopUnits > 0,
     service: b.serviceAmps !== null,
+    podiumDeck: b.garage,
+    garageElectrical: b.garage,
+    garageSprinklers: b.garage,
+    garageCoating: b.garage,
+    garageWaterproofing: b.garage,
+    garageDrySprinklers: b.garage,
+    surfaceLot: b.surfaceLot,
   };
   return STAGE_PARTS.filter((p) => has[p]);
 }

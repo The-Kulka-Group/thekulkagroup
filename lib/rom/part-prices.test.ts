@@ -204,9 +204,73 @@ describe("partPrices", () => {
     ]);
     const map = partPrices({ rom: lettered, facts: f, building: stageBuilding(f, []) });
     const at = (part: string) => map.parts.find((p) => p.part === part)?.lines.map((l) => l.costCode);
-    expect(at("podium")).toEqual(["3"]);
+    expect(at("podiumDeck")).toEqual(["3"]);
     expect(at("massing")).toEqual(["3a"]);
     expect(at("elevators")).toEqual(["26a", "26g"]);
+  });
+
+  // LA-2216: the podium garage, priced from VA's stated rates on the garage area.
+  describe("the podium garage", () => {
+    const stated = (exportLabel: string): Comparable => ({ kind: "reviewed_judgment", rate: 0, weight: 1, sourceProjectIds: [], exportLabel: `Source job: ${exportLabel}. Synthetic.`, ...recorded });
+    const garage = (amount: number) => ({ amount, unit: "usd_per_sf_of_garage" as const });
+    const garageRun = rom([
+      line({ costCode: "3", label: "Podium Deck", low: 682_600, high: 682_600, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "31g", label: "Garage Electrical", low: 360_000, high: 360_000, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "27a", label: "Garage Sprinklers", low: 120_000, high: 120_000, comparableCount: 0, comparables: [stated("VA")], quantity: garage(20_000) }),
+      line({ costCode: "38", label: "Paving and base courses", low: 200_000, high: 200_000, scopeSide: "site" }),
+      line({ costCode: "8", label: "Wood framing", low: 3_000_000, high: 3_000_000 }),
+    ]);
+    const priced = (parking: string) => {
+      const f = facts({ parkingType: parking });
+      return partPrices({ rom: garageRun, facts: f, building: stageBuilding(f, []) });
+    };
+    const part = (map: ReturnType<typeof partPrices>, name: string) => map.parts.find((p) => p.part === name);
+
+    it("puts the deck, garage electrical and garage sprinklers on their own parts", () => {
+      const map = priced("structured");
+      expect(part(map, "podiumDeck")?.lines.map((l) => l.costCode)).toEqual(["3"]);
+      expect(part(map, "garageElectrical")?.lines.map((l) => l.costCode)).toEqual(["31g"]);
+      expect(part(map, "garageSprinklers")?.lines.map((l) => l.costCode)).toEqual(["27a"]);
+      expect(part(map, "podiumDeck")).toMatchObject({ name: "Podium Deck", total: 682_600, unpriced: false });
+      expect(part(map, "podiumDeck")?.math[0]).toBe("Podium Deck: 20,000 SF of Garage x $34.13 per SF of Garage (Stated Rate, VA)");
+    });
+
+    it("draws garage waterproofing, traffic coating and a dry sprinkler system as unpriced parts", () => {
+      const map = priced("structured");
+      const unpriced = ["garageWaterproofing", "garageCoating", "garageDrySprinklers"].map((name) => part(map, name));
+      expect(unpriced.map((p) => [p?.name, p?.total, p?.unpriced, p?.math])).toEqual([
+        ["Garage Waterproofing", null, true, ["Garage Waterproofing: No Rate Yet"]],
+        ["Traffic Coating", null, true, ["Vehicular Traffic Coating: No Rate Yet"]],
+        ["Dry Sprinklers", null, true, ["Dry Sprinkler System: No Rate Yet"]],
+      ]);
+      expect(map.view.rows.filter((r) => r.total === null).map((r) => r.label)).toEqual([
+        "Garage Waterproofing",
+        "Vehicular Traffic Coating",
+        "Dry Sprinkler System",
+      ]);
+      expect(map.parts.reduce((s, p) => s + (p.total ?? 0), 0)).toBe(map.total);
+    });
+
+    it("draws a surface lot with no garage parts, and puts paving on the lot", () => {
+      const map = priced("surface");
+      const names = map.parts.map((p) => p.part);
+      expect(names).toContain("surfaceLot");
+      for (const garagePart of ["podium", "podiumDeck", "garageElectrical", "garageSprinklers", "garageWaterproofing", "garageCoating", "garageDrySprinklers"]) {
+        expect(names).not.toContain(garagePart);
+      }
+      expect(part(map, "surfaceLot")?.lines.map((l) => l.costCode)).toEqual(["38"]);
+    });
+
+    it("names the missing fact on a garage item whose quantity is blank", () => {
+      const f = facts({ parkingType: "structured", stories: null });
+      const blank = rom([line({ costCode: "8", low: 100, high: 100 })], [
+        { costCode: "31g", label: "Garage Electrical", missing: ["Stories Above Grade"] },
+      ]);
+      const map = partPrices({ rom: blank, facts: f, building: stageBuilding(f, []) });
+      const math = map.parts.flatMap((p) => p.math);
+      expect(math).toContain("Garage Electrical: No Quantity Yet, Needs Stories Above Grade");
+      expect(map.view.rows.find((r) => r.key === "unpriced:31g")?.total).toBeNull();
+    });
   });
 
   describe("the derived elevator type (V-1, LA-2215)", () => {

@@ -53,7 +53,7 @@ describe("the podium garage priced from VA's rates (LA-2216)", () => {
       ["3", 34.13],
       ["31g", 18],
     ]);
-    for (const row of rows) expect(row.provenance_export_label).toMatch(/^VA: /);
+    for (const row of rows) expect(row.provenance_export_label).toMatch(/^Source job: VA\. /);
   });
 
   it("prices all three on a podium garage, 100,000 SF over 5 stories", async () => {

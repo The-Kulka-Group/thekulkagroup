@@ -73,10 +73,10 @@ select rate.cost_code, rate.label, 'usd_per_sf_of_garage', rate.value,
        rate.source, 'Matt Nicosia', date '2026-10-11'
   from (values
          ('3', 'Podium Deck', 34.13,
-          'VA: "L2 Podium, 12" avg assumed" $1,395,525 lump sum (r11) over its 40,894 SF garage level, $34.13 per SF of podium deck (docs/precon/canonical-work-items.md item 3; docs/precon/research/la-pricing-structure-foundation.md, 13a). Matt approved 2026-10-11 (LA-2209).'),
+          'Source job: VA. "L2 Podium, 12" avg assumed" $1,395,525 lump sum (r11) over its 40,894 SF garage level, $34.13 per SF of podium deck (docs/precon/canonical-work-items.md item 3; docs/precon/research/la-pricing-structure-foundation.md, 13a). Matt approved 2026-10-11 (LA-2209).'),
          ('31g', 'Garage Electrical', 18,
-          'VA: "Electrical - Garage level breakout" 40,894 SF at $18.00 per SF (r245; docs/precon/canonical-work-items.md item 31). Matt approved 2026-10-11 (LA-2209).'),
+          'Source job: VA. "Electrical - Garage level breakout" 40,894 SF at $18.00 per SF (r245; docs/precon/canonical-work-items.md item 31). Matt approved 2026-10-11 (LA-2209).'),
          ('27a', 'Garage Sprinklers', 6,
-          'VA: "Sprinkler Breakout" 40,000 SF at $6.00 per SF, the garage level (r210; docs/precon/canonical-work-items.md item 27). Matt approved 2026-10-11 (LA-2209).')
+          'Source job: VA. "Sprinkler Breakout" 40,000 SF at $6.00 per SF, the garage level (r210; docs/precon/canonical-work-items.md item 27). Matt approved 2026-10-11 (LA-2209).')
        ) as rate (cost_code, label, value, source)
  cross join (values ('new'), ('renovation')) as kind (construction_kind);

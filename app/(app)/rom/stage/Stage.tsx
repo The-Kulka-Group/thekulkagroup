@@ -164,6 +164,8 @@ export function Stage(props: Props) {
   const [row, setRow] = useState<string | null>(null);
   // LA-2217: the view, and how open the model is right now (0 to 1), which the switch animates.
   const [view, setView] = useState<View>("assembled");
+  /** LA-2219: too narrow for the price list beside the building, so the list folds under the tools. */
+  const [tight, setTight] = useState(false);
   const opened = useRef(0);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -504,7 +506,10 @@ export function Stage(props: Props) {
       // narrow for that, under the tools with the building framed below it.
       const tight = box.width < TIGHT;
       el.dataset.tight = String(tight);
+      setTight(tight);
       const list = open && tight ? rowsRef.current?.getBoundingClientRect() : undefined;
+      // LA-2219: there, the picked part's panel sits under the list, never on it.
+      el.style.setProperty("--stg-list-bottom", `${list ? list.bottom - box.top : top ? top.bottom - box.top : 0}px`);
       const under = Math.max(
         top?.bottom ?? 0,
         panel && panel.width * 2 > box.width ? panel.bottom : 0,
@@ -799,6 +804,7 @@ export function Stage(props: Props) {
             <LevelList
               listRef={rowsRef}
               view={levelView}
+              tight={tight}
               grossSquareFeet={levels.grossSquareFeet}
               row={row}
               holding={holding}
@@ -871,6 +877,7 @@ export function Stage(props: Props) {
 function LevelList({
   listRef,
   view,
+  tight,
   grossSquareFeet,
   row,
   holding,
@@ -879,44 +886,58 @@ function LevelList({
 }: {
   listRef: React.Ref<HTMLElement>;
   view: LevelView;
+  tight: boolean;
   grossSquareFeet: number | null;
   row: string | null;
   holding: ReadonlySet<string>;
   onLevel: (level: PriceLevel) => void;
   onRow: (key: string) => void;
 }) {
+  // LA-2219: in a narrow view the list starts folded, so it never covers the
+  // building; the level switch stays in sight and one press shows the rows.
+  const [shown, setShown] = useState(false);
+  const folded = tight && !shown;
   return (
-    <aside ref={listRef} className="stg-rows" aria-label="The budget at this price level">
-      <div className="stg-seg" role="group" aria-label="Price Level">
-        {PRICE_LEVELS.map((level) => (
-          <button key={level} type="button" className="stg-pill" aria-pressed={view.level === level} onClick={() => onLevel(level)}>
-            Level {level}
+    <aside ref={listRef} className="stg-rows" aria-label="The budget at this price level" data-folded={folded ? "true" : undefined}>
+      <div className="stg-rows-head">
+        <div className="stg-seg" role="group" aria-label="Price Level">
+          {PRICE_LEVELS.map((level) => (
+            <button key={level} type="button" className="stg-pill" aria-pressed={view.level === level} onClick={() => onLevel(level)}>
+              Level {level}
+            </button>
+          ))}
+        </div>
+        {tight ? (
+          <button type="button" className="stg-pill" aria-expanded={shown} onClick={() => setShown(!shown)}>
+            {shown ? "Hide List" : "Show List"}
           </button>
-        ))}
+        ) : null}
       </div>
-      <ol className="stg-rows-list">
-        {view.rows.map((one) => {
-          const tint = rowTint(view.level, one);
-          const perGsf = view.level === 1 ? rowPerGsf(one, grossSquareFeet) : null;
-          return (
-            <li key={one.key}>
-              <button
-                type="button"
-                className={`stg-row${one.total === null ? " stg-row--unpriced" : ""}`}
-                data-row={one.key}
-                aria-pressed={row === one.key}
-                aria-current={holding.has(one.key) ? "true" : undefined}
-                onClick={() => onRow(one.key)}
-              >
-                <span className="stg-row-sw" style={tint ? { background: tint } : undefined} aria-hidden="true" />
-                <span className="stg-row-l">{one.label}</span>
-                <span className="stg-row-p num">{one.total === null ? "Not Priced" : usd(one.total)}</span>
-                {perGsf !== null ? <span className="stg-row-psf num">{rateUsd(perGsf)} per GSF</span> : null}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+      {folded ? null : (
+        <ol className="stg-rows-list">
+          {view.rows.map((one) => {
+            const tint = rowTint(view.level, one);
+            const perGsf = view.level === 1 ? rowPerGsf(one, grossSquareFeet) : null;
+            return (
+              <li key={one.key}>
+                <button
+                  type="button"
+                  className={`stg-row${one.total === null ? " stg-row--unpriced" : ""}`}
+                  data-row={one.key}
+                  aria-pressed={row === one.key}
+                  aria-current={holding.has(one.key) ? "true" : undefined}
+                  onClick={() => onRow(one.key)}
+                >
+                  <span className="stg-row-sw" style={tint ? { background: tint } : undefined} aria-hidden="true" />
+                  <span className="stg-row-l">{one.label}</span>
+                  <span className="stg-row-p num">{one.total === null ? "Not Priced" : usd(one.total)}</span>
+                  {perGsf !== null ? <span className="stg-row-psf num">{rateUsd(perGsf)} per GSF</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </aside>
   );
 }

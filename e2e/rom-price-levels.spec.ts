@@ -26,6 +26,9 @@ test("reads the saved budget's building at levels 1, 2 and 3 and keeps the list 
   await page.goto(`/rom?project=${BROWSER_TEST_ROM_PROJECT_ID}`);
   await page.getByRole("button", { name: "Open the Building View" }).click();
 
+  // The ledger puts the Building View in a narrow column, where the list
+  // starts folded under the level switch (LA-2219) so it never covers the building.
+  await page.getByRole("button", { name: "Show List" }).click();
   const levels = page.getByRole("group", { name: "Price Level" });
   await expect(levels.getByRole("button", { name: "Level 3" })).toHaveAttribute("aria-pressed", "true");
 

@@ -452,9 +452,21 @@
 /* LA-1230: setup and the first question share the panel; setup folds to a
    one-line summary once the first answer creates the project. */
 .nb-setup { margin-bottom: 18px; }
-.nb-sum { margin: 0 0 16px; font-size: var(--meta-size); color: var(--rb-sel-ink2); }
+.nb-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+  font-size: var(--meta-size);
+  color: var(--rb-sel-ink2);
+}
+.nb-sum p { margin: 0; }
 .nb-sum b { color: var(--rb-ink-on-black); font-weight: 600; }
-.nb-sum .nb-back { margin-left: 8px; }
+.nb-sum .nb-warn { flex-basis: 100%; margin: 0; }
+/* LA-2270: Edit Setup is a real button, not a footnote link. */
+.nb-edit { min-height: 32px; padding: 0 12px; }
+.nb-help.nb-warn { color: var(--working); font-weight: 600; }
 .nb-missing { margin-top: 0; }
 .nb-top { scroll-margin-bottom: 140px; }
 .nb-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }

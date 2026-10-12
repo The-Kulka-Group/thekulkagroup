@@ -111,3 +111,26 @@ export function gatesFromResponses(
 export function lastQuestion(definition: FlowDefinition, responses: Responses, level: PriceLevel): Question | undefined {
   return scopeQuestions(definition, responses, level).at(-1);
 }
+
+/**
+ * LA-2270: below this many gross square feet per unit, the area is almost
+ * certainly a typo. Rob entered 1 SF on a 100-unit job and the budget read
+ * millions per SF. A placeholder floor until Matt sets the real one.
+ */
+export const MIN_GSF_PER_UNIT = 300;
+
+/**
+ * A plain warning when a multifamily job's area is too small for its unit
+ * count, or null. It never blocks the flow; it keeps a typo in view until the
+ * estimator fixes it.
+ */
+export function areaWarning(responses: Responses): string | null {
+  if (responses.project_type !== "multifamily") return null;
+  const area = Number(responses.gross_square_feet);
+  const units = Number(responses.unit_count);
+  if (!(area > 0) || !(units > 0)) return null;
+  const perUnit = area / units;
+  if (perUnit >= MIN_GSF_PER_UNIT) return null;
+  const shown = perUnit.toLocaleString("en-US", { maximumFractionDigits: perUnit < 1 ? 2 : 0 });
+  return `That is ${shown} SF per unit. Check Gross Square Feet.`;
+}

@@ -50,13 +50,14 @@
 .nb-levels { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .nb-level-seg { display: inline-flex; gap: 4px; }
 .nb-level-pill {
-  padding: 4px 12px; border: 1px solid var(--border, #d0d4d9); border-radius: 999px;
+  padding: 4px 12px; border: 1px solid var(--border); border-radius: var(--r-pill);
   background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer;
 }
-.nb-level-pill[aria-pressed="true"] { border-color: var(--primary, #0073ea); color: var(--primary, #0073ea); font-weight: 600; }
+.nb-level-pill[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); font-weight: 600; }
+/* DESIGN.md 2026-09-12: a clickable control takes the full pill shape. */
 .nb-lock {
-  padding: 12px 16px; border: 1px dashed var(--border, #d0d4d9); border-radius: 8px;
+  padding: 12px 16px; border: 1px dashed var(--border); border-radius: var(--r-pill);
   background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
-.nb-lock:hover:not(:disabled) { border-color: var(--primary, #0073ea); }
+.nb-lock:hover:not(:disabled) { border-color: var(--primary); }
 .nb-level-pill:disabled, .nb-lock:disabled { cursor: default; opacity: 0.6; }

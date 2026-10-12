@@ -14,20 +14,26 @@ export type PriceLevels = {
 
 export const PRICE_LEVELS: readonly PriceLevel[] = [1, 2, 3];
 
-/** Level 1's one colour: the whole building reads as a single block. */
-export const BLOCK_TINT = "#A9B1C6";
+// The tints are hex because the stage hands them to three.js, which cannot
+// read a CSS variable. Each one is the daylight.css token named beside it.
+
+/** Level 1's one colour, daylight.css --border: the whole building reads as a single block. */
+export const BLOCK_TINT = "#D0D4E4";
 
 /**
  * Level 2's colour for each ADR 0002 element (the block_classification
- * element list), from daylight.css's avatar hues. None is the stage's blue
- * highlight or the working orange of a part nothing prices.
+ * element list): graded shades of the neutral ink ramp (LA-2209 review H3).
+ * DESIGN.md keeps the avatar hues for people, and none of these is a status
+ * colour, the stage's blue highlight or the working orange of a part nothing
+ * prices. The two elements drawn today, Elevator and Demolition, sit far
+ * apart on the ramp.
  */
 export const ELEMENT_TINTS: Readonly<Record<string, string>> = {
-  Elevator: "#7C4DFF",
-  Demolition: "#00C7BE",
-  Balcony: "#00A8E8",
-  Kitchen: "#FFCB00",
-  Bathroom: "#1F3A8F",
+  Elevator: "#323338", // --ink
+  Demolition: "#6F7382", // --ink-3
+  Balcony: "#676879", // --ink-2
+  Kitchen: "#ECEEF4", // --canvas-deep
+  Bathroom: "#EDEEF2", // --neutral-fill
 };
 
 /** The colour a row tints its parts at its level, or null when it tints nothing. */

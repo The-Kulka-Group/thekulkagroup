@@ -17,6 +17,8 @@ test("answering Juliet draws a rail across each door with no slab, each priced",
   await boxes.nth(1).fill("100000");
   await boxes.nth(2).fill("5");
   await boxes.nth(3).fill("100");
+  // Balconies are a Level 3 question, and New Budget starts at Level 1 (LA-2209 review Q1).
+  await page.locator(".nb-level-seg").getByRole("button", { name: "Level 3" }).click();
   await page.getByRole("button", { name: "None", exact: true }).click();
 
   // Every scope question before it answered No, up to the balconies gate.

@@ -389,7 +389,8 @@ export function RomRunner({
     [run, savedFacts, stageSpec, classifications],
   );
   // LA-2218: one price level for the Building View's list and the New Budget questions.
-  const [priceLevel, setPriceLevel] = useState<PriceLevel>(3);
+  // Matt, 2026-10-11 (LA-2209 review Q1): New Budget starts at Level 1.
+  const [priceLevel, setPriceLevel] = useState<PriceLevel>(1);
   // LA-2212: the same run at every price level, for the Building View's list.
   const stageLevels = useMemo(
     () =>

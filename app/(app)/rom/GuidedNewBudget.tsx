@@ -674,14 +674,18 @@ export function GuidedNewBudget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupKey, onStageEvent]);
 
-  /** LA-2218: move the shared level. Going up lands on the first new question still unanswered. */
+  /**
+   * LA-2218: move the shared level. Going up lands on the first question the
+   * new level asks that is still unanswered, so it never skips one the flow
+   * has not reached yet (LA-2209 review Q1).
+   */
   function chooseLevel(next: PriceLevel) {
     if (busy || next === level) return;
     onLevel?.(next);
     setError(null);
     if (next > level) {
       const target = slotsFor(responses, markupForm, next).findIndex(
-        (one) => one.kind === "flow" && one.question.level > level && (responses[one.question.id] ?? "") === "",
+        (one) => one.kind === "flow" && (responses[one.question.id] ?? "") === "",
       );
       if (target >= 0) setIndex(target);
     }

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   House, Users, Calculator, ChartLineUp, Binoculars, ChartBar, List, MapTrifold,
-  MagnifyingGlass, SidebarSimple,
+  MagnifyingGlass, SidebarSimple, VideoCamera,
 } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
 import { RAIL_COOKIE } from "@/components/rail-cookie";
@@ -23,6 +23,11 @@ const NAV_GROUPS = [
     items: [
       { href: "/vision", label: "Vision", count: undefined, Icon: Binoculars },
     ],
+  },
+  {
+    // LA-2280: Kulka's Fireflies meetings, matched to Autodesk projects (LA-2281).
+    label: "Projects",
+    items: [{ href: "/meetings", label: "Meetings", count: undefined, Icon: VideoCamera }],
   },
   {
     label: "Pre-Construction",

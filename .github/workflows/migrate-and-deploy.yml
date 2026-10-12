@@ -1,0 +1,64 @@
+# LA-2299. When a merge to main adds a migration, apply it to the production
+# database, then ask Vercel to rebuild production.
+#
+# Why: the production build runs scripts/check-migrations-applied.mjs first and
+# stops if a migration is missing, keeping the previous deployment live. That
+# guard stays. This workflow removes the two manual steps that followed it
+# (`supabase db push`, then a redeploy). Vercel's own build for the same merge
+# may still start first and stop at the guard; the deploy hook below rebuilds
+# once the schema is in place.
+#
+# Secrets (repository settings, Actions):
+#   SUPABASE_DB_URL         production Postgres connection string, session
+#                           pooler (port 5432), percent-encoded
+#   VERCEL_DEPLOY_HOOK_URL  a deploy hook for the main branch, from the Vercel
+#                           project's Git settings
+
+name: Apply migrations and deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: production-migrations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are set
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          missing=""
+          [ -n "$SUPABASE_DB_URL" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$VERCEL_DEPLOY_HOOK_URL" ] || missing="$missing VERCEL_DEPLOY_HOOK_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Add these repository secrets:$missing"
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+
+      - name: Apply migrations to production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
+
+      - name: Rebuild production
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error -X POST "$VERCEL_DEPLOY_HOOK_URL"

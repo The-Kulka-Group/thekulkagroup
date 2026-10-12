@@ -23,7 +23,7 @@ export type Workstream = {
   items: RoadmapItem[];
 };
 
-export const ROADMAP_AS_OF = "2026-10-09";
+export const ROADMAP_AS_OF = "2026-10-12";
 
 export const STATUS_LABEL: Record<RoadmapStatus, string> = {
   built: "Built",
@@ -77,7 +77,7 @@ export const WORKSTREAMS: Workstream[] = [
       { date: null, title: "Pursuits board and a Home work queue", status: "planning", note: "Active pursuits by stage, plus missing next actions, assignments and overdue work." },
       { date: null, title: "Companies and contacts pages", status: "planning", note: "Replaces the empty Clients page with every business relationship and its people." },
       { date: null, title: "A production pilot with two people using the CRM", status: "planning", note: "Tests the move to the live system, rollback, access and a full work cycle." },
-      { date: null, title: "Meeting briefs, contact import and pipeline reports", status: "waiting", note: "Each is added only when it replaces a real manual step." },
+      { date: null, title: "Contact import and pipeline reports", status: "waiting", note: "Each is added only when it replaces a real manual step. Meeting briefs moved to Meetings." },
     ],
   },
   {
@@ -135,6 +135,7 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-10-09", "LA-2056", "Fit the PDF summary on three pages"),
       b("2026-10-09", "LA-2057", "Solve the construction loan to a target loan to cost"),
       b("2026-10-09", "LA-2082", "Start every source row and new line with the case's common source"),
+      b("2026-10-09", "LA-2109", "Print the deal summary PDF on the live site"),
       { date: null, title: "Soft loans that a buyer assumes at sale or that repay after the sale", status: "waiting", note: "Today a soft loan repays in one month within the model's timeline." },
       { date: null, title: "Let capital plan dates, source draws and tax years follow named milestones", status: "waiting", note: "Cost lines already move with milestones. These dates are still typed in." },
     ],
@@ -192,6 +193,13 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-09-28", "LA-1323", "Price unit-driven trades per dwelling unit"),
       b("2026-09-29", "LA-1331", "A total and wording a client can read"),
       b("2026-09-29", "LA-1384", "Ledger and Rail layout for the saved budget"),
+      b("2026-10-11", "LA-2218", "Ask New Budget's questions by price level, with a tile for each locked level"),
+      b("2026-10-11", "LA-2219", "Price full balconies on their deck, rail and sliding doors"),
+      b("2026-10-11", "LA-2220", "Price Juliet balconies on a count and the rail across each door"),
+      b("2026-10-11", "LA-2237", "Leave balcony items out until the balcony type is answered"),
+      b("2026-10-11", "LA-2209", "Start New Budget at Level 1, and stack it at phone width"),
+      b("2026-10-12", "LA-2270", "Flag an area too small for the unit count, with Edit Setup at any step"),
+      b("2026-10-12", "LA-2274", "Change parking and the balcony answers on a saved budget"),
       // LA-1841: planned in the repo docs, mostly without a ticket yet.
       { date: null, title: "Work on a budget from a Claude chat", status: "planning", note: "Read a budget, propose lines and answer questions. Internal only; chat can draft but never issue a budget." },
       { date: null, title: "Compare two versions of a budget side by side", status: "waiting", note: "Answers what-if questions, such as going to five stories." },
@@ -215,6 +223,13 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-09-28", "LA-1317", "3D model of the building across the top of the budget"),
       b("2026-09-28", "LA-1318", "Play each answer as a scene on the 3D stage"),
       b("2026-09-28", "LA-1325", "Building Form card and the Building View with section cuts"),
+      b("2026-10-11", "LA-2211", "Pick a part of the building to see its price"),
+      b("2026-10-11", "LA-2212", "Read the Building View at Level 1, 2 or 3"),
+      b("2026-10-11", "LA-2213", "Show which parts each answer changed, and the running change in the total"),
+      b("2026-10-11", "LA-2214", "Swap footings for piles on poor soil"),
+      b("2026-10-11", "LA-2215", "Draw the elevator jack or traction machine for the derived elevator type"),
+      b("2026-10-11", "LA-2216", "Price and draw the podium garage and the surface lot"),
+      b("2026-10-11", "LA-2217", "Show the building Assembled or Opened"),
       // LA-1841: planned in the repo docs, mostly without a ticket yet.
       { date: null, title: "Look up local code requirements from the project address", status: "waiting", note: "Emergency radio coverage and fire alarm type are asked directly until the lookup exists." },
       { date: null, ticket: "LA-1319", title: "Click part of the model to see and correct its decision", status: "dropped" },
@@ -236,6 +251,20 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-09-29", "LA-1403", "Fix mislabeled field-office rate rows"),
       { date: null, ticket: "LA-1400", title: "Start General Conditions with a staff plan sized to the job", status: "planning", note: "Open decision on the staff plan." },
       { date: null, title: "Completed jobs history", status: "waiting", note: "The table exists and stays empty until past jobs are loaded." },
+    ],
+  },
+  {
+    key: "meetings",
+    name: "Meetings",
+    summary: "Kulka's Fireflies meetings in one place: a brief for each meeting, sentiment and analytics, and each meeting placed on its Autodesk job.",
+    items: [
+      b("2026-10-12", "LA-2279", "Bring each finished Fireflies meeting into Kulka AI, with its analytics"),
+      b("2026-10-12", "LA-2280", "Meetings page: meetings by day, with sentiment, the summary and analytics"),
+      b("2026-10-12", "LA-2282", "A Kulka Brief for each meeting: decisions, open risks and action items"),
+      b("2026-10-12", "LA-2283", "Bring in the Autodesk project list"),
+      b("2026-10-12", "LA-2281", "Place each meeting on its Autodesk job, with Projects at a Glance"),
+      { date: null, title: "Connect Kulka's Fireflies and Autodesk accounts", status: "waiting", note: "The page shows meetings once Kulka connects both accounts." },
+      { date: null, ticket: "LA-2287", title: "Project roll-ups: Kulka and owner talk balance, subcontractor attendance, questions left open", status: "planning", note: "Designed once a few weeks of real meetings are in." },
     ],
   },
   {

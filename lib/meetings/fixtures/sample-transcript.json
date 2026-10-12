@@ -7,17 +7,122 @@
   "organizer_email": "meetings@example.com",
   "transcript_url": "https://app.fireflies.ai/view/SAMPLE-FF-001",
   "meeting_attendees": [
-    { "displayName": "Example PM", "email": "pm@example.com", "name": null },
-    { "displayName": null, "email": "owner@example.com", "name": "Example Owner" }
+    {
+      "displayName": "Example PM",
+      "email": "pm@example.com",
+      "name": null
+    },
+    {
+      "displayName": null,
+      "email": "owner@example.com",
+      "name": "Example Owner"
+    }
   ],
   "summary": {
     "overview": "The team reviewed the example schedule and two open RFIs.",
     "action_items": "Example PM\nSend the revised schedule by Friday",
-    "keywords": ["schedule", "RFI"],
-    "shorthand_bullet": "Schedule reviewed. Two RFIs open."
+    "keywords": [
+      "schedule",
+      "RFI"
+    ],
+    "shorthand_bullet": "Schedule reviewed. Two RFIs open.",
+    "meeting_type": "OAC Meeting",
+    "topics_discussed": [
+      "Schedule",
+      "Open RFIs"
+    ],
+    "transcript_chapters": [
+      {
+        "title": "Schedule",
+        "start_time": 1.2
+      }
+    ]
   },
   "sentences": [
-    { "index": 0, "speaker_name": "Example PM", "text": "Let's start with the schedule.", "start_time": 1.2, "end_time": 3.4 },
-    { "index": 1, "speaker_name": "Example Owner", "text": "Where are we on the RFIs?", "start_time": 3.6, "end_time": 5.1 }
-  ]
+    {
+      "index": 0,
+      "speaker_name": "Example PM",
+      "text": "Let's start with the schedule.",
+      "start_time": 1.2,
+      "end_time": 3.4,
+      "ai_filters": {
+        "task": null,
+        "pricing": null,
+        "metric": null,
+        "question": null,
+        "date_and_time": null,
+        "sentiment": "neutral"
+      }
+    },
+    {
+      "index": 1,
+      "speaker_name": "Example Owner",
+      "text": "Where are we on the RFIs?",
+      "start_time": 3.6,
+      "end_time": 5.1,
+      "ai_filters": {
+        "task": null,
+        "pricing": null,
+        "metric": null,
+        "question": "Where are we on the RFIs?",
+        "date_and_time": null,
+        "sentiment": "negative"
+      }
+    }
+  ],
+  "calendar_id": "sample-ical-uid@example.com",
+  "cal_id": "sample-ical-uid@example.com_1791820800000",
+  "privacy": "teammates",
+  "meeting_attendance": [
+    {
+      "name": "Example PM",
+      "join_time": "2026-10-12T13:00:05Z",
+      "leave_time": "2026-10-12T13:58:40Z"
+    },
+    {
+      "name": "Example Owner",
+      "join_time": "2026-10-12T13:07:30Z",
+      "leave_time": "2026-10-12T13:58:40Z"
+    }
+  ],
+  "meeting_info": {
+    "summary_status": "processed"
+  },
+  "analytics": {
+    "sentiments": {
+      "negative_pct": 12,
+      "neutral_pct": 58,
+      "positive_pct": 30
+    },
+    "categories": {
+      "questions": 4,
+      "date_times": 2,
+      "metrics": 1,
+      "tasks": 3
+    },
+    "speakers": [
+      {
+        "name": "Example PM",
+        "duration": 1500,
+        "duration_pct": 61,
+        "word_count": 3900,
+        "words_per_minute": 156,
+        "questions": 1,
+        "filler_words": 20,
+        "longest_monologue": 180,
+        "monologues_count": 9
+      },
+      {
+        "name": "Example Owner",
+        "duration": 960,
+        "duration_pct": 39,
+        "word_count": 2300,
+        "words_per_minute": 144,
+        "questions": 3,
+        "filler_words": 11,
+        "longest_monologue": 95,
+        "monologues_count": 6
+      }
+    ]
+  }
 }

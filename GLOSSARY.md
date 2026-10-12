@@ -203,9 +203,13 @@ _Avoid_: setting, mode, scenario, risk level, fudge factor
 **Price level**:
 How finely the Building View reads one run. Level 1 is the whole run as one block at a
 single $/GSF, Level 2 is the element rollup of ADR 0002, and Level 3 is the canonical work
-items. Every level totals the same run. The price level changes the list and the stage's
-tint and never the number, so it is not the Dial. It is also not a line's detail level in
-the engine, and not a story of the building.
+items. Every level totals the same run. In the Building View the price level changes the
+list and the stage's tint and never the number, so it is not the Dial. In New Budget it
+also chooses which questions are asked (Matt, LA-2218): Level 1 asks parking, Level 2 adds
+soil and Level 3 adds balconies. A required question the level does not ask stays
+unanswered, and its gate reads TBD. New Budget starts at Level 1. On screen the switch
+reads "Level". It is also not a line's detail level in the engine, and not a story of the
+building.
 _Avoid_: dial, detail level, zoom, tier
 
 **Closing comparison**:

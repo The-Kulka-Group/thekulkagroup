@@ -149,6 +149,15 @@ describe("a balcony quantity the facts cannot give", () => {
   });
 });
 
+describe("balconies never answered (LA-2237)", () => {
+  it("leaves the deck, rail, Juliet rail and doors out as TBD, not as blanks needing a type", () => {
+    const rom = computeRom(answers({}), snapshot(BALCONY_RATES));
+    expect(rom.tbdGateItems.map((item) => item.costCode).sort()).toEqual(["11", "11a", "15b", "7b"]);
+    expect(rom.unpricedItems).toEqual([]);
+    expect(midpoint(rom.total)).toBe(0);
+  });
+});
+
 describe("the balconies gate and the Full or Juliet follow-up", () => {
   it("takes the deck, rail, Juliet rail and doors out when the units have no balconies", () => {
     const rom = computeRom(answers({ balconies: "no" }), snapshot(BALCONY_RATES));

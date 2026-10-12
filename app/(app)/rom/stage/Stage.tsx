@@ -898,9 +898,9 @@ function LevelList({
   const [shown, setShown] = useState(false);
   const folded = tight && !shown;
   return (
-    <aside ref={listRef} className="stg-rows" aria-label="The budget at this price level" data-folded={folded ? "true" : undefined}>
+    <aside ref={listRef} className="stg-rows" aria-label="The budget at this level" data-folded={folded ? "true" : undefined}>
       <div className="stg-rows-head">
-        <div className="stg-seg" role="group" aria-label="Price Level">
+        <div className="stg-seg" role="group" aria-label="Level">
           {PRICE_LEVELS.map((level) => (
             <button key={level} type="button" className="stg-pill" aria-pressed={view.level === level} onClick={() => onLevel(level)}>
               Level {level}

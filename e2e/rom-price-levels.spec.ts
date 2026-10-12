@@ -29,7 +29,7 @@ test("reads the saved budget's building at levels 1, 2 and 3 and keeps the list 
   // The ledger puts the Building View in a narrow column, where the list
   // starts folded under the level switch (LA-2219) so it never covers the building.
   await page.getByRole("button", { name: "Show List" }).click();
-  const levels = page.getByRole("group", { name: "Price Level" });
+  const levels = page.getByRole("group", { name: "Level", exact: true });
   await expect(levels.getByRole("button", { name: "Level 3" })).toHaveAttribute("aria-pressed", "true");
 
   // Level 1: the whole run as one block at one $/GSF.

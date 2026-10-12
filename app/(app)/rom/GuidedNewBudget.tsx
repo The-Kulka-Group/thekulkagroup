@@ -992,7 +992,7 @@ function LevelTiles({
   const tiles = locked.filter((one) => one.added > 0);
   return (
     <div className="nb-levels">
-      <div className="nb-level-seg" role="group" aria-label="Price Level">
+      <div className="nb-level-seg" role="group" aria-label="Level">
         {([1, 2, 3] as const).map((one) => (
           <button
             key={one}

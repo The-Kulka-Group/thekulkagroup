@@ -9,8 +9,10 @@
 # once the schema is in place.
 #
 # Secrets (repository settings, Actions):
-#   SUPABASE_DB_URL         production Postgres connection string, session
-#                           pooler (port 5432), percent-encoded
+#   SUPABASE_ACCESS_TOKEN   a Supabase personal access token. The CLI uses it to
+#                           open a short-lived login role, so no database
+#                           password is stored here (the same way a local
+#                           `supabase db push` runs after `supabase login`).
 #   VERCEL_DEPLOY_HOOK_URL  a deploy hook for the main branch, from the Vercel
 #                           project's Git settings
 
@@ -38,11 +40,11 @@ jobs:
 
       - name: Check the secrets are set
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
         run: |
           missing=""
-          [ -n "$SUPABASE_DB_URL" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN"
           [ -n "$VERCEL_DEPLOY_HOOK_URL" ] || missing="$missing VERCEL_DEPLOY_HOOK_URL"
           if [ -n "$missing" ]; then
             echo "::error::Add these repository secrets:$missing"
@@ -55,8 +57,10 @@ jobs:
 
       - name: Apply migrations to production
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref dpwhxfvwstqszzzkxgdv
+          supabase db push --linked --yes
 
       - name: Rebuild production
         env:

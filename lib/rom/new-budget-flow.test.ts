@@ -235,8 +235,10 @@ describe("the steps at a price level (LA-2218)", () => {
 describe("areaWarning", () => {
   const job = { project_type: "multifamily", gross_square_feet: "100000", unit_count: "100" };
 
-  it("says nothing about a normal area", () => {
+  it("says nothing about a normal area, down to 250 SF per unit", () => {
     expect(areaWarning(job)).toBeNull();
+    expect(areaWarning({ ...job, gross_square_feet: "25000" })).toBeNull();
+    expect(areaWarning({ ...job, gross_square_feet: "24900" })).toBe("That is 249 SF per unit. Check Gross Square Feet.");
   });
 
   it("names the SF per unit when the area is too small for the unit count", () => {

@@ -115,9 +115,9 @@ export function lastQuestion(definition: FlowDefinition, responses: Responses, l
 /**
  * LA-2270: below this many gross square feet per unit, the area is almost
  * certainly a typo. Rob entered 1 SF on a 100-unit job and the budget read
- * millions per SF. A placeholder floor until Matt sets the real one.
+ * millions per SF. Matt set the floor at 250 on 2026-10-12.
  */
-export const MIN_GSF_PER_UNIT = 300;
+export const MIN_GSF_PER_UNIT = 250;
 
 /**
  * A plain warning when a multifamily job's area is too small for its unit

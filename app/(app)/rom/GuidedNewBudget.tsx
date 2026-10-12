@@ -12,6 +12,7 @@ import {
   requiredAnswered,
   scopeQuestions,
 } from "@/lib/rom/new-budget-flow";
+import { PRICE_LEVELS } from "@/lib/rom/level-rows";
 import type { PriceLevel } from "@/lib/rom/part-prices";
 import {
   BRANCH_GATE_ANSWERS,
@@ -999,7 +1000,7 @@ function LevelTiles({
   return (
     <div className="nb-levels">
       <div className="nb-level-seg" role="group" aria-label="Level">
-        {([1, 2, 3] as const).map((one) => (
+        {PRICE_LEVELS.map((one) => (
           <button
             key={one}
             type="button"

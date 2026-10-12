@@ -1,0 +1,23 @@
+{
+  "_note": "Synthetic sample in the shape Fireflies returns (LA-2279). Not a real meeting.",
+  "id": "SAMPLE-FF-001",
+  "title": "Example Job Weekly OAC",
+  "date": 1791820800000,
+  "duration": 42.5,
+  "organizer_email": "meetings@example.com",
+  "transcript_url": "https://app.fireflies.ai/view/SAMPLE-FF-001",
+  "meeting_attendees": [
+    { "displayName": "Example PM", "email": "pm@example.com", "name": null },
+    { "displayName": null, "email": "owner@example.com", "name": "Example Owner" }
+  ],
+  "summary": {
+    "overview": "The team reviewed the example schedule and two open RFIs.",
+    "action_items": "Example PM\nSend the revised schedule by Friday",
+    "keywords": ["schedule", "RFI"],
+    "shorthand_bullet": "Schedule reviewed. Two RFIs open."
+  },
+  "sentences": [
+    { "index": 0, "speaker_name": "Example PM", "text": "Let's start with the schedule.", "start_time": 1.2, "end_time": 3.4 },
+    { "index": 1, "speaker_name": "Example Owner", "text": "Where are we on the RFIs?", "start_time": 3.6, "end_time": 5.1 }
+  ]
+}

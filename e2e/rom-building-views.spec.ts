@@ -88,3 +88,74 @@ test("jumps straight to the Opened view when motion is reduced", async ({ page, 
   // The animated switch takes 700 ms; reduced motion is there at once.
   await expect(page.locator("section.stg")).toHaveAttribute("data-opened", "1", { timeout: 150 });
 });
+
+// LA-2209 review Q5. A project on poor soil with hydraulic elevators: in the
+// Assembled view the piles and the jacks sit below grade, under the ground
+// plane, and a click on the model still picks them.
+test("keeps the piles and the hydraulic jacks pickable under the Assembled ground plane", async ({ page, request }) => {
+  // The sweep below reads the model point by point.
+  test.setTimeout(180_000);
+  const created = await request.post("/api/rom/projects", {
+    data: {
+      name: "Deep Foundation Check",
+      grossSquareFeet: 100_000,
+      projectType: "multifamily",
+      constructionKind: "new",
+      parkingType: "none",
+      storiesAboveGrade: 4,
+      unitCount: 120,
+      buildingCount: 1,
+      elevatorCount: 2,
+      laborType: "open_shop",
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  const { projectId } = (await created.json()) as { projectId: string };
+  const run = await request.post("/api/rom", { data: { projectId, gates: { site_conditions: "yes", elevator: "yes" } } });
+  expect(run.status(), await run.text()).toBe(200);
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/rom?project=${projectId}`);
+  await page.getByRole("button", { name: "Open the Building View" }).click();
+  await expect(page.locator("section.stg")).toHaveAttribute("data-view", "assembled");
+  for (const part of ["piles", "elevatorJack"]) await expect(page.locator(`.stg-parts [data-part="${part}"]`)).toBeVisible();
+
+  // Zoom in so the parts below grade are big enough to find.
+  const canvas = page.locator("canvas.stg-cv");
+  await canvas.focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press("+");
+
+  // Find a part under the pointer the way hovering does, in the page, at
+  // every point where the model itself is on top (the list and the controls
+  // float over the canvas), then pick it there with a real click.
+  const pickOnModel = async (part: string) => {
+    const spot = await canvas.evaluate(async (el, wanted) => {
+      const frame = () => new Promise((done) => requestAnimationFrame(() => setTimeout(done, 0)));
+      const r = el.getBoundingClientRect();
+      for (let y = r.top + 2; y < r.bottom - 2; y += 4) {
+        for (let x = r.left + 2; x < r.right - 2; x += 4) {
+          if (document.elementFromPoint(x, y) !== el) continue;
+          el.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: x, clientY: y, pointerId: 1, pointerType: "mouse", isPrimary: true }));
+          await frame();
+          if (document.querySelector(`.stg-parts [data-part="${wanted}"]`)?.getAttribute("data-lit") === "true") return { x, y };
+        }
+      }
+      return null;
+    }, part);
+    expect(spot, `${part} under the pointer`).not.toBeNull();
+    await page.mouse.click(spot!.x, spot!.y);
+    await expect(page.locator(".stg-pick")).toHaveAttribute("data-part", part);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".stg-pick")).toHaveCount(0);
+  };
+
+  // The piles show through the cut corner, under the ground plane, which
+  // takes no pointer, so they pick the same as a part above grade.
+  await pickOnModel("piles");
+  // The jacks sit in the ground under the shafts, inside the site block, so
+  // the model shows them only where a cut reaches a shaft. They still pick
+  // from the row in the Assembled view.
+  await page.locator('.stg-parts [data-part="elevatorJack"]').click();
+  await expect(page.locator(".stg-pick")).toHaveAttribute("data-part", "elevatorJack");
+  await expect(page.locator(".stg-pick .stg-pick-total")).toHaveText("$280,000");
+});

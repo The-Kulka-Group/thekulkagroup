@@ -11,10 +11,12 @@ test("Meetings shows sentiment at a glance and opens a meeting's analytics", asy
   await expect(page.getByRole("heading", { name: "Meetings", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: /Meetings/ }).first()).toBeVisible();
 
-  // This week at a glance names the most negative meeting.
-  const glance = page.getByRole("region", { name: "This Week at a Glance" });
-  await expect(glance).toContainText("Synthetic Job Owner Meeting");
-  await expect(glance).toContainText("34% negative");
+  // LA-2281: Projects at a Glance, one card per job, and the unmatched meetings.
+  const glance = page.getByRole("region", { name: "Projects at a Glance" });
+  const card = glance.getByRole("link", { name: /C09001\s*Synthetic Job/ });
+  await expect(card).toContainText("12% Negative");
+  await expect(card).toContainText("2Recent Meetings");
+  await expect(glance.getByRole("link", { name: /Not Yet on a Job/ })).toContainText("1 meeting needs a job");
 
   // Every row carries its sentiment, newest first, and the newest is open.
   await expect(page.getByRole("img", { name: "30% positive, 58% neutral, 12% negative" }).first()).toBeVisible();
@@ -63,4 +65,26 @@ test("Meetings shows sentiment at a glance and opens a meeting's analytics", asy
   await page.goto("/meetings");
   await expect(page.getByRole("article", { name: "Synthetic Job Weekly OAC" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+});
+
+test("Meetings matches a meeting to its job and takes a person's correction", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/meetings");
+
+  // Rows carry their job; the matcher's reason shows on the open meeting.
+  await expect(page.getByRole("link", { name: /Synthetic Job Weekly OAC/ }).first()).toContainText("C09001 · Synthetic Job");
+  const open = page.getByRole("article", { name: "Synthetic Job Weekly OAC" });
+  await expect(open).toContainText("Matched by the job name in the title");
+
+  // The job filter narrows the list to one job.
+  await page.getByRole("combobox", { name: "Job, applies when selected" }).selectOption({ label: "Unmatched" });
+  await expect(page.getByRole("link", { name: /Weekly Ops Huddle/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Synthetic Job Weekly OAC/ })).toHaveCount(0);
+
+  // Marking the huddle as internal clears the unmatched card.
+  await page.getByRole("link", { name: /Weekly Ops Huddle/ }).click();
+  await page.getByRole("article", { name: "Weekly Ops Huddle" }).getByRole("combobox", { name: "Change the Job" }).selectOption({ label: "No Job (Internal Meeting)" });
+  await expect(page.getByRole("article", { name: "Weekly Ops Huddle" })).toContainText("Set by hand");
+  await expect(page.getByRole("region", { name: "Projects at a Glance" }).getByRole("link", { name: /Not Yet on a Job/ })).toHaveCount(0);
+  await page.screenshot({ path: "/tmp/kulka-playwright-results/la-2281.png", fullPage: false });
 });

@@ -330,5 +330,15 @@ async function seedMeetingFixtures(database: PGlite) {
       brief = '{"decisions":[{"text":"Synthetic decision: the lobby finish selection moved to November.","evidence":[1]}],"risks":[{"text":"Synthetic risk: two roof drain RFIs are open after ten days.","evidence":[3]}],"actionItems":[{"owner":"Example PM","action":"Send the revised lookahead","due":"Friday","evidence":[2]},{"owner":null,"action":"Confirm the elevator cab finish","due":null,"evidence":[4]}]}',
       brief_model = 'claude-opus-5-5', brief_written_at = now(), brief_input_tokens = 1200, brief_output_tokens = 300
     where fireflies_id = 'SYNTH-FF-1';
+    -- LA-2281: two synthetic Autodesk jobs; both meetings above sit on the first,
+    -- and an internal huddle stays unmatched.
+    insert into jobs (id, autodesk_id, name, job_number, status) values
+      ('40000000-0000-4000-8000-000000000001', 'acc-synth-1', 'Synthetic Job', 'C09001', 'active'),
+      ('40000000-0000-4000-8000-000000000002', 'acc-synth-2', 'Example Harbor', 'C09002', 'active');
+    update meetings set job_id = '40000000-0000-4000-8000-000000000001', match_source = 'job_name'
+     where fireflies_id in ('SYNTH-FF-1', 'SYNTH-FF-2');
+    insert into meetings (fireflies_id, title, started_at, duration_minutes, attendees, summary, sentences)
+    values ('SYNTH-FF-3', 'Weekly Ops Huddle', date_trunc('hour', now()) - interval '3 days', 20,
+            '[{"name":"Example PM","email":"pm@example.com"}]', '{"overview":""}', '[]');
   `);
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Sep, Sheet } from "@/components/Sheet";
 import { getDb } from "@/lib/db";
+import { listJobs } from "@/lib/jobs/store";
 import {
   actionItems,
   averagePace,
@@ -9,13 +10,19 @@ import {
   listMeetings,
   type MeetingDetail,
   type MeetingListItem,
+  type MeetingListItem as Item,
+  projectGlance,
+  type ProjectGlance,
   readMeeting,
   talkShares,
   weekGlance,
 } from "@/lib/meetings/read";
+import type { MatchSource } from "@/lib/meetings/match";
 import type { Brief } from "@/lib/meetings/brief";
 import type { Sentiment } from "@/lib/meetings/store";
 
+import { AutoSubmitSelect } from "../vision/AutoSubmitSelect";
+import { JobPicker, type PickerJob } from "./JobPicker";
 import { MeetingSync } from "./MeetingSync";
 import "./meetings.css";
 
@@ -86,6 +93,81 @@ function chapterList(chapters: unknown[]): { title: string; at: string | null }[
 }
 
 
+const MATCHED_BY: Record<MatchSource, string> = {
+  job_number: "Matched by job number in the title",
+  series: "Matched by its recurring meeting series",
+  job_name: "Matched by the job name in the title",
+  manual: "Set by hand",
+};
+
+function jobLabel(job: { name: string; jobNumber: string | null }) {
+  return job.jobNumber ? `${job.jobNumber} · ${job.name}` : job.name;
+}
+
+function JobChip({ meeting, large = false }: { meeting: Item; large?: boolean }) {
+  const size = large ? " mt-job--lg" : "";
+  if (meeting.job) return <span className={`mt-job${size}`}>{jobLabel(meeting.job)}</span>;
+  if (meeting.matchSource === "manual") return <span className={`mt-job mt-job--internal${size}`}>Internal</span>;
+  return <span className={`mt-job mt-job--none${size}`}>Unmatched</span>;
+}
+
+/** Sentiment across a job's recent meetings, oldest to newest: positive minus negative. */
+function Spark({ meetings, falling }: { meetings: Item[]; falling: boolean }) {
+  const scores = [...meetings]
+    .reverse()
+    .filter((one) => one.sentiment.positive !== null && one.sentiment.negative !== null)
+    .map((one) => (one.sentiment.positive as number) - (one.sentiment.negative as number));
+  if (scores.length < 2) return null;
+  const w = 120;
+  const h = 32;
+  const lo = Math.min(...scores) - 4;
+  const hi = Math.max(...scores) + 4;
+  const points = scores.map((v, i) => [4 + (i * (w - 8)) / (scores.length - 1), h - 4 - ((v - lo) / (hi - lo)) * (h - 8)]);
+  const line = points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [lx, ly] = points[points.length - 1];
+  const color = falling ? "var(--stuck-bright)" : "var(--done-bright)";
+  return (
+    <svg className="spark" viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
+      <polygon points={`4,${h - 2} ${line} ${lx.toFixed(1)},${h - 2}`} fill={color} opacity="0.12" />
+      <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r="3.5" fill={color} />
+    </svg>
+  );
+}
+
+function ProjectCard({ project, href }: { project: ProjectGlance; href: string }) {
+  const falling = project.trend === "Falling";
+  const { positive, negative } = project.latest.sentiment;
+  return (
+    <Link className={falling ? "pg-card pg-card--alert pg-card--link" : "pg-card pg-card--link"} href={href}>
+      <span className="pg-name">
+        {project.job.jobNumber ? <span className="mt-job">{project.job.jobNumber}</span> : null}
+        {project.job.name}
+      </span>
+      <span className="pg-trend">
+        <Spark meetings={project.meetings} falling={falling} />
+        <span className="pg-trend-l">
+          <b className={falling ? "num down" : project.trend === "Rising" ? "num up" : "num"}>{project.trend ?? "Too Few Meetings"}</b>
+          <span>Sentiment trend</span>
+        </span>
+      </span>
+      <span className="pg-latest">
+        <span className="pg-k">Latest Meeting</span>
+        <SentimentBar sentiment={project.latest.sentiment} large />
+        {positive !== null && negative !== null ? (
+          <span className="pg-pct">
+            <b className="num pos">{positive}%</b> Positive · <b className="num neg">{negative}%</b> Negative
+          </span>
+        ) : null}
+      </span>
+      <span className="pg-stats">
+        <span><b className="num">{project.meetings.length}</b>Recent Meetings</span>
+        <span><b className="num">{project.latest.briefReady ? project.latestActions : "—"}</b>Action Items, Latest</span>
+      </span>
+    </Link>
+  );
+}
+
 function KulkaBrief({ brief }: { brief: Brief }) {
   const empty = brief.decisions.length + brief.risks.length + brief.actionItems.length === 0;
   return (
@@ -133,7 +215,7 @@ function KulkaBrief({ brief }: { brief: Brief }) {
   );
 }
 
-function MeetingView({ meeting }: { meeting: MeetingDetail }) {
+function MeetingView({ meeting, jobs }: { meeting: MeetingDetail; jobs: PickerJob[] }) {
   const late = lateJoiners(meeting.startedAt, meeting.attendance);
   const shares = talkShares(meeting.analytics);
   const pace = averagePace(meeting.analytics);
@@ -159,6 +241,12 @@ function MeetingView({ meeting }: { meeting: MeetingDetail }) {
           {DAY.format(new Date(meeting.startedAt))} · {TIME.format(new Date(meeting.startedAt))}
           {meeting.durationMinutes !== null ? <> · <span className="num">{minutes(meeting.durationMinutes)}</span></> : null}
         </p>
+        <div className="mt-facts">
+          <span className="t-label">Job</span>
+          <JobChip meeting={meeting} large />
+          {jobs.length > 0 ? <JobPicker meetingId={meeting.id} jobId={meeting.job?.id ?? null} internal={meeting.matchSource === "manual" && !meeting.job} jobs={jobs} /> : null}
+          {meeting.matchSource ? <span className="mt-src">{MATCHED_BY[meeting.matchSource]}</span> : null}
+        </div>
         {names.length > 0 ? (
           <div className="mt-people">
             {names.slice(0, 5).map((name, i) => (
@@ -297,12 +385,23 @@ export default async function MeetingsPage({
   const params = await searchParams;
   const search = typeof params.q === "string" ? params.q.slice(0, 200) : "";
   const chosen = typeof params.m === "string" ? params.m : null;
+  const job = typeof params.job === "string" ? params.job : "";
   const db = getDb();
-  const meetings = await listMeetings(db, search);
+  const [meetings, all, jobRows] = await Promise.all([
+    listMeetings(db, search, 200, job),
+    search || job ? listMeetings(db, "", 500) : Promise.resolve(null),
+    listJobs(db),
+  ]);
+  const everything = all ?? meetings;
+  const jobs: PickerJob[] = jobRows
+    .filter((one) => one.status !== "archived")
+    .map((one) => ({ id: one.id, label: jobLabel(one) }));
+  const glanceProjects = projectGlance(everything);
   const openId = chosen ?? meetings[0]?.id ?? null;
   const open = openId ? await readMeeting(db, openId) : null;
-  const glance = weekGlance(meetings, new Date());
-  const href = (id: string) => `/meetings?${new URLSearchParams({ ...(search ? { q: search } : {}), m: id })}`;
+  const glance = weekGlance(everything, new Date());
+  const href = (id: string) => `/meetings?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(job ? { job } : {}), m: id })}`;
+  const jobHref = (id: string) => `/meetings?${new URLSearchParams({ job: id })}`;
 
   return (
     <Sheet
@@ -318,16 +417,37 @@ export default async function MeetingsPage({
       }
     >
       <MeetingSync />
-      {meetings.length === 0 && !search ? (
+      {everything.length === 0 ? (
         <div className="empty">
           <p>No meetings yet. Each Fireflies meeting appears here a few minutes after it ends.</p>
         </div>
       ) : (
         <>
+          {glanceProjects.projects.length > 0 ? (
+          <section className="pg" aria-label="Projects at a Glance">
+            <div className="pg-head">
+              <h2 className="t-label">Projects at a Glance</h2>
+              <span className="pg-cap">The last 6 meetings for each job</span>
+            </div>
+            <div className="pg-cards">
+              {glanceProjects.projects.map((project) => (
+                <ProjectCard key={project.job.id} project={project} href={jobHref(project.job.id)} />
+              ))}
+              {glanceProjects.unmatched > 0 ? (
+                <Link className="pg-card pg-card--link" href={jobHref("unmatched")}>
+                  <span className="pg-name"><span className="mt-job mt-job--none">Unmatched</span>Not Yet on a Job</span>
+                  <span className="pg-unm">
+                    <b className="num">{glanceProjects.unmatched}</b> {glanceProjects.unmatched === 1 ? "meeting needs" : "meetings need"} a job. Pick one on the meeting and its series follows.
+                  </span>
+                </Link>
+              ) : null}
+            </div>
+          </section>
+          ) : (
           <section className="pg" aria-label="This Week at a Glance">
             <div className="pg-head">
               <h2 className="t-label">This Week at a Glance</h2>
-              <span className="pg-cap">Projects at a Glance replaces this once meetings match to Autodesk projects.</span>
+              <span className="pg-cap">Projects at a Glance appears once a meeting matches an Autodesk job.</span>
             </div>
             <div className="pg-cards">
               <div className="pg-card">
@@ -363,10 +483,19 @@ export default async function MeetingsPage({
               </div>
             </div>
           </section>
+          )}
 
           <div className="mt-body">
             <div className="mt-list">
-              <form className="mt-filters" action="/meetings">
+              <form className="mt-filters mt-filters--two" action="/meetings">
+                <label>
+                  <span className="t-label">Job</span>
+                  <AutoSubmitSelect className="input" name="job" defaultValue={job} aria-label="Job, applies when selected">
+                    <option value="">All Jobs</option>
+                    {jobs.map((one) => <option key={one.id} value={one.id}>{one.label}</option>)}
+                    <option value="unmatched">Unmatched</option>
+                  </AutoSubmitSelect>
+                </label>
                 <label className="mt-search">
                   <span className="t-label">Search</span>
                   <input className="input" type="search" name="q" defaultValue={search} maxLength={200} placeholder="Title, Person or Topic" />
@@ -378,7 +507,7 @@ export default async function MeetingsPage({
                 <span><i className="lg lg-n" />Neutral</span>
                 <span><i className="lg lg-g" />Negative</span>
               </div>
-              {meetings.length === 0 ? <p className="mt-note mt-pad">No meetings match “{search}”.</p> : null}
+              {meetings.length === 0 ? <p className="mt-note mt-pad">No meetings match these filters.</p> : null}
               {groupByDay(meetings).map((group) => (
                 <div className="mt-group" key={group.key}>
                   <h2 className="mt-day">{group.label}</h2>
@@ -394,6 +523,7 @@ export default async function MeetingsPage({
                       <span className="mt-main">
                         <span className="mt-title">{meeting.title}</span>
                         <span className="mt-sub">
+                          <JobChip meeting={meeting} />
                           {meeting.meetingType ? <span className="mt-type">{meeting.meetingType}</span> : null}
                           {meeting.durationMinutes !== null ? <span className="num">{minutes(meeting.durationMinutes)}</span> : null}
                           <span><span className="num">{meeting.attendeeCount}</span> invited</span>
@@ -418,7 +548,7 @@ export default async function MeetingsPage({
                 </div>
               ))}
             </div>
-            {open ? <MeetingView meeting={open} /> : <div className="mt-detail"><p className="mt-note">Pick a meeting to open it.</p></div>}
+            {open ? <MeetingView meeting={open} jobs={jobs} /> : <div className="mt-detail"><p className="mt-note">Pick a meeting to open it.</p></div>}
           </div>
         </>
       )}

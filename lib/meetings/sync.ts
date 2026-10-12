@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { type BriefClient, briefMeeting, meetingsAwaitingBrief } from "./brief";
 
 import type { FirefliesTranscript } from "./fireflies";
+import { matchMeetings } from "./match";
 import { completeFirefliesIds, meetingFromTranscript, upsertMeeting } from "./store";
 
 // LA-2279. Pulling meetings from Fireflies into Kulka AI. The Fireflies calls
@@ -13,9 +14,13 @@ export type FirefliesReader = {
   listTranscriptIds: (from: Date) => Promise<string[]>;
 };
 
-/** Fetches one transcript and saves it. Safe to repeat. */
-export async function syncMeeting(db: Db, reader: FirefliesReader, firefliesId: string): Promise<void> {
+/**
+ * Fetches one transcript and saves it, then matches meetings to jobs
+ * (LA-2281) unless the caller matches once at the end. Safe to repeat.
+ */
+export async function syncMeeting(db: Db, reader: FirefliesReader, firefliesId: string, match = true): Promise<void> {
   await upsertMeeting(db, meetingFromTranscript(await reader.fetchTranscript(firefliesId)));
+  if (match) await matchMeetings(db);
 }
 
 /**
@@ -31,7 +36,8 @@ export async function backfillMeetings(
   const ids = await reader.listTranscriptIds(from);
   const saved = await completeFirefliesIds(db, ids);
   const missing = ids.filter((id) => !saved.has(id));
-  for (const id of missing) await syncMeeting(db, reader, id);
+  for (const id of missing) await syncMeeting(db, reader, id, false);
+  if (missing.length > 0) await matchMeetings(db);
   return { found: ids.length, added: missing.length };
 }
 

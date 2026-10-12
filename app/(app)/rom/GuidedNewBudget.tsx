@@ -8,6 +8,7 @@ import type { MarkupOptions } from "@/lib/rom/markup";
 import {
   factsQuestions,
   gatesFromResponses,
+  lastQuestion,
   requiredAnswered,
   scopeQuestions,
 } from "@/lib/rom/new-budget-flow";
@@ -486,13 +487,14 @@ export function GuidedNewBudget({
     const reached = reachedMarkups || (nextIndex < nextSlots.length && nextSlots[nextIndex].kind !== "flow");
     if (reached) setReachedMarkups(true);
     persist(id, current, form, reached);
-    // LA-1265, LA-1318: Elevator Count brings the elevator cards and
-    // Balconies the building's own; after that, any answer they read works
-    // them out again, so the live budget prices what the run will.
+    // LA-1265, LA-1318: Elevator Count brings the elevator cards and the
+    // level's last question the building's own (LA-2209 review Q2: Balconies
+    // did, but Levels 1 and 2 never ask it); after that, any answer they read
+    // works them out again, so the live budget prices what the run will.
     const group =
       answered === "elevator_count" && elevatorReady(current)
         ? "elevators"
-        : answered === "balconies" && current.project_type === "multifamily"
+        : answered !== null && answered === lastQuestion(definition, current, level)?.id && current.project_type === "multifamily"
           ? "building"
           : null;
     if (group && !dueGroups.has(group)) setDueGroups((due) => new Set([...due, group]));

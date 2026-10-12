@@ -102,3 +102,12 @@ export function gatesFromResponses(
   }
   return gates;
 }
+
+/**
+ * LA-2209 review Q2: the last question New Budget asks at this level, the one
+ * whose answer starts the building's Design and Engineering cards. Balconies
+ * used to start them, but Level 1 and 2 never ask it.
+ */
+export function lastQuestion(definition: FlowDefinition, responses: Responses, level: PriceLevel): Question | undefined {
+  return scopeQuestions(definition, responses, level).at(-1);
+}

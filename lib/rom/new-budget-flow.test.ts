@@ -5,6 +5,7 @@ import { tier1Flow } from "./question-flow";
 import {
   factsQuestions,
   gatesFromResponses,
+  lastQuestion,
   requiredAnswered,
   scopeQuestions,
 } from "./new-budget-flow";
@@ -202,6 +203,15 @@ describe("the steps at a price level (LA-2218)", () => {
 
   it("shows everything when no level is given", () => {
     expect(scopeQuestions(tier1Flow(), {}).map((q) => q.id)).toContain("balconies");
+  });
+
+  // LA-2209 review Q2: the building cards start on the last question the level asks.
+  it("names the last question each level asks, never one the level hides", () => {
+    for (const level of [1, 2, 3] as const) {
+      const last = lastQuestion(tier1Flow(), {}, level);
+      expect(last?.id).toBe("radio_amplifier");
+      expect(last!.level).toBeLessThanOrEqual(level);
+    }
   });
 
   // LA-2209 review S2: a gate the level does not ask saves as TBD, so a later

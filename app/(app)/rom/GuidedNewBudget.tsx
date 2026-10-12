@@ -6,6 +6,7 @@ import type { MarkupChoices } from "@kulka/engine";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 import type { MarkupOptions } from "@/lib/rom/markup";
 import {
+  areaWarning,
   factsQuestions,
   gatesFromResponses,
   lastQuestion,
@@ -700,6 +701,7 @@ export function GuidedNewBudget({
     if (index > 0) setIndex(index - 1);
   }
 
+  const warning = areaWarning(responses);
   const setupFields = (
     <section className="markup-module nb-setup" aria-label="Project Setup">
       <div className="markup-grid">
@@ -733,6 +735,11 @@ export function GuidedNewBudget({
           </select>
         </label>
       </div>
+      {warning ? (
+        <p className="nb-help nb-warn" role="alert">
+          {warning}
+        </p>
+      ) : null}
     </section>
   );
 
@@ -743,13 +750,33 @@ export function GuidedNewBudget({
     ...setup.filter((question) => !requiredAnswered([question], responses)).map((question) => question.prompt),
   ];
 
+  // LA-2270: the folded setup keeps the facts that drive the price in view,
+  // with a plain way back into them, so a wrong area is easy to see and fix.
+  const facts = [
+    `${Number(responses.gross_square_feet).toLocaleString("en-US")} SF`,
+    ...(responses.stories_above_grade ? [`${responses.stories_above_grade} Stories`] : []),
+    ...(responses.unit_count ? [`${Number(responses.unit_count).toLocaleString("en-US")} Units`] : []),
+  ];
   const summary = (
-    <p className="nb-sum">
-      <b>{name.trim()}</b>, <span className="num">{Number(responses.gross_square_feet).toLocaleString("en-US")}</span> SF{" "}
-      <button className="nb-back" type="button" disabled={busy} onClick={() => setEditingSetup(true)}>
-        Edit
+    <div className="nb-sum">
+      <p>
+        <b>{name.trim()}</b>
+        {facts.map((fact) => (
+          <span key={fact} className="num">
+            {" · "}
+            {fact}
+          </span>
+        ))}
+      </p>
+      <button className="nb-choice nb-edit" type="button" disabled={busy} onClick={() => setEditingSetup(true)}>
+        Edit Setup
       </button>
-    </p>
+      {warning ? (
+        <p className="nb-help nb-warn" role="alert">
+          {warning}
+        </p>
+      ) : null}
+    </div>
   );
 
   if (!slot) {

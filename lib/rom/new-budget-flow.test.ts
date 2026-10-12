@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { tier1Flow } from "./question-flow";
 
 import {
+  areaWarning,
   factsQuestions,
   gatesFromResponses,
   lastQuestion,
@@ -227,5 +228,27 @@ describe("the steps at a price level (LA-2218)", () => {
     });
     expect(gatesFromResponses(tier1Flow(), {}, 2)).not.toHaveProperty("site_conditions");
     expect(gatesFromResponses(tier1Flow(), {}, 3)).toEqual({});
+  });
+});
+
+// LA-2270: Rob entered 1 SF on a 100-unit job and the budget read millions per SF.
+describe("areaWarning", () => {
+  const job = { project_type: "multifamily", gross_square_feet: "100000", unit_count: "100" };
+
+  it("says nothing about a normal area, down to 250 SF per unit", () => {
+    expect(areaWarning(job)).toBeNull();
+    expect(areaWarning({ ...job, gross_square_feet: "25000" })).toBeNull();
+    expect(areaWarning({ ...job, gross_square_feet: "24900" })).toBe("That is 249 SF per unit. Check Gross Square Feet.");
+  });
+
+  it("names the SF per unit when the area is too small for the unit count", () => {
+    expect(areaWarning({ ...job, gross_square_feet: "1" })).toBe("That is 0.01 SF per unit. Check Gross Square Feet.");
+    expect(areaWarning({ ...job, gross_square_feet: "10000" })).toBe("That is 100 SF per unit. Check Gross Square Feet.");
+  });
+
+  it("waits for both numbers and skips a job with no units", () => {
+    expect(areaWarning({ ...job, unit_count: "" })).toBeNull();
+    expect(areaWarning({ ...job, gross_square_feet: "" })).toBeNull();
+    expect(areaWarning({ ...job, project_type: "self_storage", gross_square_feet: "1" })).toBeNull();
   });
 });

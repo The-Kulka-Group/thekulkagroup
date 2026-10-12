@@ -78,6 +78,25 @@ function combine(locals: readonly LocalStatus[]): GateLineStatus {
 }
 
 /**
+ * LA-2237: a follow-up question is asked only after its gate says yes. A
+ * project that answered neither the gate nor the follow-up was never asked,
+ * which reads as "don't know", the same as a required gate the budget's level
+ * skipped, so the gate's items stay out of the total as TBD. An answer to
+ * either one decides as before: "no" closes the items, "yes" leaves the
+ * follow-up as a named blank.
+ */
+const GATE_FOLLOW_UPS: Readonly<Record<string, string>> = { balconies: "balconyType" };
+
+function readAnswer(
+  answers: Readonly<Record<string, GateAnswerValue>>,
+  section: string,
+): GateAnswerValue | undefined {
+  const followUp = GATE_FOLLOW_UPS[section];
+  if (answers[section] === undefined && followUp !== undefined && answers[followUp] === undefined) return "dont_know";
+  return answers[section];
+}
+
+/**
  * Resolves every gate-item rule against a project's answers, keyed by cost
  * code. `answers` is read by section name, whatever name the caller gave that
  * section when it built the answers bag (a branch gate's own section, or an
@@ -91,7 +110,7 @@ export function resolveGateItems(
   const resolved = new Map<string, GateResolution>();
   for (const rule of rules) {
     const sections = [rule.section, ...rule.requiresAllSections];
-    const locals = sections.map((section) => localStatus(answers[section], rule.closesOn));
+    const locals = sections.map((section) => localStatus(readAnswer(answers, section), rule.closesOn));
     const next: GateResolution = { costCode: rule.costCode, status: combine(locals), sections, rule };
     const earlier = resolved.get(rule.costCode);
     resolved.set(rule.costCode, earlier ? stricter(earlier, next) : next);

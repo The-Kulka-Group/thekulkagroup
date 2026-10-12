@@ -152,3 +152,13 @@ b.pos { color: var(--done); } b.neg { color: var(--stuck); } b.warn { color: var
 .mt-table--due td:last-child { white-space: nowrap; width: 1%; }
 .mt-ff .mt-overview, .mt-ff .mt-block, .mt-ff .mt-tags, .mt-ff .mt-table { margin-top: var(--s2); }
 .mt-brief-error { color: var(--stuck); }
+/* LA-2281: jobs. */
+.mt-filters--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.mt-job--internal { color: var(--ink); background: var(--neutral-fill); }
+.mt-pick { display: inline-grid; gap: 4px; }
+.mt-pick-select { height: 28px; min-height: 28px; font-size: var(--meta-size); padding-block: 0; }
+.mt-pick-error { font-size: var(--meta-size); color: var(--stuck); }
+.mt-facts { flex-wrap: wrap; }
+.pg-card--link { text-decoration: none; cursor: pointer; }
+.pg-card--link:hover { border-color: var(--border); }
+.pg-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }

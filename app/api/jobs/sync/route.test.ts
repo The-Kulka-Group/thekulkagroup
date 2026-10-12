@@ -43,7 +43,7 @@ beforeAll(async () => {
   db = await seededDatabase();
 }, 60_000);
 beforeEach(async () => {
-  await db.query(`truncate jobs`);
+  await db.query(`truncate jobs cascade`);
   vi.stubEnv("APS_CLIENT_ID", "test-client");
   vi.stubEnv("APS_CLIENT_SECRET", "test-secret");
   vi.stubEnv("ACC_ACCOUNT_ID", "b.00000000-0000-4000-8000-0000000000aa");
@@ -61,7 +61,7 @@ describe("POST /api/jobs/sync", () => {
     autodeskAnswers([Array.from({ length: 200 }, (_, i) => project(i)), [project(200), project(201)]]);
     const response = await sync();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ jobs: 202 });
+    expect(await response.json()).toEqual({ jobs: 202, matched: 0 });
 
     const [tokenUrl, tokenInit] = autodesk.mock.calls[0];
     expect(tokenUrl).toBe("https://developer.api.autodesk.com/authentication/v2/token");

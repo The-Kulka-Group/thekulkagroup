@@ -81,8 +81,6 @@ export type StageController = {
 };
 
 const BLUE = new THREE.Color(0x0073ea);
-/** daylight.css --working, the colour of what is not priced yet. */
-const WORKING = 0xff9500;
 /** How much of a part shows while another part is picked, and while nothing prices it. */
 const FADED = 0.12;
 const UNPRICED_FILL = 0.4;
@@ -322,8 +320,11 @@ export function createStage(
   // first needs them and dropped with the building.
   let see: Map<THREE.Material, THREE.Material>[] = [new Map(), new Map()];
   let outlines: THREE.LineSegments[] = [];
-  const dash = new THREE.LineDashedMaterial({ color: WORKING, dashSize: 2.4, gapSize: 1.6 });
-  const dashFaded = new THREE.LineDashedMaterial({ color: WORKING, dashSize: 2.4, gapSize: 1.6, transparent: true, opacity: 0.3 });
+  // daylight.css --working, the colour of what is not priced yet, read from the
+  // page once so the model and the CSS share one value (LA-2209 review J2).
+  const working = new THREE.Color(getComputedStyle(canvas).getPropertyValue("--working").trim());
+  const dash = new THREE.LineDashedMaterial({ color: working, dashSize: 2.4, gapSize: 1.6 });
+  const dashFaded = new THREE.LineDashedMaterial({ color: working, dashSize: 2.4, gapSize: 1.6, transparent: true, opacity: 0.3 });
   lasting.push(dash, dashFaded);
   let spec: StageBuilding | null = null;
   let span = 0;

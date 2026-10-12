@@ -9,6 +9,7 @@ import { rateUsd, usd, wholeNumber } from "@/lib/format/usd";
 
 import { type ClientSource, clientSource } from "./client-source";
 import { PER_UNIT_WORDS, UNIT_WORDS } from "./drill-down";
+import { rowKey } from "./row-keys";
 import { partsOf, type StageBuilding, type StageFacts } from "./stage-model";
 import type { StagePart } from "./stage-scenes";
 
@@ -299,13 +300,13 @@ function mathOf(line: RomLine): string {
 }
 
 const lineRow = (line: RomLine, part: StagePart): LevelRow => ({
-  key: `line:${line.costCode}`,
+  key: rowKey("line", line.costCode),
   label: titleCase(line.label),
   total: midpoint(line),
   parts: [part],
 });
 const unpricedRow = (item: UnpricedItem, part: StagePart): LevelRow => ({
-  key: `unpriced:${item.costCode}`,
+  key: rowKey("unpriced", item.costCode),
   label: titleCase(item.label),
   total: null,
   parts: [part],
@@ -343,7 +344,7 @@ function levelView(
   const elementRows = groups.map((group): LevelRow => {
     const codes = [group.driver, ...group.members].map((item) => item.costCode);
     return {
-      key: `element:${group.element}`,
+      key: rowKey("element", group.element),
       label: titleCase(group.element),
       total: midpoint(group.total),
       parts: drawn.filter((part) => codes.some((code) => partOf.get(code) === part)),

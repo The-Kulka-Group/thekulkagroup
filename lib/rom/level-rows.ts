@@ -1,4 +1,5 @@
 import { type LevelRow, type LevelView, type PartPriceInput, partPrices, type PriceLevel } from "./part-prices";
+import { parseRowKey } from "./row-keys";
 import type { StagePart } from "./stage-scenes";
 
 // LA-2212 (spec LA-2209): the price levels. The Building View reads one run
@@ -39,7 +40,8 @@ export const ELEMENT_TINTS: Readonly<Record<string, string>> = {
 /** The colour a row tints its parts at its level, or null when it tints nothing. */
 export function rowTint(level: PriceLevel, row: LevelRow): string | null {
   if (level === 1) return BLOCK_TINT;
-  if (level === 2 && row.key.startsWith("element:")) return ELEMENT_TINTS[row.key.slice("element:".length)] ?? null;
+  const key = parseRowKey(row.key);
+  if (level === 2 && key?.kind === "element") return ELEMENT_TINTS[key.id] ?? null;
   return null;
 }
 

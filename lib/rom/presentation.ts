@@ -12,6 +12,7 @@ import { publicWording } from "@/lib/rom/derived-assumptions";
 import { ITEM_DIVISION_MAP, compareItemCodes } from "@/lib/rom/masterformat-item-divisions";
 import { scheduledMonths, type PublishedBudgetSnapshot, type PublishedStage } from "@/lib/rom/published-snapshot";
 import { drillDown, type DivisionRow, type ProjectBasis } from "@/lib/rom/drill-down";
+import { parseRowKey, type RowKey, rowKey } from "@/lib/rom/row-keys";
 import { LAYERS, type SectionFacts, type SectionInk } from "@/lib/rom/section";
 
 // LA-1418. The presentation model: what the client page at /b/<token> shows,
@@ -765,7 +766,7 @@ function lineBasis(line: RomLine, rom: Rom): string {
 function pricedLine(line: RomLine, rom: Rom): PricedLine {
   return {
     ...figure(line),
-    el: `line:${line.costCode}`,
+    el: rowKey("line", line.costCode),
     costCode: line.costCode,
     label: lineName(line.costCode, line.label),
     confidence: line.confidence,
@@ -784,7 +785,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
   const toScope = (row: SavedLedgerRow, ownerDirect: boolean): Scope => {
     const items: LedgerItem[] = row.kind === "group" ? row.items : [row];
     const romLines = items.flatMap((item) => (item.amount === null ? [] : [lineByCode.get(item.costCode)!]));
-    const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: `unpriced:${item.costCode}`, costCode: item.costCode, label: lineName(item.costCode, item.label) }));
+    const unpriced = items.filter((item) => item.amount === null).map((item) => ({ el: rowKey("unpriced", item.costCode), costCode: item.costCode, label: lineName(item.costCode, item.label) }));
     const low = romLines.reduce((sum, line) => sum + line.low, 0);
     const high = romLines.reduce((sum, line) => sum + line.high, 0);
     const lines = romLines.map((line) => pricedLine(line, rom));
@@ -796,7 +797,7 @@ function scopesOf(snapshot: PresentableSnapshot) {
       low,
       high,
       likely: lines.reduce((sum, line) => sum + line.likely, 0),
-      el: kind === "element" ? `element:${slug(row.label)}` : kind === "line" ? `line:${items[0].costCode}` : `unpriced:${items[0].costCode}`,
+      el: rowKey(kind, kind === "element" ? slug(row.label) : items[0].costCode),
       domId: `scope-${slug(label)}`,
       kind,
       label,
@@ -830,7 +831,7 @@ function divisionsOf(rom: Rom, classifications: readonly BlockClassification[]):
       el: `division:${group.division}`,
       division: group.division!,
       label: divisionTitle(group.division),
-      items: group.items.map((item) => ({ el: null, elRef: `line:${item.costCode}`, label: titleCase(item.label), likely: item.amount })),
+      items: group.items.map((item) => ({ el: null, elRef: rowKey("line", item.costCode), label: titleCase(item.label), likely: item.amount })),
     };
   });
 }
@@ -976,7 +977,7 @@ function ledgerOf(
     const romLines = scope.lines.map((l) => lineByCode.get(l.costCode)).filter((l): l is RomLine => l !== undefined);
     const ink: SectionInk = romLines.length > 0 && romLines.every(isPlaceholder) ? "light" : "full";
     inkMap[scope.el] = ink;
-    for (const line of romLines) inkMap[`line:${line.costCode}`] = isPlaceholder(line) ? "light" : "full";
+    for (const line of romLines) inkMap[rowKey("line", line.costCode)] = isPlaceholder(line) ? "light" : "full";
     const sourceText = scope.kind === "line" ? scope.lines[0].source.text : scope.kind === "unpriced" ? "No Rate Yet" : scope.lines.map((l) => `${l.label}: ${l.source.text}`).join(" · ");
     return {
       key: scope.el,
@@ -994,7 +995,7 @@ function ledgerOf(
   });
   // Ascending division, then cost code; a row with no division sorts last, in item order.
   rows.sort((a, b) => divisionRank(a.division) - divisionRank(b.division) || compareItemCodes(codeOf(a.scope), codeOf(b.scope)) || a.label.localeCompare(b.label));
-  const mixed = rows.filter((r) => r.scope.lines.some((l) => inkMap[`line:${l.costCode}`] === "light"));
+  const mixed = rows.filter((r) => r.scope.lines.some((l) => inkMap[rowKey("line", l.costCode)] === "light"));
   return {
     ledger: rows,
     ink: inkMap,
@@ -1375,9 +1376,9 @@ export function presentBudget(publication: Publication): BudgetPage {
         .map((code) => {
           const line = rom.lines.find((l) => l.costCode === code);
           const label = line?.label ?? rom.unpricedItems.find((u) => u.costCode === code)?.label;
-          return label === undefined ? null : { name: lineName(code, label), el: line ? `line:${code}` : `unpriced:${code}` };
+          return label === undefined ? null : { name: lineName(code, label), el: rowKey(line ? "line" : "unpriced", code) };
         })
-        .filter((price): price is { name: string; el: string } => price !== null),
+        .filter((price): price is { name: string; el: RowKey } => price !== null),
       confidence: a.confidence,
       confidenceReason: criterionWords(a.confidenceReason),
       // LA-1532: Settled only when nothing under it is assumed. M-1 read
@@ -1409,7 +1410,7 @@ export function presentBudget(publication: Publication): BudgetPage {
       division: row.division,
       ownerDirect: row.scope.ownerDirect,
       lines: row.scope.lines.map((l) => l.costCode),
-      unpriced: row.scope.kind === "unpriced" ? [row.key.slice("unpriced:".length)] : row.scope.unpriced.map((u) => u.costCode),
+      unpriced: row.scope.kind === "unpriced" ? [parseRowKey(row.key)!.id] : row.scope.unpriced.map((u) => u.costCode),
     })),
     items: new Map(
       priceds.map((l) => [l.costCode, { costCode: l.costCode, label: l.label, low: l.low, high: l.high, likely: l.likely, confidence: l.confidence, sourceText: l.source.text }]),

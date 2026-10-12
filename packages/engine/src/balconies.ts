@@ -18,6 +18,7 @@
 
 import type { QuantityResult } from "./quantity-rules";
 import type { Benchmark, RomLine } from "./rom";
+import { positiveFact } from "./rom-per-unit";
 
 export const BALCONY_DECK_COST_CODE = "11";
 export const BALCONY_RAIL_COST_CODE = "11a";
@@ -47,20 +48,15 @@ export type BalconyFacts = {
   julietRailLinearFeet: number | null;
 };
 
-function positive(facts: Record<string, string | number | boolean> | undefined, name: string): number | null {
-  const value = facts?.[name];
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-}
-
 export function readBalconyFacts(facts: Record<string, string | number | boolean> | undefined): BalconyFacts {
   const type = facts?.["balconyType"];
   return {
     type: type === "full" || type === "juliet" ? type : null,
-    count: positive(facts, "balconyCount"),
-    deckSquareFeet: positive(facts, "balconyDeckSquareFeet"),
-    railLinearFeet: positive(facts, "balconyRailLinearFeet"),
-    julietCount: positive(facts, "julietCount"),
-    julietRailLinearFeet: positive(facts, "julietRailLinearFeet"),
+    count: positiveFact(facts, "balconyCount"),
+    deckSquareFeet: positiveFact(facts, "balconyDeckSquareFeet"),
+    railLinearFeet: positiveFact(facts, "balconyRailLinearFeet"),
+    julietCount: positiveFact(facts, "julietCount"),
+    julietRailLinearFeet: positiveFact(facts, "julietRailLinearFeet"),
   };
 }
 

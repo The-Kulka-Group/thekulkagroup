@@ -18,6 +18,7 @@
 // rule as rom.ts.
 
 import type { QuantityResult } from "./quantity-rules";
+import { positiveFact } from "./rom-per-unit";
 
 export const PODIUM_DECK_COST_CODE = "3";
 export const GARAGE_ELECTRICAL_COST_CODE = "31g";
@@ -37,11 +38,6 @@ export const GARAGE_SHARE_OF: Readonly<Record<string, string>> = {
 export const PODIUM_GARAGE_LEVELS = 1;
 
 const NO_GARAGE: ReadonlySet<string> = new Set(["none", "surface"]);
-
-function numberFact(facts: Record<string, string | number | boolean> | undefined, name: string): number | null {
-  const value = facts?.[name];
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-}
 
 const area = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
@@ -65,7 +61,7 @@ export function garageArea(
   if (parking !== "structured") {
     return { ok: false, missing: ["Garage Area"], words: "the project has no garage area" };
   }
-  const stories = numberFact(facts, "storiesAboveGrade");
+  const stories = positiveFact(facts, "storiesAboveGrade");
   if (stories === null) {
     return { ok: false, missing: ["Stories Above Grade"], words: "the project has no stories above grade" };
   }

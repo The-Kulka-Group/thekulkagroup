@@ -295,9 +295,6 @@ export type PresentableSnapshot = PublishedBudgetSnapshot;
 
 // --- Formatting shared with the renderer -------------------------------------
 
-export { rateUsd, usd, wholeNumber } from "@/lib/format/usd";
-export { clientSource, type ClientSource } from "@/lib/rom/client-source";
-
 export function percentOf(share: number): string {
   return `${Math.round(share * 1000) / 10}%`;
 }

@@ -1,7 +1,8 @@
 import { PARAMETER_NAMES } from "@kulka/engine";
 import { describe, expect, it } from "vitest";
 
-import { presentBudget, rateUsd, usd } from "@/lib/rom/presentation";
+import { rateUsd, usd } from "@/lib/format/usd";
+import { presentBudget } from "@/lib/rom/presentation";
 import { buildPrintJob } from "@/lib/rom/published-pdf";
 import { DIAGRAM_LINE, LAYERS } from "@/lib/rom/section";
 import { estimatedPublication, referencePage, referencePublication } from "@/test/fixtures/published-budget";

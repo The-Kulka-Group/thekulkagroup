@@ -1,8 +1,7 @@
 import { titleCase } from "@/lib/format/title-case";
+import { usd, wholeNumber } from "@/lib/format/usd";
 import {
   longDate,
-  usd,
-  wholeNumber,
   type BudgetPage,
   type Criterion,
   type Fact,

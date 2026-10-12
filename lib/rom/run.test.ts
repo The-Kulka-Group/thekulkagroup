@@ -59,6 +59,20 @@ describe("stories above grade, unit count, building count, zip on the project re
 // LA-1212: Elevator Count carries the same way, but reads `!== null` rather
 // than the truthy check the other four use, because zero is itself a legal,
 // meaningful answer (no elevator) and must not read back as unset.
+// LA-2274: a run off the project record (Run Settings, Edit Project) keeps
+// the balcony answers New Budget saved, under the names the engine reads.
+describe("balcony answers on the project record", () => {
+  it("carries the type and numbers into answersFromProject's facts", async () => {
+    await db.query(
+      `update projects set balcony_type = 'juliet', juliet_count = 12, juliet_rail_linear_feet = 6.5 where id = $1`,
+      [TEST_PROJECT_ID],
+    );
+    const answers = answersFromProject(await readProject(db as Db, TEST_PROJECT_ID));
+    expect(answers.facts).toMatchObject({ balconyType: "juliet", julietCount: 12, julietRailLinearFeet: 6.5 });
+    expect(answers.facts?.balconyCount).toBeUndefined();
+  });
+});
+
 describe("elevator count on the project record", () => {
   it("carries into answersFromProject's facts when set, including zero", async () => {
     await db.query(`update projects set stories_above_grade = 4, elevator_count = 2 where id = $1`, [

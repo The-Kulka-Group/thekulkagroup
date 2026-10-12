@@ -149,6 +149,31 @@ describe("PATCH /api/rom/projects/[id]", () => {
     expect(bad.status).toBe(400);
   });
 
+  // LA-2274: Parking Type and the balcony answers save, reload and validate.
+  it("saves parking type and the balcony answers, and GET reloads them", async () => {
+    const response = await patch(TEST_PROJECT_ID, {
+      ...edit,
+      parkingType: "structured",
+      balconyType: "full",
+      balconyCount: 40,
+      balconyDeckSquareFeet: 60.5,
+      balconyRailLinearFeet: 18,
+    });
+    expect(response.status).toBe(200);
+    const get = await GET(new Request(`http://localhost/api/rom/projects/${TEST_PROJECT_ID}`), ctx(TEST_PROJECT_ID));
+    expect((await get.json()).project).toMatchObject({
+      parkingType: "structured",
+      balconyType: "full",
+      balconyCount: 40,
+      balconyDeckSquareFeet: 60.5,
+      balconyRailLinearFeet: 18,
+      julietCount: null,
+    });
+
+    expect((await patch(TEST_PROJECT_ID, { ...edit, balconyType: "porch" })).status).toBe(400);
+    expect((await patch(TEST_PROJECT_ID, { ...edit, balconyCount: 0 })).status).toBe(400);
+  });
+
   // LA-1245: Labor Type saves and reloads, and an unknown one is refused.
   it("saves a labor type, and GET reloads it", async () => {
     expect((await patch(TEST_PROJECT_ID, { ...edit, laborType: "prevailing_wage" })).status).toBe(200);

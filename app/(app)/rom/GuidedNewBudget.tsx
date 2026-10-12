@@ -156,6 +156,19 @@ function elevatorReady(responses: Responses): boolean {
   );
 }
 
+/** LA-2274: the balcony numbers the chosen balcony type asks, keyed as the project saves them. */
+function balconyNumbers(current: Responses) {
+  const number = (type: string, id: string) =>
+    current.balcony_type === type && current[id] ? Number(current[id]) : null;
+  return {
+    balconyCount: number("full", "balcony_count"),
+    balconyDeckSquareFeet: number("full", "balcony_deck_square_feet"),
+    balconyRailLinearFeet: number("full", "balcony_rail_linear_feet"),
+    julietCount: number("juliet", "juliet_count"),
+    julietRailLinearFeet: number("juliet", "juliet_rail_linear_feet"),
+  };
+}
+
 /** A setup-card field: a choice, a number or the ZIP. */
 function SetupField({
   question,
@@ -380,6 +393,9 @@ export function GuidedNewBudget({
         : null,
       demolitionStructureType: current.demolition_structure_type || null,
       laborType: current.labor_type || "open_shop",
+      // LA-2274: the balcony answers go on the project too, so a later run keeps them.
+      balconyType: current.balcony_type || null,
+      ...balconyNumbers(current),
     };
   }
 

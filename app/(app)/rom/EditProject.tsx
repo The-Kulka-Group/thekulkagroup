@@ -40,7 +40,25 @@ export type EditableProject = {
   demolitionStructureType: string | null;
   /** LA-1245. Null until set. */
   laborType: string | null;
+  /** LA-2274. Null until answered. */
+  parkingType?: string | null;
+  balconyType?: "full" | "juliet" | null;
+  balconyCount?: number | null;
+  balconyDeckSquareFeet?: number | null;
+  balconyRailLinearFeet?: number | null;
+  julietCount?: number | null;
+  julietRailLinearFeet?: number | null;
 };
+
+/** A saved number as form text, blank when unanswered. */
+function text(value: number | null | undefined): string {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+/** A balcony number to send: only for the balcony type that asks it, else cleared. */
+function balconyNumber(form: Form, type: "full" | "juliet", value: string): number | null {
+  return form.balconyType === type && value.trim() !== "" ? Number(value) : null;
+}
 
 function formFrom(project: EditableProject): Form {
   return {
@@ -63,6 +81,13 @@ function formFrom(project: EditableProject): Form {
       : "",
     demolitionStructureType: project.demolitionStructureType ?? "",
     laborType: project.laborType ?? "open_shop",
+    parkingType: project.parkingType ?? "",
+    balconyType: project.balconyType ?? "",
+    balconyCount: text(project.balconyCount),
+    balconyDeckSquareFeet: text(project.balconyDeckSquareFeet),
+    balconyRailLinearFeet: text(project.balconyRailLinearFeet),
+    julietCount: text(project.julietCount),
+    julietRailLinearFeet: text(project.julietRailLinearFeet),
   };
 }
 
@@ -156,6 +181,14 @@ export function EditProjectForm({
               ? form.demolitionStructureType
               : null,
           laborType: form.laborType || "open_shop",
+          parkingType: form.parkingType || null,
+          // LA-2274: the numbers only mean something under the balcony type that asks them.
+          balconyType: form.balconyType || null,
+          balconyCount: balconyNumber(form, "full", form.balconyCount),
+          balconyDeckSquareFeet: balconyNumber(form, "full", form.balconyDeckSquareFeet),
+          balconyRailLinearFeet: balconyNumber(form, "full", form.balconyRailLinearFeet),
+          julietCount: balconyNumber(form, "juliet", form.julietCount),
+          julietRailLinearFeet: balconyNumber(form, "juliet", form.julietRailLinearFeet),
         }),
       });
       const body = await response.json().catch(() => ({}));

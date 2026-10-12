@@ -39,6 +39,14 @@ export type Form = {
   demolitionStructureType: string;
   /** LA-1245: Union, Open Shop or Prevailing Wage. Open Shop unless stated (Matt, 2026-09-28). */
   laborType: string;
+  /** LA-2274: Parking Type and the balcony answers, so a saved budget can correct them. */
+  parkingType: string;
+  balconyType: string;
+  balconyCount: string;
+  balconyDeckSquareFeet: string;
+  balconyRailLinearFeet: string;
+  julietCount: string;
+  julietRailLinearFeet: string;
 };
 
 export const EMPTY: Form = {
@@ -56,11 +64,36 @@ export const EMPTY: Form = {
   demolitionStructureSquareFeet: "",
   demolitionStructureType: "",
   laborType: "open_shop",
+  parkingType: "",
+  balconyType: "",
+  balconyCount: "",
+  balconyDeckSquareFeet: "",
+  balconyRailLinearFeet: "",
+  julietCount: "",
+  julietRailLinearFeet: "",
 };
 
 /** The structure types, worded as config/rom/tier1-flow.json words them. */
 const DEMOLITION_TYPE_CHOICES =
   tier1Flow().questions.find((question) => question.id === "demolition_structure_type")?.choices ?? [];
+
+/** A question in config/rom/tier1-flow.json, for its wording and choices. */
+function flowQuestion(id: string) {
+  return tier1Flow().questions.find((question) => question.id === id);
+}
+
+/** LA-2274: the balcony numbers each balcony type opens, worded as the flow words them. */
+const BALCONY_FIELDS: Record<string, (keyof Form & string)[]> = {
+  full: ["balconyCount", "balconyDeckSquareFeet", "balconyRailLinearFeet"],
+  juliet: ["julietCount", "julietRailLinearFeet"],
+};
+const BALCONY_QUESTION_IDS: Record<string, string> = {
+  balconyCount: "balcony_count",
+  balconyDeckSquareFeet: "balcony_deck_square_feet",
+  balconyRailLinearFeet: "balcony_rail_linear_feet",
+  julietCount: "juliet_count",
+  julietRailLinearFeet: "juliet_rail_linear_feet",
+};
 
 /** Labor Type's choices, worded as config/rom/tier1-flow.json words them. */
 const LABOR_TYPE_CHOICES = tier1Flow().questions.find((question) => question.id === "labor_type")?.choices ?? [];
@@ -220,6 +253,50 @@ export function ProjectFields({
             </label>
           </>
         ) : null}
+        <label>
+          <span className="field-label t-label">Parking Type</span>
+          <select
+            className="input"
+            value={form.parkingType}
+            disabled={busy}
+            onChange={(e) => set({ parkingType: e.target.value })}
+          >
+            <option value="">Choose One</option>
+            {flowQuestion("parking_type")?.choices?.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="field-label t-label">Balcony Type</span>
+          <select
+            className="input"
+            value={form.balconyType}
+            disabled={busy}
+            onChange={(e) => set({ balconyType: e.target.value })}
+          >
+            <option value="">Not Answered</option>
+            {flowQuestion("balcony_type")?.choices?.map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(BALCONY_FIELDS[form.balconyType] ?? []).map((field) => (
+          <label key={field}>
+            <span className="field-label t-label">{flowQuestion(BALCONY_QUESTION_IDS[field])?.prompt}</span>
+            <input
+              className="input num"
+              inputMode="decimal"
+              value={form[field]}
+              disabled={busy}
+              onChange={(e) => set({ [field]: e.target.value })}
+            />
+          </label>
+        ))}
         <label>
           <span className="field-label t-label">Construction</span>
           <select

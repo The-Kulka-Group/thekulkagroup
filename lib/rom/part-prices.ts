@@ -61,6 +61,7 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   elevatorMachine: "Elevator Machine",
   units: "Rooftop Units",
   service: "Electrical Service",
+  risers: "Risers",
   podiumDeck: "Podium Deck",
   garageElectrical: "Garage Electrical",
   garageSprinklers: "Garage Sprinklers",
@@ -160,8 +161,14 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   // type (V-1) draws. Its sub-items (26a bulkhead and the rest) stay on the elevators.
   "26": ["elevatorJack", "elevatorMachine", "elevators", "massing"],
   // The rooftop units are M-1's HVAC; the service at grade is E-1's electrical.
-  "30": ["units", "massing"],
-  "31": ["service", "massing"],
+  // Without them, each runs up its riser (LA-2209 review Q4, the section's layer map).
+  "30": ["units", "risers", "massing"],
+  "31": ["service", "risers", "massing"],
+  // LA-2209 review Q4: the risers the section's layer map draws, podium top to roof.
+  "27": ["risers", "massing"],
+  "28": ["risers", "massing"],
+  "31a": ["risers", "massing"],
+  "32": ["risers", "massing"],
   // Site work, demolition and its disconnects.
   "1": ["site"],
   "1a": ["site"],

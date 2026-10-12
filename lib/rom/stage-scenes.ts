@@ -32,6 +32,8 @@ export type StagePart =
   | "julietRail"
   | "units"
   | "service"
+  /** LA-2209 review Q4: the MEP risers, podium top to roof: fire protection, plumbing, low voltage, fire alarm. */
+  | "risers"
   /** LA-2216: the podium garage's priced parts, VA's rates on the garage area. */
   | "podiumDeck"
   | "garageElectrical"
@@ -58,6 +60,7 @@ export const STAGE_PARTS: readonly StagePart[] = [
   "garageSprinklers",
   "garageDrySprinklers",
   "massing",
+  "risers",
   "glass",
   "balconies",
   "balconyRail",
@@ -135,6 +138,7 @@ const PART_CARDS: Record<StagePart, readonly string[]> = {
   elevatorMachine: ["V-1", "V-3"],
   units: ["M-1"],
   service: ["E-1"],
+  risers: [],
   podiumDeck: ["A-1"],
   garageElectrical: [],
   garageSprinklers: [],
@@ -252,6 +256,7 @@ export function setupMoment(stories: number, grossSquareFeet: number, multifamil
     tag: "",
     title: "The Building",
     answer: `${stories} ${stories === 1 ? "Story" : "Stories"}, ${grossSquareFeet.toLocaleString("en-US")} SF`,
-    parts: multifamily ? ["massing"] : ["massing", "glass"],
+    // LA-2209 review Q4: the risers run through the stories, so they go up with them.
+    parts: multifamily ? ["massing", "risers"] : ["massing", "risers", "glass"],
   };
 }

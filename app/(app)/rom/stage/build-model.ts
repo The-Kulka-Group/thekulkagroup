@@ -90,6 +90,8 @@ const UNPRICED_FILL = 0.4;
 const TINT_MIX = 0.75;
 /** LA-2217: how much the Assembled view's ground plane hides of what is below grade. */
 const GROUND = 0.8;
+/** LA-2217: the risers' steel gray, a part of its own since LA-2209 review Q4. */
+const RISER = 0x5f7d99;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
 const outBack = (p: number) => 1 + 2.5 * Math.pow(p - 1, 3) + 1.5 * Math.pow(p - 1, 2);
@@ -152,6 +154,8 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
     basement: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
     podium: [0.2 + piles, massingStart],
     massing: [massingStart, massingEnd],
+    // LA-2209 review Q4: the risers go up with the stories they run through.
+    risers: [massingStart + 0.2, massingEnd],
     glass: [massingEnd - 0.3, massingEnd + 0.5],
     balconies: [massingEnd - 0.1, massingEnd + 0.5],
     // LA-2219: the doors go in with the wall, the rail once the slab is out.
@@ -222,10 +226,9 @@ export function createStage(
     // drawn section does; a room's volume cuts a light gray.
     poche: new THREE.MeshBasicMaterial({ color: 0x1c1b19, side: THREE.BackSide }),
     pocheLight: new THREE.MeshBasicMaterial({ color: 0xd9d6ce, side: THREE.BackSide }),
-    // LA-2217: the unit walls the cutaway shows, the risers, and the ground
+    // LA-2217: the unit walls the cutaway shows and the ground
     // plane the Assembled view lays over what is below grade.
     partition: new THREE.MeshStandardMaterial({ color: 0xfbfaf7, roughness: 0.9 }),
-    riser: new THREE.MeshStandardMaterial({ color: 0x5f7d99, roughness: 0.5, metalness: 0.2 }),
     ground: new THREE.MeshStandardMaterial({ color: 0xf7f7f5, roughness: 0.95, transparent: true, opacity: GROUND, depthWrite: false }),
   };
   const lasting: { dispose: () => void }[] = [env, pmrem, ...Object.values(M)];
@@ -482,6 +485,7 @@ export function createStage(
     const bulkheads: THREE.Group[] = [];
     const jacks: THREE.Group[] = [];
     const machines: THREE.Group[] = [];
+    const riserGroups: THREE.Group[] = [];
     const unitGroups: THREE.Group[] = [];
 
     const skinMat = tinted("massing", 0xffffff, 0.9);
@@ -773,7 +777,7 @@ export function createStage(
         const ww = w.x1 - w.x0, wd = w.z1 - w.z0;
         const rx = x ? (w.x0 + w.x1) / 2 - ww * 0.12 : w.x1 - 9;
         const rz = x ? w.z1 - 9 : (w.z0 + w.z1) / 2 - wd * 0.12;
-        const risers = tag(new THREE.Group(), "massing");
+        const risers = tag(new THREE.Group(), "risers");
         risers.position.set(rx, 0, rz);
         const r: THREE.BufferGeometry[] = [];
         for (let i = 0; i < 4; i++) {
@@ -781,9 +785,11 @@ export function createStage(
           pipe.translate(x ? (i - 1.5) * 2.2 : 0, 0.5, x ? 0 : (i - 1.5) * 2.2);
           r.push(pipe);
         }
-        mesh(r, M.riser, risers, true, null);
+        mesh(r, tinted("risers", RISER, 0.5), risers, true, null);
         risers.userData.run = risersOf(next);
         root.add(risers);
+        riserGroups.push(risers);
+        if (!nextAnchors.risers) nextAnchors.risers = new THREE.Vector3(ox + rx, next.height * 0.5, rz);
       }
       if (next.rooftopUnits > 0) {
         // Down the wings' roofs, tallest first, two rows to a wing.
@@ -922,6 +928,11 @@ export function createStage(
         m.scale.setScalar(Math.max(0.0001, arrive < 1 ? outBack(arrive) : 1));
       }
       applyTint("elevatorMachine", tint);
+    };
+    nextAppliers.risers = ({ arrive, tint }) => {
+      // Visibility only: the views stretch the risers across the stories they run through.
+      for (const r of riserGroups) r.visible = arrive > 0.001;
+      applyTint("risers", tint);
     };
     nextAppliers.units = ({ arrive, tint }) => {
       const all = unitGroups.flatMap((u) => u.children);

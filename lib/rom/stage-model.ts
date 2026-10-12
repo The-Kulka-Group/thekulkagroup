@@ -254,6 +254,7 @@ export function partsOf(b: StageBuilding): StagePart[] {
     elevatorMachine: b.elevators?.hydraulic === false,
     units: b.rooftopUnits > 0,
     service: b.serviceAmps !== null,
+    risers: true,
     podiumDeck: b.garage,
     garageElectrical: b.garage,
     garageSprinklers: b.garage,

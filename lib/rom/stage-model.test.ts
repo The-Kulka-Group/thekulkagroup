@@ -150,6 +150,7 @@ describe("partsOf (LA-1325)", () => {
       "garageSprinklers",
       "garageDrySprinklers",
       "massing",
+      "risers",
       "glass",
       "balconies",
       "balconyRail",
@@ -164,7 +165,7 @@ describe("partsOf (LA-1325)", () => {
     expect(partsOf(stageBuilding(facts(), traction)!)).toContain("elevatorMachine");
     expect(partsOf(stageBuilding(facts(), traction)!)).not.toContain("elevatorJack");
     const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
-    expect(partsOf(plain)).toEqual(["site", "surfaceLot", "foundation", "basement", "massing", "glass"]);
+    expect(partsOf(plain)).toEqual(["site", "surfaceLot", "foundation", "basement", "massing", "risers", "glass"]);
   });
 
   it("draws the garage only under a podium that structured parking gives (LA-2216)", () => {

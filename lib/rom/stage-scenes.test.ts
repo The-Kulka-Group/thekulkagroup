@@ -79,8 +79,8 @@ describe("cardMoment and setupMoment", () => {
   });
 
   it("brings the glass with the building unless M-0 will decide it", () => {
-    expect(setupMoment(6, 118000, true)).toMatchObject({ answer: "6 Stories, 118,000 SF", parts: ["massing"], tag: "" });
-    expect(setupMoment(1, 9000, false)).toMatchObject({ answer: "1 Story, 9,000 SF", parts: ["massing", "glass"] });
+    expect(setupMoment(6, 118000, true)).toMatchObject({ answer: "6 Stories, 118,000 SF", parts: ["massing", "risers"], tag: "" });
+    expect(setupMoment(1, 9000, false)).toMatchObject({ answer: "1 Story, 9,000 SF", parts: ["massing", "risers", "glass"] });
   });
 });
 

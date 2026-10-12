@@ -96,6 +96,7 @@ describe("partPrices", () => {
       site: ["38", "XX-1"],
       foundation: ["2"],
       massing: ["8", "XX-2"],
+      risers: [],
       glass: ["16a"],
       elevators: [],
       elevatorJack: ["26"],
@@ -191,7 +192,7 @@ describe("partPrices", () => {
 
     it("reads level 1 as one block over every drawn part", () => {
       expect(at(1).rows).toEqual([
-        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "glass", "elevators", "elevatorJack"] },
+        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "risers", "glass", "elevators", "elevatorJack"] },
       ]);
     });
 
@@ -207,6 +208,35 @@ describe("partPrices", () => {
       expect(rows.find((r) => r.key === "unpriced:36a")).toEqual({ key: "unpriced:36a", label: "Water Disconnect", total: null, parts: ["site"] });
       expect(rows).toHaveLength(11);
     });
+  });
+
+  // LA-2209 review Q4: the risers the section's layer map names are their own part.
+  it("puts the fire protection, plumbing, low voltage and fire alarm risers on the risers", () => {
+    const f = facts();
+    const risers = rom([
+      line({ costCode: "27", label: "Fire sprinklers", low: 400_000, high: 500_000 }),
+      line({ costCode: "28", label: "Plumbing", low: 900_000, high: 1_100_000 }),
+      line({ costCode: "31a", label: "Low voltage", low: 90_000, high: 110_000 }),
+      line({ costCode: "32", label: "Fire alarm", low: 70_000, high: 90_000 }),
+      line({ costCode: "30", label: "HVAC", low: 1_000_000, high: 1_200_000 }),
+      line({ costCode: "31", label: "Electrical", low: 1_500_000, high: 1_700_000 }),
+    ]);
+    const map = partPrices({ rom: risers, facts: f, building: stageBuilding(f, []) });
+    const at = (part: string) => map.parts.find((p) => p.part === part);
+    // With no rooftop units or service drawn, HVAC and electrical sit on their risers too.
+    expect(at("risers")).toMatchObject({ name: "Risers", total: 4_330_000 });
+    expect(at("risers")!.lines.map((l) => l.costCode)).toEqual(["27", "28", "31a", "32", "30", "31"]);
+    expect(at("massing")!.lines).toEqual([]);
+
+    // When M-1 and E-1 draw the units and the service, those items sit there instead.
+    const cards = [
+      { code: "M-1", value: { kind: "quantity" as const, amount: 189, unit: "Tons" }, steps: [], correction: null },
+      { code: "E-1", value: { kind: "quantity" as const, amount: 2000, unit: "A" }, steps: [], correction: null },
+    ];
+    const drawn = partPrices({ rom: risers, facts: f, building: stageBuilding(f, cards) });
+    expect(drawn.parts.find((p) => p.part === "units")!.lines.map((l) => l.costCode)).toEqual(["30"]);
+    expect(drawn.parts.find((p) => p.part === "service")!.lines.map((l) => l.costCode)).toEqual(["31"]);
+    expect(drawn.parts.find((p) => p.part === "risers")!.lines.map((l) => l.costCode)).toEqual(["27", "28", "31a", "32"]);
   });
 
   it("follows item 26 for the elevator's sub-items only, not for any other lettered item", () => {

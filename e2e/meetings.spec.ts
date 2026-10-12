@@ -20,6 +20,17 @@ test("Meetings shows sentiment at a glance and opens a meeting's analytics", asy
   await expect(page.getByRole("img", { name: "30% positive, 58% neutral, 12% negative" }).first()).toBeVisible();
   const detail = page.getByRole("article", { name: "Synthetic Job Weekly OAC" });
   await expect(detail.getByRole("region", { name: "Meeting at a Glance" })).toContainText("12% Negative");
+  // LA-2282: the Kulka Brief leads; an owner or date nobody said reads Not Stated.
+  const brief = detail.getByRole("region", { name: "Kulka Brief" });
+  await expect(brief).toContainText("Synthetic decision: the lobby finish selection moved to November.");
+  await expect(brief).toContainText("Synthetic risk: two roof drain RFIs are open after ten days.");
+  await expect(brief.getByRole("row", { name: "Example PM Send the revised lookahead Friday" })).toBeVisible();
+  await expect(brief.getByRole("row", { name: "Not Stated Confirm the elevator cab finish Not Stated" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Synthetic Job Weekly OAC/ }).first()).toContainText("Brief Ready");
+
+  // Fireflies' own summary folds under the brief and opens on request.
+  await expect(detail.getByText("Synthetic overview: the team reviewed the schedule")).toBeHidden();
+  await detail.getByText("Fireflies Summary").click();
   await expect(detail.getByText("Synthetic overview: the team reviewed the schedule")).toBeVisible();
   await expect(detail.getByRole("row", { name: "Example Architect Answer the roof drain RFIs" })).toBeVisible();
   await expect(detail.getByRole("region", { name: "Analytics" })).toContainText("Example PM");
@@ -33,7 +44,11 @@ test("Meetings shows sentiment at a glance and opens a meeting's analytics", asy
 
   // Picking the other meeting opens it.
   await page.getByRole("link", { name: /Synthetic Job Owner Meeting/ }).last().click();
-  await expect(page.getByRole("article", { name: "Synthetic Job Owner Meeting" })).toContainText("34% Negative");
+  const owner = page.getByRole("article", { name: "Synthetic Job Owner Meeting" });
+  await expect(owner).toContainText("34% Negative");
+  // No brief yet, so Fireflies' summary shows open.
+  await expect(owner.getByRole("region", { name: "Kulka Brief" })).toHaveCount(0);
+  await expect(owner.getByText("Synthetic overview: the owner raised concerns")).toBeVisible();
 
   await page.screenshot({ path: "/tmp/kulka-playwright-results/la-2280-open.png" });
 

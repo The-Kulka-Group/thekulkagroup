@@ -55,7 +55,7 @@ describe("talkShares and averagePace", () => {
 describe("weekGlance", () => {
   const meeting = (id: string, daysAgo: number, positive: number, negative: number, minutes: number): MeetingListItem => ({
     id, title: id, startedAt: new Date(Date.parse("2026-10-12T12:00:00Z") - daysAgo * 86_400_000).toISOString(),
-    durationMinutes: minutes, meetingType: null, attendeeCount: 2, summaryReady: true,
+    durationMinutes: minutes, meetingType: null, attendeeCount: 2, summaryReady: true, briefReady: false,
     sentiment: { positive, neutral: 100 - positive - negative, negative },
   });
 

@@ -23,8 +23,8 @@ export function MeetingSync() {
     } catch {}
     fetch("/api/meetings/sync", { method: "POST", body: "{}" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((result: { added?: number } | null) => {
-        if (result?.added) router.refresh();
+      .then((result: { added?: number; briefed?: number } | null) => {
+        if (result?.added || result?.briefed) router.refresh();
       })
       .catch(() => {});
   }, [router]);

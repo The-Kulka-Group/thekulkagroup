@@ -13,6 +13,7 @@ import {
   talkShares,
   weekGlance,
 } from "@/lib/meetings/read";
+import type { Brief } from "@/lib/meetings/brief";
 import type { Sentiment } from "@/lib/meetings/store";
 
 import { MeetingSync } from "./MeetingSync";
@@ -85,6 +86,53 @@ function chapterList(chapters: unknown[]): { title: string; at: string | null }[
 }
 
 
+function KulkaBrief({ brief }: { brief: Brief }) {
+  const empty = brief.decisions.length + brief.risks.length + brief.actionItems.length === 0;
+  return (
+    <section className="mt-brief" aria-labelledby="brief-h">
+      <div className="mt-brief-head">
+        <h3 id="brief-h" className="mt-h3">Kulka Brief</h3>
+        <span className="mt-src">Written by Claude from the transcript</span>
+      </div>
+      {empty ? <p className="mt-note">The meeting recorded no decisions, risks or action items.</p> : null}
+      {brief.decisions.length > 0 ? (
+        <div className="mt-block">
+          <h4 className="t-label">Decisions <span className="num">{brief.decisions.length}</span></h4>
+          <ul className="mt-items">
+            {brief.decisions.map((one, i) => <li key={i}><i className="mt-dot mt-dot--done" />{one.text}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {brief.risks.length > 0 ? (
+        <div className="mt-block">
+          <h4 className="t-label">Open Risks <span className="num">{brief.risks.length}</span></h4>
+          <ul className="mt-items">
+            {brief.risks.map((one, i) => <li key={i}><i className="mt-dot mt-dot--stuck" />{one.text}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {brief.actionItems.length > 0 ? (
+        <div className="mt-block">
+          <h4 className="t-label">Action Items <span className="num">{brief.actionItems.length}</span></h4>
+          <table className="mt-table mt-table--due">
+            <thead><tr><th>Owner</th><th>Action</th><th>Due</th></tr></thead>
+            <tbody>
+              {brief.actionItems.map((one, i) => (
+                <tr key={i}>
+                  <td className={one.owner ? undefined : "mt-none"}>{one.owner ?? "Not Stated"}</td>
+                  <td>{one.action}</td>
+                  <td className={one.due ? undefined : "mt-none"}>{one.due ?? "Not Stated"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-note">An owner or due date shows only when someone said it in the meeting.</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function MeetingView({ meeting }: { meeting: MeetingDetail }) {
   const late = lateJoiners(meeting.startedAt, meeting.attendance);
   const shares = talkShares(meeting.analytics);
@@ -146,11 +194,16 @@ function MeetingView({ meeting }: { meeting: MeetingDetail }) {
         </div>
       </section>
 
-      <section className="mt-brief" aria-labelledby="summary-h">
-        <div className="mt-brief-head">
-          <h3 id="summary-h" className="mt-h3">Summary</h3>
-          <span className="mt-src">From Fireflies. The Kulka Brief replaces this once it ships.</span>
-        </div>
+      {meeting.brief ? <KulkaBrief brief={meeting.brief} /> : null}
+      {!meeting.brief && meeting.briefError ? (
+        <p className="mt-note mt-brief-error" role="status">The Kulka Brief could not be written: {meeting.briefError} The next sync tries again.</p>
+      ) : null}
+
+      <details className="mt-ff" open={!meeting.brief}>
+        <summary>
+          <span className="mt-h3">Fireflies Summary</span>
+          <span className="mt-src">{meeting.brief ? "As Fireflies wrote it" : "From Fireflies, until the Kulka Brief is ready"}</span>
+        </summary>
         {meeting.summary.overview ? (
           <p className="mt-overview">{meeting.summary.overview}</p>
         ) : (
@@ -175,7 +228,7 @@ function MeetingView({ meeting }: { meeting: MeetingDetail }) {
         {meeting.topics.length > 0 ? (
           <div className="mt-tags">{meeting.topics.map((topic) => <span key={topic}>{topic}</span>)}</div>
         ) : null}
-      </section>
+      </details>
 
       <section className="ma" aria-labelledby="analytics-h">
         <div className="mt-brief-head">
@@ -347,8 +400,8 @@ export default async function MeetingsPage({
                         </span>
                       </span>
                       <span className="mt-right">
-                        <span className={meeting.summaryReady ? "mt-state mt-state--done" : "mt-state mt-state--working"}>
-                          <i />{meeting.summaryReady ? "Summary Ready" : "Summary Pending"}
+                        <span className={meeting.briefReady || meeting.summaryReady ? "mt-state mt-state--done" : "mt-state mt-state--working"}>
+                          <i />{meeting.briefReady ? "Brief Ready" : meeting.summaryReady ? "Summary Ready" : "Summary Pending"}
                         </span>
                         <span className="mt-senti">
                           <SentimentBar sentiment={meeting.sentiment} />

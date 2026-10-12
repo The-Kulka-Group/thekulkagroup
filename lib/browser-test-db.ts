@@ -325,5 +325,10 @@ async function seedMeetingFixtures(database: PGlite) {
        'https://app.fireflies.ai/view/SYNTH-FF-2', '[]', 'Owner Meeting', '[]', '[]', '[]',
        '{"sentiment":{"positive":14,"neutral":52,"negative":34},"categories":{"questions":6,"dates":1,"metrics":0,"tasks":2},"speakers":[]}',
        14, 52, 34, 'processed');
+    -- LA-2282: a synthetic Kulka Brief on the first meeting.
+    update meetings set
+      brief = '{"decisions":[{"text":"Synthetic decision: the lobby finish selection moved to November.","evidence":[1]}],"risks":[{"text":"Synthetic risk: two roof drain RFIs are open after ten days.","evidence":[3]}],"actionItems":[{"owner":"Example PM","action":"Send the revised lookahead","due":"Friday","evidence":[2]},{"owner":null,"action":"Confirm the elevator cab finish","due":null,"evidence":[4]}]}',
+      brief_model = 'claude-opus-5-5', brief_written_at = now(), brief_input_tokens = 1200, brief_output_tokens = 300
+    where fireflies_id = 'SYNTH-FF-1';
   `);
 }

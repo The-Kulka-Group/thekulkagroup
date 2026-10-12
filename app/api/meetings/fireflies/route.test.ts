@@ -11,7 +11,14 @@ import { seededDatabase } from "@/test/database";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 vi.mock("@/lib/db", () => ({ getDb: () => db as Db }));
+// LA-2282: `after` needs a request scope; here the scheduled work is kept to run by hand.
+const scheduled: (() => Promise<unknown>)[] = [];
+vi.mock("next/server", async (original) => ({
+  ...(await original<typeof import("next/server")>()),
+  after: (task: () => Promise<unknown>) => void scheduled.push(task),
+}));
 
+const { setBriefClientForTests } = await import("@/lib/meetings/brief");
 const webhook = await import("./route");
 const sync = await import("../sync/route");
 const cron = await import("../sync/cron/route");
@@ -60,6 +67,9 @@ beforeEach(async () => {
   await db.query(`truncate meetings`);
   vi.stubEnv("FIREFLIES_WEBHOOK_SECRET", SECRET);
   vi.stubEnv("FIREFLIES_API_KEY", "test-key");
+  vi.stubEnv("ANTHROPIC_API_KEY", "");
+  setBriefClientForTests(null);
+  scheduled.length = 0;
   fireflies.mockReset();
   vi.stubGlobal("fetch", fireflies);
 });
@@ -114,6 +124,25 @@ describe("POST /api/meetings/fireflies", () => {
     expect(saved[0].sentences[1].flags).toEqual({ question: "Where are we on the RFIs?", sentiment: "negative" });
   });
 
+  it("writes the Kulka Brief after answering, when Claude is set up", async () => {
+    fireflies.mockImplementation(async () => answer({ transcript: sample }));
+    expect((await deliver(body, sign(body))).status).toBe(200);
+    expect(scheduled).toHaveLength(0);
+
+    const create = vi.fn(async () => ({
+      model: "claude-opus-5-5",
+      stop_reason: "end_turn",
+      content: [{ type: "text", text: JSON.stringify({ decisions: [{ text: "Schedule reviewed.", evidence: [0] }], risks: [], actionItems: [] }) }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    }));
+    setBriefClientForTests({ beta: { messages: { create } } } as never);
+    expect((await deliver(body, sign(body))).status).toBe(200);
+    expect(scheduled).toHaveLength(1);
+    await scheduled[0]();
+    const { rows } = await db.query<{ brief: { decisions: unknown[] } }>(`select brief from meetings`);
+    expect(rows[0].brief.decisions).toEqual([{ text: "Schedule reviewed.", evidence: [0] }]);
+  });
+
   it("answers a bot-joined event without saving or calling Fireflies", async () => {
     const joined = JSON.stringify({ event: "meeting.bot_joined", timestamp: 1, meeting_id: sample.id });
     const response = await deliver(joined, sign(joined));
@@ -152,10 +181,10 @@ describe("POST /api/meetings/sync", () => {
 
     const first = await backfill();
     expect(first.status).toBe(200);
-    expect(await first.json()).toEqual({ found: 2, added: 1 });
+    expect(await first.json()).toEqual({ found: 2, added: 1, briefed: 0 });
     expect((await savedMeetings()).map((one) => one.title).sort()).toEqual(["Already Here", "Meeting SAMPLE-FF-002"]);
 
-    expect(await (await backfill()).json()).toEqual({ found: 2, added: 0 });
+    expect(await (await backfill()).json()).toEqual({ found: 2, added: 0, briefed: 0 });
   });
 
   it("refuses a day count outside 1 to 90", async () => {
@@ -170,7 +199,7 @@ describe("POST /api/meetings/sync", () => {
       return answer({ transcript: sample });
     });
     await db.query(`insert into meetings (fireflies_id, title, started_at) values ('SAMPLE-FF-001', 'No Summary Yet', now())`);
-    expect(await (await backfill()).json()).toEqual({ found: 1, added: 1 });
+    expect(await (await backfill()).json()).toEqual({ found: 1, added: 1, briefed: 0 });
     expect((await savedMeetings())[0].title).toBe("Example Job Weekly OAC");
   });
 });
@@ -186,6 +215,6 @@ describe("GET /api/meetings/sync/cron", () => {
     expect((await run("Bearer wrong")).status).toBe(401);
     const ok = await run("Bearer test-cron-secret");
     expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ found: 0, added: 0 });
+    expect(await ok.json()).toEqual({ found: 0, added: 0, briefed: 0 });
   });
 });

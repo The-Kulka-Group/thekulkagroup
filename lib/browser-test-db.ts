@@ -49,6 +49,7 @@ async function createBrowserTestDatabase() {
   }
   await seedVisionMapFixtures(database);
   await seedRomFixtures(database);
+  await seedMeetingFixtures(database);
   return database;
 }
 
@@ -292,5 +293,37 @@ async function seedVisionMapFixtures(database: PGlite) {
           'details', jsonb_build_object('Record type', 'Planning application')
         )
       );
+  `);
+}
+
+/**
+ * LA-2280: two synthetic Fireflies meetings from the last few days, so the
+ * Meetings page renders its list, sentiment and analytics locally. Every name
+ * and figure is invented and says "Synthetic" or "Example" on screen.
+ */
+async function seedMeetingFixtures(database: PGlite) {
+  await database.exec(`
+    insert into meetings
+      (fireflies_id, title, started_at, duration_minutes, organizer_email, attendees, summary, transcript_url,
+       sentences, meeting_type, topics, chapters, attendance, analytics, positive_pct, neutral_pct, negative_pct,
+       summary_status)
+    values
+      ('SYNTH-FF-1', 'Synthetic Job Weekly OAC', date_trunc('hour', now()) - interval '1 day', 58, 'meetings@example.com',
+       '[{"name":"Example PM","email":"pm@example.com"},{"name":"Example Owner Rep","email":"owner@example.com"},{"name":"Example Architect","email":"arch@example.com"}]',
+       '{"overview":"Synthetic overview: the team reviewed the schedule and two open RFIs.","actionItems":"**Example PM**\\nSend the revised lookahead (05:12)\\n**Example Architect**\\nAnswer the roof drain RFIs (27:40)","keywords":["schedule"],"bullets":null}',
+       'https://app.fireflies.ai/view/SYNTH-FF-1', '[]', 'OAC Meeting', '["Schedule","Open RFIs"]',
+       '[{"title":"Schedule","start_time":60},{"title":"Open RFIs","start_time":900}]',
+       json_build_array(
+         json_build_object('name','Example PM','joinedAt',to_char((date_trunc('hour', now()) - interval '1 day') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),'leftAt',null),
+         json_build_object('name','Example Architect','joinedAt',to_char((date_trunc('hour', now()) - interval '1 day' + interval '9 minutes') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),'leftAt',null)
+       )::jsonb,
+       '{"sentiment":{"positive":30,"neutral":58,"negative":12},"categories":{"questions":4,"dates":2,"metrics":1,"tasks":3},"speakers":[{"name":"Example PM","seconds":2100,"share":61,"words":5200,"wordsPerMinute":150,"questions":1,"fillerWords":10,"longestMonologue":120,"monologues":8},{"name":"Example Owner Rep","seconds":1340,"share":39,"words":3100,"wordsPerMinute":140,"questions":3,"fillerWords":6,"longestMonologue":80,"monologues":5}]}',
+       30, 58, 12, 'processed'),
+      ('SYNTH-FF-2', 'Synthetic Job Owner Meeting', date_trunc('hour', now()) - interval '2 days', 62, 'meetings@example.com',
+       '[{"name":"Example PM","email":"pm@example.com"},{"name":"Example Owner Rep","email":"owner@example.com"}]',
+       '{"overview":"Synthetic overview: the owner raised concerns about the window delivery.","actionItems":"","keywords":[],"bullets":null}',
+       'https://app.fireflies.ai/view/SYNTH-FF-2', '[]', 'Owner Meeting', '[]', '[]', '[]',
+       '{"sentiment":{"positive":14,"neutral":52,"negative":34},"categories":{"questions":6,"dates":1,"metrics":0,"tasks":2},"speakers":[]}',
+       14, 52, 34, 'processed');
   `);
 }

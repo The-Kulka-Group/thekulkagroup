@@ -131,6 +131,17 @@ export type ProjectRow = {
   demolition_structure_type: string | null;
   /** LA-1245: Union, Open Shop or Prevailing Wage. */
   labor_type: string | null;
+  /**
+   * LA-2274: the balcony answers, carried into `facts` so a run off the
+   * project record prices the balconies New Budget asked about. Numeric
+   * columns, so Postgres returns the numbers as text.
+   */
+  balcony_type?: "full" | "juliet" | null;
+  balcony_count?: string | number | null;
+  balcony_deck_square_feet?: string | number | null;
+  balcony_rail_linear_feet?: string | number | null;
+  juliet_count?: string | number | null;
+  juliet_rail_linear_feet?: string | number | null;
 };
 
 /**
@@ -456,6 +467,18 @@ export function answersFromProject(
   }
   if (project.demolition_structure_type) facts.demolitionStructureType = project.demolition_structure_type;
   facts.laborType = project.labor_type ?? "open_shop";
+  // LA-2274: the intake-field names the engine reads (packages/engine/src/balconies.ts).
+  if (project.balcony_type) facts.balconyType = project.balcony_type;
+  const balconyNumbers = {
+    balconyCount: project.balcony_count,
+    balconyDeckSquareFeet: project.balcony_deck_square_feet,
+    balconyRailLinearFeet: project.balcony_rail_linear_feet,
+    julietCount: project.juliet_count,
+    julietRailLinearFeet: project.juliet_rail_linear_feet,
+  };
+  for (const [name, value] of Object.entries(balconyNumbers)) {
+    if (value !== null && value !== undefined) facts[name] = Number(value);
+  }
 
   return {
     projectType: project.project_type,
@@ -648,7 +671,9 @@ export const PROJECT_COLUMNS = `id, name, project_type, construction_kind, gross
             retail_storefronts_gate, balconies_gate, radio_amplifier_gate,
             parking_type, framing_system,
             stories_above_grade, unit_count, building_count, zip, elevator_count,
-            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type`;
+            demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type,
+            balcony_type, balcony_count, balcony_deck_square_feet, balcony_rail_linear_feet,
+            juliet_count, juliet_rail_linear_feet`;
 
 export async function readProject(db: Db, projectId: string): Promise<ProjectRow> {
   const { rows } = await db.query<ProjectRow>(

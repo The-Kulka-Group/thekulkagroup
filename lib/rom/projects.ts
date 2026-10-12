@@ -119,6 +119,16 @@ export type NewBudget = {
   demolitionStructureCount?: number | null;
   demolitionStructureSquareFeet?: number | null;
   demolitionStructureType?: string | null;
+  /**
+   * LA-2274: the balcony answers, saved on the project the way demolition's
+   * are (LA-1239), so a later run keeps them and Edit Project can change them.
+   */
+  balconyType?: BalconyType | null;
+  balconyCount?: number | null;
+  balconyDeckSquareFeet?: number | null;
+  balconyRailLinearFeet?: number | null;
+  julietCount?: number | null;
+  julietRailLinearFeet?: number | null;
   /** LA-1245: Union, Open Shop or Prevailing Wage. A suggested rate reads it. */
   laborType?: string | null;
 };
@@ -134,6 +144,17 @@ export const DEMOLITION_STRUCTURE_TYPES: ReadonlySet<string> = new Set([
   "cast_in_place_concrete_frame_type_i",
   "dont_know",
 ]);
+
+export type BalconyType = "full" | "juliet";
+const BALCONY_TYPES: ReadonlySet<string> = new Set(["full", "juliet"]);
+/** LA-2274: the balcony numbers, each a positive number or null. */
+const BALCONY_NUMBERS = [
+  "balconyCount",
+  "balconyDeckSquareFeet",
+  "balconyRailLinearFeet",
+  "julietCount",
+  "julietRailLinearFeet",
+] as const;
 
 const PROJECT_TYPES: ReadonlySet<string> = new Set(["multifamily", "self_storage"]);
 const CONSTRUCTION_KINDS: ReadonlySet<string> = new Set(["new", "renovation"]);
@@ -165,8 +186,10 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
     demolitionStructureCount,
     demolitionStructureSquareFeet,
     demolitionStructureType,
+    balconyType,
     laborType,
   } = body as Record<string, unknown>;
+  const fields = body as Record<string, unknown>;
   if (typeof name !== "string" || name.trim() === "") return { ok: false, error: "Send a project name." };
   if (name.trim().length > 200) return { ok: false, error: "Keep the project name under 200 characters." };
   if (typeof grossSquareFeet !== "number" || !Number.isInteger(grossSquareFeet) || grossSquareFeet <= 0) {
@@ -251,6 +274,15 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
   ) {
     return { ok: false, error: "Send demolitionStructureType as one of the flow's structure types, or null." };
   }
+  if (balconyType !== undefined && balconyType !== null && (typeof balconyType !== "string" || !BALCONY_TYPES.has(balconyType))) {
+    return { ok: false, error: 'Send balconyType as "full", "juliet", or null.' };
+  }
+  for (const key of BALCONY_NUMBERS) {
+    const value = fields[key];
+    if (value !== undefined && value !== null && (typeof value !== "number" || !Number.isFinite(value) || value <= 0)) {
+      return { ok: false, error: `Send ${key} as a number above zero, or null.` };
+    }
+  }
   if (laborType !== undefined && laborType !== null && (typeof laborType !== "string" || !LABOR_TYPES.has(laborType))) {
     return { ok: false, error: 'Send laborType as "union", "open_shop", "prevailing_wage", or null.' };
   }
@@ -271,6 +303,12 @@ export function parseNewBudget(body: unknown): { ok: true; budget: NewBudget } |
       demolitionStructureCount: (demolitionStructureCount ?? null) as number | null,
       demolitionStructureSquareFeet: (demolitionStructureSquareFeet ?? null) as number | null,
       demolitionStructureType: (demolitionStructureType ?? null) as string | null,
+      balconyType: (balconyType ?? null) as BalconyType | null,
+      balconyCount: (fields.balconyCount ?? null) as number | null,
+      balconyDeckSquareFeet: (fields.balconyDeckSquareFeet ?? null) as number | null,
+      balconyRailLinearFeet: (fields.balconyRailLinearFeet ?? null) as number | null,
+      julietCount: (fields.julietCount ?? null) as number | null,
+      julietRailLinearFeet: (fields.julietRailLinearFeet ?? null) as number | null,
       // Matt, 2026-09-28: Kulka's work is nearly always open shop, so a
       // project without a stated labor type is open shop.
       laborType: (laborType ?? "open_shop") as string,
@@ -284,8 +322,10 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
        (name, gross_square_feet, project_type, construction_kind, framing_system, parking_type,
         stories_above_grade, unit_count, building_count, zip, elevator_count,
         demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type,
-        rom_budget)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, $12, $13, $14, $15, true)
+        balcony_type, balcony_count, balcony_deck_square_feet, balcony_rail_linear_feet,
+        juliet_count, juliet_rail_linear_feet, rom_budget)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, coalesce($9, 1), $10, $11, $12, $13, $14, $15,
+             $16, $17, $18, $19, $20, $21, true)
      returning id`,
     [
       budget.name,
@@ -303,9 +343,21 @@ export async function insertRomProject(db: Db, budget: NewBudget): Promise<strin
       budget.demolitionStructureSquareFeet ?? null,
       budget.demolitionStructureType ?? null,
       budget.laborType ?? "open_shop",
+      ...balconyValues(budget),
     ],
   );
   return rows[0].id;
+}
+
+function balconyValues(budget: NewBudget) {
+  return [
+    budget.balconyType ?? null,
+    budget.balconyCount ?? null,
+    budget.balconyDeckSquareFeet ?? null,
+    budget.balconyRailLinearFeet ?? null,
+    budget.julietCount ?? null,
+    budget.julietRailLinearFeet ?? null,
+  ];
 }
 
 export class ProjectNotFoundForEdit extends Error {
@@ -327,7 +379,9 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
             construction_kind = $5, framing_system = $6,
             stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10,
             elevator_count = $11, demolition_structure_count = $12,
-            demolition_structure_square_feet = $13, demolition_structure_type = $14, labor_type = $15
+            demolition_structure_square_feet = $13, demolition_structure_type = $14, labor_type = $15,
+            parking_type = $16, balcony_type = $17, balcony_count = $18, balcony_deck_square_feet = $19,
+            balcony_rail_linear_feet = $20, juliet_count = $21, juliet_rail_linear_feet = $22
       where id = $1
       returning id`,
     [
@@ -346,6 +400,8 @@ export async function updateRomProject(db: Db, projectId: string, budget: NewBud
       budget.demolitionStructureSquareFeet ?? null,
       budget.demolitionStructureType ?? null,
       budget.laborType ?? "open_shop",
+      budget.parkingType ?? null,
+      ...balconyValues(budget),
     ],
   );
   if (!rows[0]) throw new ProjectNotFoundForEdit(projectId);
@@ -395,12 +451,20 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     demolition_structure_square_feet: number | null;
     demolition_structure_type: string | null;
     labor_type: string | null;
+    parking_type: ParkingType | null;
+    balcony_type: BalconyType | null;
+    balcony_count: string | null;
+    balcony_deck_square_feet: string | null;
+    balcony_rail_linear_feet: string | null;
+    juliet_count: string | null;
+    juliet_rail_linear_feet: string | null;
     archived_at: string | null;
   }>(
     `select id, name, gross_square_feet, project_type, construction_kind, framing_system,
             stories_above_grade, unit_count, building_count, zip, elevator_count,
             demolition_structure_count, demolition_structure_square_feet, demolition_structure_type, labor_type,
-            archived_at
+            parking_type, balcony_type, balcony_count, balcony_deck_square_feet, balcony_rail_linear_feet,
+            juliet_count, juliet_rail_linear_feet, archived_at
        from projects where id = $1`,
     [projectId],
   );
@@ -422,6 +486,18 @@ export async function readRomProjectDetail(db: Db, projectId: string): Promise<R
     demolitionStructureSquareFeet: row.demolition_structure_square_feet,
     demolitionStructureType: row.demolition_structure_type,
     laborType: row.labor_type,
+    parkingType: row.parking_type,
+    balconyType: row.balcony_type,
+    balconyCount: numberOrNull(row.balcony_count),
+    balconyDeckSquareFeet: numberOrNull(row.balcony_deck_square_feet),
+    balconyRailLinearFeet: numberOrNull(row.balcony_rail_linear_feet),
+    julietCount: numberOrNull(row.juliet_count),
+    julietRailLinearFeet: numberOrNull(row.juliet_rail_linear_feet),
     archivedAt: row.archived_at,
   };
+}
+
+/** Postgres returns a numeric column as text. */
+export function numberOrNull(value: string | number | null): number | null {
+  return value === null ? null : Number(value);
 }

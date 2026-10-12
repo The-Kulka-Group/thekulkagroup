@@ -636,6 +636,19 @@
     border-radius: 14px 14px 0 0;
     padding: 16px;
   }
+  /* LA-2209 story 45 (review S5): New Budget's questions would cover the
+     building as a sheet, so on a phone they join the column instead: the
+     total, then the questions, then the building and the list. */
+  .rb--fresh { display: flex; flex-direction: column; }
+  .rb--fresh > * { order: 2; }
+  .rb--fresh > .rb-hdr { order: 0; }
+  .rb--fresh > .rb-pnl {
+    order: 1;
+    position: static;
+    max-height: none;
+    border-radius: 0;
+    overflow: visible;
+  }
 }
 
 /* The picker doubles as the project name: it reads as bold text and gives up

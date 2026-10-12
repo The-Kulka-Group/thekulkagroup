@@ -1,5 +1,6 @@
 import type { Db } from "@/lib/db";
 
+import type { Brief } from "./brief";
 import type { MeetingAnalytics, MeetingAttendance, MeetingAttendee, MeetingSummary, Sentiment } from "./store";
 
 // LA-2280, LA-2287. What the Meetings page reads. Every figure is one Fireflies
@@ -14,6 +15,7 @@ export type MeetingListItem = {
   attendeeCount: number;
   sentiment: Sentiment;
   summaryReady: boolean;
+  briefReady: boolean;
 };
 
 export type MeetingDetail = MeetingListItem & {
@@ -24,6 +26,8 @@ export type MeetingDetail = MeetingListItem & {
   chapters: unknown[];
   attendance: MeetingAttendance[];
   analytics: MeetingAnalytics;
+  brief: Brief | null;
+  briefError: string | null;
 };
 
 type Row = {
@@ -37,6 +41,7 @@ type Row = {
   neutral_pct: string | number | null;
   negative_pct: string | number | null;
   summary_ready: boolean;
+  brief_ready: boolean;
 };
 
 const num = (value: string | number | null) => (value === null ? null : Number(value));
@@ -51,12 +56,13 @@ function listItem(row: Row): MeetingListItem {
     attendeeCount: Number(row.attendee_count),
     sentiment: { positive: num(row.positive_pct), neutral: num(row.neutral_pct), negative: num(row.negative_pct) },
     summaryReady: row.summary_ready,
+    briefReady: row.brief_ready,
   };
 }
 
 const LIST_COLUMNS = `id, title, started_at, duration_minutes, meeting_type,
   jsonb_array_length(attendees) as attendee_count, positive_pct, neutral_pct, negative_pct,
-  coalesce(summary->>'overview', '') <> '' as summary_ready`;
+  coalesce(summary->>'overview', '') <> '' as summary_ready, brief is not null as brief_ready`;
 
 /** Meetings newest first, matching `search` in the title, an attendee, a topic or Fireflies' summary. */
 export async function listMeetings(db: Db, search = "", limit = 200): Promise<MeetingListItem[]> {
@@ -84,9 +90,11 @@ export async function readMeeting(db: Db, id: string): Promise<MeetingDetail | n
       chapters: unknown[];
       attendance: MeetingAttendance[];
       analytics: MeetingAnalytics;
+      brief: Brief | null;
+      brief_error: string | null;
     }
   >(
-    `select ${LIST_COLUMNS}, attendees, summary, transcript_url, topics, chapters, attendance, analytics
+    `select ${LIST_COLUMNS}, attendees, summary, transcript_url, topics, chapters, attendance, analytics, brief, brief_error
        from meetings where id = $1`,
     [id],
   );
@@ -101,6 +109,8 @@ export async function readMeeting(db: Db, id: string): Promise<MeetingDetail | n
     chapters: row.chapters,
     attendance: row.attendance,
     analytics: row.analytics,
+    brief: row.brief,
+    briefError: row.brief_error,
   };
 }
 

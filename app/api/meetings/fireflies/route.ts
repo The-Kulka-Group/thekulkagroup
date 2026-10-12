@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { getDb } from "@/lib/db";
+import { briefClient, briefMeeting } from "@/lib/meetings/brief";
 import { FirefliesError, firefliesKey, firefliesReader } from "@/lib/meetings/fireflies";
 import { validFirefliesSignature } from "@/lib/meetings/signature";
 import { syncMeeting } from "@/lib/meetings/sync";
@@ -9,6 +10,8 @@ import { syncMeeting } from "@/lib/meetings/sync";
 // `meeting.summarized`, each carrying `meeting_id`. The signature, not a
 // signed-in user, proves the call came from Fireflies. Each call fetches the
 // meeting as it stands now, so a retry or a resend saves the same row again.
+// LA-2282: the Kulka Brief is written after the response, since Fireflies
+// waits only 30 seconds for an answer.
 
 export const maxDuration = 60;
 
@@ -41,5 +44,7 @@ export async function POST(request: Request) {
     if (cause instanceof FirefliesError) return NextResponse.json({ error: cause.message }, { status: 502 });
     throw cause;
   }
+  const client = briefClient();
+  if (client) after(() => briefMeeting(getDb(), client, meetingId).then(() => undefined));
   return NextResponse.json({ ok: true });
 }

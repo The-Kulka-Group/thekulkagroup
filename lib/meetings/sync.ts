@@ -1,5 +1,7 @@
 import type { Db } from "@/lib/db";
 
+import { type BriefClient, briefMeeting, meetingsAwaitingBrief } from "./brief";
+
 import type { FirefliesTranscript } from "./fireflies";
 import { completeFirefliesIds, meetingFromTranscript, upsertMeeting } from "./store";
 
@@ -31,4 +33,17 @@ export async function backfillMeetings(
   const missing = ids.filter((id) => !saved.has(id));
   for (const id of missing) await syncMeeting(db, reader, id);
   return { found: ids.length, added: missing.length };
+}
+
+/** Briefs written per sync, so one call stays well inside its time limit. */
+export const BRIEFS_PER_SYNC = 5;
+
+/** Writes the Kulka Brief for up to BRIEFS_PER_SYNC meetings that have a summary and no brief yet. */
+export async function briefPending(db: Db, client: BriefClient | null): Promise<number> {
+  if (!client) return 0;
+  let written = 0;
+  for (const id of await meetingsAwaitingBrief(db, BRIEFS_PER_SYNC)) {
+    if (await briefMeeting(db, client, id)) written += 1;
+  }
+  return written;
 }

@@ -149,3 +149,6 @@ b.pos { color: var(--done); } b.neg { color: var(--stuck); } b.warn { color: var
 .pg-card { cursor: default; }
 .mt-senti-n { display: inline-flex; gap: 6px; }
 .mt-senti-n .pos { color: var(--done); } .mt-senti-n .neg { color: var(--stuck); }
+.mt-table--due td:last-child { white-space: nowrap; width: 1%; }
+.mt-ff .mt-overview, .mt-ff .mt-block, .mt-ff .mt-tags, .mt-ff .mt-table { margin-top: var(--s2); }
+.mt-brief-error { color: var(--stuck); }

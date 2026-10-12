@@ -32,7 +32,8 @@ test("New Budget's building picks a part and the running line follows the answer
   await pill.click();
   const detail = page.locator(".stg-pick");
   await expect(detail).toBeVisible();
-  await expect(detail.locator(".stg-pick-total")).toHaveText(listed);
+  // LA-2209 review S4: a part with nothing on it reads No Items on the row and spells it out in the panel.
+  await expect(detail.locator(".stg-pick-total")).toHaveText(listed === "No Items" ? "No Items in This Budget" : listed);
 
   // Pressing the same part again clears it, and Close gives the field back.
   await pill.click();

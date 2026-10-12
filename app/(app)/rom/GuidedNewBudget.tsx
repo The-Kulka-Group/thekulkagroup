@@ -8,10 +8,11 @@ import type { MarkupOptions } from "@/lib/rom/markup";
 import {
   factsQuestions,
   gatesFromResponses,
+  lastQuestion,
   requiredAnswered,
   scopeQuestions,
-  unansweredAboveLevel,
 } from "@/lib/rom/new-budget-flow";
+import { PRICE_LEVELS } from "@/lib/rom/level-rows";
 import type { PriceLevel } from "@/lib/rom/part-prices";
 import {
   BRANCH_GATE_ANSWERS,
@@ -259,8 +260,6 @@ export function GuidedNewBudget({
   // folds to one line with an Edit link (LA-1230).
   const [editingSetup, setEditingSetup] = useState(false);
   const [index, setIndex] = useState(0);
-  // LA-2218: every question this level shows is answered, but a hidden one is still required.
-  const [held, setHeld] = useState(false);
   const [name, setName] = useState("");
   const [framingSystem, setFramingSystem] = useState<"wood" | "metal" | "">("");
   const [responses, setResponses] = useState<Responses>({
@@ -457,7 +456,8 @@ export function GuidedNewBudget({
           // Demolition's follow-ups and the other intake answers with no
           // project column reach the run through `responses` (LA-1141).
           responses: current,
-          gates: gatesFromResponses(definition, current),
+          gates: gatesFromResponses(definition, current, level),
+          level,
           ...(markups ? { markups } : {}),
         }),
       });
@@ -488,13 +488,14 @@ export function GuidedNewBudget({
     const reached = reachedMarkups || (nextIndex < nextSlots.length && nextSlots[nextIndex].kind !== "flow");
     if (reached) setReachedMarkups(true);
     persist(id, current, form, reached);
-    // LA-1265, LA-1318: Elevator Count brings the elevator cards and
-    // Balconies the building's own; after that, any answer they read works
-    // them out again, so the live budget prices what the run will.
+    // LA-1265, LA-1318: Elevator Count brings the elevator cards and the
+    // level's last question the building's own (LA-2209 review Q2: Balconies
+    // did, but Levels 1 and 2 never ask it); after that, any answer they read
+    // works them out again, so the live budget prices what the run will.
     const group =
       answered === "elevator_count" && elevatorReady(current)
         ? "elevators"
-        : answered === "balconies" && current.project_type === "multifamily"
+        : answered !== null && answered === lastQuestion(definition, current, level)?.id && current.project_type === "multifamily"
           ? "building"
           : null;
     if (group && !dueGroups.has(group)) setDueGroups((due) => new Set([...due, group]));
@@ -502,9 +503,8 @@ export function GuidedNewBudget({
       void deriveEngineering(id, current);
     }
     if (nextIndex >= nextSlots.length) {
-      // The run needs every required answer, so a question this level hides keeps the budget open.
-      if (unansweredAboveLevel(definition, current, level).length > 0) setHeld(true);
-      else void finish(id, current, form);
+      // LA-2209 review S2: a question this level does not ask never holds the budget; the run reads its gate as TBD.
+      void finish(id, current, form);
     } else {
       setIndex(nextIndex);
     }
@@ -677,15 +677,18 @@ export function GuidedNewBudget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupKey, onStageEvent]);
 
-  /** LA-2218: move the shared level. Going up lands on the first new question still unanswered. */
+  /**
+   * LA-2218: move the shared level. Going up lands on the first question the
+   * new level asks that is still unanswered, so it never skips one the flow
+   * has not reached yet (LA-2209 review Q1).
+   */
   function chooseLevel(next: PriceLevel) {
     if (busy || next === level) return;
     onLevel?.(next);
-    setHeld(false);
     setError(null);
     if (next > level) {
       const target = slotsFor(responses, markupForm, next).findIndex(
-        (one) => one.kind === "flow" && one.question.level > level && (responses[one.question.id] ?? "") === "",
+        (one) => one.kind === "flow" && (responses[one.question.id] ?? "") === "",
       );
       if (target >= 0) setIndex(target);
     }
@@ -693,7 +696,6 @@ export function GuidedNewBudget({
 
   function back() {
     if (busy) return;
-    setHeld(false);
     setError(null);
     if (index > 0) setIndex(index - 1);
   }
@@ -950,7 +952,6 @@ export function GuidedNewBudget({
       <LevelTiles
         level={level}
         locked={lockedLevels(definition, responses, level)}
-        held={held}
         disabled={busy}
         onLevel={chooseLevel}
       />
@@ -987,21 +988,19 @@ export function GuidedNewBudget({
 function LevelTiles({
   level,
   locked,
-  held,
   disabled,
   onLevel,
 }: {
   level: PriceLevel;
   locked: { level: PriceLevel; added: number }[];
-  held: boolean;
   disabled: boolean;
   onLevel: (level: PriceLevel) => void;
 }) {
   const tiles = locked.filter((one) => one.added > 0);
   return (
     <div className="nb-levels">
-      <div className="nb-level-seg" role="group" aria-label="Price Level">
-        {([1, 2, 3] as const).map((one) => (
+      <div className="nb-level-seg" role="group" aria-label="Level">
+        {PRICE_LEVELS.map((one) => (
           <button
             key={one}
             type="button"
@@ -1014,11 +1013,6 @@ function LevelTiles({
           </button>
         ))}
       </div>
-      {held ? (
-        <p className="nb-help nb-level-held" role="status">
-          The budget is waiting on questions Level {level} does not ask. Open a locked level below to answer them.
-        </p>
-      ) : null}
       {tiles.map((tile) => (
         <button
           key={tile.level}

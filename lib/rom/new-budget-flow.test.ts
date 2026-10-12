@@ -5,9 +5,9 @@ import { tier1Flow } from "./question-flow";
 import {
   factsQuestions,
   gatesFromResponses,
+  lastQuestion,
   requiredAnswered,
   scopeQuestions,
-  unansweredAboveLevel,
 } from "./new-budget-flow";
 
 // LA-1141. The guided New budget flow's step split and its gate map, tested
@@ -205,10 +205,27 @@ describe("the steps at a price level (LA-2218)", () => {
     expect(scopeQuestions(tier1Flow(), {}).map((q) => q.id)).toContain("balconies");
   });
 
-  it("names the required questions a lower level leaves unanswered", () => {
-    expect(unansweredAboveLevel(tier1Flow(), {}, 1).map((q) => q.id)).toEqual(["site_conditions", "balconies"]);
-    expect(unansweredAboveLevel(tier1Flow(), { site_conditions: "no" }, 2).map((q) => q.id)).toEqual(["balconies"]);
-    expect(unansweredAboveLevel(tier1Flow(), { site_conditions: "no", balconies: "no" }, 1)).toEqual([]);
-    expect(unansweredAboveLevel(tier1Flow(), {}, 3)).toEqual([]);
+  // LA-2209 review Q2: the building cards start on the last question the level asks.
+  it("names the last question each level asks, never one the level hides", () => {
+    for (const level of [1, 2, 3] as const) {
+      const last = lastQuestion(tier1Flow(), {}, level);
+      expect(last?.id).toBe("radio_amplifier");
+      expect(last!.level).toBeLessThanOrEqual(level);
+    }
+  });
+
+  // LA-2209 review S2: a gate the level does not ask saves as TBD, so a later
+  // run off the project record keeps its items out of the total too.
+  it("saves a gate the level does not ask as don't know, and keeps every answer given", () => {
+    expect(gatesFromResponses(tier1Flow(), { parking_type: "surface" }, 1)).toMatchObject({
+      site_conditions: "dont_know",
+      balconies: "dont_know",
+    });
+    expect(gatesFromResponses(tier1Flow(), { site_conditions: "no" }, 1)).toMatchObject({
+      site_conditions: "no",
+      balconies: "dont_know",
+    });
+    expect(gatesFromResponses(tier1Flow(), {}, 2)).not.toHaveProperty("site_conditions");
+    expect(gatesFromResponses(tier1Flow(), {}, 3)).toEqual({});
   });
 });

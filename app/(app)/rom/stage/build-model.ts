@@ -81,8 +81,6 @@ export type StageController = {
 };
 
 const BLUE = new THREE.Color(0x0073ea);
-/** daylight.css --working, the colour of what is not priced yet. */
-const WORKING = 0xff9500;
 /** How much of a part shows while another part is picked, and while nothing prices it. */
 const FADED = 0.12;
 const UNPRICED_FILL = 0.4;
@@ -90,6 +88,8 @@ const UNPRICED_FILL = 0.4;
 const TINT_MIX = 0.75;
 /** LA-2217: how much the Assembled view's ground plane hides of what is below grade. */
 const GROUND = 0.8;
+/** LA-2217: the risers' steel gray, a part of its own since LA-2209 review Q4. */
+const RISER = 0x5f7d99;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const outCubic = (p: number) => 1 - Math.pow(1 - p, 3);
 const outBack = (p: number) => 1 + 2.5 * Math.pow(p - 1, 3) + 1.5 * Math.pow(p - 1, 2);
@@ -152,11 +152,14 @@ export function assemblyPlan(spec: StageBuilding): { windows: Record<StagePart, 
     basement: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
     podium: [0.2 + piles, massingStart],
     massing: [massingStart, massingEnd],
+    // LA-2209 review Q4: the risers go up with the stories they run through.
+    risers: [massingStart + 0.2, massingEnd],
     glass: [massingEnd - 0.3, massingEnd + 0.5],
     balconies: [massingEnd - 0.1, massingEnd + 0.5],
     // LA-2219: the doors go in with the wall, the rail once the slab is out.
     balconyDoors: [massingEnd - 0.2, massingEnd + 0.3],
     balconyRail: [massingEnd + 0.1, massingEnd + 0.6],
+    julietRail: [massingEnd + 0.1, massingEnd + 0.6],
     elevators: [massingEnd, massingEnd + 0.5],
     elevatorJack: [0.2 + piles - 0.2, 0.2 + piles + 0.3],
     elevatorMachine: [massingEnd + 0.1, massingEnd + 0.6],
@@ -221,10 +224,9 @@ export function createStage(
     // drawn section does; a room's volume cuts a light gray.
     poche: new THREE.MeshBasicMaterial({ color: 0x1c1b19, side: THREE.BackSide }),
     pocheLight: new THREE.MeshBasicMaterial({ color: 0xd9d6ce, side: THREE.BackSide }),
-    // LA-2217: the unit walls the cutaway shows, the risers, and the ground
+    // LA-2217: the unit walls the cutaway shows and the ground
     // plane the Assembled view lays over what is below grade.
     partition: new THREE.MeshStandardMaterial({ color: 0xfbfaf7, roughness: 0.9 }),
-    riser: new THREE.MeshStandardMaterial({ color: 0x5f7d99, roughness: 0.5, metalness: 0.2 }),
     ground: new THREE.MeshStandardMaterial({ color: 0xf7f7f5, roughness: 0.95, transparent: true, opacity: GROUND, depthWrite: false }),
   };
   const lasting: { dispose: () => void }[] = [env, pmrem, ...Object.values(M)];
@@ -318,8 +320,11 @@ export function createStage(
   // first needs them and dropped with the building.
   let see: Map<THREE.Material, THREE.Material>[] = [new Map(), new Map()];
   let outlines: THREE.LineSegments[] = [];
-  const dash = new THREE.LineDashedMaterial({ color: WORKING, dashSize: 2.4, gapSize: 1.6 });
-  const dashFaded = new THREE.LineDashedMaterial({ color: WORKING, dashSize: 2.4, gapSize: 1.6, transparent: true, opacity: 0.3 });
+  // daylight.css --working, the colour of what is not priced yet, read from the
+  // page once so the model and the CSS share one value (LA-2209 review J2).
+  const working = new THREE.Color(getComputedStyle(canvas).getPropertyValue("--working").trim());
+  const dash = new THREE.LineDashedMaterial({ color: working, dashSize: 2.4, gapSize: 1.6 });
+  const dashFaded = new THREE.LineDashedMaterial({ color: working, dashSize: 2.4, gapSize: 1.6, transparent: true, opacity: 0.3 });
   lasting.push(dash, dashFaded);
   let spec: StageBuilding | null = null;
   let span = 0;
@@ -471,7 +476,7 @@ export function createStage(
     const floorsAll: { g: THREE.Group; base: number }[][] = [];
     const glassAll: { pane: THREE.Mesh; mat: THREE.MeshPhysicalMaterial }[][] = [];
     /** LA-2219: each balcony's slab, rail and door, grown out from the wall as their own parts. */
-    type BalconyPiece = { g: THREE.Group; axis: "x" | "z"; part: "balconies" | "balconyRail" | "balconyDoors" };
+    type BalconyPiece = { g: THREE.Group; axis: "x" | "z"; part: "balconies" | "balconyRail" | "balconyDoors" | "julietRail" };
     const balconiesAll: BalconyPiece[][] = [];
     const pilesAll: THREE.Mesh[][] = [];
     const footings: THREE.Mesh[] = [];
@@ -481,6 +486,7 @@ export function createStage(
     const bulkheads: THREE.Group[] = [];
     const jacks: THREE.Group[] = [];
     const machines: THREE.Group[] = [];
+    const riserGroups: THREE.Group[] = [];
     const unitGroups: THREE.Group[] = [];
 
     const skinMat = tinted("massing", 0xffffff, 0.9);
@@ -493,6 +499,7 @@ export function createStage(
     const balconyMat = tinted("balconies", 0xffffff, 0.8);
     const railMat = tinted("balconyRail", 0xffffff, 0.6);
     const doorMat = tinted("balconyDoors", 0xd5dde6, 0.35);
+    const julietMat = tinted("julietRail", 0xffffff, 0.6);
     const bulkheadMat = tinted("elevators", 0xffffff, 0.9);
     const jackMat = tinted("elevatorJack", 0xc9c6bd, 0.7);
     const machineMat = tinted("elevatorMachine", 0xffffff, 0.6);
@@ -636,12 +643,13 @@ export function createStage(
             // On the wing's outward long face, built out from the wall so they
             // can grow outward when they arrive. LA-2219: the slab, its rail
             // and the sliding door behind it are three parts, each priced on
-            // its own; a Juliet balcony (LA-2220) has the door alone here.
+            // its own. A Juliet balcony (LA-2220) has no slab: its rail runs across the door.
             const x = alongX(w);
             const len = x ? ww : wd;
             const s = x ? (cz >= 0 ? 1 : -1) : cx >= 0 ? 1 : -1;
             const full = next.balconyType !== "juliet";
             const slab: THREE.BufferGeometry[] = [], rail: THREE.BufferGeometry[] = [], door: THREE.BufferGeometry[] = [];
+            const juliet: THREE.BufferGeometry[] = [];
             const a0 = x ? w.x0 : w.z0;
             const cols = colsFor(len), pitch = len / cols;
             const at = (into: THREE.BufferGeometry[], p: number, wide: number, tall: number, deep: number, px: number, py: number, out: number) =>
@@ -658,7 +666,14 @@ export function createStage(
                 at(rail, p, 0.25, 3.2, 0.25, bw / 2 - 0.2, 3.1, 5.4);
               }
               // The door stands proud of the wall face, over the window behind the balcony.
-              at(door, p, Math.min(bw * 0.55, 7), 6.8, 0.3, 0, 1 + 3.4 + 0.7, 0.2);
+              const doorWide = Math.min(bw * 0.55, 7);
+              at(door, p, doorWide, 6.8, 0.3, 0, 1 + 3.4 + 0.7, 0.2);
+              if (!full) {
+                // A Juliet rail: a top rail and two posts across the door, just proud of it.
+                at(juliet, p, doorWide, 0.25, 0.25, 0, 4.6, 0.6);
+                at(juliet, p, 0.25, 3.2, 0.25, -doorWide / 2 + 0.15, 3.1, 0.6);
+                at(juliet, p, 0.25, 3.2, 0.25, doorWide / 2 - 0.15, 3.1, 0.6);
+              }
             }
             const piece = (geos: THREE.BufferGeometry[], mat: THREE.Material, part: BalconyPiece["part"]) => {
               if (geos.length === 0) return;
@@ -672,6 +687,7 @@ export function createStage(
             piece(slab, balconyMat, "balconies");
             piece(rail, railMat, "balconyRail");
             piece(door, doorMat, "balconyDoors");
+            piece(juliet, julietMat, "julietRail");
           }
         }
         mesh(slab, slabMat, g);
@@ -762,7 +778,7 @@ export function createStage(
         const ww = w.x1 - w.x0, wd = w.z1 - w.z0;
         const rx = x ? (w.x0 + w.x1) / 2 - ww * 0.12 : w.x1 - 9;
         const rz = x ? w.z1 - 9 : (w.z0 + w.z1) / 2 - wd * 0.12;
-        const risers = tag(new THREE.Group(), "massing");
+        const risers = tag(new THREE.Group(), "risers");
         risers.position.set(rx, 0, rz);
         const r: THREE.BufferGeometry[] = [];
         for (let i = 0; i < 4; i++) {
@@ -770,9 +786,11 @@ export function createStage(
           pipe.translate(x ? (i - 1.5) * 2.2 : 0, 0.5, x ? 0 : (i - 1.5) * 2.2);
           r.push(pipe);
         }
-        mesh(r, M.riser, risers, true, null);
+        mesh(r, tinted("risers", RISER, 0.5), risers, true, null);
         risers.userData.run = risersOf(next);
         root.add(risers);
+        riserGroups.push(risers);
+        if (!nextAnchors.risers) nextAnchors.risers = new THREE.Vector3(ox + rx, next.height * 0.5, rz);
       }
       if (next.rooftopUnits > 0) {
         // Down the wings' roofs, tallest first, two rows to a wing.
@@ -811,6 +829,7 @@ export function createStage(
           nextAnchors.balconies = new THREE.Vector3(ox, next.height * 0.5, hd + 5);
           nextAnchors.balconyRail = new THREE.Vector3(ox, next.height * 0.5 + 3, hd + 5.5);
           nextAnchors.balconyDoors = new THREE.Vector3(ox, next.height * 0.5 + 2, hd + 0.5);
+          nextAnchors.julietRail = new THREE.Vector3(ox, next.height * 0.5 + 3, hd + 1);
         }
       }
     });
@@ -889,6 +908,7 @@ export function createStage(
     nextAppliers.balconies = balconyApplier("balconies");
     nextAppliers.balconyRail = balconyApplier("balconyRail");
     nextAppliers.balconyDoors = balconyApplier("balconyDoors");
+    nextAppliers.julietRail = balconyApplier("julietRail");
     nextAppliers.elevators = ({ arrive, tint }) => {
       for (const b of bulkheads) {
         b.visible = arrive > 0.001;
@@ -909,6 +929,11 @@ export function createStage(
         m.scale.setScalar(Math.max(0.0001, arrive < 1 ? outBack(arrive) : 1));
       }
       applyTint("elevatorMachine", tint);
+    };
+    nextAppliers.risers = ({ arrive, tint }) => {
+      // Visibility only: the views stretch the risers across the stories they run through.
+      for (const r of riserGroups) r.visible = arrive > 0.001;
+      applyTint("risers", tint);
     };
     nextAppliers.units = ({ arrive, tint }) => {
       const all = unitGroups.flatMap((u) => u.children);

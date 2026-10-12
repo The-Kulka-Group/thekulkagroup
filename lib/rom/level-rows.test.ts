@@ -108,7 +108,7 @@ describe("priceLevels", () => {
 describe("partTints", () => {
   it("tints every drawn part one colour at level 1, the run as one block", () => {
     expect(partTints(levels.views[1])).toEqual({
-      site: BLOCK_TINT, foundation: BLOCK_TINT, massing: BLOCK_TINT, glass: BLOCK_TINT, elevators: BLOCK_TINT,
+      site: BLOCK_TINT, foundation: BLOCK_TINT, massing: BLOCK_TINT, risers: BLOCK_TINT, glass: BLOCK_TINT, elevators: BLOCK_TINT,
       elevatorJack: BLOCK_TINT,
     });
   });

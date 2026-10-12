@@ -1,3 +1,4 @@
+import { JULIET_RAIL_COST_CODE } from "@kulka/engine";
 import type { BlockClassification, Rom, RomLine, ScopeSide, UnpricedItem } from "@kulka/engine";
 
 import { addsToTotal, midpoint } from "@/app/(app)/rom/block-layout";
@@ -8,6 +9,7 @@ import { rateUsd, usd, wholeNumber } from "@/lib/format/usd";
 
 import { type ClientSource, clientSource } from "./client-source";
 import { PER_UNIT_WORDS, UNIT_WORDS } from "./drill-down";
+import { rowKey } from "./row-keys";
 import { partsOf, type StageBuilding, type StageFacts } from "./stage-model";
 import type { StagePart } from "./stage-scenes";
 
@@ -33,8 +35,13 @@ export type PricedPart = {
   source: ClientSource;
   /** One sentence a line, then one per unpriced item: quantity, unit, rate and where the rate came from. */
   math: string[];
-  /** True when nothing prices the part. The stage draws it dashed in the working orange and it reads "Not Priced", never $0. */
+  /**
+   * True when the part has lines or items and none of them has a rate. The
+   * stage draws it dashed in the working orange and it reads "Not Priced", never $0.
+   */
   unpriced: boolean;
+  /** LA-2209 review S4: no line or item sits on the part. It draws normally and reads "No Items in This Budget". */
+  empty: boolean;
 };
 
 /** The part's name on screen. */
@@ -49,11 +56,13 @@ export const PART_NAMES: Readonly<Record<StagePart, string>> = {
   balconies: "Balcony Decks",
   balconyRail: "Balcony Rail",
   balconyDoors: "Sliding Doors",
+  julietRail: "Juliet Rail",
   elevators: "Elevators",
   elevatorJack: "Elevator Jack",
   elevatorMachine: "Elevator Machine",
   units: "Rooftop Units",
   service: "Electrical Service",
+  risers: "Risers",
   podiumDeck: "Podium Deck",
   garageElectrical: "Garage Electrical",
   garageSprinklers: "Garage Sprinklers",
@@ -147,12 +156,20 @@ const ITEM_PARTS: Readonly<Record<string, readonly StagePart[]>> = {
   // LA-2219: the full balconies' posts and rail, and the doors on the wall behind them.
   "11a": ["balconyRail", "balconies", "massing"],
   "15b": ["balconyDoors", "glass", "massing"],
+  // LA-2220: the Juliet balcony's rail across its door.
+  "7b": ["julietRail", "massing"],
   // The elevator line sits on the jack (hydraulic) or the machine (traction) the derived
   // type (V-1) draws. Its sub-items (26a bulkhead and the rest) stay on the elevators.
   "26": ["elevatorJack", "elevatorMachine", "elevators", "massing"],
   // The rooftop units are M-1's HVAC; the service at grade is E-1's electrical.
-  "30": ["units", "massing"],
-  "31": ["service", "massing"],
+  // Without them, each runs up its riser (LA-2209 review Q4, the section's layer map).
+  "30": ["units", "risers", "massing"],
+  "31": ["service", "risers", "massing"],
+  // LA-2209 review Q4: the risers the section's layer map draws, podium top to roof.
+  "27": ["risers", "massing"],
+  "28": ["risers", "massing"],
+  "31a": ["risers", "massing"],
+  "32": ["risers", "massing"],
   // Site work, demolition and its disconnects.
   "1": ["site"],
   "1a": ["site"],
@@ -259,7 +276,8 @@ function balconyMath(line: RomLine, balconies: number | null | undefined): strin
   const each = quantity.amount / balconies;
   if (!Number.isInteger(each * 100)) return null;
   const rate = rateUsd(midpoint(line) / quantity.amount);
-  return `${name}: ${wholeNumber(balconies)} ${balconies === 1 ? "Balcony" : "Balconies"} x ${each.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${unit} x ${rate} per ${unit} ${from}`;
+  const [one, many] = line.costCode === JULIET_RAIL_COST_CODE ? ["Juliet", "Juliets"] : ["Balcony", "Balconies"];
+  return `${name}: ${wholeNumber(balconies)} ${balconies === 1 ? one : many} x ${each.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${unit} x ${rate} per ${unit} ${from}`;
 }
 
 /** "Foundations: 100,000 SF x $20.00 per SF (1 Kulka Job)", "Piles: $350,000 Lump Sum (Stated Rate, WS)". */
@@ -282,13 +300,13 @@ function mathOf(line: RomLine): string {
 }
 
 const lineRow = (line: RomLine, part: StagePart): LevelRow => ({
-  key: `line:${line.costCode}`,
+  key: rowKey("line", line.costCode),
   label: titleCase(line.label),
   total: midpoint(line),
   parts: [part],
 });
 const unpricedRow = (item: UnpricedItem, part: StagePart): LevelRow => ({
-  key: `unpriced:${item.costCode}`,
+  key: rowKey("unpriced", item.costCode),
   label: titleCase(item.label),
   total: null,
   parts: [part],
@@ -326,7 +344,7 @@ function levelView(
   const elementRows = groups.map((group): LevelRow => {
     const codes = [group.driver, ...group.members].map((item) => item.costCode);
     return {
-      key: `element:${group.element}`,
+      key: rowKey("element", group.element),
       label: titleCase(group.element),
       total: midpoint(group.total),
       parts: drawn.filter((part) => codes.some((code) => partOf.get(code) === part)),
@@ -365,6 +383,8 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
     const lines = linesOf.get(part)!;
     const unpricedItems = unpricedOf.get(part)!;
     const total = lines.length > 0 ? lines.reduce((sum, line) => sum + midpoint(line), 0) : null;
+    const sources = lines.map((line) => clientSource(sourceOf(line).text));
+    const empty = lines.length === 0 && unpricedItems.length === 0;
     return {
       part,
       name: PART_NAMES[part],
@@ -372,14 +392,15 @@ export function partPrices(input: PartPriceInput): PartPriceMap {
       unpricedItems,
       total,
       perGsf: total !== null && gsf ? total / gsf : null,
-      source: weakest(lines.map((line) => clientSource(sourceOf(line).text))),
+      source: weakest(sources),
       math: [
         ...lines.map(
           (line) => elevatorMath(line, input.facts.elevatorCount) ?? balconyMath(line, input.facts.balconyCount) ?? mathOf(line),
         ),
         ...unpricedItems.map(unpricedMath),
       ],
-      unpriced: total === null,
+      unpriced: !empty && sources.every((source) => source === "No Rate Yet"),
+      empty,
     };
   });
   const view = levelView(input.level ?? 3, rom, drawn, partOf, input.classifications ?? []);

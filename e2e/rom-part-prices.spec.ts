@@ -27,9 +27,13 @@ async function expectDetail(page: import("@playwright/test").Page, part: PricedP
   const detail = page.locator(`.stg-pick[data-part="${part.part}"]`);
   await expect(detail).toBeVisible();
   await expect(detail.locator(".stg-pick-name")).toHaveText(part.name);
-  await expect(detail.locator(".stg-pick-total")).toHaveText(part.total === null ? "Not Priced" : usd(part.total));
+  await expect(detail.locator(".stg-pick-total")).toHaveText(
+    part.unpriced ? "Not Priced" : part.empty ? "No Items in This Budget" : usd(part.total!),
+  );
   if (part.perGsf !== null) await expect(detail.locator(".stg-pick-psf")).toHaveText(`${rateUsd(part.perGsf)} per GSF`);
-  await expect(detail.locator(".chip")).toHaveText(part.source);
+  // LA-2209 review S4: a part with nothing on it shows no source mark.
+  if (part.empty) await expect(detail.locator(".chip")).toHaveCount(0);
+  else await expect(detail.locator(".chip")).toHaveText(part.source);
   await expect(detail.locator(".stg-pick-math li")).toHaveText(part.math);
 }
 
@@ -71,5 +75,9 @@ test("picks a part of the saved budget's building and shows what the part price 
   // A part nothing prices reads Not Priced, never $0.
   for (const one of map.parts.filter((p) => p.unpriced)) {
     await expect(page.locator(`.stg-parts [data-part="${one.part}"] .stg-part-p`)).toHaveText("Not Priced");
+  }
+  // LA-2209 review S4: a part with no lines at all reads No Items, never Not Priced or $0.
+  for (const one of map.parts.filter((p) => p.empty)) {
+    await expect(page.locator(`.stg-parts [data-part="${one.part}"] .stg-part-p`)).toHaveText("No Items");
   }
 });

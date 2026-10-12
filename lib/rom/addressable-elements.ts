@@ -1,4 +1,5 @@
-import { longDate, usd, wholeNumber, type BudgetPage, type Fact } from "@/lib/rom/presentation";
+import { usd, wholeNumber } from "@/lib/format/usd";
+import { longDate, type BudgetPage, type Fact } from "@/lib/rom/presentation";
 
 // LA-1488. The elements of a client budget page a reader can comment on, read
 // off the same model the page renders from. The comment routes use it to check

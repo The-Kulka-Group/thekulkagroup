@@ -174,6 +174,39 @@ describe("the tier-1 question flow, definition to ROM", () => {
     expect(run.answers.flow?.tbdCount).toBe(1);
   });
 
+  // LA-2209 review S2: Level 1 asks neither soil nor balconies, so a Level 1
+  // budget records with both unanswered and reads their gates as TBD.
+  it("records a Level 1 budget without the questions Level 1 does not ask, their gates TBD", async () => {
+    const definition = definitionFromFile();
+    const responses = answerEveryQuestion(definition);
+    delete responses.site_conditions;
+    delete responses.balconies;
+
+    const response = await post({ projectId: TEST_PROJECT_ID, responses, level: 1 });
+    expect(response.status).toBe(200);
+
+    const [run] = await runs();
+    expect(run.status).toBe("succeeded");
+    expect(run.answers.flow?.responses).not.toHaveProperty("site_conditions");
+    expect(run.answers.flow?.responses).not.toHaveProperty("balconies");
+    expect(run.answers.flow?.branchGates).toMatchObject({ site_conditions: "dont_know", balconies: "dont_know" });
+    expect(run.answers.flow?.tbdSections).toEqual(expect.arrayContaining(["site_conditions", "balconies"]));
+  });
+
+  it("still refuses a question the chosen level asks and nobody answered", async () => {
+    const responses = answerEveryQuestion(definitionFromFile());
+    delete responses.site_conditions;
+
+    const response = await post({ projectId: TEST_PROJECT_ID, responses, level: 2 });
+    expect(response.status).toBe(422);
+  });
+
+  it("refuses a level that is not 1, 2 or 3", async () => {
+    const responses = answerEveryQuestion(definitionFromFile());
+    const response = await post({ projectId: TEST_PROJECT_ID, responses, level: 4 });
+    expect(response.status).toBe(400);
+  });
+
   it("leaves a failed run record when a question the engine needs went unanswered", async () => {
     const definition = definitionFromFile();
     const needed = definition.questions.find(

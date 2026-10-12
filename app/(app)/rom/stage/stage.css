@@ -142,7 +142,7 @@
 /* LA-2211: a part's price on the row, and a part nothing prices, edged in
    the working orange the model draws it in. */
 .stg-part-p { color: var(--ink); font-weight: 700; }
-.stg-part[aria-pressed="true"] .stg-part-p { color: #ffffff; }
+.stg-part[aria-pressed="true"] .stg-part-p { color: var(--surface); }
 .stg-part--unpriced { border-style: dashed; border-color: var(--working); }
 .stg-part--unpriced .stg-part-p { color: var(--approximate-ink); }
 .stg-part--unpriced[aria-pressed="true"] .stg-part-p { color: var(--working-tint); }
@@ -194,7 +194,6 @@
   font-size: 12px;
   line-height: 1.45;
 }
-.stg-pick-none { margin: 0; color: var(--ink-2); font-size: 12px; }
 .stg-pick .stg-part { justify-self: start; }
 @media (prefers-reduced-motion: reduce) {
   .stg-pick { animation: none; }

@@ -33,7 +33,8 @@ const DECK = 0xcfcac0;
 const COATING = 0x8f9aa6;
 const MEMBRANE = 0x3d3f45;
 const CONDUIT = 0x6a6f78;
-const SPRINKLER = 0xc8463c;
+/** daylight.css --ink: a neutral darker than the conduit, since red means a blown deadline (LA-2209 review J2). */
+const SPRINKLER = 0x323338;
 const ASPHALT = 0x5c5b57;
 const STRIPE = 0xffffff;
 

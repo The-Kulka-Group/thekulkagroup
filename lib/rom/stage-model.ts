@@ -1,4 +1,4 @@
-import type { BalconyType, DerivedAssumption } from "@kulka/engine";
+import { type BalconyType, type DerivedAssumption, readBalconyFacts } from "@kulka/engine";
 
 import { buildingForm, type FormShape, type FormWing, shapeFromText } from "./building-form";
 import { STAGE_PARTS, type StagePart } from "./stage-scenes";
@@ -24,7 +24,7 @@ export type StageFacts = {
   poorSoil?: boolean;
   /** LA-2219: the Full or Juliet follow-up. Absent, balconies draw as full. */
   balconyType?: BalconyType | null;
-  /** LA-2219: how many full balconies, for the rate math. Absent when not answered. */
+  /** LA-2219: how many balconies of the chosen type (LA-2220: Juliets when Juliet), for the rate math. Absent when not answered. */
   balconyCount?: number | null;
 };
 
@@ -51,7 +51,23 @@ export function stageFactsFromResponses(responses: Readonly<Record<string, strin
     retail: responses.retail_storefronts === "yes",
     poorSoil: responses.site_conditions === "yes",
     balconyType: responses.balcony_type === "full" || responses.balcony_type === "juliet" ? responses.balcony_type : null,
-    balconyCount: count("balcony_count") || null,
+    // LA-2220: the count of whichever type was chosen, so the rate math words it per balcony.
+    balconyCount: (responses.balcony_type === "juliet" ? count("juliet_count") : count("balcony_count")) || null,
+  };
+}
+
+/**
+ * LA-2209 review S1: the project record keeps only the balcony gate. A saved
+ * run keeps the Full or Juliet answer and its counts in its recorded facts,
+ * so the saved Building View reads them there and draws what the live one drew.
+ */
+export function withRunFacts(project: StageFacts, recorded: Readonly<Record<string, string | number | boolean>> | undefined): StageFacts {
+  const balcony = readBalconyFacts(recorded);
+  if (balcony.type === null) return project;
+  return {
+    ...project,
+    balconyType: balcony.type,
+    balconyCount: balcony.type === "juliet" ? balcony.julietCount : balcony.count,
   };
 }
 
@@ -169,8 +185,8 @@ export function stageBuilding(facts: StageFacts, cards: readonly Card[]): StageB
   const basement = facts.belowGrade || facts.parkingType === "underground";
 
   const system = text(by("S-1")) ?? "Spread Footings";
-  // LA-2214: poor soil, or S-1 landing on deep foundations, puts piles under the building.
-  const piles = facts.poorSoil === true || system === "Deep Foundations";
+  // LA-2214, LA-2209 review S3: only poor soil puts piles under the building, as the spec says.
+  const piles = facts.poorSoil === true;
 
   const cars = facts.elevatorCount ?? 0;
   let elevators: StageBuilding["elevators"] = null;
@@ -230,6 +246,7 @@ export function partsOf(b: StageBuilding): StagePart[] {
     glass: true,
     balconies: b.balconies && b.balconyType !== "juliet",
     balconyRail: b.balconies && b.balconyType !== "juliet",
+    julietRail: b.balconies && b.balconyType === "juliet",
     balconyDoors: b.balconies,
     elevators: b.elevators !== null,
     // LA-2215: the derived type (V-1) picks which the building draws.
@@ -237,6 +254,7 @@ export function partsOf(b: StageBuilding): StagePart[] {
     elevatorMachine: b.elevators?.hydraulic === false,
     units: b.rooftopUnits > 0,
     service: b.serviceAmps !== null,
+    risers: true,
     podiumDeck: b.garage,
     garageElectrical: b.garage,
     garageSprinklers: b.garage,

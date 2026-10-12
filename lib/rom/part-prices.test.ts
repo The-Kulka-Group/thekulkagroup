@@ -96,6 +96,7 @@ describe("partPrices", () => {
       site: ["38", "XX-1"],
       foundation: ["2"],
       massing: ["8", "XX-2"],
+      risers: [],
       glass: ["16a"],
       elevators: [],
       elevatorJack: ["26"],
@@ -146,9 +147,24 @@ describe("partPrices", () => {
     expect(at("balconies")).toMatchObject({ total: null, perGsf: null, source: "No Rate Yet", unpriced: true, lines: [], math: ["Balcony Deck: No Rate Yet"] });
     expect(at("balconies").unpricedItems.map((u) => u.costCode)).toEqual(["11"]);
     expect(at("site").unpricedItems.map((u) => u.costCode)).toEqual(["31f"]);
-    // E-1 draws the service, but no line prices it.
-    expect(at("service")).toMatchObject({ total: null, source: "No Rate Yet", unpriced: true, math: [] });
-    expect(at("massing").unpriced).toBe(false);
+    expect(at("balconies").empty).toBe(false);
+    expect(at("massing")).toMatchObject({ unpriced: false, empty: false });
+  });
+
+  // LA-2209 review S4: only a part whose lines have no rate is Not Priced.
+  it("draws a part with no lines and no items normally, and says it has none in this budget", () => {
+    const f = facts();
+    const service = [{ code: "E-1", value: { kind: "quantity" as const, amount: 2000, unit: "A" }, steps: [], correction: null }];
+    const map = partPrices({ rom: rom([line({ costCode: "8", low: 100, high: 100 })]), facts: f, building: stageBuilding(f, service) });
+    // E-1 draws the service, but nothing in this budget sits on it.
+    expect(map.parts.find((p) => p.part === "service")).toMatchObject({
+      total: null,
+      unpriced: false,
+      empty: true,
+      lines: [],
+      unpricedItems: [],
+      math: [],
+    });
   });
 
   describe("the list rows at each level", () => {
@@ -176,7 +192,7 @@ describe("partPrices", () => {
 
     it("reads level 1 as one block over every drawn part", () => {
       expect(at(1).rows).toEqual([
-        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "glass", "elevators", "elevatorJack"] },
+        { key: "block", label: "Building", total: midpointOf(withDemolition), parts: ["site", "foundation", "massing", "risers", "glass", "elevators", "elevatorJack"] },
       ]);
     });
 
@@ -192,6 +208,35 @@ describe("partPrices", () => {
       expect(rows.find((r) => r.key === "unpriced:36a")).toEqual({ key: "unpriced:36a", label: "Water Disconnect", total: null, parts: ["site"] });
       expect(rows).toHaveLength(11);
     });
+  });
+
+  // LA-2209 review Q4: the risers the section's layer map names are their own part.
+  it("puts the fire protection, plumbing, low voltage and fire alarm risers on the risers", () => {
+    const f = facts();
+    const risers = rom([
+      line({ costCode: "27", label: "Fire sprinklers", low: 400_000, high: 500_000 }),
+      line({ costCode: "28", label: "Plumbing", low: 900_000, high: 1_100_000 }),
+      line({ costCode: "31a", label: "Low voltage", low: 90_000, high: 110_000 }),
+      line({ costCode: "32", label: "Fire alarm", low: 70_000, high: 90_000 }),
+      line({ costCode: "30", label: "HVAC", low: 1_000_000, high: 1_200_000 }),
+      line({ costCode: "31", label: "Electrical", low: 1_500_000, high: 1_700_000 }),
+    ]);
+    const map = partPrices({ rom: risers, facts: f, building: stageBuilding(f, []) });
+    const at = (part: string) => map.parts.find((p) => p.part === part);
+    // With no rooftop units or service drawn, HVAC and electrical sit on their risers too.
+    expect(at("risers")).toMatchObject({ name: "Risers", total: 4_330_000 });
+    expect(at("risers")!.lines.map((l) => l.costCode)).toEqual(["27", "28", "31a", "32", "30", "31"]);
+    expect(at("massing")!.lines).toEqual([]);
+
+    // When M-1 and E-1 draw the units and the service, those items sit there instead.
+    const cards = [
+      { code: "M-1", value: { kind: "quantity" as const, amount: 189, unit: "Tons" }, steps: [], correction: null },
+      { code: "E-1", value: { kind: "quantity" as const, amount: 2000, unit: "A" }, steps: [], correction: null },
+    ];
+    const drawn = partPrices({ rom: risers, facts: f, building: stageBuilding(f, cards) });
+    expect(drawn.parts.find((p) => p.part === "units")!.lines.map((l) => l.costCode)).toEqual(["30"]);
+    expect(drawn.parts.find((p) => p.part === "service")!.lines.map((l) => l.costCode)).toEqual(["31"]);
+    expect(drawn.parts.find((p) => p.part === "risers")!.lines.map((l) => l.costCode)).toEqual(["27", "28", "31a", "32"]);
   });
 
   it("follows item 26 for the elevator's sub-items only, not for any other lettered item", () => {
@@ -411,11 +456,66 @@ describe("full balconies", () => {
     });
   });
 
-  it("draws no deck or rail for Juliet balconies, which LA-2220 prices, and keeps the doors", () => {
+  it("draws no deck or full rail for Juliet balconies, and keeps the doors", () => {
     const juliet = facts({ balconies: true, balconyType: "juliet" });
     const parts = mapOf(rom([]), juliet).parts.map((p) => p.part);
     expect(parts).not.toContain("balconies");
     expect(parts).not.toContain("balconyRail");
     expect(parts).toContain("balconyDoors");
+  });
+});
+
+// LA-2220: 40 Juliet balconies with 6 LF of rail each, at $225 per LF.
+describe("Juliet balconies", () => {
+  const stated = (label: string): Comparable => ({ ...job, kind: "reviewed_judgment", exportLabel: label });
+  const julietRail = line({
+    costCode: "7b",
+    label: "Juliet Rail",
+    low: 54_000,
+    high: 54_000,
+    comparableCount: 0,
+    comparables: [stated("Source jobs: V64, VA. Synthetic.")],
+    quantity: { amount: 240, unit: "usd_per_lf_of_rail" },
+  });
+  const doors = line({
+    costCode: "15b",
+    label: "Sliding Doors",
+    low: 72_000,
+    high: 101_480,
+    comparableCount: 0,
+    comparables: [stated("Source jobs: VA, V64, VR. Low."), stated("Source jobs: VA, V64, VR. High.")],
+    quantity: { amount: 40, unit: "usd_each_balcony_door" },
+  });
+  const juliet = facts({ balconies: true, balconyType: "juliet", balconyCount: 40 });
+  const mapOf = (run: Rom, f: StageFacts = juliet) => partPrices({ rom: run, facts: f, building: stageBuilding(f, []) });
+  const at = (map: ReturnType<typeof partPrices>, part: string) => map.parts.find((p) => p.part === part);
+
+  it("puts the Juliet rail on its own part and the doors on the wall, with no slab", () => {
+    const map = mapOf(rom([julietRail, doors]));
+    expect(at(map, "julietRail")).toMatchObject({ name: "Juliet Rail", total: 54_000 });
+    expect(at(map, "julietRail")?.lines.map((l) => l.costCode)).toEqual(["7b"]);
+    expect(at(map, "balconyDoors")?.lines.map((l) => l.costCode)).toEqual(["15b"]);
+    expect(at(map, "balconies")).toBeUndefined();
+    expect(at(map, "balconyRail")).toBeUndefined();
+  });
+
+  it("shows the rate math per Juliet, and the doors' low and high", () => {
+    const map = mapOf(rom([julietRail, doors]));
+    expect(at(map, "julietRail")?.math).toEqual(["Juliet Rail: 40 Juliets x 6 LF x $225 per LF (Stated Rate, V64, VA)"]);
+    expect(at(map, "balconyDoors")?.math).toEqual(["Sliding Doors: 40 Doors x $1,800 to $2,537 per Door (Stated Rate, VA, V64, VR)"]);
+  });
+
+  it("leaves the rail unpriced and names the fact when the rail per Juliet is missing", () => {
+    const map = mapOf(rom([doors], [{ costCode: "7b", label: "Juliet Rail", missing: ["Rail per Juliet"] }]));
+    expect(at(map, "julietRail")).toMatchObject({
+      total: null,
+      unpriced: true,
+      math: ["Juliet Rail: No Quantity Yet, Needs Rail per Juliet"],
+    });
+  });
+
+  it("totals the Juliet parts to the run total", () => {
+    const map = mapOf(rom([julietRail, doors]));
+    expect(map.parts.reduce((sum, p) => sum + (p.total ?? 0), 0)).toBeCloseTo(map.total);
   });
 });

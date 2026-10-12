@@ -42,6 +42,51 @@ export type BenchmarkUnit =
   /** LA-2219: dollars for each balcony door, a derived quantity (balconies.ts). */
   | "usd_each_balcony_door";
 
+/** The units whose quantity is a derived quantity (`DerivedQuantities`). */
+export type DerivedUnit = "usd_per_sf_of_garage" | "usd_per_sf_of_balcony" | "usd_per_lf_of_rail" | "usd_each_balcony_door";
+
+/**
+ * LA-2209 review M3: each derived unit in one row: the quantity it multiplies
+ * by, the facts that quantity reads (`UNIT_INPUTS`), and its words on screen
+ * (lib/rom/drill-down.ts), "SF of Garage" for a quantity and "SF of Garage"
+ * after "per". A new derived unit adds one row here.
+ */
+export const DERIVED_UNITS: Readonly<
+  Record<
+    DerivedUnit,
+    {
+      quantity: (derived: DerivedQuantities) => QuantityResult;
+      inputs: readonly string[];
+      words: { unit: string; perUnit: string };
+    }
+  >
+> = {
+  usd_per_sf_of_garage: {
+    quantity: (derived) => derived.garageArea,
+    inputs: ["grossSquareFeet", "parkingType", "storiesAboveGrade"],
+    words: { unit: "SF of Garage", perUnit: "SF of Garage" },
+  },
+  usd_per_sf_of_balcony: {
+    quantity: (derived) => derived.balconyDeckArea,
+    inputs: ["balconyType", "balconyCount", "balconyDeckSquareFeet"],
+    words: { unit: "SF of Balcony Deck", perUnit: "SF" },
+  },
+  usd_per_lf_of_rail: {
+    quantity: (derived) => derived.railLength,
+    inputs: ["balconyType", "balconyCount", "balconyRailLinearFeet", "julietCount", "julietRailLinearFeet"],
+    words: { unit: "LF of Rail", perUnit: "LF" },
+  },
+  usd_each_balcony_door: {
+    quantity: (derived) => derived.balconyDoors,
+    inputs: ["balconyType", "balconyCount", "julietCount"],
+    words: { unit: "Doors", perUnit: "Door" },
+  },
+};
+
+export function isDerivedUnit(unit: BenchmarkUnit): unit is DerivedUnit {
+  return Object.hasOwn(DERIVED_UNITS, unit);
+}
+
 /** Item 1a, Structure Demolition (ADR 0006, canonical-work-items.md). */
 export const STRUCTURE_DEMOLITION_COST_CODE = "1a";
 
@@ -121,6 +166,10 @@ export function quantityFor(
    */
   derived: DerivedQuantities | null = null,
 ): number {
+  if (isDerivedUnit(unit)) {
+    const quantity = derived ? DERIVED_UNITS[unit].quantity(derived) : null;
+    return quantity?.ok ? quantity.value : 0;
+  }
   switch (unit) {
     case "usd_per_gsf":
       return grossSquareFeet;
@@ -136,13 +185,6 @@ export function quantityFor(
       return elevatorCount ?? 0;
     case "usd_each_machine_room":
       return machineRooms ?? 0;
-    case "usd_per_sf_of_garage":
-    case "usd_per_sf_of_balcony":
-    case "usd_per_lf_of_rail":
-    case "usd_each_balcony_door": {
-      const quantity = derived ? derivedQuantityFor(unit, derived) : null;
-      return quantity?.ok ? quantity.value : 0;
-    }
   }
 }
 
@@ -162,17 +204,17 @@ export const UNIT_INPUTS: Readonly<Record<BenchmarkUnit, readonly string[]>> = {
   usd_per_stop: ["elevatorCount", "storiesAboveGrade", "levels_below_grade", "elevatorType"],
   usd_each_elevator: ["elevatorCount"],
   usd_each_machine_room: ["elevatorMachineRooms"],
-  usd_per_sf_of_garage: ["grossSquareFeet", "parkingType", "storiesAboveGrade"],
-  usd_per_sf_of_balcony: ["balconyType", "balconyCount", "balconyDeckSquareFeet"],
-  usd_per_lf_of_rail: ["balconyType", "balconyCount", "balconyRailLinearFeet"],
-  usd_each_balcony_door: ["balconyType", "balconyCount"],
+  usd_per_sf_of_garage: DERIVED_UNITS.usd_per_sf_of_garage.inputs,
+  usd_per_sf_of_balcony: DERIVED_UNITS.usd_per_sf_of_balcony.inputs,
+  usd_per_lf_of_rail: DERIVED_UNITS.usd_per_lf_of_rail.inputs,
+  usd_each_balcony_door: DERIVED_UNITS.usd_each_balcony_door.inputs,
 };
 
 /**
  * LA-2216: the derived quantities (GLOSSARY.md: Derived quantity) a run reads
  * off the project's facts, each worked out once. A later unit that reads a
  * fact a project may lack (a balcony count, a Juliet count) adds its quantity
- * here and its case to `derivedQuantityFor`.
+ * here and its row to `DERIVED_UNITS`.
  */
 export type DerivedQuantities = {
   garageArea: QuantityResult;
@@ -186,18 +228,7 @@ export type DerivedQuantities = {
 
 /** The derived quantity a unit multiplies by, or null for a unit that reads none. */
 export function derivedQuantityFor(unit: BenchmarkUnit, derived: DerivedQuantities): QuantityResult | null {
-  switch (unit) {
-    case "usd_per_sf_of_garage":
-      return derived.garageArea;
-    case "usd_per_sf_of_balcony":
-      return derived.balconyDeckArea;
-    case "usd_per_lf_of_rail":
-      return derived.railLength;
-    case "usd_each_balcony_door":
-      return derived.balconyDoors;
-    default:
-      return null;
-  }
+  return isDerivedUnit(unit) ? DERIVED_UNITS[unit].quantity(derived) : null;
 }
 
 /** A line whose quantity the project's facts cannot give yet: the facts it lacks, and why in words. */

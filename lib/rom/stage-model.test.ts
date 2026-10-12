@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { partsOf, type StageFacts, stageBuilding, stageFactsFromResponses } from "./stage-model";
+import { readFlowAnswers, tier1Flow } from "./question-flow";
+import { partsOf, type StageFacts, stageBuilding, stageFactsFromResponses, withRunFacts } from "./stage-model";
 
 // LA-1317: the stage's building comes only from the project's facts and its
 // Design and Engineering cards.
@@ -43,7 +44,7 @@ const harborView = [
 
 describe("stageBuilding", () => {
   it("draws Harbor View: a podium, five frame floors, piles, two hydraulic cars", () => {
-    const b = stageBuilding(facts(), harborView)!;
+    const b = stageBuilding(facts({ poorSoil: true }), harborView)!;
     expect(b.levels.map((l) => l.kind)).toEqual(["podium", "frame", "frame", "frame", "frame", "frame"]);
     expect(b.height).toBe(62);
     expect(b.width * b.depth).toBeCloseTo(118_000 / 6, 0);
@@ -113,9 +114,31 @@ describe("stageBuilding's plan (LA-1325)", () => {
   });
 });
 
+describe("Juliet balconies on the stage (LA-2220)", () => {
+  it("draws the Juliet rail and the doors with no deck or full rail", () => {
+    const parts = partsOf(stageBuilding(facts({ balconies: true, balconyType: "juliet" }), harborView)!);
+    expect(parts).toContain("julietRail");
+    expect(parts).toContain("balconyDoors");
+    expect(parts).not.toContain("balconies");
+    expect(parts).not.toContain("balconyRail");
+  });
+
+  it("draws no Juliet rail for full balconies, for an unanswered type or for no balconies", () => {
+    for (const f of [facts({ balconyType: "full" }), facts({ balconyType: null }), facts({ balconies: false, balconyType: "juliet" })]) {
+      expect(partsOf(stageBuilding(f, harborView)!)).not.toContain("julietRail");
+    }
+  });
+
+  it("reads the Juliet count as the balcony count when the type is Juliet", () => {
+    const responses = { balconies: "yes", balcony_type: "juliet", balcony_count: "25", juliet_count: "40" };
+    expect(stageFactsFromResponses(responses)).toMatchObject({ balconyType: "juliet", balconyCount: 40 });
+    expect(stageFactsFromResponses({ ...responses, balcony_type: "full" })).toMatchObject({ balconyCount: 25 });
+  });
+});
+
 describe("partsOf (LA-1325)", () => {
   it("names the parts the building has, the ground first (LA-2211)", () => {
-    expect(partsOf(stageBuilding(facts(), harborView)!)).toEqual([
+    expect(partsOf(stageBuilding(facts({ poorSoil: true }), harborView)!)).toEqual([
       "site",
       "foundation",
       "piles",
@@ -127,6 +150,7 @@ describe("partsOf (LA-1325)", () => {
       "garageSprinklers",
       "garageDrySprinklers",
       "massing",
+      "risers",
       "glass",
       "balconies",
       "balconyRail",
@@ -141,7 +165,7 @@ describe("partsOf (LA-1325)", () => {
     expect(partsOf(stageBuilding(facts(), traction)!)).toContain("elevatorMachine");
     expect(partsOf(stageBuilding(facts(), traction)!)).not.toContain("elevatorJack");
     const plain = stageBuilding(facts({ parkingType: "surface", elevatorCount: 0, balconies: false, belowGrade: true }), [])!;
-    expect(partsOf(plain)).toEqual(["site", "surfaceLot", "foundation", "basement", "massing", "glass"]);
+    expect(partsOf(plain)).toEqual(["site", "surfaceLot", "foundation", "basement", "massing", "risers", "glass"]);
   });
 
   it("draws the garage only under a podium that structured parking gives (LA-2216)", () => {
@@ -165,9 +189,63 @@ describe("partsOf (LA-1325)", () => {
     expect(partsOf(good)).not.toContain("piles");
   });
 
+  // LA-2209 review S3: piles appear only for poor soil.
+  it("draws no piles on good soil, even when S-1 lands on deep foundations", () => {
+    const good = stageBuilding(facts({ poorSoil: false }), harborView)!;
+    expect(good.piles).toBe(false);
+    expect(partsOf(good)).not.toContain("piles");
+    expect(good.foundation).toEqual({ system: "Deep Foundations", depth: 40 });
+  });
+
   it("reads poor soil off the Site Conditions answer", () => {
     expect(stageFactsFromResponses({ site_conditions: "yes" }).poorSoil).toBe(true);
     expect(stageFactsFromResponses({ site_conditions: "no" }).poorSoil).toBe(false);
     expect(stageFactsFromResponses({}).poorSoil).toBe(false);
+  });
+});
+
+describe("a saved run's balconies (LA-2209 review S1)", () => {
+  // The project record keeps only the yes/no balcony gate. The Full or Juliet
+  // follow-up and its counts live in the run's recorded facts.
+  const responses = {
+    project_type: "multifamily",
+    construction_kind: "new",
+    gross_square_feet: "118000",
+    stories_above_grade: "6",
+    unit_count: "107",
+    parking_type: "structured",
+    demolition: "no",
+    levels_below_grade: "no",
+    existing_building_tie_in: "no",
+    site_conditions: "no",
+    amenity_scope: "no",
+    elevator: "yes",
+    elevator_count: "2",
+    retail_storefronts: "no",
+    radio_amplifier: "no",
+    balconies: "yes",
+    balcony_type: "juliet",
+    juliet_count: "40",
+    juliet_rail_linear_feet: "6",
+  };
+  const recorded = readFlowAnswers(tier1Flow(), responses).answers.facts;
+
+  it("draws the Juliet rail from the run's facts, the same parts the live answers draw", () => {
+    const saved = partsOf(stageBuilding(withRunFacts(facts(), recorded), harborView)!);
+    const live = partsOf(stageBuilding(stageFactsFromResponses(responses), harborView)!);
+    expect(saved).toContain("julietRail");
+    expect(saved).not.toContain("balconies");
+    expect(saved).not.toContain("balconyRail");
+    expect(saved).toEqual(live);
+  });
+
+  it("reads the count of the chosen type for the rate math", () => {
+    expect(withRunFacts(facts(), recorded)).toMatchObject({ balconyType: "juliet", balconyCount: 40 });
+    const full = readFlowAnswers(tier1Flow(), { ...responses, balcony_type: "full", balcony_count: "25" }).answers.facts;
+    expect(withRunFacts(facts(), full)).toMatchObject({ balconyType: "full", balconyCount: 25 });
+  });
+
+  it("leaves the project's facts as they are for a run with no balcony facts", () => {
+    expect(withRunFacts(facts(), undefined)).toEqual(facts());
   });
 });

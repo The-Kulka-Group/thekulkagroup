@@ -39,7 +39,7 @@ describe("answerMoment", () => {
     expect(answerMoment(gate("balconies", "Do the units have balconies?"), "yes")?.parts).toEqual(["balconies", "balconyRail", "balconyDoors"]);
   });
 
-  it("draws the slabs, rails and doors for full balconies, and the doors alone for Juliet (LA-2219)", () => {
+  it("draws the slabs, rails and doors for full balconies, and the Juliet rail and doors for Juliet (LA-2219, LA-2220)", () => {
     const type: Question = {
       id: "balcony_type",
       prompt: "What kind of balconies do the units have?",
@@ -53,7 +53,8 @@ describe("answerMoment", () => {
       mapsTo: { target: "intake_field", name: "balconyType" },
     };
     expect(answerMoment(type, "full")).toMatchObject({ tag: "Balcony Type", answer: "Full", parts: ["balconies", "balconyRail", "balconyDoors"] });
-    expect(answerMoment(type, "juliet")?.parts).toEqual(["balconyDoors"]);
+    // LA-2220: a Juliet balcony draws its rail across the door, with no slab.
+    expect(answerMoment(type, "juliet")?.parts).toEqual(["julietRail", "balconyDoors"]);
   });
 
   it("formats a number and plays nothing for a skipped one", () => {
@@ -78,8 +79,8 @@ describe("cardMoment and setupMoment", () => {
   });
 
   it("brings the glass with the building unless M-0 will decide it", () => {
-    expect(setupMoment(6, 118000, true)).toMatchObject({ answer: "6 Stories, 118,000 SF", parts: ["massing"], tag: "" });
-    expect(setupMoment(1, 9000, false)).toMatchObject({ answer: "1 Story, 9,000 SF", parts: ["massing", "glass"] });
+    expect(setupMoment(6, 118000, true)).toMatchObject({ answer: "6 Stories, 118,000 SF", parts: ["massing", "risers"], tag: "" });
+    expect(setupMoment(1, 9000, false)).toMatchObject({ answer: "1 Story, 9,000 SF", parts: ["massing", "risers", "glass"] });
   });
 });
 

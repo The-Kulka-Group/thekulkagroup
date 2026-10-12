@@ -34,10 +34,15 @@ export const PER_UNIT_COST_CODES: ReadonlySet<string> = new Set([
   "28", // Plumbing
 ]);
 
+/** A fact off `Answers.facts` as a number above zero, or null when nobody answered it with one. */
+export function positiveFact(facts: Record<string, string | number | boolean> | undefined, name: string): number | null {
+  const value = facts?.[name];
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
 /** The project's unit count off `Answers.facts`, or null when nobody answered it. */
 export function readUnitCount(facts: Record<string, string | number | boolean> | undefined): number | null {
-  const value = facts?.["unitCount"];
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+  return positiveFact(facts, "unitCount");
 }
 
 /** What a per-unit line records beside its money, for the screen to show. */

@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import { sourceOf } from "@/app/(app)/rom/ledger";
 import { estimatedPublication, referencePublication } from "@/test/fixtures/published-budget";
 
-import { clientBasis, clientSource, noteKey, presentBudget, rateUsd } from "./presentation";
+import { rateUsd } from "@/lib/format/usd";
+
+import { clientSource } from "./client-source";
+import { clientBasis, noteKey, presentBudget } from "./presentation";
 
 // LA-1418. The presentation model, from the reference run. Expected figures
 // are the ones the LA-1416 reference page printed from the same run.

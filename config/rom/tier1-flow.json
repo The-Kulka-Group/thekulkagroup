@@ -207,7 +207,7 @@
           "label": "Full",
           "opens": ["balcony_count", "balcony_deck_square_feet", "balcony_rail_linear_feet"]
         },
-        { "value": "juliet", "label": "Juliet" }
+        { "value": "juliet", "label": "Juliet", "opens": ["juliet_count", "juliet_rail_linear_feet"] }
       ],
       "level": 3,
       "mapsTo": { "target": "intake_field", "name": "balconyType" }
@@ -238,6 +238,24 @@
       "required": false,
       "level": 3,
       "mapsTo": { "target": "intake_field", "name": "balconyRailLinearFeet" }
+    },
+    {
+      "id": "juliet_count",
+      "prompt": "Juliet Count",
+      "help": "How many Juliet balconies, across every building. Each has one sliding door.",
+      "kind": "number",
+      "required": false,
+      "level": 3,
+      "mapsTo": { "target": "intake_field", "name": "julietCount" }
+    },
+    {
+      "id": "juliet_rail_linear_feet",
+      "prompt": "Rail per Juliet",
+      "help": "Linear feet of rail across one Juliet balcony.",
+      "kind": "number",
+      "required": false,
+      "level": 3,
+      "mapsTo": { "target": "intake_field", "name": "julietRailLinearFeet" }
     },
     {
       "id": "radio_amplifier",

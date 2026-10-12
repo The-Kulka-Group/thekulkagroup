@@ -63,6 +63,9 @@ export {
   UNIT_INPUTS,
   structureDemolitionSpanLine,
   derivedQuantityFor,
+  DERIVED_UNITS,
+  isDerivedUnit,
+  type DerivedUnit,
   pickDerivedRows,
   type BenchmarkUnit,
   type DemolitionFacts,
@@ -80,6 +83,7 @@ export {
 export {
   BALCONY_DECK_COST_CODE,
   BALCONY_RAIL_COST_CODE,
+  JULIET_RAIL_COST_CODE,
   SLIDING_DOOR_COST_CODE,
   balconyDeckArea,
   balconyDoorCount,

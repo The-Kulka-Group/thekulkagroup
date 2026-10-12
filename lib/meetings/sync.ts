@@ -1,7 +1,7 @@
 import type { Db } from "@/lib/db";
 
 import type { FirefliesTranscript } from "./fireflies";
-import { meetingFromTranscript, savedFirefliesIds, upsertMeeting } from "./store";
+import { completeFirefliesIds, meetingFromTranscript, upsertMeeting } from "./store";
 
 // LA-2279. Pulling meetings from Fireflies into Kulka AI. The Fireflies calls
 // are passed in, so tests never reach the network.
@@ -17,8 +17,9 @@ export async function syncMeeting(db: Db, reader: FirefliesReader, firefliesId: 
 }
 
 /**
- * Saves every meeting since `from` that Kulka AI does not have yet, for the
- * ones a webhook missed. Safe to run any number of times.
+ * Saves every meeting since `from` that Kulka AI does not have yet, or has
+ * without its summary. This is the main path, since Fireflies' webhooks fire
+ * only for meetings meetings@ organizes. Safe to run any number of times.
  */
 export async function backfillMeetings(
   db: Db,
@@ -26,7 +27,7 @@ export async function backfillMeetings(
   from: Date,
 ): Promise<{ found: number; added: number }> {
   const ids = await reader.listTranscriptIds(from);
-  const saved = await savedFirefliesIds(db, ids);
+  const saved = await completeFirefliesIds(db, ids);
   const missing = ids.filter((id) => !saved.has(id));
   for (const id of missing) await syncMeeting(db, reader, id);
   return { found: ids.length, added: missing.length };

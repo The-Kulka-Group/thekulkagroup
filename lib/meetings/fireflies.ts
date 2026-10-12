@@ -10,10 +10,41 @@ const TRANSCRIPT_FIELDS = `
   duration
   organizer_email
   transcript_url
+  calendar_id
+  cal_id
+  privacy
   meeting_attendees { displayName email name }
-  summary { overview action_items keywords shorthand_bullet }
-  sentences { index speaker_name text start_time end_time }
+  meeting_attendance { name join_time leave_time }
+  meeting_info { summary_status }
+  summary {
+    overview action_items keywords shorthand_bullet meeting_type topics_discussed
+    transcript_chapters
+  }
+  analytics {
+    sentiments { negative_pct neutral_pct positive_pct }
+    categories { questions date_times metrics tasks }
+    speakers {
+      name duration duration_pct word_count words_per_minute questions filler_words
+      longest_monologue monologues_count
+    }
+  }
+  sentences {
+    index speaker_name text start_time end_time
+    ai_filters { task pricing metric question date_and_time sentiment }
+  }
 `;
+
+export type FirefliesSpeakerAnalytics = {
+  name: string | null;
+  duration: number | null;
+  duration_pct: number | null;
+  word_count: number | null;
+  words_per_minute: number | null;
+  questions: number | null;
+  filler_words: number | null;
+  longest_monologue: number | null;
+  monologues_count: number | null;
+};
 
 /** A transcript as Fireflies returns it, with the fields requested above. */
 export type FirefliesTranscript = {
@@ -25,14 +56,34 @@ export type FirefliesTranscript = {
   duration: number | null;
   organizer_email: string | null;
   transcript_url: string | null;
+  calendar_id?: string | null;
+  cal_id?: string | null;
+  privacy?: string | null;
   meeting_attendees: { displayName: string | null; email: string | null; name: string | null }[] | null;
+  meeting_attendance?: { name: string | null; join_time: string | number | null; leave_time: string | number | null }[] | null;
+  meeting_info?: { summary_status: string | null } | null;
   summary: {
     overview: string | null;
     action_items: string | null;
     keywords: string[] | null;
     shorthand_bullet: string | null;
+    meeting_type?: string | null;
+    topics_discussed?: string[] | string | null;
+    transcript_chapters?: unknown;
   } | null;
-  sentences: { index: number; speaker_name: string | null; text: string; start_time: number; end_time: number }[] | null;
+  analytics?: {
+    sentiments: { negative_pct: number | null; neutral_pct: number | null; positive_pct: number | null } | null;
+    categories: { questions: number | null; date_times: number | null; metrics: number | null; tasks: number | null } | null;
+    speakers: FirefliesSpeakerAnalytics[] | null;
+  } | null;
+  sentences: {
+    index: number;
+    speaker_name: string | null;
+    text: string;
+    start_time: number;
+    end_time: number;
+    ai_filters?: Record<string, string | null> | null;
+  }[] | null;
 };
 
 export class FirefliesError extends Error {

@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({ getDb: () => db as Db }));
 
 const webhook = await import("./route");
 const sync = await import("../sync/route");
+const cron = await import("../sync/cron/route");
 
 const SECRET = "test-webhook-secret";
 const sign = (body: string) => createHmac("sha256", SECRET).update(body).digest("hex");
@@ -34,8 +35,20 @@ function answer(data: unknown) {
 }
 
 async function savedMeetings() {
-  const { rows } = await db.query<{ fireflies_id: string; title: string; attendees: unknown; summary: { overview: string } }>(
-    `select fireflies_id, title, attendees, summary from meetings order by started_at`,
+  const { rows } = await db.query<{
+    fireflies_id: string;
+    title: string;
+    attendees: unknown;
+    summary: { overview: string };
+    meeting_type: string | null;
+    positive_pct: string | null;
+    negative_pct: string | null;
+    analytics: { speakers: { name: string; share: number }[] };
+    attendance: unknown;
+    sentences: { flags: Record<string, string> }[];
+  }>(
+    `select fireflies_id, title, attendees, summary, meeting_type, positive_pct, negative_pct, analytics, attendance, sentences
+       from meetings order by started_at`,
   );
   return rows;
 }
@@ -57,7 +70,7 @@ afterEach(() => {
 afterAll(async () => db?.close());
 
 describe("POST /api/meetings/fireflies", () => {
-  const body = JSON.stringify({ meetingId: sample.id, eventType: "Transcription completed" });
+  const body = JSON.stringify({ event: "meeting.summarized", timestamp: 1791824000000, meeting_id: sample.id });
 
   it("refuses an unsigned or wrongly signed call and saves nothing", async () => {
     expect((await deliver(body, null)).status).toBe(401);
@@ -85,7 +98,28 @@ describe("POST /api/meetings/fireflies", () => {
         { name: "Example Owner", email: "owner@example.com" },
       ],
       summary: { overview: "The team reviewed the example schedule and two open RFIs." },
+      meeting_type: "OAC Meeting",
+      attendance: [
+        { name: "Example PM", joinedAt: "2026-10-12T13:00:05Z", leftAt: "2026-10-12T13:58:40Z" },
+        { name: "Example Owner", joinedAt: "2026-10-12T13:07:30Z", leftAt: "2026-10-12T13:58:40Z" },
+      ],
     });
+    // LA-2287: sentiment as columns for project roll-ups, talk time as analytics, flags kept on each sentence.
+    expect(Number(saved[0].positive_pct)).toBe(30);
+    expect(Number(saved[0].negative_pct)).toBe(12);
+    expect(saved[0].analytics.speakers.map((one) => [one.name, one.share])).toEqual([
+      ["Example PM", 61],
+      ["Example Owner", 39],
+    ]);
+    expect(saved[0].sentences[1].flags).toEqual({ question: "Where are we on the RFIs?", sentiment: "negative" });
+  });
+
+  it("answers a bot-joined event without saving or calling Fireflies", async () => {
+    const joined = JSON.stringify({ event: "meeting.bot_joined", timestamp: 1, meeting_id: sample.id });
+    const response = await deliver(joined, sign(joined));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, ignored: true });
+    expect(fireflies).not.toHaveBeenCalled();
   });
 
   it("says Fireflies is not set up when the API key is missing", async () => {
@@ -112,7 +146,8 @@ describe("POST /api/meetings/sync", () => {
       return answer({ transcript: { ...sample, id: variables.id, title: `Meeting ${variables.id}` } });
     });
     await db.query(
-      `insert into meetings (fireflies_id, title, started_at) values ('SAMPLE-FF-001', 'Already Here', now())`,
+      `insert into meetings (fireflies_id, title, started_at, summary)
+       values ('SAMPLE-FF-001', 'Already Here', now(), '{"overview": "Done."}')`,
     );
 
     const first = await backfill();
@@ -126,5 +161,31 @@ describe("POST /api/meetings/sync", () => {
   it("refuses a day count outside 1 to 90", async () => {
     expect((await backfill({ days: 0 })).status).toBe(400);
     expect((await backfill({ days: 91 })).status).toBe(400);
+  });
+
+  it("fetches again a meeting saved before its summary was ready", async () => {
+    fireflies.mockImplementation(async (_url: string, init: { body: string }) => {
+      const { query } = JSON.parse(init.body);
+      if (query.includes("transcripts(")) return answer({ transcripts: [{ id: "SAMPLE-FF-001" }] });
+      return answer({ transcript: sample });
+    });
+    await db.query(`insert into meetings (fireflies_id, title, started_at) values ('SAMPLE-FF-001', 'No Summary Yet', now())`);
+    expect(await (await backfill()).json()).toEqual({ found: 1, added: 1 });
+    expect((await savedMeetings())[0].title).toBe("Example Job Weekly OAC");
+  });
+});
+
+describe("GET /api/meetings/sync/cron", () => {
+  const run = (auth?: string) =>
+    cron.GET(new Request("http://localhost/api/meetings/sync/cron", { headers: auth ? { authorization: auth } : {} }));
+
+  it("runs only with Vercel's cron secret", async () => {
+    vi.stubEnv("CRON_SECRET", "test-cron-secret");
+    fireflies.mockImplementation(async () => answer({ transcripts: [] }));
+    expect((await run()).status).toBe(401);
+    expect((await run("Bearer wrong")).status).toBe(401);
+    const ok = await run("Bearer test-cron-secret");
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ found: 0, added: 0 });
   });
 });

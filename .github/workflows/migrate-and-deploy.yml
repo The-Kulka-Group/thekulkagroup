@@ -58,9 +58,10 @@ jobs:
       - name: Apply migrations to production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase link --project-ref dpwhxfvwstqszzzkxgdv
-          supabase db push --linked --yes
+          # Names the project without `supabase link`, which also reads auth,
+          # storage and network settings the token is not allowed to see.
+          SUPABASE_PROJECT_ID: dpwhxfvwstqszzzkxgdv
+        run: supabase db push --linked --yes
 
       - name: Rebuild production
         env:

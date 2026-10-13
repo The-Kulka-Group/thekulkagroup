@@ -1,7 +1,7 @@
 # LA-2360. Lint, typecheck and unit tests on every pull request.
 #
 # The unit tests build an in-process Postgres from supabase/migrations, so this
-# job needs no database and no secrets. Browser tests (npm run test:browser)
+
 # stay a local check until they are stable on a runner.
 
 name: CI
@@ -23,9 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Production runs Node 24 (Vercel project setting). Two engine tests pin
+      # SHA-256 digests of full runs, and those digests change with the Node
+      # version, so CI matches production.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci

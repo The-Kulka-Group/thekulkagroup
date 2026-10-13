@@ -19,9 +19,9 @@ cannot.
 stays disabled when it is absent. Production migrations contain no example
 projects or cost values.
 
-Schema changes are migrations in `supabase/migrations/`. Run `supabase link`
-once against Kulka's project, then `supabase db push` applies them. Nothing
-changes the schema by hand.
+Schema changes are migrations in `supabase/migrations/`. Merging a pull request
+that adds one applies it to production and redeploys, through a GitHub Action
+(see `docs/agents/deploy.md`). Nothing changes the schema by hand.
 
 Every table has row level security on with no policies, which denies everyone
 holding a browser key. Server-side code connects as the owner and is unaffected.

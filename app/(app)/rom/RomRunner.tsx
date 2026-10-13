@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { BlockClassification, FramingSystem, MarkupChoices, Rom } from "@kulka/engine";
 
+import { GoArrow } from "@/components/ButtonMarks";
 import { titleCase } from "@/lib/format/title-case";
 import type { GateAnswers } from "@/lib/rom/gates";
 import type { MarkupOptions } from "@/lib/rom/markup";
@@ -937,11 +938,12 @@ export function RomRunner({
           {projectId && run ? (
             <button
               type="button"
-              className="rb-hbtn pm-wide"
+              className="btn btn--go rb-go pm-wide"
               aria-expanded={panel?.kind === "publish"}
               onClick={(e) => openPanel({ kind: "publish" }, e.currentTarget)}
             >
               Publish
+              <GoArrow />
             </button>
           ) : null}
           {projectId && run ? (

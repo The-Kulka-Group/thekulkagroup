@@ -146,6 +146,40 @@
 .rb-hbtn[aria-expanded="true"] { background: var(--primary); border-color: var(--primary); color: #FFFFFF; }
 .rb-hdr .btn--primary:disabled { background: var(--rb-pnl-raise); border-color: var(--rb-pnl-line2); color: var(--rb-pnl-mute); }
 
+/* LA-2412: Publish is the band's go button, cut to the band's control height.
+   Filled black on hover would vanish into the band, so it keeps a hairline. */
+.rb-hdr .rb-go { --go-h: var(--control-h); --go-disc: 24px; border-color: transparent; }
+.rb-hdr .rb-go:hover,
+.rb-hdr .rb-go[aria-expanded="true"] { border-color: var(--rb-pnl-line2); }
+
+/* LA-2413: the band's dropdowns, the project picker and Settings, read as
+   frosted pills with a chevron and grow a little on hover. */
+.rb-hdr .pm-btn,
+.rb-hdr .rb-pick {
+  background-color: rgba(255, 255, 255, 0.10);
+  border-color: transparent;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: background-color var(--motion-slow) var(--ease), transform var(--motion-slow) var(--ease);
+}
+.rb-hdr .pm-btn:hover,
+.rb-hdr .rb-pick:hover { background-color: rgba(255, 255, 255, 0.16); border-color: transparent; transform: scale(1.05); }
+.rb-hdr .pm-btn { padding-right: var(--s3); }
+.rb-hdr .pm-btn[aria-expanded="true"] { background-color: rgba(255, 255, 255, 0.22); }
+.rb-hdr .rb-pick {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%23F4F3EE' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+.rb-hdr .rb-pick option { background: var(--rb-pnl-raise); color: var(--rb-ink-on-black); }
+@media (prefers-reduced-motion: reduce) {
+  .rb-hdr .pm-btn:hover, .rb-hdr .rb-pick:hover { transform: none; }
+}
+
 /* LA-1159: the By Scope / By Package switch, a pill the same height as the
    other header controls so it sits in the band without changing its rhythm. */
 .rb-vsw {
@@ -697,7 +731,8 @@
 .rb--fresh .rb-t1 .rb-proj,
 .rb--fresh .rb-t1 .num,
 .rb--fresh .rb-t1 .btn--primary,
-.rb--fresh .rb-t1 .rb-hbtn:not([aria-expanded="true"]) { display: none; }
+.rb--fresh .rb-t1 .rb-hbtn:not([aria-expanded="true"]),
+.rb--fresh .rb-t1 .rb-go:not([aria-expanded="true"]) { display: none; }
 .rb--fresh .rb-t2 > .rb-views { display: inline-flex; }
 
 /* LA-1142: the budget building behind New budget. LiveBudget.tsx drives the

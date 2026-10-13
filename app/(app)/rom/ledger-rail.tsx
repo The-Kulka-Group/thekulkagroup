@@ -10,6 +10,8 @@ import Link from "next/link";
 import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { formatDerivedValue, showsAssumedFact } from "@kulka/engine";
 
+import { Chevron } from "@/components/ButtonMarks";
+
 import type { Criterion, Ping } from "./DerivedCriteria";
 import { bandGeometry, coarsePercent, factsByShare, lowCount, rateAlert } from "./ledger-rail-model";
 
@@ -78,9 +80,7 @@ export function Menu({
       >
         {label}
         {summary ? <span className="pm-sum" aria-hidden="true">{summary}</span> : null}
-        <svg viewBox="0 0 12 12" aria-hidden="true" className="pm-car">
-          <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <Chevron className="pm-car btn-chev" />
       </button>
       {open ? (
         <div ref={pop} className={`pm-pop pm-pop--${align}`} role="group" aria-label={label} onKeyDown={onPopKey}>

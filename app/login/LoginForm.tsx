@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 
+import { GoArrow } from "@/components/ButtonMarks";
+
 import { signIn, type LoginState } from "./actions";
 
 const initialState: LoginState = { error: null, message: null };
@@ -18,8 +20,9 @@ export function LoginForm({ next }: { next: string }) {
       {state.error ? <p className="auth-message auth-message--error" role="alert">{state.error}</p> : null}
       {state.message ? <p className="auth-message auth-message--status" role="status">{state.message}</p> : null}
       <div className="auth-actions">
-        <button className="btn btn--primary btn--lg" type="submit" disabled={pending}>
+        <button className="btn btn--go" type="submit" disabled={pending}>
           {pending ? "Sending..." : "Send Sign-In Link"}
+          <GoArrow />
         </button>
       </div>
     </form>

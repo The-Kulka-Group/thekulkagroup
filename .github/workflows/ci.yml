@@ -1,0 +1,40 @@
+# LA-2360. Lint, typecheck and unit tests on every pull request.
+#
+# The unit tests build an in-process Postgres from supabase/migrations, so this
+# job needs no database and no secrets. Browser tests (npm run test:browser)
+# stay a local check until they are stable on a runner.
+
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test

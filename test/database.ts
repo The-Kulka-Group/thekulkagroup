@@ -1,14 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-
-import { PGlite } from "@electric-sql/pglite";
-
 import type { Db } from "@/lib/db";
+
+import { migratedDatabase } from "./migrated-snapshot";
 
 export const TEST_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
 const TEST_BENCHMARK_ID = "00000000-0000-4000-8000-000000000002";
-
-const MIGRATIONS = join(process.cwd(), "supabase", "migrations");
 
 /**
  * A throwaway Postgres with this repo's migrations applied, in process.
@@ -26,12 +21,7 @@ export async function seededDatabase(
     balconyRates?: boolean;
   } = {},
 ): Promise<Db & { close: () => Promise<void> }> {
-  const pg = new PGlite();
-
-  for (const file of readdirSync(MIGRATIONS).sort()) {
-    if (!file.endsWith(".sql")) continue;
-    await pg.exec(readFileSync(join(MIGRATIONS, file), "utf8"));
-  }
+  const pg = await migratedDatabase();
 
   // 20260927150000_demolition_stated_rates.sql records Matt's demolition
   // rates for multifamily, the same type as the test project. Most tests

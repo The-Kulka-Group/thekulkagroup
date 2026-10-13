@@ -61,7 +61,15 @@ jobs:
           # Names the project without `supabase link`, which also reads auth,
           # storage and network settings the token is not allowed to see.
           SUPABASE_PROJECT_ID: dpwhxfvwstqszzzkxgdv
-        run: supabase db push --linked --yes
+        # GitHub runners have no IPv6, so the direct database host is
+        # unreachable. When it is, the CLI (internal/utils/flags/db_url.go)
+        # falls back to the IPv4 pooler saved at supabase/.temp/pooler-url,
+        # the file `supabase link` would write. It holds no password: the CLI
+        # logs in with a short-lived role made from the access token.
+        run: |
+          mkdir -p supabase/.temp
+          printf '%s' 'postgresql://postgres.dpwhxfvwstqszzzkxgdv@aws-0-us-east-1.pooler.supabase.com:5432/postgres' > supabase/.temp/pooler-url
+          supabase db push --linked --yes
 
       - name: Rebuild production
         env:

@@ -136,7 +136,6 @@ export const WORKSTREAMS: Workstream[] = [
       b("2026-10-09", "LA-2057", "Solve the construction loan to a target loan to cost"),
       b("2026-10-09", "LA-2082", "Start every source row and new line with the case's common source"),
       b("2026-10-09", "LA-2109", "Print the deal summary PDF on the live site"),
-      b("2026-10-13", "LA-2417", "Fill hard cost from a ROM budget, by building one or picking one"),
       { date: null, title: "Soft loans that a buyer assumes at sale or that repay after the sale", status: "waiting", note: "Today a soft loan repays in one month within the model's timeline." },
       { date: null, title: "Let capital plan dates, source draws and tax years follow named milestones", status: "waiting", note: "Cost lines already move with milestones. These dates are still typed in." },
     ],

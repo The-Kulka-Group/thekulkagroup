@@ -1,6 +1,7 @@
 import { STRAIGHT_LINE_DISTRIBUTION_VERSION, type Rom } from "@kulka/engine";
 
 import type { Db } from "@/lib/db";
+import { headlineRange, midpoint } from "@/lib/rom/headline";
 import { savedRom } from "@/lib/rom/run-records";
 import { INTAKE_LINE_IDS } from "@/lib/underwriting/intake-seed";
 
@@ -13,12 +14,6 @@ import { INTAKE_LINE_IDS } from "@/lib/underwriting/intake-seed";
 export const ROM_HARD_COST_LINE_ID = "rom-hard-cost";
 
 export const ROM_SOURCE_PREFIX = "ROM: ";
-
-/** The ROM's headline figure: total project cost with markups, or trade cost on a run without them. The ROM screen leads with the same midpoint. */
-export function romHardCost(rom: Rom): number {
-  const range = rom.markups ? rom.markups.totalProjectCost : rom.total;
-  return (range.low + range.high) / 2;
-}
 
 export type RomRunFigures = {
   runId: string;
@@ -55,9 +50,9 @@ type RunRow = { id: string; started_at: Date | string; rom: Rom; answers: { gros
 
 function figures(row: RunRow | undefined): RomRunFigures | null {
   if (!row?.rom) return null;
-  const rom = savedRom(row.rom);
-  const range = rom.markups ? rom.markups.totalProjectCost : rom.total;
-  const total = romHardCost(rom);
+  // The ROM screen's own headline, so the fill matches the number the user just saw.
+  const range = headlineRange(savedRom(row.rom));
+  const total = midpoint(range);
   const grossSquareFeet = Number(row.answers?.grossSquareFeet) > 0 ? Number(row.answers?.grossSquareFeet) : null;
   return {
     runId: row.id,
@@ -145,11 +140,22 @@ export async function listRomBudgetOptions(db: Db, caseId: string): Promise<RomB
  * budget picked from the list takes the case's name.
  */
 export async function linkRomProject(db: Db, caseId: string, projectId: string): Promise<void> {
-  await db.withTransaction((tx) => linkRomProjectWithin(tx, caseId, projectId));
+  await db.withTransaction((tx) => linkRomProjectWithin(tx, caseId, projectId, "case"));
 }
 
-/** linkRomProject inside a caller's transaction, so a new budget and its link land together. */
-export async function linkRomProjectWithin(tx: Db, caseId: string, projectId: string): Promise<void> {
+/**
+ * linkRomProject inside a caller's transaction, so a new budget and its link land together.
+ * `keepName` says whose name both take: the case's for a budget picked from the list, the budget's
+ * for one just made from the case, since its setup name is the one the user last typed.
+ */
+export async function linkRomProjectWithin(tx: Db, caseId: string, projectId: string, keepName: "case" | "budget"): Promise<void> {
+  // Locking the budget first makes two links of the same budget wait on each other, so the second
+  // sees the first and gets the 409 below rather than the unique index's error.
+  const { rows: project } = await tx.query<{ id: string; name: string }>(
+    `select id, name from projects where id = $1 for update`,
+    [projectId],
+  );
+  if (!project[0]) throw new RomLinkError("ROM budget not found.", 404);
   const { rows: taken } = await tx.query<{ id: string }>(
     `select id from underwriting_cases where rom_project_id = $1 and id <> $2`,
     [projectId, caseId],
@@ -161,17 +167,18 @@ export async function linkRomProjectWithin(tx: Db, caseId: string, projectId: st
   );
   const found = rows[0];
   if (!found) throw new RomLinkError("Underwriting project not found.", 404);
-  const { rows: project } = await tx.query<{ id: string }>(`select id from projects where id = $1`, [projectId]);
-  if (!project[0]) throw new RomLinkError("ROM budget not found.", 404);
   if (found.rom_project_id === projectId) return;
   await tx.query(
     `update underwriting_cases
         set rom_project_id = $2, rom_run_id = null, rom_applied_at = null,
+            name = case when $3 then $4 else name end,
             case_revision = case_revision + 1, updated_at = now()
       where id = $1`,
-    [caseId, projectId],
+    [caseId, projectId, keepName === "budget", project[0].name],
   );
-  await tx.query(`update projects set name = $2 where id = $1 and name is distinct from $2`, [projectId, found.name]);
+  if (keepName === "case") {
+    await tx.query(`update projects set name = $2 where id = $1 and name is distinct from $2`, [projectId, found.name]);
+  }
 }
 
 const SOURCE_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
@@ -193,10 +200,13 @@ export async function applyLatestRomRun(db: Db, caseId: string): Promise<boolean
   return db.withTransaction(async (tx) => {
     const { rows } = await tx.query<{
       rom_project_id: string | null;
+      rom_run_id: string | null;
       project_name: string | null;
       analysis_start_month: Date | string | null;
+      gross_building_square_feet: string | number | null;
     }>(
-      `select c.rom_project_id, p.name as project_name, c.analysis_start_month
+      `select c.rom_project_id, c.rom_run_id, p.name as project_name, c.analysis_start_month,
+              c.gross_building_square_feet
          from underwriting_cases c left join projects p on p.id = c.rom_project_id
         where c.id = $1 for update of c`,
       [caseId],
@@ -206,22 +216,28 @@ export async function applyLatestRomRun(db: Db, caseId: string): Promise<boolean
     if (!found.rom_project_id || !found.project_name) throw new RomLinkError("This project has no linked ROM budget.", 409);
     const run = figures(await latestRun(tx, found.rom_project_id));
     if (!run) return false;
+    // The case already holds this run. Writing it again would undo any edit made to the line since.
+    if (run.runId === found.rom_run_id) return true;
 
     const sourceLabel = romSourceLabel(found.project_name, run.startedAt);
     const sourceDate = SOURCE_DAY.format(new Date(run.startedAt));
     if (found.analysis_start_month === null) {
-      if (run.perGrossSquareFoot !== null) {
-        await tx.query(
-          `insert into underwriting_case_assumptions
-             (case_id, assumption_key, value, unit, source_label, source_date, review_state)
-           values ($1, 'hard_cost_per_gross_square_foot', $2, 'usd_per_gross_square_foot', $3, $4, 'working')
-           on conflict (case_id, assumption_key) do update
-           set value = excluded.value, unit = excluded.unit,
-               source_label = excluded.source_label, source_date = excluded.source_date,
-               review_state = 'working', value_changed_at = now(), updated_at = now()`,
-          [caseId, run.perGrossSquareFoot, sourceLabel, sourceDate],
-        );
+      // The seeded Hard Cost line is priced per gross SF, so a run with no area is spread over the case's own.
+      const caseArea = Number(found.gross_building_square_feet);
+      const rate = run.perGrossSquareFoot ?? (caseArea > 0 ? Math.round((run.total / caseArea) * 100) / 100 : null);
+      if (rate === null) {
+        throw new RomLinkError("This budget recorded no gross area and the case has none, so hard cost cannot be priced per SF. Enter the case's gross building area and try again.", 422);
       }
+      await tx.query(
+        `insert into underwriting_case_assumptions
+           (case_id, assumption_key, value, unit, source_label, source_date, review_state)
+         values ($1, 'hard_cost_per_gross_square_foot', $2, 'usd_per_gross_square_foot', $3, $4, 'working')
+         on conflict (case_id, assumption_key) do update
+         set value = excluded.value, unit = excluded.unit,
+             source_label = excluded.source_label, source_date = excluded.source_date,
+             review_state = 'working', value_changed_at = now(), updated_at = now()`,
+        [caseId, rate, sourceLabel, sourceDate],
+      );
     } else {
       await writeHardCostLine(tx, caseId, run, sourceLabel, sourceDate);
     }

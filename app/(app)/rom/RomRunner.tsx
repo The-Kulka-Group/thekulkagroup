@@ -219,6 +219,8 @@ export function RomRunner({
   derivedAssumptions?: StoredDerivedAssumption[];
 }) {
   const router = useRouter();
+  // LA-2417: why finishing a budget built for an underwriting case did not get back to the case.
+  const [returnError, setReturnError] = useState<string | null>(null);
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
   const [state, setState] = useState<Status>({ phase: "idle" });
   const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
@@ -899,7 +901,7 @@ export function RomRunner({
     <div className={`rb${panel ? " rb--open" : ""}${panel?.kind === "new" ? " rb--fresh" : ""}${returnCase ? " rb--handoff" : ""}`}>
       <header className="rb-hdr">
         {/* Inside the header, which spans the grid's full width. */}
-        {returnCase ? <ReturnBand returnCase={returnCase} /> : null}
+        {returnCase ? <ReturnBand returnCase={returnCase} error={returnError} /> : null}
         <div className="rb-t1">
           <span className="rb-badge">R-100</span>
           <h1 className="rb-title">Conceptual Budget</h1>
@@ -1228,7 +1230,7 @@ export function RomRunner({
                 onCreated={(id) => {
                   // LA-2417: a budget built for an underwriting case goes straight back to the case, filled.
                   if (returnCase) {
-                    void returnToCase(returnCase.id);
+                    void returnToCase(returnCase.id).then(setReturnError);
                     return;
                   }
                   // The viewer just watched it go up, so the saved budget opens on the finished building.

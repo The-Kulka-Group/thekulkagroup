@@ -2199,3 +2199,52 @@ textarea.input { border-radius: var(--r-lg); }
 .underwriting-trace-fold > summary { cursor: pointer; font-weight: 600; color: var(--ink); padding: 4px 0; }
 .underwriting-trace-fold > summary:hover { color: var(--primary); }
 .underwriting-trace-fold > summary:focus-visible { outline: none; border-radius: 4px; box-shadow: 0 0 0 3px var(--primary-tint); }
+
+/* --- LA-2417: Handoff between underwriting and the ROM ---------------------
+   Leaving a case to build its construction budget, and coming back, are full
+   page loads. The browser morphs the case's Hard Costs card into the budget
+   screen and the budget screen back into the card. Browsers without
+   cross-document view transitions, and anyone who asks for less motion, get
+   a plain page load. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  .uw-rom-card, .rb--handoff { view-transition-name: rom-handoff; }
+  ::view-transition-group(rom-handoff) {
+    animation-duration: 520ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  ::view-transition-old(rom-handoff),
+  ::view-transition-new(rom-handoff) {
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    animation-duration: 520ms;
+  }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 220ms; }
+}
+
+/* LA-2417. The Construction Costs card at the top of the cost schedule. */
+.uw-rom-card {
+  margin: 0 0 var(--s5, 20px);
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: box-shadow 400ms ease, border-color 400ms ease;
+}
+.uw-rom-card--filled { border-color: var(--done-bright); box-shadow: 0 0 0 4px var(--done-tint); }
+.uw-rom-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.uw-rom-head h4 { margin: 0 0 4px; }
+.uw-rom-head .t-meta { margin: 0; }
+.uw-rom-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+.uw-rom-dot--done { background: var(--done-bright); }
+.uw-rom-dot--working { background: var(--working); }
+.uw-rom-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0 8px; }
+.uw-rom-figures > div { background: var(--canvas); border-radius: 6px; padding: 10px 12px; display: grid; gap: 2px; }
+.uw-rom-figures strong { font-size: 20px; color: var(--ink); }
+.uw-rom-note { margin: 8px 0 0; padding: 8px 12px; border-radius: 6px; background: var(--working-tint); color: var(--approximate-ink); font-size: 13px; }
+.uw-rom-newer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; padding: 10px 12px; border-radius: 6px; background: var(--working-tint); color: var(--approximate-ink); font-size: 13px; }
+.uw-rom-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 16px; }
+.uw-rom-way { display: grid; gap: 8px; align-content: start; justify-items: start; }
+.uw-rom-way .t-meta { margin: 0; }
+.uw-rom-way .field-label { width: 100%; }

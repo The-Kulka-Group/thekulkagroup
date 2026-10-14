@@ -1,0 +1,29 @@
+/* LA-2417. The band across the top of a budget built from an underwriting case. */
+.rom-return-band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: var(--primary-tint);
+  color: var(--ink);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-light);
+}
+/* The band sits first in the black header and runs edge to edge across it. */
+.rb-hdr > .rom-return-band { margin: -12px -24px 12px; padding: 8px 24px; }
+.rom-return-band strong { font-weight: 600; }
+.rom-return-band__note { color: var(--ink-2); }
+.rom-return-band__back {
+  margin-left: auto;
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rom-return-band__back:hover { background: var(--primary-hover); }
+.rom-return-band__back:disabled { opacity: 0.7; cursor: default; }

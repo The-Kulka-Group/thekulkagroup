@@ -53,6 +53,7 @@ import {
   type RomOrder,
 } from "./field-order";
 import { GuidedNewBudget } from "./GuidedNewBudget";
+import { ReturnBand, returnToCase, type ReturnCase } from "./return-to-case";
 import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } from "./LiveBudget";
 import type { ScheduleProposalState } from "@/lib/rom/schedule-proposal";
 
@@ -163,8 +164,11 @@ export function RomRunner({
   derivedAssumptions = NO_DERIVED_ASSUMPTIONS,
   stageFacts = null,
   scheduleProposal,
+  returnCase,
 }: {
   projectId?: string;
+  /** LA-2417: the underwriting case this budget is being built for. The band across the top leads back to it. */
+  returnCase?: ReturnCase;
   /**
    * LA-1399: the proposed schedule as the page read it. `ready` opens the
    * plan with it; `pending` asks for one once a plan shows.
@@ -892,8 +896,10 @@ export function RomRunner({
   return (
     // New budget clears the screen behind its form, so the new project starts
     // blank rather than over the last project's blocks and runs.
-    <div className={`rb${panel ? " rb--open" : ""}${panel?.kind === "new" ? " rb--fresh" : ""}`}>
+    <div className={`rb${panel ? " rb--open" : ""}${panel?.kind === "new" ? " rb--fresh" : ""}${returnCase ? " rb--handoff" : ""}`}>
       <header className="rb-hdr">
+        {/* Inside the header, which spans the grid's full width. */}
+        {returnCase ? <ReturnBand returnCase={returnCase} /> : null}
         <div className="rb-t1">
           <span className="rb-badge">R-100</span>
           <h1 className="rb-title">Conceptual Budget</h1>
@@ -1218,7 +1224,13 @@ export function RomRunner({
                 level={priceLevel}
                 onLevel={setPriceLevel}
                 landedCards={newStage.landedCards}
+                fromCase={returnCase}
                 onCreated={(id) => {
+                  // LA-2417: a budget built for an underwriting case goes straight back to the case, filled.
+                  if (returnCase) {
+                    void returnToCase(returnCase.id);
+                    return;
+                  }
                   // The viewer just watched it go up, so the saved budget opens on the finished building.
                   markStageBuilt(id);
                   router.push(`/rom?project=${id}`);

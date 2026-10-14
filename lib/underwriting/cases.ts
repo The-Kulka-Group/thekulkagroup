@@ -1286,6 +1286,13 @@ export async function updateUnderwritingCase(
            updated_at = now()
        where id = $1 and case_revision = $8
        returning *
+     ), renamed_rom_budget as (
+       -- LA-2417: a linked ROM budget shares the case's name.
+       update projects
+       set name = updated_case.name
+       from updated_case
+       where projects.id = updated_case.rom_project_id
+         and projects.name is distinct from updated_case.name
      ), supplied_assumptions as (
        select * from jsonb_to_recordset($7::jsonb) as supplied(
          key text,

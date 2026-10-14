@@ -9,8 +9,12 @@ import { getRun, listRuns } from "@/lib/rom/run-records";
 import { readCanonicalDivisions, readClassifications } from "@/lib/rom/run";
 import { readScheduleProposalState } from "@/lib/rom/schedule-proposal";
 import { readStageFacts } from "@/lib/rom/stage-facts";
+import { getUnderwritingCase } from "@/lib/underwriting/cases";
+import { readCaseForRomProject } from "@/lib/underwriting/rom-link";
+import { isUuid } from "@/lib/uuid";
 
 import { RomRunner } from "./RomRunner";
+import type { ReturnCase } from "./return-to-case";
 import { loadedRunFrom, savedRunsFor } from "./saved-runs";
 
 export const dynamic = "force-dynamic";
@@ -46,13 +50,13 @@ export const dynamic = "force-dynamic";
 export default async function RomPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string | string[]; new?: string | string[]; edit?: string | string[] }>;
+  searchParams: Promise<{ project?: string | string[]; new?: string | string[]; edit?: string | string[]; case?: string | string[] }>;
 }) {
   const auth = await authorizeRequest();
   if (!auth.ok) return <RomRunner />;
 
   const db = getDb();
-  const { project, new: newParam, edit: editParam } = await searchParams;
+  const { project, new: newParam, edit: editParam, case: caseParam } = await searchParams;
   const openNewOnLoad = (Array.isArray(newParam) ? newParam[0] : newParam) === "1";
   // LA-1322: the All Budgets menu's Edit opens the project with Edit Project showing.
   const openEditOnLoad = (Array.isArray(editParam) ? editParam[0] : editParam) === "1";
@@ -65,9 +69,17 @@ export default async function RomPage({
     // even resolves.
     readCanonicalDivisions(db),
   ]);
+  // LA-2417: a budget built for an underwriting case shows the way back to it.
+  // A new budget names the case in the link; an existing one is linked to it.
+  const returnCase = await returnCaseFor(
+    db,
+    Array.isArray(caseParam) ? caseParam[0] : caseParam,
+    projectId,
+  );
   if (!projectId) {
     return (
       <RomRunner
+        returnCase={returnCase}
         projects={projects}
         projectNotFound={notFound}
         markupOptions={markupOptions}
@@ -112,6 +124,7 @@ export default async function RomPage({
     <RomRunner
       key={`${projectId}-active`}
       projectId={projectId}
+      returnCase={returnCase}
       markupOptions={markupOptions}
       markupDefault={markupDefault}
       scopeDefaults={scopeDefaults}
@@ -128,4 +141,24 @@ export default async function RomPage({
       scheduleProposal={scheduleProposal ?? undefined}
     />
   );
+}
+
+async function returnCaseFor(
+  db: ReturnType<typeof getDb>,
+  caseId: string | undefined,
+  projectId: string | undefined,
+): Promise<ReturnCase | undefined> {
+  const linked = projectId ? await readCaseForRomProject(db, projectId) : null;
+  const id = linked?.id ?? (caseId && isUuid(caseId) && !projectId ? caseId : undefined);
+  if (!id) return undefined;
+  const savedCase = await getUnderwritingCase(db, id);
+  if (!savedCase) return undefined;
+  const zip = /\b(\d{5})(?:-\d{4})?\s*$/.exec(savedCase.address)?.[1];
+  return {
+    id: savedCase.id,
+    name: savedCase.name,
+    ...(savedCase.grossBuildingSquareFeet ? { grossSquareFeet: savedCase.grossBuildingSquareFeet } : {}),
+    ...(savedCase.proposedUnits ? { units: savedCase.proposedUnits } : {}),
+    ...(zip ? { zip } : {}),
+  };
 }

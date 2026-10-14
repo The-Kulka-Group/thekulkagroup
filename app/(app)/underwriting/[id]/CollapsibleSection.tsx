@@ -35,6 +35,11 @@ function writeCollapsed(key: string, collapsed: boolean) {
   listeners.forEach((listener) => listener());
 }
 
+/** LA-2417: opens a section, so a viewer who leaves and comes back lands on it open. */
+export function expandSection(key: string) {
+  writeCollapsed(key, false);
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => {

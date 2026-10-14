@@ -712,6 +712,56 @@ em, .em { font-style: normal; font-weight: 600; }
 
 .btn--lg { height: var(--control-h-lg); }
 
+/* LA-2412: the go button, for an action that takes the user into something.
+   A white pill with an ink label and a dark arrow disc; on hover it fills
+   Kulka black, the arrow steps up and right, and the pill grows a little.
+   Blue primary stays for saving and creating. One per screen. */
+.btn--go {
+  --go-h: 40px;
+  --go-disc: 30px;
+  height: var(--go-h);
+  padding: 0 calc((var(--go-h) - var(--go-disc)) / 2) 0 var(--s4);
+  gap: var(--s3);
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--brand);
+  font-weight: 700;
+  transition: background var(--motion-slow) var(--ease),
+              border-color var(--motion-slow) var(--ease),
+              color var(--motion-slow) var(--ease),
+              transform var(--motion-slow) var(--ease);
+}
+.btn-go-arrow {
+  display: inline-grid;
+  place-items: center;
+  width: var(--go-disc);
+  height: var(--go-disc);
+  flex: none;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #FFFFFF;
+  transition: background var(--motion-slow) var(--ease);
+}
+.btn-go-arrow svg { width: 14px; height: 14px; transition: transform var(--motion-slow) var(--ease); }
+.btn--go:hover,
+.btn--go[aria-expanded="true"] { background: var(--brand); border-color: var(--brand); color: #FFFFFF; box-shadow: none; }
+.btn--go:hover { transform: scale(1.05); }
+.btn--go:active { transform: scale(1.02); }
+.btn--go:hover .btn-go-arrow,
+.btn--go[aria-expanded="true"] .btn-go-arrow { background: rgba(255, 255, 255, 0.16); }
+.btn--go:hover .btn-go-arrow svg { transform: translate(2px, -2px); }
+.btn--go:disabled .btn-go-arrow { background: var(--border); }
+
+/* LA-2413: a control that opens a menu or a picker. The same pill as any
+   button, with a chevron that turns over while the list is open. */
+.btn--menu { padding-right: var(--s3); }
+.btn-chev { width: 16px; height: 16px; flex: none; transition: transform var(--motion-fast) var(--ease); }
+.btn--menu[aria-expanded="true"] .btn-chev { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn--go:hover, .btn--go:active, .btn--go:hover .btn-go-arrow svg { transform: none; }
+}
+
 .btn:disabled {
   color: var(--ink-3);
   border-color: var(--border-light);
@@ -1277,6 +1327,7 @@ textarea.input { border-radius: var(--r-lg); }
 .auth-actions { margin-top: var(--s6); }
 .auth-actions--flush { margin-top: 0; }
 .auth-actions .btn { width: 100%; justify-content: center; }
+.auth-actions .btn--go { justify-content: space-between; }
 .auth-footer { margin-top: var(--s6); padding-top: var(--s4); border-top: 1px solid var(--border-light); text-align: center; }
 @media (min-width: 768px) {
   .auth-shell { padding: var(--s8); }

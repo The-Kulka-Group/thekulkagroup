@@ -83,6 +83,14 @@ use judgment and match the shipped screens.
   full-width line, and the board keeps its column widths and scrolls sideways
   inside the sheet body. Desktop is unchanged. Checked on all five routes.
 
+- 2026-10-13 (LA-2412, LA-2413, from zapmail.ai): the go button joins the set. It is
+  a white pill with an ink label and a dark arrow disc; on hover it fills Kulka black,
+  the arrow steps up and right, and the pill grows 5%. It marks an action that takes
+  the user into something, at most one per screen; blue primary stays for saving and
+  creating. First uses: Publish on the Conceptual Budget band and the sign-in button.
+  Controls that open a menu or picker carry a 16px chevron that turns over while open,
+  and on the black band they read as frosted pills that grow on hover.
+
 - 2026-08-25 (critic round one): record values left-align after their labels; the
   sheet header carries a soft standing shadow so rows read as passing under it;
   documents use one attention language, so a TBD is an amber callout row with a

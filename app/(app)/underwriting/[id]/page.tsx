@@ -13,6 +13,7 @@ import {
   getLatestUnderwritingRun,
   listUnderwritingRuns,
 } from "@/lib/underwriting/runs";
+import { listRomBudgetOptions, readRomLink } from "@/lib/underwriting/rom-link";
 import { isUuid } from "@/lib/uuid";
 
 import { EditUnderwritingCase } from "./EditUnderwritingCase";
@@ -58,9 +59,11 @@ export default async function UnderwritingCasePage({
   if (!savedCase) notFound();
 
   const requestedPage = pageNumber((await searchParams).runPage);
-  const [latestRun, runCount] = await Promise.all([
+  const [latestRun, runCount, romLink, romBudgets] = await Promise.all([
     getLatestUnderwritingRun(getDb(), id),
     countUnderwritingRuns(getDb(), id),
+    readRomLink(getDb(), id),
+    listRomBudgetOptions(getDb(), id),
   ]);
   const pageCount = Math.max(1, Math.ceil(runCount / RUNS_PER_PAGE));
   const runPage = Math.min(requestedPage, pageCount);
@@ -118,7 +121,7 @@ export default async function UnderwritingCasePage({
         </CollapsibleSection>
 
         <CollapsibleSection storage="costs" title="Development Cost Schedule" className="record-section">
-          <RemountOnReviewDone sections={["costs"]}><CostScheduleEditor savedCase={savedCase} /></RemountOnReviewDone>
+          <RemountOnReviewDone sections={["costs"]}><CostScheduleEditor savedCase={savedCase} romLink={romLink} romBudgets={romBudgets} /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="operations" title="Apartment Operations" className="record-section">

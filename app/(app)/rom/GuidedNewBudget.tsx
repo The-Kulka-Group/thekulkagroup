@@ -42,6 +42,7 @@ import {
   type MarkupForm,
 } from "./Markups";
 import { planAnswersFromResponses, type ScheduleView } from "./resource-plan-form";
+import type { ReturnCase } from "./return-to-case";
 import "./scope.css";
 
 // LA-1225. New Budget is a setup card, then one question at a time. Matt
@@ -249,6 +250,7 @@ export function GuidedNewBudget({
   landedCards = [],
   level = 3,
   onLevel,
+  fromCase,
 }: {
   /** Rate tables, fee and insurance parameters (LA-1016). Missing means the GRs/GCs questions are skipped and the run uses its recorded defaults. */
   markupOptions?: MarkupOptions;
@@ -268,13 +270,15 @@ export function GuidedNewBudget({
   /** LA-2218: the price level, shared with the Building View's list. Questions a higher level adds stay hidden until it is picked. */
   level?: PriceLevel;
   onLevel?: (level: PriceLevel) => void;
+  /** LA-2417: a budget started from an underwriting case opens with the case's facts and is linked to it when made. */
+  fromCase?: ReturnCase;
 }) {
   const definition = tier1Flow();
   // Setup stays open until the first answer creates the project, then
   // folds to one line with an Edit link (LA-1230).
   const [editingSetup, setEditingSetup] = useState(false);
   const [index, setIndex] = useState(0);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(fromCase?.name ?? "");
   const [framingSystem, setFramingSystem] = useState<"wood" | "metal" | "">("");
   const [responses, setResponses] = useState<Responses>({
     project_type: "multifamily",
@@ -285,6 +289,9 @@ export function GuidedNewBudget({
     // Matt, 2026-09-28: Kulka's work is nearly always open shop, so Labor
     // Type starts there and changes only when a job is union or prevailing wage.
     labor_type: "open_shop",
+    ...(fromCase?.grossSquareFeet ? { gross_square_feet: String(Math.round(fromCase.grossSquareFeet)) } : {}),
+    ...(fromCase?.units ? { unit_count: String(fromCase.units) } : {}),
+    ...(fromCase?.zip ? { zip: fromCase.zip } : {}),
   });
   const [markupForm, setMarkupForm] = useState<MarkupForm>(() => initialMarkupForm(markupOptions, null));
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -440,7 +447,7 @@ export function GuidedNewBudget({
       const response = await fetch("/api/rom/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(projectBody(current)),
+        body: JSON.stringify({ ...projectBody(current), ...(fromCase ? { underwritingCaseId: fromCase.id } : {}) }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || typeof body.projectId !== "string") {

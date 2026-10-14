@@ -16,6 +16,7 @@ import {
   type MonthlyCostLine,
 } from "@kulka/engine";
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import type { RomBudgetOption, RomLink } from "@/lib/underwriting/rom-link";
 import {
   commonSource,
   detachesFromAnalysisStart,
@@ -26,6 +27,7 @@ import {
 
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
+import { RomHardCosts } from "./RomHardCosts";
 
 type EditableLine = MonthlyCostLine;
 
@@ -77,7 +79,16 @@ function withBasis(line: EditableLine, type: CostLineBasis["type"], otherLines: 
   return { ...rest, basis: { type, rate: 0 } };
 }
 
-export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase }) {
+export function CostScheduleEditor({
+  savedCase,
+  romLink = null,
+  romBudgets = [],
+}: {
+  savedCase: UnderwritingCase;
+  /** LA-2417: the linked ROM budget and the budgets the case could link. */
+  romLink?: RomLink | null;
+  romBudgets?: RomBudgetOption[];
+}) {
   const router = useRouter();
   const [lastScheduleSave, setLastScheduleSave] = useState({
     caseId: savedCase.id,
@@ -142,8 +153,21 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
     setLines((current) => current.map((line, position) => position === index ? (replace ? update as EditableLine : { ...line, ...update }) : line));
   }
 
+  // LA-2417: what the schedule last saved or loaded as, so leaving for the ROM saves only real edits.
+  const draft = JSON.stringify({ analysisStartMonth, saleMonth, saleAnchor, milestones, lines });
+  const [savedDraft, setSavedDraft] = useState(draft);
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await persist();
+  }
+
+  /** Saves the schedule before leaving for the ROM. Nothing to save counts as saved. */
+  async function saveBeforeLeaving() {
+    return draft === savedDraft ? true : persist();
+  }
+
+  async function persist(): Promise<boolean> {
     setSaving(true);
     setError(undefined);
     setFieldErrors({});
@@ -166,11 +190,11 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
           ? "The project changed in another session. Refresh the page, review the schedule, and try again."
           : body?.error ?? "The cost schedule could not be saved.");
         setFieldErrors(body?.fieldErrors ?? {});
-        return;
+        return false;
       }
       if (!body?.case?.costSchedule) {
         setError("The saved cost schedule could not be loaded. Refresh the page before making another change.");
-        return;
+        return false;
       }
       setLastScheduleSave({ caseId: body.case.id, revision: body.case.caseRevision });
       setAnalysisStartMonth(body.case.costSchedule.analysisStartMonth);
@@ -178,9 +202,18 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
       setSaleAnchor(body.case.costSchedule.saleAnchor);
       setMilestones(body.case.costSchedule.milestones ?? []);
       setLines(editableLines(body.case));
+      setSavedDraft(JSON.stringify({
+        analysisStartMonth: body.case.costSchedule.analysisStartMonth,
+        saleMonth: body.case.costSchedule.saleMonth,
+        saleAnchor: body.case.costSchedule.saleAnchor,
+        milestones: body.case.costSchedule.milestones ?? [],
+        lines: editableLines(body.case),
+      }));
       router.refresh();
+      return true;
     } catch {
       setError("The cost schedule request failed. Check the connection and try again.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -201,6 +234,13 @@ export function CostScheduleEditor({ savedCase }: { savedCase: UnderwritingCase 
         </div>
         <button className="btn btn--secondary" type="button" onClick={addLine} disabled={lines.length >= MAX_COST_LINES}>Add Cost Line</button>
       </div>
+      <RomHardCosts
+        caseId={savedCase.id}
+        grossSquareFeet={savedCase.grossBuildingSquareFeet}
+        link={romLink}
+        budgets={romBudgets}
+        beforeLeave={saveBeforeLeaving}
+      />
       <div className="underwriting-form-grid underwriting-schedule-dates">
         <label className="field-label t-label">
           Analysis Start Month

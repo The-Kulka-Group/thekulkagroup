@@ -374,16 +374,26 @@ export class ProjectNotFoundForEdit extends Error {
  */
 export async function updateRomProject(db: Db, projectId: string, budget: NewBudget): Promise<void> {
   const { rows } = await db.query<{ id: string }>(
-    `update projects
-        set name = $2, gross_square_feet = $3, project_type = $4,
-            construction_kind = $5, framing_system = $6,
-            stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10,
-            elevator_count = $11, demolition_structure_count = $12,
-            demolition_structure_square_feet = $13, demolition_structure_type = $14, labor_type = $15,
-            parking_type = $16, balcony_type = $17, balcony_count = $18, balcony_deck_square_feet = $19,
-            balcony_rail_linear_feet = $20, juliet_count = $21, juliet_rail_linear_feet = $22
-      where id = $1
-      returning id`,
+    `with updated as (
+       update projects
+          set name = $2, gross_square_feet = $3, project_type = $4,
+              construction_kind = $5, framing_system = $6,
+              stories_above_grade = $7, unit_count = $8, building_count = coalesce($9, building_count), zip = $10,
+              elevator_count = $11, demolition_structure_count = $12,
+              demolition_structure_square_feet = $13, demolition_structure_type = $14, labor_type = $15,
+              parking_type = $16, balcony_type = $17, balcony_count = $18, balcony_deck_square_feet = $19,
+              balcony_rail_linear_feet = $20, juliet_count = $21, juliet_rail_linear_feet = $22
+        where id = $1
+        returning id, name
+     ), renamed_case as (
+       -- LA-2417: a budget linked to an underwriting case shares the case's name.
+       update underwriting_cases
+          set name = updated.name, case_revision = case_revision + 1, updated_at = now()
+         from updated
+        where underwriting_cases.rom_project_id = updated.id
+          and underwriting_cases.name is distinct from updated.name
+     )
+     select id from updated`,
     [
       projectId,
       budget.name,

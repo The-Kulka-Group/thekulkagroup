@@ -6,7 +6,7 @@ import { seededDatabase } from "@/test/database";
 
 import { createUnderwritingCase, getUnderwritingCase, saveUnderwritingCostSchedule, updateUnderwritingCase, type CaseDraft } from "./cases";
 import { seedFromIntake } from "./intake-seed";
-import { applyLatestRomRun, linkRomProject, listRomBudgetOptions, readCaseForRomProject, readRomLink, RomLinkError } from "./rom-link";
+import { applyLatestRomRun, linkRomProject, linkRomProjectWithin, listRomBudgetOptions, readCaseForRomProject, readRomLink, RomLinkError } from "./rom-link";
 
 let db: Awaited<ReturnType<typeof seededDatabase>>;
 
@@ -26,12 +26,12 @@ const budget: NewBudget = {
   framingSystem: null,
 };
 
-async function recordRun(projectId: string, low: number, high: number, startedAt: string) {
+async function recordRun(projectId: string, low: number, high: number, startedAt: string, grossSquareFeet: number | null = 50000) {
   const rom = { lines: [], total: { low, high }, kulkaContractTotal: { low, high }, carvedOut: { low: 0, high: 0 } };
   const { rows } = await db.query<{ id: string }>(
     `insert into runs (project_id, skill, status, rom, answers, started_at)
      values ($1, 'rom_tier1', 'succeeded', $2::jsonb, $3::jsonb, $4) returning id`,
-    [projectId, JSON.stringify(rom), JSON.stringify({ grossSquareFeet: 50000 }), startedAt],
+    [projectId, JSON.stringify(rom), JSON.stringify(grossSquareFeet ? { grossSquareFeet } : {}), startedAt],
   );
   return rows[0].id;
 }
@@ -146,5 +146,58 @@ describe("ROM budget link (LA-2417)", () => {
 
     const line = (await getUnderwritingCase(db, created.id))!.costSchedule!.costLines.find((item) => item.id === "rom-hard-cost");
     expect(line).toMatchObject({ name: "Hard Cost", category: "hard_cost", basis: { type: "per_gross_square_foot", rate: 300 }, startMonth: "2027-01" });
+  });
+
+  it("leaves an edited line alone when the budget has no newer run", async () => {
+    const created = (await createUnderwritingCase(db, draft))!;
+    const seed = seedFromIntake(created, "2027-01");
+    await saveUnderwritingCostSchedule(db, created.id, created.caseRevision, { analysisStartMonth: "2027-01", saleMonth: "2030-01", costLines: seed.costLines });
+    const projectId = await insertRomProject(db, budget);
+    await recordRun(projectId, 17_000_000, 19_000_000, "2026-10-01T12:00:00Z");
+    await linkRomProject(db, created.id, projectId);
+    await applyLatestRomRun(db, created.id);
+
+    const filled = (await getUnderwritingCase(db, created.id))!;
+    const edited = filled.costSchedule!.costLines.map((line) => line.id === "intake-hard-cost"
+      ? { ...line, basis: { type: "per_gross_square_foot" as const, rate: 340 }, sourceLabel: "Analyst", reviewState: "done" as const }
+      : line);
+    await saveUnderwritingCostSchedule(db, created.id, filled.caseRevision, { ...filled.costSchedule!, costLines: edited });
+
+    expect(await applyLatestRomRun(db, created.id)).toBe(true);
+    const line = (await getUnderwritingCase(db, created.id))!.costSchedule!.costLines.find((item) => item.id === "intake-hard-cost");
+    expect(line).toMatchObject({ basis: { rate: 340 }, sourceLabel: "Analyst" });
+  });
+
+  it("spreads a run with no recorded area over the case's own area", async () => {
+    const created = (await createUnderwritingCase(db, draft))!;
+    const projectId = await insertRomProject(db, budget);
+    await recordRun(projectId, 9_000_000, 11_000_000, "2026-10-01T12:00:00Z", null);
+    await linkRomProject(db, created.id, projectId);
+
+    expect(await applyLatestRomRun(db, created.id)).toBe(true);
+    const hardCost = (await getUnderwritingCase(db, created.id))!.assumptions.find((assumption) => assumption.name === "hardCostPerGrossSquareFoot");
+    expect(hardCost?.value).toBe(200);
+  });
+
+  it("refuses to mark a case filled when neither the run nor the case has an area", async () => {
+    const created = (await createUnderwritingCase(db, { ...draft, grossBuildingSquareFeet: undefined }))!;
+    const projectId = await insertRomProject(db, budget);
+    await recordRun(projectId, 9_000_000, 11_000_000, "2026-10-01T12:00:00Z", null);
+    await linkRomProject(db, created.id, projectId);
+
+    await expect(applyLatestRomRun(db, created.id)).rejects.toBeInstanceOf(RomLinkError);
+    expect((await readRomLink(db, created.id))?.appliedRunId).toBeNull();
+  });
+
+  it("gives the case the budget's name when the budget was just made from it", async () => {
+    const created = (await createUnderwritingCase(db, draft))!;
+    const projectId = await db.withTransaction(async (tx) => {
+      const id = await insertRomProject(tx, { ...budget, name: "Harbor Lofts Phase 1" });
+      await linkRomProjectWithin(tx, created.id, id, "budget");
+      return id;
+    });
+    expect((await getUnderwritingCase(db, created.id))!.name).toBe("Harbor Lofts Phase 1");
+    expect((await readRomLink(db, created.id))?.projectName).toBe("Harbor Lofts Phase 1");
+    expect(await readCaseForRomProject(db, projectId)).toMatchObject({ name: "Harbor Lofts Phase 1" });
   });
 });

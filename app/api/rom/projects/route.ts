@@ -41,7 +41,8 @@ export async function POST(request: Request) {
   try {
     const projectId = await db.withTransaction(async (tx) => {
       const id = await insertRomProject(tx, parsed.budget);
-      if (caseId) await linkRomProjectWithin(tx, caseId, id);
+      // The setup name is the one the user last typed, so the case takes it.
+      if (caseId) await linkRomProjectWithin(tx, caseId, id, "budget");
       return id;
     });
     return NextResponse.json({ projectId }, { status: 201 });

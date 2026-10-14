@@ -40,16 +40,13 @@ export function RomHardCosts({
   const card = useRef<HTMLDivElement>(null);
 
   // Back from the ROM, or just filled: the card lights for a moment.
-  const flash = () => {
-    const element = card.current;
-    if (!element) return;
-    element.classList.add("uw-rom-card--filled");
-    window.setTimeout(() => element.classList.remove("uw-rom-card--filled"), 2400);
-  };
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("from") !== "rom") return;
-    card.current?.scrollIntoView({ block: "center" });
-    flash();
+    const element = card.current;
+    if (!element || new URLSearchParams(window.location.search).get("from") !== "rom") return;
+    element.scrollIntoView({ block: "center" });
+    element.classList.add("uw-rom-card--filled");
+    // No cleanup: the URL is cleared below, so a second run of this effect would never remove the light.
+    window.setTimeout(() => element.classList.remove("uw-rom-card--filled"), 2400);
     window.history.replaceState(null, "", `${window.location.pathname}#hard-costs`);
   }, []);
 
@@ -82,6 +79,12 @@ export function RomHardCosts({
   async function fill(projectId?: string) {
     setBusy(projectId ? "linking" : "updating");
     setError(undefined);
+    // The fill remounts the schedule editor on the saved lines, so unsaved edits save first.
+    if (!(await beforeLeave())) {
+      setBusy(null);
+      setError("Save the cost schedule before filling it. The error is shown below.");
+      return;
+    }
     try {
       const response = await fetch(`/api/underwriting/cases/${caseId}/rom`, {
         method: "POST",
@@ -93,7 +96,8 @@ export function RomHardCosts({
         setError(body.error ?? "The budget could not be linked.");
         return;
       }
-      flash();
+      // The editor remounts on the filled lines; the new card lights the way it does back from the ROM.
+      window.history.replaceState(null, "", `${window.location.pathname}?from=rom#hard-costs`);
       router.refresh();
     } catch {
       setError("The request failed. Check the connection and try again.");
@@ -103,7 +107,9 @@ export function RomHardCosts({
   }
 
   const figures = link?.applied ?? null;
-  const newer = link?.latest && link.appliedRunId && link.latest.runId !== link.appliedRunId ? link.latest : null;
+  const newer = figures && link?.latest && link.latest.runId !== link.appliedRunId
+    ? { ...link.latest, change: link.latest.total - figures.total }
+    : null;
   const areaDiffers = figures?.grossSquareFeet && grossSquareFeet && Math.round(figures.grossSquareFeet) !== Math.round(grossSquareFeet);
 
   return (
@@ -146,7 +152,7 @@ export function RomHardCosts({
       {newer ? (
         <div className="uw-rom-newer" role="status">
           <span>
-            A newer budget was saved {DATE.format(new Date(newer.startedAt))}: {millions(newer.total)}, {newer.total >= figures!.total ? "up" : "down"} {millions(Math.abs(newer.total - figures!.total))}.
+            A newer budget was saved {DATE.format(new Date(newer.startedAt))}: {millions(newer.total)}, {newer.change >= 0 ? "up" : "down"} {millions(Math.abs(newer.change))}.
           </span>
           <button type="button" className="btn btn--secondary" disabled={busy !== null} onClick={() => void fill()}>
             {busy === "updating" ? "Updating…" : "Use Newer Budget"}

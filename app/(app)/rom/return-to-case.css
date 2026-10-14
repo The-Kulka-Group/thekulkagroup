@@ -27,3 +27,4 @@
 }
 .rom-return-band__back:hover { background: var(--primary-hover); }
 .rom-return-band__back:disabled { opacity: 0.7; cursor: default; }
+.rom-return-band__error { flex-basis: 100%; color: var(--stuck); font-weight: 600; }

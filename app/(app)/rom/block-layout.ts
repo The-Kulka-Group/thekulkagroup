@@ -1,6 +1,7 @@
 import { overheadLines, type GateItemSummary, type MarkupLine, type Rom, type RomLine } from "@kulka/engine";
 
 import { titleCase } from "@/lib/format/title-case";
+import { headlineRange, midpoint, type Range } from "@/lib/rom/headline";
 
 // LA-1101. What the Round 14 block layout on /rom reads off a finished ROM.
 // Every figure here is one the engine already made. The only arithmetic is the
@@ -8,7 +9,7 @@ import { titleCase } from "@/lib/format/title-case";
 // ROM on (packages/engine/src/backtest.ts), and a bar's share of the biggest
 // block. Nothing here prices anything.
 
-export type Range = { low: number; high: number };
+export { midpoint, type Range };
 
 /** A status the engine itself set on a line, shown as a dot plus a word. */
 export type BlockStatus = { tone: "stuck" | "working"; word: string };
@@ -30,10 +31,6 @@ export type TradeBlock = {
   /** Breakouts carved out of this line. They add nothing; the rate already holds them. */
   breakouts: RomLine[];
 };
-
-export function midpoint(range: Range): number {
-  return (range.low + range.high) / 2;
-}
 
 /**
  * A line becomes a block when it adds to the total. A breakout is already
@@ -135,7 +132,7 @@ export function listWords(words: string[]): string {
 export function headlineOf(rom: Rom, facts: HeadlineFacts): Headline {
   const markups = rom.markups;
   const owner = markups ? markups.ownerDirect.low > 0 || markups.ownerDirect.high > 0 : false;
-  const range = markups ? markups.totalProjectCost : rom.total;
+  const range = headlineRange(rom);
   const mid = midpoint(range);
   const lines: [MarkupLine, string][] = markups
     ? [

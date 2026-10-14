@@ -5,7 +5,6 @@ import { getDb } from "@/lib/db";
 import {
   applyLatestRomRun,
   linkRomProject,
-  listRomBudgetOptions,
   readRomLink,
   RomLinkError,
 } from "@/lib/underwriting/rom-link";
@@ -13,18 +12,7 @@ import { isUuid } from "@/lib/uuid";
 
 type Context = { params: Promise<{ id: string }> };
 
-// LA-2417. The case's linked ROM budget and the budgets it could link.
-export async function GET(request: Request, context: Context) {
-  const denied = await requireApiUser(request);
-  if (denied) return denied;
-  const { id } = await context.params;
-  if (!isUuid(id)) return NextResponse.json({ error: "Underwriting project not found." }, { status: 404 });
-  const db = getDb();
-  const [link, budgets] = await Promise.all([readRomLink(db, id), listRomBudgetOptions(db, id)]);
-  return NextResponse.json({ link, budgets });
-}
-
-// `{ projectId }` links that budget and fills hard cost from its newest run.
+// LA-2417. `{ projectId }` links that budget and fills hard cost from its newest run.
 // `{}` fills hard cost again from the linked budget's newest run.
 export async function POST(request: Request, context: Context) {
   const denied = await requireApiUser(request);

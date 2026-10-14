@@ -18,20 +18,31 @@ export type ReturnCase = {
   zip?: string;
 };
 
-/** Fills the case's hard cost from the budget's newest saved run, then goes back to where the user left the case. */
-export async function returnToCase(caseId: string) {
+/**
+ * Fills the case's hard cost from the budget's newest saved run, then goes back to where the user
+ * left the case. A fill that fails keeps the user here and returns the reason to show.
+ */
+export async function returnToCase(caseId: string): Promise<string | null> {
+  let applied = false;
   try {
-    await fetch(`/api/underwriting/cases/${caseId}/rom`, { method: "POST" });
+    const response = await fetch(`/api/underwriting/cases/${caseId}/rom`, { method: "POST" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return body.error ?? "The budget could not fill the case. Try Back to Case again.";
+    applied = body.applied === true;
   } catch {
-    // The case fills itself from the saved run when it opens.
+    return "The site could not be reached, so the case was not filled. Try Back to Case again.";
   }
   // A full page load, not router.push: only a document navigation runs the cross-document view transition.
+  // A budget with no saved run yet goes back without lighting the card as filled.
   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.assign(`/underwriting/${caseId}?from=rom#hard-costs`);
+  window.location.assign(`/underwriting/${caseId}${applied ? "?from=rom" : ""}#hard-costs`);
+  return null;
 }
 
-export function ReturnBand({ returnCase }: { returnCase: ReturnCase }) {
+/** `error` is a failed return from finishing the budget, which RomRunner starts. */
+export function ReturnBand({ returnCase, error }: { returnCase: ReturnCase; error?: string | null }) {
   const [leaving, setLeaving] = useState(false);
+  const [ownError, setOwnError] = useState<string | null>(null);
   return (
     <div className="rom-return-band" role="region" aria-label="Underwriting project">
       <span>
@@ -44,11 +55,17 @@ export function ReturnBand({ returnCase }: { returnCase: ReturnCase }) {
         disabled={leaving}
         onClick={() => {
           setLeaving(true);
-          void returnToCase(returnCase.id);
+          setOwnError(null);
+          void returnToCase(returnCase.id).then((failed) => {
+            if (!failed) return;
+            setOwnError(failed);
+            setLeaving(false);
+          });
         }}
       >
         {leaving ? "Going Back…" : "Back to Case"}
       </button>
+      {ownError ?? error ? <span className="rom-return-band__error" role="alert">{ownError ?? error}</span> : null}
     </div>
   );
 }

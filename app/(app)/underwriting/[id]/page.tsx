@@ -59,11 +59,11 @@ export default async function UnderwritingCasePage({
   if (!savedCase) notFound();
 
   const requestedPage = pageNumber((await searchParams).runPage);
-  const [latestRun, runCount, romLink, romBudgets] = await Promise.all([
+  const [latestRun, runCount, [romLink, romBudgets]] = await Promise.all([
     getLatestUnderwritingRun(getDb(), id),
     countUnderwritingRuns(getDb(), id),
-    readRomLink(getDb(), id),
-    listRomBudgetOptions(getDb(), id),
+    // A linked case never shows the budget picker, so it skips the list.
+    readRomLink(getDb(), id).then(async (link) => [link, link ? [] : await listRomBudgetOptions(getDb(), id)] as const),
   ]);
   const pageCount = Math.max(1, Math.ceil(runCount / RUNS_PER_PAGE));
   const runPage = Math.min(requestedPage, pageCount);
@@ -121,7 +121,14 @@ export default async function UnderwritingCasePage({
         </CollapsibleSection>
 
         <CollapsibleSection storage="costs" title="Development Cost Schedule" className="record-section">
-          <RemountOnReviewDone sections={["costs"]}><CostScheduleEditor savedCase={savedCase} romLink={romLink} romBudgets={romBudgets} /></RemountOnReviewDone>
+          <RemountOnReviewDone sections={["costs"]}><CostScheduleEditor
+            // A ROM fill rewrites the schedule on the server. The new key remounts the editor on the filled lines,
+            // so a later save cannot send the lines it held before the fill.
+            key={romLink?.appliedAt ?? "unfilled"}
+            savedCase={savedCase}
+            romLink={romLink}
+            romBudgets={romBudgets}
+          /></RemountOnReviewDone>
         </CollapsibleSection>
 
         <CollapsibleSection storage="operations" title="Apartment Operations" className="record-section">

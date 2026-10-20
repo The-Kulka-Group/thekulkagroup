@@ -6,7 +6,11 @@
 const TOKEN_URL = "https://developer.api.autodesk.com/authentication/v2/token";
 const API = "https://developer.api.autodesk.com/construction/admin/v1";
 const PAGE = 200;
-const FIELDS = "name,jobNumber,status,type,platform,city,stateOrProvince,startDate,endDate,updatedAt";
+const FIELDS = [
+  "name,jobNumber,status,type,platform,city,stateOrProvince,startDate,endDate,updatedAt",
+  // LA-2881
+  "addressLine1,postalCode,latitude,longitude,memberCount,companyCount,sheetCount,products",
+].join(",");
 
 /** A project as the ACC Admin API returns it, with the fields requested above. */
 export type AccProject = {
@@ -21,6 +25,15 @@ export type AccProject = {
   startDate?: string | null;
   endDate?: string | null;
   updatedAt?: string | null;
+  addressLine1?: string | null;
+  postalCode?: string | null;
+  // The ACC model types coordinates as strings; a number is read the same way.
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  memberCount?: number | null;
+  companyCount?: number | null;
+  sheetCount?: number | null;
+  products?: { key?: string; status?: string }[] | null;
 };
 
 export class AutodeskError extends Error {

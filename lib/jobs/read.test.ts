@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { seededDatabase } from "@/test/database";
 
-import { autodeskProjectUrl, jobStatusFilter, listJobSummaries, readJob } from "./read";
+import { autodeskProjectUrl, fullAddress, jobStatusFilter, listJobSummaries, mapUrl, readJob, toolNames } from "./read";
 
 // LA-2858. The Jobs page reads. Every job and meeting is synthetic.
 
@@ -62,6 +62,47 @@ describe("jobs read", () => {
     expect(jobStatusFilter("pending")).toBe("pending");
     expect(jobStatusFilter("closed")).toBe("");
     expect(jobStatusFilter(["active"])).toBe("");
+  });
+
+  it("reads the LA-2881 details, with an empty tool list when none were synced", async () => {
+    await db.query(
+      `update jobs set address_line1 = '100 Example Street', postal_code = '00001', latitude = 40.75, longitude = -73.25,
+         member_count = 12, company_count = 3, sheet_count = null, autodesk_tools = '{build,cost,docs}' where id = $1`,
+      [OAK],
+    );
+    expect(await readJob(db, OAK)).toMatchObject({
+      addressLine1: "100 Example Street",
+      postalCode: "00001",
+      latitude: 40.75,
+      longitude: -73.25,
+      memberCount: 12,
+      companyCount: 3,
+      sheetCount: null,
+      autodeskTools: ["build", "cost", "docs"],
+    });
+    expect(await readJob(db, PINE)).toMatchObject({ addressLine1: null, latitude: null, autodeskTools: [] });
+  });
+
+  it("writes the address on one line and maps the pin, else the address, else nothing", () => {
+    const place = { addressLine1: "100 Example Street", city: "Example City", stateOrProvince: "NY", postalCode: "00001" };
+    expect(fullAddress(place)).toBe("100 Example Street, Example City, NY 00001");
+    expect(fullAddress({ ...place, addressLine1: null, postalCode: null })).toBe("Example City, NY");
+    expect(mapUrl({ ...place, latitude: 40.75, longitude: -73.25 })).toBe(
+      "https://www.google.com/maps/search/?api=1&query=40.75%2C-73.25",
+    );
+    expect(mapUrl({ ...place, latitude: null, longitude: null })).toBe(
+      "https://www.google.com/maps/search/?api=1&query=100+Example+Street%2C+Example+City%2C+NY+00001",
+    );
+    expect(mapUrl({ ...place, addressLine1: null, latitude: null, longitude: null })).toBeNull();
+  });
+
+  it("names the Autodesk tools in title case, A to Z, without the admin keys", () => {
+    expect(toolNames(["projectAdministration", "takeoff", "build", "designCollaboration", "accountAdministration", "datum"])).toEqual([
+      "Build",
+      "Design Collaboration",
+      "Takeoff",
+    ]);
+    expect(toolNames(["someNewTool"])).toEqual(["Some New Tool"]);
   });
 
   it("links to the project in Autodesk Build", () => {

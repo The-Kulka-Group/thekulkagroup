@@ -18,7 +18,7 @@ export type MeetingListItem = {
   summaryReady: boolean;
   briefReady: boolean;
   /** LA-2281: the Autodesk job, or null when unmatched or placed under no job. */
-  job: { id: string; name: string; jobNumber: string | null } | null;
+  job: { id: string; name: string; jobNumber: string | null; status: string | null } | null;
   matchSource: MatchSource | null;
   /** Action items in the meeting's Kulka Brief, 0 when there is no brief. */
   briefActions: number;
@@ -51,6 +51,7 @@ type Row = {
   job_id: string | null;
   job_name: string | null;
   job_number: string | null;
+  job_status: string | null;
   match_source: MatchSource | null;
   brief_actions: number | string;
 };
@@ -68,7 +69,7 @@ function listItem(row: Row): MeetingListItem {
     sentiment: { positive: num(row.positive_pct), neutral: num(row.neutral_pct), negative: num(row.negative_pct) },
     summaryReady: row.summary_ready,
     briefReady: row.brief_ready,
-    job: row.job_id && row.job_name ? { id: row.job_id, name: row.job_name, jobNumber: row.job_number } : null,
+    job: row.job_id && row.job_name ? { id: row.job_id, name: row.job_name, jobNumber: row.job_number, status: row.job_status } : null,
     matchSource: row.match_source,
     briefActions: Number(row.brief_actions),
   };
@@ -77,7 +78,7 @@ function listItem(row: Row): MeetingListItem {
 const LIST_COLUMNS = `m.id, m.title, m.started_at, m.duration_minutes, m.meeting_type,
   jsonb_array_length(m.attendees) as attendee_count, m.positive_pct, m.neutral_pct, m.negative_pct,
   coalesce(m.summary->>'overview', '') <> '' as summary_ready, m.brief is not null as brief_ready,
-  m.job_id, j.name as job_name, j.job_number, m.match_source,
+  m.job_id, j.name as job_name, j.job_number, j.status as job_status, m.match_source,
   coalesce(jsonb_array_length(m.brief->'actionItems'), 0) as brief_actions`;
 const FROM = `meetings m left join jobs j on j.id = m.job_id`;
 

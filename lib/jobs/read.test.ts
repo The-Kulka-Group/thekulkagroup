@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { seededDatabase } from "@/test/database";
 
-import { autodeskProjectUrl, fullAddress, jobStatusFilter, listJobSummaries, mapUrl, readJob, toolNames } from "./read";
+import { autodeskProjectUrl, countForStatus, fullAddress, isArchived, jobStatusFilter, listJobSummaries, mapUrl, readJob, toolNames, visibleJobs } from "./read";
 
 // LA-2858. The Jobs page reads. Every job and meeting is synthetic.
 
@@ -32,8 +32,21 @@ describe("jobs read", () => {
   }, 60_000);
   afterAll(async () => db?.close());
 
+  it("hides archived jobs by default and lists every job for all", async () => {
+    expect((await listJobSummaries(db)).map((one) => one.id)).toEqual([ELM, OAK]);
+    expect((await listJobSummaries(db, "", "all")).map((one) => one.id)).toEqual([ELM, OAK, PINE]);
+    expect(await listJobSummaries(db, "c00902")).toEqual([]);
+    expect((await listJobSummaries(db, "c00902", "all")).map((one) => one.id)).toEqual([PINE]);
+  });
+
+  it("keeps a job with no status in the default list", async () => {
+    await db.query(`update jobs set status = null where id = $1`, [ELM]);
+    expect((await listJobSummaries(db)).map((one) => one.id)).toContain(ELM);
+    await db.query(`update jobs set status = 'active' where id = $1`, [ELM]);
+  });
+
   it("lists active jobs first with their meeting count and last meeting", async () => {
-    const jobs = await listJobSummaries(db);
+    const jobs = await listJobSummaries(db, "", "all");
     expect(jobs.map((one) => one.name)).toEqual(["Synthetic Elm School", "Synthetic Oak Residences", "Synthetic Pine Offices"]);
     const oak = jobs.find((one) => one.id === OAK);
     expect(oak).toMatchObject({ meetingCount: 2, lastMeetingAt: "2026-10-08T14:00:00.000Z", city: "Example City" });
@@ -41,7 +54,7 @@ describe("jobs read", () => {
   });
 
   it("filters by name or job number, and by status", async () => {
-    expect((await listJobSummaries(db, "c00902")).map((one) => one.id)).toEqual([PINE]);
+    expect((await listJobSummaries(db, "c00902", "all")).map((one) => one.id)).toEqual([PINE]);
     expect((await listJobSummaries(db, "elm")).map((one) => one.id)).toEqual([ELM]);
     expect((await listJobSummaries(db, "", "archived")).map((one) => one.id)).toEqual([PINE]);
     expect(await listJobSummaries(db, "100%")).toEqual([]);
@@ -60,6 +73,7 @@ describe("jobs read", () => {
 
   it("accepts only ACC's statuses as a filter", () => {
     expect(jobStatusFilter("pending")).toBe("pending");
+    expect(jobStatusFilter("all")).toBe("all");
     expect(jobStatusFilter("closed")).toBe("");
     expect(jobStatusFilter(["active"])).toBe("");
   });
@@ -109,5 +123,44 @@ describe("jobs read", () => {
     expect(autodeskProjectUrl("4bad629d-e4c9-4dd8-8a91-54fe3a4c4c69")).toBe(
       "https://acc.autodesk.com/build/home/projects/4bad629d-e4c9-4dd8-8a91-54fe3a4c4c69",
     );
+  });
+});
+
+describe("visibleJobs", () => {
+  const jobs = [
+    { id: "a", status: "active" },
+    { id: "b", status: "archived" },
+    { id: "c", status: "pending" },
+    { id: "d", status: null },
+  ];
+
+  it("drops archived jobs by default and keeps the rest", () => {
+    expect(visibleJobs(jobs, false).map((one) => one.id)).toEqual(["a", "c", "d"]);
+  });
+
+  it("brings archived jobs back when asked", () => {
+    expect(visibleJobs(jobs, true).map((one) => one.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("keeps an archived job that is the current value, and ignores empty keeps", () => {
+    expect(visibleJobs(jobs, false, ["b"]).map((one) => one.id)).toEqual(["a", "b", "c", "d"]);
+    expect(visibleJobs(jobs, false, [null, undefined, ""]).map((one) => one.id)).toEqual(["a", "c", "d"]);
+  });
+
+  it("names only the archived status", () => {
+    expect(isArchived("archived")).toBe(true);
+    expect([isArchived("suspended"), isArchived(null)]).toEqual([false, false]);
+  });
+});
+
+describe("countForStatus", () => {
+  const jobs = [{ status: "active" }, { status: "active" }, { status: "archived" }, { status: "pending" }, { status: null }];
+
+  it("counts what the list shows under each filter", () => {
+    expect(countForStatus(jobs, "")).toBe(4);
+    expect(countForStatus(jobs, "all")).toBe(5);
+    expect(countForStatus(jobs, "archived")).toBe(1);
+    expect(countForStatus(jobs, "active")).toBe(2);
+    expect(countForStatus(jobs, "suspended")).toBe(0);
   });
 });

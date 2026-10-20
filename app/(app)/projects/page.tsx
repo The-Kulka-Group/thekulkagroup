@@ -4,6 +4,7 @@ import { Sep, Sheet } from "@/components/Sheet";
 import { getDb } from "@/lib/db";
 import {
   autodeskProjectUrl,
+  countForStatus,
   fullAddress,
   JOB_STATUSES,
   jobStatusFilter,
@@ -168,11 +169,9 @@ export default async function ProjectsPage({
   const status = jobStatusFilter(params.status);
   const chosen = typeof params.id === "string" ? params.id : null;
   const db = getDb();
-  const [jobs, everyJob] = await Promise.all([
-    listJobSummaries(db, search, status),
-    search || status ? listJobSummaries(db) : Promise.resolve(null),
-  ]);
-  const total = (everyJob ?? jobs).length;
+  const [jobs, everyJob] = await Promise.all([listJobSummaries(db, search, status), listJobSummaries(db, "", "all")]);
+  const total = countForStatus(everyJob, status);
+  const hidden = everyJob.length - countForStatus(everyJob, "");
   const openId = chosen ?? jobs[0]?.id ?? null;
   const [open, meetings] = openId
     ? await Promise.all([readJob(db, openId), listMeetings(db, "", RECENT_MEETINGS, openId)])
@@ -191,10 +190,11 @@ export default async function ProjectsPage({
           <span>From Autodesk Construction Cloud</span>
           <Sep />
           <span><span className="num">{total}</span> projects</span>
+          {hidden > 0 && status === "" ? <><Sep /><span><span className="num">{hidden}</span> archived hidden</span></> : null}
         </>
       }
     >
-      {total === 0 ? (
+      {everyJob.length === 0 ? (
         <div className="empty">
           <p>No projects yet. Refresh From Autodesk reads Kulka&apos;s project list.</p>
         </div>
@@ -212,7 +212,11 @@ export default async function ProjectsPage({
                   label="Status"
                   name="status"
                   value={status}
-                  options={[{ value: "", label: "All Statuses" }, ...JOB_STATUSES.map((one) => ({ value: one, label: STATUS[one].label }))]}
+                  options={[
+                    { value: "", label: "Current Projects" },
+                    { value: "all", label: "All Statuses" },
+                    ...JOB_STATUSES.map((one) => ({ value: one, label: STATUS[one].label })),
+                  ]}
                   submitOnChange
                   wide
                 />

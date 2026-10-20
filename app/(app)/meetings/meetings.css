@@ -154,6 +154,7 @@ b.pos { color: var(--done); } b.neg { color: var(--stuck); } b.warn { color: var
 .mt-brief-error { color: var(--stuck); }
 /* LA-2281: jobs. */
 .mt-filters--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.mt-filters--two .mt-search { grid-column: 1 / -1; }
 .mt-job--internal { color: var(--ink); background: var(--neutral-fill); }
 .mt-pick { display: inline-grid; gap: 4px; }
 .mt-pick .ps-btn { height: 30px; font-size: var(--meta-size); }

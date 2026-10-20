@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Sep, Sheet } from "@/components/Sheet";
 import { getDb } from "@/lib/db";
+import { isArchived, visibleJobs } from "@/lib/jobs/read";
 import { listJobs } from "@/lib/jobs/store";
 import {
   actionItems,
@@ -388,6 +389,7 @@ export default async function MeetingsPage({
   const search = typeof params.q === "string" ? params.q.slice(0, 200) : "";
   const chosen = typeof params.m === "string" ? params.m : null;
   const job = typeof params.job === "string" ? params.job : "";
+  const showArchived = params.archived === "1";
   const db = getDb();
   const [meetings, all, jobRows] = await Promise.all([
     listMeetings(db, search, 200, job),
@@ -395,15 +397,21 @@ export default async function MeetingsPage({
     listJobs(db),
   ]);
   const everything = all ?? meetings;
-  const jobs: PickerJob[] = jobRows
-    .filter((one) => one.status !== "archived")
-    .map((one) => ({ id: one.id, label: jobLabel(one) }));
-  const glanceProjects = projectGlance(everything);
   const openId = chosen ?? meetings[0]?.id ?? null;
   const open = openId ? await readMeeting(db, openId) : null;
+  // LA-2653: archived projects leave the menus and the strip unless asked for.
+  // The project a filter or the open meeting sits on stays, so no value is lost.
+  const filterJobs: PickerJob[] = visibleJobs(jobRows, showArchived, [job]).map((one) => ({ id: one.id, label: jobLabel(one) }));
+  const pickerJobs: PickerJob[] = visibleJobs(jobRows, false, [open?.job?.id]).map((one) => ({ id: one.id, label: jobLabel(one) }));
+  const glanceAll = projectGlance(everything);
+  const glanceProjects = {
+    ...glanceAll,
+    projects: glanceAll.projects.filter((one) => showArchived || !isArchived(one.job.status) || one.job.id === job),
+  };
+  const hiddenProjects = glanceAll.projects.length - glanceProjects.projects.length;
   const glance = weekGlance(everything, new Date());
-  const href = (id: string) => `/meetings?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(job ? { job } : {}), m: id })}`;
-  const jobHref = (id: string) => `/meetings?${new URLSearchParams({ job: id })}`;
+  const href = (id: string) => `/meetings?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(job ? { job } : {}), ...(showArchived ? { archived: "1" } : {}), m: id })}`;
+  const jobHref = (id: string) => `/meetings?${new URLSearchParams({ job: id, ...(showArchived ? { archived: "1" } : {}) })}`;
 
   return (
     <Sheet
@@ -429,7 +437,10 @@ export default async function MeetingsPage({
           <section className="pg" aria-label="Projects at a Glance">
             <div className="pg-head">
               <h2 className="t-label">Projects at a Glance</h2>
-              <span className="pg-cap">The last 6 meetings for each project</span>
+              <span className="pg-cap">
+                The last 6 meetings for each project
+                {hiddenProjects > 0 ? `. ${hiddenProjects} archived ${hiddenProjects === 1 ? "project is" : "projects are"} hidden.` : ""}
+              </span>
             </div>
             <div className="pg-cards">
               {glanceProjects.projects.map((project) => (
@@ -498,11 +509,25 @@ export default async function MeetingsPage({
                     value={job}
                     options={[
                       { value: "", label: "All Projects" },
-                      ...jobs.map((one) => ({ value: one.id, label: one.label })),
+                      ...filterJobs.map((one) => ({ value: one.id, label: one.label })),
                       { value: "unmatched", label: "Unmatched" },
                     ]}
                     submitOnChange
                     searchable
+                    wide
+                  />
+                </div>
+                <div className="mt-field">
+                  <span className="t-label">Archived Projects</span>
+                  <PillSelect
+                    label="Archived Projects"
+                    name="archived"
+                    value={showArchived ? "1" : ""}
+                    options={[
+                      { value: "", label: "Hidden" },
+                      { value: "1", label: "Shown" },
+                    ]}
+                    submitOnChange
                     wide
                   />
                 </div>
@@ -558,7 +583,7 @@ export default async function MeetingsPage({
                 </div>
               ))}
             </div>
-            {open ? <MeetingView meeting={open} jobs={jobs} /> : <div className="mt-detail"><p className="mt-note">Pick a meeting to open it.</p></div>}
+            {open ? <MeetingView meeting={open} jobs={pickerJobs} /> : <div className="mt-detail"><p className="mt-note">Pick a meeting to open it.</p></div>}
           </div>
         </>
       )}

@@ -1,6 +1,10 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { Sep, Sheet } from "@/components/Sheet";
+import { readConnection } from "@/lib/autodesk/connection";
+import { autodeskAllowed } from "@/lib/autodesk/gate";
+import { userSettings } from "@/lib/autodesk/oauth";
 import { getDb } from "@/lib/db";
 import {
   autodeskProjectUrl,
@@ -19,6 +23,8 @@ import { listMeetings, type MeetingListItem } from "@/lib/meetings/read";
 
 import { PillSelect } from "@/components/PillSelect";
 
+import { AutodeskAreas } from "./AutodeskAreas";
+import { AutodeskConnect } from "./AutodeskConnect";
 import { JobSync } from "./JobSync";
 import "./projects.css";
 
@@ -71,7 +77,7 @@ function Count({ label, value, unit }: { label: string; value: number | null; un
   );
 }
 
-function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[] }) {
+function JobView({ job, meetings, areas }: { job: JobDetail; meetings: MeetingListItem[]; areas: boolean }) {
   const where = fullAddress(job);
   const map = mapUrl(job);
   const tools = toolNames(job.autodeskTools);
@@ -135,6 +141,8 @@ function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[
         )}
       </section>
 
+      {areas ? <AutodeskAreas key={job.id} jobId={job.id} /> : null}
+
       <section className="jb-meetings" aria-labelledby="jb-meetings-h">
         <h3 id="jb-meetings-h" className="jb-h3">Recent Meetings</h3>
         {meetings.length === 0 ? (
@@ -169,7 +177,13 @@ export default async function ProjectsPage({
   const status = jobStatusFilter(params.status);
   const chosen = typeof params.id === "string" ? params.id : null;
   const db = getDb();
-  const [jobs, everyJob] = await Promise.all([listJobSummaries(db, search, status), listJobSummaries(db, "", "all")]);
+  // LA-2894: the Autodesk sign-in shows only where its routes answer.
+  const autodesk = autodeskAllowed((await headers()).get("host"));
+  const [jobs, everyJob, connection] = await Promise.all([
+    listJobSummaries(db, search, status),
+    listJobSummaries(db, "", "all"),
+    autodesk ? readConnection(db) : null,
+  ]);
   const total = countForStatus(everyJob, status);
   const hidden = everyJob.length - countForStatus(everyJob, "");
   const openId = chosen ?? jobs[0]?.id ?? null;
@@ -184,7 +198,18 @@ export default async function ProjectsPage({
       number="P-100"
       title="Projects"
       bodyClass="jb-wrap"
-      actions={<JobSync />}
+      actions={
+        <>
+          {autodesk ? (
+            <AutodeskConnect
+              configured={userSettings() !== null}
+              userName={connection ? connection.userName : undefined}
+              outcome={typeof params.autodesk === "string" ? params.autodesk : null}
+            />
+          ) : null}
+          <JobSync />
+        </>
+      }
       meta={
         <>
           <span>From Autodesk Construction Cloud</span>
@@ -247,7 +272,7 @@ export default async function ProjectsPage({
             ))}
           </div>
           {open ? (
-            <JobView job={open} meetings={meetings} />
+            <JobView job={open} meetings={meetings} areas={connection !== null} />
           ) : (
             <div className="jb-detail"><p className="jb-note">Pick a project to open it.</p></div>
           )}

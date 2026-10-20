@@ -64,3 +64,16 @@
   .jb-stats { grid-template-columns: 1fr; }
   .jb-mlist a { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* LA-2894 Autodesk sign-in and the area readout. */
+.jb-who { display: inline-flex; align-items: center; gap: 6px; font-size: var(--chip-size); line-height: var(--ui-line); font-weight: 600; color: var(--ink); background: var(--neutral-fill); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+.jb-who i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--done-bright); }
+.jb-btn--quiet { color: var(--ink-2); background: var(--neutral-fill); }
+.jb-btn--quiet:hover { background: var(--hover); }
+.jb-areas { display: grid; gap: var(--s3); }
+.jb-areas-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); }
+.jb-atable { width: 100%; border-collapse: collapse; font-size: var(--ui-size); }
+.jb-atable th, .jb-atable td { text-align: left; padding: 8px var(--s2); border-bottom: 1px solid var(--border-light); }
+.jb-atable thead th { font-size: var(--chip-size); font-weight: 600; color: var(--ink-3); }
+.jb-atable tbody th { font-weight: 600; color: var(--brand); }
+.jb-atable .num { text-align: right; }

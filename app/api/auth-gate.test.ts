@@ -27,6 +27,10 @@ const routes = [
   "rom/comments/threads/[id]/decline/route.ts",
   "rom/comments/threads/[id]/remove-correction/route.ts",
   "rom/comments/messages/[id]/remove/route.ts",
+  // LA-2894: the Autodesk sign-in. connect/route.ts opens no database.
+  "autodesk/callback/route.ts",
+  "autodesk/connection/route.ts",
+  "autodesk/areas/route.ts",
 ];
 
 // A route is guarded by requireApiUser, or by authorizeRequest when it needs

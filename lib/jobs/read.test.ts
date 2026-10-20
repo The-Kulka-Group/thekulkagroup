@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { seededDatabase } from "@/test/database";
 
-import { autodeskProjectUrl, fullAddress, isArchived, jobStatusFilter, listJobSummaries, mapUrl, readJob, toolNames, visibleJobs } from "./read";
+import { autodeskProjectUrl, countForStatus, fullAddress, isArchived, jobStatusFilter, listJobSummaries, mapUrl, readJob, toolNames, visibleJobs } from "./read";
 
 // LA-2858. The Jobs page reads. Every job and meeting is synthetic.
 
@@ -150,5 +150,17 @@ describe("visibleJobs", () => {
   it("names only the archived status", () => {
     expect(isArchived("archived")).toBe(true);
     expect([isArchived("suspended"), isArchived(null)]).toEqual([false, false]);
+  });
+});
+
+describe("countForStatus", () => {
+  const jobs = [{ status: "active" }, { status: "active" }, { status: "archived" }, { status: "pending" }, { status: null }];
+
+  it("counts what the list shows under each filter", () => {
+    expect(countForStatus(jobs, "")).toBe(4);
+    expect(countForStatus(jobs, "all")).toBe(5);
+    expect(countForStatus(jobs, "archived")).toBe(1);
+    expect(countForStatus(jobs, "active")).toBe(2);
+    expect(countForStatus(jobs, "suspended")).toBe(0);
   });
 });

@@ -99,6 +99,11 @@ export function jobStatusFilter(value: unknown): JobStatusFilter {
 /** Archived is finished. Pending and suspended projects still have work ahead, so dashboards keep them. */
 export const isArchived = (status: string | null | undefined) => status === "archived";
 
+/** How many of `jobs` the status filter lists, ignoring any search. The header count on Projects. */
+export function countForStatus(jobs: ReadonlyArray<{ status: string | null }>, filter: JobStatusFilter): number {
+  return jobs.filter((job) => (filter === "all" ? true : filter === "" ? !isArchived(job.status) : job.status === filter)).length;
+}
+
 /**
  * The jobs a dashboard shows: archived ones only when `showArchived` is set,
  * plus any job named in `keep` (a meeting's current project, the project a

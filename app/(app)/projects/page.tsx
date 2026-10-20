@@ -4,8 +4,8 @@ import { Sep, Sheet } from "@/components/Sheet";
 import { getDb } from "@/lib/db";
 import {
   autodeskProjectUrl,
+  countForStatus,
   fullAddress,
-  isArchived,
   JOB_STATUSES,
   jobStatusFilter,
   listJobSummaries,
@@ -170,8 +170,8 @@ export default async function ProjectsPage({
   const chosen = typeof params.id === "string" ? params.id : null;
   const db = getDb();
   const [jobs, everyJob] = await Promise.all([listJobSummaries(db, search, status), listJobSummaries(db, "", "all")]);
-  const total = everyJob.filter((one) => !isArchived(one.status)).length;
-  const hidden = everyJob.length - total;
+  const total = countForStatus(everyJob, status);
+  const hidden = everyJob.length - countForStatus(everyJob, "");
   const openId = chosen ?? jobs[0]?.id ?? null;
   const [open, meetings] = openId
     ? await Promise.all([readJob(db, openId), listMeetings(db, "", RECENT_MEETINGS, openId)])

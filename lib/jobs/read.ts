@@ -84,18 +84,41 @@ const COLUMNS = `j.id, j.autodesk_id, j.name, j.job_number, j.status, j.city, j.
   count(m.id) as meeting_count, max(m.started_at) as last_meeting_at`;
 const FROM = `jobs j left join meetings m on m.job_id = j.id`;
 
-/** A status the filter accepts, or "" for every job. */
-export function jobStatusFilter(value: unknown): JobStatus | "" {
+/**
+ * What the Projects status filter holds. An empty value is the default, every
+ * project ACC has not archived. "all" adds the archived ones back.
+ */
+export type JobStatusFilter = JobStatus | "all" | "";
+
+/** A filter the page accepts, or "" for the default. */
+export function jobStatusFilter(value: unknown): JobStatusFilter {
+  if (value === "all") return "all";
   return typeof value === "string" && (JOB_STATUSES as readonly string[]).includes(value) ? (value as JobStatus) : "";
 }
 
+/** Archived is finished. Pending and suspended projects still have work ahead, so dashboards keep them. */
+export const isArchived = (status: string | null | undefined) => status === "archived";
+
+/**
+ * The jobs a dashboard shows: archived ones only when `showArchived` is set,
+ * plus any job named in `keep` (a meeting's current project, the project a
+ * filter is already on), so a value is never dropped from its own menu.
+ */
+export function visibleJobs<T extends { id: string; status: string | null }>(
+  jobs: T[],
+  showArchived: boolean,
+  keep: ReadonlyArray<string | null | undefined> = [],
+): T[] {
+  return jobs.filter((job) => showArchived || !isArchived(job.status) || keep.includes(job.id));
+}
+
 /** Jobs active first, then by name, matching `search` in the name or job number. */
-export async function listJobSummaries(db: Db, search = "", status: JobStatus | "" = ""): Promise<JobListItem[]> {
+export async function listJobSummaries(db: Db, search = "", status: JobStatusFilter = ""): Promise<JobListItem[]> {
   const term = search.trim();
   const { rows } = await db.query<Row>(
     `select ${COLUMNS} from ${FROM}
       where ($1 = '' or j.name ilike $2 or coalesce(j.job_number, '') ilike $2)
-        and ($3 = '' or j.status = $3)
+        and case $3 when 'all' then true when '' then j.status is distinct from 'archived' else j.status = $3 end
       group by j.id
       order by (j.status = 'active') desc, j.name`,
     [term, `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`, status],

@@ -338,11 +338,18 @@ async function seedMeetingFixtures(database: PGlite) {
       ('40000000-0000-4000-8000-000000000001', 'acc-synth-1', 'Synthetic Job', 'C09001', 'active',
        '100 Example Street', 'Example City', 'NY', '00001', 40.75, -73.25, 24, 6, 180, '{build,cost,docs,projectAdministration}'),
       ('40000000-0000-4000-8000-000000000002', 'acc-synth-2', 'Example Harbor', 'C09002', 'active',
+       null, null, null, null, null, null, null, null, null, null),
+      ('40000000-0000-4000-8000-000000000003', 'acc-synth-3', 'Example Finished Tower', 'C09003', 'archived',
        null, null, null, null, null, null, null, null, null, null);
     update meetings set job_id = '40000000-0000-4000-8000-000000000001', match_source = 'job_name'
      where fireflies_id in ('SYNTH-FF-1', 'SYNTH-FF-2');
     insert into meetings (fireflies_id, title, started_at, duration_minutes, attendees, summary, sentences)
     values ('SYNTH-FF-3', 'Weekly Ops Huddle', date_trunc('hour', now()) - interval '3 days', 20,
             '[{"name":"Example PM","email":"pm@example.com"}]', '{"overview":""}', '[]');
+    -- LA-2653: a meeting on the archived job, so the Meetings toggle has something to show.
+    insert into meetings (fireflies_id, title, started_at, duration_minutes, attendees, summary, sentences, job_id, match_source)
+    values ('SYNTH-FF-4', 'Example Finished Tower Closeout', date_trunc('hour', now()) - interval '40 days', 30,
+            '[{"name":"Example PM","email":"pm@example.com"}]', '{"overview":""}', '[]',
+            '40000000-0000-4000-8000-000000000003', 'job_name');
   `);
 }

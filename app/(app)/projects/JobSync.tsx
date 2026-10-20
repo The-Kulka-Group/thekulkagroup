@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-// LA-2858. Runs the Autodesk job sync on demand (LA-2283) and reloads the
+// LA-2858. Runs the Autodesk project sync on demand (LA-2283) and reloads the
 // list. The daily meetings cron runs the same sync without anyone asking.
 
 export function JobSync() {
@@ -19,7 +19,7 @@ export function JobSync() {
         setState({ busy: false, note: body?.error ?? `The refresh failed with status ${response.status}.` });
         return;
       }
-      setState({ busy: false, note: `${body?.jobs ?? 0} jobs read from Autodesk` });
+      setState({ busy: false, note: `${body?.jobs ?? 0} projects read from Autodesk` });
       router.refresh();
     } catch {
       setState({ busy: false, note: "Autodesk could not be reached. Try again." });

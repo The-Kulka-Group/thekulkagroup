@@ -26,10 +26,10 @@ const NAV_GROUPS = [
   },
   {
     // LA-2280: Kulka's Fireflies meetings, matched to Autodesk projects (LA-2281).
-    // LA-2858: the Autodesk jobs themselves.
+    // LA-2858: the Autodesk projects themselves, named Projects by Matt.
     label: "Projects",
     items: [
-      { href: "/jobs", label: "Jobs", count: undefined, Icon: Briefcase },
+      { href: "/projects", label: "Projects", count: undefined, Icon: Briefcase },
       { href: "/meetings", label: "Meetings", count: undefined, Icon: VideoCamera },
     ],
   },

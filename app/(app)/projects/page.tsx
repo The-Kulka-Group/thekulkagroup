@@ -15,11 +15,11 @@ import { listMeetings, type MeetingListItem } from "@/lib/meetings/read";
 
 import { AutoSubmitSelect } from "../vision/AutoSubmitSelect";
 import { JobSync } from "./JobSync";
-import "./jobs.css";
+import "./projects.css";
 
-// LA-2858. Kulka's Autodesk jobs (LA-2283): a searchable list, and the picked
-// job open beside it with its meetings (LA-2281). Matt picked this layout,
-// mockup C, on 2026-10-19.
+// LA-2858. Kulka's Autodesk projects (LA-2283): a searchable list, and the picked
+// project open beside it with its meetings (LA-2281). Matt picked this layout,
+// mockup C, and the name Projects, on 2026-10-19. The table stays `jobs`.
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,7 @@ function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[
         </div>
       </header>
 
-      <section className="jb-stats" aria-label="Job at a Glance">
+      <section className="jb-stats" aria-label="Project at a Glance">
         <div className="jb-stat">
           <span className="t-label">Meetings</span>
           <b className="num">{job.meetingCount}</b>
@@ -95,7 +95,7 @@ function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[
       <section className="jb-meetings" aria-labelledby="jb-meetings-h">
         <h3 id="jb-meetings-h" className="jb-h3">Recent Meetings</h3>
         {meetings.length === 0 ? (
-          <p className="jb-note">No meetings sit on this job yet. A meeting joins it when its title carries the job number or name, or when someone picks the job on the meeting.</p>
+          <p className="jb-note">No meetings sit on this project yet. A meeting joins it when its title carries the job number or project name, or when someone picks the project on the meeting.</p>
         ) : (
           <ul className="jb-mlist">
             {meetings.map((meeting) => (
@@ -116,7 +116,7 @@ function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[
   );
 }
 
-export default async function JobsPage({
+export default async function ProjectsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -136,33 +136,33 @@ export default async function JobsPage({
     ? await Promise.all([readJob(db, openId), listMeetings(db, "", RECENT_MEETINGS, openId)])
     : [null, []];
   const href = (id: string) =>
-    `/jobs?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(status ? { status } : {}), id })}`;
+    `/projects?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(status ? { status } : {}), id })}`;
 
   return (
     <Sheet
-      number="J-100"
-      title="Jobs"
+      number="P-100"
+      title="Projects"
       bodyClass="jb-wrap"
       actions={<JobSync />}
       meta={
         <>
           <span>From Autodesk Construction Cloud</span>
           <Sep />
-          <span><span className="num">{total}</span> jobs</span>
+          <span><span className="num">{total}</span> projects</span>
         </>
       }
     >
       {total === 0 ? (
         <div className="empty">
-          <p>No jobs yet. Refresh From Autodesk reads Kulka&apos;s project list.</p>
+          <p>No projects yet. Refresh From Autodesk reads Kulka&apos;s project list.</p>
         </div>
       ) : (
         <div className="jb-body">
           <div className="jb-list">
-            <form className="jb-filters" action="/jobs">
+            <form className="jb-filters" action="/projects">
               <label className="jb-search">
                 <span className="t-label">Search</span>
-                <input className="input" type="search" name="q" defaultValue={search} maxLength={200} placeholder="Job Name or Number" />
+                <input className="input" type="search" name="q" defaultValue={search} maxLength={200} placeholder="Project Name or Job Number" />
               </label>
               <label>
                 <span className="t-label">Status</span>
@@ -172,7 +172,7 @@ export default async function JobsPage({
                 </AutoSubmitSelect>
               </label>
             </form>
-            {jobs.length === 0 ? <p className="jb-note jb-pad">No jobs match these filters.</p> : null}
+            {jobs.length === 0 ? <p className="jb-note jb-pad">No projects match these filters.</p> : null}
             {jobs.map((job) => (
               <Link
                 key={job.id}
@@ -199,7 +199,7 @@ export default async function JobsPage({
           {open ? (
             <JobView job={open} meetings={meetings} />
           ) : (
-            <div className="jb-detail"><p className="jb-note">Pick a job to open it.</p></div>
+            <div className="jb-detail"><p className="jb-note">Pick a project to open it.</p></div>
           )}
         </div>
       )}

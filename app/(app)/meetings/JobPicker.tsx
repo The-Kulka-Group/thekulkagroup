@@ -36,12 +36,12 @@ export function JobPicker({
         body: JSON.stringify({ jobId: value === NONE ? null : value }),
       });
       if (!response.ok) {
-        setError(((await response.json().catch(() => ({}))) as { error?: string }).error ?? "The job could not be saved.");
+        setError(((await response.json().catch(() => ({}))) as { error?: string }).error ?? "The project could not be saved.");
         return;
       }
       router.refresh();
     } catch {
-      setError("The job could not be saved. Check the connection and try again.");
+      setError("The project could not be saved. Check the connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -51,16 +51,16 @@ export function JobPicker({
     <span className="mt-pick">
       <select
         className="input mt-pick-select"
-        aria-label="Change the Job"
+        aria-label="Change the Project"
         value={jobId ?? (internal ? NONE : "")}
         disabled={busy}
         onChange={(e) => void choose(e.target.value)}
       >
-        {jobId === null && !internal ? <option value="">Choose a Job</option> : null}
+        {jobId === null && !internal ? <option value="">Choose a Project</option> : null}
         {jobs.map((job) => (
           <option key={job.id} value={job.id}>{job.label}</option>
         ))}
-        <option value={NONE}>No Job (Internal Meeting)</option>
+        <option value={NONE}>No Project (Internal Meeting)</option>
       </select>
       {error ? <span className="mt-pick-error" role="alert">{error}</span> : null}
     </span>

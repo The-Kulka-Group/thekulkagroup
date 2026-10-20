@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  House, Users, Calculator, ChartLineUp, Binoculars, ChartBar, List, MapTrifold,
+  House, Users, Calculator, ChartLineUp, Binoculars, Briefcase, ChartBar, List, MapTrifold,
   MagnifyingGlass, SidebarSimple, VideoCamera,
 } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
@@ -26,8 +26,12 @@ const NAV_GROUPS = [
   },
   {
     // LA-2280: Kulka's Fireflies meetings, matched to Autodesk projects (LA-2281).
+    // LA-2858: the Autodesk projects themselves, named Projects by Matt.
     label: "Projects",
-    items: [{ href: "/meetings", label: "Meetings", count: undefined, Icon: VideoCamera }],
+    items: [
+      { href: "/projects", label: "Projects", count: undefined, Icon: Briefcase },
+      { href: "/meetings", label: "Meetings", count: undefined, Icon: VideoCamera },
+    ],
   },
   {
     label: "Pre-Construction",

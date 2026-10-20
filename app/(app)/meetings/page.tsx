@@ -96,7 +96,7 @@ function chapterList(chapters: unknown[]): { title: string; at: string | null }[
 const MATCHED_BY: Record<MatchSource, string> = {
   job_number: "Matched by job number in the title",
   series: "Matched by its recurring meeting series",
-  job_name: "Matched by the job name in the title",
+  job_name: "Matched by the project name in the title",
   manual: "Set by hand",
 };
 
@@ -242,7 +242,7 @@ function MeetingView({ meeting, jobs }: { meeting: MeetingDetail; jobs: PickerJo
           {meeting.durationMinutes !== null ? <> · <span className="num">{minutes(meeting.durationMinutes)}</span></> : null}
         </p>
         <div className="mt-facts">
-          <span className="t-label">Job</span>
+          <span className="t-label">Project</span>
           <JobChip meeting={meeting} large />
           {jobs.length > 0 ? <JobPicker meetingId={meeting.id} jobId={meeting.job?.id ?? null} internal={meeting.matchSource === "manual" && !meeting.job} jobs={jobs} /> : null}
           {meeting.matchSource ? <span className="mt-src">{MATCHED_BY[meeting.matchSource]}</span> : null}
@@ -427,7 +427,7 @@ export default async function MeetingsPage({
           <section className="pg" aria-label="Projects at a Glance">
             <div className="pg-head">
               <h2 className="t-label">Projects at a Glance</h2>
-              <span className="pg-cap">The last 6 meetings for each job</span>
+              <span className="pg-cap">The last 6 meetings for each project</span>
             </div>
             <div className="pg-cards">
               {glanceProjects.projects.map((project) => (
@@ -435,9 +435,9 @@ export default async function MeetingsPage({
               ))}
               {glanceProjects.unmatched > 0 ? (
                 <Link className="pg-card pg-card--link" href={jobHref("unmatched")}>
-                  <span className="pg-name"><span className="mt-job mt-job--none">Unmatched</span>Not Yet on a Job</span>
+                  <span className="pg-name"><span className="mt-job mt-job--none">Unmatched</span>Not Yet on a Project</span>
                   <span className="pg-unm">
-                    <b className="num">{glanceProjects.unmatched}</b> {glanceProjects.unmatched === 1 ? "meeting needs" : "meetings need"} a job. Pick one on the meeting and its series follows.
+                    <b className="num">{glanceProjects.unmatched}</b> {glanceProjects.unmatched === 1 ? "meeting needs" : "meetings need"} a project. Pick one on the meeting and its series follows.
                   </span>
                 </Link>
               ) : null}
@@ -447,7 +447,7 @@ export default async function MeetingsPage({
           <section className="pg" aria-label="This Week at a Glance">
             <div className="pg-head">
               <h2 className="t-label">This Week at a Glance</h2>
-              <span className="pg-cap">Projects at a Glance appears once a meeting matches an Autodesk job.</span>
+              <span className="pg-cap">Projects at a Glance appears once a meeting matches an Autodesk project.</span>
             </div>
             <div className="pg-cards">
               <div className="pg-card">
@@ -489,9 +489,9 @@ export default async function MeetingsPage({
             <div className="mt-list">
               <form className="mt-filters mt-filters--two" action="/meetings">
                 <label>
-                  <span className="t-label">Job</span>
-                  <AutoSubmitSelect className="input" name="job" defaultValue={job} aria-label="Job, applies when selected">
-                    <option value="">All Jobs</option>
+                  <span className="t-label">Project</span>
+                  <AutoSubmitSelect className="input" name="job" defaultValue={job} aria-label="Project, applies when selected">
+                    <option value="">All Projects</option>
                     {jobs.map((one) => <option key={one.id} value={one.id}>{one.label}</option>)}
                     <option value="unmatched">Unmatched</option>
                   </AutoSubmitSelect>

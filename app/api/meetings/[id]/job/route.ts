@@ -21,7 +21,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   const db = getDb();
   if (!(await setMeetingJob(db, id, jobId as string | null))) {
-    return NextResponse.json({ error: "That meeting or job could not be found." }, { status: 404 });
+    return NextResponse.json({ error: "That meeting or project could not be found." }, { status: 404 });
   }
   await matchMeetings(db);
   return NextResponse.json({ ok: true });

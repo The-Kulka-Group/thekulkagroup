@@ -21,7 +21,8 @@ import type { MatchSource } from "@/lib/meetings/match";
 import type { Brief } from "@/lib/meetings/brief";
 import type { Sentiment } from "@/lib/meetings/store";
 
-import { AutoSubmitSelect } from "../vision/AutoSubmitSelect";
+import { PillSelect } from "@/components/PillSelect";
+
 import { JobPicker, type PickerJob } from "./JobPicker";
 import { MeetingSync } from "./MeetingSync";
 import "./meetings.css";
@@ -243,7 +244,8 @@ function MeetingView({ meeting, jobs }: { meeting: MeetingDetail; jobs: PickerJo
         </p>
         <div className="mt-facts">
           <span className="t-label">Project</span>
-          <JobChip meeting={meeting} large />
+          {/* LA-2862: with a picker, the picker names the project; the chip stays for Unmatched and Internal. */}
+          {jobs.length === 0 || !meeting.job ? <JobChip meeting={meeting} large /> : null}
           {jobs.length > 0 ? <JobPicker meetingId={meeting.id} jobId={meeting.job?.id ?? null} internal={meeting.matchSource === "manual" && !meeting.job} jobs={jobs} /> : null}
           {meeting.matchSource ? <span className="mt-src">{MATCHED_BY[meeting.matchSource]}</span> : null}
         </div>
@@ -488,14 +490,22 @@ export default async function MeetingsPage({
           <div className="mt-body">
             <div className="mt-list">
               <form className="mt-filters mt-filters--two" action="/meetings">
-                <label>
+                <div className="mt-field">
                   <span className="t-label">Project</span>
-                  <AutoSubmitSelect className="input" name="job" defaultValue={job} aria-label="Project, applies when selected">
-                    <option value="">All Projects</option>
-                    {jobs.map((one) => <option key={one.id} value={one.id}>{one.label}</option>)}
-                    <option value="unmatched">Unmatched</option>
-                  </AutoSubmitSelect>
-                </label>
+                  <PillSelect
+                    label="Project"
+                    name="job"
+                    value={job}
+                    options={[
+                      { value: "", label: "All Projects" },
+                      ...jobs.map((one) => ({ value: one.id, label: one.label })),
+                      { value: "unmatched", label: "Unmatched" },
+                    ]}
+                    submitOnChange
+                    searchable
+                    wide
+                  />
+                </div>
                 <label className="mt-search">
                   <span className="t-label">Search</span>
                   <input className="input" type="search" name="q" defaultValue={search} maxLength={200} placeholder="Title, Person or Topic" />

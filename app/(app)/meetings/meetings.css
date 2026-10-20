@@ -2,7 +2,7 @@
 .mt-body { display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); gap: 0; padding: 0; align-items: start; }
 .mt-list { border-right: 1px solid var(--border-light); padding: var(--s4) var(--s4) var(--s8); display: grid; gap: 2px; align-content: start; min-width: 0; }
 .mt-filters { display: grid; grid-template-columns: 1fr; gap: var(--s2); margin-bottom: var(--s3); }
-.mt-filters label { display: grid; gap: 4px; min-width: 0; }
+.mt-filters label, .mt-filters .mt-field { display: grid; gap: 4px; min-width: 0; }
 .mt-filters .input { width: 100%; }
 .mt-day { margin: var(--s4) 0 var(--s1); padding: 0 var(--s2); font-size: var(--label-size); line-height: var(--label-line); letter-spacing: var(--label-track); text-transform: uppercase; font-weight: 700; color: var(--brand); display: flex; gap: var(--s2); }
 .mt-day span { color: var(--ink-3); font-weight: 600; }
@@ -156,7 +156,7 @@ b.pos { color: var(--done); } b.neg { color: var(--stuck); } b.warn { color: var
 .mt-filters--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .mt-job--internal { color: var(--ink); background: var(--neutral-fill); }
 .mt-pick { display: inline-grid; gap: 4px; }
-.mt-pick-select { height: 28px; min-height: 28px; font-size: var(--meta-size); padding-block: 0; }
+.mt-pick .ps-btn { height: 30px; font-size: var(--meta-size); }
 .mt-pick-error { font-size: var(--meta-size); color: var(--stuck); }
 .mt-facts { flex-wrap: wrap; }
 .pg-card--link { text-decoration: none; cursor: pointer; }

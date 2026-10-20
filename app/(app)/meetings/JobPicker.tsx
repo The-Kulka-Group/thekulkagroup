@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { PillSelect } from "@/components/PillSelect";
+
 // LA-2281: a person's correction of a meeting's job. It saves on choosing,
 // with no Save button, and the rest of the meeting's calendar series follows.
 
@@ -47,21 +49,21 @@ export function JobPicker({
     }
   }
 
+  const options = [
+    ...(jobId === null && !internal ? [{ value: "", label: "Choose a Project" }] : []),
+    ...jobs.map((job) => ({ value: job.id, label: job.label })),
+    { value: NONE, label: "No Project (Internal Meeting)" },
+  ];
   return (
     <span className="mt-pick">
-      <select
-        className="input mt-pick-select"
-        aria-label="Change the Project"
+      <PillSelect
+        label="Project"
         value={jobId ?? (internal ? NONE : "")}
+        options={options}
+        onChange={(value) => void choose(value)}
+        searchable
         disabled={busy}
-        onChange={(e) => void choose(e.target.value)}
-      >
-        {jobId === null && !internal ? <option value="">Choose a Project</option> : null}
-        {jobs.map((job) => (
-          <option key={job.id} value={job.id}>{job.label}</option>
-        ))}
-        <option value={NONE}>No Project (Internal Meeting)</option>
-      </select>
+      />
       {error ? <span className="mt-pick-error" role="alert">{error}</span> : null}
     </span>
   );

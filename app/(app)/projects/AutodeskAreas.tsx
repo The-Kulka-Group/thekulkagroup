@@ -52,6 +52,7 @@ export function AutodeskAreas({ jobId }: { jobId: string }) {
                 <th scope="col">Area</th>
                 <th scope="col">Result</th>
                 <th scope="col" className="num">Records</th>
+                <th scope="col">Autodesk Says</th>
               </tr>
             </thead>
             <tbody>
@@ -59,7 +60,7 @@ export function AutodeskAreas({ jobId }: { jobId: string }) {
                 <tr key={area.area}>
                   <th scope="row">{area.area}</th>
                   <td>
-                    <span className={`jb-state jb-state--${area.answers ? "done" : "stuck"}`} title={area.reason ?? undefined}>
+                    <span className={`jb-state jb-state--${area.answers ? "done" : "stuck"}`}>
                       <i />
                       {area.answers ? "Answers" : area.status ? `Refused ${area.status}` : "No Answer"}
                     </span>
@@ -67,6 +68,7 @@ export function AutodeskAreas({ jobId }: { jobId: string }) {
                   <td className="num">
                     {area.records === null ? "" : `${area.records.toLocaleString("en-US")}${area.more ? "+" : ""}`}
                   </td>
+                  <td className="jb-reason">{area.reason ?? ""}</td>
                 </tr>
               ))}
             </tbody>

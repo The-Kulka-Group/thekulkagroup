@@ -4,7 +4,8 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
-import { SIGN_IN_COOKIE } from "@/lib/autodesk/oauth";
+import { keepSignInAlive } from "@/lib/autodesk/connection";
+import { SIGN_IN_COOKIE, userSettings } from "@/lib/autodesk/oauth";
 import { seededDatabase } from "@/test/database";
 
 // LA-2894. The Autodesk sign-in end to end against a seeded Postgres, with
@@ -216,7 +217,9 @@ describe("the area readout", () => {
     expect(byArea.Issues).toMatchObject({ answers: true, records: 42, more: false });
     expect(byArea["Cost Budgets"]).toMatchObject({ answers: true, records: 3 });
     expect(byArea.Forms).toMatchObject({ answers: false, status: 403, records: null, reason: "Forbidden for Bearer [token]" });
-    expect(body.areas).toHaveLength(30);
+    expect(body.areas).toHaveLength(28);
+    // LA-2911: the app-only company areas are not asked as a person.
+    expect(body.areas.some((one: { area: string }) => one.area.startsWith("Project Companies"))).toBe(false);
     expectNoSecret(seen);
 
     // The token still had an hour, so no refresh; every call carried it.
@@ -224,6 +227,8 @@ describe("the area readout", () => {
     for (const [, init] of autodesk.mock.calls) expect(init.headers.Authorization).toBe("Bearer ACCESS-SECRET-1");
     const reviews = autodesk.mock.calls.find(([url]) => String(url).includes("/construction/reviews/"))!;
     expect(new URL(String(reviews[0])).searchParams.get("limit")).toBe("50");
+    const photos = autodesk.mock.calls.find(([url]) => String(url).includes("/photos:filter"))!;
+    expect(JSON.parse(String(photos[1].body))).toEqual({ limit: 50 });
   });
 
   it("refreshes an expired access token once, saves the new pair sealed, and reads with it", async () => {
@@ -267,6 +272,27 @@ describe("the area readout", () => {
     const response = await readout();
     expect(response.status).toBe(409);
     expect(autodesk).not.toHaveBeenCalled();
+  });
+});
+
+describe("the daily keep-alive (LA-2911)", () => {
+  const keep = (now?: number) => keepSignInAlive(db as Db, userSettings()!, now);
+
+  it("refreshes a sign-in idle for a day, so Autodesk's 15 days start again", async () => {
+    await signIn();
+    autodesk.mockClear();
+    expect(await keep(Date.now() + 24 * 3600_000)).toBe("connected");
+    const refreshes = autodesk.mock.calls.filter(([url]) => String(url).endsWith("/authentication/v2/token"));
+    expect(refreshes).toHaveLength(1);
+    const { rows } = await db.query<{ refreshed_at: string | null }>(`select refreshed_at from autodesk_connections`);
+    expect(rows[0].refreshed_at).not.toBeNull();
+  });
+
+  it("reports a missing or retired sign-in without throwing", async () => {
+    expect(await keep()).toBe("Autodesk is not connected. Connect Autodesk on the Projects page.");
+    await signIn();
+    refreshAnswer = "expired";
+    expect(await keep(Date.now() + 24 * 3600_000)).toBe("The Autodesk sign-in has expired. Connect Autodesk again.");
   });
 });
 

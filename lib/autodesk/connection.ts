@@ -135,3 +135,19 @@ export async function accessToken(db: Db, settings: UserSettings, now = Date.now
   if ("expired" in result) throw new NotConnectedError("The Autodesk sign-in has expired. Connect Autodesk again.");
   return result.token;
 }
+
+/**
+ * LA-2911. Autodesk retires a refresh token after 15 days unused, so the daily
+ * cron asks for a live token once a day. After an hour idle that means a
+ * refresh, and a fresh 15 days. Returns "connected" or the reason it is not;
+ * it never throws for Autodesk's answer.
+ */
+export async function keepSignInAlive(db: Db, settings: UserSettings, now = Date.now()): Promise<string> {
+  try {
+    await accessToken(db, settings, now);
+    return "connected";
+  } catch (cause) {
+    if (cause instanceof NotConnectedError || cause instanceof AutodeskSignInError) return cause.message;
+    throw cause;
+  }
+}

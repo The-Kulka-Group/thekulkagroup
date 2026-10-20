@@ -2,6 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { keepSignInAlive } from "@/lib/autodesk/connection";
+import { userSettings } from "@/lib/autodesk/oauth";
 import { getDb } from "@/lib/db";
 import { AutodeskError, autodeskSettings } from "@/lib/jobs/autodesk";
 import { syncJobs } from "@/lib/jobs/sync";
@@ -12,6 +14,7 @@ import { backfillMeetings, briefPending } from "@/lib/meetings/sync";
 // LA-2279. The scheduled pull (vercel.json), the main path for meetings the
 // webhook never reports. Vercel sends `Authorization: Bearer $CRON_SECRET`.
 // LA-2283: it refreshes the Autodesk job list first, when Autodesk is set up.
+// LA-2911: it also refreshes the Autodesk sign-in, which lapses after 15 idle days.
 
 export const maxDuration = 300;
 
@@ -29,11 +32,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
   const jobs = await refreshJobs();
+  const settings = userSettings();
+  const autodeskSignIn = settings ? await keepSignInAlive(getDb(), settings) : null;
   const key = firefliesKey();
-  if (!key) return NextResponse.json({ error: "Fireflies is not set up.", jobs }, { status: 503 });
+  if (!key) return NextResponse.json({ error: "Fireflies is not set up.", jobs, autodeskSignIn }, { status: 503 });
   try {
     const result = await backfillMeetings(getDb(), firefliesReader(key), new Date(Date.now() - DAYS * 86_400_000));
-    return NextResponse.json({ ...result, briefed: await briefPending(getDb(), briefClient()), jobs });
+    return NextResponse.json({ ...result, briefed: await briefPending(getDb(), briefClient()), jobs, autodeskSignIn });
   } catch (cause) {
     if (cause instanceof FirefliesError) return NextResponse.json({ error: cause.message }, { status: 502 });
     throw cause;

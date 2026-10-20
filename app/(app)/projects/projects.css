@@ -77,3 +77,5 @@
 .jb-atable thead th { font-size: var(--chip-size); font-weight: 600; color: var(--ink-3); }
 .jb-atable tbody th { font-weight: 600; color: var(--brand); }
 .jb-atable .num { text-align: right; }
+/* LA-2911 Autodesk's reason for a refusal, as text. */
+.jb-atable .jb-reason { font-size: var(--meta-size); color: var(--ink-2); max-width: 320px; }

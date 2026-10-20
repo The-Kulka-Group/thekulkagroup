@@ -4,14 +4,15 @@ import { accessToken } from "./connection";
 import type { UserSettings } from "./oauth";
 
 // LA-2894. Calls ACC as the connected person. The readout asks each area of one
-// project whether it answers and how many records it holds, the same list the
-// app-only check of 10 Gordon Drive used on 2026-10-20. It returns counts and
+// project whether it answers and how many records it holds, the list the
+// app-only check of 10 Gordon Drive used on 2026-10-20, less the two company
+// areas that answer only an app-only token. It returns counts and
 // statuses only and stores nothing.
 
 const API = "https://developer.api.autodesk.com";
 const LIMIT = 100;
-// Reviews refuses a page larger than 50.
-const REVIEWS_LIMIT = 50;
+// Reviews and Photos refuse a page larger than 50.
+const SMALL_LIMIT = 50;
 const AT_ONCE = 6;
 
 export type AreaCall = { area: string; method: "GET" | "POST"; path: string; body?: unknown; limit?: number };
@@ -114,8 +115,7 @@ export function projectAreas(accountId: string, projectId: string, costContainer
   return [
     { area: "Project Details", method: "GET", path: `/construction/admin/v1/projects/${p}` },
     { area: "Project Users", method: "GET", path: `/construction/admin/v1/projects/${p}/users?limit=200`, limit: 200 },
-    { area: "Project Companies", method: "GET", path: `/construction/admin/v1/projects/${p}/companies?limit=200`, limit: 200 },
-    { area: "Project Companies (HQ)", method: "GET", path: `/hq/v1/accounts/${a}/projects/${p}/companies` },
+    // LA-2911: project companies answer only an app-only token, which the job sync already uses.
     { area: "Issues", method: "GET", path: `/construction/issues/v1/projects/${p}/issues?${page()}` },
     { area: "Issue Types", method: "GET", path: `/construction/issues/v1/projects/${p}/issue-types` },
     { area: "RFIs v2", method: "GET", path: `/construction/rfis/v2/projects/${p}/rfis?${page()}` },
@@ -125,10 +125,10 @@ export function projectAreas(accountId: string, projectId: string, costContainer
     { area: "Sheets", method: "GET", path: `/construction/sheets/v1/projects/${p}/sheets?${page()}` },
     { area: "Forms", method: "GET", path: `/construction/forms/v1/projects/${p}/forms?${page()}` },
     { area: "Form Templates", method: "GET", path: `/construction/forms/v1/projects/${p}/form-templates?${page()}` },
-    { area: "Photos", method: "POST", path: `/construction/photos/v1/projects/${p}/photos:filter`, body: { limit: LIMIT } },
+    { area: "Photos", method: "POST", path: `/construction/photos/v1/projects/${p}/photos:filter`, body: { limit: SMALL_LIMIT }, limit: SMALL_LIMIT },
     { area: "Assets", method: "GET", path: `/construction/assets/v2/projects/${p}/assets?${page()}` },
     { area: "Locations", method: "GET", path: `/construction/locations/v2/projects/${p}/trees/default/nodes?${page()}` },
-    { area: "Reviews", method: "GET", path: `/construction/reviews/v1/projects/${p}/reviews?${page(REVIEWS_LIMIT)}`, limit: REVIEWS_LIMIT },
+    { area: "Reviews", method: "GET", path: `/construction/reviews/v1/projects/${p}/reviews?${page(SMALL_LIMIT)}`, limit: SMALL_LIMIT },
     { area: "Transmittals", method: "GET", path: `/construction/transmittals/v1/projects/${p}/transmittals?${page()}` },
     { area: "Cost Budgets", method: "GET", path: `/cost/v1/containers/${c}/budgets?${page()}` },
     { area: "Cost Main Contracts", method: "GET", path: `/cost/v1/containers/${c}/main-contracts?${page()}` },

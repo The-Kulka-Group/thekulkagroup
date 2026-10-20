@@ -215,6 +215,6 @@ describe("GET /api/meetings/sync/cron", () => {
     expect((await run("Bearer wrong")).status).toBe(401);
     const ok = await run("Bearer test-cron-secret");
     expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ found: 0, added: 0, briefed: 0, jobs: null });
+    expect(await ok.json()).toEqual({ found: 0, added: 0, briefed: 0, jobs: null, autodeskSignIn: null });
   });
 });

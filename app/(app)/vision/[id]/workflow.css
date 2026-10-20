@@ -16,7 +16,7 @@
 .wf-details {margin:var(--s3) 0;}
 .wf-details summary,.wf-source-edit summary {cursor:pointer;font-weight:600;padding:var(--s2) 0;color:var(--primary-hover);}
 .wf-details form+form {margin-top:var(--s4);border-top:1px solid var(--border-light);}
-.wf-action {border-left:3px solid var(--primary);background:var(--canvas);padding:var(--s3);margin-bottom:var(--s3);overflow-wrap:anywhere;}
+.wf-action {border:1px solid var(--border-light);border-radius:var(--r-lg);background:var(--canvas);padding:var(--s3);margin-bottom:var(--s3);overflow-wrap:anywhere;}
 .wf-inline {display:flex;align-items:end;gap:var(--s3);flex-wrap:wrap;}
 .wf-inline label {margin-bottom:0;}
 .wf-people {list-style:none;padding:0;margin:0;}

@@ -23,8 +23,8 @@
 .cc-flag dt { margin: 0; color: var(--rb-sel-ink2); }
 .cc-flag dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .cc-msgs { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
-.cc-msg { padding-left: 10px; border-left: 2px solid var(--rb-pnl-line); min-width: 0; }
-.cc-msg--internal { border-left-color: var(--working); }
+.cc-msg { min-width: 0; }
+.cc-msg--internal { padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--working) 12%, transparent); }
 .cc-msg-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--meta-size); }
 .cc-msg-who { font-weight: 600; }
 .cc-msg-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }

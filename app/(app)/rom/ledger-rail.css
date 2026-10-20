@@ -172,7 +172,7 @@
 
 .lg--hl .lg-item:not([data-lg-lit]),
 .lg--hl .lg-head:not([data-lg-lit]) { opacity: 0.4; transition: opacity 0.2s; }
-.lg [data-lg-lit] { box-shadow: inset 3px 0 0 var(--primary); }
+.lg [data-lg-lit] { background: color-mix(in srgb, var(--primary) 9%, transparent); border-radius: 8px; }
 .lg-mark {
   flex: none;
   padding: 0 5px;

@@ -13,7 +13,8 @@ import {
 } from "@/lib/jobs/read";
 import { listMeetings, type MeetingListItem } from "@/lib/meetings/read";
 
-import { AutoSubmitSelect } from "../vision/AutoSubmitSelect";
+import { PillSelect } from "@/components/PillSelect";
+
 import { JobSync } from "./JobSync";
 import "./projects.css";
 
@@ -164,13 +165,17 @@ export default async function ProjectsPage({
                 <span className="t-label">Search</span>
                 <input className="input" type="search" name="q" defaultValue={search} maxLength={200} placeholder="Project Name or Job Number" />
               </label>
-              <label>
+              <div className="jb-field">
                 <span className="t-label">Status</span>
-                <AutoSubmitSelect className="input" name="status" defaultValue={status} aria-label="Status, applies when selected">
-                  <option value="">All Statuses</option>
-                  {JOB_STATUSES.map((one) => <option key={one} value={one}>{STATUS[one].label}</option>)}
-                </AutoSubmitSelect>
-              </label>
+                <PillSelect
+                  label="Status"
+                  name="status"
+                  value={status}
+                  options={[{ value: "", label: "All Statuses" }, ...JOB_STATUSES.map((one) => ({ value: one, label: STATUS[one].label }))]}
+                  submitOnChange
+                  wide
+                />
+              </div>
             </form>
             {jobs.length === 0 ? <p className="jb-note jb-pad">No projects match these filters.</p> : null}
             {jobs.map((job) => (

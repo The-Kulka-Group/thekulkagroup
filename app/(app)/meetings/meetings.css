@@ -75,7 +75,7 @@
 .pg-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: var(--s3); }
 .pg-card { font: inherit; text-align: left; color: var(--ink); background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; box-shadow: var(--shadow-card); padding: var(--s4); display: grid; gap: var(--s3); align-content: start; cursor: pointer; }
 .pg-card:hover { border-color: var(--border); }
-.pg-card--alert { border-color: #F6B8C3; box-shadow: inset 3px 0 0 var(--stuck-bright), var(--shadow-card); }
+.pg-card--alert { border-color: var(--stuck-bright); }
 .pg-name { display: flex; align-items: center; gap: var(--s2); font-weight: 700; color: var(--brand); font-size: var(--t3-size); }
 .pg-trend { display: flex; align-items: center; gap: var(--s3); }
 .spark { flex: none; }

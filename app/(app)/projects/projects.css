@@ -39,6 +39,12 @@
 .jb-stat b { font-size: var(--t2-size); line-height: 1.2; font-weight: 700; color: var(--brand); }
 .jb-stat b.jb-dates { font-size: var(--t3-size); }
 .jb-stat b.jb-none { font-size: var(--t3-size); font-weight: 600; color: var(--ink-3); }
+.jb-unit { font-size: var(--ui-size); font-weight: 600; color: var(--ink-2); }
+
+/* LA-2881 Autodesk tools turned on for the project. */
+.jb-tools { display: grid; gap: var(--s3); }
+.jb-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
+.jb-chips li { font-size: var(--chip-size); line-height: var(--ui-line); font-weight: 600; background: var(--neutral-fill); color: var(--ink); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
 
 .jb-meetings { display: grid; gap: var(--s3); }
 .jb-h3 { margin: 0; font-size: var(--t3-size); line-height: var(--t3-line); font-weight: 700; color: var(--brand); }

@@ -332,9 +332,13 @@ async function seedMeetingFixtures(database: PGlite) {
     where fireflies_id = 'SYNTH-FF-1';
     -- LA-2281: two synthetic Autodesk jobs; both meetings above sit on the first,
     -- and an internal huddle stays unmatched.
-    insert into jobs (id, autodesk_id, name, job_number, status) values
-      ('40000000-0000-4000-8000-000000000001', 'acc-synth-1', 'Synthetic Job', 'C09001', 'active'),
-      ('40000000-0000-4000-8000-000000000002', 'acc-synth-2', 'Example Harbor', 'C09002', 'active');
+    -- LA-2881: the first carries the address, counts and tools; the second has none.
+    insert into jobs (id, autodesk_id, name, job_number, status, address_line1, city, state_or_province,
+                      postal_code, latitude, longitude, member_count, company_count, sheet_count, autodesk_tools) values
+      ('40000000-0000-4000-8000-000000000001', 'acc-synth-1', 'Synthetic Job', 'C09001', 'active',
+       '100 Example Street', 'Example City', 'NY', '00001', 40.75, -73.25, 24, 6, 180, '{build,cost,docs,projectAdministration}'),
+      ('40000000-0000-4000-8000-000000000002', 'acc-synth-2', 'Example Harbor', 'C09002', 'active',
+       null, null, null, null, null, null, null, null, null, null);
     update meetings set job_id = '40000000-0000-4000-8000-000000000001', match_source = 'job_name'
      where fireflies_id in ('SYNTH-FF-1', 'SYNTH-FF-2');
     insert into meetings (fireflies_id, title, started_at, duration_minutes, attendees, summary, sentences)

@@ -4,10 +4,13 @@ import { Sep, Sheet } from "@/components/Sheet";
 import { getDb } from "@/lib/db";
 import {
   autodeskProjectUrl,
+  fullAddress,
   JOB_STATUSES,
   jobStatusFilter,
   listJobSummaries,
+  mapUrl,
   readJob,
+  toolNames,
   type JobDetail,
   type JobListItem,
 } from "@/lib/jobs/read";
@@ -52,8 +55,25 @@ function place(job: JobListItem) {
   return [job.city, job.stateOrProvince].filter(Boolean).join(", ");
 }
 
+function Count({ label, value, unit }: { label: string; value: number | null; unit: [string, string] }) {
+  return (
+    <div className="jb-stat">
+      <span className="t-label">{label}</span>
+      {value === null ? (
+        <b className="jb-none">Not Set</b>
+      ) : (
+        <b className="num">
+          {value.toLocaleString("en-US")} <small className="jb-unit">{value === 1 ? unit[0] : unit[1]}</small>
+        </b>
+      )}
+    </div>
+  );
+}
+
 function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[] }) {
-  const where = place(job);
+  const where = fullAddress(job);
+  const map = mapUrl(job);
+  const tools = toolNames(job.autodeskTools);
   return (
     <article className="jb-detail" aria-label={job.name}>
       <header className="jb-head">
@@ -68,6 +88,11 @@ function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[
           <a className="jb-btn jb-btn--out" href={autodeskProjectUrl(job.autodeskId)} target="_blank" rel="noreferrer">
             Open in Autodesk
           </a>
+          {map ? (
+            <a className="jb-btn jb-btn--out" href={map} target="_blank" rel="noreferrer">
+              Open Map
+            </a>
+          ) : null}
           <Link className="jb-btn" href={`/meetings?${new URLSearchParams({ job: job.id })}`}>
             View Meetings
           </Link>
@@ -91,6 +116,22 @@ function JobView({ job, meetings }: { job: JobDetail; meetings: MeetingListItem[
               : "Not Set"}
           </b>
         </div>
+        <Count label="Team" value={job.memberCount} unit={["Person", "People"]} />
+        <Count label="Companies" value={job.companyCount} unit={["Company", "Companies"]} />
+        <Count label="Sheets" value={job.sheetCount} unit={["Sheet", "Sheets"]} />
+      </section>
+
+      <section className="jb-tools" aria-labelledby="jb-tools-h">
+        <h3 id="jb-tools-h" className="jb-h3">Autodesk Tools</h3>
+        {tools.length === 0 ? (
+          <p className="jb-note">Autodesk lists no tools turned on for this project.</p>
+        ) : (
+          <ul className="jb-chips">
+            {tools.map((tool) => (
+              <li key={tool}>{tool}</li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="jb-meetings" aria-labelledby="jb-meetings-h">

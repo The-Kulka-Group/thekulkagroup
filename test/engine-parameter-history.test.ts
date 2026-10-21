@@ -36,6 +36,7 @@ describe("engine_parameters as a history (LA-866)", () => {
       `select name, value, provenance_recorded_by, reason from engine_parameters order by name`,
     );
     expect(rows.map((r) => [r.name, Number(r.value)])).toEqual([
+      ["confidence.exclude_at_or_below", 1],
       ["fee.rate", 0.0325],
       ["flag.high_min_comparables", 5],
       ["flag.medium_min_comparables", 2],
@@ -83,7 +84,7 @@ describe("engine_parameters as a history (LA-866)", () => {
     expect(parameters["weight.actuals"]?.value).toBe(6);
     expect(parameters["weight.actuals"]?.provenance.reason).toBe("Newer synthetic value.");
     expect(parameters["weight.proest_budget"]?.value).toBe(1);
-    expect(Object.keys(parameters)).toHaveLength(11);
+    expect(Object.keys(parameters)).toHaveLength(12);
   });
 
   it("feeds the Markups defaults the newest fee and insurance", async () => {

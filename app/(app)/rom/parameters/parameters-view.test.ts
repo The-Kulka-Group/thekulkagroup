@@ -35,6 +35,7 @@ const CURRENT: Values = {
   "spread.low": 0.35,
   "fee.rate": 0.0325,
   "insurance.rate": 0.054,
+  "confidence.exclude_at_or_below": 1,
 };
 
 function entry(name: keyof Values, value: number, createdAt: string, id = createdAt): ParameterHistoryEntry {
@@ -72,6 +73,7 @@ describe("number boxes", () => {
     expect(formatValue("flag.high_min_comparables", 5)).toBe("5 Jobs");
     expect(formatValue("flag.high_min_comparables", 1)).toBe("1 Job");
     expect(formatValue("insurance.rate", 0.054)).toBe("5.4%");
+    expect(formatValue("confidence.exclude_at_or_below", 1)).toBe("1 of 10");
   });
 });
 

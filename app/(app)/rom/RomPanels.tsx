@@ -398,6 +398,7 @@ function signalWords(signal: ProvenanceSignal): string {
     KIND_LABEL[signal.kind],
     signal.exportLabel ?? "no export named",
     `recorded ${signal.recordedAt} by ${personName(signal.recordedBy)}`,
+    ...(signal.confidenceScore == null ? [] : [`estimator confidence ${signal.confidenceScore} of 10`]),
     `weight ${signal.weight} (${SHARE.format(signal.weightShare)})`,
   ];
   return parts.join(", ");

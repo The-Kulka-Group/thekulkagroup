@@ -443,6 +443,13 @@ export function clientBasis(basis: string): string {
 const SPLITS_OFF_PAST_JOBS = /^\d+ of \d+ lines rest on estimator judgment with no measured Kulka figure behind them yet\.$/;
 
 /**
+ * LA-2967: how many past ProEst budgets the estimator confidence cutoff left
+ * out. It names past jobs and how Kulka's estimators scored them, so it stays
+ * off the client page for the same reason (LA-1483).
+ */
+const SCORED_OUT_PAST_JOBS = /^\d+ ProEst figures? stays? out of the blend because the estimator scored /;
+
+/**
  * The id key of a note (LA-1488): a 40-bit hash of the run's own words for it,
  * before `clientNote` rewords it, so a wording change on the client page does
  * not rename the id. The key follows the note, not its place in the list:
@@ -498,6 +505,7 @@ export function clientNote(text: string): string {
  */
 export function clarification(text: string): string | null {
   if (/^Not in this job, so removed from the total: /.test(text)) return null;
+  if (SCORED_OUT_PAST_JOBS.test(text)) return null;
   // LA-1534: the pricing parameters are off the client page (LA-1532), and a
   // line's level of detail is an internal sorting the client never sees.
   if (/recorded engine parameters/.test(text)) return null;
@@ -1327,7 +1335,7 @@ export function presentBudget(publication: Publication): BudgetPage {
   // LA-1504: a note each division now shows is cut, and two become one line.
   const seen = new Map<string, number>();
   const notes: Note[] = rom.assumptions
-    .filter((text) => !SPLITS_OFF_PAST_JOBS.test(text))
+    .filter((text) => !SPLITS_OFF_PAST_JOBS.test(text) && !SCORED_OUT_PAST_JOBS.test(text))
     .flatMap((text) => {
       const base = noteKey(text);
       const nth = (seen.get(base) ?? 0) + 1;

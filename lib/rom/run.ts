@@ -500,6 +500,8 @@ export type BenchmarkData = {
   scopeRelationships: ScopeRelationship[];
   /** Past jobs' recorded framing systems, by project id (LA-1103). Absent reads as none recorded. */
   sourceProjectFraming?: Record<string, FramingSystem>;
+  /** Past jobs' estimator confidence scores, by project id (LA-2967). Absent reads as none scored. */
+  sourceProjectConfidence?: Record<string, number>;
 };
 
 /** What the read_parameters step reads. */
@@ -606,6 +608,16 @@ export async function readBenchmarkData(
   const sourceProjectFraming: Record<string, FramingSystem> = {};
   for (const row of framingRows) sourceProjectFraming[row.id] = row.framing_system;
 
+  // Each past job's estimator confidence score (LA-2967), read the same way:
+  // only scored jobs come back, so an unscored job keeps its full weight.
+  const { rows: confidenceRows } = await db.query<{ id: string; estimator_confidence: number }>(
+    `select id, estimator_confidence from projects
+      where estimator_confidence is not null
+      order by id`,
+  );
+  const sourceProjectConfidence: Record<string, number> = {};
+  for (const row of confidenceRows) sourceProjectConfidence[row.id] = Number(row.estimator_confidence);
+
   return {
     benchmarks: rows.map(toBenchmark),
     classifications,
@@ -613,6 +625,7 @@ export async function readBenchmarkData(
     branchGateItems: gateItems.map(toGateItemRule),
     scopeRelationships: relationships.map(toRelationship),
     sourceProjectFraming,
+    sourceProjectConfidence,
   };
 }
 
@@ -655,6 +668,9 @@ export function assembleSnapshot(
   if (data.scopeRelationships.length > 0) snapshot.scopeRelationships = data.scopeRelationships;
   if (data.sourceProjectFraming && Object.keys(data.sourceProjectFraming).length > 0) {
     snapshot.sourceProjectFraming = data.sourceProjectFraming;
+  }
+  if (data.sourceProjectConfidence && Object.keys(data.sourceProjectConfidence).length > 0) {
+    snapshot.sourceProjectConfidence = data.sourceProjectConfidence;
   }
   if (withMarkups) {
     if (data.markupHistory.length > 0) snapshot.markupHistory = data.markupHistory;

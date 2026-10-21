@@ -25,6 +25,8 @@ export type ProvenanceSignal = {
   recordedBy: string;
   recordedAt: string;
   projects: ProvenanceProject[];
+  /** The estimator confidence score that scaled this signal's weight, out of 10. Absent or null when none did (LA-2967). */
+  confidenceScore?: number | null;
 };
 
 /**
@@ -55,7 +57,8 @@ export type LineProvenance = {
   judgments: ProvenanceJudgment[];
   /**
    * Figures left out of the blend and why, such as a past job framed
-   * differently on items 8 and 17 (LA-1103). Empty when nothing was left out.
+   * differently on items 8 and 17 (LA-1103) or a ProEst budget scored at or
+   * below the cutoff (LA-2967). Empty when nothing was left out.
    */
   excluded: ExcludedSignal[];
   /** Why the line is held for its framing system, or null (LA-1103). */
@@ -89,11 +92,10 @@ export async function readRunProvenance(db: Db, runId: string): Promise<RunProve
 }
 
 async function describeLines(db: Db, rom: Rom): Promise<LineProvenance[]> {
+  const leftOut = (line: Rom["lines"][number]) => [...(line.framing?.excluded ?? []), ...(line.scoreExcluded ?? [])];
   const names = await projectNames(
     db,
-    rom.lines.flatMap((l) =>
-      [...l.comparables, ...(l.framing?.excluded ?? [])].flatMap((c) => c.sourceProjectIds),
-    ),
+    rom.lines.flatMap((l) => [...l.comparables, ...leftOut(l)].flatMap((c) => c.sourceProjectIds)),
   );
 
   return rom.lines.map((line) => {
@@ -119,8 +121,9 @@ async function describeLines(db: Db, rom: Rom): Promise<LineProvenance[]> {
         recordedBy: c.recordedBy,
         recordedAt: c.recordedAt,
         projects: c.sourceProjectIds.map((id) => ({ id, name: names.get(id) ?? null })),
+        confidenceScore: c.confidenceScore ?? null,
       })),
-      excluded: (line.framing?.excluded ?? []).map((c) => ({
+      excluded: leftOut(line).map((c) => ({
         kind: c.kind,
         rate: c.rate,
         weight: c.weight,
@@ -128,6 +131,7 @@ async function describeLines(db: Db, rom: Rom): Promise<LineProvenance[]> {
         recordedBy: c.recordedBy,
         recordedAt: c.recordedAt,
         projects: c.sourceProjectIds.map((id) => ({ id, name: names.get(id) ?? null })),
+        confidenceScore: c.confidenceScore ?? null,
         reason: c.reason,
       })),
       framingReason: line.framing?.reason ?? null,

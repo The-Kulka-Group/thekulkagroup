@@ -188,6 +188,14 @@ A past Kulka project whose recorded fields make it fair to compare against the p
 being budgeted.
 _Avoid_: comp, similar job
 
+**Estimator confidence**:
+An estimator's score from 1 to 10 of how well a past job's ProEst estimate shows the
+job's full cost, with who gave it and when. A ProEst budget figure counts its score out
+of 10, and a job scored at or below the cutoff stays out of the blend. Actuals are never
+scored. It is a person's input on a past job, and the confidence flag is the engine's
+output on a ROM line.
+_Avoid_: rating, job confidence flag
+
 **GSF per unit**:
 The benchmark that converts a unit count into gross square feet when a call gives units
 and not area. Stored as gross square feet per unit directly, by product type, never as a

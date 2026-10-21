@@ -39,12 +39,20 @@ export {
 } from "./rom";
 
 export {
+  confidenceCutoffProblem,
   PARAMETER_NAMES,
   parameterProblems,
   tierProblems,
   weightProblem,
   type ParameterProblem,
 } from "./rom-parameters";
+
+export {
+  CONFIDENCE_SCALE,
+  confidenceExclusionReason,
+  confidenceFactor,
+  confidenceScoreOf,
+} from "./rom-confidence";
 
 export {
   FRAMING_ITEM_CODES,

@@ -35,6 +35,18 @@
 }
 .import-totals .stat { display: flex; flex-direction: column; gap: var(--s1); }
 
+.job-confidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--s4);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.job-confidence .stat { display: flex; flex-direction: column; gap: var(--s1); margin-right: auto; }
+.job-confidence-by { color: var(--ink-2); }
+.job-confidence-field { display: flex; flex-direction: column; gap: var(--s1); }
+
 .import-approve {
   display: flex;
   justify-content: flex-end;

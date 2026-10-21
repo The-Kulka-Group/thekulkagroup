@@ -75,7 +75,7 @@ describe("GET /api/rom/parameters", () => {
     const response = await GET(new Request("http://localhost/api/rom/parameters"));
     expect(response.status).toBe(200);
     const { history } = await response.json();
-    expect(history).toHaveLength(11);
+    expect(history).toHaveLength(12);
     const actuals = history.find((h: { name: string }) => h.name === "weight.actuals");
     expect(actuals.provenance.recordedBy).toBe("Matt Nicosia");
     expect(actuals.provenance.recordedAt).toBe("2026-09-21");

@@ -248,6 +248,31 @@ export function ParametersScreen({ history: initialHistory, impact, initialDraft
             </div>
             <p className="pm-foot">One ROM can still use its own fee or insurance in Run Settings. This sets the default.</p>
           </section>
+
+          <section className="pm-card" aria-labelledby="pm-confidence">
+            <h2 id="pm-confidence">
+              Estimator Confidence <small>Which scored ProEst budgets stay out of the blend</small>
+            </h2>
+            <div className="pm-rows">
+              <ParameterRow
+                name="confidence.exclude_at_or_below"
+                label="Leave Out Jobs Scored At or Below"
+                sub="A Quick Takeoff Is Not a Full Project Cost"
+                unit="of 10"
+                draft={drafts["confidence.exclude_at_or_below"]}
+                problem={problems["confidence.exclude_at_or_below"]}
+                changed={changed.includes("confidence.exclude_at_or_below")}
+                history={history}
+                open={open.has("confidence.exclude_at_or_below")}
+                onToggle={() => toggle("confidence.exclude_at_or_below")}
+                onChange={(text) => setDraft("confidence.exclude_at_or_below", text)}
+                onKey={(e) => onKey("confidence.exclude_at_or_below", e)}
+              />
+            </div>
+            <p className="pm-foot">
+              Every other scored ProEst budget counts its score out of 10. Actual job cost is never scored.
+            </p>
+          </section>
           <p className="pm-foot">
             Every change keeps the old value in its history. A backtest writes its own values, marked Backtest.
           </p>

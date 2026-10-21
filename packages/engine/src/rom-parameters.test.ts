@@ -20,6 +20,7 @@ const CURRENT: Record<ParameterName, number> = {
   "spread.low": 0.35,
   "fee.rate": 0.0325,
   "insurance.rate": 0.054,
+  "confidence.exclude_at_or_below": 1,
 };
 
 function asParameters(values: Record<ParameterName, number>): EngineParameters {

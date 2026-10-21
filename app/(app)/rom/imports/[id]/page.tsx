@@ -5,9 +5,11 @@ import { Sheet, Sep } from "@/components/Sheet";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { CostImportNotFound, getCostImport, listCanonicalItems } from "@/lib/rom/ingest";
+import { readJob } from "@/lib/rom/job-confidence";
 import { isUuid } from "@/lib/uuid";
 
 import { ImportReview } from "./ImportReview";
+import { JobConfidence } from "./JobConfidence";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,12 @@ export default async function CostImportReviewPage({
 
   const auth = await authorizeRequest();
   const canonicalItems = auth.ok ? await listCanonicalItems(getDb()) : [];
+  // LA-2967: the source job's estimator confidence score. Only a ProEst
+  // budget reads it, so an actuals import does not show it.
+  const job =
+    auth.ok && costImport.provenanceKind === "proest_budget"
+      ? await readJob(getDb(), costImport.sourceProjectId)
+      : null;
 
   return (
     <Sheet
@@ -53,7 +61,12 @@ export default async function CostImportReviewPage({
       }
     >
       {auth.ok ? (
-        <ImportReview costImport={costImport} canonicalItems={canonicalItems} />
+        <>
+          {job ? (
+            <JobConfidence projectId={costImport.sourceProjectId} projectName={job.name} initial={job.confidence} />
+          ) : null}
+          <ImportReview costImport={costImport} canonicalItems={canonicalItems} />
+        </>
       ) : (
         <p className="empty">Sign in with an authorized account to review this import.</p>
       )}

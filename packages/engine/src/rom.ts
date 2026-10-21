@@ -31,7 +31,8 @@ import {
   type Markups,
   type StaffingRate,
 } from "./rom-markups";
-import { tierProblems, weightProblem } from "./rom-parameters";
+import { confidenceExclusionReason, confidenceFactor, confidenceScoreOf, CONFIDENCE_SCALE } from "./rom-confidence";
+import { confidenceCutoffProblem, tierProblems, weightProblem } from "./rom-parameters";
 import { type PerUnitLine, readUnitCount, scaleRowsToUnits } from "./rom-per-unit";
 import { bringInSupportingItems, type ScopeRelationship } from "./rom-relationships";
 import {
@@ -158,7 +159,9 @@ export type EngineParameter = {
  * tier's half-width as a fraction of the midpoint, which also bounds how far
  * apart the comparables may sit for a line to earn that tier. `fee.rate` and
  * `insurance.rate` are the default markup rates below the trade subtotal, as
- * fractions (LA-1016).
+ * fractions (LA-1016). `confidence.exclude_at_or_below` is the estimator
+ * confidence score at or below which a past job's ProEst budget stays out of
+ * the blend (LA-2967).
  */
 export type ParameterName =
   | `weight.${ProvenanceKind}`
@@ -166,7 +169,8 @@ export type ParameterName =
   | "flag.medium_min_comparables"
   | `spread.${ConfidenceFlag}`
   | "fee.rate"
-  | "insurance.rate";
+  | "insurance.rate"
+  | "confidence.exclude_at_or_below";
 
 export type EngineParameters = Partial<Record<ParameterName, EngineParameter>>;
 
@@ -298,6 +302,12 @@ export type DataSnapshot = {
    */
   sourceProjectFraming?: Record<string, FramingSystem>;
   /**
+   * Each past job's estimator confidence score, 1 to 10, keyed by project id
+   * (LA-2967). A job missing here has no score and keeps its full weight. A
+   * snapshot without any prices exactly as it did before LA-2967.
+   */
+  sourceProjectConfidence?: Record<string, number>;
+  /**
    * Canonical items the caller has put in scope for this run that no
    * benchmark prices yet (LA-1153, ADR 0006: "A block can arrive unpriced"),
    * such as the four demolition disconnects once an answer brings their
@@ -411,6 +421,12 @@ export type Comparable = {
    * Parameters screen's worked example.
    */
   unit?: BenchmarkUnit;
+  /**
+   * LA-2967: the estimator confidence score that scaled this figure's weight,
+   * out of 10. Absent when no score applies, which is every actuals figure
+   * and every ProEst figure from a job nobody has scored.
+   */
+  confidenceScore?: number;
 };
 
 /** A figure the blend left out, with the reason in plain words (LA-1103). */
@@ -474,6 +490,11 @@ export type RomLine = {
   gateStatus: GateLineStatus | null;
   /** Present on items 8 and 17 only (LA-1103). Absent on every other line and on runs recorded before it. */
   framing?: FramingLine;
+  /**
+   * LA-2967: the figures left out because the estimator scored their job at
+   * or below the cutoff, each with its reason. Absent when none were.
+   */
+  scoreExcluded?: ExcludedComparable[];
   /**
    * The driver that brought this supporting item in, so the screen can name
    * it (LA-1154, ADR 0006). Present on supporting items only.
@@ -597,8 +618,32 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       b.constructionKind === answers.constructionKind,
   );
 
+  // LA-2967: a ProEst figure counts its job's estimator confidence score over
+  // 10 of its kind's weight, and one from a job scored at or below the cutoff
+  // stays out. The cutoff is read only when some job has a score, so a
+  // snapshot without any prices exactly as it did before.
+  const scores = snapshot.sourceProjectConfidence ?? {};
+  const cutoff = Object.keys(scores).length > 0 ? readConfidenceCutoff(snapshot.parameters) : null;
+  const scoreOf = (row: Benchmark) =>
+    confidenceScoreOf(row.provenance.kind, row.provenance.sourceProjectIds, scores);
+  const comparableOf = (row: Benchmark): Comparable => {
+    const score = scoreOf(row);
+    return toComparable(row, weightFor(snapshot.parameters, row.provenance.kind) * confidenceFactor(score), score);
+  };
+  const scoreExcluded = new Map<string, ExcludedComparable[]>();
+  const kept = matched.filter((row) => {
+    const reason = cutoff === null ? null : confidenceExclusionReason(scoreOf(row), cutoff);
+    if (reason === null) return true;
+    const group = scoreExcluded.get(row.costCode);
+    const figure = { ...comparableOf(row), reason };
+    if (group) group.push(figure);
+    else scoreExcluded.set(row.costCode, [figure]);
+    return false;
+  });
+  for (const group of scoreExcluded.values()) group.sort(compareComparables);
+
   const byCostCode = new Map<string, Benchmark[]>();
-  for (const benchmark of matched) {
+  for (const benchmark of kept) {
     const group = byCostCode.get(benchmark.costCode);
     if (group) group.push(benchmark);
     else byCostCode.set(benchmark.costCode, [benchmark]);
@@ -646,6 +691,7 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
       elevatorFacts.elevatorCount,
       elevatorFacts.machineRooms,
       derived,
+      comparableOf,
     );
 
   // LA-1323: the unit count a per-unit trade prices against, read once per run.
@@ -668,6 +714,14 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
   // LA-2216: an item whose quantity the facts cannot give yet becomes a named
   // blank, never a line priced at zero.
   const blanks: UnpricedItem[] = [];
+
+  // LA-2967: an item whose every figure the cutoff left out has no rate, so it
+  // arrives unpriced, the same as an item no benchmark prices yet.
+  for (const costCode of [...scoreExcluded.keys()].sort((a, b) => a.localeCompare(b))) {
+    if (byCostCode.has(costCode)) continue;
+    const lead = matched.find((row) => row.costCode === costCode)!;
+    blanks.push({ costCode, label: lead.label });
+  }
 
   // LA-2216: the garage area leaves a whole-building item once its garage
   // item has a rate to price that area on, so the garage is priced once.
@@ -716,10 +770,14 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
         answers.framingSystem ?? null,
         snapshot.sourceProjectFraming ?? {},
         (kept) => blend(costCode, kept),
-        (row) => toComparable(row, weightFor(snapshot.parameters, row.provenance.kind)),
+        comparableOf,
       );
     })
-    .filter((line): line is RomLine => line !== null);
+    .filter((line): line is RomLine => line !== null)
+    .map((line) => {
+      const left = scoreExcluded.get(line.costCode);
+      return left ? { ...line, scoreExcluded: left } : line;
+    });
 
   // A branch gate can switch a canonical item on or off (LA-1028). The
   // answers a gate rule reads sit in `facts`, whatever the caller named that
@@ -826,6 +884,12 @@ export function computeRom(answers: Answers, snapshot: DataSnapshot): Rom {
     unpricedItems,
   );
   assumptions.push(...supporting.assumptions);
+  const leftOut = [...scoreExcluded.values()].reduce((sum, group) => sum + group.length, 0);
+  if (leftOut > 0) {
+    assumptions.push(
+      `${leftOut} ProEst ${leftOut === 1 ? "figure stays" : "figures stay"} out of the blend because the estimator scored ${leftOut === 1 ? "its job" : "their jobs"} at or below ${cutoff} of ${CONFIDENCE_SCALE}.`,
+    );
+  }
 
   const rom: Rom = {
     lines,
@@ -962,6 +1026,13 @@ function weightFor(parameters: EngineParameters, kind: ProvenanceKind): number {
   return weight;
 }
 
+function readConfidenceCutoff(parameters: EngineParameters): number {
+  const cutoff = requireParameter(parameters, "confidence.exclude_at_or_below");
+  const problem = confidenceCutoffProblem(cutoff);
+  if (problem) throw new Error(`Engine parameter "confidence.exclude_at_or_below": ${problem}`);
+  return cutoff;
+}
+
 /**
  * One cost code's rows become one line. Sorting is total, so the same rows in
  * any order give the same line, and the heaviest figure decides the label and
@@ -1046,9 +1117,10 @@ function blendLine(
   elevatorCount: number | null = null,
   machineRooms: number | null = null,
   derived: DerivedQuantities | null = null,
+  comparableOf: (row: Benchmark) => Comparable = (row) => toComparable(row, weightFor(parameters, row.provenance.kind)),
 ): RomLine {
   const ranked = rows
-    .map((row) => ({ row, comparable: toComparable(row, weightFor(parameters, row.provenance.kind)) }))
+    .map((row) => ({ row, comparable: comparableOf(row) }))
     .sort((a, b) => compareComparables(a.comparable, b.comparable));
   const comparables = ranked.map((r) => r.comparable);
   const lead = ranked[0].row;
@@ -1250,7 +1322,7 @@ function dispersionOf(rate: number, counted: Comparable[]): number {
   return counted.reduce((worst, c) => Math.max(worst, Math.abs(c.rate - rate) / rate), 0);
 }
 
-function toComparable(row: Benchmark, weight: number): Comparable {
+function toComparable(row: Benchmark, weight: number, confidenceScore: number | null = null): Comparable {
   return {
     kind: row.provenance.kind,
     rate: row.value,
@@ -1260,6 +1332,7 @@ function toComparable(row: Benchmark, weight: number): Comparable {
     recordedBy: row.provenance.recordedBy,
     recordedAt: row.provenance.recordedAt,
     unit: row.unit,
+    ...(confidenceScore === null ? {} : { confidenceScore }),
   };
 }
 

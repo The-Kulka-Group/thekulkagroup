@@ -1,5 +1,6 @@
 import {
   blendExample,
+  CONFIDENCE_SCALE,
   computeRom,
   parameterProblems,
   PARAMETER_NAMES,
@@ -83,11 +84,12 @@ export const TIERS: readonly { flag: ConfidenceFlag; label: string }[] = [
 
 export const FLAG_WORDS: Record<ConfidenceFlag, string> = { high: "High", medium: "Medium", low: "Low" };
 
-type Kind = "weight" | "count" | "percent";
+type Kind = "weight" | "count" | "score" | "percent";
 
 function kindOf(name: ParameterName): Kind {
   if (name.startsWith("weight.")) return "weight";
   if (name.startsWith("flag.")) return "count";
+  if (name.startsWith("confidence.")) return "score";
   return "percent";
 }
 
@@ -121,6 +123,7 @@ export function formatValue(name: ParameterName, value: number): string {
   const kind = kindOf(name);
   if (kind === "weight") return trim(value, 4);
   if (kind === "count") return `${trim(value, 4)} ${value === 1 ? "Job" : "Jobs"}`;
+  if (kind === "score") return `${trim(value, 4)} of ${CONFIDENCE_SCALE}`;
   return `${trim(value * 100, 4)}%`;
 }
 
@@ -287,7 +290,7 @@ export function impactRows(impact: ImpactData, base: Values, edited: Values): Im
 /** Up or down arrows nudge a box by one step, or five with Shift. Never below zero. */
 export function nudge(name: ParameterName, value: number, direction: 1 | -1, shift: boolean): number {
   const kind = kindOf(name);
-  const step = kind === "weight" ? 0.5 : kind === "count" ? 1 : name.startsWith("spread.") ? 0.01 : 0.0025;
+  const step = kind === "weight" ? 0.5 : kind === "count" || kind === "score" ? 1 : name.startsWith("spread.") ? 0.01 : 0.0025;
   const from = Number.isFinite(value) ? value : 0;
   const next = from + direction * step * (shift ? 5 : 1);
   return Math.max(0, Number(next.toFixed(8)));

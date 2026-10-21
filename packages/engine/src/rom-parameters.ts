@@ -5,6 +5,7 @@
 // value it belongs to. Both read the rules from here, so the screen cannot
 // accept a value the next run would refuse, or refuse one the run would take.
 
+import { CONFIDENCE_SCALE } from "./rom-confidence";
 import { markupRateProblem } from "./rom-markups";
 import type { ParameterName } from "./rom";
 
@@ -21,6 +22,7 @@ export const PARAMETER_NAMES: readonly ParameterName[] = [
   "spread.low",
   "fee.rate",
   "insurance.rate",
+  "confidence.exclude_at_or_below",
 ];
 
 /** One refused value, with the reason in words a person can act on. */
@@ -33,6 +35,17 @@ export type ParameterProblem = { name: ParameterName; message: string };
  */
 export function weightProblem(value: number): string | null {
   return value > 0 ? null : "Use a weight above zero.";
+}
+
+/**
+ * The estimator confidence cutoff (LA-2967): a job scored at or below it stays
+ * out of the blend. Zero leaves every scored job in. Ten would drop every
+ * scored job, so the highest cutoff is nine.
+ */
+export function confidenceCutoffProblem(value: number): string | null {
+  return Number.isInteger(value) && value >= 0 && value < CONFIDENCE_SCALE
+    ? null
+    : `Use a whole number from 0 to ${CONFIDENCE_SCALE - 1}.`;
 }
 
 /**
@@ -107,5 +120,7 @@ export function parameterProblems(values: Partial<Record<ParameterName, number>>
       problems.push({ name, message: "Use a percent from 0 up to 100." });
     }
   }
+  const cutoff = confidenceCutoffProblem(read("confidence.exclude_at_or_below"));
+  if (cutoff) problems.push({ name: "confidence.exclude_at_or_below", message: cutoff });
   return problems;
 }

@@ -22,6 +22,7 @@ const VALUES: Record<ParameterName, number> = {
   "spread.low": 0.35,
   "fee.rate": 0.0325,
   "insurance.rate": 0.054,
+  "confidence.exclude_at_or_below": 1,
 };
 
 const HISTORY: ParameterHistoryEntry[] = PARAMETER_NAMES.map((name, i) => ({
@@ -81,6 +82,10 @@ describe("ParametersScreen", () => {
     expect(html).toContain("Markups");
     expect(html).toContain('value="3.25"');
     expect(html).toContain('value="5.4"');
+    // LA-2967: the estimator confidence cutoff, as a whole score.
+    expect(html).toContain("Estimator Confidence");
+    expect(html).toContain("Leave Out Jobs Scored At or Below");
+    expect(html).toMatch(/id="pm-confidence"/);
     // The worked example, through the engine: $23.41, medium, 3 of 5.
     expect(html).toContain("$23.41");
     expect(html).toContain("Medium, ±20%");

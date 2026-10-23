@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   House, Users, Calculator, ChartLineUp, Binoculars, Briefcase, ChartBar, List, MapTrifold,
-  MagnifyingGlass, SidebarSimple, VideoCamera,
+  MagnifyingGlass, VideoCamera,
 } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
-import { RAIL_COOKIE } from "@/components/rail-cookie";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
 // sits beside its word (DESIGN.md, Navigation).
@@ -76,12 +75,6 @@ export function railMatches(query: string, item: { label: string; group?: string
   return [item.label, item.group ?? "", item.code ?? ""].some((text) => text.toLowerCase().includes(q));
 }
 
-/** A key press the rail shortcut must leave alone, because the user is typing. */
-function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
-}
-
 /**
  * LA-1210: the rail on a phone. Below the design's mobile breakpoint the rail
  * itself is off-canvas by default; a compact top bar carries the product name
@@ -89,21 +82,16 @@ function isTyping(target: EventTarget | null): boolean {
  * the bar instead of under a 232px block. The drawer is a dismissible overlay:
  * Escape closes it and returns focus to the Menu button.
  *
- * LA-1330: above the phone breakpoint the rail rests at icon width and opens
- * over the page once the pointer has rested on it, or when keyboard focus
- * lands inside it. The timing lives in daylight.css as transition delays, so
- * a busy page (the 3D Building View) cannot make it late the way a JS timer
- * would be. Keep Open (or the [ key) pins it beside the page instead.
+ * LA-3041: above the phone breakpoint the rail always sits open beside the
+ * page. It no longer rests at icon width or opens on hover (LA-1330).
  */
 export function Rail({
   email,
   openAccess = false,
-  initialPinned = false,
   needsKulka = 0,
 }: {
   email: string;
   openAccess?: boolean;
-  initialPinned?: boolean;
   /** LA-1490: client comment threads waiting on Kulka. Conceptual Budget shows the count, and shows nothing at zero. */
   needsKulka?: number;
 }) {
@@ -112,10 +100,6 @@ export function Rail({
   const initials = email.slice(0, 2).toUpperCase();
   const activeHref = activeRailHref(path);
   const [open, setOpen] = useState(false);
-  // Escape shuts the hover-opened rail until the pointer leaves it, so a
-  // pointer resting on the rail does not hold it open (WCAG 1.4.13).
-  const [dismissed, setDismissed] = useState(false);
-  const [pinned, setPinned] = useState(initialPinned);
   const [query, setQuery] = useState("");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const railRef = useRef<HTMLElement>(null);
@@ -131,35 +115,6 @@ export function Rail({
     if (open) setOpen(false);
     if (query) setQuery("");
   }
-
-  const togglePinned = useCallback(() => {
-    setPinned((was) => {
-      const next = !was;
-      document.cookie = `${RAIL_COOKIE}=${next ? "pinned" : "hover"}; path=/; max-age=31536000; samesite=lax`;
-      return next;
-    });
-  }, []);
-
-  // The frame reserves the rail's full width only while it is pinned; the
-  // layout renders the first value from the cookie, and this keeps it in step.
-  useEffect(() => {
-    const frame = railRef.current?.closest<HTMLElement>(".app");
-    if (frame) frame.dataset.rail = pinned ? "pinned" : "hover";
-  }, [pinned]);
-
-
-  // [ keeps the rail open or lets it rest, the way Linear and Notion bind
-  // their sidebars to one key. Ignored while typing.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "[" || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTyping(event.target) || document.querySelector('dialog[open], [aria-modal="true"]')) return;
-      event.preventDefault();
-      togglePinned();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [togglePinned]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,9 +133,6 @@ export function Rail({
   })).filter((group) => group.items.length > 0);
   const showHome = railMatches(query, { label: "Home", code: "H-100" });
   const firstMatch = showHome ? "/" : groups[0]?.items[0]?.href;
-
-  // Focus in the field opens the rail through :focus-visible (daylight.css).
-  const openSearch = () => searchRef.current?.focus();
 
   return (
     <>
@@ -208,13 +160,6 @@ export function Rail({
         ref={railRef}
         aria-label="Sheets"
         className={`rail${open ? " rail--open" : ""}`}
-        data-dismissed={dismissed ? "true" : undefined}
-        // A filter only means something while the rail is open to show it;
-        // left behind, it would empty the resting rail of every icon.
-        onPointerLeave={() => {
-          setDismissed(false);
-          if (!railRef.current?.contains(document.activeElement)) setQuery("");
-        }}
         onBlur={(event) => {
           // Pointer still on the rail: a click is landing on a filtered item
           // (Safari does not focus links on click), so leave the list alone.
@@ -227,23 +172,19 @@ export function Rail({
             setQuery("");
             return;
           }
-          // Only a resting pointer needs holding off; with the pointer
-          // elsewhere, dropping focus is enough to shut it.
-          if (railRef.current?.matches(":hover")) setDismissed(true);
           (document.activeElement as HTMLElement | null)?.blur();
         }}
       >
         <div className="rail-logo">
-          <span className="rail-logo-mark" aria-hidden="true">K</span>
           <span className="rail-logo-lockup">
             <span className="rail-logo-word">Kulka</span>
             <span className="logo-ai">AI</span>
           </span>
         </div>
         <div className="rail-search">
-          <button type="button" className="rail-search-icon" aria-label="Jump to a Sheet" tabIndex={-1} onClick={openSearch}>
+          <span className="rail-search-icon" aria-hidden="true">
             <MagnifyingGlass size={16} />
-          </button>
+          </span>
           <input
             ref={searchRef}
             className="input"
@@ -304,22 +245,11 @@ export function Rail({
           {!showHome && groups.length === 0 ? <p className="rail-empty">No sheet by that name.</p> : null}
         </div>
 
-        <div className="rail-foot">
-          <button
-            type="button"
-            className="rail-item rail-pin"
-            aria-pressed={pinned}
-            onClick={togglePinned}
-            title={pinned ? "Let the sidebar rest ( [ )" : "Keep the sidebar open ( [ )"}
-          >
-            <SidebarSimple size={16} />
-            <span>{pinned ? "Let It Rest" : "Keep Open"}</span>
-            <kbd className="count">[</kbd>
-          </button>
-          {/* LA-1210: while KULKA_AUTH_OPEN=1 there is no signed-in account behind
-              "OP" and this email, so the footer shows nothing rather than an
-              account and a Sign Out that don't mean anything yet. */}
-          {!openAccess ? (
+        {/* LA-1210: while KULKA_AUTH_OPEN=1 there is no signed-in account behind
+            "OP" and this email, so the rail has no footer rather than an
+            account and a Sign Out that don't mean anything yet. */}
+        {!openAccess ? (
+          <div className="rail-foot">
             <div className="rail-user">
               <span className="owner owner--1">{initials}</span>
               <span className="t-ui rail-user-email" title={email}>{email}</span>
@@ -327,8 +257,8 @@ export function Rail({
                 <button className="btn btn--quiet" type="submit">Sign Out</button>
               </form>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </nav>
     </>
   );

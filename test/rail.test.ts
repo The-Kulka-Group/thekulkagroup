@@ -40,7 +40,8 @@ describe("sidebar navigation", () => {
   it("shows the count of client comments that need Kulka on Conceptual Budget only (LA-1490)", () => {
     const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com", needsKulka: 3 }));
     expect(html).toMatch(/href="\/rom"[^>]*>.*?<span>Conceptual Budget<\/span><span class="count"[^>]*>3<\/span>/);
-    expect(html.match(/class="count"/g)?.length).toBe(3);
+    // Home's H-100 and this one. LA-3041 took out the Keep Open key's count.
+    expect(html.match(/class="count"/g)?.length).toBe(2);
     expect(html).toContain('title="Client comments that need Kulka"');
   });
 
@@ -48,7 +49,7 @@ describe("sidebar navigation", () => {
     for (const props of [{}, { needsKulka: 0 }]) {
       const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com", ...props }));
       expect(html).not.toContain("Client comments that need Kulka");
-      expect(html.match(/class="count"/g)?.length).toBe(2);
+      expect(html.match(/class="count"/g)?.length).toBe(1);
     }
   });
 
@@ -99,29 +100,19 @@ describe("sidebar navigation", () => {
     expect(html).not.toContain("rail-backdrop");
   });
 
-  it("names the rail and its search field, and offers Keep Open with its key (LA-1330)", () => {
+  it("names the rail and its search field, and offers no Keep Open, since the rail always stays open (LA-3041)", () => {
     const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com" }));
     expect(html).toContain('aria-label="Sheets"');
     expect(html).toContain('aria-label="Jump to a Sheet"');
-    expect(html).toMatch(/<button[^>]*class="rail-item rail-pin"[^>]*aria-pressed="false"/);
-    expect(html).toContain("Keep Open");
-    expect(html).toContain("rail-logo-mark");
+    expect(html).not.toContain("Keep Open");
+    expect(html).not.toContain("rail-pin");
   });
 
-  it("renders pinned when the cookie said so (LA-1330)", () => {
-    const html = renderToStaticMarkup(createElement(Rail, { email: "test@example.com", initialPinned: true }));
-    expect(html).toMatch(/aria-pressed="true"/);
-    expect(html).toContain("Let It Rest");
-  });
-
-  it("opens after a short rest and forgives a brief overshoot, inside the eval's bands (LA-1330)", () => {
+  it("keeps the desktop rail at full width with no hover open (LA-3041)", () => {
     const css = readFileSync("daylight.css", "utf8");
-    const open = Number(css.match(/--rail-open-delay:\s*(\d+)ms/)?.[1]);
-    const close = Number(css.match(/--rail-close-delay:\s*(\d+)ms/)?.[1]);
-    expect(open).toBeGreaterThanOrEqual(100);
-    expect(open).toBeLessThanOrEqual(200);
-    expect(close).toBeGreaterThanOrEqual(250);
-    expect(close).toBeLessThanOrEqual(600);
+    expect(css).toMatch(/@media \(min-width: 861px\) \{\s*\.app \{ grid-template-columns: var\(--rail-w\) minmax\(0, 1fr\); \}/);
+    expect(css).not.toContain(".rail:hover");
+    expect(css).not.toContain("--rail-open-delay");
   });
 
   it("filters sheets by name, section, or spoken address (LA-1330)", () => {

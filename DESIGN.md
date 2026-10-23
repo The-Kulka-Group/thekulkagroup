@@ -9,7 +9,21 @@ tests retire with it. This document keeps only what the owner has approved, and 
 deliberately short: `daylight.css` is the token authority, and where this file is silent,
 use judgment and match the shipped screens.
 
+## The golden rule
+
+Keep every screen as simple as it can be. Put finer detail in layers the user clicks
+into: a row that folds open, a side panel, or a detail page. Rob set this rule on
+2026-10-23, and it outranks every other rule in this file.
+
+Before a screen ships, decide what the user needs at first glance and move everything
+else one click down. A grid of every value, a history strip on every card, or a column
+of per-item detail is a second layer, not the first screen.
+
 ## Owner decisions on record
+
+- 2026-10-23: the golden rule above. On the access mockups it folded the Access Map into
+  department rows, moved tool-by-tool access onto each person's page, and moved run
+  history off the Data Sources cards onto each source's run log.
 
 - 2026-08-24: rounded corners, colors aligned with Apple and Monday.com, Open Sans used
   strategically, enterprise finish, no slop.

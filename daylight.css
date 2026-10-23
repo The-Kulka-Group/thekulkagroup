@@ -115,10 +115,6 @@
   --strip-h:     36px;
 
   --rail-w:      232px;
-  /* LA-1330: the collapsed rail opens after the pointer rests this long and
-     closes this long after it leaves (eval bands: 100 to 200, 250 to 600). */
-  --rail-open-delay:  120ms;
-  --rail-close-delay: 300ms;
   --measure-doc: 720px;
   --measure-rec: 960px;
 
@@ -332,13 +328,10 @@ em, .em { font-style: normal; font-weight: 600; }
 }
 .rail-item[aria-current="page"] .count { color: var(--brand); }
 
-/* LA-1330: the collapsed rail's mark. Hidden wherever the rail shows its
-   full lockup (the phone drawer, a pinned or open rail). */
-.rail-logo-mark { display: none; }
 .rail-logo-lockup { display: inline-flex; align-items: center; }
 
-/* The magnifier is the search field's leading glyph at every width, so it
-   sits where the nav icons sit and never moves when the rail opens. */
+/* The magnifier is the search field's leading glyph, lined up with the nav
+   icons. */
 .rail-search { position: relative; }
 .rail-search .input { width: 100%; padding-left: 34px; }
 .rail-search-icon {
@@ -349,11 +342,8 @@ em, .em { font-style: normal; font-weight: 600; }
   display: flex;
   align-items: center;
   padding: 0;
-  border: 0;
-  background: none;
   color: var(--ink-2);
-  cursor: pointer;
-  pointer-events: none;   /* the field under it takes the click when open */
+  pointer-events: none;   /* the field under it takes the click */
 }
 
 .rail-empty { padding: var(--s2) var(--s3); color: var(--ink-3); font-size: var(--meta-size); }
@@ -363,25 +353,6 @@ em, .em { font-style: normal; font-weight: 600; }
   padding-top: var(--s3);
   border-top: 1px solid var(--border-light);
 }
-.rail-pin {
-  width: 100%;
-  background: none;
-  font: inherit;
-  font-size: var(--ui-size);
-  cursor: pointer;
-  text-align: left;
-}
-.rail-pin kbd {
-  font-family: inherit;
-  font-size: 11px;
-  line-height: 16px;
-  padding: 0 5px;
-  border: 1px solid var(--border-light);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-}
-.rail-pin[aria-pressed="true"] { color: var(--primary-hover); }
-
 .rail-user {
   display: flex;
   align-items: center;
@@ -1340,26 +1311,11 @@ textarea.input { border-radius: var(--r-lg); }
 
 /* --- 20. Narrow widths --------------------------------------------------- */
 
-/* LA-1321: above the phone breakpoint the rail rests at icon width and opens
-   over the field, so the budget gets the width. It is fixed, so opening it
-   never reflows the page; the labels fade rather than collapse, so nothing
-   jumps. LA-1327: keyboard focus opens it, not any focus.
-
-   LA-1330, scored against Atlassian, Supabase, Material and Linear:
-   - Hover opens it only after the pointer rests --rail-open-delay, and it
-     closes --rail-close-delay after the pointer leaves, so a pass across the
-     edge never flashes it and an overshoot is forgiven. These are transition
-     delays rather than JS timers, which the 3D stage made run late. Keyboard
-     focus opens it at once. Escape (Rail.tsx, data-dismissed) shuts it.
-   - Opening decelerates over 200ms and closing accelerates over 150ms. The
-     labels fade in once the width has mostly settled, so none clip.
-   - At rest, each section title leaves a short hairline in its slot, so the
-     groups still read and no icon moves when it opens.
-   - Keep Open ([) pins it beside the page; the frame then gives it its
-     column, the one state where the page is meant to move. */
+/* LA-3041: above the phone breakpoint the rail always sits open in its own
+   column with every label showing. Matt retired the icon-width rest, the
+   hover open and Keep Open (LA-1321, LA-1330) on 2026-10-22. */
 @media (min-width: 861px) {
-  .app { grid-template-columns: var(--rail-mini, 64px) minmax(0, 1fr); }
-  .app[data-rail="pinned"] { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+  .app { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
   .field { grid-column: 2; }
   .rail-item > svg { flex: none; }
   .rail {
@@ -1367,74 +1323,9 @@ textarea.input { border-radius: var(--r-lg); }
     top: 0;
     bottom: 0;
     left: 0;
-    width: var(--rail-mini, 64px);
-    z-index: 60;
-    transition: width var(--motion-fast) cubic-bezier(0.3, 0, 1, 1) var(--rail-close-delay),
-                box-shadow var(--motion-fast) cubic-bezier(0.3, 0, 1, 1) var(--rail-close-delay);
-  }
-  :is(.rail:hover:not([data-dismissed]), .rail:has(:focus-visible)) {
     width: var(--rail-w);
-    box-shadow: var(--shadow-popover);
-    transition: width var(--motion-base) cubic-bezier(0.2, 0, 0, 1) var(--rail-open-delay),
-                box-shadow var(--motion-base) cubic-bezier(0.2, 0, 0, 1) var(--rail-open-delay);
+    z-index: 60;
   }
-  .rail:has(:focus-visible) { transition-delay: 0ms; }
-  .rail[data-dismissed] { transition-delay: 0ms; }
-  .app[data-rail="pinned"] .rail { width: var(--rail-w); box-shadow: none; transition: none; }
-
-  /* What fades: every word, the search field, the account line. */
-  .rail :is(.rail-section, .rail-search .input, .rail-item > span, .rail-item > .count, .rail-user .t-ui, .rail-user form, .rail-logo-lockup, .rail-empty) {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 80ms linear var(--rail-close-delay);
-  }
-  .rail[data-dismissed] :is(.rail-section, .rail-search .input, .rail-item > span, .rail-item > .count, .rail-user .t-ui, .rail-user form, .rail-logo-lockup, .rail-empty) { transition-delay: 0ms; }
-  :is(.rail:hover:not([data-dismissed]), .rail:has(:focus-visible)) :is(.rail-section, .rail-search .input, .rail-item > span, .rail-item > .count, .rail-user .t-ui, .rail-user form, .rail-logo-lockup, .rail-empty) {
-    opacity: 1;
-    pointer-events: auto;
-    transition: opacity var(--motion-fast) var(--ease) calc(var(--rail-open-delay) + 70ms);
-  }
-  .rail:has(:focus-visible) :is(.rail-section, .rail-search .input, .rail-item > span, .rail-item > .count, .rail-user .t-ui, .rail-user form, .rail-logo-lockup, .rail-empty) { transition-delay: 70ms; }
-  .app[data-rail="pinned"] .rail :is(.rail-section, .rail-search .input, .rail-item > span, .rail-item > .count, .rail-user .t-ui, .rail-user form, .rail-logo-lockup, .rail-empty) { opacity: 1; pointer-events: auto; transition: none; }
-
-  /* What shows only at rest: the mark and the section hairlines. */
-  .rail-logo { position: relative; height: 40px; }
-  .rail-logo-mark {
-    display: flex;
-    position: absolute;
-    left: 6px;
-    top: 0;
-    width: 28px;
-    height: 28px;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--r-md);
-    background: var(--brand);
-    color: #FFFFFF;
-    font-size: 15px;
-    line-height: 1;
-  }
-  .rail-group { position: relative; }
-  .rail-group::before {
-    content: "";
-    position: absolute;
-    left: 10px;
-    top: 31px;              /* midway between the rows above and below */
-    width: 20px;
-    height: 1px;
-    background: var(--border);
-  }
-  .rail-logo-mark, .rail-group::before { transition: opacity 80ms linear calc(var(--rail-close-delay) + 60ms); }
-  :is(.rail:hover:not([data-dismissed]), .rail:has(:focus-visible)) .rail-logo-mark, :is(.rail:hover:not([data-dismissed]), .rail:has(:focus-visible)) .rail-group::before {
-    opacity: 0;
-    transition: opacity 80ms linear var(--rail-open-delay);
-  }
-  .rail:has(:focus-visible) .rail-logo-mark, .rail:has(:focus-visible) .rail-group::before { transition-delay: 0ms; }
-  .app[data-rail="pinned"] .rail-logo-mark, .app[data-rail="pinned"] .rail-group::before { opacity: 0; transition: none; }
-
-  /* At rest the magnifier is a target of its own that focuses the field. */
-  .rail-search-icon { left: 0; width: 38px; justify-content: center; pointer-events: auto; }
-  :is(.rail:hover:not([data-dismissed]), .rail:has(:focus-visible)) .rail-search-icon, .app[data-rail="pinned"] .rail-search-icon { pointer-events: none; }
 }
 
 @media (max-width: 1180px) {
@@ -1504,8 +1395,6 @@ textarea.input { border-radius: var(--r-lg); }
      fixed panel over the page with its own scroll, closed by its backdrop,
      by Escape, or by picking a rail item. */
   .rail { display: none; }
-  /* Keep Open pins a desktop rail beside the page; a drawer has no such state. */
-  .rail-pin { display: none; }
   .rail.rail--open {
     display: flex;
     position: fixed;

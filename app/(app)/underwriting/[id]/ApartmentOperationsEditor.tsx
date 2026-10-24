@@ -37,11 +37,13 @@ import { GrowthSection } from "./GrowthSection";
 import { LeaseUpSection } from "./LeaseUpSection";
 import { PropertyTaxSection } from "./PropertyTaxSection";
 import { TIER_LABELS } from "./UnitMixByTier";
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 
 type MoneyLine = OtherIncomeLine | OperatingExpenseLine | CapitalExpenditureLine;
 
 export function ApartmentOperationsEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const saved = savedCase.apartmentOperations;
   // An unsaved section starts from the unit type and vacancy intake supplies.
   const seed = saved ? undefined : seedFromIntake(savedCase);
@@ -148,7 +150,7 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
   }
 
   return (
-    <form className="underwriting-operations-editor" data-client-ready={clientReady ? "true" : "false"} onSubmit={save} noValidate>
+    <form className="underwriting-operations-editor" data-client-ready={clientReady ? "true" : "false"} onSubmit={save} noValidate><EditFieldset>
       <div className="underwriting-section-head">
         <div>
           <h3 id="apartment-operations-heading">Apartment Operations</h3>
@@ -274,9 +276,9 @@ export function ApartmentOperationsEditor({ savedCase }: { savedCase: Underwriti
 
       {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
-        <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Operations" : "Save Operations"}</button>
+        {canEdit ? <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Operations" : "Save Operations"}</button> : null}
       </div>
-    </form>
+    </EditFieldset></form>
   );
 }
 

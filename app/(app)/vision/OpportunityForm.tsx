@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { STATUS_LABEL } from "@/lib/data";
 import type { VisionOpportunity } from "@/lib/vision/types";
+import { useCanEdit } from "@/components/access/ToolLevel";
 
 type Prefill = { sourceTitle?: string; sourceUrl?: string; sourceDate?: string };
 export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = false }: { opportunity?: VisionOpportunity; prefill?: Prefill; hideReviewStatus?: boolean }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [saving,setSaving] = useState(false);
   const [error,setError] = useState<string>();
   const [conflict,setConflict] = useState(false);
@@ -55,18 +57,18 @@ export function OpportunityForm({ opportunity, prefill = {}, hideReviewStatus = 
     <section><h2 className="t-2">{opportunity ? "Opportunity Details" : "Save a Construction or Development Opportunity"}</h2>
       <p className="t-meta">Record the public source and what it says. Leave unknown addresses, coordinates and dates blank.</p>
       <div className="vision-form-grid">{fields.map(field => <label key={field.name} htmlFor={`vision-${field.name}`}>{field.label}{field.required ? " (required)" : ""}
-        <input id={`vision-${field.name}`} className="input" name={field.name} type={field.type ?? "text"} disabled={saving} required={field.required} maxLength={field.max} min={field.min} max={field.maxNumber} step={field.type === "number" ? "any" : undefined}
+        <input id={`vision-${field.name}`} className="input" name={field.name} type={field.type ?? "text"} disabled={saving||!canEdit} required={field.required} maxLength={field.max} min={field.min} max={field.maxNumber} step={field.type === "number" ? "any" : undefined}
           defaultValue={defaults[field.name as keyof typeof defaults] ?? ""} />
       </label>)}</div>
       <p className="t-meta">Enter both coordinates to place this opportunity on the map. A source date is the publication date, if known.</p>
     </section>
     <section><h2 className="t-2">{hideReviewStatus ? "Original Notes" : "Review"}</h2>{!hideReviewStatus ? <p className="t-meta">The status tracks your review work. It does not confirm that a project is approved or ready to build.</p> : null}
-      {opportunity && !hideReviewStatus ? <label className="vision-status-label" htmlFor="vision-status">Review Status<select className="input" id="vision-status" name="status" disabled={saving} defaultValue={record?.status}>{Object.entries(STATUS_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
-      <label htmlFor="vision-notes">Notes<textarea className="input vision-notes" id="vision-notes" name="notes" maxLength={10000} rows={6} disabled={saving} defaultValue={record?.notes ?? ""} /></label>
+      {opportunity && !hideReviewStatus ? <label className="vision-status-label" htmlFor="vision-status">Review Status<select className="input" id="vision-status" name="status" disabled={saving||!canEdit} defaultValue={record?.status}>{Object.entries(STATUS_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label> : null}
+      <label htmlFor="vision-notes">Notes<textarea className="input vision-notes" id="vision-notes" name="notes" maxLength={10000} rows={6} disabled={saving||!canEdit} defaultValue={record?.notes ?? ""} /></label>
     </section>
     {error ? <p role="alert" className="input-error">{error}</p> : null}
     {conflict ? <button className="btn" type="button" onClick={()=>window.location.reload()}>Reload Latest Record</button> : null}
     {saved ? <p role="status">Your changes were saved.</p> : null}
-    <div className="vision-form-actions"><button className="btn btn--primary" type="submit" disabled={saving||conflict}>{saving ? "Saving…" : opportunity ? "Save Changes" : "Save Opportunity"}</button><Link className="btn btn--quiet" href="/vision">Back to Opportunities</Link></div>
+    <div className="vision-form-actions">{canEdit ? <button className="btn btn--primary" type="submit" disabled={saving||conflict}>{saving ? "Saving…" : opportunity ? "Save Changes" : "Save Opportunity"}</button> : null}<Link className="btn btn--quiet" href="/vision">Back to Opportunities</Link></div>
   </form>;
 }

@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 import { bumpReviewEpoch } from "./review-epoch";
 import type { ReviewSectionKey, UnderwritingReview } from "@/lib/underwriting/presentation";
 
@@ -11,6 +13,7 @@ import type { ReviewSectionKey, UnderwritingReview } from "@/lib/underwriting/pr
 
 export function ReviewList({ caseId, caseRevision, review }: { caseId: string; caseRevision: number; review: UnderwritingReview }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [saving, setSaving] = useState<ReviewSectionKey | undefined>();
   const [error, setError] = useState<string | undefined>();
   const [refreshing, startRefresh] = useTransition();
@@ -79,7 +82,7 @@ export function ReviewList({ caseId, caseRevision, review }: { caseId: string; c
                 ))}
               </div>
             </details>
-            {group.workingCount > 0 ? (
+            {group.workingCount > 0 && canEdit ? (
               <button
                 type="button"
                 className="btn btn--secondary"

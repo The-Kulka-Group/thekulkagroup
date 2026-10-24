@@ -5,12 +5,14 @@ import type { VisionOpportunity } from "@/lib/vision/types";
 import type { Workflow, WorkflowPerson } from "@/lib/vision/workflow-types";
 import { visionDate, WORKFLOW_LABELS } from "@/lib/vision/presentation";
 import { WorkflowDecision } from "../WorkflowDecision";
+import { useCanEdit } from "@/components/access/ToolLevel";
 import "./workflow.css";
 
 const decisions = WORKFLOW_LABELS;
 type Data = {workflow:Workflow;staff:string[];people:WorkflowPerson[]};
 const value = (form:FormData,key:string) => String(form.get(key) ?? "");
 export function OpportunityWorkflow({opportunity,viewerEmail}:{opportunity:VisionOpportunity;viewerEmail:string}) {
+  const canEdit=useCanEdit();
   const [data,setData]=useState<Data>();
   const [error,setError]=useState<string>();
   const [notice,setNotice]=useState("");
@@ -50,7 +52,7 @@ export function OpportunityWorkflow({opportunity,viewerEmail}:{opportunity:Visio
   if(!data)return <section className="wf-loading">{error?<><p role="alert">{error}</p><button className="btn" onClick={reload} disabled={busy}>Try again</button></>:<p role="status">Loading the opportunity workflow…</p>}</section>;
   const w=data.workflow;
   const active=w.decision==="pursuing"||w.decision==="watching";
-  const disabled=busy||conflict;
+  const disabled=busy||conflict||!canEdit;
   const available=data.people.filter(p=>!w.people.some(link=>link.id===p.id)&&`${p.name} ${p.company}`.toLowerCase().includes(query.toLowerCase()));
   const personOptions=(selected:string)=>data.staff.includes(selected)?data.staff:[selected,...data.staff];
   const actionForm=async(event:FormEvent<HTMLFormElement>)=>{
@@ -58,7 +60,7 @@ export function OpportunityWorkflow({opportunity,viewerEmail}:{opportunity:Visio
     if(await save({type:"action",action:{title:value(form,"title"),assigneeEmail:value(form,"assignee"),dueDate:value(form,"due")||null}},"The next action was saved.")){setEditAction(false);setActionKey(k=>k+1);}
   };
   return <div className="wf">
-    <div className="wf-banner"><WorkflowDecision decision={w.decision}/><span className="t-meta">{w.classification==="policy"?"Policy Context":"Opportunity"}</span><span className="t-meta">Changes save to this record.</span></div>
+    <div className="wf-banner"><WorkflowDecision decision={w.decision}/><span className="t-meta">{w.classification==="policy"?"Policy Context":"Opportunity"}</span><span className="t-meta">{canEdit?"Changes save to this record.":"View Only"}</span></div>
     <div className="wf-feedback" aria-live="polite">{error?<p role="alert" className="input-error">{error}</p>:notice?<p role="status">{notice}</p>:null}{conflict?<button className="btn" onClick={reload} disabled={busy}>Load latest workflow</button>:null}</div>
     <div className="wf-columns"><div>
       <section><h2>Is this worth following?</h2><div className="wf-buttons">{([['pursuing','Pursue'],['watching','Watch'],['passed','Pass']] as const).map(([decision,label])=><button key={decision} className={`btn ${decision==='pursuing'?'btn--primary':''}`} type="button" aria-pressed={w.decision===decision} disabled={disabled || (w.classification==='policy' && decision==='pursuing')} onClick={async()=>{if(await save({type:"decision",decision},decision==='passed'?"The record was passed. Its open action was closed and history was kept.":`The record is now ${decisions[decision].toLowerCase()}.`)){setEditAction(false);if(decision==='pursuing')actionInput.current?.focus();}}}>{label}</button>)}</div>

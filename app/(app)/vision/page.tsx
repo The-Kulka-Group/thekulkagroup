@@ -1,6 +1,7 @@
 import {cookies} from "next/headers";
 import {SOURCE_SELECTION_COOKIE,readSourcePreference} from "@/lib/vision/source-selection";
 import Link from "next/link";
+import { EditOnly } from "@/components/access/ToolLevel";
 import { Sheet, Sep } from "@/components/Sheet";
 import { authorizeRequest } from "@/lib/auth/server";
 import { listWorkflowSummaries } from "@/lib/vision/workflow";
@@ -39,7 +40,7 @@ export default async function VisionPage({ searchParams }: { searchParams: Promi
   const auth = await authorizeRequest();
   const workflowRows = auth.ok ? await listWorkflowSummaries(getDb(),opportunities.map(item=>item.id)) : undefined;
   const workflows = workflowRows ? Object.fromEntries(workflowRows.map(item=>[item.opportunityId,{decision:item.decision,classification:item.classification,nextAction:item.nextAction,reviewDate:item.reviewDate}])) : undefined;
-  return <Sheet number="V-100" title="Vision" bodyClass="vision-workspace" actions={<><Link className="btn btn--quiet" href="/vision/discover">Discover</Link><Link className="btn btn--primary" href="/vision/new">New Opportunity</Link></>}
+  return <Sheet number="V-100" title="Vision" bodyClass="vision-workspace" actions={<><Link className="btn btn--quiet" href="/vision/discover">Discover</Link><EditOnly><Link className="btn btn--primary" href="/vision/new">New Opportunity</Link></EditOnly></>}
     meta={<><span>Construction and Development Opportunities</span><Sep /><span className="num">{candidates.length} discoveries shown · {opportunities.length} tracked opportunities shown</span></>}>
     <SavedSourceSelection initialSources={selectedSources}/>
     {Object.entries(discovery.sourceErrors).map(([source,message])=><p className="input-error" role="alert" key={source}>{DISCOVERY_SOURCES.find(item=>item.id===source)?.name}: {message}</p>)}

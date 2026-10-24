@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
 import { PillSelect } from "@/components/PillSelect";
 
 // LA-2281: a person's correction of a meeting's job. It saves on choosing,
@@ -25,6 +26,7 @@ export function JobPicker({
   jobs: PickerJob[];
 }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,11 +56,16 @@ export function JobPicker({
     ...jobs.map((job) => ({ value: job.id, label: job.label })),
     { value: NONE, label: "No Project (Internal Meeting)" },
   ];
+  const value = jobId ?? (internal ? NONE : "");
+  // LA-3112: View shows the project as text, with no picker to change it.
+  if (!canEdit) {
+    return <span className="mt-pick">{options.find((option) => option.value === value)?.label ?? "No Project"}</span>;
+  }
   return (
     <span className="mt-pick">
       <PillSelect
         label="Project"
-        value={jobId ?? (internal ? NONE : "")}
+        value={value}
         options={options}
         onChange={(value) => void choose(value)}
         searchable

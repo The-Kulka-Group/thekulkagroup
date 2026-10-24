@@ -12,6 +12,7 @@ import {
 } from "@kulka/engine";
 
 import type { UnderwritingCase } from "@/lib/underwriting/cases";
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 
 const KEYS = ["vacancyPercent", "annualIncomeGrowthPercent", "terminalCapRatePercent", "growthStartMonthShiftMonths"] as const;
 const LABELS: Record<ApartmentScenarioChangeKey, string> = {
@@ -30,6 +31,7 @@ type FormScenario = {
 
 export function ScenarioComparisonEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [scenarios, setScenarios] = useState<FormScenario[]>(() => [formFor(savedCase, "downside"), formFor(savedCase, "upside")]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -75,7 +77,7 @@ export function ScenarioComparisonEditor({ savedCase }: { savedCase: Underwritin
     }
   }
 
-  return <form className="underwriting-scenario-editor" onSubmit={save} noValidate>
+  return <form className="underwriting-scenario-editor" onSubmit={save} noValidate><EditFieldset>
     <div className="underwriting-section-head"><div><h3>Apartment Scenarios</h3><p className="t-meta">Each scenario stores changed inputs only. Leave a name blank to use a neutral name based on one changed input.</p></div></div>
     <FieldError id="scenario-list-error" error={fieldErrors.scenarios} />
     {scenarios.map((scenario, index) => {
@@ -111,8 +113,8 @@ export function ScenarioComparisonEditor({ savedCase }: { savedCase: Underwritin
       </section>;
     })}
     {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
-    <div className="underwriting-form-actions"><button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Scenarios" : "Save Scenarios"}</button></div>
-  </form>;
+    <div className="underwriting-form-actions">{canEdit ? <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Scenarios" : "Save Scenarios"}</button> : null}</div>
+  </EditFieldset></form>;
 }
 
 function formFor(savedCase: UnderwritingCase, role: ApartmentScenarioRole): FormScenario {

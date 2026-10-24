@@ -38,12 +38,12 @@ describe("tool catalog", () => {
       ["Pre-Construction", ["Conceptual Budget", "Estimating"]],
       ["Development", ["Underwriting"]],
       ["Kulka AI", ["Roadmap"]],
+      ["Settings", ["Data Sources"]],
     ]);
   });
 
-  it("holds Settings tools for People and Access and Data Sources, off the rail until their pages exist", () => {
+  it("holds People and Access off the rail until its page exists, and shows Data Sources", () => {
     expect(toolByKey("access")).toMatchObject({ department: "settings", live: false });
-    expect(toolByKey("sources")).toMatchObject({ department: "settings", live: false });
-    expect(railGroups().some((g) => g.department.key === "settings")).toBe(false);
+    expect(toolByKey("sources")).toMatchObject({ department: "settings", live: true });
   });
 });

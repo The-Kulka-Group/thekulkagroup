@@ -71,9 +71,9 @@ export const TOOLS: readonly Tool[] = [
   { key: "underwriting", label: "Underwriting", href: "/underwriting", icon: "chart-line-up", department: "underwriting", live: true },
   // LA-1840: what has been built, planned and is waiting, for Matt and Kulka.
   { key: "roadmap", label: "Roadmap", href: "/roadmap", icon: "map", department: "kulka-ai", live: true },
-  // Pages come in LA-3046 and LA-3050.
+  // The People and Access page comes in LA-3046. LA-3050: Data Sources.
   { key: "access", label: "People and Access", href: "/settings/access", icon: "shield", department: "settings", live: false },
-  { key: "sources", label: "Data Sources", href: "/settings/sources", icon: "database", department: "settings", live: false },
+  { key: "sources", label: "Data Sources", href: "/settings/sources", icon: "database", department: "settings", live: true },
 ];
 
 export interface RailGroup {

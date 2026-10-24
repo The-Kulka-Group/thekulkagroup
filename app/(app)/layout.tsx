@@ -1,4 +1,7 @@
+import { ViewAsBar } from "@/components/access/ViewAsBar";
 import { Rail } from "@/components/Rail";
+import { currentViewer } from "@/lib/access/current";
+import { visibleToolKeys } from "@/lib/access/viewer";
 import { authIsOpen, authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { countThreadsNeedingKulka } from "@/lib/rom/budget-comment-inbox";
@@ -17,13 +20,25 @@ async function needsKulkaCount(): Promise<number> {
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = await authorizeRequest();
   if (!auth.ok) redirect("/login");
+  // LA-3047: the rail shows only the tools the viewer can open.
+  const viewer = await currentViewer();
+  const viewingAs = viewer.viewingAs;
   return (
     <div className="app">
       {/* LA-1330: the first Tab offers the sheet, so a keyboard user does
           not walk the whole rail on every page. */}
       <a className="skip-link" href="#sheet">Skip to the Sheet</a>
-      <Rail email={auth.user.email} openAccess={authIsOpen()} needsKulka={await needsKulkaCount()} />
-      <main className="field" id="sheet" tabIndex={-1}>{children}</main>
+      <Rail email={auth.user.email} openAccess={authIsOpen()} needsKulka={await needsKulkaCount()} tools={visibleToolKeys(viewer)} />
+      <main className="field" id="sheet" tabIndex={-1}>
+        {viewingAs ? (
+          <div className="field-stack">
+            <ViewAsBar name={viewingAs.name} roleName={viewingAs.roleName} kind={viewingAs.kind} />
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+      </main>
     </div>
   );
 }

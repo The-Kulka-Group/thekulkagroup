@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+import { ViewAsButton } from "@/components/access/ViewAsBar";
 import type { GridDepartment } from "@/lib/access/grid";
 import type { Level, TargetKind } from "@/lib/access/level";
 
@@ -31,8 +33,20 @@ const LEVELS: Level[] = ["hidden", "view", "edit"];
 
 const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
-export function AccessMap({ roles, grid, initialOpen = [] }: { roles: readonly MapRole[]; grid: readonly GridDepartment[]; initialOpen?: string[] }) {
+export function AccessMap({
+  roles,
+  grid,
+  initialOpen = [],
+  canViewAs = false,
+}: {
+  roles: readonly MapRole[];
+  grid: readonly GridDepartment[];
+  initialOpen?: string[];
+  canViewAs?: boolean;
+}) {
   const router = useRouter();
+  // LA-3047: in View the switch shows the level but cannot change it.
+  const canEdit = useCanEdit();
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set(initialOpen));
   const firstRole = roles.find((r) => !r.locked);
   const [sel, setSel] = useState<Selected | null>(
@@ -156,7 +170,7 @@ export function AccessMap({ roles, grid, initialOpen = [] }: { roles: readonly M
                 role="radio"
                 aria-checked={current === lv}
                 className={lv === "edit" ? "is-edit" : undefined}
-                disabled={pending}
+                disabled={pending || !canEdit}
                 onClick={() => current !== lv && change(lv)}
               >
                 <Mark level={lv} />
@@ -182,7 +196,7 @@ export function AccessMap({ roles, grid, initialOpen = [] }: { roles: readonly M
             ) : (
               <span className="ac-note">
                 This tool has its own setting.{" "}
-                <button type="button" className="btn btn--quiet" disabled={pending} onClick={() => change(null)}>
+                <button type="button" className="btn btn--quiet" disabled={pending || !canEdit} onClick={() => change(null)}>
                   Follow {dept.department.label}
                 </button>
               </span>
@@ -193,7 +207,10 @@ export function AccessMap({ roles, grid, initialOpen = [] }: { roles: readonly M
             <span className="ac-note">{ownTools === 1 ? "1 tool keeps" : `${ownTools} tools keep`} its own setting.</span>
           ) : null}
           {error ? <span className="ac-error" role="alert">{error}</span> : null}
-          <span className="ac-note" style={{ marginTop: "auto" }}>Each change saves at once and goes in the Change Log.</span>
+          {canViewAs ? <ViewAsButton value={`role:${role.key}`} label={`View As ${role.name}`} /> : null}
+          <span className="ac-note" style={{ marginTop: "auto" }}>
+            {canEdit ? "Each change saves at once and goes in the Change Log." : "You can view this map, but you cannot change it."}
+          </span>
         </aside>
       ) : null}
     </div>

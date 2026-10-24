@@ -4,6 +4,8 @@ import { isoDay, levelFor, OWNER_ROLE, type AccessSetting, type Level } from "@/
 import { targetName, type ExceptionRow, type PersonRow } from "@/lib/access/read";
 import { DEPARTMENTS, TOOLS } from "@/lib/tools/catalog";
 
+import { ViewAsButton } from "@/components/access/ViewAsBar";
+
 import { Avatar, LEVEL_LABEL, Mark } from "../../parts";
 import { AddException, RemoveException } from "./ExceptionControls";
 
@@ -22,11 +24,16 @@ export function PersonView({
   exceptions,
   roleAccess,
   today = isoDay(),
+  canEdit = true,
+  canViewAs = false,
 }: {
   person: PersonRow;
   exceptions: readonly ExceptionRow[];
   roleAccess: readonly AccessSetting[];
   today?: string;
+  /** LA-3047: false in View, which hides Add Exception and Remove. */
+  canEdit?: boolean;
+  canViewAs?: boolean;
 }) {
   const roleOnly = { roleKey: person.roleKey, roleAccess, exceptions: [] };
   const withExc = { roleKey: person.roleKey, roleAccess, exceptions };
@@ -48,6 +55,11 @@ export function PersonView({
             <span className="ac-who-name" style={{ fontSize: "var(--t2-size)", lineHeight: "var(--t2-line)", fontWeight: 800 }}>{person.name}</span>
             <span className="ac-who-sub">{[person.title, person.roleName, person.email].filter(Boolean).join(" · ")}</span>
           </span>
+          {canViewAs ? (
+            <span style={{ marginLeft: "auto" }}>
+              <ViewAsButton value={`person:${person.id}`} label={`View As ${first}`} />
+            </span>
+          ) : null}
         </div>
         <div className="ac-strip" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", display: "grid", paddingTop: "var(--s3)", borderTop: "1px solid var(--border-light)" }}>
           {(["edit", "view", "hidden"] as const).map((lv) => (
@@ -81,11 +93,13 @@ export function PersonView({
                   <span className="ac-xmeta">{x.reason}</span>
                   <span className="ac-xmeta">{expired ? "Ended, so the role decides again" : ends(x.endsOn)} · Set by {x.setBy}</span>
                 </div>
-                <RemoveException personId={person.id} targetKind={x.targetKind} targetKey={x.targetKey} label={targetName(x.targetKind, x.targetKey)} />
+                {canEdit ? (
+                  <RemoveException personId={person.id} targetKind={x.targetKind} targetKey={x.targetKey} label={targetName(x.targetKind, x.targetKey)} />
+                ) : null}
               </div>
             );
           })}
-          {isOwner ? null : (
+          {isOwner || !canEdit ? null : (
             <AddException
               personId={person.id}
               targets={[

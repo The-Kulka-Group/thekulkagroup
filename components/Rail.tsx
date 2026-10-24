@@ -5,50 +5,31 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   House, Users, Calculator, ChartLineUp, Binoculars, Briefcase, ChartBar, List, MapTrifold,
-  MagnifyingGlass, VideoCamera,
+  MagnifyingGlass, VideoCamera, ShieldCheck, Database, type Icon,
 } from "@phosphor-icons/react";
 import { signOut } from "@/app/login/actions";
+import { railGroups, type ToolIcon } from "@/lib/tools/catalog";
 
 // Icons live in the rail and as state marks, nowhere else, and an icon always
 // sits beside its word (DESIGN.md, Navigation).
-//
-const NAV_GROUPS = [
-  {
-    label: "Sales and Marketing",
-    items: [{ href: "/clients", label: "Clients", count: undefined, Icon: Users }],
-  },
-  {
-    label: "Business Development",
-    items: [
-      { href: "/vision", label: "Vision", count: undefined, Icon: Binoculars },
-    ],
-  },
-  {
-    // LA-2280: Kulka's Fireflies meetings, matched to Autodesk projects (LA-2281).
-    // LA-2858: the Autodesk projects themselves, named Projects by Matt.
-    label: "Projects",
-    items: [
-      { href: "/projects", label: "Projects", count: undefined, Icon: Briefcase },
-      { href: "/meetings", label: "Meetings", count: undefined, Icon: VideoCamera },
-    ],
-  },
-  {
-    label: "Pre-Construction",
-    items: [
-      { href: "/rom", label: "Conceptual Budget", count: undefined, Icon: Calculator },
-      { href: "/estimating", label: "Estimating", count: undefined, Icon: ChartBar },
-    ],
-  },
-  {
-    label: "Development",
-    items: [{ href: "/underwriting", label: "Underwriting", count: undefined, Icon: ChartLineUp }],
-  },
-  {
-    // LA-1840: what has been built, planned and is waiting, for Matt and Kulka.
-    label: "Kulka AI",
-    items: [{ href: "/roadmap", label: "Roadmap", count: undefined, Icon: MapTrifold }],
-  },
-];
+const ICONS: Record<ToolIcon, Icon> = {
+  users: Users,
+  binoculars: Binoculars,
+  briefcase: Briefcase,
+  video: VideoCamera,
+  calculator: Calculator,
+  "chart-bar": ChartBar,
+  "chart-line-up": ChartLineUp,
+  map: MapTrifold,
+  shield: ShieldCheck,
+  database: Database,
+};
+
+// LA-3044: the rail renders from the tool catalog, one section per department.
+const NAV_GROUPS = railGroups().map(({ department, tools }) => ({
+  label: department.label,
+  items: tools.map((tool) => ({ href: tool.href, label: tool.label, count: undefined as number | undefined, Icon: ICONS[tool.icon] })),
+}));
 
 
 /**

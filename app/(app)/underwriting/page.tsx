@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EditOnly } from "@/components/access/ToolLevel";
 import { Sheet, Sep } from "@/components/Sheet";
 import { StatusBlock } from "@/components/Status";
 import { getDb } from "@/lib/db";
@@ -16,7 +17,7 @@ export default async function UnderwritingPage() {
     <Sheet
       number="U-100"
       title="Underwriting"
-      actions={<Link className="btn btn--primary" href="/underwriting/new">New Project</Link>}
+      actions={<EditOnly><Link className="btn btn--primary" href="/underwriting/new">New Project</Link></EditOnly>}
       meta={
         <>
           <span>Ground-up multifamily</span>

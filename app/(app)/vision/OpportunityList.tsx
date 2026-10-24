@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EditOnly } from "@/components/access/ToolLevel";
 import { StatusBlock } from "@/components/Status";
 import type { VisionOpportunity } from "@/lib/vision/types";
 import type { Workflow } from "@/lib/vision/workflow-types";
@@ -6,7 +7,7 @@ import { WorkflowDecision } from "./WorkflowDecision";
 import { visionDate, visionToday } from "@/lib/vision/presentation";
 
 export function OpportunityList({ opportunities, filtered = false, workflows }: { opportunities: VisionOpportunity[]; filtered?: boolean; workflows?: Record<string, Pick<Workflow,"decision"|"classification"|"nextAction"|"reviewDate">> }) {
-  if (!opportunities.length) return <div className="empty"><p>{filtered ? "No opportunities match these filters." : "You have not saved any opportunities yet."}</p><div className="vision-empty-actions"><Link className="btn btn--quiet" href="/vision/sources">Find a Source</Link><Link className="btn btn--primary" href="/vision/new">Save an Opportunity</Link></div></div>;
+  if (!opportunities.length) return <div className="empty"><p>{filtered ? "No opportunities match these filters." : "You have not saved any opportunities yet."}</p><div className="vision-empty-actions"><Link className="btn btn--quiet" href="/vision/sources">Find a Source</Link><EditOnly><Link className="btn btn--primary" href="/vision/new">Save an Opportunity</Link></EditOnly></div></div>;
   return <div className="vision-board-wrap"><table className="vision-board"><thead><tr>
     <th>Opportunity</th><th>Location</th><th>Source</th><th>{workflows ? "Decision and Next Action" : "Review Status"}</th><th className="right">Updated</th>
   </tr></thead><tbody>{opportunities.map(opportunity => <tr key={opportunity.id}>

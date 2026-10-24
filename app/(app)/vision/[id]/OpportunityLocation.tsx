@@ -4,10 +4,12 @@ import {useRouter} from "next/navigation";
 import type {VisionOpportunity} from "@/lib/vision/types";
 import type {LocationMatch} from "@/lib/vision/location-lookup";
 import {LocationMap} from "./LocationMap";
+import {useCanEdit} from "@/components/access/ToolLevel";
 import "./location.css";
 type SourceAddress={address:string;url:string;title:string};
 export function OpportunityLocation({opportunity,sources}:{opportunity:VisionOpportunity;sources:SourceAddress[]}) {
   const router=useRouter();
+  const canEdit=useCanEdit();
   const [saved,setSaved]=useState(opportunity);
   const [address,setAddress]=useState(opportunity.address);
   const [latitude,setLatitude]=useState(opportunity.latitude===null?"":String(opportunity.latitude));
@@ -15,7 +17,7 @@ export function OpportunityLocation({opportunity,sources}:{opportunity:VisionOpp
   const [matches,setMatches]=useState<LocationMatch[]>([]);
   const [message,setMessage]=useState(""); const [error,setError]=useState("");
   const [busy,setBusy]=useState<"lookup"|"save"|null>(null);
-  const [editing,setEditing]=useState(opportunity.latitude===null||opportunity.longitude===null);
+  const [editing,setEditing]=useState(canEdit&&(opportunity.latitude===null||opportunity.longitude===null));
   const [conflict,setConflict]=useState(false);
   const sequence=useRef(0);
   const coordinate=(value:string,limit:number)=>value.trim()!==""&&Number.isFinite(Number(value))&&Math.abs(Number(value))<=limit?Number(value):null;
@@ -45,7 +47,7 @@ export function OpportunityLocation({opportunity,sources}:{opportunity:VisionOpp
     finally{setBusy(null);}
   }
   return <section className="opportunity-location" id="location" aria-labelledby="location-heading">
-    <div className="location-heading"><div><h2 id="location-heading">Map Location</h2><p>{saved.latitude===null?"This opportunity is off the map because it has no pin.":"This opportunity has a saved map pin."}</p><p className="t-meta">{saved.address||"The street address is unknown."}</p></div>{!editing?<button type="button" className="btn btn--quiet" onClick={()=>setEditing(true)}>Edit Location</button>:null}</div>
+    <div className="location-heading"><div><h2 id="location-heading">Map Location</h2><p>{saved.latitude===null?"This opportunity is off the map because it has no pin.":"This opportunity has a saved map pin."}</p><p className="t-meta">{saved.address||"The street address is unknown."}</p></div>{!editing&&canEdit?<button type="button" className="btn btn--quiet" onClick={()=>setEditing(true)}>Edit Location</button>:null}</div>
     {editing?<div className="location-editor">
       {sources.length?<details><summary>Addresses in Linked Sources ({sources.length})</summary>{sources.map((source,index)=><div className="location-source" key={index}><p>{source.address}</p><a className="vision-link-pill" href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a><button className="btn btn--quiet" disabled={busy!==null} onClick={()=>changeAddress(source.address)} type="button">Use This Address</button></div>)}</details>:null}
       <label htmlFor="location-address">Street Address with Town and State<input id="location-address" className="input" value={address} maxLength={400} disabled={busy==="save"} onChange={event=>changeAddress(event.target.value)}/></label>

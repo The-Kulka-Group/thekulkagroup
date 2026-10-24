@@ -36,9 +36,11 @@ import { seedFromIntake } from "@/lib/underwriting/intake-seed";
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { PartnershipSection } from "./PartnershipSection";
 import { ResidualLandSection } from "./ResidualLandSection";
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 
 export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const saved = savedCase.propertyReturns;
   // An unsaved section starts from the exit cap rate intake supplies.
   const seed = saved ? undefined : seedFromIntake(savedCase);
@@ -177,7 +179,7 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     setSaleTaxEvidence((current) => ({ ...current, [key]: { ...current[key], ...update } }));
   };
 
-  return <form className="underwriting-returns-editor" onSubmit={save} noValidate>
+  return <form className="underwriting-returns-editor" onSubmit={save} noValidate><EditFieldset>
     <div className="underwriting-section-head"><div><h3 id="property-returns-heading">Property Sale and Returns</h3><p className="t-meta">The model values the sale from forward twelve-month NOI, pays off construction debt, and calculates dated property returns.</p></div></div>
     <div className="underwriting-form-grid underwriting-capital-controls">
       <NumberField id="returns-terminal-cap-rate" label="Terminal Cap Rate" value={terminalCapRatePercent} onChange={setTerminalCapRatePercent} error={fieldErrors.terminalCapRatePercent} />
@@ -271,8 +273,8 @@ export function PropertyReturnsEditor({ savedCase }: { savedCase: UnderwritingCa
     <PartnershipSection partnership={partnership} setPartnership={setPartnership} fieldErrors={fieldErrors} />
     <ResidualLandSection residualLand={residualLand} setResidualLand={setResidualLand} costLines={savedCase.costSchedule.costLines} fieldErrors={fieldErrors} />
     {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
-    <div className="underwriting-form-actions"><button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Sale Plan" : "Save Sale Plan"}</button></div>
-  </form>;
+    <div className="underwriting-form-actions">{canEdit ? <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Sale Plan" : "Save Sale Plan"}</button> : null}</div>
+  </EditFieldset></form>;
 }
 
 type SaleEvidenceKey = PropertyReturnsAssumptionKey | typeof PROPERTY_RETURNS_COMMERCIAL_CAP_KEY;

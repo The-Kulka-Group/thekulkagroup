@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { MarkupHistorySetup } from "@kulka/engine";
 
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 import { titleCase } from "@/lib/format/title-case";
 import type { CostImportDetail, LineStatus, StagedLine } from "@/lib/rom/ingest";
 
@@ -74,6 +75,7 @@ export function ImportReview({
   costImport: CostImportDetail;
   canonicalItems: CanonicalItemOption[];
 }) {
+  const canEdit = useCanEdit();
   const [lines, setLines] = useState<StagedLine[]>(costImport.lines);
   const [status, setStatus] = useState<CostImportDetail["status"]>(costImport.status);
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
@@ -178,7 +180,7 @@ export function ImportReview({
   }
 
   return (
-    <>
+    <EditFieldset>
       <div className="import-totals">
         <div className="stat">
           <span className="t-label">Staged, will promote</span>
@@ -315,7 +317,7 @@ export function ImportReview({
         </table>
       )}
 
-      <div className="import-approve">
+      {canEdit ? <div className="import-approve">
         <button
           className="btn btn--primary"
           type="button"
@@ -328,7 +330,7 @@ export function ImportReview({
               ? "Approving…"
               : `Approve (${willPromote} ${willPromote === 1 ? "line" : "lines"} will promote)`}
         </button>
-      </div>
-    </>
+      </div> : null}
+    </EditFieldset>
   );
 }

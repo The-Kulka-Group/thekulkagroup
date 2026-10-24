@@ -11,6 +11,7 @@ import type {
 } from "@/lib/underwriting/cases";
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { ownedAssumptions } from "@/lib/underwriting/intake-seed";
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 
 const ASSUMPTION_FIELDS: Array<{
   name: AssumptionName;
@@ -60,6 +61,7 @@ export function EditUnderwritingCase({
   savedCase: UnderwritingCase;
 }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -169,7 +171,7 @@ export function EditUnderwritingCase({
   }
 
   return (
-    <form className="underwriting-edit" onSubmit={submit} noValidate>
+    <form className="underwriting-edit" onSubmit={submit} noValidate><EditFieldset>
       <section className="record-section">
         <h3>Project Facts</h3>
         <div className="underwriting-form-grid">
@@ -273,11 +275,11 @@ export function EditUnderwritingCase({
 
       {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
-        <button className="btn btn--primary btn--lg" type="submit" disabled={saving}>
+        {canEdit ? <button className="btn btn--primary btn--lg" type="submit" disabled={saving}>
           {saving ? "Saving and calculating" : "Save and recalculate"}
-        </button>
+        </button> : null}
       </div>
-    </form>
+    </EditFieldset></form>
   );
 }
 

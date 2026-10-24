@@ -3,11 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 // LA-2858. Runs the Autodesk project sync on demand (LA-2283) and reloads the
 // list. The daily meetings cron runs the same sync without anyone asking.
 
 export function JobSync() {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [state, setState] = useState<{ busy: boolean; note: string | null }>({ busy: false, note: null });
 
   async function refresh() {
@@ -26,6 +29,8 @@ export function JobSync() {
     }
   }
 
+  // LA-3112: a refresh writes projects, so View hides it.
+  if (!canEdit) return null;
   return (
     <span className="jb-sync">
       {state.note ? <span className="jb-sync-note" role="status">{state.note}</span> : null}

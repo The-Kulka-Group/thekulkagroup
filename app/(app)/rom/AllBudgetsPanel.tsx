@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
 import type { RomBudgetRow } from "@/lib/rom/budgets";
 
 // LA-1322: the All Budgets menu, in the header's side panel. Every budget,
@@ -28,6 +29,7 @@ async function readBudgets(): Promise<Load> {
 
 export function AllBudgetsPanel({ currentProjectId }: { currentProjectId?: string }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [load, setLoad] = useState<Load>({ phase: "loading" });
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -130,25 +132,29 @@ export function AllBudgetsPanel({ currentProjectId }: { currentProjectId?: strin
                 <button type="button" className="ab-pill" disabled={disabled} onClick={() => router.push(`/rom?project=${budget.id}`)}>
                   Open
                 </button>
-                <button
-                  type="button"
-                  className="ab-pill"
-                  disabled={disabled}
-                  onClick={() => router.push(`/rom?project=${budget.id}&edit=1`)}
-                >
-                  Edit
-                </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="ab-pill"
+                    disabled={disabled}
+                    onClick={() => router.push(`/rom?project=${budget.id}&edit=1`)}
+                  >
+                    Edit
+                  </button>
+                ) : null}
               </>
             )}
-            <button
-              type="button"
-              className="ab-pill"
-              disabled={disabled}
-              onClick={() => void act(budget, budget.archivedAt ? "restore" : "archive")}
-            >
-              {busy === budget.id ? "Saving" : budget.archivedAt ? "Restore" : "Archive"}
-            </button>
-            {budget.feedsPricing ? null : (
+            {canEdit ? (
+              <button
+                type="button"
+                className="ab-pill"
+                disabled={disabled}
+                onClick={() => void act(budget, budget.archivedAt ? "restore" : "archive")}
+              >
+                {busy === budget.id ? "Saving" : budget.archivedAt ? "Restore" : "Archive"}
+              </button>
+            ) : null}
+            {budget.feedsPricing || !canEdit ? null : (
               <button
                 type="button"
                 className="ab-pill ab-pill--quiet-danger"

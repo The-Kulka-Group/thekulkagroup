@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EditOnly } from "@/components/access/ToolLevel";
 import { Sheet, Sep } from "@/components/Sheet";
 
 import { CaseIntake } from "../CaseIntake";
@@ -18,7 +19,9 @@ export default function NewUnderwritingCasePage() {
         </>
       }
     >
-      <CaseIntake />
+      <EditOnly fallback={<div className="empty"><p>You can view Underwriting, but you cannot start a project.</p></div>}>
+        <CaseIntake />
+      </EditOnly>
     </Sheet>
   );
 }

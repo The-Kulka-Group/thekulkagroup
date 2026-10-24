@@ -53,6 +53,7 @@ import {
   type RomOrder,
 } from "./field-order";
 import { GuidedNewBudget } from "./GuidedNewBudget";
+import { useCanEdit } from "@/components/access/ToolLevel";
 import { ReturnBand, returnToCase, type ReturnCase } from "./return-to-case";
 import { type BudgetDraft, LiveField, LiveTotal, UnpricedBlock, useLiveBudget } from "./LiveBudget";
 import type { ScheduleProposalState } from "@/lib/rom/schedule-proposal";
@@ -118,6 +119,9 @@ type Status =
   | { phase: "running" }
   | { phase: "loading"; runId: string }
   | { phase: "failed"; error: string };
+
+/** LA-3112: the panels that only save, which View never opens. */
+const SAVING_PANELS = new Set<Panel["kind"]>(["new", "edit", "publish", "comments", "settings", "rates", "rate"]);
 
 type Panel =
   | { kind: "total" }
@@ -219,13 +223,15 @@ export function RomRunner({
   derivedAssumptions?: StoredDerivedAssumption[];
 }) {
   const router = useRouter();
+  // LA-3112: View can open a budget and read it, but every panel that saves stays shut.
+  const canEdit = useCanEdit();
   // LA-2417: why finishing a budget built for an underwriting case did not get back to the case.
   const [returnError, setReturnError] = useState<string | null>(null);
   const [run, setRun] = useState<LoadedRun | null>(initialRun);
   const [state, setState] = useState<Status>({ phase: "idle" });
   const [runs, setRuns] = useState<RunSummary[]>(initialRuns);
   const [panel, setPanel] = useState<Panel | null>(() =>
-    openNewOnLoad ? { kind: "new" } : openEditOnLoad && projectId ? { kind: "edit" } : null,
+    !canEdit ? null : openNewOnLoad ? { kind: "new" } : openEditOnLoad && projectId ? { kind: "edit" } : null,
   );
   const [form, setForm] = useState<MarkupForm>(() =>
     initialMarkupForm(markupOptions, markupDefault, scheduleProposal?.kind === "ready" ? scheduleProposal.proposal : null),
@@ -451,6 +457,7 @@ export function RomRunner({
 
   // Clicking what is already open closes it, the way Round 14 does.
   function openPanel(next: Panel, from?: HTMLElement | null) {
+    if (!canEdit && SAVING_PANELS.has(next.kind)) return;
     const same =
       panel !== null &&
       panel.kind === next.kind &&
@@ -796,7 +803,7 @@ export function RomRunner({
                 {tbdScopeWords(headline.tbdScope)}
               </button>
             ) : null}
-            {withRate && headline.tbd.length > 0 ? (
+            {withRate && canEdit && headline.tbd.length > 0 ? (
               // LA-1256: a blank markup rate is fixed in Run Settings, so the
               // note opens it.
               <button
@@ -819,7 +826,7 @@ export function RomRunner({
               ) : null}
               {notesLabel(held, run.rom)}
             </button>
-            {projectId && rateable.length > 0 ? (
+            {projectId && canEdit && rateable.length > 0 ? (
               <button
                 type="button"
                 className="rb-oq"
@@ -852,7 +859,7 @@ export function RomRunner({
             {notes}
           </button>
         ) : null}
-        {projectId && rateable.length > 0 ? (
+        {projectId && canEdit && rateable.length > 0 ? (
           <button
             type="button"
             className="rb-oq"
@@ -881,12 +888,12 @@ export function RomRunner({
   // The Settings menu's rows; the phone's one Menu adds New Budget first.
   const settingsItems = (close: () => void, withNew: boolean) => (
     <>
-      {withNew ? <MenuItem onClick={() => { close(); openPanel({ kind: "new" }); }}>New Budget</MenuItem> : null}
+      {withNew && canEdit ? <MenuItem onClick={() => { close(); openPanel({ kind: "new" }); }}>New Budget</MenuItem> : null}
       <MenuItem onClick={() => { close(); openPanel({ kind: "budgets" }); }}>All Budgets</MenuItem>
-      {projectId ? <MenuItem onClick={() => { close(); openPanel({ kind: "edit" }); }}>Edit Project</MenuItem> : null}
-      {withNew && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "publish" }); }}>Publish Budget</MenuItem> : null}
-      {withNew && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "comments" }); }}>Client Comments</MenuItem> : null}
-      {projectId && (markupOptions || scopeDefaults) ? (
+      {projectId && canEdit ? <MenuItem onClick={() => { close(); openPanel({ kind: "edit" }); }}>Edit Project</MenuItem> : null}
+      {withNew && canEdit && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "publish" }); }}>Publish Budget</MenuItem> : null}
+      {withNew && canEdit && projectId && run ? <MenuItem onClick={() => { close(); openPanel({ kind: "comments" }); }}>Client Comments</MenuItem> : null}
+      {projectId && canEdit && (markupOptions || scopeDefaults) ? (
         <MenuItem onClick={() => { close(); openPanel({ kind: "settings" }); }}>Run Settings</MenuItem>
       ) : null}
       <div className="pm-sep" />
@@ -935,15 +942,17 @@ export function RomRunner({
               buyout packages stated yet, so By Package would pour every
               answer into one Not Yet Packaged card (Matt, 2026-09-27). */}
           {/* LA-1384: New Budget stays out; the rest is one Settings menu. On a phone, one Menu holds all of it. */}
-          <button
-            type="button"
-            className="rb-hbtn pm-wide"
-            aria-expanded={panel?.kind === "new"}
-            onClick={(e) => openPanel({ kind: "new" }, e.currentTarget)}
-          >
-            New Budget
-          </button>
-          {projectId && run ? (
+          {canEdit ? (
+            <button
+              type="button"
+              className="rb-hbtn pm-wide"
+              aria-expanded={panel?.kind === "new"}
+              onClick={(e) => openPanel({ kind: "new" }, e.currentTarget)}
+            >
+              New Budget
+            </button>
+          ) : null}
+          {projectId && run && canEdit ? (
             <button
               type="button"
               className="btn btn--go rb-go pm-wide"
@@ -954,7 +963,7 @@ export function RomRunner({
               <GoArrow />
             </button>
           ) : null}
-          {projectId && run ? (
+          {projectId && run && canEdit ? (
             <button
               type="button"
               className="rb-hbtn pm-wide"
@@ -974,7 +983,7 @@ export function RomRunner({
               records the next one on its own. The button stays only for a
               project with no run yet, such as a New Budget closed midway. */}
           {/* A fresh page has nothing to run, so it shows no Run ROM (LA-1329). */}
-          {!run && projectId ? (
+          {!run && projectId && canEdit ? (
             <button className="btn btn--primary" type="button" onClick={() => void runRom()} disabled={busy}>
               {state.phase === "running" ? "Running" : "Run ROM"}
             </button>
@@ -1041,7 +1050,7 @@ export function RomRunner({
           {run && headline && panel?.kind === "new" ? <div className="rb-status">{statusPills(true)}</div> : null}
           {run && panel?.kind !== "new" ? <FactsRow {...factsProps} /> : null}
           {/* The header's one line that appears only when something needs doing. */}
-          {run && headline && panel?.kind !== "new" ? (
+          {run && headline && canEdit && panel?.kind !== "new" ? (
             <RateAlert tbd={headline.tbd} onEnterRate={(el) => openPanel({ kind: "settings" }, el)} />
           ) : null}
         </div>
@@ -1328,7 +1337,7 @@ export function RomRunner({
                 onClose={closePanel}
                 titleRef={titleRef}
               />
-              {projectId && openBlock.line.driverCostCode ? (
+              {projectId && canEdit && openBlock.line.driverCostCode ? (
                 <div className="rb-acts">
                   <button
                     className="btn"

@@ -2151,3 +2151,5 @@ textarea.input { border-radius: var(--r-lg); }
 .view-only-note { display: flex; align-items: center; gap: 10px; padding: 10px var(--s4); border-radius: var(--r-lg); background: var(--working-tint); color: var(--ink); font-size: var(--ui-size); line-height: var(--ui-line); }
 .view-only-note b { color: var(--brand); }
 .view-only-note .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--working); }
+/* LA-3112: wraps a form so View disables every field in it without changing the layout. */
+.edit-fieldset { display: contents; border: 0; margin: 0; padding: 0; min-width: 0; }

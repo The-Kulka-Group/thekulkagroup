@@ -16,3 +16,13 @@ export function ToolLevelProvider({ level, children }: { level: Level; children:
 export function useCanEdit(): boolean {
   return useContext(ToolLevelContext) === "edit";
 }
+
+/** LA-3112. Disables every field and button inside it in View. Links still work. */
+export function EditFieldset({ children }: { children: ReactNode }) {
+  return <fieldset className="edit-fieldset" disabled={!useCanEdit()}>{children}</fieldset>;
+}
+
+/** LA-3112. Shows its children only with Edit, so a server page can hide a create link or button. */
+export function EditOnly({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
+  return useCanEdit() ? children : fallback;
+}

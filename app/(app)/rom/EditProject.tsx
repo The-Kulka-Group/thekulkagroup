@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 import { areaOf, EMPTY, ProjectFields, type Form } from "./NewBudget";
 
 // LA-1110. Edit project: prefilled from the project's own row, saved through
@@ -266,6 +268,7 @@ export function EditProjectForm({
 }
 
 export function RestorePanel({ projectId, onRestored }: { projectId: string; onRestored: () => void }) {
+  const canEdit = useCanEdit();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -299,11 +302,13 @@ export function RestorePanel({ projectId, onRestored }: { projectId: string; onR
           {error}
         </p>
       ) : null}
-      <div className="rb-acts">
-        <button type="button" className="btn btn--primary" disabled={busy} onClick={restore}>
-          {busy ? "Restoring" : "Restore Project"}
-        </button>
-      </div>
+      {canEdit ? (
+        <div className="rb-acts">
+          <button type="button" className="btn btn--primary" disabled={busy} onClick={restore}>
+            {busy ? "Restoring" : "Restore Project"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

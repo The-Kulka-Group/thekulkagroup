@@ -9,6 +9,7 @@ import {
 } from "@kulka/engine";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
 import { personName } from "@/lib/format/person-name";
 import type { StoredDerivedAssumption } from "@/lib/rom/derived-assumptions";
 
@@ -375,6 +376,7 @@ export function CriterionPanel({
   onRevert: () => void;
   onPing: (ping: Ping) => void;
 }) {
+  const canEdit = useCanEdit();
   const [value, setValue] = useState("");
   const [reason, setReason] = useState("");
   const corrected = item.correction;
@@ -453,13 +455,15 @@ export function CriterionPanel({
               {STAMP.format(new Date(corrected.correctedAt))}. Reason: {corrected.reason}. the worked-out value was{" "}
               {formatDerivedValue(item.value)}.
             </p>
-            <div className="dc-row">
-              <button type="button" className="dc-btn" disabled={busy} onClick={onRevert}>
-                Use the Worked-Out Value
-              </button>
-            </div>
+            {canEdit ? (
+              <div className="dc-row">
+                <button type="button" className="dc-btn" disabled={busy} onClick={onRevert}>
+                  Use the Worked-Out Value
+                </button>
+              </div>
+            ) : null}
           </>
-        ) : (
+        ) : !canEdit ? null : (
           <form
             className="dc-form"
             onSubmit={(e) => {

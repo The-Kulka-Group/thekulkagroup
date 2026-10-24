@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 import "./scope-entries.css";
 
 // LA-1503. A line's Inclusions and Exclusions, in its block panel. Draft
@@ -31,6 +33,7 @@ async function readError(response: Response, fallback: string): Promise<string> 
 
 export function ScopeEntries({ projectId, runId, costCode }: { projectId: string; runId: string; costCode: string }) {
   const base = `/api/rom/projects/${projectId}/scope-entries`;
+  const canEdit = useCanEdit();
   const [entries, setEntries] = useState<PanelEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
@@ -158,7 +161,7 @@ export function ScopeEntries({ projectId, runId, costCode }: { projectId: string
         Only approved entries reach the client page. Drafts start from Kulka&rsquo;s definition of this item and the
         project&rsquo;s answers, never from drawings.
       </p>
-      <div className="rb-acts">
+      {canEdit ? <div className="rb-acts">
         <button className="btn" type="button" onClick={draft} disabled={drafting || entries === null}>
           {drafting ? "Drafting" : (entries?.length ?? 0) > 0 ? "Draft More" : "Draft Entries"}
         </button>
@@ -167,7 +170,7 @@ export function ScopeEntries({ projectId, runId, costCode }: { projectId: string
             {drafts === 1 ? "Approve the Draft" : `Approve All ${drafts} Drafts`}
           </button>
         ) : null}
-      </div>
+      </div> : null}
       {error ? (
         <p className="rb-pp rb-pp--error" role="alert">
           {error}
@@ -217,7 +220,7 @@ export function ScopeEntries({ projectId, runId, costCode }: { projectId: string
                               <span className={`rb-dot rb-dot--${entry.approvedBy ? "high" : "medium"}`} aria-hidden="true" />
                               {entry.approvedBy ? "Approved" : entry.drafter === "ai" ? "AI Draft" : "Draft"}
                             </span>
-                            <span className="se-acts">
+                            {canEdit ? <span className="se-acts">
                               <button
                                 type="button"
                                 className="se-btn"
@@ -237,14 +240,14 @@ export function ScopeEntries({ projectId, runId, costCode }: { projectId: string
                               <button type="button" className="se-btn se-btn--x" disabled={busy} onClick={() => remove(entry.id)}>
                                 Remove
                               </button>
-                            </span>
+                            </span> : null}
                           </>
                         )}
                       </li>
                     );
                   })}
                 </ul>
-                <form className="se-edit" onSubmit={(event) => add(side, event)}>
+                {canEdit ? <form className="se-edit" onSubmit={(event) => add(side, event)}>
                   <input
                     className="input"
                     aria-label={`Add to ${title}`}
@@ -256,7 +259,7 @@ export function ScopeEntries({ projectId, runId, costCode }: { projectId: string
                   <button className="btn" type="submit" disabled={busyId === `add-${side}` || adding[side].trim() === ""}>
                     Add
                   </button>
-                </form>
+                </form> : null}
               </div>
             );
           })

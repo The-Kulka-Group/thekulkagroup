@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
 import type { JobConfidence as Confidence } from "@/lib/rom/job-confidence";
 
 import "../imports.css";
@@ -32,6 +33,7 @@ export function JobConfidence({
   initial: Confidence | null;
   initialEditing?: boolean;
 }) {
+  const canEdit = useCanEdit();
   const [saved, setSaved] = useState<Confidence | null>(initial);
   const [editing, setEditing] = useState(initialEditing);
   const [score, setScore] = useState<string>(initial ? String(initial.score) : "");
@@ -87,7 +89,7 @@ export function JobConfidence({
           </span>
         ) : null}
       </div>
-      {editing ? (
+      {!canEdit ? null : editing ? (
         <>
           <label className="job-confidence-field">
             <span className="t-label">Score</span>

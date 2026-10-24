@@ -22,7 +22,6 @@ vi.mock("next/server", async (original) => ({
 const { setBriefClientForTests } = await import("@/lib/meetings/brief");
 const webhook = await import("./route");
 const sync = await import("../sync/route");
-const cron = await import("../sync/cron/route");
 
 const SECRET = "test-webhook-secret";
 const sign = (body: string) => createHmac("sha256", SECRET).update(body).digest("hex");
@@ -240,25 +239,6 @@ describe("POST /api/meetings/sync", () => {
     expect((await backfill()).status).toBe(502);
     expect(await sourceRuns(db)).toEqual([
       { source_key: "fireflies_meetings", trigger: "button", outcome: "failed", rows_added: null, rows_changed: null, error: "rate limited", finished: true },
-    ]);
-  });
-});
-
-describe("GET /api/meetings/sync/cron", () => {
-  const run = (auth?: string) =>
-    cron.GET(new Request("http://localhost/api/meetings/sync/cron", { headers: auth ? { authorization: auth } : {} }));
-
-  it("runs only with Vercel's cron secret", async () => {
-    vi.stubEnv("CRON_SECRET", "test-cron-secret");
-    fireflies.mockImplementation(async () => answer({ transcripts: [] }));
-    expect((await run()).status).toBe(401);
-    expect((await run("Bearer wrong")).status).toBe(401);
-    const ok = await run("Bearer test-cron-secret");
-    expect(ok.status).toBe(200);
-    expect(await ok.json()).toEqual({ found: 0, added: 0, briefed: 0, jobs: null, autodeskSignIn: null });
-    // LA-3048: Autodesk is not set up here, so only the backfill ran.
-    expect(await sourceRuns(db)).toEqual([
-      { source_key: "fireflies_meetings", trigger: "schedule", outcome: "ok", rows_added: 0, rows_changed: 0, error: null, finished: true },
     ]);
   });
 });

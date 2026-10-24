@@ -5,9 +5,12 @@ import { getDb } from "@/lib/db";
 import { FirefliesError, firefliesKey, firefliesReader } from "@/lib/meetings/fireflies";
 import { briefClient } from "@/lib/meetings/brief";
 import { backfillMeetingsLogged, briefPending } from "@/lib/meetings/sync";
+import { refreshSource } from "@/lib/sources/schedule";
 
 // LA-2279. Saves any Fireflies meeting from the last `days` days (30 unless
 // stated, 90 at most) that the webhook missed. Safe to call any number of times.
+// LA-3049: the Refresh Now for Fireflies Meetings. It answers 409 while the
+// schedule or another request is already reading Fireflies.
 
 export const maxDuration = 300;
 
@@ -22,14 +25,16 @@ export async function POST(request: Request) {
   if (!Number.isInteger(days) || days < 1 || days > 90) {
     return NextResponse.json({ error: "Send days as a whole number from 1 to 90." }, { status: 400 });
   }
+  const db = getDb();
   try {
-    const result = await backfillMeetingsLogged(
-      getDb(),
-      firefliesReader(key),
-      new Date(Date.now() - days * 86_400_000),
-      "button",
-    );
-    return NextResponse.json({ ...result, briefed: await briefPending(getDb(), briefClient()) });
+    const refresh = await refreshSource(db, "fireflies_meetings", "button", async () => {
+      const result = await backfillMeetingsLogged(db, firefliesReader(key), new Date(Date.now() - days * 86_400_000), "button");
+      return { ...result, briefed: await briefPending(db, briefClient()) };
+    });
+    if (refresh.status !== "ran") {
+      return NextResponse.json({ error: "Fireflies Meetings is already refreshing. Try again in a minute." }, { status: 409 });
+    }
+    return NextResponse.json(refresh.result);
   } catch (cause) {
     if (cause instanceof FirefliesError) return NextResponse.json({ error: cause.message }, { status: 502 });
     throw cause;

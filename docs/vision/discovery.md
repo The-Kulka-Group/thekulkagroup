@@ -59,7 +59,10 @@ For an approved release, configure a random `VISION_DISCOVERY_CRON_SECRET` of at
 least 32 characters in server and scheduler secrets. The scheduler sends POST to
 `/api/vision/discovery/cron?source=all` with `Authorization: Bearer <secret>`.
 The inactive config in `config/vision-source-schedule.json` records this one
-daily job. A separate release must activate it. A five-minute database lease and
+daily job. A separate release must activate it. Since LA-3049 the one refresh
+schedule (`/api/sources/cron`) can run it instead: turning on the
+`vision_discovery` row in `data_sources` is that activation, and no second
+scheduler is needed. A five-minute database lease and
 check interval apply to each source. Missing or incorrect credentials return
 401. The source directory and inbox report the schedule, latest outcome, record
 count, last completed check, and error state while retaining prior records.

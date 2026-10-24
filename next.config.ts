@@ -47,6 +47,10 @@ const nextConfig: NextConfig = {
     "/api/vision/discovery/refresh": [
       "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
     ],
+    // LA-3049. The refresh schedule runs Vision discovery once its source is on.
+    "/api/sources/cron": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
   },
 
   // Pin the workspace root. Next infers it by walking up for a lockfile, so

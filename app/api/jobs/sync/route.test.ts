@@ -46,6 +46,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await db.query(`truncate jobs cascade`);
   await db.query(`delete from source_runs`);
+  await db.query(`update data_sources set lease_token = null, lease_until = null`);
   vi.stubEnv("APS_CLIENT_ID", "test-client");
   vi.stubEnv("APS_CLIENT_SECRET", "test-secret");
   vi.stubEnv("ACC_ACCOUNT_ID", "b.00000000-0000-4000-8000-0000000000aa");
@@ -115,6 +116,25 @@ describe("POST /api/jobs/sync", () => {
       { source_key: "autodesk_projects", trigger: "button", outcome: "ok", rows_added: 1, rows_changed: 0, error: null, finished: true },
       { source_key: "autodesk_projects", trigger: "button", outcome: "ok", rows_added: 2, rows_changed: 1, error: null, finished: true },
     ]);
+  });
+
+  it("answers 409 to a second refresh while the first is running, so only one run is made (LA-3049)", async () => {
+    let open!: () => void;
+    const gate = new Promise<void>((done) => (open = done));
+    autodeskAnswers([[project(1)]]);
+    const answers = autodesk.getMockImplementation()!;
+    autodesk.mockImplementation(async (...args: unknown[]) => {
+      await gate;
+      return answers(...(args as [string]));
+    });
+    const first = sync();
+    await vi.waitFor(() => expect(autodesk).toHaveBeenCalled());
+    const second = await sync();
+    expect(second.status).toBe(409);
+    expect((await second.json()).error).toBe("Autodesk Projects is already refreshing. Try again in a minute.");
+    open();
+    expect((await first).status).toBe(200);
+    expect(await sourceRuns(db)).toHaveLength(1);
   });
 
   it("logs an Autodesk refusal as a failed run and still answers 502 (LA-3048)", async () => {

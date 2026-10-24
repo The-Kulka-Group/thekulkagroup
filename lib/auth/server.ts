@@ -3,11 +3,22 @@ import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
 
 import { allowedEmailsFrom, authConfiguration, verifiedAllowedEmail } from "./policy";
+import {
+  allows,
+  cookieFrom,
+  levelNeeded,
+  parseViewAs,
+  resolveViewer,
+  toolForPath,
+  VIEW_AS_COOKIE,
+  viewerLevel,
+} from "@/lib/access/viewer";
+import { getDb } from "@/lib/db";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-// This checks who is signed in, not what they're allowed to touch. There is
-// no project-membership or ownership concept anywhere in this codebase: any
-// allowlisted user can act on any project id. Deliberate (Matt, 2026-09-20,
+// This checks who is signed in and, since LA-3047, which tools they may use
+// (lib/access). There is still no project-membership or ownership concept:
+// anyone with Edit on a tool can act on any project id in it. Deliberate (Matt, 2026-09-20,
 // during LA-15's code review): the allowlist is small and internal at this
 // stage, so per-project scoping isn't worth the complexity yet. If the user
 // base grows past a small internal allowlist, this is the place a real
@@ -52,7 +63,7 @@ async function testAuthorization(request?: Request): Promise<Authorization | nul
     return { ok: false, status: 403, error: "This account does not have access." };
   }
   if (process.env.NODE_ENV === "test" || process.env.KULKA_BROWSER_TEST === "1") {
-    return { ok: true, user: { id: "test-user", email: "browser-test@kulka.invalid" } };
+    return { ok: true, user: TEST_USER };
   }
   return null;
 }
@@ -62,11 +73,51 @@ export const OPEN_ACCESS_USER: AuthorizedUser = {
   email: "open-access@kulka.invalid",
 };
 
+const TEST_USER: AuthorizedUser = { id: "test-user", email: "browser-test@kulka.invalid" };
+
+/**
+ * LA-3047: the open-access user (sign-in off) and the test user (never in
+ * production) are not in People. Kulka treats them as an Owner, so nothing
+ * changes for today's users until an Owner picks View As.
+ */
+export function isUnrestrictedUser(user: AuthorizedUser) {
+  return user.id === OPEN_ACCESS_USER.id || user.id === TEST_USER.id;
+}
+
 export function authIsOpen() {
   return process.env.KULKA_AUTH_OPEN === "1";
 }
 
+/**
+ * Who is signed in and, for an API request, whether they may use its tool:
+ * View for a read and Edit for a write (LA-3047). The tool comes from the
+ * path (lib/access/viewer.ts). Cron and webhook routes check their own
+ * secrets and never come through here.
+ */
 export async function authorizeRequest(request?: Request): Promise<Authorization> {
+  const auth = await authenticate(request);
+  if (!auth.ok || !request) return auth;
+  return checkToolAccess(request, auth);
+}
+
+async function checkToolAccess(request: Request, auth: Extract<Authorization, { ok: true }>): Promise<Authorization> {
+  const tool = toolForPath(new URL(request.url).pathname);
+  if (!tool) return auth;
+  const viewAs = parseViewAs(cookieFrom(request.headers.get("cookie"), VIEW_AS_COOKIE));
+  const unrestricted = isUnrestrictedUser(auth.user);
+  if (unrestricted && !viewAs) return auth;
+  const viewer = await resolveViewer(getDb(), { email: auth.user.email, unrestricted }, viewAs);
+  const have = viewerLevel(viewer, tool);
+  const need = levelNeeded(request.method);
+  if (allows(have, need)) return auth;
+  return {
+    ok: false,
+    status: 403,
+    error: have === "view" ? "You can view this, but you cannot change it." : "You do not have access to this.",
+  };
+}
+
+async function authenticate(request?: Request): Promise<Authorization> {
   if (authIsOpen()) {
     await connection();
     return { ok: true, user: OPEN_ACCESS_USER };

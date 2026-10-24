@@ -1,5 +1,7 @@
 import { Sheet } from "@/components/Sheet";
 import { listPeople, listRoles } from "@/lib/access/read";
+import { currentViewer } from "@/lib/access/current";
+import { viewerLevel } from "@/lib/access/viewer";
 import { getDb } from "@/lib/db";
 
 import { AddPerson } from "./AddPerson";
@@ -13,7 +15,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AccessPeoplePage() {
   const db = getDb();
-  const [people, roles] = await Promise.all([listPeople(db), listRoles(db)]);
+  const [people, roles, viewer] = await Promise.all([listPeople(db), listRoles(db), currentViewer()]);
+  // LA-3047: in View, Add Person is not offered.
+  const canEdit = viewerLevel(viewer, "access") === "edit";
   return (
     <Sheet
       number="S-100"
@@ -23,7 +27,7 @@ export default async function AccessPeoplePage() {
     >
       <div className="ac-body">
         <SignInOff people={people.length} />
-        <AddPerson roles={roles} />
+        {canEdit ? <AddPerson roles={roles} /> : null}
         <PeopleList people={people} />
       </div>
     </Sheet>

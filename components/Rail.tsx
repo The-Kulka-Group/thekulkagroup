@@ -28,7 +28,7 @@ const ICONS: Record<ToolIcon, Icon> = {
 // LA-3044: the rail renders from the tool catalog, one section per department.
 const NAV_GROUPS = railGroups().map(({ department, tools }) => ({
   label: department.label,
-  items: tools.map((tool) => ({ href: tool.href, label: tool.label, count: undefined as number | undefined, Icon: ICONS[tool.icon] })),
+  items: tools.map((tool) => ({ key: tool.key, href: tool.href, label: tool.label, count: undefined as number | undefined, Icon: ICONS[tool.icon] })),
 }));
 
 
@@ -70,9 +70,12 @@ export function Rail({
   email,
   openAccess = false,
   needsKulka = 0,
+  tools,
 }: {
   email: string;
   openAccess?: boolean;
+  /** LA-3047: the tool keys the viewer can open. A Hidden tool leaves the rail, and so does a department left with none. Omitted, every tool shows. */
+  tools?: readonly string[];
   /** LA-1490: client comment threads waiting on Kulka. Conceptual Budget shows the count, and shows nothing at zero. */
   needsKulka?: number;
 }) {
@@ -110,7 +113,9 @@ export function Rail({
 
   const groups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => railMatches(query, { ...item, group: group.label })),
+    items: group.items.filter(
+      (item) => (!tools || tools.includes(item.key)) && railMatches(query, { ...item, group: group.label }),
+    ),
   })).filter((group) => group.items.length > 0);
   const showHome = railMatches(query, { label: "Home", code: "H-100" });
   const firstMatch = showHome ? "/" : groups[0]?.items[0]?.href;

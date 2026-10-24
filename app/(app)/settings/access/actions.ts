@@ -7,11 +7,13 @@ import { addPerson } from "@/lib/access/read";
 import { AccessWriteError, removeException, setException, setRoleAccess } from "@/lib/access/store";
 import { authIsOpen, authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
+import { currentViewer } from "@/lib/access/current";
+import { viewerLevel } from "@/lib/access/viewer";
 
 // LA-3046. Writes from the People and Access pages. Each one names who made
 // it from the signed-in account. While sign-in is off there is no account, so
 // the log says Open Access. Who may make these changes comes with
-// enforcement (LA-3047).
+// enforcement (LA-3047): every write here needs Edit on People and Access.
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -22,6 +24,9 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 async function actor(): Promise<string> {
   const auth = await authorizeRequest();
   if (!auth.ok) throw new AccessWriteError("Sign in to change access.");
+  if (viewerLevel(await currentViewer(), "access") !== "edit") {
+    throw new AccessWriteError("You can view People and Access, but you cannot change it.");
+  }
   return authIsOpen() ? "Open Access" : auth.user.email;
 }
 

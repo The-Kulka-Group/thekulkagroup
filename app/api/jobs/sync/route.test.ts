@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 import type { Db } from "@/lib/db";
 import { seededDatabase } from "@/test/database";
+import { sourceRuns } from "@/test/source-runs";
 
 // LA-2283. The Autodesk job list sync against a seeded Postgres, with `fetch`
 // stubbed so the real Autodesk client runs offline. Every project is synthetic.
@@ -44,6 +45,7 @@ beforeAll(async () => {
 }, 60_000);
 beforeEach(async () => {
   await db.query(`truncate jobs cascade`);
+  await db.query(`delete from source_runs`);
   vi.stubEnv("APS_CLIENT_ID", "test-client");
   vi.stubEnv("APS_CLIENT_SECRET", "test-secret");
   vi.stubEnv("ACC_ACCOUNT_ID", "b.00000000-0000-4000-8000-0000000000aa");
@@ -102,5 +104,24 @@ describe("POST /api/jobs/sync", () => {
     const response = await sync();
     expect(response.status).toBe(502);
     expect((await response.json()).error).toBe("The client_id specified does not have access to the api product");
+  });
+
+  it("logs each refresh as an Autodesk Projects run, with jobs added and changed (LA-3048)", async () => {
+    autodeskAnswers([[project(1)]]);
+    await sync();
+    autodeskAnswers([[project(1), project(2), project(3)]]);
+    await sync();
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "autodesk_projects", trigger: "button", outcome: "ok", rows_added: 1, rows_changed: 0, error: null, finished: true },
+      { source_key: "autodesk_projects", trigger: "button", outcome: "ok", rows_added: 2, rows_changed: 1, error: null, finished: true },
+    ]);
+  });
+
+  it("logs an Autodesk refusal as a failed run and still answers 502 (LA-3048)", async () => {
+    autodesk.mockImplementation(async () => json({ developerMessage: "No access" }, 403));
+    expect((await sync()).status).toBe(502);
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "autodesk_projects", trigger: "button", outcome: "failed", rows_added: null, rows_changed: null, error: "No access", finished: true },
+    ]);
   });
 });

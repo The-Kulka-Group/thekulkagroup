@@ -1,4 +1,5 @@
 import type { Db } from "@/lib/db";
+import { recordRun, setConnectionStatus } from "@/lib/sources/runs";
 
 import { decrypt, encrypt } from "./crypto";
 import { AutodeskSignInError, refreshTokens, type AutodeskUser, type Tokens, type UserSettings } from "./oauth";
@@ -56,7 +57,7 @@ export async function saveConnection(db: Db, settings: UserSettings, user: Autod
       tokens.expiresAt.toISOString(),
       encrypt(tokens.refreshToken, REFRESH, settings.key),
     ],
-  );
+  );  await setConnectionStatus(db, "autodesk_connection", "connected");
 }
 
 export async function readConnection(db: Db): Promise<ConnectionStatus | null> {
@@ -77,6 +78,7 @@ export async function deleteConnection(db: Db, settings: UserSettings): Promise<
   const { rows } = await db.query<Pick<Row, "refresh_token_encrypted">>(
     `delete from autodesk_connections returning refresh_token_encrypted`,
   );
+  await setConnectionStatus(db, "autodesk_connection", "missing");
   return rows[0] ? decrypt(rows[0].refresh_token_encrypted, REFRESH, settings.key) : null;
 }
 
@@ -132,7 +134,10 @@ export async function accessToken(db: Db, settings: UserSettings, now = Date.now
     );
     return { token: tokens.accessToken };
   });
-  if ("expired" in result) throw new NotConnectedError("The Autodesk sign-in has expired. Connect Autodesk again.");
+  if ("expired" in result) {
+    await setConnectionStatus(db, "autodesk_connection", "expired");
+    throw new NotConnectedError("The Autodesk sign-in has expired. Connect Autodesk again.");
+  }
   return result.token;
 }
 
@@ -150,4 +155,19 @@ export async function keepSignInAlive(db: Db, settings: UserSettings, now = Date
     if (cause instanceof NotConnectedError || cause instanceof AutodeskSignInError) return cause.message;
     throw cause;
   }
+}
+
+/** keepSignInAlive, logged as one Autodesk Connection run (LA-3048). Any answer but "connected" is a failed run. */
+export function keepSignInAliveLogged(db: Db, settings: UserSettings, now = Date.now()): Promise<string> {
+  return recordRun(
+    db,
+    "autodesk_connection",
+    "schedule",
+    () => keepSignInAlive(db, settings, now),
+    async (answer) => {
+      if (answer !== "connected") return { outcome: "failed", error: answer };
+      await setConnectionStatus(db, "autodesk_connection", "connected");
+      return {};
+    },
+  );
 }

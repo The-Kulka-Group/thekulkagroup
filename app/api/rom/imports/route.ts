@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { CostFileParseError, ProjectNotFound, stageCostImport } from "@/lib/rom/ingest";
+import { recordRun } from "@/lib/sources/runs";
 
 // Stages an uploaded cost file (LA-15 AC1): every row lands in
 // cost_import_lines, matched against the canonical work items, visible for
@@ -48,13 +49,27 @@ export async function POST(request: Request) {
   }
 
   try {
-    const costImport = await stageCostImport(getDb(), {
-      sourceProjectId,
-      exportLabel: exportLabel.trim(),
-      provenanceKind,
-      uploadedBy: auth.user.email,
-      fileText,
-    });
+    // LA-3048: each upload is one ProEst Imports run. Skipped rows make it partial.
+    const db = getDb();
+    const costImport = await recordRun(
+      db,
+      "proest_imports",
+      "button",
+      () =>
+        stageCostImport(db, {
+          sourceProjectId,
+          exportLabel: exportLabel.trim(),
+          provenanceKind,
+          uploadedBy: auth.user.email,
+          fileText,
+        }),
+      (staged) => ({
+        outcome: staged.skippedRows.length > 0 ? "partial" : "ok",
+        added: staged.lines.length,
+        changed: 0,
+        error: staged.skippedRows.length > 0 ? `${staged.skippedRows.length} rows skipped.` : null,
+      }),
+    );
     return NextResponse.json({ costImport }, { status: 201 });
   } catch (cause) {
     if (cause instanceof ProjectNotFound) {

@@ -4,9 +4,10 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
-import { keepSignInAlive } from "@/lib/autodesk/connection";
+import { keepSignInAlive, keepSignInAliveLogged } from "@/lib/autodesk/connection";
 import { SIGN_IN_COOKIE, userSettings } from "@/lib/autodesk/oauth";
 import { seededDatabase } from "@/test/database";
+import { sourceRuns } from "@/test/source-runs";
 
 // LA-2894. The Autodesk sign-in end to end against a seeded Postgres, with
 // `fetch` stubbed so Autodesk is never called. Every token is synthetic and
@@ -293,6 +294,53 @@ describe("the daily keep-alive (LA-2911)", () => {
     await signIn();
     refreshAnswer = "expired";
     expect(await keep(Date.now() + 24 * 3600_000)).toBe("The Autodesk sign-in has expired. Connect Autodesk again.");
+  });
+});
+
+describe("the Autodesk Connection run log (LA-3048)", () => {
+  const keep = (now?: number) => keepSignInAliveLogged(db as Db, userSettings()!, now);
+  const status = async () =>
+    (
+      await db.query<{ connection_status: string | null }>(
+        `select connection_status from data_sources where key = 'autodesk_connection'`,
+      )
+    ).rows[0].connection_status;
+
+  beforeEach(async () => {
+    await db.query(`delete from source_runs`);
+  });
+
+  it("logs a kept-alive sign-in as an ok scheduled run and marks it connected", async () => {
+    await signIn();
+    expect(await status()).toBe("connected");
+    expect(await keep(Date.now() + 24 * 3600_000)).toBe("connected");
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "autodesk_connection", trigger: "schedule", outcome: "ok", rows_added: null, rows_changed: null, error: null, finished: true },
+    ]);
+  });
+
+  it("logs a retired sign-in as a failed run and marks it expired", async () => {
+    await signIn();
+    refreshAnswer = "expired";
+    expect(await keep(Date.now() + 24 * 3600_000)).toBe("The Autodesk sign-in has expired. Connect Autodesk again.");
+    expect(await sourceRuns(db)).toEqual([
+      {
+        source_key: "autodesk_connection",
+        trigger: "schedule",
+        outcome: "failed",
+        rows_added: null,
+        rows_changed: null,
+        error: "The Autodesk sign-in has expired. Connect Autodesk again.",
+        finished: true,
+      },
+    ]);
+    expect(await status()).toBe("expired");
+  });
+
+  it("marks the connection missing after Disconnect", async () => {
+    await signIn();
+    await connection.DELETE(request("/api/autodesk/connection", { method: "DELETE" }));
+    expect(await status()).toBe("missing");
   });
 });
 

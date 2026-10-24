@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 // LA-2858. Runs the Autodesk project sync on demand (LA-2283) and reloads the
-// list. The daily meetings cron runs the same sync without anyone asking.
+// list. The hourly refresh schedule runs the same sync without anyone asking (LA-3049).
 
 export function JobSync() {
   const router = useRouter();

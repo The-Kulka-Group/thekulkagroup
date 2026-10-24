@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import type { RomBudgetOption, RomLink } from "@/lib/underwriting/rom-link";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 import { expandSection } from "./CollapsibleSection";
 
 // LA-2417. Where a case gets its construction cost from the ROM: build a
@@ -34,6 +36,7 @@ export function RomHardCosts({
   beforeLeave: () => Promise<boolean>;
 }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [busy, setBusy] = useState<"leaving" | "linking" | "updating" | null>(null);
   const [error, setError] = useState<string>();
   const [picked, setPicked] = useState("");
@@ -51,7 +54,8 @@ export function RomHardCosts({
   }, []);
 
   // A budget saved while the user was away fills the case the first time the case opens.
-  const unfilled = Boolean(link?.latest && !link.appliedRunId);
+  // A View Only viewer cannot fill, so the case waits for someone with Edit (LA-3112).
+  const unfilled = canEdit && Boolean(link?.latest && !link.appliedRunId);
   useEffect(() => {
     if (!unfilled) return;
     let cancelled = false;
@@ -128,10 +132,13 @@ export function RomHardCosts({
             <p className="t-meta">Price hard cost from a ROM budget instead of typing it in.</p>
           )}
         </div>
-        {link ? (
+        {link && canEdit ? (
           <button type="button" className="btn btn--secondary" disabled={busy !== null} onClick={() => void leaveFor(`/rom?project=${link.projectId}`)}>
             {figures ? "Open in ROM" : "Resume"}
           </button>
+        ) : link ? (
+          // View has no unsaved edits to save first, and a link still works inside the form's disabled fieldset.
+          <a className="btn btn--secondary" href={`/rom?project=${link.projectId}`}>Open in ROM</a>
         ) : null}
       </div>
 
@@ -149,7 +156,7 @@ export function RomHardCosts({
         </>
       ) : null}
 
-      {newer ? (
+      {newer && canEdit ? (
         <div className="uw-rom-newer" role="status">
           <span>
             A newer budget was saved {DATE.format(new Date(newer.startedAt))}: {millions(newer.total)}, {newer.change >= 0 ? "up" : "down"} {millions(Math.abs(newer.change))}.
@@ -160,7 +167,7 @@ export function RomHardCosts({
         </div>
       ) : null}
 
-      {!link ? (
+      {!link && canEdit ? (
         <div className="uw-rom-ways">
           <div className="uw-rom-way">
             <button type="button" className="btn btn--primary" disabled={busy !== null} onClick={() => void leaveFor(`/rom?new=1&case=${caseId}`)}>

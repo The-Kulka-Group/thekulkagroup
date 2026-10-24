@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EditOnly } from "@/components/access/ToolLevel";
 import { Sheet } from "@/components/Sheet";
 import { authorizeRequest } from "@/lib/auth/server";
 import { OpportunityForm } from "../OpportunityForm";
@@ -9,6 +10,6 @@ export default async function NewOpportunityPage({ searchParams }: { searchParam
   const params = await searchParams;
   const prefill = Object.fromEntries(["sourceTitle","sourceUrl","sourceDate"].flatMap(key => typeof params[key] === "string" ? [[key,params[key]]] : []));
   return <Sheet number="V-NEW" title="New Opportunity" bodyClass="vision-workspace" meta={<span>Vision</span>}>
-    {auth.ok ? <OpportunityForm prefill={prefill} /> : <div className="empty"><p>Sign in with an authorized account to save Vision opportunities.</p><Link className="btn" href="/vision">Back to Opportunities</Link></div>}
+    {auth.ok ? <EditOnly fallback={<div className="empty"><p>You can view Vision, but you cannot save opportunities.</p><Link className="btn" href="/vision">Back to Opportunities</Link></div>}><OpportunityForm prefill={prefill} /></EditOnly> : <div className="empty"><p>Sign in with an authorized account to save Vision opportunities.</p><Link className="btn" href="/vision">Back to Opportunities</Link></div>}
   </Sheet>;
 }

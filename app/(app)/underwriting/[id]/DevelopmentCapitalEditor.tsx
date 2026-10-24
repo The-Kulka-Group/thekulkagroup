@@ -24,9 +24,11 @@ import { blankEvidenceRows, commonSource, seedFromIntake } from "@/lib/underwrit
 
 import { OtherSourcesSection } from "./OtherSourcesSection";
 import { PermanentLoanSection } from "./PermanentLoanSection";
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 
 export function DevelopmentCapitalEditor({ savedCase }: { savedCase: UnderwritingCase }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const saved = savedCase.developmentCapital;
   // An unsaved section starts from the debt share and interest rate intake supplies.
   const seed = saved ? undefined : seedFromIntake(savedCase);
@@ -113,7 +115,7 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
   };
 
   return (
-    <form className="underwriting-capital-editor" onSubmit={save} noValidate>
+    <form className="underwriting-capital-editor" onSubmit={save} noValidate><EditFieldset>
       <div className="underwriting-section-head">
         <div>
           <h3 id="development-capital-heading">Development Capital</h3>
@@ -208,9 +210,9 @@ export function DevelopmentCapitalEditor({ savedCase }: { savedCase: Underwritin
 
       {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
-        <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Capital Plan" : "Save Capital Plan"}</button>
+        {canEdit ? <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Capital Plan" : "Save Capital Plan"}</button> : null}
       </div>
-    </form>
+    </EditFieldset></form>
   );
 }
 

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 import "./return-to-case.css";
 
 // LA-2417. A budget built from an underwriting case carries the way back to
@@ -41,8 +43,22 @@ export async function returnToCase(caseId: string): Promise<string | null> {
 
 /** `error` is a failed return from finishing the budget, which RomRunner starts. */
 export function ReturnBand({ returnCase, error }: { returnCase: ReturnCase; error?: string | null }) {
+  const canEdit = useCanEdit();
   const [leaving, setLeaving] = useState(false);
   const [ownError, setOwnError] = useState<string | null>(null);
+  // LA-3112: going back fills the case, a write, so View goes back without filling it.
+  if (!canEdit) {
+    return (
+      <div className="rom-return-band" role="region" aria-label="Underwriting project">
+        <span>
+          Construction Costs for <strong>{returnCase.name}</strong>
+        </span>
+        <a className="rom-return-band__back" href={`/underwriting/${returnCase.id}#hard-costs`}>
+          Back to Case
+        </a>
+      </div>
+    );
+  }
   return (
     <div className="rom-return-band" role="region" aria-label="Underwriting project">
       <span>

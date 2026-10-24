@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 // LA-2894. Connect Autodesk signs one Kulka person in to Autodesk, so Kulka can
 // read the areas that refuse the app-only sync. Disconnect deletes the saved
 // sign-in. Neither ever sees a token.
@@ -24,6 +26,7 @@ export function AutodeskConnect({
   outcome: string | null;
 }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [state, setState] = useState<{ busy: boolean; note: string | null }>({
     busy: false,
     note: outcome ? OUTCOME[outcome] ?? null : null,
@@ -59,15 +62,17 @@ export function AutodeskConnect({
             <i aria-hidden="true" />
             Autodesk: {userName || "Connected"}
           </span>
-          <button className="jb-btn jb-btn--quiet" type="button" onClick={disconnect} disabled={state.busy}>
-            {state.busy ? "Disconnecting…" : "Disconnect"}
-          </button>
+          {canEdit ? (
+            <button className="jb-btn jb-btn--quiet" type="button" onClick={disconnect} disabled={state.busy}>
+              {state.busy ? "Disconnecting…" : "Disconnect"}
+            </button>
+          ) : null}
         </>
-      ) : (
+      ) : canEdit ? (
         <a className="jb-btn" href="/api/autodesk/connect">
           Connect Autodesk
         </a>
-      )}
+      ) : null}
     </span>
   );
 }

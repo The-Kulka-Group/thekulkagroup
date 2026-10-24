@@ -28,6 +28,7 @@ import {
 import { GroupedNumberInput } from "@/components/GroupedNumberInput";
 import { MilestoneAnchorField } from "./MilestoneAnchorField";
 import { RomHardCosts } from "./RomHardCosts";
+import { EditFieldset, useCanEdit } from "@/components/access/ToolLevel";
 
 type EditableLine = MonthlyCostLine;
 
@@ -90,6 +91,7 @@ export function CostScheduleEditor({
   romBudgets?: RomBudgetOption[];
 }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [lastScheduleSave, setLastScheduleSave] = useState({
     caseId: savedCase.id,
     revision: savedCase.caseRevision,
@@ -226,7 +228,7 @@ export function CostScheduleEditor({
       data-expected-revision={expectedRevision}
       onSubmit={save}
       noValidate
-    >
+    ><EditFieldset>
       <div className="underwriting-section-head">
         <div>
           <h3>Development Cost Schedule</h3>
@@ -462,9 +464,9 @@ export function CostScheduleEditor({
       {lines.length === 0 ? <div className="empty empty--inline"><p>Add at least one cost line to build the monthly schedule.</p></div> : null}
       {error ? <p className="input-error underwriting-save-error" role="alert">{error}</p> : null}
       <div className="underwriting-form-actions">
-        <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Schedule" : "Save Schedule"}</button>
+        {canEdit ? <button className="btn btn--primary" type="submit" disabled={saving}>{saving ? "Saving Schedule" : "Save Schedule"}</button> : null}
       </div>
-    </form>
+    </EditFieldset></form>
   );
 }
 

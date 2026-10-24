@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EditOnly } from "@/components/access/ToolLevel";
 import {useMemo, useState} from "react";
 import {ACCESS_MODES, COLLECTION_STATE_LABELS, JURISDICTION_TYPES, SOURCE_ACCESS, filterMunicipalSources, sourceCoverageSummary, sourceIsCollectable, sourceJurisdictions, sourceRecordFamilies, type MunicipalSource, type SourceAccessMode, type JurisdictionType} from "@/lib/vision/source-directory";
 import {SourceBrand} from "../SourceBrand";
@@ -75,7 +76,7 @@ export function SourceDirectoryResults({sources,health={}}: {sources: MunicipalS
           </div>:null}
           <div className="vision-source-actions">
             <a className="btn btn--primary" href={source.url} target="_blank" rel="noopener noreferrer">Open Official Source</a>
-            <Link className="btn btn--quiet" href={`/vision/new?${query}`}>Add an Opportunity</Link>
+            <EditOnly><Link className="btn btn--quiet" href={`/vision/new?${query}`}>Add an Opportunity</Link></EditOnly>
           </div>
         </article>;
       })}

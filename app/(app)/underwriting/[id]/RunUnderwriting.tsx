@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
+
 export function RunUnderwriting({
   caseId,
   caseRevision,
@@ -13,6 +15,7 @@ export function RunUnderwriting({
   hasRun: boolean;
 }) {
   const router = useRouter();
+  const canEdit = useCanEdit();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -40,6 +43,8 @@ export function RunUnderwriting({
     }
   }
 
+  // LA-3112: a run saves a result, so View hides it.
+  if (!canEdit) return null;
   return (
     <div className="underwriting-run-action" data-case-revision={caseRevision}>
       <button className="btn btn--primary" type="button" onClick={run} disabled={running}>

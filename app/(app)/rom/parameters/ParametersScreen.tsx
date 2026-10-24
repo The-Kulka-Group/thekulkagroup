@@ -4,6 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useState, type KeyboardEvent } fr
 
 import type { ConfidenceFlag, ParameterName, ProvenanceKind } from "@kulka/engine";
 
+import { useCanEdit } from "@/components/access/ToolLevel";
 import type { ImpactData, ParameterHistoryEntry } from "@/lib/rom/parameters";
 
 import {
@@ -424,10 +425,12 @@ function NumberBox({
   onChange: (text: string) => void;
   onKey: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
+  const canEdit = useCanEdit();
   return (
     <span className={`pm-num${problem ? " pm-num--bad" : ""}`}>
       <input
         id={`pm-in-${name}`}
+        disabled={!canEdit}
         inputMode="decimal"
         value={draft}
         aria-label={label}
@@ -474,6 +477,7 @@ function ParameterRow({
   onChange: (text: string) => void;
   onKey: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
+  const canEdit = useCanEdit();
   const numeric = Number(draft);
   const entries = newestFirst(history.filter((h) => h.name === name));
   return (
@@ -495,6 +499,7 @@ function ParameterRow({
           step={0.5}
           value={Number.isFinite(numeric) ? Math.min(10, Math.max(0, numeric)) : 0}
           aria-label={`${label} weight slider`}
+          disabled={!canEdit}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : null}

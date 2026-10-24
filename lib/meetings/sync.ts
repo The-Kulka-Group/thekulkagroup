@@ -1,4 +1,5 @@
 import type { Db } from "@/lib/db";
+import { type RunTrigger, recordRun } from "@/lib/sources/runs";
 
 import { type BriefClient, briefMeeting, meetingsAwaitingBrief } from "./brief";
 
@@ -39,6 +40,38 @@ export async function backfillMeetings(
   for (const id of missing) await syncMeeting(db, reader, id, false);
   if (missing.length > 0) await matchMeetings(db);
   return { found: ids.length, added: missing.length };
+}
+
+/** syncMeeting for one webhook call, logged as a Fireflies Meetings run (LA-3048). */
+export async function syncMeetingLogged(db: Db, reader: FirefliesReader, firefliesId: string): Promise<void> {
+  let existed = false;
+  await recordRun(
+    db,
+    "fireflies_meetings",
+    "webhook",
+    async () => {
+      const { rows } = await db.query(`select 1 from meetings where fireflies_id = $1`, [firefliesId]);
+      existed = rows.length > 0;
+      await syncMeeting(db, reader, firefliesId);
+    },
+    () => (existed ? { added: 0, changed: 1 } : { added: 1, changed: 0 }),
+  );
+}
+
+/** backfillMeetings, logged as a Fireflies Meetings run (LA-3048). */
+export function backfillMeetingsLogged(
+  db: Db,
+  reader: FirefliesReader,
+  from: Date,
+  trigger: RunTrigger,
+): Promise<{ found: number; added: number }> {
+  return recordRun(
+    db,
+    "fireflies_meetings",
+    trigger,
+    () => backfillMeetings(db, reader, from),
+    ({ added }) => ({ added, changed: 0 }),
+  );
 }
 
 /** Briefs written per sync, so one call stays well inside its time limit. */

@@ -2,19 +2,20 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
-import { keepSignInAlive } from "@/lib/autodesk/connection";
+import { keepSignInAliveLogged } from "@/lib/autodesk/connection";
 import { userSettings } from "@/lib/autodesk/oauth";
 import { getDb } from "@/lib/db";
 import { AutodeskError, autodeskSettings } from "@/lib/jobs/autodesk";
-import { syncJobs } from "@/lib/jobs/sync";
+import { syncJobsLogged } from "@/lib/jobs/sync";
 import { FirefliesError, firefliesKey, firefliesReader } from "@/lib/meetings/fireflies";
 import { briefClient } from "@/lib/meetings/brief";
-import { backfillMeetings, briefPending } from "@/lib/meetings/sync";
+import { backfillMeetingsLogged, briefPending } from "@/lib/meetings/sync";
 
 // LA-2279. The scheduled pull (vercel.json), the main path for meetings the
 // webhook never reports. Vercel sends `Authorization: Bearer $CRON_SECRET`.
 // LA-2283: it refreshes the Autodesk job list first, when Autodesk is set up.
 // LA-2911: it also refreshes the Autodesk sign-in, which lapses after 15 idle days.
+// LA-3048: each of the three logs a run in source_runs.
 
 export const maxDuration = 300;
 
@@ -33,11 +34,16 @@ export async function GET(request: Request) {
   }
   const jobs = await refreshJobs();
   const settings = userSettings();
-  const autodeskSignIn = settings ? await keepSignInAlive(getDb(), settings) : null;
+  const autodeskSignIn = settings ? await keepSignInAliveLogged(getDb(), settings) : null;
   const key = firefliesKey();
   if (!key) return NextResponse.json({ error: "Fireflies is not set up.", jobs, autodeskSignIn }, { status: 503 });
   try {
-    const result = await backfillMeetings(getDb(), firefliesReader(key), new Date(Date.now() - DAYS * 86_400_000));
+    const result = await backfillMeetingsLogged(
+      getDb(),
+      firefliesReader(key),
+      new Date(Date.now() - DAYS * 86_400_000),
+      "schedule",
+    );
     return NextResponse.json({ ...result, briefed: await briefPending(getDb(), briefClient()), jobs, autodeskSignIn });
   } catch (cause) {
     if (cause instanceof FirefliesError) return NextResponse.json({ error: cause.message }, { status: 502 });
@@ -50,7 +56,7 @@ async function refreshJobs(): Promise<number | string | null> {
   const settings = autodeskSettings();
   if (!settings) return null;
   try {
-    return (await syncJobs(getDb(), settings)).jobs;
+    return (await syncJobsLogged(getDb(), settings, "schedule")).jobs;
   } catch (cause) {
     if (cause instanceof AutodeskError) return cause.message;
     throw cause;

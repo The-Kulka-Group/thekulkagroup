@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Db } from "@/lib/db";
 import { TEST_PROJECT_ID, seededDatabase } from "@/test/database";
+import { sourceRuns } from "@/test/source-runs";
 
 // The staging API surface (LA-15 AC1), tested the way app/api/rom/route.test.ts
 // tests the run route: a real Postgres built from this repo's migrations,
@@ -103,5 +104,29 @@ describe("POST /api/rom/imports", () => {
     const { costImport } = await response.json();
     expect(costImport.lines).toHaveLength(1);
     expect(costImport.skippedRows).toEqual([{ rowNumber: 3, reason: '"value" is required.' }]);
+    // LA-3048: a skipped row makes the run partial.
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "proest_imports", trigger: "button", outcome: "partial", rows_added: 1, rows_changed: 0, error: "1 rows skipped.", finished: true },
+    ]);
+  });
+
+  it("logs a clean upload as an ok ProEst Imports run (LA-3048)", async () => {
+    await post({ sourceProjectId: TEST_PROJECT_ID, exportLabel: "Example", provenanceKind: "actuals", fileText: CSV_TEXT });
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "proest_imports", trigger: "button", outcome: "ok", rows_added: 2, rows_changed: 0, error: null, finished: true },
+    ]);
+  });
+
+  it("logs a malformed file as a failed run and still answers 400 (LA-3048)", async () => {
+    const response = await post({
+      sourceProjectId: TEST_PROJECT_ID,
+      exportLabel: "Example",
+      provenanceKind: "actuals",
+      fileText: "not,a,valid,header\n1,2,3,4",
+    });
+    expect(response.status).toBe(400);
+    const [run] = await sourceRuns(db);
+    expect(run).toMatchObject({ source_key: "proest_imports", trigger: "button", outcome: "failed", finished: true });
+    expect(run.error).toBe((await response.json()).error);
   });
 });

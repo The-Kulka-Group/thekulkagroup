@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { authorizeRequest } from "@/lib/auth/server";
 import { getDb } from "@/lib/db";
 import { AutodeskError, autodeskSettings } from "@/lib/jobs/autodesk";
-import { syncJobs } from "@/lib/jobs/sync";
+import { syncJobsLogged } from "@/lib/jobs/sync";
 
 // LA-2283. Refreshes Kulka's job list from Autodesk Construction Cloud. The
 // daily meetings cron runs the same sync; this route is for the first pull
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const settings = autodeskSettings();
   if (!settings) return NextResponse.json({ error: "Autodesk is not set up." }, { status: 503 });
   try {
-    return NextResponse.json(await syncJobs(getDb(), settings));
+    return NextResponse.json(await syncJobsLogged(getDb(), settings, "button"));
   } catch (cause) {
     if (cause instanceof AutodeskError) return NextResponse.json({ error: cause.message }, { status: 502 });
     throw cause;

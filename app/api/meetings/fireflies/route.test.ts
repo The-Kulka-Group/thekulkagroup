@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { Db } from "@/lib/db";
 import sample from "@/lib/meetings/fixtures/sample-transcript.json";
 import { seededDatabase } from "@/test/database";
+import { sourceRuns } from "@/test/source-runs";
 
 // LA-2279. The Fireflies webhook and the backfill against a seeded Postgres.
 // `fetch` is stubbed, so the real Fireflies client runs with no network.
@@ -65,6 +66,7 @@ beforeAll(async () => {
 }, 60_000);
 beforeEach(async () => {
   await db.query(`truncate meetings`);
+  await db.query(`delete from source_runs`);
   vi.stubEnv("FIREFLIES_WEBHOOK_SECRET", SECRET);
   vi.stubEnv("FIREFLIES_API_KEY", "test-key");
   vi.stubEnv("ANTHROPIC_API_KEY", "");
@@ -162,6 +164,24 @@ describe("POST /api/meetings/fireflies", () => {
     expect(response.status).toBe(502);
     expect((await response.json()).error).toBe("object_not_found");
   });
+
+  it("logs each call as a Fireflies Meetings run: added first, changed after (LA-3048)", async () => {
+    fireflies.mockImplementation(async () => answer({ transcript: sample }));
+    await deliver(body, sign(body));
+    await deliver(body, sign(body));
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "fireflies_meetings", trigger: "webhook", outcome: "ok", rows_added: 1, rows_changed: 0, error: null, finished: true },
+      { source_key: "fireflies_meetings", trigger: "webhook", outcome: "ok", rows_added: 0, rows_changed: 1, error: null, finished: true },
+    ]);
+  });
+
+  it("logs a Fireflies error as a failed run (LA-3048)", async () => {
+    fireflies.mockResolvedValue(new Response(JSON.stringify({ errors: [{ message: "object_not_found" }] }), { status: 200 }));
+    await deliver(body, sign(body));
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "fireflies_meetings", trigger: "webhook", outcome: "failed", rows_added: null, rows_changed: null, error: "object_not_found", finished: true },
+    ]);
+  });
 });
 
 describe("POST /api/meetings/sync", () => {
@@ -202,6 +222,26 @@ describe("POST /api/meetings/sync", () => {
     expect(await (await backfill()).json()).toEqual({ found: 1, added: 1, briefed: 0 });
     expect((await savedMeetings())[0].title).toBe("Example Job Weekly OAC");
   });
+
+  it("logs a backfill as a Fireflies Meetings run started by a button (LA-3048)", async () => {
+    fireflies.mockImplementation(async (_url: string, init: { body: string }) => {
+      const { query, variables } = JSON.parse(init.body);
+      if (query.includes("transcripts(")) return answer({ transcripts: [{ id: "SAMPLE-FF-001" }, { id: "SAMPLE-FF-002" }] });
+      return answer({ transcript: { ...sample, id: variables.id } });
+    });
+    await backfill();
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "fireflies_meetings", trigger: "button", outcome: "ok", rows_added: 2, rows_changed: 0, error: null, finished: true },
+    ]);
+  });
+
+  it("logs a failed backfill and still answers 502 (LA-3048)", async () => {
+    fireflies.mockResolvedValue(new Response(JSON.stringify({ errors: [{ message: "rate limited" }] }), { status: 200 }));
+    expect((await backfill()).status).toBe(502);
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "fireflies_meetings", trigger: "button", outcome: "failed", rows_added: null, rows_changed: null, error: "rate limited", finished: true },
+    ]);
+  });
 });
 
 describe("GET /api/meetings/sync/cron", () => {
@@ -216,5 +256,9 @@ describe("GET /api/meetings/sync/cron", () => {
     const ok = await run("Bearer test-cron-secret");
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({ found: 0, added: 0, briefed: 0, jobs: null, autodeskSignIn: null });
+    // LA-3048: Autodesk is not set up here, so only the backfill ran.
+    expect(await sourceRuns(db)).toEqual([
+      { source_key: "fireflies_meetings", trigger: "schedule", outcome: "ok", rows_added: 0, rows_changed: 0, error: null, finished: true },
+    ]);
   });
 });
